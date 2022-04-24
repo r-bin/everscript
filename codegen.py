@@ -1,0 +1,127 @@
+from ast_everscript import *
+from itertools import dropwhile
+import numpy as np
+import re
+import binascii
+from textwrap import wrap
+
+class _Splice():
+    def __init__(self, list, element=None):
+        self.list = np.array(list)
+        self.element = element
+        self.index = np.where(self.list == self.element)
+
+    def before(self):
+        return list[:self.index]
+
+    def after(self):
+        return list[self.index:]
+        
+    def until(self):
+        return self.before() + self.element
+
+    def starting(self):
+        return self.after() + self.element
+
+class CodeGen():
+    def __init__(self, linker):
+        print(f"CodeGen.init()")
+        self.code = []
+        self.system = {}
+        self.identifier = {}
+        self.linker = linker
+
+    def add_enum(self, enum):
+        self.identifier[enum.name] = enum
+        
+    def get(self, identifier):
+        return self.identifier[identifier]
+
+    def append(self, function):
+        #self.code += f"<address> {expression.count()}\n"
+        
+        if function.install == False:
+            self.system[function.name.value] = function
+        else:
+            self.code.append(function)
+    
+    def function(self, name):
+        if name.value in self.system:
+            return self.system[name.value]
+
+        for function in self.code:
+            if function.name == name:
+                return function
+        
+        raise Exception(f"function '{name}' is not defined: {self.code}")
+
+    def file(self, script, file): # TODO
+        with open(file, 'wb') as fout:
+            for e in script.split(' '):
+                match e:
+                    case ("PATCH"|"EOF"):
+                        fout.write(e.encode('ASCII'))
+                    case _ if len(e) == 2:
+                        fout.write(binascii.unhexlify(e))
+                    case _:
+                        [fout.write(binascii.unhexlify(b)) for b in wrap(e, 2)]
+
+    def clean(self, script):
+        cleaned_script = re.sub("//.*", "", script)
+        cleaned_script = re.sub("[\s]+", " ", cleaned_script)
+        cleaned_script = cleaned_script.strip()
+
+        return cleaned_script
+
+    def generate(self):
+        list = []
+
+        self.linker.link_function(self.code)
+        self.linker.link_call(self.code)
+
+        for function in self.code:
+            list.append(self._generate(function))
+
+        header = ["PATCH"]
+        footer = ["EOF"]
+        
+        return '\n'.join(header + list + footer)
+
+    def _generate(self, function):
+        code = function.script
+        address = function.address
+        count = sum([e.count() for e in code])
+
+        list = []
+
+        list += self._inject(function)
+        self.linker.link_goto(function)
+
+        if address > 0x800000: # TODO
+            address -= 0x800000
+
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count}"]
+        footer = []
+
+        list += header + [e.code().strip() for e in code] + footer
+
+        return '\n'.join(list)
+
+    def _inject(self, function):
+        if function.inject == None:
+            return []
+        
+        address = function.inject
+        call = Call(function)
+        count = call.count() + 1 # TODO
+        
+        code = Function_Code([call.code().strip(), End().code().strip()]).script
+
+        if address > 0x800000:
+            address -= 0x800000
+
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count}"]
+        footer = []
+
+        return header + code + footer
+    
