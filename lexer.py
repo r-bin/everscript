@@ -18,6 +18,8 @@ class Lexer():
         
         self.lexer.add('==', '\=\=')
         self.lexer.add('=', '\=')
+        
+        self.lexer.add('!', '\!')
 
         #self.lexer.add('ADDRESS', '0[xX][0-9a-fA-F]{6}')
         self.lexer.add('WORD', '0[xX][0-9a-fA-F]+')

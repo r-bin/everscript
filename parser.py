@@ -9,6 +9,7 @@ class Parser():
             [
                 '(', ')', ',', ';', '{', '}', '[', ']', # '\n',
                 '=', '==',
+                '!',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
@@ -291,6 +292,14 @@ class Parser():
                 return Param(p[0], None)
             else:
                 return Param(None, p[0])
+
+        @self.pg.production('expression : ! expression')
+        def parse(p):
+            expression = p[1]
+            
+            expression.inverted = True
+
+            return expression
 
         @self.pg.production('expression : memory')
         def parse(p):

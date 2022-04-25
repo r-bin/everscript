@@ -430,10 +430,6 @@ class If(_Function_Base):
         if not isinstance(self.condition, Memory):
             return Function_Code(self.script, '\n').code()
         else:
-            if_mode = "if"
-            if self.condition == None:
-                if_mode = "else"
-
             destination = "xx xx"
             if self.distance != None:
                 destination = '{:04X}'.format(self.distance, 'x')
@@ -458,16 +454,27 @@ class If(_Function_Base):
             combined = wrap(combined, 2)
             combined = ' '.join(reversed(combined))
 
-            invert = True
+            invert = self.condition.inverted
             if invert:
                 command = 0x08
+            else:
+                raise Exception("only inverted memory checks are allowed")
             command = '{:02X}'.format(command, 'x')
             
             type = 0x85
             type = '{:02X}'.format(type, 'x')
 
+            if_mode = "if"
+            if self.condition == None:
+                if_mode = "else"
+            
+            if invert:
+                if_mode += "(!memory)"
+            else:
+                if_mode += "(memory)"
+
             return f"""
-{command} {type} {combined} {destination}       // {if_mode}(memory) jump {self.distance}
+{command} {type} {combined} {destination}       // {if_mode} jump {self.distance}
             """.strip()
 
 class BinaryOp(BaseBox):
