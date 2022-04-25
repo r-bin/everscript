@@ -65,10 +65,15 @@ def handle_parse(code):
 
 handle_parse("""
 enum DIRECTION {
-    NORTH = 0x01,
+    NORTH = 0x26,
     EAST = 0x02,
     SOUTH = 0x03,
     WEST = 0x04
+}
+
+enum FLAG {
+    RAPTORS = [0x225f, 0x40],
+    GOURD_1 = [0x2268, 0x40]
 }
 
 fun end() {
@@ -76,44 +81,37 @@ fun end() {
 }
 
 fun fade_out() {
-    code(0xa3, 0x00, "// (a3) CALL "Fade-out / stop music" (0x00)");
+    code(0x27, "// (27) Fade-out screen (WRITE $0b83=0x8000)");
 }
 fun load_map(map, x, y) {
     code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
 }
 fun transition(map, x, y, direction) {
     fade_out();
-    
-    if(direction == DIRECTION.NORTH) {
-        code(0xa3, 0x26, "// (a3) CALL 'Prepare room change? North exit/south entrance outdoor-indoor?' (0x26)");
-    } else if(direction == DIRECTION.EAST) {
-        code(0xa3, 0x1d, "// (a3) CALL 'Prepare room change? East exit/west entrance outdoor-outdoor?' (0x1d)");
-    } else if(direction == DIRECTION.SOUTH) {
-        code(0xa3, 0x19, "// (a3) CALL '"Prepare room change? South exit/north entrance indoor-outdoor?'" (0x22)");
-    } else if(direction == DIRECTION.WEST) {
-        code(0xa3, 0x19, "// (a3) CALL 'Prepare room change? West exit/east entrance outdoor-outdoor?' (0x19)");
-    };
-
+    code(0xa3, direction, "// (a3) CALL "Prepare room change? North exit/south entrance outdoor-indoor?" (0x26)");
     load_map(x, y, map);
 }
 
 @install()
-@inject(0x9380ad)
-fun room_1_exit_north() {
+@inject(0x138044)
+fun room_1_exit_north_goto() {
     goto(TEST);
     transition(0x25, 0x05, 0x06, DIRECTION.NORTH);
     end();
-    TEST: transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
+    TEST: eval("a3 26");
+    transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
 }
+
 @install()
-@inject(0x93802b)
-fun room_1_exit_north() {
-    if([0x225f, 0x40]) {
-        transition(0x25, 0x05, 0x06, DIRECTION.NORTH);
-    } else {
+@inject(0x13802b)
+fun room_1_exit_north_if() {
+    if(FLAG.RAPTORS) {
         transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
+    } else {
+        transition(0x25, 0x59, 0x73, DIRECTION.NORTH);
     };
 }
+
 """)
 
 utils.patch('Secret of Evermore (U) [!].smc', "out/everscript.ips")

@@ -1,5 +1,6 @@
 from rply import ParserGenerator
 from ast_everscript import *
+import copy
 
 class Parser():
     def __init__(self, generator):
@@ -211,7 +212,7 @@ class Parser():
             condition = p[2]
             script = p[5]
 
-            return If_list(If(condition, script))
+            return If_list([If(condition, script)])
         @self.pg.production('expression : IF ( expression ) { expression_list } else_list')
         def parse(p):
             condition = p[2]
@@ -264,6 +265,7 @@ class Parser():
                 for p, a in zip(params, function.args):
                     p.name = a.name
 
+                function = copy.deepcopy(function)
                 return function.code(params)
             
         @self.pg.production('arg_list : arg')
@@ -295,8 +297,8 @@ class Parser():
             return p[0]
         @self.pg.production('memory : [ WORD , WORD ]')
         def parse(p):
-            address = p[1]
-            flag = p[3]
+            address = Word(p[1])
+            flag = Word(p[3])
 
             return Memory(address, flag)
 
