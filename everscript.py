@@ -105,7 +105,7 @@ fun room_1_exit_north_goto() {
 @install()
 @inject(0x13802b)
 fun room_1_exit_north_if() {
-    if(FLAG.RAPTORS) {
+    if(!FLAG.RAPTORS) {
         transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
     } else {
         transition(0x25, 0x59, 0x73, DIRECTION.NORTH);
