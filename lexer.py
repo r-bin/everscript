@@ -23,7 +23,7 @@ class Lexer():
         self.lexer.add('WORD', '0[xX][0-9a-fA-F]+')
         #self.lexer.add('word', '[0-9]+')
         self.lexer.add('STRING', '\".*\"')
-        self.lexer.add('ENUM_CALL', '[a-zA-Z][a-zA-Z0-9]+\.[a-zA-Z][a-zA-Z0-9]+')
+        self.lexer.add('ENUM_CALL', '[a-zA-Z_][a-zA-Z0-9_]+\.[a-zA-Z][a-zA-Z0-9_]+')
         #self.lexer.add('ENUM_IDENTIFIER', '[a-zA-Z][a-zA-Z0-9]+')
 
         self.lexer.add('END', 'return')

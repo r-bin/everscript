@@ -1,4 +1,5 @@
 from lib2to3.pytree import Base
+import math
 from rply.token import BaseBox
 import re
 from textwrap import wrap
@@ -48,8 +49,9 @@ class Function(BaseBox):
         return self.script
 
 class Function_Code(_Function_Base):
-    def __init__(self, script):
+    def __init__(self, script, delimiter=' '):
         self.script = script
+        self.delimiter = delimiter
         self.params = []
 
     def code(self, args=[]):
@@ -60,7 +62,7 @@ class Function_Code(_Function_Base):
                 case _ if isinstance(a, int):
                     list.append('{:02X}'.format(a, 'x')) # TODO
                 case _ if isinstance(a, _Function_Base):
-                    list.append(a.code().strip())
+                    list.append(a.code())
                 case _ if isinstance(a, Param):
                     if a.value == None:
                         code = "xx"
@@ -71,12 +73,14 @@ class Function_Code(_Function_Base):
                         list.append(code)
                     else:
                         list.append(a.value.code().strip())
+                case None:
+                    pass
                 case _:
-                    raise "unknown code"
+                    raise Exception("unknown type: can't generate code")
 
         return f"""
-{' '.join(list)}
-        """
+{self.delimiter.join(filter(None, (list)))}
+        """.strip()
 
 class Arg_Install(BaseBox):
     def __init__(self, address=None):
@@ -238,7 +242,7 @@ class Call(_Function_Base):
         return f"""
 // call({self.address})
 29 {address}      // (29) CALL 0x92de75 Some cinematic script (used multiple times)"
-        """
+        """.strip()
 
 class End(_Function_Base):
     def __init__(self):
@@ -253,7 +257,7 @@ class End(_Function_Base):
 00      // (00) END (return)"
         """.strip()
 
-class Function_Transition(_Function_Base):
+class Function_Transition(_Function_Base): # TODO
     def __init__(self, map, x, y, direction):
         print(f"Function_Transition.init(map={map.value}, x={x.value}, y={y.value}, direction={direction.value})")
         self.map = map
@@ -276,7 +280,7 @@ class Function_Transition(_Function_Base):
 27                  // (27) Fade-out screen (WRITE $0b83=0x8000)
 a3 00               // (a3) CALL \"Fade-out / stop music\" (0x00)
 22 {'{:02X}'.format(self.x.eval(), 'x')} {'{:02X}'.format(self.y.eval(), 'x')} {'{:02X}'.format(self.map.eval(), 'x')} 00      // (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: \"Prehistoria - Strong Heart's Hut\""
-        """
+        """.strip()
 
 class Function_Eval(_Function_Base):
     def __init__(self, script):
@@ -289,9 +293,8 @@ class Function_Eval(_Function_Base):
         
     def code(self):
         return f"""
-// eval({self.script.value.value})
-{self.script.code().strip()}
-        """
+{self.script.code().strip()}        // eval({self.script.value.value})
+        """.strip()
 
 class Function_Goto(_Function_Base):
     def __init__(self, label):
@@ -311,7 +314,7 @@ class Function_Goto(_Function_Base):
         return f"""
 // goto({self.label.value})
 04 {address}      // (04) SKIP 4 (to 0x9385d4)"
-        """
+        """.strip()
 
 class Enum(BaseBox):
     def __init__(self, name, values):
@@ -379,17 +382,35 @@ class If_list(_Function_Base):
         for script in self.list:
             script.params = self.params
 
-        for element in self.list:
-            if element.eval() == None or element.eval():
-                return element.code()
+        list = []
+        if_depleted = False
+
+        if not self.memory:
+            for element in self.list:
+                if isinstance(element.condition, Memory):
+                    raise Exception("memory in non-memory if")
+                elif not if_depleted and (element.condition == None or element.eval()):
+                    list.append(element)
+                    if_depleted = True
+        else:
+            for element in self.list:
+                if isinstance(element.condition, Memory):
+                    list.append(element)
+                    list += element.script
+                    element.distance = Function_Code(element.script, '\n').count()
+                elif element.condition == None:
+                    list += element.script
+                else:
+                    raise Exception("non memory in memory if")
                 
-        return ""
+        return Function_Code(list, '\n').code().strip()
 
 class If(_Function_Base):
     def __init__(self, condition, script):
         print(f"If.init({condition})")
         self.condition = condition
         self.script = script
+        self.distance = None
 
     def eval(self):
         if self.condition != None:
@@ -406,7 +427,48 @@ class If(_Function_Base):
                 raise Exception("unknown type for IF condition")
 
     def code(self):
-        return Function_Code(self.script).code()
+        if not isinstance(self.condition, Memory):
+            return Function_Code(self.script, '\n').code()
+        else:
+            if_mode = "if"
+            if self.condition == None:
+                if_mode = "else"
+
+            destination = "xx xx"
+            if self.distance != None:
+                destination = '{:04X}'.format(self.distance, 'x')
+                destination = wrap(destination, 2)
+                destination = ' '.join(reversed(destination))
+
+            address = self.condition.address.eval()
+            address -= 0x2258
+            address <<=  3
+
+            flag = self.condition.flag.eval()
+            f = 0
+            while  flag > 1:
+                flag >>= 1
+                f += 1
+            flag = f
+            flag &= 0b111
+            
+            combined = address + flag
+            #combined -= 1 # TODO
+            combined = '{:04X}'.format(combined, 'x')
+            combined = wrap(combined, 2)
+            combined = ' '.join(reversed(combined))
+
+            invert = True
+            if invert:
+                command = 0x08
+            command = '{:02X}'.format(command, 'x')
+            
+            type = 0x85
+            type = '{:02X}'.format(type, 'x')
+
+            return f"""
+{command} {type} {combined} {destination}       // {if_mode}(memory) jump {self.distance}
+            """.strip()
 
 class BinaryOp(BaseBox):
     def __init__(self, left, right):
