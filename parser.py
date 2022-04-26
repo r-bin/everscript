@@ -14,6 +14,7 @@ class Parser():
                 'ELSEIF', 'IF', 'ELSE',
                 'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
+                'FUN_INCLUDE',
                 'IDENTIFIER'
             ]
         )
@@ -31,6 +32,11 @@ class Parser():
         @self.pg.production('program : function_list')
         def parse(p):
             return p[0]
+        @self.pg.production('program : FUN_INCLUDE ( expression )')
+        def parse(p):
+            path = p[2].value.value
+
+            return Include(self.generator, path).eval()
 
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list }')
         def parse(p):
