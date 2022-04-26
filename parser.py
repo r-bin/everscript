@@ -192,13 +192,13 @@ class Parser():
         def parse(p):
             return Function_Goto(p[2])
             
-        @self.pg.production('expression : IF ( expression ) { expression_list }')
+        @self.pg.production('expression_entry : IF ( expression ) { expression_list }')
         def parse(p):
             condition = p[2]
             script = p[5]
 
             return If_list([If(condition, script)])
-        @self.pg.production('expression : IF ( expression ) { expression_list } else_list')
+        @self.pg.production('expression_entry : IF ( expression ) { expression_list } else_list')
         def parse(p):
             condition = p[2]
             script = p[5]
