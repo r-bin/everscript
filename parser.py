@@ -289,6 +289,11 @@ class Parser():
             flag = Word(p[3])
 
             return Memory(address, flag)
+        @self.pg.production('memory_flag : [ WORD ]')
+        def parse(p):
+            address = Word(p[1])
+
+            return Memory(address)
         @self.pg.production('memory : [ WORD ]')
         def parse(p):
             address = Word(p[1])
@@ -296,6 +301,7 @@ class Parser():
             return Memory(address)
 
         @self.pg.production('expression : expression == expression')
+        @self.pg.production('expression : expression = expression')
         @self.pg.production('expression : expression + expression')
         @self.pg.production('expression : expression - expression')
         @self.pg.production('expression : expression * expression')
@@ -307,8 +313,10 @@ class Parser():
             operator = p[1]
             right = p[2]
             
-            if operator.gettokentype() == '+':
+            if operator.gettokentype() == '==':
                 return Equals(left, right)
+            if operator.gettokentype() == '=':
+                return Asign(left, right)
             elif operator.gettokentype() == '+':
                 return Add(left, right)
             elif operator.gettokentype() == '-':
