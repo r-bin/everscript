@@ -100,7 +100,7 @@ class CodeGen():
         if address > 0x800000: # TODO
             address -= 0x800000
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count}"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []
 
         list += header + [e.code().strip() for e in code] + footer
@@ -120,7 +120,7 @@ class CodeGen():
         if address > 0x800000:
             address -= 0x800000
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count}"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []
 
         return header + code + footer
