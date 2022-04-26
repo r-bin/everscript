@@ -81,6 +81,18 @@ enum DOG {
     TOASTER = 0xc
 }
 
+enum CHARACTER {
+    BOY = 0xd0,
+    DOG = 0xd1,
+    ACTIVE = 0xd2,
+    INACTIVE = 0xd3,
+    BOTH = 0x00
+}
+
+enum MUSIC {
+    START = 0x12
+}
+
 enum MAP {
     START = 0x00,
     RAPTORS = 0x5c,
@@ -116,15 +128,54 @@ fun transition(map, x, y, direction) {
     load_map(x, y, map);
 }
 
+fun teleport(character, x, y) {
+    if(character == CHARACTER.BOTH) {
+        code(0x20, x, y, "// (20) Teleport both to 43 93");
+    }
+}
+
 fun init_map(x_start, y_start, x_end, y_end) {
     code(0x1b, 0x23e9 - 0x2258, 0x23eb - 0x2258, x_start, y_start);
     code(0x1b, 0x23ed - 0x2258, 0x23ef - 0x2258, x_end, y_end);
 }
 
-fun init_map_1() {
+fun music(music, volume) {
+    code(0x33, music, "// PLAY MUSIC 0x12");
+    code(0x86, 0x82, volume, "// (86) SET AUDIO volume to 0x64");
+}
+
+fun price(index, rate, drop, quantity) {
+    if(index == 0x1) {
+        [0x239b] = rate;
+        [0x23a1] = drop;
+        [0x23a7] = quantity;
+    } else if(index == 0x2) {
+        [0x239d] = rate;
+        [0x23a3] = drop;
+        [0x23a9] = quantity;
+    } else if(index == 0x3) {
+        [0x239f] = rate;
+        [0x23a5] = drop;
+        [0x23ab] = quantity;
+    }
+}
+
+@install()
+@inject(0x1384d9)
+fun room_1() {
     init_map(0x00, 0x02, 0x80, 0x96);
 
+    price(0x1, 0xa, 0x0800, 0x1);
+    price(0x2, 0x5, 0x0805, 0x1);
+    price(0x3, 0x2, 0x0001, 0x1);
+
     MEMORY.DOG = DOG.TOASTER;
+    
+    eval("08 85 9d 04 03 00 // (08) IF !($22eb&0x20) NOT(in animation) SKIP 8 (to 0x94e60d)");
+    teleport(CHARACTER.BOTH, 0x46, 0x89);
+
+    music(MUSIC.START, 0x64);
+    eval("29 75 5e 00 // (29) CALL 0x92de75 Some cinematic script (used multiple times)");
 }
 
 @install()
@@ -139,18 +190,15 @@ fun room_1_exit_north_goto() {
 @install()
 @inject(0x13802b)
 fun room_1_exit_north_if() {
+
+    [0x2262] = 0x02;
+
     if(!FLAG.RAPTORS) {
         transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH);
         end();
     } else {
         transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH);
     }
-}
-
-@install()
-fun test() {
-    eval("11");
-    init_map_1();
 }
 """)
 
