@@ -477,10 +477,18 @@ class If(_Function_Base):
 {command} {type} {combined} {destination}       // {if_mode} jump {self.distance}
             """.strip()
 
-class BinaryOp(BaseBox):
+class BinaryOp(_Function_Base):
     def __init__(self, left, right):
         self.left = left
         self.right = right
+        self.params = []
+
+    def code(self):
+        address = self.eval()
+        address = '{:04X}'.format(address, 'x')
+        address = wrap(address, 2)
+        
+        return ' '.join(reversed(address))
 
 class Equals(BinaryOp):
     def eval(self):
@@ -488,9 +496,46 @@ class Equals(BinaryOp):
         self.right.params = self.params
 
         return self.left.eval() == self.right.eval()
+class Add(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() + self.right.eval()
+class Sub(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() - self.right.eval()
+
+class Mul(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() * self.right.eval()
+class Div(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() / self.right.eval()
+class ShiftRight(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() >> self.right.eval()
+class ShiftLeft(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() << self.right.eval()
 
 class Memory(BaseBox):
-    def __init__(self, address, flag):
+    def __init__(self, address, flag=None):
         print(f"Memory.init({address}, {flag})")
         self.address = address
         self.flag = flag

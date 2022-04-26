@@ -9,7 +9,7 @@ class Parser():
             [
                 '(', ')', ',', ';', '{', '}', '[', ']', # '\n',
                 '=', '==',
-                '!',
+                '!', '+', '-', '*', '/', '<<', '>>',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
@@ -168,12 +168,6 @@ class Parser():
             expression.label_destination = label
             return list
 
-        @self.pg.production('expression : expression == expression')
-        def parse(p):
-            left = p[0]
-            right = p[2]
-            return Equals(left, right)
-
         @self.pg.production('expression : WORD')
         def parse(p):
             return Word(p[0])
@@ -304,12 +298,49 @@ class Parser():
         @self.pg.production('expression : memory')
         def parse(p):
             return p[0]
-        @self.pg.production('memory : [ WORD , WORD ]')
+        @self.pg.production('memory : memory_flag')
+        def parse(p):
+            return p[0]
+        @self.pg.production('memory_flag : [ WORD , WORD ]')
         def parse(p):
             address = Word(p[1])
             flag = Word(p[3])
 
             return Memory(address, flag)
+        @self.pg.production('memory : [ WORD ]')
+        def parse(p):
+            address = Word(p[1])
+
+            return Memory(address)
+
+        @self.pg.production('expression : expression == expression')
+        @self.pg.production('expression : expression + expression')
+        @self.pg.production('expression : expression - expression')
+        @self.pg.production('expression : expression * expression')
+        @self.pg.production('expression : expression / expression')
+        @self.pg.production('expression : expression << expression')
+        @self.pg.production('expression : expression >> expression')
+        def parse(p):
+            left = p[0]
+            operator = p[1]
+            right = p[2]
+            
+            if operator.gettokentype() == '+':
+                return Equals(left, right)
+            elif operator.gettokentype() == '+':
+                return Add(left, right)
+            elif operator.gettokentype() == '-':
+                return Sub(left, right)
+            elif operator.gettokentype() == '*':
+                return Mul(left, right)
+            elif operator.gettokentype() == '/':
+                return Div(left, right)
+            elif operator.gettokentype() == '<<':
+                return ShiftLeft(left, right)
+            elif operator.gettokentype() == '>>':
+                return ShiftRight(left, right)
+            else:
+                raise AssertionError('Oops, this should not be possible!')
 
         @self.pg.error
         def error_handle_lex(token):
