@@ -61,7 +61,7 @@ class Function(_Function_Base):
         for script in self.script:
             script.params = self.params
 
-        return self.script
+        return Function_Code(self.script, '\n').code()
 
 class Function_Code(_Function_Base):
     def __init__(self, script, delimiter=' '):
@@ -92,10 +92,14 @@ class Function_Code(_Function_Base):
                 case None:
                     pass
                 case _:
-                    raise Exception("unknown type: can't generate code")
+                    raise Exception(f"unknown type: can't generate code for:\n{a}")
+
+        code = self.delimiter.join(filter(None, (list)))
+        if "xx" in code:
+            pass
 
         return f"""
-{self.delimiter.join(filter(None, (list)))}
+{code}
         """
 
 class Arg_Install(BaseBox):
@@ -394,7 +398,7 @@ class If_list(_Function_Base):
                 else:
                     raise Exception("non memory in memory if")
                 
-        return Function_Code(list, '\n').code()
+        return Function_Code(list, '\n').code(self.params)
 
 class If(_Function_Base):
     def __init__(self, condition, script):
@@ -418,7 +422,7 @@ class If(_Function_Base):
 
     def _code(self):
         if not isinstance(self.condition, Memory):
-            return Function_Code(self.script, '\n').code()
+            return Function_Code(self.script, '\n').code(self.params)
         else:
             destination = "xx xx"
             if self.distance != None:
@@ -532,13 +536,24 @@ class Asign(BinaryOp):
         memory = wrap(memory, 2)
         memory = ' '.join(reversed(memory))
 
-        value = self.right.eval()
-        value &= 0xf
-        value += 0xb0
-        value = '{:02X}'.format(value, 'x')
+        value = self.right
+        if isinstance(value, Identifier):
+            p = {x.name : x for x in self.params}
+            value = p[value.value].value
+        value = value.eval()
+        if value <= 0xf:
+            value &= 0xf
+            value += 0xb0
+            value = '{:02X}'.format(value, 'x')
+        else:
+            value = '{:04X}'.format(value, 'x')
+            value = wrap(value, 2)
+            value = ' '.join(reversed(value))
+            value = f"84 {value}"
+
 
         return  f"""
-18 {memory} {value}       // memory({self.left.address.value.getstr()}) = {self.right.value.getstr()}
+18 {memory} {value}       // memory({self.left.address.value.getstr()}) = {self.right.value}
             """
 
 class Memory(BaseBox):

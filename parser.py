@@ -208,7 +208,7 @@ class Parser():
         @self.pg.production('else_list : ELSEIF ( expression ) { expression_list }')
         def parse(p):
             condition = p[2]
-            script = [ p[5] ]
+            script = p[5]
 
             return [ If(condition, script) ]
         @self.pg.production('else_list : ELSEIF ( expression ) { expression_list } else_list')
