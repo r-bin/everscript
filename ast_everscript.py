@@ -363,7 +363,6 @@ class Identifier(BaseBox):
 class If_list(_Function_Base):
     def __init__(self, list):
         self.list = list
-        #self.params = []
         self.memory = False
 
         for element in self.list:

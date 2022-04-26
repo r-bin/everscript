@@ -81,6 +81,12 @@ enum DOG {
     TOASTER = 0xc
 }
 
+enum MAP {
+    START = 0x00,
+    RAPTORS = 0x5c,
+    FE_VILLAGE = 0x25
+}
+
 enum FLAG {
     RAPTORS = [0x225f, 0x40],
     GOURD_1 = [0x2268, 0x40]
@@ -127,18 +133,18 @@ fun room_1_exit_north_goto() {
     goto(TEST);
     transition(0x25, 0x05, 0x06, DIRECTION.NORTH);
     end();
-    TEST: eval("a3 26");
-    transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
+    TEST: transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
 }
 
 @install()
 @inject(0x13802b)
 fun room_1_exit_north_if() {
     if(!FLAG.RAPTORS) {
-        transition(0x25, 0x59, 0x73, DIRECTION.NORTH);
+        transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH);
+        end();
     } else {
-        transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
-    };
+        transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH);
+    }
 }
 
 @install()
