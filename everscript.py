@@ -110,6 +110,10 @@ fun init_map(x_start, y_start, x_end, y_end) {
     code(0x1b, 0x23ed - 0x2258, 0x23ef - 0x2258, x_end, y_end);
 }
 
+fun init_map_1() {
+    init_map(0x00, 0x02, 0x80, 0x96);
+}
+
 @install()
 @inject(0x138044)
 fun room_1_exit_north_goto() {
@@ -133,7 +137,7 @@ fun room_1_exit_north_if() {
 @install()
 fun test() {
     eval("11");
-    init_map(0x00, 0x02, 0x80, 0x96);
+    init_map_1();
 }
 """)
 

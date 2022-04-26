@@ -1,6 +1,5 @@
 from rply import ParserGenerator
 from ast_everscript import *
-import copy
 
 class Parser():
     def __init__(self, generator):
@@ -124,7 +123,14 @@ class Parser():
         def parse(p):
             return Arg_Install(p[2])
 
-        @self.pg.production('expression_list : expression ;')
+        @self.pg.production('expression_entry : expression ;')
+        def parse(p):
+            element = p[0]
+
+            print(f"expression_entry = {element}")
+
+            return element
+        @self.pg.production('expression_list : expression_entry')
         def parse(p):
             list = []
             element = p[0]
@@ -134,7 +140,7 @@ class Parser():
 
             return list
             
-        @self.pg.production('expression_list : expression_list expression ;')
+        @self.pg.production('expression_list : expression_list expression_entry')
         def parse(p):
             list = p[0]
             element = p[1]
@@ -144,29 +150,13 @@ class Parser():
             
             return list
 
-        @self.pg.production('expression_list : expression_list expression_list')
-        def parse(p):
-            list = p[0]
-            elements = p[1]
-
-            print(f"expression_list = {list} + {elements}")
-            list = list + elements
-            
-            return list
-
-        @self.pg.production('expression : label expression')
-        def parse(p):
-            print(f"label = [{p[0]}] {p[1]}")
-            p[1].label_destination = p[0]
-            return p[1]
-        @self.pg.production('expression_list : label expression_list')
+        @self.pg.production('expression_entry : label expression_entry')
         def parse(p):
             label = p[0]
-            list = p[1]
-            expression = p[1][0]
+            expression = p[1]
             print(f"label = [{label}] {expression}")
             expression.label_destination = label
-            return list
+            return expression
 
         @self.pg.production('expression : WORD')
         def parse(p):
@@ -241,28 +231,20 @@ class Parser():
         def parse(p):
             return If(None, p[2])
 
-        @self.pg.production('expression_list : FUN_IDENTIFIER ( param_list ) ;')
-        @self.pg.production('expression_list : FUN_IDENTIFIER ( ) ;')
+        @self.pg.production('expression : FUN_IDENTIFIER ( param_list )')
+        @self.pg.production('expression : FUN_IDENTIFIER ( )')
         def parse(p):
             name = p[0]
             params = p[2]
             if not isinstance(params, list):
                 params = []
 
-            generator = self.generator
             function = self.generator.function(name)
             
             print(f"function = {name}()")
 
-            if function.install:
-                return [ Call(function) ]
-            else:
-                for p, a in zip(params, function.args):
-                    p.name = a.name
+            return Call(function, params)
 
-                function = copy.deepcopy(function)
-                return function.code(params)
-            
         @self.pg.production('arg_list : arg')
         def parse(p):
             return [ p[0] ]
