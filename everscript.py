@@ -52,8 +52,9 @@ def handle_parse(code):
 
     print("To parse: '"+code+"'")
     print(list(lexer.lex(code)))
+    utils.dump(f"{list(lexer.lex(code))}", "lexer.txt")
+
     parser.parse(lexer.lex(code))
-    
     out = generator.generate()
     utils.dump(out, "patch.txt")
 
@@ -71,18 +72,22 @@ enum DIRECTION {
     WEST = 0x04
 }
 
+enum DOG {
+    WOLF = 0x2,
+    WOLF2 = 0x4,
+    GREYHOUND = 0x6,
+    POODLE = 0x8,
+    PUPPER = 0xa,
+    TOASTER = 0xc
+}
+
 enum FLAG {
     RAPTORS = [0x225f, 0x40],
     GOURD_1 = [0x2268, 0x40]
 }
 
-enum DOG {
-    WOLF = 0x02,
-    WOLF2 = 0x04,
-    GREYHOUND = 0x06,
-    POODLE = 0x08,
-    PUPPER = 0x0a,
-    TOASTER = 0x0c
+enum MEMORY {
+    DOG = [0x2443]
 }
 
 fun end() {
@@ -112,6 +117,8 @@ fun init_map(x_start, y_start, x_end, y_end) {
 
 fun init_map_1() {
     init_map(0x00, 0x02, 0x80, 0x96);
+
+    MEMORY.DOG = DOG.TOASTER;
 }
 
 @install()
@@ -128,9 +135,9 @@ fun room_1_exit_north_goto() {
 @inject(0x13802b)
 fun room_1_exit_north_if() {
     if(!FLAG.RAPTORS) {
-        transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
-    } else {
         transition(0x25, 0x59, 0x73, DIRECTION.NORTH);
+    } else {
+        transition(0x5c, 0x1d, 0x33, DIRECTION.NORTH);
     };
 }
 

@@ -525,6 +525,23 @@ class ShiftLeft(BinaryOp):
 
         return self.left.eval() << self.right.eval()
 
+class Asign(BinaryOp):
+    def _code(self):
+        memory = self.left.address.eval()
+        memory -= 0x2258
+        memory = '{:04X}'.format(memory, 'x')
+        memory = wrap(memory, 2)
+        memory = ' '.join(reversed(memory))
+
+        value = self.right.eval()
+        value &= 0xf
+        value += 0xb0
+        value = '{:02X}'.format(value, 'x')
+
+        return  f"""
+18 {memory} {value}       // memory({self.left.address.value.getstr()}) = {self.right.value.getstr()}
+            """
+
 class Memory(BaseBox):
     def __init__(self, address, flag=None):
         self.address = address
