@@ -50,6 +50,8 @@ class Lexer():
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')
 
+        self.lexer.add('FUN_INCLUDE', '#include(?=\()')
+
         self.lexer.add('FUN', 'fun(?=\ )')
         self.lexer.add('FUN_IDENTIFIER', '[a-z_][a-z0-9_]+(?=\()')
         

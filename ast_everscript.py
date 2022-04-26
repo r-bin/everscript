@@ -560,3 +560,23 @@ class Memory(BaseBox):
     def __init__(self, address, flag=None):
         self.address = address
         self.flag = flag
+
+class Include(BaseBox):
+    def __init__(self, generator, path):
+        self.generator = generator
+        self.path = re.sub("[\'\"]", "", path)
+
+    def eval(self):
+        from lexer import Lexer
+        from parser import Parser
+
+        lexer = Lexer().get_lexer()
+        pg = Parser(self.generator)
+        pg.parse()
+        parser = pg.get_parser()
+
+        script = open(self.path, 'r').read()
+        script = lexer.lex(script)
+        script = parser.parse(script)
+
+        return script

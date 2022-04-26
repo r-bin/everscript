@@ -10,30 +10,6 @@ utils.clean_out()
 
 lexer = Lexer().get_lexer()
 
-
-def handle_lex(code):
-    print("To lex: '"+code+"'")
-    print(list(lexer.lex(code)))
-    print("\n")
-
-#handle_lex("0x5 0xffff 0x0 transition()")
-#handle_lex("transition(0xffff, DIRECTION.NORTH)")
-
-#handle_lex("""
-#goto(TEST);
-#TEST: 0x99;
-#""")
-
-#handle_lex("""
-#fun room_1_exit_north(0xffff) {
-#    transition(0x33, 0x03, 0x04, DIRECTION.NORTH);
-#    goto(TEST);
-#    goto(TEST);
-#    transition(0x11, 0x05, 0x06, DIRECTION.NORTH);
-#    TEST: transition(0x22, 0x07, 0x08, DIRECTION.NORTH);
-#}
-#""")
-
 linker = Linker()
 generator = CodeGen(linker)
 
@@ -42,123 +18,23 @@ pg.parse()
 parser = pg.get_parser()
 
 def handle_parse(code):
-    from pygments import highlight
-    from pygments.lexers import PythonLexer
-    from pygments.formatters import Terminal256Formatter
-    from pprint import pformat
-
-    def pprint_color(obj):
-        print(highlight(pformat(obj), PythonLexer(), Terminal256Formatter()))
-
     print("To parse: '"+code+"'")
-    print(list(lexer.lex(code)))
     utils.dump(f"{list(lexer.lex(code))}", "lexer.txt")
 
-    parser.parse(lexer.lex(code))
-    out = generator.generate()
-    utils.dump(out, "patch.txt")
+    lexed = lexer.lex(code)
+    parsed = parser.parse(lexed)
 
-    utils.dump(generator.clean(out), "patch.clean.txt")
+    generated = generator.generate()
+    utils.dump(generated, "patch.txt")
+
+    utils.dump(generator.clean(generated), "patch.clean.txt")
 
     generator.file(generator.clean(generator.generate()), "out/everscript.ips")
     
-    print(out)
+    print(generated)
 
 handle_parse("""
-enum DIRECTION {
-    NORTH = 0x26,
-    EAST = 0x02,
-    SOUTH = 0x03,
-    WEST = 0x04
-}
-
-enum DOG {
-    WOLF = 0x2,
-    WOLF2 = 0x4,
-    GREYHOUND = 0x6,
-    POODLE = 0x8,
-    PUPPER = 0xa,
-    TOASTER = 0xc
-}
-
-enum CHARACTER {
-    BOY = 0xd0,
-    DOG = 0xd1,
-    ACTIVE = 0xd2,
-    INACTIVE = 0xd3,
-    BOTH = 0x00
-}
-
-enum MUSIC {
-    START = 0x12
-}
-
-enum MAP {
-    START = 0x00,
-    RAPTORS = 0x5c,
-    FE_VILLAGE = 0x25
-}
-
-enum FLAG {
-    RAPTORS = [0x225f, 0x40],
-    GOURD_1 = [0x2268, 0x40]
-}
-
-enum MEMORY {
-    DOG = [0x2443]
-}
-
-fun end() {
-    code(0x00, "// (00) END (return)");
-}
-
-fun fade_out() {
-    code(0x27, "// (27) Fade-out screen (WRITE $0b83=0x8000)");
-}
-fun load_map(map, x, y) {
-    code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
-}
-fun prepare_transition(direction) {
-    code(0xa3, direction, "// (a3) CALL "Prepare room change? North exit/south entrance outdoor-indoor?" (0x26)");
-}
-
-fun transition(map, x, y, direction) {
-    fade_out();
-    prepare_transition(direction);
-    load_map(x, y, map);
-}
-
-fun teleport(character, x, y) {
-    if(character == CHARACTER.BOTH) {
-        code(0x20, x, y, "// (20) Teleport both to 43 93");
-    }
-}
-
-fun init_map(x_start, y_start, x_end, y_end) {
-    code(0x1b, 0x23e9 - 0x2258, 0x23eb - 0x2258, x_start, y_start);
-    code(0x1b, 0x23ed - 0x2258, 0x23ef - 0x2258, x_end, y_end);
-}
-
-fun music(music, volume) {
-    code(0x33, music, "// PLAY MUSIC 0x12");
-    code(0x86, 0x82, volume, "// (86) SET AUDIO volume to 0x64");
-}
-
-fun price(index, rate, drop, quantity) {
-    if(index == 0x1) {
-        [0x239b] = rate;
-        [0x23a1] = drop;
-        [0x23a7] = quantity;
-    } else if(index == 0x2) {
-        [0x239d] = rate;
-        [0x23a3] = drop;
-        [0x23a9] = quantity;
-    } else if(index == 0x3) {
-        [0x239f] = rate;
-        [0x23a5] = drop;
-        [0x23ab] = quantity;
-    }
-}
+#include("in/core.es")
 
 @install()
 @inject(0x1384d9)
