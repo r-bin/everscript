@@ -19,11 +19,15 @@ enum CHARACTER {
     DOG = 0xd1,
     ACTIVE = 0xd2,
     INACTIVE = 0xd3,
-    BOTH = 0x00
+
+    BOTH = 0x00,
+    NONE = 0x01
 }
 
 enum MUSIC {
-    START = 0x12
+    START = 0x12,
+    
+    FANFARE = 0x78
 }
 
 enum MAP {
@@ -38,7 +42,8 @@ enum FLAG {
 }
 
 enum MEMORY {
-    DOG = [0x2443]
+    DOG = [0x2443],
+    IN_ANIMATION = [0x22eb, 0x20]
 }
 
 fun end() {
@@ -72,8 +77,11 @@ fun init_map(x_start, y_start, x_end, y_end) {
     code(0x1b, 0x23ed - 0x2258, 0x23ef - 0x2258, x_end, y_end);
 }
 
-fun music(music, volume) {
+fun music(music) {
     code(0x33, music, "// PLAY MUSIC 0x12");
+}
+fun music_volume(music, volume) {
+    music(music);
     code(0x86, 0x82, volume, "// (86) SET AUDIO volume to 0x64");
 }
 

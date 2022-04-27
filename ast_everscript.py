@@ -13,11 +13,10 @@ class _Function_Base(BaseBox):
 
     def code(self, params=[]):
         if self.params:
-            if len(self.params) != len(params):
-                sp = {x.name : x for x in self.params}
-                p = {x.name : x for x in params}
-                for key in sp.keys() & p.keys():
-                    sp[key].value = p[key].value
+            sp = {x.name : x for x in self.params}
+            p = {x.name : x for x in params}
+            for key in sp.keys() & p.keys():
+                sp[key].value = p[key].value
         else:
             self.params = params
 
