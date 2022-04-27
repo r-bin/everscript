@@ -41,7 +41,8 @@ enum ENEMY {
 }
 enum ITEM {
     JAGUAR_RING = 0x00,
-    AXE_1 = 0x01
+    AXE_1 = 0x01,
+    SPEAR_3 = 0x02
 }
 
 fun add_enemy(enemy, x, y) {
@@ -92,6 +93,7 @@ fun reward(item) {
         fanfare_item();
 
         [0x2262] = 0x02;
+        set([0x2262, 0x02]);
 
         sleep(0x20);
         subtext(0x066f);
@@ -99,6 +101,11 @@ fun reward(item) {
         [0x2441] = 0x0a;
         
         subtext(0x05b8);
+        fanfare_weapon();
+    } else if(item == ITEM.SPEAR_3) {
+        [0x2441] = 0x18;
+        
+        subtext(0x2247);
         fanfare_weapon();
     }
 }
@@ -129,8 +136,14 @@ fun question(id) {
 fun test_dialog() {
     question(0x10bf);
 
-    eval("09 0e 69 00 29 31 a2 16 00 // (09) IF ($289d == 1) == FALSE THEN SKIP 32 (to 0x96aeeb)");
-    reward(ITEM.AXE_1);
+    if([0x289d] == 0x01) {
+        reward(ITEM.AXE_1);
+        reward(ITEM.JAGUAR_RING);
+    } else if([0x289d] == 0x02) {
+        reward(ITEM.JAGUAR_RING);
+    } else if([0x289d] == 0x03) {
+        reward(ITEM.SPEAR_3);
+    }
 }
 
 @install()
@@ -159,7 +172,7 @@ fun room_1() {
     add_enemy(ENEMY.FLOWER, 0x69, 0x51);
     add_enemy(ENEMY.FLOWER, 0x63, 0x23);
     
-    if(!MEMORY.IN_ANIMATION) {
+    if(!FLAG.IN_ANIMATION) {
         teleport(CHARACTER.BOTH, 0x46, 0x89);
     }
 

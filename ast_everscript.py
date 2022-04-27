@@ -171,17 +171,34 @@ class _Address(BaseBox):
 
 class Word(_Function_Base):
     def __init__(self, value):
-        self.value = value
+        self.value_original = value
+
+        if isinstance(value, int):
+            self.value = value
+            self.count = 2
+        else:
+            self.value = int(value.value, 16)
+
+            count = re.sub("0x", "", value.value)
+            count = wrap(count, 2)
+            count = len(count)
+            self.count = count
 
     def eval(self):
-        num = int(self.value.value, 16)
-        return num
+        return self.value
         
     def _code(self):
-        address = re.sub("0x", "", self.value.value)
-        address = wrap(address, 2)
+        if self.count == 1:
+            value = '{:02X}'.format(self.value, 'x')
+        elif self.count == 2:
+            value = '{:04X}'.format(self.value, 'x')
+        elif self.count == 3:
+            value = '{:06X}'.format(self.value, 'x')
+
+        value = re.sub("0x", "", value)
+        value = wrap(value, 2)
         
-        return ' '.join(reversed(address))
+        return ' '.join(reversed(value))
         
 class String(_Function_Base):
     def __init__(self, value):
@@ -371,6 +388,8 @@ class If_list(_Function_Base):
         for element in self.list:
             if isinstance(element.condition, Memory):
                 self.memory = True
+            elif isinstance(element.condition, BinaryOp) and isinstance(element.condition.left, Memory):
+                self.memory = True
 
     def _code(self):
         for script in self.list:
@@ -388,7 +407,7 @@ class If_list(_Function_Base):
                     if_depleted = True
         else:
             for element in self.list:
-                if isinstance(element.condition, Memory):
+                if self.memory:
                     list.append(element)
                     list += element.script
                     element.distance = Function_Code(element.script, '\n').count()
@@ -420,15 +439,13 @@ class If(_Function_Base):
                 raise Exception("unknown type for IF condition")
 
     def _code(self):
-        if not isinstance(self.condition, Memory):
-            return Function_Code(self.script, '\n').code(self.params)
-        else:
-            destination = "xx xx"
-            if self.distance != None:
-                destination = '{:04X}'.format(self.distance, 'x')
-                destination = wrap(destination, 2)
-                destination = ' '.join(reversed(destination))
+        destination = "xx xx"
+        if self.distance != None:
+            destination = '{:04X}'.format(self.distance, 'x')
+            destination = wrap(destination, 2)
+            destination = ' '.join(reversed(destination))
 
+        if isinstance(self.condition, Memory):
             address = self.condition.address.eval()
             address -= 0x2258
             address <<=  3
@@ -469,12 +486,30 @@ class If(_Function_Base):
             return f"""
 {command} {type} {combined} {destination}       // {if_mode} jump {self.distance}
             """
+        elif isinstance(self.condition, BinaryOp) and isinstance(self.condition.left, Memory):
+            address = self.condition.left.address.eval()
+            address -= 0x2834
+            address = '{:04X}'.format(address, 'x')
+            address = wrap(address, 2)
+            address = ' '.join(reversed(address))
+
+            value = self.condition.right.eval()
+            value -= 1
+            value &= 0b111
+            value += 0x30
+            value = '{:02X}'.format(value, 'x')
+
+            return f"""
+09 0e {address} 29 {value} a2 {destination}       // if() jump
+            """
+        else:
+            return Function_Code(self.script, '\n').code(self.params)
+        
 
 class BinaryOp(_Function_Base):
     def __init__(self, left, right):
         self.left = left
         self.right = right
-        #self.params = []
 
     def _code(self):
         address = self.eval()
@@ -489,6 +524,7 @@ class Equals(BinaryOp):
         self.right.params = self.params
 
         return self.left.eval() == self.right.eval()
+    
 class Add(BinaryOp):
     def eval(self):
         self.left.params = self.params
@@ -552,8 +588,14 @@ class Asign(BinaryOp):
 
 
         return  f"""
-18 {memory} {value}       // memory({self.left.address.value.getstr()}) = {self.right.value}
+18 {memory} {value}       // memory({self.left.address.value}) = {self.right.value}
             """
+class OrAsign(BinaryOp):
+    def _code(self):
+        raise Exception("not implemented")
+class AndAsign(BinaryOp):
+    def _code(self):
+        raise Exception("not implemented")
 
 class Memory(BaseBox):
     def __init__(self, address, flag=None):
@@ -575,7 +617,66 @@ class Include(BaseBox):
         parser = pg.get_parser()
 
         script = open(self.path, 'r').read()
+        print(f"{self.path} -> {list(lexer.lex(script))}")
         script = lexer.lex(script)
         script = parser.parse(script)
 
         return script
+
+class Set(_Function_Base):
+    def __init__(self, memory):
+        self.memory = memory
+
+    def _code(self):
+        address = self.memory.address.eval()
+        address -= 0x2258
+        address <<=  3
+
+        flag = self.memory.flag.eval()
+        f = 0
+        while  flag > 1:
+            flag >>= 1
+            f += 1
+        flag = f
+        flag &= 0b111
+        
+        combined = address + flag
+        #combined -= 1 # TODO
+        combined = '{:04X}'.format(combined, 'x')
+        combined = wrap(combined, 2)
+        combined = ' '.join(reversed(combined))
+
+        value = 0x01
+        value &= 0b111
+        value += 0xb0
+        value = '{:02X}'.format(value, 'x')
+
+        return f"""
+0c {combined} {value}       // set({self.memory})
+        """
+
+class Len(_Function_Base):
+    def __init__(self, script):
+        self.script = script
+
+    def eval(self):
+        match self.script:
+            case _ if isinstance(self.script, _Function_Base):
+                script = self.script
+                script = Word(script.count())
+                
+                return script
+            case None:
+                return 0
+            case _:
+                raise Exception(f"unknown type: can't generate code for:\n{a}")
+
+    def _code(self):
+        match self.script:
+            case _ if isinstance(self.script, _Function_Base):
+                script = self.script
+                script = Word(script.count())
+                script = script.code()
+                return script
+            case _:
+                raise Exception(f"unknown type: can't generate code for:\n{a}")
