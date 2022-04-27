@@ -5,6 +5,8 @@ class Lexer():
         self.lexer = LexerGenerator()
 
     def _add_tokens(self):
+        self.lexer.add('STRING', '\".*\"')
+
         self.lexer.add('\n', '\n')
         self.lexer.add(';', ';')
 
@@ -16,6 +18,8 @@ class Lexer():
         self.lexer.add('[', '\[')
         self.lexer.add(']', '\]')
         
+        self.lexer.add('OR=', '\|\=')
+        self.lexer.add('&=', '\&\=')
         self.lexer.add('==', '\=\=')
         self.lexer.add('=', '\=')
         
@@ -30,7 +34,6 @@ class Lexer():
         #self.lexer.add('ADDRESS', '0[xX][0-9a-fA-F]{6}')
         self.lexer.add('WORD', '0[xX][0-9a-fA-F]+')
         #self.lexer.add('word', '[0-9]+')
-        self.lexer.add('STRING', '\".*\"')
         self.lexer.add('ENUM_CALL', '[a-zA-Z_][a-zA-Z0-9_]+\.[a-zA-Z][a-zA-Z0-9_]+')
         #self.lexer.add('ENUM_IDENTIFIER', '[a-zA-Z][a-zA-Z0-9]+')
 
@@ -46,6 +49,8 @@ class Lexer():
         self.lexer.add('FUNCTION_EVAL', 'eval(?=\()')
         self.lexer.add('FUNCTION_GOTO', 'goto(?=\()')
         self.lexer.add('FUNCTION_CODE', 'code(?=\()')
+        self.lexer.add('FUNCTION_SET', 'set(?=\()')
+        self.lexer.add('FUNCTION_LEN', 'len(?=\()')
         
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')

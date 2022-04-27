@@ -26,7 +26,7 @@ enum CHARACTER {
 
 enum MUSIC {
     START = 0x12,
-    
+
     FANFARE = 0x78
 }
 
@@ -38,12 +38,14 @@ enum MAP {
 
 enum FLAG {
     RAPTORS = [0x225f, 0x40],
-    GOURD_1 = [0x2268, 0x40]
+    GOURD_1 = [0x2268, 0x40],
+    
+    IN_ANIMATION = [0x22eb, 0x20]
 }
 
 enum MEMORY {
     DOG = [0x2443],
-    IN_ANIMATION = [0x22eb, 0x20]
+    GAIN_WEAPON = [0x2441]
 }
 
 fun end() {

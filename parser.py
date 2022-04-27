@@ -7,12 +7,12 @@ class Parser():
             # A list of all token names accepted by the parser.
             [
                 '(', ')', ',', ';', '{', '}', '[', ']', # '\n',
-                '=', '==',
+                '==', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
-                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO',
+                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE',
                 'IDENTIFIER'
@@ -189,14 +189,15 @@ class Parser():
         @self.pg.production('expression : FUNCTION_CODE ( param_list )')
         def parse(p):
             return Function_Code(p[2])
-
         @self.pg.production('expression : FUNCTION_EVAL ( expression )')
         def parse(p):
             return Function_Eval(p[2])
-
         @self.pg.production('expression : FUNCTION_GOTO ( expression )')
         def parse(p):
             return Function_Goto(p[2])
+        @self.pg.production('expression : FUNCTION_SET ( expression )')
+        def parse(p):
+            return Set(p[2])
             
         @self.pg.production('expression_entry : IF ( expression ) { expression_list }')
         def parse(p):
@@ -307,6 +308,8 @@ class Parser():
             return Memory(address)
 
         @self.pg.production('expression : expression == expression')
+        @self.pg.production('expression : expression OR= expression')
+        @self.pg.production('expression : expression &= expression')
         @self.pg.production('expression : expression = expression')
         @self.pg.production('expression : expression + expression')
         @self.pg.production('expression : expression - expression')
@@ -323,6 +326,10 @@ class Parser():
                 return Equals(left, right)
             if operator.gettokentype() == '=':
                 return Asign(left, right)
+            if operator.gettokentype() == 'OR=':
+                return OrAsign(left, right)
+            if operator.gettokentype() == '&=':
+                return AndAsign(left, right)
             elif operator.gettokentype() == '+':
                 return Add(left, right)
             elif operator.gettokentype() == '-':
@@ -338,6 +345,10 @@ class Parser():
             else:
                 raise AssertionError('Oops, this should not be possible!')
 
+        @self.pg.production('expression : FUNCTION_LEN ( expression )')
+        def parse(p):
+            return Len(p[2]).eval()
+            
         @self.pg.error
         def error_handle_lex(token):
             raise ValueError(token)
