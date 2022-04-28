@@ -34,7 +34,7 @@ def handle_parse(code):
     print(generated)
 
 handle_parse("""
-#include("in/core.es")
+#include("in/core.evs")
 
 enum ENEMY {
     FLOWER = 0x0b
@@ -201,8 +201,55 @@ fun room_1_exit_north_if() {
 @install()
 @inject(0x13802b)
 fun test() {
-    test_dialog();
+    transition(0x18, 0x17, 0x3f, DIRECTION.NORTH);
 }
+
+@install()
+@inject(0x93c6d8)
+fun test() {
+    if(!FLAG.THRAXX) {
+        set(FLAG.THRAXX);
+        set([0x22e9, 0x08]);
+        test_dialog();
+    }
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH);
+}
+@install()
+@inject(0x93c6ae)
+fun test() {
+    transition(0x18, 0x17, 0x3f, DIRECTION.SOUTH);
+}
+@install()
+@inject(0x93d059, 0x00)
+fun thraxx_kill_flag_1() {
+    eval("00 00 00 00");
+}
+@install()
+@inject(0x93c8e9, 0x00)
+fun thraxx_kill_flag_2() {
+    eval("00 00 00 00");
+}
+@install()
+@inject(0x93c6d8, 0x00)
+fun thraxx_exit_north() {
+    if(!FLAG.THRAXX) {
+        set(FLAG.THRAXX);
+        set([0x22e9, 0x08]);
+        test_dialog();
+    }
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH);
+}
+@install()
+@inject(0x93c6ae, 0x00)
+fun thraxx_exit_south() {
+    if(!FLAG.THRAXX) {
+        set(FLAG.THRAXX);
+        set([0x22e9, 0x08]);
+        test_dialog();
+    }
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH);
+}
+
 """)
 
 utils.patch('Secret of Evermore (U) [!].smc', "out/everscript.ips")
