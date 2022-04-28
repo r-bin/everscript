@@ -45,6 +45,7 @@ class Function(_Function_Base):
         self.install = False
         self.address = None
         self.inject = None
+        self.terminate = True
         for arg in function_args:
             match arg:
                 case _ if isinstance(arg, Arg_Install):
@@ -52,6 +53,7 @@ class Function(_Function_Base):
                     self.address = arg.eval()
                 case _ if isinstance(arg, Arg_Inject):
                     self.inject = arg.eval()
+                    self.terminate = arg.terminate
 
         if self.install:
             self.script += [ End() ]
@@ -112,8 +114,9 @@ class Arg_Install(BaseBox):
             return None
     
 class Arg_Inject(BaseBox):
-    def __init__(self, address):
+    def __init__(self, address, terminate):
         self.address = address
+        self.terminate = terminate
 
     def eval(self):
         return self.address.eval()

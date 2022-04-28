@@ -113,9 +113,17 @@ class CodeGen():
         
         address = function.inject
         call = Call(function)
-        count = call.count() + 1 # TODO
+        count = call.count()
+        if function.terminate:
+            count += 1 # TODO
         
-        code = Function_Code([call.code().strip(), End().code().strip()]).script
+        script = [call.code()]
+        if function.terminate:
+            script += [ End().code() ]
+        else:
+            pass
+
+        code = Function_Code(script).script
 
         if address > 0x800000:
             address -= 0x800000
