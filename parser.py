@@ -358,7 +358,7 @@ class Parser():
         @self.pg.production('expression : FUNCTION_RND ( expression , expression )')
         def parse(p):
             return Rnd(p[2], p[4]).eval()
-            
+
         @self.pg.error
         def error_handle_lex(token):
             raise ValueError(token)

@@ -36,7 +36,12 @@ class _Function_Base(BaseBox):
         return script
 
     def count(self):
-        return len(self.code_clean().split(" "))
+        count = self.code_clean()
+        if len(count) > 0:
+            count = count.split(" ")
+        count = len(count)
+
+        return count
 
 class Function(_Function_Base):
     def __init__(self, name, script, args, function_args=[]):
