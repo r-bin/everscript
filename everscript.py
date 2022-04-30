@@ -7,6 +7,8 @@ from linker import Linker
 
 import time
 
+profile = False
+
 utils = Utils()
 utils.clean_out()
 
@@ -19,9 +21,12 @@ pg = Parser(generator)
 pg.parse()
 parser = pg.get_parser()
 
-def handle_parse(code):
+def handle_parse(code, profile):
     def log(text):
-        print(f"{text} ({'{:.1f}'.format(time.time() - start)}s)")
+        if profile:
+            print(f"{text} ({'{:.1f}'.format(time.time() - start)}s)")
+        else:
+            print(text)
 
     start = time.time()
     log(f"handle string input:")
@@ -47,7 +52,7 @@ def handle_parse(code):
     log(f"done!")
     #print(generated)
 
-handle_parse("""
+code = """
 #include("in/core.evs")
 
 enum ENEMY {
@@ -381,6 +386,27 @@ fun salabog_exit() {
     }
     transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
 }
-""")
+"""
+
+if profile:
+    import cProfile, pstats
+    import io
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    handle_parse(code, profile)
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats('tottime')
+    
+    result = io.StringIO()
+    pstats.Stats(profiler, stream=result).sort_stats('tottime').print_stats()
+    result = result.getvalue()
+    
+    with open("out/profil.txt", "w+") as f:
+        print(result, file=f)
+    print(result)
+else:
+    handle_parse(code, True)
 
 utils.patch('Secret of Evermore (U) [!].smc', "out/everscript.ips")
+

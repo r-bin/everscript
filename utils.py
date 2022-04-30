@@ -68,6 +68,7 @@ class Utils():
 
         os.remove(file)
         shutil.copyfile(self.tmp, file)
+        os.remove(self.tmp)
 
     def _apply_additional_patches(self, file, directory):
         patches = os.path.join(self.out, "patches")
@@ -99,6 +100,7 @@ class Utils():
 
         os.remove(file)
         shutil.copyfile(self.tmp, file)
+        os.remove(self.tmp)
             
     def patch(self, file_in, patch):
         file_name = os.path.splitext(file_in)
