@@ -7,12 +7,12 @@ class Parser():
             # A list of all token names accepted by the parser.
             [
                 '(', ')', ',', ';', '{', '}', '[', ']', # '\n',
-                '==', 'OR=', '&=', '=',
+                '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
-                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN',
+                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN', 'FUNCTION_RND',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE',
                 'IDENTIFIER'
@@ -65,7 +65,6 @@ class Parser():
             list = []
             element = p[0]
 
-            print(f"function_list = {element}")
             list.append(element)
             self.generator.append(element)
 
@@ -75,7 +74,6 @@ class Parser():
             list = p[0]
             element = p[1]
 
-            print(f"function_list = {list} + {element}")
             list.append(element)
             self.generator.append(element)
 
@@ -88,8 +86,7 @@ class Parser():
             code = p[6]
 
             function = Function(name, code, args)
-            print(f"function = {name}({args}) = {len(code)}")
-
+            
             return function
         @self.pg.production('function : FUN FUN_IDENTIFIER ( ) { expression_list }')
         def parse(p):
@@ -98,8 +95,7 @@ class Parser():
             args = []
 
             function = Function(name, code, args)
-            print(f"function = {name}({args}) = {len(code)}")
-
+            
             return function
         @self.pg.production('function : function_arg_list FUN FUN_IDENTIFIER ( ) { expression_list }')
         def parse(p):
@@ -109,8 +105,7 @@ class Parser():
             code = p[6]
 
             function = Function(name, code, args, function_args)
-            print(f"function = {name} () = {len(code)}")
-
+            
             return function
 
         @self.pg.production('function_arg_list : function_arg')
@@ -139,15 +134,12 @@ class Parser():
         def parse(p):
             element = p[0]
 
-            print(f"expression_entry = {element}")
-
             return element
         @self.pg.production('expression_list : expression_entry')
         def parse(p):
             list = []
             element = p[0]
 
-            print(f"expression_list = {element}")
             list.append(element)
 
             return list
@@ -157,7 +149,6 @@ class Parser():
             list = p[0]
             element = p[1]
 
-            print(f"expression_list = {list} + {element}")
             list.append(element)
             
             return list
@@ -166,7 +157,6 @@ class Parser():
         def parse(p):
             label = p[0]
             expression = p[1]
-            print(f"label = [{label}] {expression}")
             expression.label_destination = label
             return expression
 
@@ -254,8 +244,6 @@ class Parser():
 
             function = self.generator.function(name)
             
-            print(f"function = {name}()")
-
             return Call(function, params)
 
         @self.pg.production('arg_list : arg')
@@ -314,6 +302,10 @@ class Parser():
             return Memory(address)
 
         @self.pg.production('expression : expression == expression')
+        @self.pg.production('expression : expression >= expression')
+        @self.pg.production('expression : expression > expression')
+        @self.pg.production('expression : expression <= expression')
+        @self.pg.production('expression : expression < expression')
         @self.pg.production('expression : expression OR= expression')
         @self.pg.production('expression : expression &= expression')
         @self.pg.production('expression : expression = expression')
@@ -330,6 +322,14 @@ class Parser():
             
             if operator.gettokentype() == '==':
                 return Equals(left, right)
+            if operator.gettokentype() == '>=':
+                return GreaterEquals(left, right)
+            if operator.gettokentype() == '>':
+                return Greater(left, right)
+            if operator.gettokentype() == '<=':
+                return LowerEquals(left, right)
+            if operator.gettokentype() == '<':
+                return Lower(left, right)
             if operator.gettokentype() == '=':
                 return Asign(left, right)
             if operator.gettokentype() == 'OR=':
@@ -354,6 +354,10 @@ class Parser():
         @self.pg.production('expression : FUNCTION_LEN ( expression )')
         def parse(p):
             return Len(p[2]).eval()
+
+        @self.pg.production('expression : FUNCTION_RND ( expression , expression )')
+        def parse(p):
+            return Rnd(p[2], p[4]).eval()
             
         @self.pg.error
         def error_handle_lex(token):

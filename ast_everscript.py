@@ -4,6 +4,7 @@ from rply.token import BaseBox
 import re
 from textwrap import wrap
 import copy
+import random
 
 class _Function_Base(BaseBox):
     params = []
@@ -44,7 +45,7 @@ class Function(_Function_Base):
         self.args = args
         self.install = False
         self.address = None
-        self.inject = None
+        self.inject = []
         self.terminate = True
         for arg in function_args:
             match arg:
@@ -52,7 +53,7 @@ class Function(_Function_Base):
                     self.install = True
                     self.address = arg.eval()
                 case _ if isinstance(arg, Arg_Inject):
-                    self.inject = arg.eval()
+                    self.inject.append(arg)
                     self.terminate = arg.terminate
 
         if self.install:
@@ -527,6 +528,34 @@ class Equals(BinaryOp):
         self.right.params = self.params
 
         return self.left.eval() == self.right.eval()
+
+class GreaterEquals(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() >= self.right.eval()
+
+class Greater(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() > self.right.eval()
+
+class LowerEquals(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() <= self.right.eval()
+
+class Lower(BinaryOp):
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self.left.eval() < self.right.eval()
     
 class Add(BinaryOp):
     def eval(self):
@@ -614,15 +643,20 @@ class Include(BaseBox):
         from lexer import Lexer
         from parser import Parser
 
+        print(f" - handle import '${self.path}':")
+
         lexer = Lexer().get_lexer()
         pg = Parser(self.generator)
         pg.parse()
         parser = pg.get_parser()
 
         script = open(self.path, 'r').read()
-        print(f"{self.path} -> {list(lexer.lex(script))}")
+        #print(f"{self.path} -> {list(lexer.lex(script))}")
+        print(" - lexing code...")
         script = lexer.lex(script)
+        print(" - generating objects...")
         script = parser.parse(script)
+        print(" - done")
 
         return script
 
@@ -672,7 +706,7 @@ class Len(_Function_Base):
             case None:
                 return 0
             case _:
-                raise Exception(f"unknown type: can't generate code for:\n{a}")
+                raise Exception(f"unknown type: can't generate code")
 
     def _code(self):
         match self.script:
@@ -682,4 +716,13 @@ class Len(_Function_Base):
                 script = script.code()
                 return script
             case _:
-                raise Exception(f"unknown type: can't generate code for:\n{a}")
+                raise Exception(f"unknown type: can't generate code")
+
+class Rnd(_Function_Base):
+    def __init__(self, min, max):
+        self.min = min
+        self.max = max
+
+    def eval(self):
+        rnd = random.randint(self.min.eval(), self.max.eval())
+        return Word(rnd)
