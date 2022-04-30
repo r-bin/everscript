@@ -103,15 +103,23 @@ class CodeGen():
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []
 
-        list += header + [e.code().strip() for e in code] + footer
+        list += header + [e.code() for e in code] + footer
 
         return '\n'.join(list)
 
     def _inject(self, function):
-        if function.inject == None:
+        list = []
+
+        for inject in function.inject:
+            list.append(self._inject_function(function, inject))
+
+        return list
+
+    def _inject_function(self, function, inject):
+        if inject == None:
             return []
         
-        address = function.inject
+        address = inject.eval()
         call = Call(function)
         count = call.count()
         if function.terminate:
@@ -131,5 +139,5 @@ class CodeGen():
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []
 
-        return header + code + footer
+        return '\n'.join(header + code + footer)
     

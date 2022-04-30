@@ -21,6 +21,8 @@ class Lexer():
         self.lexer.add('OR=', '\|\=')
         self.lexer.add('&=', '\&\=')
         self.lexer.add('==', '\=\=')
+        self.lexer.add('<=', '\<\=')
+        self.lexer.add('>=', '\>\=')
         self.lexer.add('=', '\=')
         
         self.lexer.add('!', '\!')
@@ -30,6 +32,9 @@ class Lexer():
         self.lexer.add('/', '\/')
         self.lexer.add('<<', '\>\>')
         self.lexer.add('>>', '\>\>')
+        
+        self.lexer.add('>', '\>')
+        self.lexer.add('<', '\<')
 
         #self.lexer.add('ADDRESS', '0[xX][0-9a-fA-F]{6}')
         self.lexer.add('WORD', '0[xX][0-9a-fA-F]+')
@@ -51,6 +56,7 @@ class Lexer():
         self.lexer.add('FUNCTION_CODE', 'code(?=\()')
         self.lexer.add('FUNCTION_SET', 'set(?=\()')
         self.lexer.add('FUNCTION_LEN', 'len(?=\()')
+        self.lexer.add('FUNCTION_RND', 'rnd(?=\()')
         
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')
