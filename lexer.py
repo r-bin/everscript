@@ -17,6 +17,8 @@ class Lexer():
         self.lexer.add('}', '\}')
         self.lexer.add('[', '\[')
         self.lexer.add(']', '\]')
+        self.lexer.add('<', '\<')
+        self.lexer.add('>', '\>')
         
         self.lexer.add('OR=', '\|\=')
         self.lexer.add('&=', '\&\=')
@@ -57,6 +59,7 @@ class Lexer():
         self.lexer.add('FUNCTION_SET', 'set(?=\()')
         self.lexer.add('FUNCTION_LEN', 'len(?=\()')
         self.lexer.add('FUNCTION_RND', 'rnd(?=\()')
+        self.lexer.add('FUNCTION_CALL', 'call(?=\()')
         
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')

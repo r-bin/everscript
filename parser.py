@@ -6,13 +6,13 @@ class Parser():
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
-                '(', ')', ',', ';', '{', '}', '[', ']', # '\n',
+                '(', ')', ',', ';', '{', '}', '[', ']', '<', '>', # '\n',
                 '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
-                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN', 'FUNCTION_RND',
+                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN', 'FUNCTION_RND', 'FUNCTION_CALL',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE',
                 'IDENTIFIER'
@@ -246,6 +246,12 @@ class Parser():
             
             return Call(function, params)
 
+        @self.pg.production('expression : FUNCTION_CALL ( expression )')
+        def parse(p):
+            address = p[2]
+
+            return Call(address, [])
+
         @self.pg.production('arg_list : arg')
         def parse(p):
             return [ p[0] ]
@@ -284,18 +290,13 @@ class Parser():
         @self.pg.production('memory : memory_flag')
         def parse(p):
             return p[0]
-        @self.pg.production('memory_flag : [ WORD , WORD ]')
+        @self.pg.production('memory_flag : < WORD , WORD >')
         def parse(p):
             address = Word(p[1])
             flag = Word(p[3])
 
             return Memory(address, flag)
-        @self.pg.production('memory_flag : [ WORD ]')
-        def parse(p):
-            address = Word(p[1])
-
-            return Memory(address)
-        @self.pg.production('memory : [ WORD ]')
+        @self.pg.production('memory : < WORD >')
         def parse(p):
             address = Word(p[1])
 
@@ -319,37 +320,38 @@ class Parser():
             left = p[0]
             operator = p[1]
             right = p[2]
-            
-            if operator.gettokentype() == '==':
-                return Equals(left, right)
-            if operator.gettokentype() == '>=':
-                return GreaterEquals(left, right)
-            if operator.gettokentype() == '>':
-                return Greater(left, right)
-            if operator.gettokentype() == '<=':
-                return LowerEquals(left, right)
-            if operator.gettokentype() == '<':
-                return Lower(left, right)
-            if operator.gettokentype() == '=':
-                return Asign(left, right)
-            if operator.gettokentype() == 'OR=':
-                return OrAsign(left, right)
-            if operator.gettokentype() == '&=':
-                return AndAsign(left, right)
-            elif operator.gettokentype() == '+':
-                return Add(left, right)
-            elif operator.gettokentype() == '-':
-                return Sub(left, right)
-            elif operator.gettokentype() == '*':
-                return Mul(left, right)
-            elif operator.gettokentype() == '/':
-                return Div(left, right)
-            elif operator.gettokentype() == '<<':
-                return ShiftLeft(left, right)
-            elif operator.gettokentype() == '>>':
-                return ShiftRight(left, right)
-            else:
-                raise AssertionError('Oops, this should not be possible!')
+
+            match operator.gettokentype():
+                case '==':
+                    return Equals(left, right)
+                case '>=':
+                    return GreaterEquals(left, right)
+                case '>':
+                    return Greater(left, right)
+                case '<=':
+                    return LowerEquals(left, right)
+                case '<':
+                    return Lower(left, right)
+                case '=':
+                    return Asign(left, right)
+                case 'OR=':
+                    return OrAsign(left, right)
+                case '&=':
+                    return AndAsign(left, right)
+                case '+':
+                    return Add(left, right)
+                case '-':
+                    return Sub(left, right)
+                case '*':
+                    return Mul(left, right)
+                case '/':
+                    return Div(left, right)
+                case '<<':
+                    return ShiftLeft(left, right)
+                case '>>':
+                    return ShiftRight(left, right)
+                case _:
+                    raise AssertionError('Oops, this should not be possible!')
 
         @self.pg.production('expression : FUNCTION_LEN ( expression )')
         def parse(p):

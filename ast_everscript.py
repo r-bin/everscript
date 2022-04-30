@@ -160,13 +160,6 @@ class Address(_Function_Base):
         
         return ' '.join(reversed(address))
 
-    def code_clean(self):
-        script = re.sub("//.*", "", self.code())
-        script = re.sub("[\s]+", " ", script)
-        script = script.strip()
-
-        return script
-
     def count(self):
         return len(self.code_clean().split(" "))
 
@@ -258,16 +251,18 @@ class Label_Destination(BaseBox):
 
 class Call(_Function_Base):
     def __init__(self, function, params=[]):
-        self.function = copy.deepcopy(function)
-        self.address = function.address
         self.params = params
+        if isinstance(function, Function):
+            self.function = copy.deepcopy(function)
+            self.address = function.address
+            for p, a in zip(self.params, function.args):
+                p.name = a.name
+        else:
+            self.function = None
+            self.address = function.eval()
         
-        for p, a in zip(self.params, function.args):
-            p.name = a.name
-
-        pass
     def _code(self):
-        if self.function.install:
+        if self.function == None or self.function.install:
             address = "xx xx xx"
             if self.address != None:
                 address = Address(self.address)
