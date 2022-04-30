@@ -1,4 +1,7 @@
 enum ADDRESS {
+    SOUTH_JUNGLE_ENTER = 0x9384d9,
+    SOUTH_JUNGLE_ENTER_GOURD_1 = 0x93802b,
+
     FE_EXIT_NORTH = 0x94bead,
     FE_EXIT_NORTH_GATED = 0x94bedc,
     FE_EXIT_EAST = 0x94be9f,
@@ -12,16 +15,22 @@ enum ADDRESS {
     THRAXX_EXIT_SOUTH = 0x93c6ae,
 
     SALABOG_EXIT_SOUTH = 0x9786e4,
-    SALABOG_EXIT_NORTH = 0x9786ec
+    SALABOG_EXIT_NORTH = 0x9786ec,
+
+    BRIAN_MAP_POINTER = 0x928084,
+    BRIAN_ENTER = 0x928000
 }
 
 enum MAP {
     START = 0x00,
+    STRONGHEART = 0x34,
     RAPTORS = 0x5c,
     FE_VILLAGE = 0x25,
     THRAXX = 0x18,
     MAGMAR = 0x3f,
-    SALABOG = 0x01
+    SALABOG = 0x01,
+    
+    BRIAN = 0x15
 }
 
 enum DOG {
@@ -84,6 +93,24 @@ enum MEMORY {
     GAIN_WEAPON = [0x2441]
 }
 
+enum ENEMY {
+    FLOWER = 0x0b
+}
+enum ITEM {
+    JAGUAR_RING = 0x0100,
+
+    AXE_1 = 0x0200,
+    SPEAR_3 = 0x0201,
+    
+    HARD_BALL = 0x0300,
+    ACID_RAIN = 0x0301,
+    FLASH = 0x0302,
+
+    WINGS = 0x0400,
+    PETAL = 0x0401,
+    NECTAR = 0x0402
+}
+
 fun end() {
     code(0x00, "// (00) END (return)");
 }
@@ -139,5 +166,136 @@ fun price(index, rate, drop, quantity) {
         [0x239f] = rate;
         [0x23a5] = drop;
         [0x23ab] = quantity;
+    }
+}
+
+fun add_enemy(enemy, x, y) {
+    code(0xba, enemy, x, y, "// (ba) LOAD NPC 0b at 49 79");
+}
+
+fun add_enemy_with_flags(enemy, x, y, flags) {
+    code(0x3c, enemy, 0x00, flags, x, y, "// (ba) LOAD NPC 0b at 49 79");
+}
+
+fun control(character) {
+    if(character == CHARACTER.NONE) {
+        code(0xc0, "// (c0) BOY+DOG = STOPPED");
+    } else if(character == CHARACTER.BOTH) {
+        code(0xc1, "// (c1) BOY+DOG = Player controlled");
+    }
+}
+
+fun text_start() {
+    control(CHARACTER.NONE);
+    code(0xa3, 0x02, "// (a3) CALL "Open message box?" (0x02)");
+}
+fun text(id) {
+    code(0x51, id, "// (51) SHOW TEXT 10bf FROM 0x91e0bf compressed WINDOWED c14dd8> '[0x97][0x8b]Goat[LF]' '[0x8b]Chicken[LF]' '[0x8b]Basket'");
+}
+fun text_end() {
+    code(0x55, "// (55) CLEAR TEXT");
+    
+    control(CHARACTER.BOTH);
+}
+
+fun subtext(id) {
+    code(0x52, id, "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
+}
+
+fun question(id) {
+    text_start();
+
+    text(id);
+    
+    eval("1d 69 00 30 ac // (1d) WRITE $289d = Dialog response (preselect 0)");
+    
+    text_end();
+}
+
+fun dialog(id) {
+    text_start();
+
+    text(id);
+
+    text_end();
+}
+
+fun sleep(ticks) {
+    code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
+}
+
+fun fanfare() {
+    code(0xa3, 0x00, "// (a3) CALL "Fade-out / stop music" (0x00)");
+    music(MUSIC.FANFARE);
+    code(0xa3, 0x01, "// (a3) CALL "Fade-in / start music" (0x01)");
+}
+fun fanfare_item() {
+    fanfare();
+}
+fun fanfare_weapon() {
+    control(CHARACTER.NONE);
+    eval("29 33 3f 00 // (29) CALL 0x92bf33 Hold up weapon");
+
+    sleep(0x08);
+    fanfare();
+        
+    sleep(0xc8);
+    control(CHARACTER.BOTH);
+}
+
+fun reward(item) {
+    if(item == ITEM.JAGUAR_RING) {
+        fanfare_item();
+
+        [0x2262] = 0x02;
+        set([0x2262, 0x02]);
+
+        sleep(0x20);
+        subtext(0x066f);
+        
+        fanfare_weapon();
+    } else if(item == ITEM.AXE_1) {
+        [0x2441] = 0x0a;
+        
+        subtext(0x05b8);
+        fanfare_weapon();
+    } else if(item == ITEM.SPEAR_3) {
+        [0x2441] = 0x18;
+        
+        subtext(0x2247);
+        fanfare_weapon();
+    } else if(item == ITEM.HARD_BALL) {
+        set([0x225a, 0x02]);
+        
+        dialog(0x0651);
+        fanfare_weapon();
+    } else if(item == ITEM.FLASH) {
+        set([0x2259, 0x80]);
+        
+        dialog(0x0963);
+        fanfare_weapon();
+    } else if(item == ITEM.ACID_RAIN) {
+        set([0x2258, 0x01]);
+        
+        dialog(0x059d);
+        fanfare_weapon();
+    } else if(item == ITEM.WINGS) {
+        eval("18 39 01 84 04 08 // (18) WRITE PRIZE    ($2391) = Wings (0x0804)");
+        eval("17 3d 01 14 00 // (17) WRITE MAP REF? ($2395) = 0x0014");
+        eval("a3 3a // (a3) CALL "Loot gourd?" (0x3a)");
+        
+        fanfare_weapon();
+    } else if(item == ITEM.PETAL) {
+        eval("18 39 01 84 00 08 // (18) WRITE PRIZE    ($2391) = Wings (0x0804)");
+        eval("17 3d 01 02 00 // (17) WRITE MAP REF? ($2395) = 0x0014");
+        eval("a3 3a // (a3) CALL "Loot gourd?" (0x3a)");
+        
+        fanfare_weapon();
+    } else if(item == ITEM.NECTAR) {
+        eval("18 39 01 84 01 08 // (18) WRITE PRIZE    ($2391) = Wings (0x0804)");
+        eval("17 3d 01 12 00 // (17) WRITE MAP REF? ($2395) = 0x0014");
+        eval("a3 3a // (a3) CALL "Loot gourd?" (0x3a)");
+        
+        fanfare_weapon();
     }
 }

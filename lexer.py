@@ -69,7 +69,7 @@ class Lexer():
         self.lexer.add('IDENTIFIER', '[a-zA-Z_][a-zA-Z0-9_]*(?![\(\{])')
 
         # ignore whitespace 
-        self.lexer.ignore('[ \t\r\f\v\n]+')
+        self.lexer.ignore('[ \t\r\f\v\n]+|\/\/.*\n')
 
     def get_lexer(self):
         self._add_tokens()
