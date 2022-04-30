@@ -32,7 +32,7 @@ class Linker():
 
     def _link_call(self, code, call):
         for function in code:
-            if function.name == call.function.name:
+            if call.function != None and function.name == call.function.name:
                 call.address = function.address
 
     def link_goto(self, function):

@@ -6,6 +6,7 @@ from parser import Parser
 from linker import Linker
 
 import time
+import re
 
 profile = False
 
@@ -33,7 +34,8 @@ def handle_parse(code, profile):
 
     log(f"reading code...")
     #print("To parse: '"+code+"'")
-    utils.dump(f"{list(lexer.lex(code))}", "lexer.txt")
+    
+    utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
 
     log(f"lexing code...")
     lexed = lexer.lex(code)
@@ -58,12 +60,12 @@ code = """
 fun test_dialog() {
     question(0x10bf);
 
-    if([0x289d] == 0x01) {
+    if(<0x289d> == 0x01) {
         reward(ITEM.HARD_BALL);
         reward(ITEM.FLASH);
-    } else if([0x289d] == 0x02) {
+    } else if(<0x289d> == 0x02) {
         reward(ITEM.SPEAR_3);
-    } else if([0x289d] == 0x03) {
+    } else if(<0x289d> == 0x03) {
         reward(ITEM.WINGS);
     }
 }
@@ -105,7 +107,16 @@ fun room_1() {
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
 fun first_gourd() {
-    transition(MAP.STRONGHEART, 0x12, 0x23, DIRECTION.NORTH, DIRECTION.NORTH);
+    set(<0x2262, 0x02>);
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+    // call(0x94e692);
+}
+@install()
+@inject(0x94e4c9)
+fun test() {
+    // transition(MAP.STRONGHEART, 0x12, 0x23, DIRECTION.NORTH, DIRECTION.NORTH);
+    call(0x94e692);
+    // <0x2835> = <0x0341>;
 }
 """
 
