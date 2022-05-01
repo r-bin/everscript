@@ -597,30 +597,49 @@ class ShiftLeft(BinaryOp):
 
 class Asign(BinaryOp):
     def _code(self):
-        memory = self.left.address.eval()
-        memory -= 0x2258
-        memory = '{:04X}'.format(memory, 'x')
-        memory = wrap(memory, 2)
-        memory = ' '.join(reversed(memory))
+        code = "18"
 
-        value = self.right
-        if isinstance(value, Identifier):
-            p = {x.name : x for x in self.params}
-            value = p[value.value].value
-        value = value.eval()
-        if value <= 0xf:
-            value &= 0xf
-            value += 0xb0
+        if isinstance(self.right, Identifier) or isinstance(self.right, Word):
+            memory = self.left.address.eval()
+            memory -= 0x2258
+            memory = '{:04X}'.format(memory, 'x')
+            memory = wrap(memory, 2)
+            memory = ' '.join(reversed(memory))
+
+            value = self.right
+            if isinstance(value, Identifier):
+                p = {x.name : x for x in self.params}
+                value = p[value.value].value
+            value = value.eval()
+            if value <= 0xf:
+                value &= 0xf
+                value += 0xb0
+                value = '{:02X}'.format(value, 'x')
+            else:
+                value = '{:04X}'.format(value, 'x')
+                value = wrap(value, 2)
+                value = ' '.join(reversed(value))
+                value = f"84 {value}"
+        elif isinstance(self.right, Memory):
+            code = "19"
+            
+            memory = self.left.address.eval()
+            memory -= 0x2834
+            memory = '{:04X}'.format(memory, 'x')
+            memory = wrap(memory, 2)
+            memory = ' '.join(reversed(memory))
+
+            value = self.right
+            value = value.address.eval()
+            if value == 0x0341:
+                value = 0xad    
             value = '{:02X}'.format(value, 'x')
         else:
-            value = '{:04X}'.format(value, 'x')
-            value = wrap(value, 2)
-            value = ' '.join(reversed(value))
-            value = f"84 {value}"
+            raise Exception("unknown type")
 
 
         return  f"""
-18 {memory} {value}       // memory({self.left.address.value}) = {self.right.value}
+{code} {memory} {value}       // memory({self.left.address.value}) = {self.right}
             """
 class OrAsign(BinaryOp):
     def _code(self):

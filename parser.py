@@ -9,6 +9,7 @@ class Parser():
                 '(', ')', ',', ';', '{', '}', '[', ']', '<', '>', # '\n',
                 '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
+                'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
@@ -360,6 +361,13 @@ class Parser():
         @self.pg.production('expression : FUNCTION_RND ( expression , expression )')
         def parse(p):
             return Rnd(p[2], p[4]).eval()
+
+        @self.pg.production('expression : TRUE')
+        def parse(p):
+            return Word(1)
+        @self.pg.production('expression : FALSE')
+        def parse(p):
+            return Word(0)
 
         @self.pg.error
         def error_handle_lex(token):

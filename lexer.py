@@ -38,6 +38,8 @@ class Lexer():
         self.lexer.add('>', '\>')
         self.lexer.add('<', '\<')
 
+        self.lexer.add('TRUE', 'True(?![a-zA-Z_])')
+        self.lexer.add('FALSE', 'False(?![a-zA-Z_])')
         #self.lexer.add('ADDRESS', '0[xX][0-9a-fA-F]{6}')
         self.lexer.add('WORD', '0[xX][0-9a-fA-F]+')
         #self.lexer.add('word', '[0-9]+')
