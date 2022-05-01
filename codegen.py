@@ -97,7 +97,9 @@ class CodeGen():
         list += self._inject(function)
         self.linker.link_goto(function)
 
-        if address > 0x800000: # TODO
+        if address >= 0xC00000: # TODO
+            address -= 0xC00000
+        elif address >= 0x800000: # TODO
             address -= 0x800000
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
@@ -133,7 +135,9 @@ class CodeGen():
 
         code = Function_Code(script).script
 
-        if address > 0x800000:
+        if address >= 0xC00000: # TODO
+            address -= 0xC00000
+        elif address >= 0x800000: # TODO
             address -= 0x800000
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
