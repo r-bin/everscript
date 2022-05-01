@@ -1,3 +1,5 @@
+from utils import Utils
+
 from lib2to3.pytree import Base
 import math
 from rply.token import BaseBox
@@ -6,11 +8,10 @@ from textwrap import wrap
 import copy
 import random
 
+utils = Utils()
+
 class _Function_Base(BaseBox):
     params = []
-
-    def call(self, args):
-        return 
 
     def code(self, params=[]):
         if self.params:
@@ -95,7 +96,7 @@ class Function_Code(_Function_Base):
                             pass
                         list.append(code)
                     else:
-                        list.append(a.value.code())
+                        list.append(a.value.code(self.params))
                 case None:
                     pass
                 case _:
@@ -514,6 +515,19 @@ class BinaryOp(_Function_Base):
     def __init__(self, left, right):
         self.left = left
         self.right = right
+    
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            if isinstance(self.left, Param) and self.left.name != None:
+                self.left.value = sp[self.left.name].value
+            if isinstance(self.right, Param) and self.right.name != None:
+                self.right.value = sp[self.right.name].value
+
+        return self._eval()
 
     def _code(self):
         address = self.eval()
@@ -523,93 +537,64 @@ class BinaryOp(_Function_Base):
         return ' '.join(reversed(address))
 
 class Equals(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() == self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() == self.right.value.eval()
 
 class GreaterEquals(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() >= self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() >= self.right.value.eval()
 
 class Greater(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() > self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() > self.right.value.eval()
 
 class LowerEquals(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() <= self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() <= self.right.value.eval()
 
 class Lower(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() < self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() < self.right.value.eval()
     
 class Add(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
+    def _eval(self):
+        return self.left.value.eval() + self.right.value.eval()
 
-        return self.left.eval() + self.right.eval()
 class Sub(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() - self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() - self.right.value.eval()
 
 class Mul(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
+    def _eval(self):
+        return self.left.value.eval() * self.right.value.eval()
 
-        return self.left.eval() * self.right.eval()
 class Div(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
+    def _eval(self):
+        return self.left.value.eval() // self.right.value.eval()
 
-        return self.left.eval() / self.right.eval()
 class ShiftRight(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
+    def _eval(self):
+        return self.left.value.eval() >> self.right.value.eval()
 
-        return self.left.eval() >> self.right.eval()
 class ShiftLeft(BinaryOp):
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self.left.eval() << self.right.eval()
+    def _eval(self):
+        return self.left.value.eval() << self.right.value.eval()
 
 class Asign(BinaryOp):
     def _code(self):
         code = "18"
 
-        if isinstance(self.right, Identifier) or isinstance(self.right, Word):
-            memory = self.left.address.eval()
+        if isinstance(self.right, Param) or isinstance(self.right, Word):
+            memory = self.left.value.address.eval()
             memory -= 0x2258
             memory = '{:04X}'.format(memory, 'x')
             memory = wrap(memory, 2)
             memory = ' '.join(reversed(memory))
 
             value = self.right
-            if isinstance(value, Identifier):
+            if isinstance(value, Param) and value.name != None:
                 p = {x.name : x for x in self.params}
-                value = p[value.value].value
+                value = p[value.name].value
             value = value.eval()
             if value <= 0xf:
                 value &= 0xf
@@ -639,7 +624,7 @@ class Asign(BinaryOp):
 
 
         return  f"""
-{code} {memory} {value}       // memory({self.left.address.value}) = {self.right}
+{code} {memory} {value}       // memory({self.left}) = {self.right}
             """
 class OrAsign(BinaryOp):
     def _code(self):
@@ -672,6 +657,7 @@ class Include(BaseBox):
         script = open(self.path, 'r').read()
         #print(f"{self.path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
+        utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
         script = lexer.lex(script)
         print(" - generating objects...")
         script = parser.parse(script)
