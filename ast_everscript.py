@@ -178,24 +178,24 @@ class Word(_Function_Base):
 
         if isinstance(value, int):
             self.value = value
-            self.count = 2
+            self.value_count = 2
         else:
             self.value = int(value.value, 16)
 
             count = re.sub("0x", "", value.value)
             count = wrap(count, 2)
             count = len(count)
-            self.count = count
+            self.value_count = count
 
     def eval(self):
         return self.value
         
     def _code(self):
-        if self.count == 1:
+        if self.value_count == 1:
             value = '{:02X}'.format(self.value, 'x')
-        elif self.count == 2:
+        elif self.value_count == 2:
             value = '{:04X}'.format(self.value, 'x')
-        elif self.count == 3:
+        elif self.value_count == 3:
             value = '{:06X}'.format(self.value, 'x')
 
         value = re.sub("0x", "", value)
@@ -228,7 +228,12 @@ class Param(BaseBox):
         self.value = value
 
     def eval(self):
-        return self.value.value
+        if isinstance(self.value, Memory):
+            return self.value.address.value
+        elif isinstance(self.value, Word):
+            return self.value.value
+        else:
+            raise Exception("unknown type")
 
 class Label_Jump(BaseBox):
     def __init__(self, value):
@@ -393,7 +398,7 @@ class If_list(_Function_Base):
         for element in self.list:
             if isinstance(element.condition, Memory):
                 self.memory = True
-            elif isinstance(element.condition, BinaryOp) and isinstance(element.condition.left, Memory):
+            elif isinstance(element.condition, BinaryOp) and isinstance(element.condition.left.value, Memory):
                 self.memory = True
 
     def _code(self):
@@ -491,14 +496,14 @@ class If(_Function_Base):
             return f"""
 {command} {type} {combined} {destination}       // {if_mode} jump {self.distance}
             """
-        elif isinstance(self.condition, BinaryOp) and isinstance(self.condition.left, Memory):
-            address = self.condition.left.address.eval()
+        elif isinstance(self.condition, BinaryOp) and isinstance(self.condition.left.value, Memory):
+            address = self.condition.left.value.address.eval()
             address -= 0x2834
             address = '{:04X}'.format(address, 'x')
             address = wrap(address, 2)
             address = ' '.join(reversed(address))
 
-            value = self.condition.right.eval()
+            value = self.condition.right.value.eval()
             value -= 1
             value &= 0b111
             value += 0x30
@@ -515,6 +520,8 @@ class BinaryOp(_Function_Base):
     def __init__(self, left, right):
         self.left = left
         self.right = right
+
+        self.value_count = 2
     
     def eval(self):
         self.left.params = self.params
@@ -530,11 +537,20 @@ class BinaryOp(_Function_Base):
         return self._eval()
 
     def _code(self):
-        address = self.eval()
-        address = '{:04X}'.format(address, 'x')
-        address = wrap(address, 2)
+        value = self.eval()
+        self.value_count = max(self.left.value.value_count, self.right.value.value_count)
         
-        return ' '.join(reversed(address))
+        if self.value_count == 1:
+            value = '{:02X}'.format(value, 'x')
+        elif self.value_count == 2:
+            value = '{:04X}'.format(value, 'x')
+        elif self.value_count == 3:
+            value = '{:06X}'.format(value, 'x')
+
+        value = re.sub("0x", "", value)
+        value = wrap(value, 2)
+        
+        return ' '.join(reversed(value))
 
 class Equals(BinaryOp):
     def _eval(self):
@@ -584,17 +600,20 @@ class Asign(BinaryOp):
     def _code(self):
         code = "18"
 
-        if isinstance(self.right, Param) or isinstance(self.right, Word):
+        value = self.right
+        if isinstance(value, Param) and value.name != None:
+            p = {x.name : x for x in self.params}
+            value = p[value.name].value
+        elif isinstance(value.value, Memory):
+            value = value.value
+
+        if isinstance(value, Param) or isinstance(value, Word):
             memory = self.left.value.address.eval()
             memory -= 0x2258
             memory = '{:04X}'.format(memory, 'x')
             memory = wrap(memory, 2)
             memory = ' '.join(reversed(memory))
 
-            value = self.right
-            if isinstance(value, Param) and value.name != None:
-                p = {x.name : x for x in self.params}
-                value = p[value.name].value
             value = value.eval()
             if value <= 0xf:
                 value &= 0xf
@@ -605,16 +624,15 @@ class Asign(BinaryOp):
                 value = wrap(value, 2)
                 value = ' '.join(reversed(value))
                 value = f"84 {value}"
-        elif isinstance(self.right, Memory):
+        elif isinstance(value, Memory):
             code = "19"
             
-            memory = self.left.address.eval()
+            memory = self.left.value.address.eval()
             memory -= 0x2834
             memory = '{:04X}'.format(memory, 'x')
             memory = wrap(memory, 2)
             memory = ' '.join(reversed(memory))
 
-            value = self.right
             value = value.address.eval()
             if value == 0x0341:
                 value = 0xad    
@@ -637,6 +655,9 @@ class Memory(BaseBox):
     def __init__(self, address, flag=None):
         self.address = address
         self.flag = flag
+    
+    def eval(self):
+        return self.address.eval()
 
 class Include(BaseBox):
     def __init__(self, generator, path):

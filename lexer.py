@@ -5,7 +5,7 @@ class Lexer():
         self.lexer = LexerGenerator()
 
     def _add_tokens(self):
-        self.lexer.add('STRING', '\".*\"')
+        self.lexer.add('STRING', '\".*\"') # TODO non greedy
 
         self.lexer.add('\n', '\n')
         self.lexer.add(';', ';')
