@@ -35,9 +35,9 @@ def handle_parse(code, profile):
     log(f"reading code...")
     #print("To parse: '"+code+"'")
     
+    log(f"lexing code...")
     utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
 
-    log(f"lexing code...")
     lexed = lexer.lex(code)
     log(f"generating objects...")
     parsed = parser.parse(lexed)
@@ -167,6 +167,18 @@ fun heal(character, animation) {
     }
 }
 
+fun wait(character) {
+    code(0x2e, character, "// (2e) Wait for boy (d0) to reach destination");
+}
+
+fun walk(character, x, y, waiting) {
+    code(0x6e, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
+    if(waiting > 0x00) {
+        wait(character);
+    }
+    // TODO: somehow locks the character
+}
+
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
 fun first_gourd() {
@@ -174,6 +186,8 @@ fun first_gourd() {
     // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
     
     heal(CHARACTER.BOTH, True);
+
+    walk(CHARACTER.BOY, 0x46, 0x89, True);
 }
 """
 
