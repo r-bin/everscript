@@ -1,5 +1,6 @@
 from utils import Utils
 
+from rply import LexerGenerator
 from lib2to3.pytree import Base
 import math
 from rply.token import BaseBox
@@ -204,14 +205,42 @@ class Word(_Function_Base):
         return ' '.join(reversed(value))
         
 class String(_Function_Base):
-    def __init__(self, value):
+    def __init__(self, value, c_string = False):
         self.value = value
+        self.c_string = c_string
 
     def eval(self):
         return self.value.value
         
     def _code(self):
-        code = re.sub("\"", "", self.value.value)
+        if not self.c_string:
+            code = re.sub("\"", "", self.value.value)
+        else:
+            code = re.sub("\"", "", self.value.value.value)
+
+            lexer = LexerGenerator()
+            lexer.add('LF', '\[LF\]')
+            lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
+            lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
+            lexer.add('CHAR', '.')
+            lexer = lexer.build()
+
+            code = list(lexer.lex(code))
+
+            def f(c):
+                match c:
+                    case _ if c.name == "CHAR":
+                        return c.value.encode('ASCII').hex()
+                    case _ if c.name == "LF":
+                        return "0a"
+                    case _ if c.name == "HEX":
+                        return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
+                    case _ if c.name == "PAUSE":
+                        return "80 " + re.sub("\[PAUSE:([0-9a-f]{2})\]", r"\1", c.value) + " 80"
+                    case _:
+                        raise Exception("invalid char")
+            code = [f(c) for c in code]
+            code = ' '.join(code)
         return code
         
 class Arg(BaseBox):

@@ -13,7 +13,8 @@ class Parser():
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
-                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN', 'FUNCTION_RND', 'FUNCTION_CALL',
+                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN',
+                'FUNCTION_RND', 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE',
                 'IDENTIFIER'
@@ -252,6 +253,11 @@ class Parser():
             address = p[2]
 
             return Call(address, [])
+        @self.pg.production('expression : FUNCTION_STRING ( expression )')
+        def parse(p):
+            string = p[2]
+
+            return String(string, True)
 
         @self.pg.production('arg_list : arg')
         def parse(p):
