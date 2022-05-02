@@ -59,11 +59,12 @@ class Function(_Function_Base):
                 case _ if isinstance(arg, Arg_Install):
                     self.install = True
                     self.address = arg.eval()
+                    self.terminate = arg.terminate
                 case _ if isinstance(arg, Arg_Inject):
                     self.inject.append(arg)
                     self.terminate = arg.terminate
 
-        if self.install:
+        if self.install and self.terminate:
             self.script += [ End() ]
 
     def _code(self):
@@ -112,8 +113,9 @@ class Function_Code(_Function_Base):
         """
 
 class Arg_Install(BaseBox):
-    def __init__(self, address=None):
+    def __init__(self, address=None, terminate=True):
         self.address = address
+        self.terminate = terminate
 
     def eval(self):
         if self.address != None:
@@ -630,15 +632,66 @@ class Asign(BinaryOp):
         code = "18"
 
         value = self.right
-        if isinstance(value, Param) and value.name != None:
-            p = {x.name : x for x in self.params}
-            value = p[value.name].value
-        elif isinstance(value.value, Memory):
-            value = value.value
+        if isinstance(value.value, BinaryOp):
+            if isinstance(value.value, Add):
+                operator_arithmatic = "9a"
+            elif isinstance(value.value, Sub):
+                operator_arithmatic = "9b"
+            else:
+                raise Exception("todo")
+
+            address_1 = self.left.value.address.eval()
+            if address_1 >= 0x2834:
+                address_1 -= 0x2834
+            elif address_1 >= 0x2258:
+                address_1 -= 0x2258
+            address_1 = '{:04X}'.format(address_1, 'x')
+            address_1 = wrap(address_1, 2)
+            address_1 = ' '.join(reversed(address_1))
+
+            address_2 = self.right.value.left.value.address.eval()
+            if address_2 >= 0x2834:
+                code = "19"
+                code2 = "0d"
+                address_2 -= 0x2834
+            elif address_2 >= 0x2258:
+                code = "18"
+                code2 = "08"
+                address_2 -= 0x2258
+            address_2 = '{:04X}'.format(address_2, 'x')
+            address_2 = wrap(address_2, 2)
+            address_2 = ' '.join(reversed(address_2))
+
+            value = self.right.value.right.value.eval()
+            if value >= 16:
+                value -= 0x10
+                value &= 0x7f
+                value += 0x60
+            elif value <= 0x0f:
+                value &= 0x0f
+                value += 0x30
+            else:
+                raise Exception("todo")
+            value = '{:02X}'.format(value, 'x')
+            
+            return f"""
+{code} {address_1} {code2} {address_2} 29 {value} {operator_arithmatic} // (19) WRITE $2869 = $2869 + 16
+            """
+        elif isinstance(value, Param):
+            if value.name != None:
+                p = {x.name : x for x in self.params}
+                value = p[value.name].value
+            else:
+                value = value.value
 
         if isinstance(value, Param) or isinstance(value, Word):
             memory = self.left.value.address.eval()
-            memory -= 0x2258
+            if memory >= 0x2834:
+                code = "19"
+                memory -= 0x2834
+            elif memory >= 0x2258:
+                code = "18"
+                memory -= 0x2258
             memory = '{:04X}'.format(memory, 'x')
             memory = wrap(memory, 2)
             memory = ' '.join(reversed(memory))
@@ -657,7 +710,12 @@ class Asign(BinaryOp):
             code = "19"
             
             memory = self.left.value.address.eval()
-            memory -= 0x2834
+            if memory >= 0x2834:
+                code = "19"
+                memory -= 0x2834
+            elif memory >= 0x2258:
+                code = "18"
+                memory -= 0x2258
             memory = '{:04X}'.format(memory, 'x')
             memory = wrap(memory, 2)
             memory = ' '.join(reversed(memory))

@@ -57,10 +57,12 @@ def handle_parse(code, profile):
 code = """
 #include("in/core.evs")
 
-fun test_dialog() {
-    dialog(STRING.RANDOM_UNCOMPRESSED_2);
-    question(STRING.RANDOM_UNCOMPRESSED_1);
+fun upgrade_dog() {
+    <0x24a7> = <0x24a7> + 0x02;
+    MEMORY.DOG = <0x24a7> + 0x00;
+}
 
+fun loot_legendary() {
     if(<0x289d> == 0x01) {
         reward(ITEM.HARD_BALL);
         reward(ITEM.FLASH);
@@ -68,40 +70,78 @@ fun test_dialog() {
         reward(ITEM.SPEAR_3);
     } else if(<0x289d> == 0x03) {
         reward(ITEM.WINGS);
+    } else if(<0x289d> == 0x04) {
+        upgrade_dog();
+    }
+}
+fun loot_epic() {
+    if(<0x289d> == 0x01) {
+        reward(ITEM.HARD_BALL);
+    } else if(<0x289d> == 0x02) {
+        reward(ITEM.AXE_1);
+    } else if(<0x289d> == 0x03) {
+        reward(ITEM.PETAL);
+        reward(ITEM.NECTAR);
+    } else if(<0x289d> == 0x04) {
+        upgrade_dog();
+    }
+}
+fun loot_rare() {
+    if(<0x289d> == 0x01) {
+        reward(ITEM.FLASH);
+    } else if(<0x289d> == 0x02) {
+        reward(ITEM.AXE_1);
+    } else if(<0x289d> == 0x03) {
+        reward(ITEM.NECTAR);
+    } else if(<0x289d> == 0x04) {
+        upgrade_dog();
+    }
+}
+fun loot_common() {
+    if(<0x289d> == 0x01) {
+        reward(ITEM.ACID_RAIN);
+    } else if(<0x289d> == 0x02) {
+        reward(ITEM.AXE_1);
+    } else if(<0x289d> == 0x03) {
+        reward(ITEM.PETAL);
+    } else if(<0x289d> == 0x04) {
+        upgrade_dog();
     }
 }
 
-fun spawn_jade_guy(id, x, y) {
-    code(0xba, id, x, y);
-    <0x2835> = MEMORY.LAST_ENTITY;
-    eval("3d 8d 01 00 0c 18 // (3d) WRITE $2835+x66=0x180c, $2835+x68=0x0040 (talk script): Jaguar ring dude");
-}
+fun rng_fiesta(difficulty) {
+    question(STRING.RANDOM_UNCOMPRESSED_1);
 
-fun shaking(on) {
-    if(on > 0x00) {
-        code(0x8d, 0x01, "// (8d) 01 Start screen shaking");
-        code(0x18, 0xb1, 0x01, 0xb1, "// (18) WRITE SCREEN SHAKING MAGNITUDE X ($2409) = 0x0001");
-        code(0x18, 0xb3, 0x01, 0xb1, "// (18) WRITE SCREEN SHAKING MAGNITUDE Y ($240b) = 0x0001");
+    if(difficulty >= 0x30) {
+        dialog(STRING.RANDOM_UNCOMPRESSED_2);
+        loot_legendary();
+    } else if(difficulty > 0x14) {
+        dialog(STRING.RANDOM_UNCOMPRESSED_3);
+        loot_epic();
+    } else if(difficulty > 0x0a) {
+        dialog(STRING.RANDOM_UNCOMPRESSED_4);
+        loot_rare();
     } else {
-        code(0x8d, 0x00, "// (8d) 01 Start screen shaking");
+        dialog(STRING.RANDOM_UNCOMPRESSED_5);
+        loot_common();
     }
-
-}
-
-fun fade_in() {
-    eval("29 75 5e 00 // (29) CALL 0x92de75 Some cinematic script (used multiple times)");
 }
 
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER)
-fun room_1() {
+fun south_forest_enter() {
+    MEMORY.DOG = DOG.WOLF2;
+    <0x24a7> = DOG.WOLF2;
+    
+    // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+
     init_map(0x00, 0x02, 0x80, 0x96);
 
     price(0x1, 0xa, 0x0800, 0x1);
     price(0x2, 0x5, 0x0805, 0x1);
     price(0x3, 0x2, 0x0001, 0x1);
 
-    MEMORY.DOG = DOG.TOASTER;
+    // MEMORY.DOG = DOG.TOASTER;
 
     add_enemy(ENEMY.FLOWER, 0x49, 0x79);
     add_enemy(ENEMY.FLOWER, 0x6b, 0x81);
@@ -127,13 +167,16 @@ fun room_1() {
     add_enemy_with_flags(ENEMY.MOSQUITO, 0x3b, 0x4d, FLAG_ENEMY.MOSQUITO);
     
     if(!FLAG.IN_ANIMATION) {
-        teleport(CHARACTER.BOTH, 0x46, 0x89);
+        teleport(CHARACTER.BOTH, 0x50, 0x83);
     }
 
     music_volume(MUSIC.START, 0x64);
     fade_in();
 }
-
+@install(0x94ce7b, False)
+fun fe_village_dog() {
+    eval("4d 4d 4d 4d");
+}
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
 fun first_gourd() {
@@ -141,88 +184,131 @@ fun first_gourd() {
 
     // transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
     
-    test_dialog();
-}
-
-fun object(index, value) {
-    code(0x5c, 0xb0 + index, 0xb0 + value, "// (5c) SET OBJ 5 STATE = val:1 (load/unload)");
+    upgrade_dog();
 }
 
 @install()
-@inject(ADDRESS.RAPTORS_EXIT_ENTER)
-fun raptors() {
-    if(!FLAG.IN_ANIMATION) {
-        teleport(CHARACTER.BOTH, 0x1d, 0x27);
+@inject(ADDRESS.FE_EXIT_EAST)
+fun village_exit_east() {
+    MEMORY.DOG = DOG.TOASTER;
+    transition(MAP.THRAXX, 0x17, 0x3f, DIRECTION.WEST, DIRECTION.NORTH);
+}
+@install(0x93d349, False)
+fun thraxx_heal() {
+    eval("4d 4d 4d 4d 4d");
+    eval("4d 4d 4d 4d 4d");
+}
+@install()
+@inject(ADDRESS.THRAXX_EXIT_NORTH)
+@inject(ADDRESS.THRAXX_EXIT_SOUTH)
+fun thraxx_exit() {
+    if(!FLAG.RANDOM_1) {
+        set(FLAG.RANDOM_1);
+        rng_fiesta(rnd(0x10, 0x20));
     }
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
+}
 
+@install()
+@inject(ADDRESS.FE_EXIT_SOUTH)
+fun fe_exit_south() {
+    transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.SOUTH, DIRECTION.NORTH);
+}
+@install(0x93912c, False)
+fun raptors_dog() {
+    eval("4d 4d 4d 4d");
+}
+fun raptor_flags() {
+    if(!FLAG.RANDOM_2) {
+        set(FLAG.RANDOM_2);
+        rng_fiesta(rnd(0x00, 0x10));
+    }
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
+}
+@install()
+@inject(ADDRESS.RAPTORS_EXIT_SOUTH)
+fun raptors_exit() {
     if(!FLAG.RAPTORS) {
-        object(0x05, 0x03); // northern bushes
-        object(0x04, 0x00); // southern bush
-        object(0x00, 0x00); // top left
-        object(0x01, 0x00); // top right
-        object(0x02, 0x00); // bottom left
-        object(0x03, 0x00); // bottom right
-        
-        music(MUSIC.RAPTORS);
-
-        // add_enemy_with_flags(0x0040, 0x13, 0x19, 0x0022);
-
-        add_enemy_with_flags(ENEMY.RAPTOR_RED, 0x15, 0x13, FLAG_ENEMY.INACTIVE_IMORTAL);
-        MEMORY.ENTITY_1 = MEMORY.LAST_ENTITY;
-        add_enemy_with_flags(ENEMY.RAPTOR_RED, 0x17, 0x29, FLAG_ENEMY.INACTIVE_IMORTAL);
-        MEMORY.ENTITY_2 = MEMORY.LAST_ENTITY;
-        add_enemy_with_flags(ENEMY.RAPTOR_RED, 0x25, 0x13, FLAG_ENEMY.INACTIVE_IMORTAL);
-        MEMORY.ENTITY_3 = MEMORY.LAST_ENTITY;
-        add_enemy_with_flags(ENEMY.RAPTOR_RED, 0x27, 0x29, FLAG_ENEMY.INACTIVE_IMORTAL);
-        MEMORY.ENTITY_4 = MEMORY.LAST_ENTITY;
-
-        // call(0x9391b9); // leaf cutscene
+        transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
     }
 
-    fade_in();
+    raptor_flags();
+}
+@install()
+@inject(ADDRESS.RAPTORS_EXIT_NORTH)
+fun raptors_exit() {
+    set(FLAG.RAPTORS);
+
+    raptor_flags();
 }
 
 @install()
-@inject(ADDRESS.RAPTORS_STEP_ON_FIGHT)
-fun raptors_trigger() {
-    // <0x2847> = 0x0001;
-    // call(0x9389d1);
-    
-    object(0x02, 0x01);
-    yield();
-    yield();
-    yield();
-    yield();
-    yield();
-    yield();
-    object(0x02, 0x00);
-    yield();
-    yield();
-    yield();
-    yield();
-    yield();
-    yield();
-    object(0x02, 0x01);
-    yield();
-    yield();
-    yield();
-    yield();
-    yield();
-    yield();
-    object(0x02, 0x00);
+@inject(ADDRESS.FE_EXIT_WEST)
+fun fe_exit_west() {
+    transition(MAP.MAGMAR, 0x18, 0x47, DIRECTION.NORTH, DIRECTION.NORTH);
+}
+
+@install()
+@inject(ADDRESS.FE_EXIT_NORTH)
+fun fe_exit_north() {
+    transition(MAP.SALABOG, 0x1c, 0x61, DIRECTION.WEST, DIRECTION.NORTH);
+}
+@install(0x978e34, False)
+fun fe_village_dog() {
+    eval("4d 4d 4d 4d");
+}
+@install()
+@inject(ADDRESS.SALABOG_EXIT_SOUTH)
+@inject(ADDRESS.SALABOG_EXIT_NORTH)
+fun salabog_exit() {
+    if(!FLAG.SALABOG) {
+        transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
+    }
+
+    if(!FLAG.RANDOM_4) {
+        set(FLAG.RANDOM_4);
+        rng_fiesta(rnd(0x15, 0x20));
+    }
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
 }
 
 @install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_1)
-fun string_test() {
+fun string_test_1() {
     string("[0x96][0x8b]Alchemy[LF]");
     string("[0x8b]Weapon[LF]");
-    string("[0x8b]Consumable");
+    string("[0x8b]Consumable[LF]");
+    string("[0x8b]Dog");
 }
 
-@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_2)
-fun string_test() {
+fun text_header() {
     string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]");
-    string("EPIC loot![PAUSE:1b]![PAUSE:2b]![PAUSE:3b]1[0x86]");
+}
+fun text_footer() {
+    string("[0x86]");
+}
+@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_2)
+fun string_test_2() {
+    text_header();
+    string("L[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]G[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]N[PAUSE:2b]-[PAUSE:2b]D[PAUSE:2b]-[PAUSE:2b]A[PAUSE:2b]-[PAUSE:2b]R[PAUSE:2b]-[PAUSE:2b]Y loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1");
+    text_footer();
+}
+@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_3)
+fun string_test_2() {
+    text_header();
+    string("EPIC loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1");
+    text_footer();
+}
+@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_4)
+fun string_test_2() {
+    text_header();
+    string("Rare loot!");
+    text_footer();
+}
+@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_5)
+fun string_test_2() {
+    text_header();
+    string("Some loot.");
+    text_footer();
 }
 
 

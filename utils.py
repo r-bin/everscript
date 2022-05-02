@@ -6,6 +6,8 @@ import shutil
 import binascii
 from textwrap import wrap
 from pathlib import Path
+import copy
+import ujson
 
 from ips_util import Patch
 
@@ -16,6 +18,12 @@ class Utils():
 
         self.out = "./out"
         self.tmp = os.path.join(self.out, "tmp")
+
+    def deepcopy(self, object):
+        if False:
+            return copy.deepcopy(object)
+        else:
+            return ujson.loads(ujson.dumps(object))
 
     def extend_rom(self, file_in, file_out):
         destfile = pathlib.Path(file_out)

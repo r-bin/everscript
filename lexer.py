@@ -10,6 +10,13 @@ class Lexer():
         self.lexer.add('\n', '\n')
         self.lexer.add(';', ';')
 
+        self.lexer.add('OR=', '\|\=')
+        self.lexer.add('&=', '\&\=')
+        self.lexer.add('==', '\=\=')
+        self.lexer.add('<=', '\<\=')
+        self.lexer.add('>=', '\>\=')
+        self.lexer.add('=', '\=')
+        
         self.lexer.add('(', '\(')
         self.lexer.add(')', '\)')
         self.lexer.add(',', '\,')
@@ -19,13 +26,6 @@ class Lexer():
         self.lexer.add(']', '\]')
         self.lexer.add('<', '\<')
         self.lexer.add('>', '\>')
-        
-        self.lexer.add('OR=', '\|\=')
-        self.lexer.add('&=', '\&\=')
-        self.lexer.add('==', '\=\=')
-        self.lexer.add('<=', '\<\=')
-        self.lexer.add('>=', '\>\=')
-        self.lexer.add('=', '\=')
         
         self.lexer.add('!', '\!')
         self.lexer.add('+', '\+')
