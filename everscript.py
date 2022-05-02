@@ -58,7 +58,8 @@ code = """
 #include("in/core.evs")
 
 fun test_dialog() {
-    question(STRING.RANDOM_UNCOMPRESSED);
+    dialog(STRING.RANDOM_UNCOMPRESSED_2);
+    question(STRING.RANDOM_UNCOMPRESSED_1);
 
     if(<0x289d> == 0x01) {
         reward(ITEM.HARD_BALL);
@@ -211,12 +212,17 @@ fun raptors_trigger() {
     object(0x02, 0x00);
 }
 
-@install(0xC15330)
+@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_1)
 fun string_test() {
-    code(0x97);
-    code(0x8b, "41 6C 63 68 65 6D 79  0a // Alchemy\\n");
-    code(0x8b, "57 65 61 70 6F 6E  0a // Weapon\\n");
-    code(0x8b, "43 6F 6E 73 75 6D 61 62 6C 65 // Consumable");
+    string("[0x96][0x8b]Alchemy[LF]");
+    string("[0x8b]Weapon[LF]");
+    string("[0x8b]Consumable");
+}
+
+@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_2)
+fun string_test() {
+    string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]");
+    string("EPIC loot![PAUSE:1b]![PAUSE:2b]![PAUSE:3b]1[0x86]");
 }
 
 

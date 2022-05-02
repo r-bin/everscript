@@ -62,6 +62,7 @@ class Lexer():
         self.lexer.add('FUNCTION_LEN', 'len(?=\()')
         self.lexer.add('FUNCTION_RND', 'rnd(?=\()')
         self.lexer.add('FUNCTION_CALL', 'call(?=\()')
+        self.lexer.add('FUNCTION_STRING', 'string(?=\()')
         
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')
