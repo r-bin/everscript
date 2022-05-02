@@ -122,7 +122,7 @@ class Parser():
             address = p[2]
             terminate = True
             if len(p) >= 5 and isinstance(p[4], Word):
-                terminate = p[4].eval()
+                terminate = p[4].eval() == 0
 
             return Arg_Inject(address, terminate)
         @self.pg.production('function_arg : FUN_INSTALL ( )')
@@ -131,6 +131,12 @@ class Parser():
         @self.pg.production('function_arg : FUN_INSTALL ( expression )')
         def parse(p):
             return Arg_Install(p[2])
+        @self.pg.production('function_arg : FUN_INSTALL ( expression , expression )')
+        def parse(p):
+            address = p[2]
+            terminate = p[4].eval() > 0
+
+            return Arg_Install(address, terminate)
 
         @self.pg.production('expression_entry : expression ;')
         def parse(p):
