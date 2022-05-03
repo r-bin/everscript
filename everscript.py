@@ -59,7 +59,10 @@ code = """
 
 fun upgrade_dog() {
     <0x24a7> = <0x24a7> + 0x02;
-    MEMORY.DOG = <0x24a7> + 0x00;
+    if(<0x24a7> > DOG.TOASTER) {
+        <0x24a7> = DOG.TOASTER;
+    }
+    MEMORY.DOG = <0x24a7>;
 }
 
 fun loot_legendary() {
@@ -131,9 +134,9 @@ fun rng_fiesta(difficulty) {
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER)
 fun south_forest_enter() {
     <0x24a7> = DOG.WOLF2;
-    MEMORY.DOG = <0x24a7> + 0x00;
+    MEMORY.DOG = <0x24a7>;
 
-    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+    // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
 
     init_map(0x00, 0x02, 0x80, 0x96);
 
