@@ -542,20 +542,59 @@ class If(_Function_Base):
             """
         elif isinstance(self.condition, BinaryOp) and isinstance(self.condition.left.value, Memory):
             address = self.condition.left.value.address.eval()
-            address -= 0x2834
+            if address >= 0x2834:
+                address -= 0x2834
+            elif address >= 0x2258:
+                address -= 0x2258
             address = '{:04X}'.format(address, 'x')
             address = wrap(address, 2)
             address = ' '.join(reversed(address))
 
-            value = self.condition.right.value.eval()
-            value -= 1
-            value &= 0b111
-            value += 0x30
-            value = '{:02X}'.format(value, 'x')
+            if isinstance(self.condition, Greater):
+                code = "09"
 
-            return f"""
+                code2 = "0d"
+
+                code3 = 0x1f
+                code3 += 0x80
+                code3 = '{:02X}'.format(code3, 'x')
+
+                
+                address = self.condition.left.value.address.eval()
+                if address >= 0x2834:
+                    address -= 0x2834
+                elif address >= 0x2258:
+                    code2 = "08"
+                    address -= 0x2258
+                address = '{:04X}'.format(address, 'x')
+                address = wrap(address, 2)
+                address = ' '.join(reversed(address))
+                
+                # example:
+                # (09) IF ($2850 > 0) == FALSE THEN SKIP 24 (to 0x95dc55)  09 0d 1c 00 29 30 9f 18 00
+                # (09) IF ($2834 > 1) == FALSE THEN SKIP 9 (to 0x95d6ea)  09 0d 00 00 29 31 9f 09 00
+                # (09) IF ($244f > 9) == FALSE THEN SKIP 55 (to 0x96ad12)  09 08 f7 01 29 39 9f 37 00
+                #
+                # (09) IF ($24b1 > $283d) == FALSE THEN SKIP 7 (to 0x95b7b3)  09 08 59 02 29 0d 09 00 9f 07 00
+
+                value = self.condition.right.value.eval()
+                value &= 0x0f
+                value += 0x30
+                value = '{:02X}'.format(value, 'x')
+
+                return f"""
+{code} {code2} {address} 29 {value} {code3} {destination}         // if(memory > word) jump
+                """
+            else:
+                value = self.condition.right.value.eval()
+                value -= 1
+                value &= 0b111
+                value += 0x30
+                value = '{:02X}'.format(value, 'x')
+
+                return f"""
 09 0e {address} 29 {value} a2 {destination}       // if() jump
-            """
+                """
         else:
             return Function_Code(self.script, '\n').code(self.params)
         
@@ -736,10 +775,34 @@ class Asign(BinaryOp):
             value = value.address.eval()
             if value == 0x0341:
                 value = 0xad    
-            value = '{:02X}'.format(value, 'x')
+                value = '{:02X}'.format(value, 'x')
+            else:
+                code2 = "8d"
+
+                # examples:
+                # (18) WRITE $2491 = $248d  18 39 02 88 35 02
+                # (19) WRITE $287b = $2861  19 47 00 8d 2d 00
+                # (19) WRITE $2845 = $2429  19 11 00 88 d1 01
+                # (1c) WRITE $2533 = $2839  1c db 02 8d 05 00
+
+                if value >= 0x2834:
+                    code = "19"
+                    code2 = "8d"
+                    value -= 0x2834
+                elif value >= 0x2258:
+                    code = "18"
+                    code2 = "88"
+                    value -= 0x2258
+                value = '{:04X}'.format(value, 'x')
+                value = wrap(value, 2)
+                value = ' '.join(reversed(value))
+
+                return  f"""
+{code} {memory} {code2} {value}       // memory({self.left}) = {self.right}
+                """
+
         else:
             raise Exception("unknown type")
-
 
         return  f"""
 {code} {memory} {value}       // memory({self.left}) = {self.right}
