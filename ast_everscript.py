@@ -1,6 +1,6 @@
 from utils import Utils
 
-from rply import LexerGenerator
+from rply import LexerGenerator, Token
 from lib2to3.pytree import Base
 import math
 from rply.token import BaseBox
@@ -190,6 +190,9 @@ class Word(_Function_Base):
             count = len(count)
             self.value_count = count
 
+    def __str__(self):
+        return f"Word({self.value_original.value})"
+
     def eval(self):
         return self.value
         
@@ -211,14 +214,19 @@ class String(_Function_Base):
         self.value = value
         self.c_string = c_string
 
+    def __str__(self):
+        return f"String({self.value.value})"
+
     def eval(self):
         return self.value.value
         
     def _code(self):
-        if not self.c_string:
+        if isinstance(self.value, Token):
             code = re.sub("\"", "", self.value.value)
+        elif not self.c_string:
+            code = re.sub("\"", "", self.value.eval())
         else:
-            code = re.sub("\"", "", self.value.value.value)
+            code = re.sub("\"", "", self.value.eval())
 
             lexer = LexerGenerator()
             lexer.add('LF', '\[LF\]')
@@ -242,7 +250,7 @@ class String(_Function_Base):
                     case _:
                         raise Exception("invalid char")
             code = [f(c) for c in code]
-            code = ' '.join(code)
+            code = ' '.join(code) + f" // '{self.value.value}'"
         return code
         
 class Arg(BaseBox):
@@ -258,13 +266,16 @@ class Param(BaseBox):
             self.name = name.value
         self.value = value
 
+    def __str__(self):
+        return f"Param(name={self.name}, value={self.value})"
+
     def eval(self):
         if isinstance(self.value, Memory):
             return self.value.address.value
         elif isinstance(self.value, Word):
             return self.value.value
         else:
-            raise Exception("unknown type")
+            return self.value.eval()
 
 class Label_Jump(BaseBox):
     def __init__(self, value):
@@ -294,9 +305,11 @@ class Call(_Function_Base):
             self.address = function.address
             for p, a in zip(self.params, function.args):
                 p.name = a.name
-        else:
+        elif isinstance(function, Param):
             self.function = None
             self.address = function.eval()
+        else:
+            raise Exception("todo")
         
     def _code(self):
         if self.function == None or self.function.install:
@@ -347,15 +360,15 @@ a3 00               // (a3) CALL \"Fade-out / stop music\" (0x00)
         """
 
 class Function_Eval(_Function_Base):
-    def __init__(self, script):
-        self.script = script
+    def __init__(self, text):
+        self.text = text
 
     def eval(self):
         return 0
         
     def _code(self):
         return f"""
-{self.script.code()}        // eval({self.script.value.value})
+{self.text.value.code()}        // eval({self.text.value})
         """
 
 class Function_Goto(_Function_Base):
@@ -742,6 +755,9 @@ class Memory(BaseBox):
     def __init__(self, address, flag=None):
         self.address = address
         self.flag = flag
+
+    def __str__(self):
+        return f"Memory(address={self.address}, flag={self.flag})"
     
     def eval(self):
         return self.address.eval()
@@ -778,11 +794,11 @@ class Set(_Function_Base):
         self.memory = memory
 
     def _code(self):
-        address = self.memory.address.eval()
+        address = self.memory.value.address.eval()
         address -= 0x2258
         address <<=  3
 
-        flag = self.memory.flag.eval()
+        flag = self.memory.value.flag.eval()
         f = 0
         while  flag > 1:
             flag >>= 1

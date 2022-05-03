@@ -55,15 +55,6 @@ class Lexer():
         self.lexer.add('IF', 'if(?=\()')
         self.lexer.add('ELSE', 'else(?=\s*\{)')
 
-        self.lexer.add('FUNCTION_EVAL', 'eval(?=\()')
-        self.lexer.add('FUNCTION_GOTO', 'goto(?=\()')
-        self.lexer.add('FUNCTION_CODE', 'code(?=\()')
-        self.lexer.add('FUNCTION_SET', 'set(?=\()')
-        self.lexer.add('FUNCTION_LEN', 'len(?=\()')
-        self.lexer.add('FUNCTION_RND', 'rnd(?=\()')
-        self.lexer.add('FUNCTION_CALL', 'call(?=\()')
-        self.lexer.add('FUNCTION_STRING', 'string(?=\()')
-        
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')
 

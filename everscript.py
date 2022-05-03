@@ -130,10 +130,10 @@ fun rng_fiesta(difficulty) {
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER)
 fun south_forest_enter() {
-    MEMORY.DOG = DOG.WOLF2;
     <0x24a7> = DOG.WOLF2;
-    
-    // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+    MEMORY.DOG = <0x24a7> + 0x00;
+
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
 
     init_map(0x00, 0x02, 0x80, 0x96);
 
