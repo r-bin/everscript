@@ -1,0 +1,192 @@
+from rply.token import BaseBox
+import re
+from textwrap import wrap
+
+class Function_Base(BaseBox):
+    params = []
+
+    def code(self, params=[]):
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            p = {x.name : x for x in params}
+            for key in sp.keys() & p.keys():
+                sp[key].value = p[key].value
+        else:
+            self.params = params
+
+        code = self._code()
+        code = re.sub("\n\s*\n", "", code)
+        code = code.strip()
+
+        return code
+        
+    def code_clean(self):
+        script = self.code(self.params)
+        script = re.sub("//.*", "", script)
+        script = re.sub("[\s]+", " ", script)
+        script = script.strip()
+
+        return script
+
+    def count(self):
+        count = self.code_clean()
+        if len(count) > 0:
+            count = count.split(" ")
+        count = len(count)
+
+        return count
+
+class BinaryOp(Function_Base):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+        self.value_count = 2
+    
+    def eval(self):
+        self.left.params = self.params
+        self.right.params = self.params
+
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            if isinstance(self.left, Param) and self.left.name != None:
+                self.left.value = sp[self.left.name].value
+            if isinstance(self.right, Param) and self.right.name != None:
+                self.right.value = sp[self.right.name].value
+
+        return self._eval()
+
+    def _code(self):
+        value = self.eval()
+        self.value_count = max(self.left.value.value_count, self.right.value.value_count)
+        
+        if self.value_count == 1:
+            value = '{:02X}'.format(value, 'x')
+        elif self.value_count == 2:
+            value = '{:04X}'.format(value, 'x')
+        elif self.value_count == 3:
+            value = '{:06X}'.format(value, 'x')
+
+        value = re.sub("0x", "", value)
+        value = wrap(value, 2)
+        
+        return ' '.join(reversed(value))
+    
+    def flatten(self, x, map):
+        if isinstance(x, BinaryOp):
+            #marge_params(x, x.left)
+            #marge_params(x, x.right)
+
+            return self.flatten(x.left, map) + [map[type(x)]] + self.flatten(x.right, map)
+        elif isinstance(x, Param):
+            #marge_params(x, x.value)
+            if not x.value:
+                sp = {x.name : x for x in self.params}
+                x.value = sp[x.name].value
+            return self.flatten(x.value, map)
+        else:
+            return [x]
+
+class Memory(BaseBox):
+    def __init__(self, address, flag=None):
+        self.address = address
+        self.flag = flag
+
+    def __str__(self):
+        return f"Memory(address={self.address}, flag={self.flag})"
+    
+    def eval(self):
+        return self.address.eval()
+
+class Word(Function_Base):
+    def __init__(self, value):
+        self.value_original = value
+
+        if isinstance(value, int):
+            self.value = value
+            self.value_count = 2
+        else:
+            self.value = int(value.value, 16)
+
+            count = re.sub("0x", "", value.value)
+            count = wrap(count, 2)
+            count = len(count)
+            self.value_count = count
+
+    def __str__(self):
+        return f"Word({self.value_original.value})"
+
+    def eval(self):
+        return self.value
+        
+    def _code(self):
+        if self.value_count == 1:
+            value = '{:02X}'.format(self.value, 'x')
+        elif self.value_count == 2:
+            value = '{:04X}'.format(self.value, 'x')
+        elif self.value_count == 3:
+            value = '{:06X}'.format(self.value, 'x')
+
+        value = re.sub("0x", "", value)
+        value = wrap(value, 2)
+        
+        return ' '.join(reversed(value))
+    
+class Param(BaseBox):
+    def __init__(self, name, value):
+        self.name = None
+        if name != None:
+            self.name = name.value
+        self.value = value
+
+    def __str__(self):
+        return f"Param(name={self.name}, value={self.value})"
+
+    def eval(self):
+        if isinstance(self.value, Memory):
+            return self.value.address.value
+        elif isinstance(self.value, Word):
+            return self.value.value
+        else:
+            return self.value.eval()
+
+class Function_Code(Function_Base):
+    def __init__(self, script, delimiter=' '):
+        self.script = script
+        self.delimiter = delimiter
+
+    def _code(self):
+        list = []
+
+        for a in self.script:
+            match a:
+                case _ if isinstance(a, int):
+                    list.append('{:02X}'.format(a, 'x')) # TODO
+                case _ if isinstance(a, Function_Base):
+                    list.append(a.code(self.params))
+                case _ if isinstance(a, Param):
+                    if a.value == None:
+                        code = "xx"
+                        for param in self.params:
+                            if param.name == a.name:
+                                code = param.value.code()
+                                break
+                        if code == "xx":
+                            pass
+                        list.append(code)
+                    else:
+                        list.append(a.value.code(self.params))
+                case _ if isinstance(a, str):
+                    list.append(a)
+                case None:
+                    pass
+                case _:
+                    raise Exception(f"unknown type: can't generate code for:\n{a}")
+
+        code = self.delimiter.join(filter(None, (list)))
+        if "xx" in code:
+            pass
+
+        return f"""
+{code}
+        """

@@ -1,9 +1,8 @@
-from utils import Utils
+from ast_core import *
 from calculator import *
+from utils import Utils
 
 from rply import LexerGenerator, Token
-from lib2to3.pytree import Base
-import math
 from rply.token import BaseBox
 import re
 from textwrap import wrap
@@ -12,41 +11,7 @@ import random
 
 utils = Utils()
 
-class _Function_Base(BaseBox):
-    params = []
-
-    def code(self, params=[]):
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            p = {x.name : x for x in params}
-            for key in sp.keys() & p.keys():
-                sp[key].value = p[key].value
-        else:
-            self.params = params
-
-        code = self._code()
-        code = re.sub("\n\s*\n", "", code)
-        code = code.strip()
-
-        return code
-        
-    def code_clean(self):
-        script = self.code(self.params)
-        script = re.sub("//.*", "", script)
-        script = re.sub("[\s]+", " ", script)
-        script = script.strip()
-
-        return script
-
-    def count(self):
-        count = self.code_clean()
-        if len(count) > 0:
-            count = count.split(" ")
-        count = len(count)
-
-        return count
-
-class Function(_Function_Base):
+class Function(Function_Base):
     def __init__(self, name, script, args, function_args=[]):
         self.name = name
         self.script = script
@@ -74,45 +39,6 @@ class Function(_Function_Base):
 
         return Function_Code(self.script, '\n').code()
 
-class Function_Code(_Function_Base):
-    def __init__(self, script, delimiter=' '):
-        self.script = script
-        self.delimiter = delimiter
-
-    def _code(self):
-        list = []
-
-        for a in self.script:
-            match a:
-                case _ if isinstance(a, int):
-                    list.append('{:02X}'.format(a, 'x')) # TODO
-                case _ if isinstance(a, _Function_Base):
-                    list.append(a.code(self.params))
-                case _ if isinstance(a, Param):
-                    if a.value == None:
-                        code = "xx"
-                        for param in self.params:
-                            if param.name == a.name:
-                                code = param.value.code()
-                                break
-                        if code == "xx":
-                            pass
-                        list.append(code)
-                    else:
-                        list.append(a.value.code(self.params))
-                case None:
-                    pass
-                case _:
-                    raise Exception(f"unknown type: can't generate code for:\n{a}")
-
-        code = self.delimiter.join(filter(None, (list)))
-        if "xx" in code:
-            pass
-
-        return f"""
-{code}
-        """
-
 class Arg_Install(BaseBox):
     def __init__(self, address=None, terminate=True):
         self.address = address
@@ -132,7 +58,7 @@ class Arg_Inject(BaseBox):
     def eval(self):
         return self.address.eval()
 
-class Address(_Function_Base):
+class Address(Function_Base):
     def __init__(self, value, length=3):
         self.value = value
         self.length = length
@@ -175,42 +101,8 @@ class _Address(BaseBox):
     def eval(self):
         num = int(self.value.value, 16)
         return num
-
-class Word(_Function_Base):
-    def __init__(self, value):
-        self.value_original = value
-
-        if isinstance(value, int):
-            self.value = value
-            self.value_count = 2
-        else:
-            self.value = int(value.value, 16)
-
-            count = re.sub("0x", "", value.value)
-            count = wrap(count, 2)
-            count = len(count)
-            self.value_count = count
-
-    def __str__(self):
-        return f"Word({self.value_original.value})"
-
-    def eval(self):
-        return self.value
-        
-    def _code(self):
-        if self.value_count == 1:
-            value = '{:02X}'.format(self.value, 'x')
-        elif self.value_count == 2:
-            value = '{:04X}'.format(self.value, 'x')
-        elif self.value_count == 3:
-            value = '{:06X}'.format(self.value, 'x')
-
-        value = re.sub("0x", "", value)
-        value = wrap(value, 2)
-        
-        return ' '.join(reversed(value))
-        
-class String(_Function_Base):
+    
+class String(Function_Base):
     def __init__(self, value, c_string = False):
         self.value = value
         self.c_string = c_string
@@ -260,24 +152,6 @@ class Arg(BaseBox):
 
     def eval(self):
         return self.name
-class Param(BaseBox):
-    def __init__(self, name, value):
-        self.name = None
-        if name != None:
-            self.name = name.value
-        self.value = value
-
-    def __str__(self):
-        return f"Param(name={self.name}, value={self.value})"
-
-    def eval(self):
-        if isinstance(self.value, Memory):
-            return self.value.address.value
-        elif isinstance(self.value, Word):
-            return self.value.value
-        else:
-            return self.value.eval()
-
 class Label_Jump(BaseBox):
     def __init__(self, value):
         self.value = value.value
@@ -298,7 +172,7 @@ class Label_Destination(BaseBox):
             num = 1
         return num
 
-class Call(_Function_Base):
+class Call(Function_Base):
     def __init__(self, function, params=[]):
         self.params = params
         if isinstance(function, Function):
@@ -327,7 +201,7 @@ class Call(_Function_Base):
         else:
             return Function_Code(self.function.script, '\n').code(self.params)
 
-class End(_Function_Base):
+class End(Function_Base):
 
     def eval(self):
         return 0
@@ -337,7 +211,7 @@ class End(_Function_Base):
 00      // (00) END (return)"
         """
 
-class Function_Transition(_Function_Base): # TODO
+class Function_Transition(Function_Base): # TODO
     def __init__(self, map, x, y, direction):
         self.map = map
         self.x = x
@@ -360,7 +234,7 @@ a3 00               // (a3) CALL \"Fade-out / stop music\" (0x00)
 22 {'{:02X}'.format(self.x.eval(), 'x')} {'{:02X}'.format(self.y.eval(), 'x')} {'{:02X}'.format(self.map.eval(), 'x')} 00      // (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: \"Prehistoria - Strong Heart's Hut\""
         """
 
-class Function_Eval(_Function_Base):
+class Function_Eval(Function_Base):
     def __init__(self, text):
         self.text = text
 
@@ -372,7 +246,7 @@ class Function_Eval(_Function_Base):
 {self.text.value.code()}        // eval({self.text.value})
         """
 
-class Function_Goto(_Function_Base):
+class Function_Goto(Function_Base):
     def __init__(self, label):
         self.label = label
         self.distance = -1
@@ -435,7 +309,7 @@ class Identifier(BaseBox):
 
         raise Exception("undefined parameter")
 
-class If_list(_Function_Base):
+class If_list(Function_Base):
     def __init__(self, list):
         self.list = list
         self.memory = False
@@ -473,7 +347,7 @@ class If_list(_Function_Base):
                 
         return Function_Code(list, '\n').code(self.params)
 
-class If(_Function_Base):
+class If(Function_Base):
     def __init__(self, condition, script):
         self.condition = condition
         self.script = script
@@ -599,43 +473,6 @@ class If(_Function_Base):
         else:
             return Function_Code(self.script, '\n').code(self.params)
         
-
-class BinaryOp(_Function_Base):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-        self.value_count = 2
-    
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            if isinstance(self.left, Param) and self.left.name != None:
-                self.left.value = sp[self.left.name].value
-            if isinstance(self.right, Param) and self.right.name != None:
-                self.right.value = sp[self.right.name].value
-
-        return self._eval()
-
-    def _code(self):
-        value = self.eval()
-        self.value_count = max(self.left.value.value_count, self.right.value.value_count)
-        
-        if self.value_count == 1:
-            value = '{:02X}'.format(value, 'x')
-        elif self.value_count == 2:
-            value = '{:04X}'.format(value, 'x')
-        elif self.value_count == 3:
-            value = '{:06X}'.format(value, 'x')
-
-        value = re.sub("0x", "", value)
-        value = wrap(value, 2)
-        
-        return ' '.join(reversed(value))
-
 class Equals(BinaryOp):
     def _eval(self):
         return self.left.value.eval() == self.right.value.eval()
@@ -682,149 +519,16 @@ class ShiftLeft(BinaryOp):
 
 class Asign(BinaryOp):
     def _code(self):
-        code = "18"
+        code = self.flatten(self, _map)
+        code = Calculator(code).code()
+        return code
 
-        value = self.right
-        if isinstance(value.value, BinaryOp):
-            if isinstance(value.value, Add):
-                operator_arithmatic = "9a"
-            elif isinstance(value.value, Sub):
-                operator_arithmatic = "9b"
-            else:
-                raise Exception("todo")
-
-            address_1 = self.left.value.address.eval()
-            if address_1 >= 0x2834:
-                address_1 -= 0x2834
-            elif address_1 >= 0x2258:
-                address_1 -= 0x2258
-            address_1 = '{:04X}'.format(address_1, 'x')
-            address_1 = wrap(address_1, 2)
-            address_1 = ' '.join(reversed(address_1))
-
-            address_2 = self.right.value.left.value.address.eval()
-            if address_2 >= 0x2834:
-                code = "19"
-                code2 = "0d"
-                address_2 -= 0x2834
-            elif address_2 >= 0x2258:
-                code = "18"
-                code2 = "08"
-                address_2 -= 0x2258
-            address_2 = '{:04X}'.format(address_2, 'x')
-            address_2 = wrap(address_2, 2)
-            address_2 = ' '.join(reversed(address_2))
-
-            value = self.right.value.right.value.eval()
-            if value >= 16:
-                value -= 0x10
-                value &= 0x7f
-                value += 0x60
-            elif value <= 0x0f:
-                value &= 0x0f
-                value += 0x30
-            else:
-                raise Exception("todo")
-            value = '{:02X}'.format(value, 'x')
-            
-            return f"""
-{code} {address_1} {code2} {address_2} 29 {value} {operator_arithmatic} // (19) WRITE $2869 = $2869 + 16
-            """
-        elif isinstance(value, Param):
-            if value.name != None:
-                p = {x.name : x for x in self.params}
-                value = p[value.name].value
-            else:
-                value = value.value
-
-        if isinstance(value, Param) or isinstance(value, Word):
-            memory = self.left.value.address.eval()
-            if memory >= 0x2834:
-                code = "19"
-                memory -= 0x2834
-            elif memory >= 0x2258:
-                code = "18"
-                memory -= 0x2258
-            memory = '{:04X}'.format(memory, 'x')
-            memory = wrap(memory, 2)
-            memory = ' '.join(reversed(memory))
-
-            value = value.eval()
-            if value <= 0xf:
-                value &= 0xf
-                value += 0xb0
-                value = '{:02X}'.format(value, 'x')
-            else:
-                value = '{:04X}'.format(value, 'x')
-                value = wrap(value, 2)
-                value = ' '.join(reversed(value))
-                value = f"84 {value}"
-        elif isinstance(value, Memory):
-            code = "19"
-            
-            memory = self.left.value.address.eval()
-            if memory >= 0x2834:
-                code = "19"
-                memory -= 0x2834
-            elif memory >= 0x2258:
-                code = "18"
-                memory -= 0x2258
-            memory = '{:04X}'.format(memory, 'x')
-            memory = wrap(memory, 2)
-            memory = ' '.join(reversed(memory))
-
-            value = value.address.eval()
-            if value == 0x0341:
-                value = 0xad    
-                value = '{:02X}'.format(value, 'x')
-            else:
-                code2 = "8d"
-
-                # examples:
-                # (18) WRITE $2491 = $248d  18 39 02 88 35 02
-                # (19) WRITE $287b = $2861  19 47 00 8d 2d 00
-                # (19) WRITE $2845 = $2429  19 11 00 88 d1 01
-                # (1c) WRITE $2533 = $2839  1c db 02 8d 05 00
-
-                if value >= 0x2834:
-                    code = "19"
-                    code2 = "8d"
-                    value -= 0x2834
-                elif value >= 0x2258:
-                    code = "18"
-                    code2 = "88"
-                    value -= 0x2258
-                value = '{:04X}'.format(value, 'x')
-                value = wrap(value, 2)
-                value = ' '.join(reversed(value))
-
-                return  f"""
-{code} {memory} {code2} {value}       // memory({self.left}) = {self.right}
-                """
-
-        else:
-            raise Exception("unknown type")
-
-        return  f"""
-{code} {memory} {value}       // memory({self.left}) = {self.right}
-            """
 class OrAsign(BinaryOp):
     def _code(self):
         raise Exception("not implemented")
 class AndAsign(BinaryOp):
     def _code(self):
         raise Exception("not implemented")
-
-class Memory(BaseBox):
-    def __init__(self, address, flag=None):
-        self.address = address
-        self.flag = flag
-
-    def __str__(self):
-        return f"Memory(address={self.address}, flag={self.flag})"
-    
-    def eval(self):
-        return self.address.eval()
 
 class Include(BaseBox):
     def __init__(self, generator, path):
@@ -853,7 +557,7 @@ class Include(BaseBox):
 
         return script
 
-class Set(_Function_Base):
+class Set(Function_Base):
     def __init__(self, memory):
         self.memory = memory
 
@@ -885,13 +589,13 @@ class Set(_Function_Base):
 0c {combined} {value}       // set({self.memory})
         """
 
-class Len(_Function_Base):
+class Len(Function_Base):
     def __init__(self, script):
         self.script = script
 
     def eval(self):
         match self.script:
-            case _ if isinstance(self.script, _Function_Base):
+            case _ if isinstance(self.script, Function_Base):
                 script = self.script
                 script = Word(script.count())
                 
@@ -903,7 +607,7 @@ class Len(_Function_Base):
 
     def _code(self):
         match self.script:
-            case _ if isinstance(self.script, _Function_Base):
+            case _ if isinstance(self.script, Function_Base):
                 script = self.script
                 script = Word(script.count())
                 script = script.code()
@@ -911,7 +615,7 @@ class Len(_Function_Base):
             case _:
                 raise Exception(f"unknown type: can't generate code")
 
-class Rnd(_Function_Base):
+class Rnd(Function_Base):
     def __init__(self, min, max):
         self.min = min
         self.max = max
@@ -919,3 +623,11 @@ class Rnd(_Function_Base):
     def eval(self):
         rnd = random.randint(self.min.eval(), self.max.eval())
         return Word(rnd)
+
+_map = {
+    Asign: "=",
+    Add: "+",
+    Sub: "-",
+    Mul: "*",
+    Div: "/"
+}
