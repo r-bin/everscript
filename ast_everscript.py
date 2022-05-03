@@ -1,4 +1,5 @@
 from utils import Utils
+from calculator import *
 
 from rply import LexerGenerator, Token
 from lib2to3.pytree import Base
