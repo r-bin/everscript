@@ -1,5 +1,5 @@
 from numpy import isin
-from ast_everscript import *
+from ast_core import *
 
 from textwrap import wrap
 import re
@@ -11,7 +11,7 @@ _instructions = {
     # _: 0x02, # unsigned const byte
 
     # _: 0x03, # signed const word
-    # _: 0x04, # unsigned const word
+    "word": 0x04, # unsigned const word
 
     # _: 0x05, # test bit
     # _: 0x0a, # test temp bit
@@ -54,7 +54,7 @@ _instructions = {
     "||": 0x27, # pulled || res
     "&&": 0x28, # pulled && res
 
-    # _: 0x29, # push to stack
+    "push": 0x29, # push to stack
     
     # _: 0x2a, # random word
     
@@ -117,34 +117,16 @@ _operators = {
     }
 }
 
-class _Address():
-    def __init__(self, address):
-        self.address = address
-        self.type = "24" # None
-        #self.code = self._code()
-
-    def _code(self):
-        code = self.address
-        if code >= 0x2834:
-            code -= 0x2834
-            self.type = "28"
-        elif code >= 0x2258:
-            code -= 0x2258
-            self.type = "24"
-        code = '{:04X}'.format(code, 'x')
-        code = wrap(code, 2)
-        code = ' '.join(reversed(code))
-
-        return code
-
-class _Instruction():
+class _Address(Function_Base):
     def __init__(self, address):
         self.address = address
         self.type = None
-        self.code = self._code()
+        
+        self._code()
 
     def _code(self):
-        code = self.address.eval()
+        code = self.address
+        
         if code >= 0x2834:
             code -= 0x2834
             self.type = "28"
@@ -157,33 +139,25 @@ class _Instruction():
 
         return code
 
-class Calculator():
+class Calculator(Function_Base):
     def __init__(self, instruction=[]):
         self.instruction = instruction
 
         self.type = None
         self.left = None
-        self.operator = None
         self.right = None
 
-    def calculate(self):
+    def eval(self):
         out = []
 
-        instruction = None
+        instruction = "="
         operator = None
 
-        last = False
-        
         header = []
         footer = []
-        pending = []
 
         while self.instruction:
             i = self.instruction.pop(0)
-            if len(self.instruction) == 1:
-                last = True
-
-            #print(i)
 
             if i in _operators:
                 operator = i
@@ -196,11 +170,14 @@ class Calculator():
                 else:
                     raise Exception("unknown operator")
             if i in _instructions:
+                if instruction == "+":
+                    self.add_instruction(footer, _instructions["push"])
                 instruction = _instructions[i]
 
-                self.add_instruction(pending, i)
-            elif re.match("<0x[0-9a-fA-F]+>", i):
-                i = _Address(i)
+                self.add_instruction(footer, i)
+            elif isinstance(i, Memory) or isinstance(i, str) and re.match("<0x[0-9a-fA-F]+>", i):
+                i = _Address(i.address.eval())
+                
                 if not self.left:
                     if instruction in _operators:
                         self.add_instruction(out, _operators[instruction][i.type])
@@ -213,12 +190,12 @@ class Calculator():
 
                     self.right = i
                     self.type = _types[i.type]
+                else:
+                    raise Exception("todo")
                 out.append(i)
-
-                if pending:
-                    self.add_instruction(out, pending)
-            elif re.match("0x[0-9a-fA-F]", i):
-                i = int(i, 16)
+            elif isinstance(i, Word) or isinstance(i, str) and re.match("0x[0-9a-fA-F]", i):
+                word = i
+                i = i.eval()
 
                 if i in range(0x0, 0xf):
                     i = 0x30 + (i & 0x0f)
@@ -227,11 +204,15 @@ class Calculator():
                 elif i in range(0xfff0, 0xffff):
                     i = 0x40 + ((i - 0xfff0) & 0x0f)
                 else:
-                    raise Exception("invalid word")
+                    i = word
 
+                if isinstance(i, Word):
+                    self.add_instruction(out, _instructions["word"])
+                elif self.right:
+                    self.add_instruction(out, _instructions["push"])
                 self.add_instruction(out, i)
 
-        out = header + out + footer
+        out = header + out + list(reversed(footer))
 
         for i, e in reversed(list(enumerate(out))):
             if isinstance(e, int):
@@ -240,16 +221,15 @@ class Calculator():
 
         return out
 
-    def add_instruction(self, out, instruction, last=False):
+    def add_instruction(self, out, instruction):
         if instruction in _instructions:
             instruction = _instructions[instruction]
         
-        if last:
-            instruction += _offsets["last"]
-
         out.append(instruction)
+    
+    def code(self):
+        script = self.eval()
+        script = Function_Code(script)
+        script = script.code()
 
-print("test:")
-print(Calculator(["<0x2443>", "=", "0x12"]).calculate())
-print(Calculator(["<0x2443>", "=", "<0x2443>"]).calculate())
-print(Calculator(["if", "<0x2443>", ">", "0x12"]).calculate())
+        return script
