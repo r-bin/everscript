@@ -20,6 +20,17 @@ class Parser():
                 'IDENTIFIER'
             ]
         )
+        
+        self.functions = {
+            "eval": (lambda p: Function_Eval(p[2][0])),
+            "goto": (lambda p: Function_Goto(p[2][0])),
+            "code": (lambda p: Function_Code(p[2])),
+            "set": (lambda p: Set(p[2][0])),
+            "len": (lambda p: Len(p[2][0]).eval()),
+            "rnd": (lambda p: Rnd(p[2][0], p[2][1]).eval()),
+            "call": (lambda p: Call(p[2][0], [])),
+            "string": (lambda p: String(p[2][0], True))
+        }
 
         self.generator = generator
 
@@ -190,19 +201,6 @@ class Parser():
         def parse(p):
             return Label_Destination(p[0])
 
-        @self.pg.production('expression : FUNCTION_CODE ( param_list )')
-        def parse(p):
-            return Function_Code(p[2])
-        @self.pg.production('expression : FUNCTION_EVAL ( expression )')
-        def parse(p):
-            return Function_Eval(p[2])
-        @self.pg.production('expression : FUNCTION_GOTO ( expression )')
-        def parse(p):
-            return Function_Goto(p[2])
-        @self.pg.production('expression : FUNCTION_SET ( expression )')
-        def parse(p):
-            return Set(p[2])
-            
         @self.pg.production('expression_entry : IF ( expression ) { expression_list }')
         def parse(p):
             condition = p[2]
@@ -250,7 +248,11 @@ class Parser():
             if not isinstance(params, list):
                 params = []
 
-            function = self.generator.function(name)
+            if name.value in self.functions:
+                function = self.functions[name.value](p)
+                return function
+            else:
+                function = self.generator.function(name)
             
             return Call(function, params)
 
@@ -365,14 +367,6 @@ class Parser():
                     return ShiftRight(left, right)
                 case _:
                     raise AssertionError('Oops, this should not be possible!')
-
-        @self.pg.production('expression : FUNCTION_LEN ( expression )')
-        def parse(p):
-            return Len(p[2]).eval()
-
-        @self.pg.production('expression : FUNCTION_RND ( expression , expression )')
-        def parse(p):
-            return Rnd(p[2], p[4]).eval()
 
         @self.pg.production('expression : TRUE')
         def parse(p):
