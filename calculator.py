@@ -13,8 +13,8 @@ _instructions = {
     # _: 0x03, # signed const word
     "word": 0x04, # unsigned const word
 
-    # _: 0x05, # test bit
-    # _: 0x0a, # test temp bit
+    "test": 0x05, # test bit
+    "test temp": 0x0a, # test temp bit
 
     # _: 0x06, # read byte, signed
     # _: 0x07, # read byte, unsigned
@@ -22,8 +22,8 @@ _instructions = {
     "read signed word": 0x09, # read word, unsigned
     # _: 0x0b, # read temp byte, signed
     # _: 0x0c, # read temp byte, unsigned
-    "read temp word": 0x0d, # read temp word, signed
-    # _: 0x0e, # read temp word, unsigned
+    "read signed temp word": 0x0d, # read temp word, signed
+    "read temp word": 0x0e, # read temp word, unsigned
 
     # _: 0x0f, # script arg bit, like 05 and 08 but addr is only 8bit
 
@@ -106,6 +106,11 @@ _operators = {
         "25": 0x1c,
         "28": 0x09
     },
+    "if!": {
+        "24": 0x08,
+        "25": 0x1c,
+        "28": 0x08
+    },
     "=": {
         "24": 0x18,
         "28": 0x19
@@ -114,6 +119,10 @@ _operators = {
     "read word": {
         "24": _instructions["read word"],
         "28": _instructions["read temp word"]
+    },
+    "test": {
+        "24": _instructions["test"],
+        "28": _instructions["test temp"]
     }
 }
 
@@ -141,17 +150,19 @@ class _Address(Function_Base):
 
 class Calculator(Function_Base):
     def __init__(self, instruction=[]):
-        self.instruction = instruction
+        self.original_instruction = instruction
+        self.instruction = list(instruction)
 
         self.type = None
-        self.left = None
-        self.right = None
+
+        self.words = []
+        self.total_word_count = len(list(filter(lambda x: type(x) in (Memory, Word) , self.instruction)))
 
     def eval(self):
         out = []
 
-        instruction = "="
-        operator = None
+        instruction = None
+        operator = "="
 
         header = []
         footer = []
@@ -163,35 +174,28 @@ class Calculator(Function_Base):
                 operator = i
 
                 if i == "if":
-                    self.add_instruction(out, "read signed word")
-                    footer.append("xx xx")
+                    pass
                 elif i == "=":
                     pass
                 else:
                     raise Exception("unknown operator")
-            if i in _instructions:
-                if instruction == "+":
-                    self.add_instruction(footer, _instructions["push"])
-                instruction = _instructions[i]
+            elif i in _instructions:
+                instruction = i
+
+                i = _instructions[i]
 
                 self.add_instruction(footer, i)
             elif isinstance(i, Memory) or isinstance(i, str) and re.match("<0x[0-9a-fA-F]+>", i):
-                i = _Address(i.address.eval())
-                
-                if not self.left:
-                    if instruction in _operators:
-                        self.add_instruction(out, _operators[instruction][i.type])
-                    else:
-                        self.add_instruction(out, i.type)
-                    self.left = i
-                    self.type = _types[i.type]
-                elif not self.right:
-                    self.add_instruction(out, _operators["read word"][i.type])
+                i.code()
 
-                    self.right = i
+                if i.inverted:
+                    operator = operator+"!"
+
+                if not self.words:
                     self.type = _types[i.type]
-                else:
-                    raise Exception("todo")
+                    header.append(operator)
+                
+                self.words.append(i)
                 out.append(i)
             elif isinstance(i, Word) or isinstance(i, str) and re.match("0x[0-9a-fA-F]", i):
                 word = i
@@ -206,13 +210,52 @@ class Calculator(Function_Base):
                 else:
                     i = word
 
-                if isinstance(i, Word):
-                    self.add_instruction(out, _instructions["word"])
-                elif self.right:
-                    self.add_instruction(out, _instructions["push"])
+                self.words.append(i)
                 self.add_instruction(out, i)
+            else:
+                self.add_instruction(footer, i)
 
-        out = header + out + list(reversed(footer))
+
+        t = ""
+        for o in out:
+            if type(o) == Memory:
+                t += "m"
+            elif type(o) == Word:
+                t += "w"
+            elif type(o) == int:
+                t += "i"
+        
+        if operator == "=":
+            operator = _operators["="][out[0].type]
+            match t:
+                case "mi":
+                    out = [operator, out[0], out[1]]
+                case "mm":
+                    out = [operator, out[0], _operators["read word"][out[1].type], out[1]]
+                case "mw":
+                    out = [operator, out[0], _instructions["word"], out[1]]
+                case "mmi":
+                    out = [operator, out[0], _operators["read word"][out[1].type], out[1], _instructions["push"], out[2]]
+                case _:
+                    raise Exception(f"unsupported structure: {t}")
+        elif operator == "if!":
+            operator = _operators["if!"][out[0].type]
+            match t:
+                case "m":
+                    out = [operator, _operators["test"][out[0].type], out[0]]
+                case _:
+                    raise Exception(f"unsupported structure: {t}")
+        elif operator == "if":
+            operator = _operators["if"][out[0].type]
+            match t:
+                case "mi":
+                    out = [operator, _operators["read word"][out[0].type], out[0], _instructions["push"], out[1]]
+                case _:
+                    raise Exception(f"unsupported structure: {t}")
+        else:
+            raise Exception(f"unsupported operator: {operator}")
+
+        out = out + footer
 
         for i, e in reversed(list(enumerate(out))):
             if isinstance(e, int):
@@ -222,10 +265,12 @@ class Calculator(Function_Base):
         return out
 
     def add_instruction(self, out, instruction):
-        if instruction in _instructions:
-            instruction = _instructions[instruction]
-        
-        out.append(instruction)
+        if isinstance(instruction, list):
+            out += instruction
+        else:
+            if instruction in _instructions:
+                instruction = _instructions[instruction]
+            out.append(instruction)
     
     def code(self):
         script = self.eval()

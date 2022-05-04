@@ -320,6 +320,9 @@ class If_list(Function_Base):
             elif isinstance(element.condition, BinaryOp) and isinstance(element.condition.left.value, Memory):
                 self.memory = True
 
+        for i in self.list:
+            i.memory = self.memory
+
     def _code(self):
         for script in self.list:
             script.params = self.params
@@ -368,6 +371,20 @@ class If(Function_Base):
                 raise Exception("unknown type for IF condition")
 
     def _code(self):
+        destination = "xx xx"
+        if self.distance != None:
+            destination = Word(self.distance)
+            destination = destination.code()
+
+        if self.memory and self.condition:
+            if isinstance(self.condition, BinaryOp):
+                f = self.condition.flatten(self.condition, _map)
+            else:
+                f = [self.condition]
+            f = ["if"] + f + [destination]
+            c = Calculator(list(f)).code()
+            pass
+
         destination = "xx xx"
         if self.distance != None:
             destination = '{:04X}'.format(self.distance, 'x')
@@ -629,5 +646,8 @@ _map = {
     Add: "+",
     Sub: "-",
     Mul: "*",
-    Div: "/"
+    Div: "/",
+
+    Equals: "==",
+    Greater: ">"
 }
