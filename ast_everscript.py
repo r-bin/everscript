@@ -8,6 +8,7 @@ import re
 from textwrap import wrap
 import copy
 import random
+import uuid
 
 utils = Utils()
 
@@ -164,13 +165,9 @@ class Label_Jump(BaseBox):
 
 class Label_Destination(BaseBox):
     def __init__(self, value):
-        self.value = re.sub(":", "", value.value)
-
-    def eval(self):
-        num = -1
-        if self.value == "TEST:":
-            num = 1
-        return num
+        if isinstance(value, Token):
+            value = value.value
+        self.value = re.sub(":", "", value)
 
 class Call(Function_Base):
     def __init__(self, function, params=[]):
@@ -247,21 +244,20 @@ class Function_Eval(Function_Base):
         """
 
 class Function_Goto(Function_Base):
-    def __init__(self, label):
+    def __init__(self, label=None):
         self.label = label
-        self.distance = -1
+        self.distance = None
 
     def eval(self):
         return 0
         
     def _code(self):
-        address = "xx xx"
-        if self.distance >= 0:
-            address = f"{'{:02X}'.format(self.distance, 'x')} 00"
+        distance = "xx xx"
+        if self.distance:
+            distance = Word(self.distance).code()
 
         return f"""
-// goto({self.label.value})
-04 {address}      // (04) SKIP 4 (to 0x9385d4)"
+04 {distance}      // goto({self.label}/{distance})
         """
 
 class Enum(BaseBox):
@@ -355,6 +351,7 @@ class If(Function_Base):
         self.condition = condition
         self.script = script
         self.distance = None
+        self.memory = False
 
     def eval(self):
         if self.condition != None:
@@ -580,3 +577,27 @@ class Rnd(Function_Base):
     def eval(self):
         rnd = random.randint(self.min.eval(), self.max.eval())
         return Word(rnd)
+
+class While(Function_Base):
+    def __init__(self, condition, script):
+        self.while_goto_end = Function_Goto()
+
+        self.while_if = If(condition, [])
+        self.while_if.distance = Function_Code(script, '\n').count() + self.while_goto_end.count()
+        self.while_if.memory = True
+
+        self.script = script
+        self.list = [self.while_if] + script + [self.while_goto_end]
+        self.memory = True
+
+        self.while_goto_end.distance = -(self.while_if.count() + Function_Code(script, '\n').count() + self.while_goto_end.count())
+        pass
+
+    def _code(self):
+        for script in self.script:
+            script.params = self.params
+
+        code = self.list
+        code = Function_Code(code, '\n').code(self.params)
+
+        return code

@@ -156,12 +156,18 @@ class Word(Function_Base):
         return self.value
         
     def _code(self):
+        value = self.value
+
+        if value < 0:
+            nbits = self.value_count * 8
+            value = (value + (1 << nbits)) % (1 << nbits)
+
         if self.value_count == 1:
-            value = '{:02X}'.format(self.value, 'x')
+            value = '{:02X}'.format(value, 'x')
         elif self.value_count == 2:
-            value = '{:04X}'.format(self.value, 'x')
+            value = '{:04X}'.format(value, 'x')
         elif self.value_count == 3:
-            value = '{:06X}'.format(self.value, 'x')
+            value = '{:06X}'.format(value, 'x')
 
         value = re.sub("0x", "", value)
         value = wrap(value, 2)

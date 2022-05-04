@@ -54,6 +54,8 @@ class Lexer():
         self.lexer.add('ELSEIF', 'else if(?=\()')
         self.lexer.add('IF', 'if(?=\()')
         self.lexer.add('ELSE', 'else(?=\s*\{)')
+        
+        self.lexer.add('WHILE', 'while(?=\()')
 
         self.lexer.add('FUN_INSTALL', '@install(?=\()')
         self.lexer.add('FUN_INJECT', '@inject(?=\()')

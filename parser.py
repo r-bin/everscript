@@ -13,6 +13,7 @@ class Parser():
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'END', 'LABEL_DESTINATION',
                 'ELSEIF', 'IF', 'ELSE',
+                'WHILE',
                 'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN',
                 'FUNCTION_RND', 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
@@ -374,6 +375,13 @@ class Parser():
         @self.pg.production('expression : FALSE')
         def parse(p):
             return Word(0)
+
+        @self.pg.production('expression_entry : WHILE ( expression ) { expression_list }')
+        def parse(p):
+            condition = p[2]
+            script = p[5]
+
+            return While(condition, script)
 
         @self.pg.error
         def error_handle_lex(token):
