@@ -44,6 +44,7 @@ def handle_parse(code, profile):
 
     log(f"creating artifacts...")
     generated = generator.generate()
+    generated = utils.beautify_output(generated)
     utils.dump(generated, "patch.txt")
 
     generated_clean = generator.clean(generated)
@@ -66,48 +67,48 @@ fun upgrade_dog() {
 }
 
 fun loot_legendary() {
-    if(<0x289d> == 0x01) {
+    if(<0x289d> == 0x00) {
         reward(ITEM.HARD_BALL);
         reward(ITEM.FLASH);
-    } else if(<0x289d> == 0x02) {
+    } else if(<0x289d> == 0x01) {
         reward(ITEM.SPEAR_3);
-    } else if(<0x289d> == 0x03) {
+    } else if(<0x289d> == 0x02) {
         reward(ITEM.WINGS);
-    } else if(<0x289d> == 0x04) {
+    } else if(<0x289d> == 0x03) {
         upgrade_dog();
     }
 }
 fun loot_epic() {
-    if(<0x289d> == 0x01) {
+    if(<0x289d> == 0x00) {
         reward(ITEM.HARD_BALL);
-    } else if(<0x289d> == 0x02) {
+    } else if(<0x289d> == 0x01) {
         reward(ITEM.AXE_1);
-    } else if(<0x289d> == 0x03) {
+    } else if(<0x289d> == 0x02) {
         reward(ITEM.PETAL);
         reward(ITEM.NECTAR);
-    } else if(<0x289d> == 0x04) {
+    } else if(<0x289d> == 0x03) {
         upgrade_dog();
     }
 }
 fun loot_rare() {
-    if(<0x289d> == 0x01) {
+    if(<0x289d> == 0x00) {
         reward(ITEM.FLASH);
-    } else if(<0x289d> == 0x02) {
+    } else if(<0x289d> == 0x01) {
         reward(ITEM.AXE_1);
-    } else if(<0x289d> == 0x03) {
+    } else if(<0x289d> == 0x02) {
         reward(ITEM.NECTAR);
-    } else if(<0x289d> == 0x04) {
+    } else if(<0x289d> == 0x03) {
         upgrade_dog();
     }
 }
 fun loot_common() {
-    if(<0x289d> == 0x01) {
+    if(<0x289d> == 0x00) {
         reward(ITEM.ACID_RAIN);
-    } else if(<0x289d> == 0x02) {
+    } else if(<0x289d> == 0x01) {
         reward(ITEM.AXE_1);
-    } else if(<0x289d> == 0x03) {
+    } else if(<0x289d> == 0x02) {
         reward(ITEM.PETAL);
-    } else if(<0x289d> == 0x04) {
+    } else if(<0x289d> == 0x03) {
         upgrade_dog();
     }
 }
@@ -133,7 +134,7 @@ fun rng_fiesta(difficulty) {
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER)
 fun south_forest_enter() {
-    <0x24a7> = DOG.WOLF2;
+    <0x24a7> = DOG.TOASTER;
     MEMORY.DOG = <0x24a7>;
 
     // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
@@ -187,10 +188,8 @@ fun first_gourd() {
 
     // transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
     
-    while(<0x24a7> < DOG.POODLE) {
-        upgrade_dog();
-        sleep(0xf0);
-    }
+    question(STRING.RANDOM_UNCOMPRESSED_1);
+    loot_legendary();
 }
 
 @install()
