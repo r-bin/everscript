@@ -136,7 +136,7 @@ fun south_forest_enter() {
     <0x24a7> = DOG.TOASTER;
     MEMORY.DOG = <0x24a7>;
 
-    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+    // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
 
     init_map(0x00, 0x02, 0x80, 0x96);
 
@@ -188,6 +188,8 @@ fun first_gourd() {
     // transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
     
     upgrade_dog();
+
+    reward(ITEM.NECTAR);
 }
 
 @install()
