@@ -191,8 +191,7 @@ class Call(Function_Base):
                 address = address.code()
 
             return f"""
-// call({self.address})
-29 {address}      // (29) CALL 0x92de75 Some cinematic script (used multiple times)"
+29 {address}      // call({self.address})
             """
         
         else:
@@ -311,13 +310,12 @@ class If_list(Function_Base):
         self.memory = False
 
         for element in self.list:
-            if isinstance(element.condition, Memory):
+            if element.memory:
                 self.memory = True
-            elif isinstance(element.condition, BinaryOp) and isinstance(element.condition.left.value, Memory):
-                self.memory = True
+                break
 
-        for i in self.list:
-            i.memory = self.memory
+        for element in self.list:
+            element.memory = self.memory
 
     def _code(self):
         for script in self.list:
@@ -353,6 +351,11 @@ class If(Function_Base):
         self.distance = None
         self.memory = False
 
+        if isinstance(condition, Memory):
+            self.memory = True
+        elif isinstance(condition, BinaryOp) and isinstance(condition.left.value, Memory):
+            self.memory = True
+
     def eval(self):
         if self.condition != None:
             self.condition.params = self.params
@@ -379,7 +382,7 @@ class If(Function_Base):
             else:
                 code = [self.condition]
             code = ["if"] + code + [destination]
-            code = f"{Calculator(list(code)).code()} // {code}"
+            code = f"{Calculator(list(code)).code()} // Calculator({code})"
             return code
         else:
             return Function_Code(self.script, '\n').code(self.params)
@@ -467,7 +470,7 @@ class Asign(BinaryOp):
 
     def _code(self):
         code = self.flatten(self)
-        code = f"{Calculator(code).code()} // {code}"
+        code = f"{Calculator(code).code()} // Calculator({code})"
         return code
 
 class OrAsign(BinaryOp):
@@ -580,15 +583,15 @@ class Rnd(Function_Base):
 
 class While(Function_Base):
     def __init__(self, condition, script):
+        self.script = script
+
         self.while_goto_end = Function_Goto()
 
         self.while_if = If(condition, [])
         self.while_if.distance = Function_Code(script, '\n').count() + self.while_goto_end.count()
-        self.while_if.memory = True
+        self.memory = self.while_if.memory
 
-        self.script = script
         self.list = [self.while_if] + script + [self.while_goto_end]
-        self.memory = True
 
         self.while_goto_end.distance = -(self.while_if.count() + Function_Code(script, '\n').count() + self.while_goto_end.count())
         pass
