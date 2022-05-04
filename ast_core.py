@@ -87,16 +87,53 @@ class BinaryOp(Function_Base):
         else:
             return [x]
 
-class Memory(BaseBox):
+class Memory(Function_Base):
     def __init__(self, address, flag=None):
         self.address = address
         self.flag = flag
+        self.inverted = False
 
     def __str__(self):
         return f"Memory(address={self.address}, flag={self.flag})"
     
     def eval(self):
         return self.address.eval()
+
+    def _code(self):
+        address = self.address
+        flag = self.flag
+        
+        address = address.eval()
+        if address >= 0x2834:
+            address -= 0x2834
+            self.type = "28"
+        elif address >= 0x2258:
+            address -= 0x2258
+            self.type = "24"
+
+        if not flag:
+            address = '{:04X}'.format(address, 'x')
+            address = wrap(address, 2)
+            address = ' '.join(reversed(address))
+
+            return address
+        else:
+            address <<=  3
+
+            flag = flag.eval()
+            f = 0
+            while  flag > 1:
+                flag >>= 1
+                f += 1
+            flag = f
+            flag &= 0b111
+
+            combined = address + flag
+            combined = '{:04X}'.format(combined, 'x')
+            combined = wrap(combined, 2)
+            combined = ' '.join(reversed(combined))
+
+            return combined
 
 class Word(Function_Base):
     def __init__(self, value):
