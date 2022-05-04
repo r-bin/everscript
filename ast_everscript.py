@@ -378,7 +378,7 @@ class If(Function_Base):
 
         if self.memory and self.condition:
             if isinstance(self.condition, BinaryOp):
-                code = self.condition.flatten(self.condition, _map)
+                code = self.condition.flatten(self.condition)
             else:
                 code = [self.condition]
             code = ["if"] + code + [destination]
@@ -388,59 +388,102 @@ class If(Function_Base):
             return Function_Code(self.script, '\n').code(self.params)
         
 class Equals(BinaryOp):
+    def operator(self):
+        return "=="
+
     def _eval(self):
         return self.left.value.eval() == self.right.value.eval()
 
 class GreaterEquals(BinaryOp):
+    def operator(self):
+        return ">="
+
     def _eval(self):
         return self.left.value.eval() >= self.right.value.eval()
 
 class Greater(BinaryOp):
+    def operator(self):
+        return ">"
+
     def _eval(self):
         return self.left.value.eval() > self.right.value.eval()
 
 class LowerEquals(BinaryOp):
+    def operator(self):
+        return "<="
+
     def _eval(self):
         return self.left.value.eval() <= self.right.value.eval()
 
 class Lower(BinaryOp):
+    def operator(self):
+        return "<"
+
     def _eval(self):
         return self.left.value.eval() < self.right.value.eval()
     
 class Add(BinaryOp):
+    def operator(self):
+        return "+"
+
     def _eval(self):
         return self.left.value.eval() + self.right.value.eval()
 
 class Sub(BinaryOp):
+    def operator(self):
+        return "-"
+
     def _eval(self):
         return self.left.value.eval() - self.right.value.eval()
 
 class Mul(BinaryOp):
+    def operator(self):
+        return "*"
+
     def _eval(self):
         return self.left.value.eval() * self.right.value.eval()
 
 class Div(BinaryOp):
+    def operator(self):
+        return "/"
+
     def _eval(self):
         return self.left.value.eval() // self.right.value.eval()
 
 class ShiftRight(BinaryOp):
+    def operator(self):
+        return ">>"
+
     def _eval(self):
         return self.left.value.eval() >> self.right.value.eval()
 
 class ShiftLeft(BinaryOp):
+    def operator(self):
+        return "<<"
+
     def _eval(self):
         return self.left.value.eval() << self.right.value.eval()
 
 class Asign(BinaryOp):
+    def operator(self):
+        return "="
+
     def _code(self):
-        code = self.flatten(self, _map)
+        code = self.flatten(self)
         code = f"{Calculator(code).code()} // {code}"
         return code
 
 class OrAsign(BinaryOp):
+    def operator(self):
+        return "|="
+
     def _code(self):
         raise Exception("not implemented")
+
 class AndAsign(BinaryOp):
+    def operator(self):
+        return "&="
+
     def _code(self):
         raise Exception("not implemented")
 
@@ -537,14 +580,3 @@ class Rnd(Function_Base):
     def eval(self):
         rnd = random.randint(self.min.eval(), self.max.eval())
         return Word(rnd)
-
-_map = {
-    Asign: "=",
-    Add: "+",
-    Sub: "-",
-    Mul: "*",
-    Div: "/",
-
-    Equals: "==",
-    Greater: ">"
-}
