@@ -72,20 +72,19 @@ class BinaryOp(Function_Base):
         
         return ' '.join(reversed(value))
     
-    def flatten(self, x, map):
+    def flatten(self, x):
         if isinstance(x, BinaryOp):
-            #marge_params(x, x.left)
-            #marge_params(x, x.right)
-
-            return self.flatten(x.left, map) + [map[type(x)]] + self.flatten(x.right, map)
+            return self.flatten(x.left) + [x.operator()] + self.flatten(x.right)
         elif isinstance(x, Param):
-            #marge_params(x, x.value)
             if not x.value:
                 sp = {x.name : x for x in self.params}
                 x.value = sp[x.name].value
-            return self.flatten(x.value, map)
+            return self.flatten(x.value)
         else:
             return [x]
+
+    def operator(self):
+        return ""
 
 class Memory(Function_Base):
     def __init__(self, address, flag=None):
