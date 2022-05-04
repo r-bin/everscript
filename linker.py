@@ -41,7 +41,7 @@ class Linker():
         for expression in code:
             if hasattr(expression, 'label'):
                 distance = self._calculate_distance(function, expression)
-                if distance >= 0:
+                if distance:
                     expression.distance = distance
                     print(f"label={expression.label.value}, distance={distance}")
 
@@ -56,5 +56,5 @@ class Linker():
             
             distance += expression.count()
         
-        return -1
+        return None
     

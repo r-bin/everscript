@@ -133,7 +133,7 @@ fun rng_fiesta(difficulty) {
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER)
 fun south_forest_enter() {
-    <0x24a7> = DOG.TOASTER;
+    <0x24a7> = DOG.WOLF2;
     MEMORY.DOG = <0x24a7>;
 
     // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
@@ -187,9 +187,10 @@ fun first_gourd() {
 
     // transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
     
-    upgrade_dog();
-
-    reward(ITEM.NECTAR);
+    while(<0x24a7> < DOG.POODLE) {
+        upgrade_dog();
+        sleep(0xf0);
+    }
 }
 
 @install()
