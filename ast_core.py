@@ -93,7 +93,7 @@ class Memory(Function_Base):
         self.flag = flag
         self.inverted = False
 
-    def __str__(self):
+    def __repr__(self):
         return f"Memory(address={self.address}, flag={self.flag})"
     
     def eval(self):
@@ -137,12 +137,12 @@ class Memory(Function_Base):
 
 class Word(Function_Base):
     def __init__(self, value):
-        self.value_original = value
-
         if isinstance(value, int):
+            self.value_original = value
             self.value = value
             self.value_count = 2
         else:
+            self.value_original = value.value
             self.value = int(value.value, 16)
 
             count = re.sub("0x", "", value.value)
@@ -150,8 +150,8 @@ class Word(Function_Base):
             count = len(count)
             self.value_count = count
 
-    def __str__(self):
-        return f"Word({self.value_original.value})"
+    def __repr__(self):
+        return f"Word({self.value_original})"
 
     def eval(self):
         return self.value
@@ -176,7 +176,7 @@ class Param(BaseBox):
             self.name = name.value
         self.value = value
 
-    def __str__(self):
+    def __repr__(self):
         return f"Param(name={self.name}, value={self.value})"
 
     def eval(self):

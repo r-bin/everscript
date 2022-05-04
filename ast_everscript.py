@@ -378,115 +378,12 @@ class If(Function_Base):
 
         if self.memory and self.condition:
             if isinstance(self.condition, BinaryOp):
-                f = self.condition.flatten(self.condition, _map)
+                code = self.condition.flatten(self.condition, _map)
             else:
-                f = [self.condition]
-            f = ["if"] + f + [destination]
-            c = Calculator(list(f)).code()
-            pass
-
-        destination = "xx xx"
-        if self.distance != None:
-            destination = '{:04X}'.format(self.distance, 'x')
-            destination = wrap(destination, 2)
-            destination = ' '.join(reversed(destination))
-
-        if isinstance(self.condition, Memory):
-            address = self.condition.address.eval()
-            address -= 0x2258
-            address <<=  3
-
-            flag = self.condition.flag.eval()
-            f = 0
-            while  flag > 1:
-                flag >>= 1
-                f += 1
-            flag = f
-            flag &= 0b111
-            
-            combined = address + flag
-            #combined -= 1 # TODO
-            combined = '{:04X}'.format(combined, 'x')
-            combined = wrap(combined, 2)
-            combined = ' '.join(reversed(combined))
-
-            invert = self.condition.inverted
-            if invert:
-                command = 0x08
-            else:
-                raise Exception("only inverted memory checks are allowed")
-            command = '{:02X}'.format(command, 'x')
-            
-            type = 0x85
-            type = '{:02X}'.format(type, 'x')
-
-            if_mode = "if"
-            if self.condition == None:
-                if_mode = "else"
-            
-            if invert:
-                if_mode += "(!memory)"
-            else:
-                if_mode += "(memory)"
-
-            return f"""
-{command} {type} {combined} {destination}       // {if_mode} jump {self.distance}
-            """
-        elif isinstance(self.condition, BinaryOp) and isinstance(self.condition.left.value, Memory):
-            address = self.condition.left.value.address.eval()
-            if address >= 0x2834:
-                address -= 0x2834
-            elif address >= 0x2258:
-                address -= 0x2258
-            address = '{:04X}'.format(address, 'x')
-            address = wrap(address, 2)
-            address = ' '.join(reversed(address))
-
-            if isinstance(self.condition, Greater):
-                code = "09"
-
-                code2 = "0d"
-
-                code3 = 0x1f
-                code3 += 0x80
-                code3 = '{:02X}'.format(code3, 'x')
-
-                
-                address = self.condition.left.value.address.eval()
-                if address >= 0x2834:
-                    address -= 0x2834
-                elif address >= 0x2258:
-                    code2 = "08"
-                    address -= 0x2258
-                address = '{:04X}'.format(address, 'x')
-                address = wrap(address, 2)
-                address = ' '.join(reversed(address))
-                
-                # example:
-                # (09) IF ($2850 > 0) == FALSE THEN SKIP 24 (to 0x95dc55)  09 0d 1c 00 29 30 9f 18 00
-                # (09) IF ($2834 > 1) == FALSE THEN SKIP 9 (to 0x95d6ea)  09 0d 00 00 29 31 9f 09 00
-                # (09) IF ($244f > 9) == FALSE THEN SKIP 55 (to 0x96ad12)  09 08 f7 01 29 39 9f 37 00
-                #
-                # (09) IF ($24b1 > $283d) == FALSE THEN SKIP 7 (to 0x95b7b3)  09 08 59 02 29 0d 09 00 9f 07 00
-
-                value = self.condition.right.value.eval()
-                value &= 0x0f
-                value += 0x30
-                value = '{:02X}'.format(value, 'x')
-
-                return f"""
-{code} {code2} {address} 29 {value} {code3} {destination}         // if(memory > word) jump
-                """
-            else:
-                value = self.condition.right.value.eval()
-                value -= 1
-                value &= 0b111
-                value += 0x30
-                value = '{:02X}'.format(value, 'x')
-
-                return f"""
-09 0e {address} 29 {value} a2 {destination}       // if() jump
-                """
+                code = [self.condition]
+            code = ["if"] + code + [destination]
+            code = f"{Calculator(list(code)).code()} // {code}"
+            return code
         else:
             return Function_Code(self.script, '\n').code(self.params)
         
@@ -537,7 +434,7 @@ class ShiftLeft(BinaryOp):
 class Asign(BinaryOp):
     def _code(self):
         code = self.flatten(self, _map)
-        code = Calculator(code).code()
+        code = f"{Calculator(code).code()} // {code}"
         return code
 
 class OrAsign(BinaryOp):
