@@ -55,6 +55,34 @@ def handle_parse(code, profile):
     log(f"done!")
     #print(generated)
 
+"""
+#memory(
+    // base = 0x000000..0x2fffff
+
+    0x000000..0x007fff, // strings = 0xc00000..0xc07f70 (slow)
+    0x010000..0x017fff, // strings = 0xc10000..0xc17f70 (slow)
+    0x020000..0x027fff, // strings = 0xc20000..0xc27f70 (slow)
+    0x030000..0x037fff, // strings = 0xc30000..0xc37f70 (slow)
+    // (04..2f unused)
+
+    0x11d000..0x11F32D, // string keys = 0x91d000..0x91F32D (index 0x0000-0x232b, 3 bytes, MSB&80=compressed)
+
+    // ... (unused?)
+    0x128000..0x12ffff, // scripts = 0x928000..0x92ffff (fast, room scripts #1)
+    // ... (room script index, room scripts)
+    0x1b8000..0x1bffff, // scripts = 0x9b8000..0x9bffff (fast, room scripts #1)
+    // ... (00..2f unused?)
+
+
+    // extension = 0x300000..0x3fffff
+
+    0x300000..0x307fff, // strings extension = 0xb00000..0xb07fff
+    // ... (31..3f)
+    0x308000..0x30ffff // extension script = 0xb08000..0xb0ffff
+    // ... (31..3f)
+)
+"""
+
 code = """
 #include("in/core.evs")
 
