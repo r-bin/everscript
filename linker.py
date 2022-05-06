@@ -35,10 +35,11 @@ class MemoryManager():
     def __init__(self):
         self.memory = {
             "script": [],
-            "text": []
+            "text": [],
+            "text_key": []
         }
 
-        self.enable_text_extension = False
+        self.enable_text_extension = True
 
     def add(self, memory):
         for m in memory:
@@ -46,6 +47,8 @@ class MemoryManager():
                 self._add(m)
             elif isinstance(m, Range):
                 self._add(m)
+            elif isinstance(m, StringKey):
+                self.memory["text_key"].append(m)
             else:
                 raise Exception(f"unsupported memory: {m}")
 
@@ -67,16 +70,21 @@ class MemoryManager():
             e = memory.end & 0xff0000
 
             if s == e:
-                pass
+                m = s
+                if self.enable_text_extension or m < 0x300000:
+                    self.memory["text"].append(Range(m, m + 0x7fff) + 0xc00000)
+                if self.enable_text_extension or m >= 0x300000:
+                    self.memory["script"].append(Range(m + 0x8000, m + 0xffff) + 0x800000)
             else:
                 for m in range(s, e + 0x10000, 0x10000):
                     if self.enable_text_extension or m < 0x300000:
                         self.memory["text"].append(Range(m, m + 0x7fff) + 0xc00000)
-                    self.memory["script"].append(Range(m + 0x8000, m + 0xffff) + 0x800000)
+                    if self.enable_text_extension or m >= 0x300000:
+                        self.memory["script"].append(Range(m + 0x8000, m + 0xffff) + 0x800000)
         else:
             raise Exception(f"unsupported memory: {m}")
 
-    def get_script(self, count):
+    def allocate_script(self, count):
         memory = self.memory["script"]
         
         for i, m in enumerate(memory):
@@ -88,11 +96,33 @@ class MemoryManager():
                 del(memory[i])
 
         raise Exception("no memory defined/available")
+        
+    def allocate_text(self, string, text):
+        count = text.count()
+        text_key = self.memory["text_key"].pop(0)
+        memory = self.memory["text"]
+        
+        for i, m in enumerate(memory):
+            if m.count() > count:
+                address = m.start
+                self.memory["text"][i] = Range(m.start + count, m.end)
+
+                string.address = address
+                string.text_key = text_key
+
+                return string
+            else:
+                del(memory[i])
+
+        raise Exception("no memory defined/available")
 
 class Linker():
     def __init__(self, code=[]):
         self.code = code
         self.memory_manager = MemoryManager()
+
+    def link_string(self, string, text):
+        self.memory_manager.allocate_text(string, text)
 
     def add_memory(self, memory):
         self.memory_manager.add(memory)
@@ -107,7 +137,7 @@ class Linker():
         for function in code:
             if function.address == None:
                 count = sum([e.count() for e in function.script])
-                address = self.memory_manager.get_script(count)
+                address = self.memory_manager.allocate_script(count)
 
                 function.address = address
 

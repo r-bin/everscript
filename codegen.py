@@ -31,6 +31,12 @@ class CodeGen():
         self.system = {}
         self.identifier = {}
         self.linker = linker
+        self.strings = []
+
+    def add_string(self, string, text):
+        self.linker.link_string(string, text)
+
+        self.strings.append(string)
 
     def add_enum(self, enum):
         self.identifier[enum.name] = enum
@@ -83,10 +89,56 @@ class CodeGen():
         for function in self.code:
             list.append(self._generate(function))
 
+        for string in self.strings:
+            list.append(self._generate_string(string))
+
         header = ["PATCH"]
         footer = ["EOF"]
         
         return '\n'.join(header + list + footer)
+
+    def _generate_string(self, string):
+        list = []
+
+        name = '{:04X}'.format(string.text_key.index, 'x')
+        address = string.text_key.address
+        count = string.text_key.count()
+        code = string.address
+        code -= 0xc00000
+        code = Word((code & 0xffff) + ((code & 0x7f8000) >> 1))
+        code.value_count = 3
+        code = code.code()
+
+        if address >= 0xC00000: # TODO
+            address -= 0xC00000
+        elif address >= 0x800000: # TODO
+            address -= 0x800000
+        elif address >= 0x400000: # TODO
+            address -= 0x400000
+
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={name}"]
+        footer = []
+
+        list += header + [code] + footer
+
+        name = string.value
+        address = string.address
+        count = string.value.count()
+        code = string.value.code()
+
+        if address >= 0xC00000: # TODO
+            address -= 0xC00000
+        elif address >= 0x800000: # TODO
+            address -= 0x800000
+        elif address >= 0x400000: # TODO
+            address -= 0x400000
+
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={name}"]
+        footer = []
+
+        list += header + [code] + footer
+
+        return '\n'.join(list)
 
     def _generate(self, function):
         code = function.script
@@ -102,6 +154,8 @@ class CodeGen():
             address -= 0xC00000
         elif address >= 0x800000: # TODO
             address -= 0x800000
+        elif address >= 0x400000: # TODO
+            address -= 0x400000
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []
@@ -140,6 +194,8 @@ class CodeGen():
             address -= 0xC00000
         elif address >= 0x800000: # TODO
             address -= 0x800000
+        elif address >= 0x400000: # TODO
+            address -= 0x400000
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []

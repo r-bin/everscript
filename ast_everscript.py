@@ -104,47 +104,78 @@ class _Address(BaseBox):
         return num
     
 class String(Function_Base):
-    def __init__(self, value, c_string = False):
+    def __init__(self, generator, value, install = False):
         self.value = value
-        self.c_string = c_string
+        if isinstance(self.value, Token):
+            self.value = self.value.value
+        self.install = install
+        self.text_key = None
+        self.address = None
+
+        if self.install:
+            self.value = RawString(value.value.value)
+            self.value.install = True
+            generator.add_string(self, self.value)
+            pass
 
     def __str__(self):
-        return f"String({self.value.value})"
-
+        return f"String({self.value})"
+        
     def eval(self):
-        return self.value.value
+        return self.value
         
     def _code(self):
-        if isinstance(self.value, Token):
-            code = re.sub("\"", "", self.value.value)
-        elif not self.c_string:
-            code = re.sub("\"", "", self.value.eval())
+        if not self.install:
+            code = re.sub("\"", "", self.value)
         else:
-            code = re.sub("\"", "", self.value.eval())
+            code = Word(self.text_key.index)
+            code = code.code()
+        return code
+        
+class RawString(Function_Base):
+    def __init__(self, value):
+        self.value = value
+        self.install = False
+        if isinstance(self.value, Token):
+            self.value = self.value.value
+        elif isinstance(self.value, Param):
+            self.value = self.value.value.value
 
-            lexer = LexerGenerator()
-            lexer.add('LF', '\[LF\]')
-            lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
-            lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
-            lexer.add('CHAR', '.')
-            lexer = lexer.build()
+    def __str__(self):
+        return f"String({self.value})"
 
-            code = list(lexer.lex(code))
+    def eval(self):
+        return self.value
+        
+    def _code(self):
+        code = re.sub("\"", "", self.eval())
 
-            def f(c):
-                match c:
-                    case _ if c.name == "CHAR":
-                        return c.value.encode('ASCII').hex()
-                    case _ if c.name == "LF":
-                        return "0a"
-                    case _ if c.name == "HEX":
-                        return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
-                    case _ if c.name == "PAUSE":
-                        return "80 " + re.sub("\[PAUSE:([0-9a-f]{2})\]", r"\1", c.value) + " 80"
-                    case _:
-                        raise Exception("invalid char")
-            code = [f(c) for c in code]
-            code = ' '.join(code) + f" // '{self.value.value}'"
+        lexer = LexerGenerator()
+        lexer.add('END', '\[END\]')
+        lexer.add('LF', '\[LF\]')
+        lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
+        lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
+        lexer.add('CHAR', '.')
+        lexer = lexer.build()
+
+        code = list(lexer.lex(code))
+
+        def f(c):
+            match c:
+                case _ if c.name == "CHAR":
+                    return c.value.encode('ASCII').hex()
+                case _ if c.name == "LF":
+                    return "0a"
+                case _ if c.name == "END":
+                    return "00"
+                case _ if c.name == "HEX":
+                    return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
+                case _ if c.name == "PAUSE":
+                    return "80 " + re.sub("\[PAUSE:([0-9a-f]{2})\]", r"\1", c.value) + " 80"
+                case _:
+                    raise Exception("invalid char")
+        code = [f(c) for c in code]
+        code = ' '.join(code) + f" // '{self.value}'"
         return code
         
 class Arg(BaseBox):
@@ -628,3 +659,18 @@ class Range(BaseBox):
 
 class Void(BaseBox):
     pass
+
+class StringKey(Function_Base):
+    def __init__(self, index):
+        self.index = index.eval()
+        self.address = 0x91d000 + self.index
+        
+    def eval(self):
+        return Range(self.address, self.address + 2)
+
+    def _code(self):
+        code = Word(self.index)
+        code.value_count = 3
+        code = code.code()
+
+        return code

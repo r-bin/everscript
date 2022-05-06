@@ -141,7 +141,7 @@ class Word(Function_Base):
             self.value = value
             self.value_count = 2
         else:
-            self.value_original = value.value
+            self.value_original = value
             self.value = int(value.value, 16)
 
             count = re.sub("0x", "", value.value)
