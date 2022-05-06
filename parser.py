@@ -31,7 +31,9 @@ class Parser():
             "len": (lambda p: Len(p[2][0]).eval()),
             "rnd": (lambda p: Rnd(p[2][0], p[2][1]).eval()),
             "call": (lambda p: Call(p[2][0], [])),
-            "string": (lambda p: String(p[2][0], True))
+            "string": (lambda p: String(self.generator, p[2][0], True)),
+            "cstring": (lambda p: RawString(p[2][0])),
+            "string_key": (lambda p: StringKey(p[2][0]))
         }
 
         self.generator = generator
@@ -49,7 +51,7 @@ class Parser():
             return p[0]
         @self.pg.production('program : FUN_INCLUDE ( expression )')
         def parse(p):
-            path = p[2].value.value
+            path = p[2].value
 
             return Include(self.generator, path).eval()
 
@@ -193,7 +195,7 @@ class Parser():
 
         @self.pg.production('expression : STRING')
         def parse(p):
-            return String(p[0])
+            return String(self.generator, p[0])
 
         @self.pg.production('expression : IDENTIFIER')
         def parse(p):

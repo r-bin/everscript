@@ -56,11 +56,16 @@ def handle_parse(code, profile):
     #print(generated)
 
 code = """
-#include("in/core.evs")
-
 #memory(
+    string_key(0x0933),
+    string_key(0x111c),
+    string_key(0x111f),
+    string_key(0x1122),
+    string_key(0x1125),
+
     0x300000..0x3fffff // extension
 )
+#include("in/core.evs")
 
 fun upgrade_dog() {
     <0x24a7> = <0x24a7> + 0x02;
@@ -118,19 +123,19 @@ fun loot_common() {
 }
 
 fun rng_fiesta(difficulty) {
-    question(STRING.RANDOM_UNCOMPRESSED_1);
+    question(STRING.QUESTION_LOOT);
 
     if(difficulty >= 0x30) {
-        dialog(STRING.RANDOM_UNCOMPRESSED_2);
+        dialog(STRING.LOOT_LEGENDARY);
         loot_legendary();
     } else if(difficulty > 0x14) {
-        dialog(STRING.RANDOM_UNCOMPRESSED_3);
+        dialog(STRING.LOOT_EPIC);
         loot_epic();
     } else if(difficulty > 0x0a) {
-        dialog(STRING.RANDOM_UNCOMPRESSED_4);
+        dialog(STRING.LOOT_RARE);
         loot_rare();
     } else {
-        dialog(STRING.RANDOM_UNCOMPRESSED_5);
+        dialog(STRING.LOOT_COMMON);
         loot_common();
     }
 }
@@ -141,7 +146,7 @@ fun south_forest_enter() {
     <0x24a7> = DOG.TOASTER;
     MEMORY.DOG = <0x24a7>;
 
-    // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
 
     init_map(0x00, 0x02, 0x80, 0x96);
 
@@ -192,8 +197,7 @@ fun first_gourd() {
 
     // transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
     
-    question(STRING.RANDOM_UNCOMPRESSED_1);
-    loot_legendary();
+    // dialog(string("[0x96]test, test![0x86]"));
 }
 
 @install()
@@ -279,45 +283,6 @@ fun salabog_exit() {
         rng_fiesta(rnd(0x15, 0x20));
     }
     transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
-}
-
-@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_1)
-fun string_test_1() {
-    string("[0x96][0x8b]Alchemy[LF]");
-    string("[0x8b]Weapon[LF]");
-    string("[0x8b]Consumable[LF]");
-    string("[0x8b]Dog");
-}
-
-fun text_header() {
-    string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]");
-}
-fun text_footer() {
-    string("[0x86]");
-}
-@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_2)
-fun string_test_2() {
-    text_header();
-    string("L[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]G[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]N[PAUSE:2b]-[PAUSE:2b]D[PAUSE:2b]-[PAUSE:2b]A[PAUSE:2b]-[PAUSE:2b]R[PAUSE:2b]-[PAUSE:2b]Y loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1");
-    text_footer();
-}
-@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_3)
-fun string_test_2() {
-    text_header();
-    string("EPIC loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1");
-    text_footer();
-}
-@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_4)
-fun string_test_2() {
-    text_header();
-    string("Rare loot!");
-    text_footer();
-}
-@install(ADDRESS.STRING_RANDOM_UNCOMPRESSED_5)
-fun string_test_2() {
-    text_header();
-    string("Some loot.");
-    text_footer();
 }
 
 """
