@@ -9,6 +9,7 @@ class Lexer():
 
         self.lexer.add('\n', '\n')
         self.lexer.add(';', ';')
+        self.lexer.add('..', '\.\.')
 
         self.lexer.add('OR=', '\|\=')
         self.lexer.add('&=', '\&\=')
@@ -61,6 +62,7 @@ class Lexer():
         self.lexer.add('FUN_INJECT', '@inject(?=\()')
 
         self.lexer.add('FUN_INCLUDE', '#include(?=\()')
+        self.lexer.add('FUN_MEMORY', '#memory(?=\()')
 
         self.lexer.add('FUN', 'fun(?=\ )')
         self.lexer.add('FUN_IDENTIFIER', '[a-z_][a-z0-9_]+(?=\()')

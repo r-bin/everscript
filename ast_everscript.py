@@ -604,3 +604,27 @@ class While(Function_Base):
         code = Function_Code(code, '\n').code(self.params)
 
         return code
+
+class Range(BaseBox):
+    def __init__(self, start, end):
+        self.start = start
+        if isinstance(self.start, Word):
+            self.start = self.start.eval()
+        self.end = end
+        if isinstance(self.end, Word):
+            self.end = self.end.eval()
+        
+    def __repr__(self):
+        return f"Range({self.start}..{self.end})"
+
+    def count(self):
+        return self.end - self.start
+
+    def __add__(self, o):
+        if isinstance(o, int):
+            return Range(self.start + o, self.end + o)
+        else:
+            raise Exception("invalid parameter")
+
+class Void(BaseBox):
+    pass
