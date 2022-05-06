@@ -6,6 +6,7 @@ class Parser():
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
+                '..',
                 '(', ')', ',', ';', '{', '}', '[', ']', '<', '>', # '\n',
                 '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
@@ -17,7 +18,7 @@ class Parser():
                 'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN',
                 'FUNCTION_RND', 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
-                'FUN_INCLUDE',
+                'FUN_INCLUDE', 'FUN_MEMORY',
                 'IDENTIFIER'
             ]
         )
@@ -382,6 +383,19 @@ class Parser():
             script = p[5]
 
             return While(condition, script)
+
+        @self.pg.production('expression : WORD .. WORD')
+        def parse(p):
+            return Range(Word(p[0]), Word(p[2]))
+            
+        @self.pg.production('program : FUN_MEMORY ( param_list )')
+        def parse(p):
+            memory_list = p[2]
+            memory_list = [m.value for m in memory_list]
+
+            self.generator.linker.add_memory(memory_list)
+
+            return Void()
 
         @self.pg.error
         def error_handle_lex(token):
