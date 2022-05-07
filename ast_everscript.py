@@ -636,35 +636,19 @@ class While(Function_Base):
 
         return code
 
-class Range(BaseBox):
-    def __init__(self, start, end):
-        self.start = start
-        if isinstance(self.start, Word):
-            self.start = self.start.eval()
-        self.end = end
-        if isinstance(self.end, Word):
-            self.end = self.end.eval()
-        
-    def __repr__(self):
-        return f"Range({self.start}..{self.end})"
-
-    def count(self):
-        return self.end - self.start
-
-    def __add__(self, o):
-        if isinstance(o, int):
-            return Range(self.start + o, self.end + o)
-        else:
-            raise Exception("invalid parameter")
-
 class Void(BaseBox):
     pass
 
 class StringKey(Function_Base):
     def __init__(self, index):
-        self.index = index.eval()
+        self.index = index
+        if isinstance(self.index, Param):
+            self.index = self.index.eval()
         self.address = 0x91d000 + self.index
         
+        if (self.index % 3) != 0:
+            raise Exception("invalid index (only index%3==0 is allowed")
+
     def eval(self):
         return Range(self.address, self.address + 2)
 
@@ -674,3 +658,35 @@ class StringKey(Function_Base):
         code = code.code()
 
         return code
+
+class Range(BaseBox):
+    def __init__(self, start, end):
+        self.start = start
+        if isinstance(self.start, Word):
+            self.start = self.start.eval()
+        self.end = end
+        if isinstance(self.end, Word):
+            self.end = self.end.eval()
+
+        if type(self.start) != type(self.end):
+            raise Exception("type of start and end don't match")
+        
+    def __repr__(self):
+        return f"Range({self.start}..{self.end})"
+
+    def eval(self):
+        list = []
+        if isinstance(self.start, StringKey):
+            step = 3
+            for index in range(self.start.index, self.end.index + step, step):
+                list.append(StringKey(index))
+        return list
+
+    def count(self):
+        return self.end - self.start
+
+    def __add__(self, o):
+        if isinstance(o, int):
+            return Range(self.start + o, self.end + o)
+        else:
+            raise Exception("invalid parameter")

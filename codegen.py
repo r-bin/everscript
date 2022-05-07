@@ -25,6 +25,8 @@ class _Splice():
         return self.after() + self.element
 
 class CodeGen():
+    wipe_strings = False
+
     def __init__(self, linker):
         print(f"CodeGen.init()")
         self.code = []
@@ -83,6 +85,9 @@ class CodeGen():
     def generate(self):
         list = []
 
+        if self.wipe_strings:
+            list.append(self._wipe_strings())
+
         self.linker.link_function(self.code)
         self.linker.link_call(self.code)
 
@@ -96,6 +101,31 @@ class CodeGen():
         footer = ["EOF"]
         
         return '\n'.join(header + list + footer)
+
+    def _wipe_strings(self):
+        list = []
+
+        address = 0x11d000
+        count = 0
+        repeat = 0x232D
+        code = "00"
+
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} {'{:04X}'.format(repeat, 'x')} // address={address} count={count} repeat={repeat} name='wipe texts'"]
+        footer = []
+
+        list += header + [code] + footer
+
+        address = 0x000000
+        code = RawString("aya[END]")
+        count = code.count()
+        code = code.code()
+
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='default text'"]
+        footer = []
+
+        list += header + [code] + footer
+
+        return '\n'.join(list)
 
     def _generate_string(self, string):
         list = []

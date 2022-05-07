@@ -57,6 +57,8 @@ def handle_parse(code, profile):
 
 code = """
 #memory(
+    // string_key(0x0000)..string_key(0x232b), // all string keys
+    
     string_key(0x0933),
     string_key(0x111c),
     string_key(0x111f),
@@ -76,48 +78,48 @@ fun upgrade_dog() {
 }
 
 fun loot_legendary() {
-    if(<0x289d> == 0x00) {
+    if(MEMORY.QUESTION_ANSWER == 0x00) {
         reward(ITEM.HARD_BALL);
         reward(ITEM.FLASH);
-    } else if(<0x289d> == 0x01) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
         reward(ITEM.SPEAR_3);
-    } else if(<0x289d> == 0x02) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
         reward(ITEM.WINGS);
-    } else if(<0x289d> == 0x03) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
         upgrade_dog();
     }
 }
 fun loot_epic() {
-    if(<0x289d> == 0x00) {
+    if(MEMORY.QUESTION_ANSWER == 0x00) {
         reward(ITEM.HARD_BALL);
-    } else if(<0x289d> == 0x01) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
         reward(ITEM.AXE_1);
-    } else if(<0x289d> == 0x02) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
         reward(ITEM.PETAL);
         reward(ITEM.NECTAR);
-    } else if(<0x289d> == 0x03) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
         upgrade_dog();
     }
 }
 fun loot_rare() {
-    if(<0x289d> == 0x00) {
+    if(MEMORY.QUESTION_ANSWER == 0x00) {
         reward(ITEM.FLASH);
-    } else if(<0x289d> == 0x01) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
         reward(ITEM.AXE_1);
-    } else if(<0x289d> == 0x02) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
         reward(ITEM.NECTAR);
-    } else if(<0x289d> == 0x03) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
         upgrade_dog();
     }
 }
 fun loot_common() {
-    if(<0x289d> == 0x00) {
+    if(MEMORY.QUESTION_ANSWER == 0x00) {
         reward(ITEM.ACID_RAIN);
-    } else if(<0x289d> == 0x01) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
         reward(ITEM.AXE_1);
-    } else if(<0x289d> == 0x02) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
         reward(ITEM.PETAL);
-    } else if(<0x289d> == 0x03) {
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
         upgrade_dog();
     }
 }
@@ -284,7 +286,6 @@ fun salabog_exit() {
     }
     transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
 }
-
 """
 
 if profile:
