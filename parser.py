@@ -386,9 +386,9 @@ class Parser():
 
             return While(condition, script)
 
-        @self.pg.production('expression : WORD .. WORD')
+        @self.pg.production('expression : expression .. expression')
         def parse(p):
-            return Range(Word(p[0]), Word(p[2]))
+            return Range(p[0], p[2])
             
         @self.pg.production('program : FUN_MEMORY ( param_list )')
         def parse(p):

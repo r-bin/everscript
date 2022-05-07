@@ -46,7 +46,11 @@ class MemoryManager():
             if isinstance(m, Word):
                 self._add(m)
             elif isinstance(m, Range):
-                self._add(m)
+                if isinstance(m.start, StringKey):
+                    for string_key in m.eval():
+                        self.memory["text_key"].append(string_key)
+                else:
+                    self._add(m)
             elif isinstance(m, StringKey):
                 self.memory["text_key"].append(m)
             else:
