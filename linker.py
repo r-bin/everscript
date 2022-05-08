@@ -30,16 +30,16 @@ from textwrap import wrap
     // ... (31..3f)
 )
 """
-
 class MemoryManager():
     def __init__(self):
         self.memory = {
             "script": [],
             "text": [],
-            "text_key": []
-        }
+            "text_key": [],
 
-        self.enable_text_extension = True
+            "memory": [],
+            "flag": []
+        }
 
     def add(self, memory):
         for m in memory:
@@ -49,44 +49,41 @@ class MemoryManager():
                 if isinstance(m.start, StringKey):
                     for string_key in m.eval():
                         self.memory["text_key"].append(string_key)
+                elif isinstance(m.start, Memory):
+                    for address in m.eval():
+                        self.memory["memory"].append(address)
+                    pass
                 else:
                     self._add(m)
             elif isinstance(m, StringKey):
                 self.memory["text_key"].append(m)
+            elif isinstance(m, Memory):
+                self.memory["memory"].append(m)
             else:
                 raise Exception(f"unsupported memory: {m}")
 
-    def _add(self, memory):
-        if isinstance(memory, Word):
-            memory = memory.value
+    def _split_by_bank(self, memory):
+        list = []
 
-            if memory <= 0xffff or memory > 0xffffff:
-                raise Exception(f"not an address: {memory}")
-            m = memory & 0xffff
-            if m < 0x8000:
-                self.memory["text"].append(memory)
-            elif m >= 0x8000:
-                self.memory["script"].append(memory)
-            else:
-                raise Exception(f"unknown memory: {m}")
-        elif isinstance(memory, Range):
-            s = memory.start & 0xff0000
-            e = memory.end & 0xff0000
+        first_bank = memory.start & 0xff0000
+        last_bank = memory.end & 0xff0000
 
-            if s == e:
-                m = s
-                if self.enable_text_extension or m < 0x300000:
-                    self.memory["text"].append(Range(m, m + 0x7fff) + 0xc00000)
-                if self.enable_text_extension or m >= 0x300000:
-                    self.memory["script"].append(Range(m + 0x8000, m + 0xffff) + 0x800000)
-            else:
-                for m in range(s, e + 0x10000, 0x10000):
-                    if self.enable_text_extension or m < 0x300000:
-                        self.memory["text"].append(Range(m, m + 0x7fff) + 0xc00000)
-                    if self.enable_text_extension or m >= 0x300000:
-                        self.memory["script"].append(Range(m + 0x8000, m + 0xffff) + 0x800000)
+        if first_bank == last_bank:
+            return [first_bank]
         else:
-            raise Exception(f"unsupported memory: {m}")
+            step_size = 0x10000
+            for bank in range(first_bank, last_bank + step_size, step_size):
+                list.append(bank)
+
+        return list
+
+    def _add(self, memory):
+        if isinstance(memory, Range):
+            for bank in self._split_by_bank(memory):
+                self.memory["text"].append(Range(bank, bank + 0x7fff) + 0xc00000)
+                self.memory["script"].append(Range(bank + 0x8000, bank + 0xffff) + 0x800000)
+        else:
+            raise Exception(f"unsupported memory: {memory}")
 
     def allocate_script(self, count):
         memory = self.memory["script"]
@@ -119,11 +116,60 @@ class MemoryManager():
                 del(memory[i])
 
         raise Exception("no memory defined/available")
+        
+    def allocate_memory(self):
+        memory = self.memory["memory"].pop(0)
+        return memory
+    def allocate_flag(self):
+        if not self.memory["flag"]:
+            memory = self.memory["memory"].pop(0)
+
+            for offset in range(0, 8):
+                self.memory["flag"].append(Memory(memory.address, 1 << offset))
+            for offset in range(0, 8):
+                self.memory["flag"].append(Memory(memory.address + 1, 1 << offset))
+            
+        flag = self.memory["flag"].pop(0)
+
+        return flag
 
 class Linker():
     def __init__(self, code=[]):
         self.code = code
         self.memory_manager = MemoryManager()
+
+    def get_memory_allocation(self):
+        text_key = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count(), 'x')}] {m}" for m in self.memory_manager.memory["text_key"]])
+        text = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["text"]])
+        
+        script = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["script"]])
+
+        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["memory"]])
+        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count(), 'x')}] {f}" for f in self.memory_manager.memory["flag"]])
+
+        return f"""
+unallocated ROM:
+  text_key:
+{text_key}
+
+  text:
+{text}
+
+  script:
+{script}
+
+unallocated RAM:
+  memory:
+{memory}
+
+  flags:
+{flag}
+        """.strip()
+
+    def link_memory(self):
+        return self.memory_manager.allocate_memory()
+    def link_flag(self):
+        return self.memory_manager.allocate_flag()
 
     def link_string(self, string, text):
         self.memory_manager.allocate_text(string, text)

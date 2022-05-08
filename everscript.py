@@ -46,6 +46,7 @@ def handle_parse(code, profile):
     generated = generator.generate()
     generated = utils.beautify_output(generated)
     utils.dump(generated, "patch.txt")
+    utils.dump(generator.get_memory_allocation(), "memory_map.txt")
 
     generated_clean = generator.clean(generated)
     utils.dump(generated_clean, "patch.clean.txt")
@@ -57,8 +58,9 @@ def handle_parse(code, profile):
 
 code = """
 #memory(
+    <0x2266>,
+
     // string_key(0x0000)..string_key(0x232b), // all string keys
-    
     string_key(0x0933),
     string_key(0x111c),
     string_key(0x111f),
@@ -68,6 +70,21 @@ code = """
     0x300000..0x3fffff // extension
 )
 #include("in/core.evs")
+
+enum STRING {
+    QUESTION_LOOT = string("[0x96][0x8b]Alchemy[LF][0x8b]Weapon[LF][0x8b]Consumable[LF][0x8b]Dog[END]"),
+    LOOT_LEGENDARY = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]L[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]G[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]N[PAUSE:2b]-[PAUSE:2b]D[PAUSE:2b]-[PAUSE:2b]A[PAUSE:2b]-[PAUSE:2b]R[PAUSE:2b]-[PAUSE:2b]Y loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1[0x86][END]"),
+    LOOT_EPIC = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]EPIC loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1[0x86][END]"),
+    LOOT_RARE = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]Rare loot![0x86][END]"),
+    LOOT_COMMON = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]Some loot.[0x86][END]")
+}
+
+enum FLAG_LOOT {
+    RAPTORS = flag(),
+    THRAX = flag(),
+    SALABOG = flag(),
+    MAGMAR = flag()
+}
 
 fun upgrade_dog() {
     <0x24a7> = <0x24a7> + 0x02;
