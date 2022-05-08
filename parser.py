@@ -23,6 +23,15 @@ class Parser():
             ]
         )
         
+        def parse_memory(p):
+            memory = Memory()
+            self.generator.add_memory(memory)
+            return memory
+        def parse_flag(p):
+            memory = Memory(None, 0x00)
+            self.generator.add_memory(memory)
+            return memory
+
         self.functions = {
             "eval": (lambda p: Function_Eval(p[2][0])),
             "goto": (lambda p: Function_Goto(p[2][0])),
@@ -33,7 +42,9 @@ class Parser():
             "call": (lambda p: Call(p[2][0], [])),
             "string": (lambda p: String(self.generator, p[2][0], True)),
             "cstring": (lambda p: RawString(p[2][0])),
-            "string_key": (lambda p: StringKey(p[2][0]))
+            "string_key": (lambda p: StringKey(p[2][0])),
+            "memory": (lambda p: self.generator.get_memory()),
+            "flag": (lambda p: self.generator.get_flag())
         }
 
         self.generator = generator

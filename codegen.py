@@ -29,11 +29,48 @@ class CodeGen():
 
     def __init__(self, linker):
         print(f"CodeGen.init()")
+        self.linker = linker
+
         self.code = []
         self.system = {}
         self.identifier = {}
-        self.linker = linker
+
         self.strings = []
+        self.memory = []
+        self.flag = []
+
+    def get_memory_allocation(self):
+        strings = []
+        for s in self.strings:
+            strings.append(f"   - [{'{:06X}'.format(s.text_key.address, 'x')}, {'{:04X}'.format(s.text_key.count(), 'x')}] {s.text_key}")
+            strings.append(f"   - [{'{:06X}'.format(s.address, 'x')}, {'{:04X}'.format(s.value.count(), 'x')}] {s}")
+        strings = '\n'.join(strings)
+        memory = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count(), 'x')}] {m}" for m in self.memory])
+        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count(), 'x')}] {f}" for f in self.flag])
+
+        return f"""
+{self.linker.get_memory_allocation()}
+
+allocated ROM:
+  strings:
+{strings}
+
+allocated RAM:
+  memory:
+{memory}
+
+  flags:
+{flag}
+        """.strip()
+
+    def get_memory(self):
+        memory = self.linker.link_memory()
+
+        self.memory.append(memory)
+    def get_flag(self):
+        memory = self.linker.link_flag()
+
+        self.flag.append(memory)
 
     def add_string(self, string, text):
         self.linker.link_string(string, text)

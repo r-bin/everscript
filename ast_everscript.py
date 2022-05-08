@@ -118,7 +118,7 @@ class String(Function_Base):
             generator.add_string(self, self.value)
             pass
 
-    def __str__(self):
+    def __repr__(self):
         return f"String({self.value})"
         
     def eval(self):
@@ -550,11 +550,11 @@ class Set(Function_Base):
         self.memory = memory
 
     def _code(self):
-        address = self.memory.value.address.eval()
+        address = self.memory.value.address
         address -= 0x2258
         address <<=  3
 
-        flag = self.memory.value.flag.eval()
+        flag = self.memory.value.flag
         f = 0
         while  flag > 1:
             flag >>= 1
@@ -649,6 +649,9 @@ class StringKey(Function_Base):
         if (self.index % 3) != 0:
             raise Exception("invalid index (only index%3==0 is allowed")
 
+    def __repr__(self):
+        return f"StringKey({self.index})"
+        
     def eval(self):
         return Range(self.address, self.address + 2)
 
@@ -680,6 +683,12 @@ class Range(BaseBox):
             step = 3
             for index in range(self.start.index, self.end.index + step, step):
                 list.append(StringKey(index))
+        elif isinstance(self.start, Memory):
+            step = 2
+            for address in range(self.start.eval(), self.end.eval() + step, step):
+                list.append(Memory(address))
+        else:
+            raise Exception("unknown type")
         return list
 
     def count(self):
