@@ -108,18 +108,19 @@ class String(Function_Base):
         self.value = value
         if isinstance(self.value, Token):
             self.value = self.value.value
+            self.value = re.sub("\"", "", self.value)
         self.install = install
         self.text_key = None
         self.address = None
 
         if self.install:
-            self.value = RawString(value.value.value)
+            self.value = RawString(value.value.eval())
             self.value.install = True
             generator.add_string(self, self.value)
             pass
 
     def __repr__(self):
-        return f"String({self.value})"
+        return f"String('{self.value}')"
         
     def eval(self):
         return self.value
@@ -142,10 +143,12 @@ class RawString(Function_Base):
             self.value = self.value.value.value
 
     def __str__(self):
-        return f"String({self.value})"
+        return f"String('{self.eval()}')"
 
     def eval(self):
-        return self.value
+        value = self.value
+        value = re.sub("\"", "", value)
+        return value
         
     def _code(self):
         code = re.sub("\"", "", self.eval())
