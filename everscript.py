@@ -30,10 +30,6 @@ def handle_parse(code, profile):
             print(text)
 
     start = time.time()
-    log(f"handle string input:")
-
-    log(f"reading code...")
-    #print("To parse: '"+code+"'")
     
     log(f"lexing code...")
     utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
@@ -71,12 +67,17 @@ code = """
 )
 #include("in/core.evs")
 
+enum CSTRING {
+    PRE = "[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]",
+    POST = "[0x86][END]"
+}
+
 enum STRING {
     QUESTION_LOOT = string("[0x96][0x8b]Alchemy[LF][0x8b]Weapon[LF][0x8b]Consumable[LF][0x8b]Dog[END]"),
-    LOOT_LEGENDARY = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]L[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]G[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]N[PAUSE:2b]-[PAUSE:2b]D[PAUSE:2b]-[PAUSE:2b]A[PAUSE:2b]-[PAUSE:2b]R[PAUSE:2b]-[PAUSE:2b]Y loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1[0x86][END]"),
-    LOOT_EPIC = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]EPIC loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1[0x86][END]"),
-    LOOT_RARE = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]Rare loot![0x86][END]"),
-    LOOT_COMMON = string("[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]Some loot.[0x86][END]")
+    LOOT_LEGENDARY = string(CSTRING.PRE + "L[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]G[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]N[PAUSE:2b]-[PAUSE:2b]D[PAUSE:2b]-[PAUSE:2b]A[PAUSE:2b]-[PAUSE:2b]R[PAUSE:2b]-[PAUSE:2b]Y loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1" + CSTRING.POST),
+    LOOT_EPIC = string(CSTRING.PRE + "EPIC loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1" + CSTRING.POST),
+    LOOT_RARE = string(CSTRING.PRE + "Rare loot!" + CSTRING.POST),
+    LOOT_COMMON = string(CSTRING.PRE + "Some loot." + CSTRING.POST)
 }
 
 enum FLAG_LOOT {
