@@ -63,6 +63,8 @@ code = """
 #include("in/core.evs")
 
 enum STRING {
+    GOURD_1 = string("[0x96][0x8b]Unlock everything[LF][0x8b]Atlas[LF][0x8b]Poison[END]"),
+
     PORTAL_ACT_1_1 = string("[0x96][0x8b]Oil[LF][0x8b]Intro skip[LF][0x8b]Thraxx[LF][0x8b]Next[END]"),
     PORTAL_ACT_1_2 = string("[0x96][0x8b]Solar[LF][0x8b]Magmar[END]"),
 
@@ -70,10 +72,15 @@ enum STRING {
     
     PORTAL_ACT_2_1 = string("[0x96][0x8b]Blimp[LF][0x8b]Atlas[LF][0x8b]Market[LF][0x8b]Next[END]"),
     PORTAL_ACT_2_2 = string("[0x96][0x8b]Vigor[LF][0x8b]Temple[LF][0x8b]Pyramid[LF][0x8b]Next[END]"),
-    PORTAL_ACT_2_3 = string("[0x96][0x8b]Aegis[LF][0x8b]Aquagoth[END]"),
+    PORTAL_ACT_2_3 = string("[0x96][0x8b]Diamon Eyes[LF][0x8b]Aegis[LF][0x8b]Aquagoth[END]"),
 
     PORTAL_ACT_2_1_ATLAS = string("[0x96][0x8b]Normal[LF][0x8b]Poisoned[LF][0x8b]Speed[END]"),
-    PORTAL_ACT_2_1_MARKET = string("[0x96][0x8b]Normal[LF][0x8b]Wealthy[END]")
+    PORTAL_ACT_2_1_MARKET = string("[0x96][0x8b]Normal[LF][0x8b]Wealthy[END]"),
+    
+    PORTAL_ACT_3_1 = string("[0x96][0x8b]FootKnight[LF][0x8b]Bad Boys[LF][0x8b]Timberdrake[LF][0x8b]Next[END]"),
+    PORTAL_ACT_3_2 = string("[0x96][0x8b]Verminator[LF][0x8b]Sterling[LF][0x8b]Mungola[LF][0x8b]Gauge[END]"),
+    
+    PORTAL_ACT_4_1 = string("[0x96][0x8b]Saturn[LF][0x8b]Carltron[END]")
 }
 fun store_last_entity(tmp) {
     code(0x19, tmp - 0x2834, 0xad, "// (19) WRITE $283b = last entity ($0341)");
@@ -102,9 +109,13 @@ fun fake_atlas() {
     // eval("17 77 2c 98 00                      // write status effect 1 = 0x0090");
     // eval("10 5a ed 07 5a ed 29 31 9a          // write status effect count += 1");
     
-    <0x4ECF> = 0x0098;
+    <0x4ECF> = 0x0008;
+    eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
     yield();
     <0x4ECF> = 0xFFFF;
+
+    
+    eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
 }
 
 fun fake_poison(start) {
@@ -112,6 +123,21 @@ fun fake_poison(start) {
     <0x4ED1> = start;
     <0x4ED3> = start;
     eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+}
+
+fun fake_confound(start) {
+    cast_character(0x18, 0xdc, CHARACTER.BOTH);
+
+    // <0x4ECF> = 0x0060;
+    sleep(0xf0);
+    yield();
+    <0x4ED1> = start;
+    // eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+}
+
+fun fake_dog(dog) {
+    MEMORY.DOG = dog;
+    yield();
 }
 
 @install()
@@ -218,20 +244,90 @@ fun portal_act_2() {
         } else if(MEMORY.QUESTION_ANSWER == 0x03) { // next
             question(STRING.PORTAL_ACT_2_3);
 
-            if(MEMORY.QUESTION_ANSWER == 0x00) { // aegis
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // diamond eyes
+                set(<0x22d8, 0x40>);
+                set(<0x22d8, 0x80>);
+
+                set(FLAG.JAGUAR_RING);
+                fake_level(0x000c);
+                fake_confound(0x0630);
+                transition(0x05, 0x04, 0x71, DIRECTION.NORTH, DIRECTION.EAST);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // aegis
                 set(FLAG.JAGUAR_RING);
                 fake_level(0x000c);
                 transition(0x09, 0x21, 0x41, DIRECTION.NORTH, DIRECTION.EAST);
-            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // aquagoth
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // aquagoth
                 set(FLAG.JAGUAR_RING);
                 fake_level(0x000c);
                 transition(0x6d, 0x1b, 0x51, DIRECTION.NORTH, DIRECTION.NORTH);
-            } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x02) {
+            } else if(MEMORY.QUESTION_ANSWER == 0x03) {
                 nop();
             }
         }
+    }
+}
+
+@install()
+@inject(0x98ef5e)
+fun portal_act_3() {
+    question(STRING.PORTAL_ACT_3_1);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // footknight
+        fake_dog(DOG.POODLE);
+        set(FLAG.JAGUAR_RING);
+        fake_level(0x000c);
+        transition(0x19, 0x01, 0x42, DIRECTION.NORTH, DIRECTION.EAST);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // bad boys
+        set(FLAG.JAGUAR_RING);
+        fake_level(0x000c);
+        transition(0x1f, 0x05, 0x20, DIRECTION.NORTH, DIRECTION.NORTH);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // timberdrake
+        set(FLAG.JAGUAR_RING);
+        fake_level(0x000c);
+        transition(0x20, 0x1b, 0x29, DIRECTION.NORTH, DIRECTION.EAST);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // next
+            question(STRING.PORTAL_ACT_3_2);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // verminator
+                fake_dog(DOG.POODLE);
+                set(FLAG.JAGUAR_RING);
+                fake_level(0x000c);
+                transition(0x5e, 0x16, 0x65, DIRECTION.NORTH, DIRECTION.NORTH);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // sterling
+                set(FLAG.JAGUAR_RING);
+                fake_level(0x000c);
+                transition(0x37, 0x55, 0xf9, DIRECTION.NORTH, DIRECTION.NORTH);
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // mungola
+                set(<0x22dd, 0x02>);
+                set(FLAG.JAGUAR_RING);
+                fake_level(0x000c);
+                transition(0x77, 0x39, 0x24, DIRECTION.NORTH, DIRECTION.WEST);
+            } else if(MEMORY.QUESTION_ANSWER == 0x03) { // gauge
+                set(FLAG.JAGUAR_RING);
+                fake_level(0x000c);
+                transition(0x69, 0x6b, 0x83, DIRECTION.NORTH, DIRECTION.WEST);
+            }
+    }
+}
+
+@install()
+@inject(0x9bcf23)
+fun portal_act_4() {
+    question(STRING.PORTAL_ACT_4_1);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // saturn
+        fake_dog(DOG.TOASTER);
+        set(FLAG.JAGUAR_RING);
+        fake_level(0x000c);
+        load_map(0x48, 0x17, 0x00);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // carltron
+        set(FLAG.JAGUAR_RING);
+        fake_level(0x000c);
+        transition(0x4a, 0x14, 0x25, DIRECTION.NORTH, DIRECTION.NORTH);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
+        nop();
     }
 }
 
@@ -269,14 +365,15 @@ fun south_forest_enter() {
     store_last_entity(0x2835);
     eval("3d 8d 01 00 6b 19 // (3d) WRITE $2455+x66=0x196b, $2455+x68=0x0040 (talk script): Horace Camp Madronius");
 
-    add_enemy_with_flags(0x96, 0x4a, 0x81, 0x0022); // queen
+    add_enemy_with_flags(0x98, 0x4a, 0x81, 0x0002); // queen
     store_last_entity(0x2835);
-    eval("3d 8d 01 00 57 18");
+    entity_script_controlled(0x2835);
+    eval("3d 8d 01 00 49 1a // (3d) WRITE $2836+x66=0x1a49, $2836+x68=0x0040 (talk script): Unnamed NPC talk script 0x1a49");
 
     add_enemy(0x57, 0x4d, 0x81); // prof
     store_last_entity(0x2835);
     entity_script_controlled(0x2835);
-    eval("3d 8d 01 00 57 18");
+    eval("3d 8d 01 00 72 1b // (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
 }
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
@@ -287,12 +384,28 @@ fun first_gourd() {
     
     // dialog(string("[0x96]test, test![0x86]"));
 
-    unlock(ITEM.ALL);
     
     // fake_level(0x0030);
-    fake_atlas();
 
-    // select_alchemy();
+    
+    // fake_confound(0x00d2);
+    cast_character(0x18, 0xdc, CHARACTER.BOTH);
+
+    end();
+
+    question(STRING.GOURD_1);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // unlock everything
+        unlock(ITEM.ALL);
+
+        select_alchemy();
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // atlas
+        fake_atlas();
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // poison
+        fake_poison(0x0000);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
+        nop();
+    }
 }
 
 """
