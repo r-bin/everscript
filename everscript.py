@@ -54,7 +54,7 @@ def handle_parse(code, profile):
 
 code = """
 #memory(
-    <0x2266>,
+    // <0x2266>,
 
     // string_key(0x0000)..string_key(0x232b), // all string keys
     string_key(0x0933),
@@ -67,106 +67,87 @@ code = """
 )
 #include("in/core.evs")
 
-enum CSTRING {
-    PRE = "[0x96].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b].[PAUSE:0b][LF]",
-    POST = "[0x86][END]"
-}
-
 enum STRING {
-    QUESTION_LOOT = string("[0x96][0x8b]Alchemy[LF][0x8b]Weapon[LF][0x8b]Consumable[LF][0x8b]Dog[END]"),
-    LOOT_LEGENDARY = string(CSTRING.PRE + "L[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]G[PAUSE:2b]-[PAUSE:2b]E[PAUSE:2b]-[PAUSE:2b]N[PAUSE:2b]-[PAUSE:2b]D[PAUSE:2b]-[PAUSE:2b]A[PAUSE:2b]-[PAUSE:2b]R[PAUSE:2b]-[PAUSE:2b]Y loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1" + CSTRING.POST),
-    LOOT_EPIC = string(CSTRING.PRE + "EPIC loot![PAUSE:2b]![PAUSE:4b]![PAUSE:8b]1" + CSTRING.POST),
-    LOOT_RARE = string(CSTRING.PRE + "Rare loot!" + CSTRING.POST),
-    LOOT_COMMON = string(CSTRING.PRE + "Some loot." + CSTRING.POST)
+    PORTAL_ACT_1_1 = string("[0x96][0x8b]Oil[LF][0x8b]Intro skip[LF][0x8b]Thraxx[LF][0x8b]Next[END]"),
+    PORTAL_ACT_1_2 = string("[0x96][0x8b]Solar[LF][0x8b]Magmar[END]"),
+
+    PORTAL_ACT_1_1_THRAXX = string("[0x96][0x8b]Normal[LF][0x8b]Intro skip[LF][0x8b]Zombie boy[END]")
+}
+fun store_last_entity(tmp) {
+    code(0x19, tmp - 0x2834, 0xad, "// (19) WRITE $283b = last entity ($0341)");
 }
 
-enum FLAG_LOOT {
-    RAPTORS = flag(),
-    THRAX = flag(),
-    SALABOG = flag(),
-    MAGMAR = flag()
+fun entity_script_controlled(tmp) {
+    code(0x2a, 0x8d, tmp - 0x2834, "// (2a) Make $283b script controlled");
 }
 
-fun upgrade_dog() {
-    <0x24a7> = <0x24a7> + 0x02;
-    if(<0x24a7> > DOG.TOASTER) {
-        <0x24a7> = DOG.TOASTER;
-    }
-    MEMORY.DOG = <0x24a7>;
+fun fake_level(level) {
+    level(level);
+    // heal(CHARACTER.BOTH, True);
+    // MEMORY.BOY_CURRENT_HP = 0x03e7;
+
+    MEMORY.BOY_XP_REQUIRED = 0x00;
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x00, 0x00, FLAG_ENEMY.MOSQUITO);
+    store_last_entity(0x2835);
+
+    // eval("ac 8d 01 00 b4 82 96 8d 01 00 b0 // (ac) $2835 CASTS SPELL 28 POWER 0x96 ON $2837 if alive");
+    eval("93 8d 01 00 84 e8 03 // (93) DAMAGE $2843 FOR 0x03e8");
+}
+fun fake_atlas() {
+    <0x4F29> = 0xefff;
+
+    // <0x4ECF> = 0x0090;
+    // eval("17 77 2c 98 00                      // write status effect 1 = 0x0090");
+    // eval("10 5a ed 07 5a ed 29 31 9a          // write status effect count += 1");
+    
+    <0x4ECF> = 0x0098;
+    yield();
+    <0x4ECF> = 0xFFFF;
 }
 
-fun loot_legendary() {
-    if(MEMORY.QUESTION_ANSWER == 0x00) {
-        reward(ITEM.HARD_BALL);
-        reward(ITEM.FLASH);
-    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-        reward(ITEM.SPEAR_3);
-    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
-        reward(ITEM.WINGS);
-    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
-        upgrade_dog();
-    }
-}
-fun loot_epic() {
-    if(MEMORY.QUESTION_ANSWER == 0x00) {
-        reward(ITEM.HARD_BALL);
-    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-        reward(ITEM.AXE_1);
-    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
-        reward(ITEM.PETAL);
-        reward(ITEM.NECTAR);
-    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
-        upgrade_dog();
-    }
-}
-fun loot_rare() {
-    if(MEMORY.QUESTION_ANSWER == 0x00) {
-        reward(ITEM.FLASH);
-    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-        reward(ITEM.AXE_1);
-    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
-        reward(ITEM.NECTAR);
-    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
-        upgrade_dog();
-    }
-}
-fun loot_common() {
-    if(MEMORY.QUESTION_ANSWER == 0x00) {
-        reward(ITEM.ACID_RAIN);
-    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-        reward(ITEM.AXE_1);
-    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
-        reward(ITEM.PETAL);
-    } else if(MEMORY.QUESTION_ANSWER == 0x03) {
-        upgrade_dog();
-    }
-}
+@install()
+@inject(0x94d5c7)
+fun portal_act_1() {
+    question(STRING.PORTAL_ACT_1_1);
 
-fun rng_fiesta(difficulty) {
-    question(STRING.QUESTION_LOOT);
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // Oil
+        transition(0x25, 0x6f, 0x49, DIRECTION.NORTH, DIRECTION.SOUTH);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // Intro skip
+        transition(0x17, 0x39, 0x44, DIRECTION.NORTH, DIRECTION.WEST);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // Thraxx
+        question(STRING.PORTAL_ACT_1_1_THRAXX);
+    
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // Normal
+            transition(MAP.THRAXX, 0x17, 0x3f, DIRECTION.NORTH, DIRECTION.NORTH);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // Intro skip
+            transition(MAP.THRAXX, 0x17, 0x3f, DIRECTION.NORTH, DIRECTION.WEST);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // Zombie boy
+            MEMORY.BOY_CURRENT_HP = 0x0000;
+            transition(MAP.THRAXX, 0x17, 0x3f, DIRECTION.NORTH, DIRECTION.NORTH);
+        }
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // Next
+        question(STRING.PORTAL_ACT_1_2);
 
-    if(difficulty >= 0x30) {
-        dialog(STRING.LOOT_LEGENDARY);
-        loot_legendary();
-    } else if(difficulty > 0x14) {
-        dialog(STRING.LOOT_EPIC);
-        loot_epic();
-    } else if(difficulty > 0x0a) {
-        dialog(STRING.LOOT_RARE);
-        loot_rare();
-    } else {
-        dialog(STRING.LOOT_COMMON);
-        loot_common();
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // Solar
+            fake_level(0x0007);
+            transition(0x3b, 0x51, 0xb1, DIRECTION.NORTH, DIRECTION.NORTH);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // Magmar
+            fake_level(0x0007);
+            transition(MAP.MAGMAR, 0x18, 0x47, DIRECTION.NORTH, DIRECTION.NORTH);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+            nop();
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) {
+            nop();
+        }
     }
 }
 
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER)
 fun south_forest_enter() {
-    <0x24a7> = DOG.TOASTER;
-    MEMORY.DOG = <0x24a7>;
+    MEMORY.DOG = DOG.WOLF;
 
-    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
+    // transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.NORTH, DIRECTION.NORTH);
 
     init_map(0x00, 0x02, 0x80, 0x96);
 
@@ -176,134 +157,51 @@ fun south_forest_enter() {
 
     // MEMORY.DOG = DOG.TOASTER;
 
-    add_enemy(ENEMY.FLOWER, 0x49, 0x79);
-    add_enemy(ENEMY.FLOWER, 0x6b, 0x81);
-    add_enemy(ENEMY.FLOWER, 0x51, 0x65);
-    add_enemy(ENEMY.FLOWER, 0x45, 0x4d);
-    add_enemy(ENEMY.FLOWER, 0x19, 0x53);
-    add_enemy(ENEMY.FLOWER, 0x25, 0x3d);
-    add_enemy(ENEMY.FLOWER, 0x2d, 0x63);
-    add_enemy(ENEMY.FLOWER, 0x19, 0x7d);
-    add_enemy(ENEMY.FLOWER, 0x1d, 0x23);
-    add_enemy(ENEMY.FLOWER, 0x59, 0x21);
-    add_enemy(ENEMY.FLOWER, 0x45, 0x3b);
-    add_enemy(ENEMY.FLOWER, 0x63, 0x3b);
-    add_enemy(ENEMY.FLOWER, 0x69, 0x51);
-    add_enemy(ENEMY.FLOWER, 0x63, 0x23);
-
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x11, 0x1f, FLAG_ENEMY.MOSQUITO);
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x11, 0x39, FLAG_ENEMY.MOSQUITO);
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x2d, 0x7d, FLAG_ENEMY.MOSQUITO);
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x73, 0x73, FLAG_ENEMY.MOSQUITO);
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x75, 0x1d, FLAG_ENEMY.MOSQUITO);
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x45, 0x14, FLAG_ENEMY.MOSQUITO);
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x3b, 0x4d, FLAG_ENEMY.MOSQUITO);
-    
     if(!FLAG.IN_ANIMATION) {
         teleport(CHARACTER.BOTH, 0x50, 0x83);
     }
 
     music_volume(MUSIC.START, 0x64);
     fade_in();
-}
-@install(0x94ce7b, False)
-fun fe_village_dog() {
-    eval("4d 4d 4d 4d");
+
+    add_enemy_with_flags(0x2a, 0x45, 0x81, 0x0020);
+    store_last_entity(0x2835);
+    eval("3d 8d 01 00 57 18");
+    
+    // 0x94d5c7 = 0x14d5c7 = 0x14BD70 + 0x001857
+    // (3d) WRITE $2835+x66=0x1857, $2835+x68=0x0040 (talk script): Fire Eyes
+    // 3d 8d 01 00 57 18
+
+    add_enemy_with_flags(0x8a, 0x47, 0x81, 0x0020);
+    store_last_entity(0x2835);
+    eval("3d 8d 01 00 57 18");
+
+    add_enemy_with_flags(0x96, 0x4a, 0x81, 0x0022);
+    store_last_entity(0x2835);
+    eval("3d 8d 01 00 57 18");
+
+    add_enemy(0x57, 0x4d, 0x81);
+    store_last_entity(0x2835);
+    entity_script_controlled(0x2835);
+    eval("3d 8d 01 00 57 18");
 }
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
 fun first_gourd() {
     set(<0x2262, 0x02>);
-
+    
     // transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
     
     // dialog(string("[0x96]test, test![0x86]"));
+
+    unlock(ITEM.ALL);
+    
+    // fake_level(0x0030);
+    fake_atlas();
+
+    // select_alchemy();
 }
 
-@install()
-@inject(ADDRESS.FE_EXIT_EAST)
-fun village_exit_east() {
-    MEMORY.DOG = DOG.TOASTER;
-    transition(MAP.THRAXX, 0x17, 0x3f, DIRECTION.WEST, DIRECTION.NORTH);
-}
-@install(0x93d349, False)
-fun thraxx_heal() {
-    eval("4d 4d 4d 4d 4d");
-    eval("4d 4d 4d 4d 4d");
-}
-@install()
-@inject(ADDRESS.THRAXX_EXIT_NORTH)
-@inject(ADDRESS.THRAXX_EXIT_SOUTH)
-fun thraxx_exit() {
-    if(!FLAG.RANDOM_1) {
-        set(FLAG.RANDOM_1);
-        rng_fiesta(rnd(0x10, 0x20));
-    }
-    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
-}
-
-@install()
-@inject(ADDRESS.FE_EXIT_SOUTH)
-fun fe_exit_south() {
-    transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.SOUTH, DIRECTION.NORTH);
-}
-@install(0x93912c, False)
-fun raptors_dog() {
-    eval("4d 4d 4d 4d");
-}
-fun raptor_flags() {
-    if(!FLAG.RANDOM_2) {
-        set(FLAG.RANDOM_2);
-        rng_fiesta(rnd(0x00, 0x10));
-    }
-    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
-}
-@install()
-@inject(ADDRESS.RAPTORS_EXIT_SOUTH)
-fun raptors_exit() {
-    if(!FLAG.RAPTORS) {
-        transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
-    }
-
-    raptor_flags();
-}
-@install()
-@inject(ADDRESS.RAPTORS_EXIT_NORTH)
-fun raptors_exit() {
-    set(FLAG.RAPTORS);
-
-    raptor_flags();
-}
-
-@install()
-@inject(ADDRESS.FE_EXIT_WEST)
-fun fe_exit_west() {
-    transition(MAP.MAGMAR, 0x18, 0x47, DIRECTION.NORTH, DIRECTION.NORTH);
-}
-
-@install()
-@inject(ADDRESS.FE_EXIT_NORTH)
-fun fe_exit_north() {
-    transition(MAP.SALABOG, 0x1c, 0x61, DIRECTION.WEST, DIRECTION.NORTH);
-}
-@install(0x978e34, False)
-fun fe_village_dog() {
-    eval("4d 4d 4d 4d");
-}
-@install()
-@inject(ADDRESS.SALABOG_EXIT_SOUTH)
-@inject(ADDRESS.SALABOG_EXIT_NORTH)
-fun salabog_exit() {
-    if(!FLAG.SALABOG) {
-        transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
-    }
-
-    if(!FLAG.RANDOM_4) {
-        set(FLAG.RANDOM_4);
-        rng_fiesta(rnd(0x15, 0x20));
-    }
-    transition(MAP.FE_VILLAGE, 0x59, 0x73, DIRECTION.UNKNOWN, DIRECTION.NORTH);
-}
 """
 
 if profile:
