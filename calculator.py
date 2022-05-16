@@ -1,3 +1,5 @@
+from asyncio import wait
+from this import d
 from numpy import isin
 from ast_core import *
 
@@ -8,7 +10,7 @@ _instructions = {
     "nop": 0x00, # noop?
 
     # _: 0x01, # signed const byte
-    # _: 0x02, # unsigned const byte
+    "unsigned byte": 0x02, # unsigned const byte
 
     # _: 0x03, # signed const word
     "word": 0x04, # unsigned const word
@@ -88,6 +90,7 @@ _instructions = {
 }
 
 _types =  {
+    "xx": 0x17,
     "24": 0x18,
     "25": 0x1c,
     "28": 0x19
@@ -112,6 +115,7 @@ _operators = {
         "28": 0x08
     },
     "=": {
+        "xx": 0x17,
         "24": 0x18,
         "28": 0x19
     },
@@ -185,8 +189,8 @@ class Calculator(Function_Base):
                 i = _instructions[i]
 
                 self.add_instruction(footer, i)
-            elif isinstance(i, Memory) or isinstance(i, str) and re.match("<0x[0-9a-fA-F]+>", i):
-                i.code()
+            elif isinstance(i, Memory):
+                i.code() # TODO
 
                 if i.inverted:
                     operator = operator+"!"
@@ -197,24 +201,26 @@ class Calculator(Function_Base):
                 
                 self.words.append(i)
                 out.append(i)
-            elif isinstance(i, Word) or isinstance(i, str) and re.match("0x[0-9a-fA-F]", i):
-                word = i
-                i = i.eval()
-
-                if i in range(0x0, 0xf):
-                    i = 0x30 + (i & 0x0f)
-                elif i in range(0x10, 0x1f):
-                    i = 0x60 + ((i - 0x10) & 0x0f)
-                elif i in range(0xfff0, 0xffff):
-                    i = 0x40 + ((i - 0xfff0) & 0x0f)
-                else:
-                    i = word
-
+            elif isinstance(i, Word):
                 self.words.append(i)
                 self.add_instruction(out, i)
             else:
                 self.add_instruction(footer, i)
 
+
+        def w2i(w):
+            i = w.eval()
+
+            if i in range(0x0, 0xf):
+                i = 0x30 + (i & 0x0f)
+            elif i in range(0x10, 0x1f):
+                i = 0x60 + ((i - 0x10) & 0x0f)
+            elif i in range(0xfff0, 0xffff):
+                i = 0x40 + ((i - 0xfff0) & 0x0f)
+            else:
+                i = w
+
+            return i
 
         t = ""
         for o in out:
@@ -222,20 +228,25 @@ class Calculator(Function_Base):
                 t += "m"
             elif type(o) == Word:
                 t += "w"
-            elif type(o) == int:
-                t += "i"
         
         if operator == "=":
             operator = _operators["="][out[0].type]
+
+            def w(w):
+                if operator == 0x17:
+                    return [w.code()]
+                elif w.value_count == 1:
+                    return [_instructions["unsigned byte"], w.code()]
+                elif w.value_count == 2:
+                    return [_instructions["word"], w.code()]
+
             match t:
-                case "mi":
-                    out = [operator, out[0], out[1]]
                 case "mm":
                     out = [operator, out[0], _operators["read word"][out[1].type], out[1]]
                 case "mw":
-                    out = [operator, out[0], _instructions["word"], out[1]]
-                case "mmi":
-                    out = [operator, out[0], _operators["read word"][out[1].type], out[1], _instructions["push"], out[2]]
+                    out = [operator, out[0]] + w(out[1])
+                case "mmw":
+                    out = [operator, out[0], _operators["read word"][out[1].type], out[1], _instructions["push"], w2i(out[2])]
                 case _:
                     raise Exception(f"unsupported structure: {t}")
         elif operator == "if!":
@@ -248,8 +259,8 @@ class Calculator(Function_Base):
         elif operator == "if":
             operator = _operators["if"][out[0].type]
             match t:
-                case "mi":
-                    out = [operator, _operators["read word"][out[0].type], out[0], _instructions["push"], out[1]]
+                case "mw":
+                    out = [operator, _operators["read word"][out[0].type], out[0], _instructions["push"], w2i(out[1])]
                 case _:
                     raise Exception(f"unsupported structure: {t}")
         else:
@@ -258,7 +269,7 @@ class Calculator(Function_Base):
         out = out + footer
 
         for i, e in reversed(list(enumerate(out))):
-            if isinstance(e, int):
+            if i > 0 and isinstance(e, int):
                 out[i] |= 0x80
                 break
 

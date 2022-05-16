@@ -135,6 +135,7 @@ class Memory(Function_Base):
         if isinstance(self.flag, Word):
             self.flag = self.flag.eval()
         self.inverted = False
+        self.type = "xx"
 
     def __repr__(self):
         return f"Memory(address={self.address}, flag={self.flag})"
@@ -146,13 +147,18 @@ class Memory(Function_Base):
         address = self.address
         flag = self.flag
         
-        address = address
         if address >= 0x2834:
             address -= 0x2834
             self.type = "28"
         elif address >= 0x2258:
             address -= 0x2258
             self.type = "24"
+        else:
+            if address >= 0x2258:
+                address -= 0x2258
+            else:
+                address += 0xDDA8
+            self.type = "xx"
 
         if not flag:
             address = '{:04X}'.format(address, 'x')
