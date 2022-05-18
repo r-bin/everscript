@@ -141,7 +141,7 @@ class OutUtils():
         shutil.copyfile(self._tmp, file)
         os.remove(self._tmp)
             
-    def patch(self, file_in, patch):
+    def patch(self, file_in, patch, patches):
         file_name = os.path.splitext(file_in)
         file_size = os.path.getsize(file_in)
 
@@ -152,7 +152,8 @@ class OutUtils():
         shutil.copyfile(file_in, target_name)
 
         self._extend_rom(target_name)
-        self._apply_additional_patches(target_name, "./patches")
+        if patches:
+            self._apply_additional_patches(target_name, "./patches")
         self._apply_patch(target_name, patch)
 
         print(f"patched successfully! {file_in} ({file_size}) + {patch} ({os.path.getsize(patch)}) -> {target_name} ({os.path.getsize(target_name)})")
