@@ -8,6 +8,7 @@ from compiler.linker import Linker
 import time
 import re
 import sys, getopt
+import os
 
 version = "1.0.0"
 
@@ -50,7 +51,7 @@ def handle_parse(code, profile):
     log(f"done!")
 
 def parse_args(argv):
-    name = argv[0]
+    name = "everscript"
     argv = argv[1:]
 
     example_rom_file = '"Secret of Evermore (U) [!].smc"'
