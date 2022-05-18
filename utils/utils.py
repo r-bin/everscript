@@ -12,20 +12,19 @@ import re
 
 from ips_util import Patch
 
-class Utils():
-    def __init__(self):
-        self.target_size = 4 * 1024 * 1024
-        self.original_size = 3 * 1024 * 1024
+class FileUtils():
+    def file2string(self, file):
+        with open(file, 'r') as f:
+            return f.read()
 
-        self.out = "./out"
-        self.tmp = os.path.join(self.out, "tmp")
-
+class ObjectUtils():
     def deepcopy(self, object):
         if False:
             return copy.deepcopy(object)
         else:
             return ujson.loads(ujson.dumps(object))
 
+class StringUtils():
     def beautify_output(self, output):
         l = []
         m = 0
@@ -50,22 +49,29 @@ class Utils():
 
         return r
 
+class OutUtils():
+    _target_size = 4 * 1024 * 1024
+    _original_size = 3 * 1024 * 1024
+
+    _out = "./out"
+    _tmp = os.path.join(_out, "tmp")
+
     def extend_rom(self, file_in, file_out):
         destfile = pathlib.Path(file_out)
         shutil.copyfile(file_in, destfile)
 
-        required_padding = self.target_size - destfile.stat().st_size
+        required_padding = self._target_size - destfile.stat().st_size
         if required_padding > 0:
             with destfile.open("ab") as outfile:
                 outfile.write(b"\x00" * required_padding)
 
     def clean_out(self):        
-        if os.path.exists(self.out) and os.path.isdir(self.out):
-            shutil.rmtree(self.out)
-        os.mkdir(self.out)
+        if os.path.exists(self._out) and os.path.isdir(self._out):
+            shutil.rmtree(self._out)
+        os.mkdir(self._out)
 
     def dump(self, text, file):
-        text_file = open(os.path.join(self.out, file), "w")
+        text_file = open(os.path.join(self._out, file), "w")
         text_file.write(text)
         text_file.close()
 
@@ -84,7 +90,7 @@ class Utils():
         if exists(file):
             size = os.path.getsize(file)
 
-            if size == self.target_size or size == self.original_size:
+            if size == self._target_size or size == self._original_size:
                 print(f"removed old file {file} ({size})...")
                 os.remove(file)
             else:
@@ -93,18 +99,18 @@ class Utils():
     def _extend_rom(self, file):
         file_size = os.path.getsize(file)
 
-        if file_size < self.target_size:
-            print(f"extending ROM {file} ({file_size} -> {self.target_size})")
-            if exists(self.tmp):
-                os.remove(self.tmp)
-            self.extend_rom(file, self.tmp)
+        if file_size < self._target_size:
+            print(f"extending ROM {file} ({file_size} -> {self._target_size})")
+            if exists(self._tmp):
+                os.remove(self._tmp)
+            self.extend_rom(file, self._tmp)
 
         os.remove(file)
-        shutil.copyfile(self.tmp, file)
-        os.remove(self.tmp)
+        shutil.copyfile(self._tmp, file)
+        os.remove(self._tmp)
 
     def _apply_additional_patches(self, file, directory):
-        patches = os.path.join(self.out, "patches")
+        patches = os.path.join(self._out, "patches")
         shutil.copytree(directory, patches)
 
         for patch in os.scandir(patches):
@@ -125,15 +131,15 @@ class Utils():
         patch_size = os.path.getsize(patch)
 
         print(f"applying patch {patch} ({patch_size})")
-        if exists(self.tmp):
-            os.remove(self.tmp)
+        if exists(self._tmp):
+            os.remove(self._tmp)
         with open(file, 'rb') as f_in:
-            with open(self.tmp, 'w+b') as f_out:
+            with open(self._tmp, 'w+b') as f_out:
                 f_out.write(patch_records.apply(f_in.read()))
 
         os.remove(file)
-        shutil.copyfile(self.tmp, file)
-        os.remove(self.tmp)
+        shutil.copyfile(self._tmp, file)
+        os.remove(self._tmp)
             
     def patch(self, file_in, patch):
         file_name = os.path.splitext(file_in)
@@ -141,7 +147,7 @@ class Utils():
 
         print(f"patching {file_in} ({file_size}) + {patch} ({os.path.getsize(patch)})...")
 
-        target_name = os.path.join(self.out, '.patched'.join(file_name))
+        target_name = os.path.join(self._out, '.patched'.join(file_name))
         
         shutil.copyfile(file_in, target_name)
 
@@ -150,3 +156,8 @@ class Utils():
         self._apply_patch(target_name, patch)
 
         print(f"patched successfully! {file_in} ({file_size}) + {patch} ({os.path.getsize(patch)}) -> {target_name} ({os.path.getsize(target_name)})")
+
+fileUtils = FileUtils()
+stringUtils = StringUtils()
+objectUtils = ObjectUtils()
+outUtils = OutUtils()

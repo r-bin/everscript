@@ -1,6 +1,6 @@
 from ast_core import *
 from calculator import *
-from utils import Utils
+from utils.utils import *
 
 from rply import LexerGenerator, Token
 from rply.token import BaseBox
@@ -9,8 +9,6 @@ from textwrap import wrap
 import copy
 import random
 import uuid
-
-utils = Utils()
 
 class Function(Function_Base):
     def __init__(self, name, script, args, function_args=[]):
@@ -540,7 +538,7 @@ class Include(BaseBox):
         script = open(self.path, 'r').read()
         #print(f"{self.path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
-        utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
+        outUtils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
         script = lexer.lex(script)
         print(" - generating objects...")
         script = parser.parse(script)
