@@ -1,4 +1,4 @@
-from ast_everscript import *
+from compiler.ast_everscript import *
 
 from itertools import dropwhile
 import numpy as np

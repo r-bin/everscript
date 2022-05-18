@@ -1,15 +1,15 @@
 from utils.utils import *
 
-from lexer import Lexer
-from codegen import CodeGen
-from parser import Parser
-from linker import Linker
+from compiler.lexer import Lexer
+from compiler.codegen import CodeGen
+from compiler.parser import Parser
+from compiler.linker import Linker
 
 import time
 import re
-import sys
+import sys, getopt
 
-profile = False
+version = "1.0.0"
 
 outUtils.clean_out()
 
@@ -49,50 +49,93 @@ def handle_parse(code, profile):
     
     log(f"done!")
 
-if False:
-    code = """
-    #memory(
-        // <0x2266>,
+def parse_args(argv):
+    name = argv[0]
+    argv = argv[1:]
 
-        string_key(0x0000)..string_key(0x232b), // all string keys
+    example_rom_file = '"Secret of Evermore (U) [!].smc"'
+    example_input_file = "<input_file.evs>"
+    example_patches_dir = "</additional_patches>"
 
-        0x300000..0x3fffff // extension
-    )
-    #include("in/core.evs")
+    rom_file = None
+    input_file = None
+    patches_dir = None
+    profile = False
 
-    @install()
-    @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
-    fun first_gourd() {
-        dialog(string("[0x96]test, test![0x86]"));
-    }
+    def help():
+        print(f"""
+Compiles '.evs' code into everscript assembler and patches it into Secret of Evermore ROMs.
+Based on the code and results of https://github.com/black-sliver/SoETilesViewer from Black Sliver.
 
-    """
-else:
-    if len(sys.argv) < 2:
-        print("input file required")
-        sys.exit(2)
+-r, --rom
+    Secret of Evermore ROM: English, good dump '[!]', no header ({example_rom_file})
+-s, --script, #1
+    Contains the code to be compiled into an IPS file and patched into the ROM.
+-p, --patches
+    Additional patches to be applied.
+--profile
+    Measures the performance of the compiler. Useful for finding problems.
+-v, --version
+    Current version ({name} - {version})
 
-    code = sys.argv[1]
-    code = fileUtils.file2string(code)
+examples:
+    {name} --rom {example_rom_file} {example_input_file}                                                rom + script
+    {name} --rom {example_rom_file} --script {example_input_file}                                       rom + script
+    {name} --rom {example_rom_file} --script {example_input_file} --patches {example_patches_dir}       rom + script + patches
+    {name} --rom {example_rom_file} --script {example_input_file} --profile                             profile(rom + script)
+        """.strip())
+        sys.exit()
 
-if profile:
-    import cProfile, pstats
-    import io
+    try:
+        opts, args = getopt.getopt(argv,"hpr:s:",["profile", "rom=", "script=", "patches="])
+    except getopt.GetoptError:
+        help()
 
-    profiler = cProfile.Profile()
-    profiler.enable()
-    handle_parse(code, profile)
-    profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats('tottime')
-    
-    result = io.StringIO()
-    pstats.Stats(profiler, stream=result).sort_stats('tottime').print_stats()
-    result = result.getvalue()
-    
-    with open("out/profile.txt", "w+") as f:
-        print(result, file=f)
-    print(result)
-else:
-    handle_parse(code, True)
+    if len(args) == 1:
+        input_file = args[0]
+    else:
+        help()
 
-outUtils.patch('Secret of Evermore (U) [!].smc', "out/everscript.ips")
+    for opt, arg in opts:
+        if opt == "-h":
+            help()
+        elif opt in ("-v", "--version"):
+            print(version)
+            sys.exit()
+        elif opt in ("-p", "--profile"):
+            profile = True
+        elif opt in ("-r", "--rom"):
+            rom_file = arg
+        elif opt in ("-s", "--script"):
+            input_file = arg
+        elif opt in ("-p", "--patches"):
+            patches_dir = arg
+
+    if not input_file:
+        help()
+
+    code = fileUtils.file2string(input_file)
+
+    if not profile:
+        handle_parse(code, True)
+    else:
+        import cProfile, pstats
+        import io
+
+        profiler = cProfile.Profile()
+        profiler.enable()
+        handle_parse(code, profile)
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('tottime')
+        
+        result = io.StringIO()
+        pstats.Stats(profiler, stream=result).sort_stats('tottime').print_stats()
+        result = result.getvalue()
+        
+        with open("out/profile.txt", "w+") as f:
+            print(result, file=f)
+        print(result)
+
+    outUtils.patch(rom_file, "out/everscript.ips", patches_dir)
+
+parse_args(sys.argv)

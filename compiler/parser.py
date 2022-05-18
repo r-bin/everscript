@@ -1,5 +1,5 @@
 from rply import ParserGenerator
-from ast_everscript import *
+from compiler.ast_everscript import *
 
 class Parser():
     def __init__(self, generator):
@@ -7,16 +7,15 @@ class Parser():
             # A list of all token names accepted by the parser.
             [
                 '..',
-                '(', ')', ',', ';', '{', '}', '[', ']', '<', '>', # '\n',
+                '(', ')', ',', ';', '{', '}', '<', '>', # '[', ']', '\n',
                 '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
-                'END', 'LABEL_DESTINATION',
+                'LABEL_DESTINATION', # 'END',
                 'ELSEIF', 'IF', 'ELSE',
                 'WHILE',
-                'FUNCTION_CODE', 'FUNCTION_EVAL', 'FUNCTION_GOTO', 'FUNCTION_SET', 'FUNCTION_LEN',
-                'FUNCTION_RND', 'FUNCTION_CALL', 'FUNCTION_STRING',
+                'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE', 'FUN_MEMORY',
                 'IDENTIFIER'

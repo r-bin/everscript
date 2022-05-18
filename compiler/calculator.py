@@ -1,7 +1,6 @@
 from asyncio import wait
-from this import d
 from numpy import isin
-from ast_core import *
+from compiler.ast_core import *
 
 from textwrap import wrap
 import re

@@ -1,5 +1,5 @@
-from ast_core import *
-from calculator import *
+from compiler.ast_core import *
+from compiler.calculator import *
 from utils.utils import *
 
 from rply import LexerGenerator, Token
@@ -525,8 +525,8 @@ class Include(BaseBox):
         self.path = re.sub("[\'\"]", "", path)
 
     def eval(self):
-        from lexer import Lexer
-        from parser import Parser
+        from compiler.lexer import Lexer
+        from compiler.parser import Parser
 
         print(f" - handle import '${self.path}':")
 
