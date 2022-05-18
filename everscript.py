@@ -64,8 +64,8 @@ def parse_args(argv):
 
     def help():
         print(f"""
-Compiles '.evs' code into everscript assembler and patches it into Secret of Evermore ROMs.
-Based on the code and results of https://github.com/black-sliver/SoETilesViewer from Black Sliver.
+Compiler for assembler based scripts, used in the SNES game "Secret of Evermore".
+Almost completely based on the results of https://github.com/black-sliver/SoETilesViewer and the work of Black Sliver.
 
 -r, --rom
     Secret of Evermore ROM: English, good dump '[!]', no header ({example_rom_file})
