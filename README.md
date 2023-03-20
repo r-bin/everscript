@@ -99,3 +99,4 @@ EOF
 - [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) - Black Sliver
 - [rply](https://github.com/alex/rply)
 - `/patches/skip_intro.txt` - Black Sliver
+- `/research/maps/*` - Grizzly

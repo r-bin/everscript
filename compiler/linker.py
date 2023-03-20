@@ -168,6 +168,7 @@ unallocated RAM:
 
     def link_memory(self):
         return self.memory_manager.allocate_memory()
+        
     def link_flag(self):
         return self.memory_manager.allocate_flag()
 
