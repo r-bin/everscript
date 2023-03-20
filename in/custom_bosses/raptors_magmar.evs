@@ -1,0 +1,145 @@
+#memory(
+    string_key(0x0000)..string_key(0x232b), // all string keys
+
+    0x300000..0x3fffff // extension
+)
+#include("in/core.evs")
+
+fun store_last_entity(tmp) {
+    code(0x19, tmp - 0x2834, 0xad, "// (19) WRITE $283b = last entity ($0341)");
+}
+
+fun cast_enemy(spell, level, source, target) {
+    // 00 = acid rain, flash, crush, drain, double drain, sting, lightnint storm, explosion
+    // 10 = corosion, nitro, stop, fireball, confound, cure, heal, miracle cure
+    // 20 = one up, forcefield, slow burn, storm, disrupt, plague
+
+    // e0 = corosion, e1 = crash, e2 = nitro
+
+    code(0xac, 0x8d,  source - 0x2834, spell, 0x82, level, 0x8d, target - 0x2834, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
+}
+
+fun attach_script(id, flag) {
+    code(0x3f, 0xad, 0x00, flag, id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+}
+
+fun destroy(enemy) {
+    code(0x9b, 0x8d, enemy - 0x2834, "// (9b) DESTROY/DEALLOC ENTITY $283e");
+}
+
+@install()
+@inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
+fun enter_map_raptors() {
+    transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
+}
+
+@install()
+@inject(ADDRESS.RAPTORS_EXIT_ENTER)
+fun south_forest_enter() {
+    MEMORY.DOG = DOG.WOLF;
+
+    unlock(ITEM.SPEAR_1);
+    unlock(ITEM.JAGUAR_RING);
+
+    // MEMORY.DOG = DOG.TOASTER;
+
+    if(!FLAG.IN_ANIMATION) {
+        teleport(CHARACTER.BOTH, 0x1d, 0x27);
+    }
+
+    add_enemy(0x1f, 0x1e, 0x21);
+    store_last_entity(0x2848);
+
+    add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
+    store_last_entity(0x2846);
+    attach_script(0x181e, 0x03);
+    eval("78 8d 12 00 10 00 b2 // (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?"); // invisible
+    // eval("a9 8d 12 00 e0 // (a9) UNTRACED INSTR modifies entity $2846 bits 16"); // can't move
+    // eval("78 8d 14 00 b0 00 b0 // (78) UNTRACED INSTR for $2848, 0x00b0 0 changes sprite/animation/...?"); // ?
+    // eval("78 8d 12 00 0c 80 b4 // (78) UNTRACED INSTR for $2846, 0x800c 4 changes sprite/animation/...?"); // ?
+    // eval("2a 8d 00 00 // (2a) Make $2834 script controlled");
+
+    music_volume(MUSIC.START, 0x64);
+    fade_in();
+    
+    sleep(0x20);
+
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x19, 0x0400);
+    store_last_entity(0x2835);
+    attach_script(0x1a4f, 0x02);
+
+    sleep(0x40);
+
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x29, 0x1b, 0x0400);
+    store_last_entity(0x2837);
+    attach_script(0x178e, 0x02);
+
+    sleep(0x20);
+
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x29, 0x0400);
+    store_last_entity(0x2839);
+    attach_script(0x1857, 0x02);
+
+    sleep(0x20);
+
+    add_enemy(0x7a, 0x29, 0x2b);
+    store_last_entity(0x283b);
+    attach_script(0x1845, 0x02);
+
+}
+
+@install(ADDRESS.RAPTORS_STEP_ON_FIGHT)
+fun raptor_fight() {
+    end();
+}
+
+@install()
+@inject(0x94b8ca)
+fun magmar_damage() {
+    destroy(0x2848);
+}
+
+@install() // "Tinker" = (id:1a4f => addr:0x998b88)
+@inject(0x998b88)
+fun mosquito_1_dead() {
+    cast_enemy(0xe6, 0xff, 0x2835, 0x2846);
+
+    sleep(0x80);
+
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x19, 0x0400);
+    store_last_entity(0x2835);
+    attach_script(0x1a4f, 0x02);
+}
+@install() // "BBM Wings" = (id:178e => addr:0x92d493)
+@inject(0x92d493)
+fun mosquito_2_dead() {
+    cast_enemy(0xe6, 0xff, 0x2837, 0x2846);
+
+    sleep(0x80);
+
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x29, 0x1b, 0x0400);
+    store_last_entity(0x2837);
+    attach_script(0x178e, 0x02);
+}
+@install() // "Fire Eyes" = (id:1857 => addr:0x94d5c7)
+@inject(0x94d5c7)
+fun mosquito_3_dead() {
+    cast_enemy(0xe6, 0xff, 0x2839, 0x2846);
+
+    sleep(0x80);
+
+    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x29, 0x0400);
+    store_last_entity(0x2839);
+    attach_script(0x1857, 0x02);
+}
+@install() // "Hut NPC 1" = (id:1845 => addr:0x94d0bc)
+@inject(0x94d0bc)
+fun mosquito_4_dead() {
+    cast_enemy(0xe6, 0xff, 0x283a, 0x2846);
+
+    sleep(0x80);
+
+    add_enemy(0x7a, 0x29, 0x2b);
+    store_last_entity(0x283a);
+    attach_script(0x1845, 0x02);
+}
