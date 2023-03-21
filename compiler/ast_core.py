@@ -5,6 +5,7 @@ from textwrap import wrap
 class Function_Base(BaseBox):
     params = []
 
+    # TODO: parameters with different names
     def code(self, params=[]):
         if self.params:
             sp = {x.name : x for x in self.params}

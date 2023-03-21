@@ -5,24 +5,6 @@
 )
 #include("in/core.evs")
 
-fun store_last_entity(tmp) {
-    code(0x19, tmp - 0x2834, 0xad, "// (19) WRITE $283b = last entity ($0341)");
-}
-
-fun cast_enemy(spell, level, source, target) {
-    // 00 = acid rain, flash, crush, drain, double drain, sting, lightnint storm, explosion
-    // 10 = corosion, nitro, stop, fireball, confound, cure, heal, miracle cure
-    // 20 = one up, forcefield, slow burn, storm, disrupt, plague
-
-    // e0 = corosion, e1 = crash, e2 = nitro
-
-    code(0xac, 0x8d,  source - 0x2834, spell, 0x82, level, 0x8d, target - 0x2834, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-}
-
-fun attach_script(id, flag) {
-    code(0x3f, 0xad, 0x00, flag, id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
-}
-
 fun destroy(enemy) {
     code(0x9b, 0x8d, enemy - 0x2834, "// (9b) DESTROY/DEALLOC ENTITY $283e");
 }
@@ -47,13 +29,15 @@ fun south_forest_enter() {
         teleport(CHARACTER.BOTH, 0x1d, 0x27);
     }
 
-    add_enemy(0x1f, 0x1e, 0x21);
+    add_enemy(ENEMY.STONE_ROUND, 0x1e, 0x21);
     store_last_entity(0x2848);
 
     add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
     store_last_entity(0x2846);
-    attach_script(0x181e, 0x03);
-    eval("78 8d 12 00 10 00 b2 // (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?"); // invisible
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, 0x181e);
+    animate(0x2846, 0x0010);
+
+    // eval("78 8d 12 00 10 00 b2 // (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?"); // invisible
     // eval("a9 8d 12 00 e0 // (a9) UNTRACED INSTR modifies entity $2846 bits 16"); // can't move
     // eval("78 8d 14 00 b0 00 b0 // (78) UNTRACED INSTR for $2848, 0x00b0 0 changes sprite/animation/...?"); // ?
     // eval("78 8d 12 00 0c 80 b4 // (78) UNTRACED INSTR for $2846, 0x800c 4 changes sprite/animation/...?"); // ?
@@ -64,28 +48,27 @@ fun south_forest_enter() {
     
     sleep(0x20);
 
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x19, 0x0400);
+    add_enemy(ENEMY.MOSQUITO, 0x13, 0x19);
     store_last_entity(0x2835);
-    attach_script(0x1a4f, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x1a4f);
 
     sleep(0x40);
 
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x29, 0x1b, 0x0400);
+    add_enemy(ENEMY.MOSQUITO, 0x29, 0x1b);
     store_last_entity(0x2837);
-    attach_script(0x178e, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x178e);
 
     sleep(0x20);
 
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x29, 0x0400);
+    add_enemy(ENEMY.MOSQUITO, 0x13, 0x29);
     store_last_entity(0x2839);
-    attach_script(0x1857, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x1857);
 
     sleep(0x20);
 
-    add_enemy(0x7a, 0x29, 0x2b);
+    add_enemy(ENEMY.MOSQUITO_BLACK, 0x29, 0x2b);
     store_last_entity(0x283b);
-    attach_script(0x1845, 0x02);
-
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x1845);
 }
 
 @install(ADDRESS.RAPTORS_STEP_ON_FIGHT)
@@ -102,44 +85,44 @@ fun magmar_damage() {
 @install() // "Tinker" = (id:1a4f => addr:0x998b88)
 @inject(0x998b88)
 fun mosquito_1_dead() {
-    cast_enemy(0xe6, 0xff, 0x2835, 0x2846);
+    cast(0x2835, 0x2846, CAST_ENEMEY.FIREBALL, 0xff);
 
     sleep(0x80);
 
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x19, 0x0400);
+    add_enemy(ENEMY.MOSQUITO, 0x13, 0x19);
     store_last_entity(0x2835);
-    attach_script(0x1a4f, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x1a4f);
 }
 @install() // "BBM Wings" = (id:178e => addr:0x92d493)
 @inject(0x92d493)
 fun mosquito_2_dead() {
-    cast_enemy(0xe6, 0xff, 0x2837, 0x2846);
+    cast(0x2837, 0x2846, CAST_ENEMEY.FIREBALL, 0xff);
 
     sleep(0x80);
 
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x29, 0x1b, 0x0400);
+    add_enemy(ENEMY.MOSQUITO, 0x29, 0x1b);
     store_last_entity(0x2837);
-    attach_script(0x178e, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x178e);
 }
 @install() // "Fire Eyes" = (id:1857 => addr:0x94d5c7)
 @inject(0x94d5c7)
 fun mosquito_3_dead() {
-    cast_enemy(0xe6, 0xff, 0x2839, 0x2846);
+    cast(0x2839, 0x2846, CAST_ENEMEY.FIREBALL, 0xff);
 
     sleep(0x80);
 
-    add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x29, 0x0400);
+    add_enemy(ENEMY.MOSQUITO, 0x13, 0x29);
     store_last_entity(0x2839);
-    attach_script(0x1857, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x1857);
 }
 @install() // "Hut NPC 1" = (id:1845 => addr:0x94d0bc)
 @inject(0x94d0bc)
 fun mosquito_4_dead() {
-    cast_enemy(0xe6, 0xff, 0x283a, 0x2846);
+    cast(0x283a, 0x2846, CAST_ENEMEY.FIREBALL, 0xff);
 
     sleep(0x80);
 
-    add_enemy(0x7a, 0x29, 0x2b);
+    add_enemy(ENEMY.MOSQUITO_BLACK, 0x29, 0x2b);
     store_last_entity(0x283a);
-    attach_script(0x1845, 0x02);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x1845);
 }
