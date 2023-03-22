@@ -577,6 +577,37 @@ class Set(Function_Base):
         return f"""
 0c {combined} {value}       // set({self.memory})
         """
+class Unset(Function_Base):
+    def __init__(self, memory):
+        self.memory = memory
+
+    def _code(self):
+        address = self.memory.value.address
+        address -= 0x2258
+        address <<=  3
+
+        flag = self.memory.value.flag
+        f = 0
+        while  flag > 1:
+            flag >>= 1
+            f += 1
+        flag = f
+        flag &= 0b111
+        
+        combined = address + flag
+        #combined -= 1 # TODO
+        combined = '{:04X}'.format(combined, 'x')
+        combined = wrap(combined, 2)
+        combined = ' '.join(reversed(combined))
+
+        value = 0x00
+        value &= 0b111
+        value += 0xb0
+        value = '{:02X}'.format(value, 'x')
+
+        return f"""
+0c {combined} {value}       // set({self.memory})
+        """
 
 class Len(Function_Base):
     def __init__(self, script):
