@@ -620,6 +620,12 @@ class Len(Function_Base):
                 script = Word(script.count())
                 
                 return script
+            case _ if isinstance(self.script, Param):
+                script = self.script
+                script = script.value
+                script = Word(script.count())
+                
+                return script
             case None:
                 return 0
             case _:
