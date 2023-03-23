@@ -74,7 +74,8 @@ enum CHARACTER {
     BOTH = 0x00,
     NONE = 0x01,
 
-    LAST_ENTITY = 0xad
+    LAST_ENTITY = 0xad,
+    SCRIPT_OWNER = 0xae // d5?
 }
 
 enum MUSIC {
@@ -121,7 +122,10 @@ enum FLAG {
 }
 
 enum ATTRIBUTE {
-    HP = 0x2a // 2 bytes
+    HP_MAX = 0x15,
+    X = 0x26,
+    Y = 0x28,
+    HP = 0x2a
 }
 
 enum ENEMY {
@@ -200,7 +204,7 @@ enum ENEMY {
     STERLING = 0x44,
     HORACE = 0x45,
     TINY = 0x46,
-    _INVISIBLE_3 = 0x47,
+    AEGIS_ENTITY = 0x47,
     VILLAGER_3_1 = 0x48,
     FOOTKNIGHT = 0x49,
     TENTACLE_SPIKE = 0x4a,
@@ -221,10 +225,10 @@ enum ENEMY {
     TINKER = 0x58,
     SNAKE_STATUE_1 = 0x59,
     SNAKE_STATUE_2 = 0x5a,
-    _INVISIBLE_4 = 0x5b,
+    RIMSALA_STATUTE_ENTITY = 0x5b,
     _INVISIBLE_5 = 0x5c,
     _INVISIBLE_6 = 0x5d,
-    _INVISIBLE_7 = 0x5e, // invisible bridge trigger?
+    REVEALER_TARGET_ENTITY = 0x5e,
     CARLTRON = 0x5f,
 
     BOY_BLACK = 0x60,
@@ -239,7 +243,7 @@ enum ENEMY {
     FAN_BOT = 0x69,
     FLOWER_BLACK = 0x6a,
     RAPTOR_BLACK = 0x6b,
-    _INVISIBLE_8 = 0x6c,
+    _INVISIBLE_7 = 0x6c,
     DRAKE = 0x6d,
     OGLIN = 0x6e,
     SLIME_PINK = 0x6f,
@@ -257,7 +261,7 @@ enum ENEMY {
     MOSQUITO_BLACK = 0x7a,
     RIMSALA = 0x7b,
     RAT_RED = 0x7c,
-    _INVISIBLE_9 = 0x7d,
+    _INVISIBLE_8 = 0x7d,
     VILLAGER_1_14 = 0x7e,
     MAGMAR_METAL = 0x7f,
 
@@ -269,14 +273,14 @@ enum ENEMY {
     THRAXX2_LEFT_ARM = 0x85,
     THRAXX2_RIGHT_ARM = 0x86,
     CARLTRON_ROBOT = 0x87,
-    _INVISIBLE_10 = 0x88,
+    _INVISIBLE_9 = 0x88,
     DRAKE_GREEN = 0x89,
     RAT_RED_2 = 0x8a,
     DUSTER_BOT_2 = 0x8b,
     TENTACLE_WHIP_2 = 0x8c,
     TENTACLE_SPIKE_2 = 0x8d,
     DOG_4_BLACK = 0x8e,
-    _INVISIBLE_11 = 0x8f
+    _INVISIBLE_10 = 0x8f
 }
 
 enum FLAG_ENEMY {
@@ -288,7 +292,10 @@ enum FLAG_ENEMY {
     PHASING = 0x0400,
     INVISBLE_INVINCIBLE_INACTIVE = 0x1000,
 
-    INACTIVE_IMORTAL = 0x0022
+    INACTIVE_IMORTAL = 0x0022,
+
+    STONE_LEVITATE = 0x0002,
+    STONE_LEVITATE_INVISIBLE = 0x0005
 }
 
 enum ITEM {
@@ -380,7 +387,11 @@ enum ANIMATION_DOG {
 }
 
 enum ANIMATION_ENEMY {
-    VERMINATOR_CAST = 0x8014
+    MAGMAR_ROLL = 0x800c,
+
+    VERMINATOR_CAST = 0x8014,
+
+    GATE_BOT_DEAD = 0x8012
 }
 
 enum SCRIPT_TRIGGER {
@@ -443,10 +454,14 @@ fun transition(map, x, y, direction_in, direction_out) {
 }
 
 fun teleport(character, x, y) {
-    if(character == CHARACTER.BOTH) {
+    if(character == CHARACTER.BOY) {
+        code(0x42, character, y, x, "// (42) Teleport boy to 1f, 17");
+    } else if(character == CHARACTER.DOG) {
+        code(0x42, character, y, x, "// (42) Teleport boy to 1f, 17");
+    } else if(character == CHARACTER.BOTH) {
         code(0x20, x, y, "// (20) Teleport both to 43 93");
     } else {
-        code(0x42, character, y, x, "// (42) Teleport boy to 1f, 17");
+        code(0x42, 0x8d, character - 0x2834, y, x, "// (42) Teleport $2835 to a7, b9");
     }
 }
 
@@ -763,15 +778,26 @@ fun wait(character) {
 }
 
 fun walk(character, x, y, waiting) {
-    code(0x6e, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
-    if(waiting > 0x00) {
+    if(character == CHARACTER.BOY) {
+        code(0x6e, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
         wait(character);
+    } else if(character == CHARACTER.DOG) {
+        code(0x6e, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
+        wait(character);
+    } else {
+        code(0x6e, 0x8d, character - 0x2834, x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     }
-    // TODO: somehow locks the character
 }
 
-fun sepia() {
-    eval("b4 05 b0 b0 b0 82 84 82 90 3e 59 00 // (b4) CALL Absolute (24bit) script 0x92d93e ("Unnamed ABS script 0x92d93e")  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
+fun color_filter(color, saturation) {
+    code(0xb4, 0x05, 0xb0, 0xb0, 0xb0, 0x82, color, 0x82, saturation, 0x3e, 0x59, 0x00, "// (b4) CALL Absolute (24bit) script 0x92d93e ('Unnamed ABS script 0x92d93e')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
+}
+fun sepia(active) {
+    if(active == True) {
+        color_filter(0x84, 0x90);
+    } else {
+        color_filter(0x00, 0x00);
+    }
 }
 
 fun hide_status_bar() {
@@ -1068,4 +1094,59 @@ fun boy_falling() {
 fun sand_tunnel() {
     // TODO: extract script, add parameters
     call(0x939fd2);
+}
+
+fun bonfire() {
+    add_enemy(ENEMY.STONE_ROUND, 0x1e, 0x21);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x181e);
+}
+
+fun bonfire_dialog() {
+    control(CHARACTER.NONE);
+    color_filter(0x84, 0x90);
+    sleep(0x10);
+    animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.SLEEP_DOWN);
+    color_filter(0x84, 0x66);
+    sleep(0x10);
+    color_filter(0x55, 0x55);
+    animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.SLEEP_UP);
+    yield();
+
+    question(string("[0x96][0x8b]test[LF][0x8b]test[LF][0x8b]test[END]"));
+
+    color_filter(0x84, 0x90);
+    sleep(0x10);
+    color_filter(0x84, 0x66);
+    sleep(0x10);
+    color_filter(0x00, 0x00);
+}
+
+fun cannonball() {
+    add_enemy_with_flags(0x6a, 0x1e, 0x21, 0x0000); // ENEMY.MAGMAR
+    store_last_entity(0x2846);
+    animate(0x2846, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.MAGMAR_ROLL);
+    
+    while(0x01) {
+        sleep(0x70);
+
+        teleport(0x2846, 0x1e, 0x21);
+    }
+}
+
+fun homing_cannonball() {
+    add_enemy_with_flags(0x6a, 0x1e, 0x21, 0x0000); // ENEMY.MAGMAR
+    store_last_entity(0x2846);
+    animate(0x2846, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.MAGMAR_ROLL);
+    
+    while(0x01) {
+        eval("18 21 02 50 29 6c 1a d5 // (18) WRITE $2479 = *(boy + 28)");
+        eval("18 21 02 08 21 02 29 3f 9b // (18) WRITE $2477 = $2477 + 2");
+
+        eval("18 1f 02 08 1f 02 29 32 9a // (18) WRITE $2477 = $2477 + 2");
+
+        // teleport(0x2846, 0x1e, 0x21);
+        code(0x43, 0x8d, 0x2846 - 0x2834, 0x88, 0x021f, 0x88, 0x0221, "// (42) Teleport $2835 to a7, b9");
+
+        sleep(0x02);
+    }
 }
