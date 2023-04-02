@@ -1,0 +1,102 @@
+#memory(
+    string_key(0x0000)..string_key(0x232b), // all string keys
+
+    0x300000..0x3fffff // extension
+)
+#include("in/core.evs")
+
+@install()
+@inject(ADDRESS.SOUTH_JUNGLE_ENTER)
+fun enter_map_south_jungle() {
+    MEMORY.DOG = DOG.WOLF;
+
+    if(!FLAG.IN_ANIMATION) {
+        teleport(CHARACTER.BOTH, 0x50, 0x83);
+    }
+
+    music_volume(MUSIC.START, 0x64);
+
+    fade_in();
+}
+
+@install()
+@inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
+fun enter_map_raptors() {
+    transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
+}
+
+@install()
+@inject(ADDRESS.RAPTORS_EXIT_ENTER)
+fun south_forest_enter() {
+    MEMORY.DOG = DOG.WOLF;
+
+    // unlock(ITEM.SPEAR_1);
+    // unlock(ITEM.JAGUAR_RING);
+
+    music_volume(MUSIC.START, 0x64);
+    
+    // add_enemy(ENEMY.MAGMAR, 0x15, 0x1e);
+    // attribute(CHARACTER.LAST_ENTITY, ATTRIBUTE.HP, 0x0fff);
+
+    fade_in();
+
+    available(CHARACTER.BOY);
+    special_script(SPECIAL_SCRIPTS.SELECT_PRESSED, 0x1a4f);
+}
+
+@install(ADDRESS.RAPTORS_STEP_ON_FIGHT)
+fun raptor_fight() {
+    end();
+}
+
+@install()
+@inject(0x94b8ca) // "Magmar damage" = (id:181e => addr:0x94b8ca)
+fun dust_creation() {
+    nop();
+}
+
+@install() // "Tinker" = (id:1a4f => addr:0x998b88)
+@inject(0x998b88)
+fun dust_looting() {
+    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.LOOT_WEST);
+
+    eval("18 a7 02 50 29 6a 1a d5 // (18) WRITE $24ff = *(boy + 26)"); // X
+    eval("18 a9 02 50 29 6c 1a d5 // (18) WRITE $2501 = *(boy + 28)"); // Y
+
+    add_enemy_with_flags(0xca, 0x15, 0x1e, 0x0000); // bomb
+    // add_enemy_with_flags(0x1e, 0x15, 0x1e, 0x20); // bomb
+    eval("4e ad // (4e) ATTACH entity last entity ($0341) TO SCRIPT");
+    // eval("3f ae 00 03 66 1b // (3f) WRITE entity attached to script?+x68=0x300, entity attached to script?+x66=0x1b66 (set script): Unnamed NPC script 0x1b66");
+    attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.DEATH, ADDRESS_ID.BOMB_EXPLOSION);
+    // store_last_entity(0x2836);
+
+    eval("43 ae 88 a7 02 88 a9 02 // (43) Teleport boy to x:$23b9, y:$23bb"); // X/Y
+
+    sleep(0x40);
+
+    special_script(SPECIAL_SCRIPTS.SELECT_PRESSED, 0x1a4f);
+
+    sleep(0x40);
+    damage(CHARACTER.SCRIPT_OWNER, 0x270f);
+    // subtext(string("boom"));
+}
+@install(0x92d493) // "BBM Wings" = (id:178e => addr:0x92d493)
+fun boy_death() {
+    add_enemy_with_flags(0xca, 0x15, 0x1e, 0x0000); // bomb
+    // add_enemy_with_flags(0x1e, 0x15, 0x1e, 0x20); // bomb
+    eval("4e ad // (4e) ATTACH entity last entity ($0341) TO SCRIPT");
+    // eval("3f ae 00 03 66 1b // (3f) WRITE entity attached to script?+x68=0x300, entity attached to script?+x66=0x1b66 (set script): Unnamed NPC script 0x1b66");
+    attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.DEATH, ADDRESS_ID.BOMB_EXPLOSION);
+    sleep(0xff);
+    damage(CHARACTER.SCRIPT_OWNER, 0x270f);
+}
+@install() // "Fire Eyes" = (id:1857 => addr:0x94d5c7)
+@inject(0x94d5c7)
+fun bonfire() {
+    nop();
+}
+@install() // "Hut NPC 1" = (id:1845 => addr:0x94d0bc)
+@inject(0x94d0bc)
+fun mosquito_4_dead() {
+    nop();
+}
