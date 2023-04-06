@@ -8,7 +8,7 @@
 #include("in/core.evs")
 
 enum STRING {
-    GOURD_1 = string("[0x96][0x8b]Unlock everything[LF][0x8b]Atlas[LF][0x8b]Poison[END]"),
+    GOURD_1 = string("[0x96][0x8b]Unlock everything[LF][0x8b]Atlas[LF][0x8b]Poison[LF][0x8b]No Clip[END]"),
 
     PORTAL_ACT_1_1 = string("[0x96][0x8b]Oil[LF][0x8b]Intro skip[LF][0x8b]Thraxx[LF][0x8b]Next[END]"),
     PORTAL_ACT_1_2 = string("[0x96][0x8b]Solar[LF][0x8b]Magmar[END]"),
@@ -16,8 +16,8 @@ enum STRING {
     PORTAL_ACT_1_1_THRAXX = string("[0x96][0x8b]Normal[LF][0x8b]Intro skip[LF][0x8b]Zombie boy[END]"),
     
     PORTAL_ACT_2_1 = string("[0x96][0x8b]Blimp[LF][0x8b]Atlas[LF][0x8b]Market[LF][0x8b]Next[END]"),
-    PORTAL_ACT_2_2 = string("[0x96][0x8b]Vigor[LF][0x8b]Temple[LF][0x8b]Pyramid[LF][0x8b]Next[END]"),
-    PORTAL_ACT_2_3 = string("[0x96][0x8b]Diamon Eyes[LF][0x8b]Aegis[LF][0x8b]Aquagoth[END]"),
+    PORTAL_ACT_2_2 = string("[0x96][0x8b]Vigor[LF][0x8b]No Clip Dog[LF][0x8b]Temple[LF][0x8b]Next[END]"),
+    PORTAL_ACT_2_3 = string("[0x96][0x8b]Pyramid[LF][0x8b]Diamon Eyes[LF][0x8b]Aegis[LF][0x8b]Aquagoth[END]"),
 
     PORTAL_ACT_2_1_ATLAS = string("[0x96][0x8b]Normal[LF][0x8b]Poisoned[LF][0x8b]Speed[END]"),
     PORTAL_ACT_2_1_MARKET = string("[0x96][0x8b]Normal[LF][0x8b]Wealthy[END]"),
@@ -83,6 +83,10 @@ fun fake_confound(start) {
 fun fake_dog(dog) {
     MEMORY.DOG = dog;
     yield();
+}
+
+fun fake_noclip(character) {
+    code(0xa9, character, 0x82, 0x20, "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
 }
 
 @install()
@@ -170,30 +174,31 @@ fun portal_act_2() {
         if(MEMORY.QUESTION_ANSWER == 0x00) { // vigor
             fake_level(0x000c);
             load_map(0x1d, 0x20, 0x07);
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // temple
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // no clip
+            // fake_noclip(CHARACTER.DOG);
+            transition(0x07, 0x44, 0x44, DIRECTION.NORTH, DIRECTION.WEST);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // temple
             fake_level(0x000c);
             transition(0x2a, 0x41, 0x53, DIRECTION.NORTH, DIRECTION.NORTH);
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // pyramid
-            fake_level(0x000c);
-            transition(0x58, 0x21, 0x3e, DIRECTION.NORTH, DIRECTION.NORTH);
         } else if(MEMORY.QUESTION_ANSWER == 0x03) { // next
             question(STRING.PORTAL_ACT_2_3);
 
-            if(MEMORY.QUESTION_ANSWER == 0x00) { // diamond eyes
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // pyramid
+                fake_level(0x000c);
+                transition(0x58, 0x21, 0x3e, DIRECTION.NORTH, DIRECTION.NORTH);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // diamond eyes
                 set(<0x22d8, 0x40>);
                 set(<0x22d8, 0x80>);
 
                 fake_level(0x000c);
                 fake_confound(0x0630);
                 transition(0x05, 0x04, 0x71, DIRECTION.NORTH, DIRECTION.EAST);
-            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // aegis
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // aegis
                 fake_level(0x000c);
                 transition(0x09, 0x21, 0x41, DIRECTION.NORTH, DIRECTION.EAST);
-            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // aquagoth
+            } else if(MEMORY.QUESTION_ANSWER == 0x03) { // aquagoth
                 fake_level(0x000c);
                 transition(0x6d, 0x1b, 0x51, DIRECTION.NORTH, DIRECTION.NORTH);
-            } else if(MEMORY.QUESTION_ANSWER == 0x03) {
-                nop();
             }
         }
     }
@@ -305,6 +310,137 @@ fun first_gourd() {
     } else if(MEMORY.QUESTION_ANSWER == 0x02) { // poison
         fake_poison(0x0000);
     } else if(MEMORY.QUESTION_ANSWER == 0x03) {
-        nop();
+        fake_noclip(CHARACTER.DOG);
     }
+}
+
+// FE village cave camera
+@install(0x94e245, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e26f, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e2b9, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e2ed, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e321, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e34f, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e371, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e3ec, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94e424, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+
+// act1+2 caves camera
+@install(0x94a7e5, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a7ff, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a819, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a833, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a84d, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+
+// act1+2 volcano camera
+@install(0x949ffd, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a017, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a031, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a04b, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a065, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a07f, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a099, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a0b3, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a0cd, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a0e7, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
+}
+@install(0x94a101, False)
+fun first_gourd() {
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0000");
+    eval("4D 4D 4D 4D 4D 4D 4D // (1b) WRITE MAP X end   ($23ed) = 0x0100  (1b) WRITE MAP Y end   ($23ef) = 0x0120");
 }
