@@ -95,6 +95,21 @@ a7 10            // (a7) SLEEP 15 TICKS
 EOF
 ```
 
+# Known Bugs
+## Python
+
+- ``General``
+  - ``if``-``else if`` should jump after the block instead of evaluating all ``else-if`` statements (``end`` is used in some scripts as hack)
+- ``ast_core.py``
+  - Parameters aren't passed correctly. The code tries to pass down variables, but should instead only have the parameters in scope (``TODO: parameters with different names``)
+
+## Everscript
+
+- ``in/practice.evs``
+  - NPCs are trashing some dialoges to make space for the new strings and B-triggers
+- ``in/patches/camera_hack.evs``
+  - Known missing maps: Southern Forest, Ebon Keep balcony, some Ebon Keep houses?
+
 # Credits
 - [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) - Black Sliver
 - [rply](https://github.com/alex/rply)
