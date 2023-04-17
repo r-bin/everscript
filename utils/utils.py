@@ -367,6 +367,15 @@ class OutUtils():
         os.remove(file)
         shutil.copyfile(self._tmp, file)
         os.remove(self._tmp)
+
+    def _create_rom_diff(self, file_in, file_out):
+        patch = None
+        with open(file_in, 'rb') as f_in:
+            with open(file_out, 'rb') as f_out:
+                patch = Patch.create(f_in.read(), f_out.read())
+
+                with open(os.path.join(self._out, "everscript.combined.ips"), 'w+b') as f_patch:
+                    f_patch.write(patch.encode())
             
     def patch(self, file_in, patch, patches):
         file_name = os.path.splitext(file_in)
@@ -382,6 +391,8 @@ class OutUtils():
         if patches:
             self._apply_additional_patches(target_name, "./patches")
         self._apply_patch(target_name, patch)
+
+        self._create_rom_diff(file_in, target_name)
 
         print(f"patched successfully! {file_in} ({file_size}) + {patch} ({os.path.getsize(patch)}) -> {target_name} ({os.path.getsize(target_name)})")
 
