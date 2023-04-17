@@ -538,6 +538,7 @@ class Include(BaseBox):
         script = open(self.path, 'r').read()
         #print(f"{self.path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
+        outUtils = OutUtils("include")
         outUtils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
         script = lexer.lex(script)
         print(" - generating objects...")

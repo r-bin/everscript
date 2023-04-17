@@ -113,5 +113,6 @@ EOF
 # Credits
 - [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) - Black Sliver
 - [rply](https://github.com/alex/rply)
+- [ips_util](https://github.com/nleseul/ips_util)
 - `/patches/skip_intro.txt` - Black Sliver
 - `/research/maps/*` - Grizzly

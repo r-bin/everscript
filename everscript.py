@@ -12,8 +12,6 @@ import os
 
 version = "1.0.0"
 
-outUtils.clean_out()
-
 lexer = Lexer().get_lexer()
 linker = Linker()
 generator = CodeGen(linker)
@@ -21,7 +19,7 @@ pg = Parser(generator)
 pg.parse()
 parser = pg.get_parser()
 
-def handle_parse(code, profile):
+def handle_parse(outUtils, code, profile):
     def log(text):
         if profile:
             print(f"{text} ({'{:.1f}'.format(time.time() - start)}s)")
@@ -43,10 +41,10 @@ def handle_parse(code, profile):
     outUtils.dump(generated, "patch.txt")
     outUtils.dump(generator.get_memory_allocation(), "memory_map.txt")
 
-    generated_clean = generator.clean(generated)
+    generated_clean = outUtils.clean(generated)
     outUtils.dump(generated_clean, "patch.clean.txt")
 
-    generator.file(generated_clean, "out/everscript.ips")
+    outUtils.file(generated_clean, "everscript.ips")
     
     log(f"done!")
 
@@ -62,6 +60,7 @@ def parse_args(argv):
     input_file = None
     patches_dir = None
     profile = False
+    output_dir = "out"
 
     def help():
         print(f"""
@@ -74,6 +73,8 @@ Almost completely based on the results of https://github.com/black-sliver/SoETil
     Contains the code to be compiled into an IPS file and patched into the ROM.
 -p, --patches
     Additional patches to be applied.
+-o, --out
+    Output directory. (Default: "/out")
 --profile
     Measures the performance of the compiler. Useful for finding problems.
 -v, --version
@@ -88,7 +89,7 @@ examples:
         sys.exit()
 
     try:
-        opts, args = getopt.getopt(argv,"hpr:s:",["profile", "rom=", "script=", "patches="])
+        opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
     except getopt.GetoptError:
         help()
 
@@ -111,21 +112,26 @@ examples:
             input_file = arg
         elif opt in ("-p", "--patches"):
             patches_dir = arg
+        elif opt in ("-o", "--out"):
+            output_dir = arg
 
     if not input_file:
         help()
 
+    outUtils = OutUtils()
+    outUtils.clean_out()
+
     code = fileUtils.file2string(input_file)
 
     if not profile:
-        handle_parse(code, True)
+        handle_parse(outUtils, code, True)
     else:
         import cProfile, pstats
         import io
 
         profiler = cProfile.Profile()
         profiler.enable()
-        handle_parse(code, profile)
+        handle_parse(outUtils, code, profile)
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('tottime')
         
@@ -133,10 +139,11 @@ examples:
         pstats.Stats(profiler, stream=result).sort_stats('tottime').print_stats()
         result = result.getvalue()
         
-        with open("out/profile.txt", "w+") as f:
+        with open(f"{output_dir}/profile.txt", "w+") as f:
             print(result, file=f)
         print(result)
 
-    outUtils.patch(rom_file, "out/everscript.ips", patches_dir)
+    if(rom_file != None):
+        outUtils.patch(rom_file, f"{output_dir}/everscript.ips", patches_dir)
 
 parse_args(sys.argv)
