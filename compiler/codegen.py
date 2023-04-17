@@ -101,24 +101,6 @@ allocated RAM:
         
         raise Exception(f"function '{name}' is not defined: {self.code}")
 
-    def file(self, script, file): # TODO
-        with open(file, 'wb') as fout:
-            for e in script.split(' '):
-                match e:
-                    case ("PATCH"|"EOF"):
-                        fout.write(e.encode('ASCII'))
-                    case _ if len(e) == 2:
-                        fout.write(binascii.unhexlify(e))
-                    case _:
-                        [fout.write(binascii.unhexlify(b)) for b in wrap(e, 2)]
-
-    def clean(self, script):
-        cleaned_script = re.sub("//.*", "", script)
-        cleaned_script = re.sub("[\s]+", " ", cleaned_script)
-        cleaned_script = cleaned_script.strip()
-
-        return cleaned_script
-
     def generate(self):
         list = []
 

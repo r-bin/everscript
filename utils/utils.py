@@ -1,6 +1,6 @@
 import pathlib
 import shutil
-import os
+import os, subprocess
 from os.path import exists
 import shutil
 import binascii
@@ -9,8 +9,13 @@ from pathlib import Path
 import copy
 import ujson
 import re
+import sys, getopt
 
 from ips_util import Patch
+from subprocess import call
+
+from rply import LexerGenerator, Token
+from rply import ParserGenerator
 
 class FileUtils():
     def file2string(self, file):
@@ -56,6 +61,33 @@ class OutUtils():
     _out = "./out"
     _tmp = os.path.join(_out, "tmp")
 
+    def __init__(self, sub_dir = None):
+        if(sub_dir == None):
+            self._out = self._parse_out()
+        else:
+            self._out = os.path.join(self._parse_out(), sub_dir)
+        self._tmp = os.path.join(self._out, "tmp")
+
+        Path(self._out).mkdir(parents=True, exist_ok=True)
+        Path(self._tmp).mkdir(parents=True, exist_ok=True)
+
+    def _parse_out(self):
+        output_dir = "out"
+
+        argv = sys.argv
+        argv = argv[1:]
+
+        try:
+            opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
+        except getopt.GetoptError:
+            help()
+
+        for opt, arg in opts:
+            if opt in ("-o", "--out"):
+                output_dir = arg
+        
+        return output_dir
+
     def extend_rom(self, file_in, file_out):
         destfile = pathlib.Path(file_out)
         shutil.copyfile(file_in, destfile)
@@ -75,9 +107,27 @@ class OutUtils():
         text_file.write(text)
         text_file.close()
 
+    def clean(self, script):
+        cleaned_script = re.sub("//.*", "", script)
+        cleaned_script = re.sub("[\s]+", " ", cleaned_script)
+        cleaned_script = cleaned_script.strip()
+
+        return cleaned_script
+
     def txt_to_ips(self, code, file):
         with open(file, 'wb') as fout:
             for e in code.split(' '):
+                match e:
+                    case ("PATCH"|"EOF"):
+                        fout.write(e.encode('ASCII'))
+                    case _ if len(e) == 2:
+                        fout.write(binascii.unhexlify(e))
+                    case _:
+                        [fout.write(binascii.unhexlify(b)) for b in wrap(e, 2)]
+
+    def file(self, script, file): # TODO
+        with open(f"{self._out}/{file}", 'wb') as fout:
+            for e in script.split(' '):
                 match e:
                     case ("PATCH"|"EOF"):
                         fout.write(e.encode('ASCII'))
@@ -115,9 +165,186 @@ class OutUtils():
 
         for patch in os.scandir(patches):
             filename = Path(patch)
-            if filename.suffix == ".txt": 
+
+            if filename.suffix == ".sliver":
+                print(f" - converting patch {filename.name} to {filename.with_suffix('.txt').name}")
+                with filename.open() as f:
+                    code = f.read()
+                    
+                    class Lexer():
+                        def __init__(self):
+                            self.lexer = LexerGenerator()
+
+                        def _add_tokens(self):
+                            self.lexer = LexerGenerator()
+                            self.lexer.add('SET', '#set')
+                            self.lexer.add('ADDRESS', '@0x[0-9a-f]+')
+                            self.lexer.add('WORD', '[0-9a-f]{2}')
+                            self.lexer.add('END', '@')
+
+                            self.lexer.ignore('[ \t\r\f\v\n]+|\/\/.*\n')
+
+                        def get_lexer(self):
+                            self._add_tokens()
+                            return self.lexer.build()
+
+                    lexer = Lexer().get_lexer()
+                    lexed = lexer.lex(code)
+
+                    class Patch:
+                        def __init__(self, header, list):
+                            self.header = header
+                            self.list = list
+
+                        def eval(self):
+                            code = ""
+                            
+                            code += "PATCH"
+                            code += "\n\n"
+
+                            for m in self.list:
+                                address = m.address
+                                address = address.value
+                                address = address.replace('@', '')
+                                address = int(address, 16)
+                                
+                                if address >= 0xC00000: # TODO
+                                    address -= 0xC00000
+                                elif address >= 0x800000: # TODO
+                                    address -= 0x800000
+                                elif address >= 0x400000: # TODO
+                                    address -= 0x400000
+                                           
+                                code += f"{'{:06x}'.format(address, 'x')} {'{:04x}'.format(m.count, 'x')}\n"
+                                code += m.eval()
+                                code += "\n"
+
+                            code += "\n\n"
+                            code += "EOF"
+
+                            return code
+
+
+                    class Method:
+                        def __init__(self, address, code):
+                            self.address = address
+                            self.code = code
+                            self.count = len(code)
+
+                        def eval(self):
+                            code = ""
+                            
+                            code = ' '.join(c.value for c in self.code)
+                            return code
+
+                    class Parser():
+                        def __init__(self):
+                            self.pg = ParserGenerator(
+                                # A list of all token names accepted by the parser.
+                                [
+                                    'SET', 'ADDRESS', 'WORD', 'END'
+                                ]
+                            )
+                        
+                        def parse(self):
+
+                            @self.pg.production('PATCH : HEADER METHOD_LIST')
+                            def parse(p):
+                                return Patch(p[0], p[1])
+                            
+                            @self.pg.production('METHOD_LIST : METHOD')
+                            def parse(p):
+                                return [ p[0] ]
+                            @self.pg.production('METHOD_LIST : METHOD_LIST METHOD')
+                            def parse(p):
+                                return p[0] + [ p[1] ]
+                            
+                            @self.pg.production('METHOD : ADDRESS CODE END')
+                            def parse(p):
+                                return Method(p[0], p[1])
+                            @self.pg.production('METHOD : ADDRESS CODE')
+                            def parse(p):
+                                return Method(p[0], p[1])
+                            
+                            @self.pg.production('CODE : CODE WORD')
+                            def parse(p):
+                                return p[0] + [ p[1] ]
+                            @self.pg.production('CODE : WORD')
+                            def parse(p):
+                                return [ p[0] ]
+                            
+                            @self.pg.production('HEADER : SET')
+                            def parse(p):
+                                return [ p[0] ]
+                            
+                            @self.pg.error
+                            def error_handle_lex(token):
+                                raise ValueError(token)
+                            
+                        def get_parser(self):
+                            return self.pg.build()
+                            
+                    pg = Parser()
+                    pg.parse()
+                    parser = pg.get_parser()
+
+                    code = parser.parse(lexed)
+
+                    code = code.eval()
+
+                    # TODO: use dump()
+                    text_file = open(filename.with_suffix('.txt'), "w")
+                    text_file.write(code)
+                    text_file.close()
+
+        for patch in os.scandir(patches):
+            filename = Path(patch)
+            if filename.suffix == ".evs":
                 with filename.open() as f:
                     p = f.read()
+                    p = self.clean(p)
+
+                    argv = sys.argv
+                    argv = argv[1:]
+
+                    input_file = None
+                    output_dir = "out"
+
+                    try:
+                        opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
+                    except getopt.GetoptError:
+                        help()
+
+                    if len(args) == 1:
+                        input_file = args[0]
+                    else:
+                        help()
+
+                    for opt, arg in opts:
+                        if opt in ("-r", "--rom"):
+                            rom_file = arg
+                        elif opt in ("-o", "--out"):
+                            output_dir = arg
+
+                    quiet = True
+                    print(f" - compiling patch {filename.name} to {filename.with_suffix('.txt').name}")
+                    call_args = ["python3.11", f"./everscript.py", f"--out=./{output_dir}/patches/{filename.stem}/", f"{filename}"]
+
+                    if quiet:
+                        call(call_args, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                    else:
+                        call(call_args)
+
+                    patch_from = f"./{output_dir}/patches/{filename.stem}/patch.txt"
+                    patch_to = f"{filename.with_suffix('.txt')}"
+                    shutil.copy(patch_from, patch_to)
+
+        for patch in os.scandir(patches):
+            filename = Path(patch)
+            if filename.suffix == ".txt":
+                with filename.open() as f:
+                    p = f.read()
+                    p = self.clean(p)
 
                     self.txt_to_ips(p, filename.with_suffix(".ips"))
                     
@@ -130,7 +357,7 @@ class OutUtils():
         patch_records = Patch.load(patch)
         patch_size = os.path.getsize(patch)
 
-        print(f"applying patch {patch} ({patch_size})")
+        print(f" - applying patch {patch} ({patch_size})")
         if exists(self._tmp):
             os.remove(self._tmp)
         with open(file, 'rb') as f_in:
@@ -161,4 +388,3 @@ class OutUtils():
 fileUtils = FileUtils()
 stringUtils = StringUtils()
 objectUtils = ObjectUtils()
-outUtils = OutUtils()
