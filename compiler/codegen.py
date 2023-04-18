@@ -38,6 +38,7 @@ class CodeGen():
         self.strings = []
         self.memory = []
         self.flag = []
+        self.patches = []
 
     def get_memory_allocation(self):
         strings = []
@@ -55,6 +56,9 @@ allocated ROM:
   strings:
 {strings}
 
+  scripts:
+    TODO
+
 allocated RAM:
   memory:
 {memory}
@@ -71,6 +75,9 @@ allocated RAM:
         memory = self.linker.link_flag()
 
         self.flag.append(memory)
+
+    def add_patch(self, patch_name):
+        self.patches.append(patch_name)
 
     def add_string(self, string, text):
         self.linker.link_string(string, text)

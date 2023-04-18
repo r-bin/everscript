@@ -60,16 +60,24 @@ class OutUtils():
 
     _out = "./out"
     _tmp = os.path.join(_out, "tmp")
+    _patches = os.path.join(_out, "patches")
 
     def __init__(self, sub_dir = None):
         if(sub_dir == None):
             self._out = self._parse_out()
         else:
             self._out = os.path.join(self._parse_out(), sub_dir)
+            Path(self._out).mkdir(parents=True, exist_ok=True)
         self._tmp = os.path.join(self._out, "tmp")
+        self._patches = os.path.join(self._out, "patches")
+
+    def init_out(self):
+        self.clean_out()
 
         Path(self._out).mkdir(parents=True, exist_ok=True)
         Path(self._tmp).mkdir(parents=True, exist_ok=True)
+        Path(self._patches).mkdir(parents=True, exist_ok=True)
+
 
     def _parse_out(self):
         output_dir = "out"
@@ -152,17 +160,22 @@ class OutUtils():
         if file_size < self._target_size:
             print(f"extending ROM {file} ({file_size} -> {self._target_size})")
             if exists(self._tmp):
-                os.remove(self._tmp)
+                os.rmdir(self._tmp)
             self.extend_rom(file, self._tmp)
 
         os.remove(file)
         shutil.copyfile(self._tmp, file)
         os.remove(self._tmp)
 
-    def _apply_additional_patches(self, file, directory):
-        patches = os.path.join(self._out, "patches")
-        shutil.copytree(directory, patches)
+    def prepare_patches(self, directory_in, patches):
+        for patch in os.scandir(directory_in):
+            patch = Path(patch)
 
+            sub = patch.stem
+            if [p for p in patches if sub in patches]:
+                shutil.copy(patch, self._patches)
+
+    def _apply_additional_patches(self, file, patches):
         for patch in os.scandir(patches):
             filename = Path(patch)
 
@@ -177,12 +190,11 @@ class OutUtils():
 
                         def _add_tokens(self):
                             self.lexer = LexerGenerator()
-                            self.lexer.add('SET', '#set')
                             self.lexer.add('ADDRESS', '@0x[0-9a-f]+')
                             self.lexer.add('WORD', '[0-9a-f]{2}')
                             self.lexer.add('END', '@')
 
-                            self.lexer.ignore('[ \t\r\f\v\n]+|\/\/.*\n')
+                            self.lexer.ignore('[ \t\r\f\v\n]+|\/\/.*\n|#set|#endif|#ifndef.*$')
 
                         def get_lexer(self):
                             self._add_tokens()
@@ -192,8 +204,7 @@ class OutUtils():
                     lexed = lexer.lex(code)
 
                     class Patch:
-                        def __init__(self, header, list):
-                            self.header = header
+                        def __init__(self, list):
                             self.list = list
 
                         def eval(self):
@@ -242,15 +253,15 @@ class OutUtils():
                             self.pg = ParserGenerator(
                                 # A list of all token names accepted by the parser.
                                 [
-                                    'SET', 'ADDRESS', 'WORD', 'END'
+                                    'ADDRESS', 'WORD', 'END'
                                 ]
                             )
                         
                         def parse(self):
 
-                            @self.pg.production('PATCH : HEADER METHOD_LIST')
+                            @self.pg.production('PATCH : METHOD_LIST')
                             def parse(p):
-                                return Patch(p[0], p[1])
+                                return Patch(p[0])
                             
                             @self.pg.production('METHOD_LIST : METHOD')
                             def parse(p):
@@ -270,10 +281,6 @@ class OutUtils():
                             def parse(p):
                                 return p[0] + [ p[1] ]
                             @self.pg.production('CODE : WORD')
-                            def parse(p):
-                                return [ p[0] ]
-                            
-                            @self.pg.production('HEADER : SET')
                             def parse(p):
                                 return [ p[0] ]
                             
@@ -377,24 +384,25 @@ class OutUtils():
                 with open(os.path.join(self._out, "everscript.combined.ips"), 'w+b') as f_patch:
                     f_patch.write(patch.encode())
             
-    def patch(self, file_in, patch, patches):
+    def patch(self, file_in, patch):
         file_name = os.path.splitext(file_in)
         file_size = os.path.getsize(file_in)
 
-        print(f"patching {file_in} ({file_size}) + {patch} ({os.path.getsize(patch)})...")
+        file_patch = Path(os.path.join(self._out, patch))
+
+        print(f"patching {file_in} ({file_size}) + {file_patch.name} ({os.path.getsize(file_patch)})...")
 
         target_name = os.path.join(self._out, '.patched'.join(file_name))
         
         shutil.copyfile(file_in, target_name)
 
         self._extend_rom(target_name)
-        if patches:
-            self._apply_additional_patches(target_name, "./patches")
-        self._apply_patch(target_name, patch)
+        self._apply_additional_patches(target_name, self._patches)
+        self._apply_patch(target_name, file_patch)
 
         self._create_rom_diff(file_in, target_name)
 
-        print(f"patched successfully! {file_in} ({file_size}) + {patch} ({os.path.getsize(patch)}) -> {target_name} ({os.path.getsize(target_name)})")
+        print(f"patched successfully! {file_in} ({file_size}) + {file_patch.name} ({os.path.getsize(file_patch)}) -> {target_name} ({os.path.getsize(target_name)})")
 
 fileUtils = FileUtils()
 stringUtils = StringUtils()

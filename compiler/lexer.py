@@ -63,6 +63,7 @@ class Lexer():
 
         self.lexer.add('FUN_INCLUDE', '#include(?=\()')
         self.lexer.add('FUN_MEMORY', '#memory(?=\()')
+        self.lexer.add('FUN_PATCH', '#patch(?=\()')
 
         self.lexer.add('FUN', 'fun(?=\ )')
         self.lexer.add('FUN_IDENTIFIER', '[a-z_][a-z0-9_]+(?=\()')

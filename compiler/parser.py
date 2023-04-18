@@ -17,7 +17,7 @@ class Parser():
                 'WHILE',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
-                'FUN_INCLUDE', 'FUN_MEMORY',
+                'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'IDENTIFIER'
             ]
         )
@@ -407,6 +407,16 @@ class Parser():
             memory_list = [m.value for m in memory_list]
 
             self.generator.linker.add_memory(memory_list)
+
+            return Void()
+        
+        @self.pg.production('program : FUN_PATCH ( param_list )')
+        def parse(p):
+            patch_list = p[2]
+            patch_list = [m.value.value for m in patch_list]
+
+            for patch_name in patch_list:
+                self.generator.add_patch(patch_name)
 
             return Void()
 
