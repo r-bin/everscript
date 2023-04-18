@@ -39,11 +39,42 @@ enum ADDRESS {
 
     // scripts
 
+    RAISE_CURRENT_WEAPON = 0x92bf33,
+
     STATUS_BAR_SHOW = 0x92a3ed,
-    STATUS_BAR_HIDE = 0x92a3e7
+    STATUS_BAR_HIDE = 0x92a3e7,
+
+    FADE_TO_WHITE = 0x92d723,
+    FLASH_WHITE = 0x92d7b1,
+    FLASH_WHITE_SLOWER = 0x92d752,
+    FADE_TO_NIGHT = 0x92d89b,
+    FADE_FROM_NIGHT = 0x92d8c2,
+
+    RAIN = 0x92d92a
 }
 
 enum ADDRESS_ID {
+    // talk scripts
+
+    // dialogue helper
+
+    NPC_DIALOGUE_START = 0x32,
+    NPC_DIALOGUE_STOP = 0x33,
+
+    OPEN_TEXTBOX = 0x02,
+    OPEN_INGREDIENT_MENU = 0x54,
+
+    // music
+
+    MUSIC_FADE_IN = 0x01,
+    MUSIC_FADE_OUT = 0x00,
+
+    // scripts
+
+    LOOT = 0x3a,
+
+    LIGHTNING = 0x36,
+
     BOMB_EXPLOSION = 0x1b66
 }
 
@@ -54,7 +85,7 @@ enum MEMORY {
     CREDITS = <0x0acf>,
 
     MAP = <0xadb>,
-    PACIFIED = <0x23bf>, // TODO: assigning does not work
+    PACIFIED = <0x23bf>,
 
     DOG = <0x2443>,
     GAIN_WEAPON = <0x2441>,
@@ -74,6 +105,7 @@ enum MEMORY {
     ENEMY_SPAWNER_QUANTITY = <0x2433>,
 
     // ingredients
+
     WAX = <0x22ff>,
     WATER = <0x2300>,
     VINEGAR = <0x2301>,
@@ -799,6 +831,12 @@ enum CURRENCY {
     CREDITS = 0xb9
 }
 
+enum WALK_TYPE {
+    UNKNOWN_1 = 0x6c,
+    UNKNOWN_2 = 0x6d,
+    UNKNOWN_3 = 0x6e
+}
+
 // BASICS
 
 fun end() {
@@ -817,17 +855,31 @@ fun sleep(ticks) {
     code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
 }
 
-fun call_id(id) {
-    code(0xa3, id, "// (a3) CALL 'Unnamed Global script 0x3d' (0x3d)");
+fun call_id(script_id) {
+    code(0xa3, script_id, "// (a3) CALL 'Unnamed Global script 0x3d' (0x3d)");
+}
+
+// MUSIC
+
+fun music(music) {
+    code(0x33, music, "// PLAY MUSIC 0x12");
+}
+fun music_volume(music, volume) {
+    music(music);
+    code(0x86, 0x82, volume, "// (86) SET AUDIO volume to 0x64");
+}
+fun music_fade(on) {
+    if(on == True) {
+        call_id(ADDRESS_ID.MUSIC_FADE_IN);
+    } else {
+        call_id(ADDRESS_ID.MUSIC_FADE_OUT);
+    }
 }
 
 // MAP INITIALIZATION
 
 fun fade_out() {
     code(0x27, "// (27) Fade-out screen (WRITE $0b83=0x8000)");
-}
-fun fade_out_stop_music() {
-    code(0xa3, 0x00, "// (a3) CALL "Fade-out / stop music" (0x00)");
 }
 fun load_map(map, x, y) {
     code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
@@ -841,7 +893,7 @@ fun prepare_transition(direction_in, direction_out) {
 }
 
 fun transition(map, x, y, direction_in, direction_out) {
-    fade_out_stop_music();
+    music_fade(False);
     prepare_transition(direction_in, direction_out);
     load_map(map, x, y);
 }
@@ -861,14 +913,6 @@ fun teleport(character, x, y) {
 fun init_map(x_start, y_start, x_end, y_end) {
     code(0x1b, 0x23e9 - 0x2258, 0x23eb - 0x2258, x_start, y_start, "// (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0010");
     code(0x1b, 0x23ed - 0x2258, 0x23ef - 0x2258, x_end, y_end, "// (1b) WRITE MAP X end   ($23ed) = 0x0400  (1b) WRITE MAP Y end   ($23ef) = 0x04b0");
-}
-
-fun music(music) {
-    code(0x33, music, "// PLAY MUSIC 0x12");
-}
-fun music_volume(music, volume) {
-    music(music);
-    code(0x86, 0x82, volume, "// (86) SET AUDIO volume to 0x64");
 }
 
 fun price(index, rate, drop, quantity) {
@@ -949,7 +993,7 @@ fun available(character) {
 
 fun text_start() {
     control(CHARACTER.NONE);
-    code(0xa3, 0x02, "// (a3) CALL "Open message box?" (0x02)");
+    call_id(ADDRESS_ID.OPEN_TEXTBOX);
 }
 fun text(id) {
     code(0x51, id, "// (51) SHOW TEXT 10bf FROM 0x91e0bf compressed WINDOWED c14dd8> '[0x97][0x8b]Goat[LF]' '[0x8b]Chicken[LF]' '[0x8b]Basket'");
@@ -983,9 +1027,9 @@ fun dialog(id) {
 }
 
 fun fanfare() {
-    code(0xa3, 0x00, "// (a3) CALL "Fade-out / stop music" (0x00)");
+    music_fade(True);
     music(MUSIC.FANFARE);
-    code(0xa3, 0x01, "// (a3) CALL "Fade-in / start music" (0x01)");
+    music_fade(False);
 }
 fun fanfare_item() {
     fanfare();
@@ -1184,19 +1228,19 @@ fun reward(item) {
     } else if(item == ITEM.WINGS) {
         <0x2391> = 0x0804;
         <0x2395> = 0x0014;
-        eval("a3 3a // (a3) CALL "Loot gourd?" (0x3a)");
+        call_id(ADDRESS_ID.LOOT);
         
         fanfare_weapon();
     } else if(item == ITEM.PETAL) {
         <0x2391> = 0x0800;
         <0x2395> = 0x0002;
-        eval("a3 3a // (a3) CALL "Loot gourd?" (0x3a)");
+        call_id(ADDRESS_ID.LOOT);
         
         fanfare_weapon();
     } else if(item == ITEM.NECTAR) {
         <0x2391> = 0x0801;
         <0x2395> = 0x0012;
-        eval("a3 3a // (a3) CALL "Loot gourd?" (0x3a)");
+        call_id(ADDRESS_ID.LOOT);
         
         fanfare_weapon();
     }
@@ -1206,15 +1250,15 @@ fun wait(character) {
     code(0x2e, character, "// (2e) Wait for boy (d0) to reach destination");
 }
 
-fun walk(character, x, y, waiting) {
+fun walk(walk_type, character, x, y, waiting) {
     if(character == CHARACTER.BOY) {
-        code(0x6e, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
+        code(walk_type, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
         wait(character);
     } else if(character == CHARACTER.DOG) {
-        code(0x6e, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
+        code(walk_type, character, x, y, "// (6e) Make controlled char walk to x=0x1c,y=0x1f");
         wait(character);
     } else {
-        code(0x6e, 0x8d, character - 0x2834, x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        code(walk_type, 0x8d, character - 0x2834, x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     }
 }
 
@@ -1229,10 +1273,6 @@ fun sepia(active) {
     }
 }
 
-fun hide_status_bar() {
-    eval("29 e7 23 00 // (29) CALL 0x92a3e7 Hide status bar layer");
-}
-
 fun clear_status_effects() {
     code(0xaa, "// (aa) Clear boy and dog statuses");
 }
@@ -1242,11 +1282,13 @@ fun brightness(brightness) {
 }
 
 fun lightning() {
-    eval("a3 36 // (a3) CALL "Unnamed Global script 0x36" (0x36)");
+    // TODO: buggy? might require rain or low brightness
+
+    call_id(0x36);
 }
 
 fun rain() {
-    eval("07 2a 59 00 // (07) CALL 0x92d92a Outro rain and sky color");
+    call(ADDRESS.RAIN);
 }
 fun rain_dark() {
     rain();
@@ -1507,6 +1549,42 @@ fun special_script(script, id) {
     }
 }
 
+fun currency_get(type, amount) {
+    code(0x7c, type, 0x000000 + amount, "// (7c) Give 50 Talons (moniez)");
+}
+fun currency_take(type, amount) {
+    code(0x7c, type, 0x000000 + amount, "// (7d) Take 10 Talons (moniez)");
+}
+fun currency_convert(from_amount, from_type, to_amount, to_type) {
+    code(0x7e, 0xb0 + from_amount, from_type, 0xb0 + to_amount, to_type, "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
+}
+fun show_currency(show) {
+    if(show == True) {
+        eval("9f // (9f) PREPARE CURRENCY DISPLAY");
+        eval("a0 // (a0) SHOW CURRENCY AMOUNT");
+    } else {
+        eval("a1 // (a1) HIDE CURRENCY DISPLAY");
+    }
+}
+
+fun show_status_bar(show) {
+    if(show == True) {
+        call(ADDRESS.STATUS_BAR_SHOW);
+    } else {
+        call(ADDRESS.STATUS_BAR_HIDE);
+    }
+}
+
+fun show_shop(ingredient_id) {
+    //
+
+    // call_id(ADDRESS_ID.NPC_DIALOGUE_START);
+    call_id(ADDRESS_ID.OPEN_TEXTBOX);
+    <0x2459> = ingredient_id;
+    call_id(ADDRESS_ID.OPEN_INGREDIENT_MENU);
+    // call_id(ADDRESS_ID.NPC_DIALOGUE_STOP);
+}
+
 // CINEMATICS
 
 fun scene_raptors_death_escape() {
@@ -1549,25 +1627,9 @@ fun scene_raptors_death_escape() {
     fade_out();
 }
 
-fun currency(from_amount, from_type, to_amount, to_type) {
-    code(0x7e, 0xb0 + from_amount, from_type, 0xb0 + to_amount, to_type, "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
-}
-
-fun show_currency(show) {
-    if(show == True) {
-        eval("9f // (9f) PREPARE CURRENCY DISPLAY");
-        eval("a0 // (a0) SHOW CURRENCY AMOUNT");
-    } else {
-        eval("a1 // (a1) HIDE CURRENCY DISPLAY");
-    }
-}
-
-fun show_status_bar(show) {
-    if(show == True) {
-        call(ADDRESS.STATUS_BAR_SHOW);
-    } else {
-        call(ADDRESS.STATUS_BAR_HIDE);
-    }
+fun save(slot, location) { // buggy
+    <0x2449> = slot; // ?
+    code(0xa3, location, "// (a3) CALL 'Actual save dialog' (0x4e)");
 }
 
 // EXPERIMENTAL
