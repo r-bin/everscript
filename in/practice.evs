@@ -7,6 +7,12 @@
 )
 #include("in/core.evs")
 
+#patch(
+    "skip_intro",
+    "camera_hack",
+    "brian"
+)
+
 enum STRING {
     SELECT_1 = string("[0x96][0x8b]Unlock[LF][0x8b]Atlas[LF][0x8b]No Clip[END]"),
     SELECT_1_UNLOCK = string("[0x96][0x8b]Everything[LF][0x8b]Basics[LF][0x8b]Ingredients[END]"),
@@ -32,6 +38,7 @@ enum STRING {
     
     PORTAL_ACT_4_1 = string("[0x96][0x8b]Saturn[LF][0x8b]Carltron[END]")
 }
+
 fun store_last_entity(tmp) {
     code(0x19, tmp - 0x2834, 0xad, "// (19) WRITE $283b = last entity ($0341)");
 }
@@ -106,7 +113,7 @@ fun portal_activated() {
     sleep(0x10);
 
     available(CHARACTER.BOTH);
-    call(0x92a3ed); // show status bar layer
+    show_status_bar(True);
 }
 
 fun portal_activated_slow() {
@@ -115,7 +122,66 @@ fun portal_activated_slow() {
     sleep(0x20);
 
     available(CHARACTER.BOTH);
-    call(0x92a3ed); // show status bar layer
+    show_status_bar(True);
+}
+
+// dialogues
+
+@install()
+@inject(0x94e692)
+fun select_pressed() {
+    special_script(SPECIAL_SCRIPTS.SELECT_PRESSED, 0x1863);
+
+    question(STRING.SELECT_1);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // unlock everything
+        question(STRING.SELECT_1_UNLOCK);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // everything
+            unlock(ITEM.ALL);
+
+            select_alchemy();
+            end();
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // basics
+            unlock(ITEM.SPEAR_1);
+            unlock(ITEM.JAGUAR_RING);
+            end();
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // ingredients
+            unlock(ITEM.INGREDIENTS);
+            end();
+        }
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // atlas
+        question(STRING.SELECT_1_ATLAS);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+            fake_atlas(CHARACTER.BOY);
+            end();
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+            fake_atlas(CHARACTER.DOG);
+            end();
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+            fake_atlas(CHARACTER.BOY);
+            fake_atlas(CHARACTER.DOG);
+            end();
+        }
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // no clip
+        question(STRING.SELECT_1_NOCLIP);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+            fake_noclip(CHARACTER.BOY);
+            end();
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+            fake_noclip(CHARACTER.DOG);
+            end();
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+            fake_noclip(CHARACTER.BOY);
+            fake_noclip(CHARACTER.DOG);
+            end();
+        }
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // test
+        // transition(0x70, 0x8b, 0x28, DIRECTION.NORTH, DIRECTION.WEST);
+        transition(0x72, 0x75, 0x5e, DIRECTION.NORTH, DIRECTION.WEST);
+    }
 }
 
 @install()
@@ -384,23 +450,15 @@ fun portal_act_4() {
     }
 }
 
-@install(0x928084, False) // 0x92811a = FB 65 01
-fun id_swap_brian_with_cure_hut() {
-    eval("FB 65 01");
-}
+// maps
 
-@install(0x92e0ca)
-fun intro_start_pressed_code() {
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
     load_map(MAP.BRIAN, 0x00, 0x00);
 }
 
-@install(0x9386b9 + 0x04)
-fun intro_start_pressed_code() {
-    eval(0x00);
-}
-
-@install(0x94e5fb)
-fun cure_hut_enter() { // = brians room
+@install(ADDRESS.STRONG_HEART_EXTERIOR_ENTER) // = brians room
+fun brians_room_enter() {
     set(FLAG.FLOWERS_CUTSCENE_WATCHED);
 
     teleport(CHARACTER.BOY, 0x19, 0x17);
@@ -409,7 +467,7 @@ fun cure_hut_enter() { // = brians room
     MEMORY.PACIFIED = 0x0001;
     teleport(CHARACTER.DOG, 0xff, 0xff);
     available(CHARACTER.BOY);
-    call(0x92a3e7); // hide status bar layer
+    show_status_bar(False);
 
     special_script(SPECIAL_SCRIPTS.SELECT_PRESSED, 0x1863);
 
@@ -432,61 +490,5 @@ fun cure_hut_enter() { // = brians room
     entity_script_controlled(0x2835);
     attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x1b72);
 
-    subtext(string("v1.1.0 - by r.bin -  Press Select :)"));
-}
-
-@install()
-@inject(0x94e692)
-fun select_pressed() {
-    special_script(SPECIAL_SCRIPTS.SELECT_PRESSED, 0x1863);
-
-    question(STRING.SELECT_1);
-
-    if(MEMORY.QUESTION_ANSWER == 0x00) { // unlock everything
-        question(STRING.SELECT_1_UNLOCK);
-
-        if(MEMORY.QUESTION_ANSWER == 0x00) { // everything
-            unlock(ITEM.ALL);
-
-            select_alchemy();
-            end();
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // basics
-            unlock(ITEM.SPEAR_1);
-            unlock(ITEM.JAGUAR_RING);
-            end();
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // ingredients
-            unlock(ITEM.INGREDIENTS);
-            end();
-        }
-    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // atlas
-        question(STRING.SELECT_1_ATLAS);
-
-        if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
-            fake_atlas(CHARACTER.BOY);
-            end();
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
-            fake_atlas(CHARACTER.DOG);
-            end();
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
-            fake_atlas(CHARACTER.BOY);
-            fake_atlas(CHARACTER.DOG);
-            end();
-        }
-    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // no clip
-        question(STRING.SELECT_1_NOCLIP);
-
-        if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
-            fake_noclip(CHARACTER.BOY);
-            end();
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
-            fake_noclip(CHARACTER.DOG);
-            end();
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
-            fake_noclip(CHARACTER.BOY);
-            fake_noclip(CHARACTER.DOG);
-            end();
-        }
-    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // nop
-        nop();
-    }
+    subtext(string("v1.1.0 - by r.bin -  Press Select :)[END]"));
 }
