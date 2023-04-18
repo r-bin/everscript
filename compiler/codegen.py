@@ -81,6 +81,9 @@ allocated RAM:
         self.identifier[enum.name] = enum
         
     def get(self, identifier):
+        if (not identifier in self.identifier):
+            raise Exception(f"Enum '{identifier}' does not exist!")
+        
         return self.identifier[identifier]
 
     def append(self, function):
