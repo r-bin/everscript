@@ -8,9 +8,10 @@
     - ``"Unnamed Global script 0x44" = (id:44 => addr:0x92c031)``
 
 - SoETilesViewer
-  - ``0x23bf = 0x0001`` - Prevents attacking, e.g. villages
+  - Memory:
+    - ``0x23bf = 0x0001`` - Prevents attacking, e.g. villages
   - ``(6c) UNTRACED INSTR for boy with val1=0x5a,val2=0x14`` - Walks to x/y, kind of the same as ``6d``/``6e``
-  - ``(78) UNTRACED INSTR for boy, 0x0028 4 changes sprite/animation/...?`` - See Enum ``ANIMATION_BOY``/``ANIMATION_DOG``/``ANIMATION_PLACEHOLDER``/``ANIMATION_ENEMY``
+  - ``(78) UNTRACED INSTR for boy, 0x0028 4 changes sprite/animation/...?`` - See Enum ``ANIMATION_ALL``/``ANIMATION_BOY``/``ANIMATION_DOG``/``ANIMATION_PLACEHOLDER``/``ANIMATION_ENEMY``
   - ``(29) CALL 0x92d89b Unnamed ABS script 0x92d89b`` - Fade to night
     - ``(29) CALL 0x92d8c2 Unnamed ABS script 0x92d8c2`` - Fade from night
   - ``(b4) CALL Absolute (24bit) script 0x92df1c ("Unnamed ABS script 0x92df1c") WITH 3 ARGS $249d, $249f, 2`` - Explode area y/x/radius (~30s)
@@ -22,3 +23,4 @@
   - ``(a3) CALL "Market NPC talk (and others?)" (0x32)`` - Start conversation (lock, face each other)
     - ``(a3) CALL "Market NPC end (and others?)" (0x33)`` - Stop conversation (unlock)
   - ``(ae) UNTRACED INSTR, vals 00 02 18 1d modifies current script`` - arg0=18, arg2=1d
+  - ``(a9) UNTRACED INSTR modifies entity dog bits 28`` - See Enum ``ATTRIBUTE_BITS``
