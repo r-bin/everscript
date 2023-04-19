@@ -15,10 +15,11 @@
 )
 
 enum STRING {
-    SELECT_1 = string("[0x96][0x8b]Unlock[LF][0x8b]Atlas[LF][0x8b]No Clip[END]"),
+    SELECT_1 = string("[0x96][0x8b]Unlock[LF][0x8b]Atlas[LF][0x8b]No Clip[LF][0x8b]Enemy[END]"),
     SELECT_1_UNLOCK = string("[0x96][0x8b]Everything[LF][0x8b]Basics[LF][0x8b]Ingredients[END]"),
     SELECT_1_ATLAS = string("[0x96][0x8b]Boy[LF][0x8b]Dog[LF][0x8b]Both[END]"),
     SELECT_1_NOCLIP = string("[0x96][0x8b]Boy[LF][0x8b]Dog[LF][0x8b]Both[END]"),
+    SELECT_1_ENEMY = string("[0x96][0x8b]Aquagoth[LF][0x8b]Caleoptera[LF][0x8b]Toaster[END]"),
 
     PORTAL_ACT_1 = string("[0x96]Act 1:[LF][0x8b]Oil[LF][0x8b]Intro skip[LF][0x8b]Thraxx[LF][0x8b]Graveyard[LF][0x8b]Salabog[LF][0x8b]Solar[LF][0x8b]Magmar[END]"),
 
@@ -30,6 +31,7 @@ enum STRING {
     PORTAL_ACT_2_MARKET = string("[0x96][0x8b]Normal[LF][0x8b]Wealthy[END]"),
     
     PORTAL_ACT_3 = string("[0x96]Act 3:[LF][0x8b]Market[LF][0x8b]Banquet[LF][0x8b]Dog Maze[LF][0x8b]FootKnight[LF][0x8b]Dark Forest[LF][0x8b]Bad Boys[LF][0x8b]Timberdrake[LF][0x8b]Verminator[LF][0x8b]Sterling[LF][0x8b]Mungola[LF][0x8b]Gauge[END]"),
+    PORTAL_ACT_3_STERLING = string("[0x96][0x8b]Normal[LF][0x8b]Top (Less random)[END]"),
     
     PORTAL_ACT_4 = string("[0x96]Act 4:[LF][0x8b]Saturn[LF][0x8b]Carltron[END]")
 }
@@ -150,13 +152,19 @@ fun select_pressed() {
 
         if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
             fake_atlas(CHARACTER.BOY);
+
+            load_map(MAP.BRIAN, 0x00, 0x00);
             end();
         } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
             fake_atlas(CHARACTER.DOG);
+
+            load_map(MAP.BRIAN, 0x00, 0x00);
             end();
         } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
             fake_atlas(CHARACTER.BOY);
             fake_atlas(CHARACTER.DOG);
+
+            load_map(MAP.BRIAN, 0x00, 0x00);
             end();
         }
     } else if(MEMORY.QUESTION_ANSWER == 0x02) { // no clip
@@ -173,9 +181,34 @@ fun select_pressed() {
             fake_noclip(CHARACTER.DOG);
             end();
         }
-    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // test
-        // transition(0x70, 0x8b, 0x28, DIRECTION.NORTH, DIRECTION.WEST);
-        transition(0x72, 0x75, 0x5e, DIRECTION.NORTH, DIRECTION.WEST);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // enemy
+        question(STRING.SELECT_1_ENEMY);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // aquagoth
+            MEMORY.PACIFIED = 0x0000;
+
+            add_enemy(ENEMY.AQUAGOTH_ENTITY, 0x19, 0x17);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+            store_last_entity(0x2835);
+
+            while(True) { // hack to make aquagoth visible (crashes after ~15 calls)
+                animate(0x2835, ANIMATION_MODE.LOOP, ANIMATION_PLACEHOLDER.COOK_RUNNING);
+
+                sleep(0x10);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // caleoptera
+            MEMORY.PACIFIED = 0x0000;
+
+            add_enemy(ENEMY.THRAXX2_HEART, 0x19, 0x17);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // toaster
+            MEMORY.PACIFIED = 0x0000;
+            
+            add_enemy(ENEMY.DOG_4_BLACK, 0x19, 0x17);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // nop
+            nop();
+        }
     }
 }
 
@@ -380,10 +413,19 @@ fun portal_act_3() {
         portal_activated();
         transition(0x5e, 0x16, 0x65, DIRECTION.NORTH, DIRECTION.NORTH);
     } else if(MEMORY.QUESTION_ANSWER == 0x08) { // sterling
-        fake_level(0x000c);
+        question(STRING.PORTAL_ACT_3_STERLING);
 
-        portal_activated();
-        transition(0x37, 0x55, 0xf9, DIRECTION.NORTH, DIRECTION.NORTH);
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // normal
+            fake_level(0x000c);
+
+            portal_activated();
+            transition(0x37, 0x55, 0xf9, DIRECTION.NORTH, DIRECTION.NORTH);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // top
+            fake_level(0x000c);
+
+            portal_activated();
+            transition(0x37, 0x51, 0x30, DIRECTION.NORTH, DIRECTION.NORTH);
+        }
     } else if(MEMORY.QUESTION_ANSWER == 0x09) { // mungola
         set(<0x22dd, 0x02>);
         fake_level(0x000c);

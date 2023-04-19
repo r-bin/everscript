@@ -107,6 +107,8 @@ EOF
 
 - ``in/practice.evs``
   - NPCs are trashing some dialoges to make space for the new strings and B-triggers
+  - Atlas does not update stats without reloading the room
+  - Enemies without visuals lose their animation when hit (Currently the animation is being refreshed infinitely)
 - ``in/patches/camera_hack.evs``
   - Known missing maps: Southern Forest, Ebon Keep balcony, some Ebon Keep houses?
 
