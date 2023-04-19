@@ -14,6 +14,8 @@
   - ``(78) UNTRACED INSTR for boy, 0x0028 4 changes sprite/animation/...?`` - See Enum ``ANIMATION_ALL``/``ANIMATION_BOY``/``ANIMATION_DOG``/``ANIMATION_PLACEHOLDER``/``ANIMATION_ENEMY``
   - ``(29) CALL 0x92d89b Unnamed ABS script 0x92d89b`` - Fade to night
     - ``(29) CALL 0x92d8c2 Unnamed ABS script 0x92d8c2`` - Fade from night
+  - ``(29) CALL 0x92d723 Fade to/from/flash white B?`` - Fade to white
+    - ``(29) CALL 0x92d752 Fade to/from/flash white C?``- Fade from white
   - ``(b4) CALL Absolute (24bit) script 0x92df1c ("Unnamed ABS script 0x92df1c") WITH 3 ARGS $249d, $249f, 2`` - Explode area y/x/radius (~30s)
     - ``(29) CALL 0x92df70 Boss kill part`` - Unexplode
   - ``(3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x1a82 (set script): Puppet damage/kill`` - See Enum ``SCRIPT_TRIGGER``
@@ -24,3 +26,5 @@
     - ``(a3) CALL "Market NPC end (and others?)" (0x33)`` - Stop conversation (unlock)
   - ``(ae) UNTRACED INSTR, vals 00 02 18 1d modifies current script`` - arg0=18, arg2=1d
   - ``(a9) UNTRACED INSTR modifies entity dog bits 28`` - See Enum ``ATTRIBUTE_BITS``
+  - ``"Unknown 0eac+0 (set in lots of places)" = (id:172b => addr:0x92a4e1)`` - Default loot script (proccesses the rooms drops and rolls a reward)
+  - ``(af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20`` - Drag entity to x/y (e.g. black owls during doubles)
