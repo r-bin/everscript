@@ -314,11 +314,16 @@ class Enum_Call(BaseBox):
         enum = generator.get(enum_identifier)
 
         enum_value = re.sub(".*\.", "",  self.identifier)
+        value = None
         for v in enum.values:
             if v.name == enum_value:
                 value = v.value
                 break
 
+        if value == None:
+            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}'"
+            raise Exception(error)
+        
         self.value = value
 
     def eval(self):
