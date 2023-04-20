@@ -464,7 +464,7 @@ class Add(BinaryOp):
         return "+"
 
     def _eval(self):
-        return self.left.value.eval() + self.right.value.eval()
+        return self.left.eval() + self.right.eval()
 
 class Sub(BinaryOp):
     def operator(self):

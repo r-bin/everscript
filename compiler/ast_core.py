@@ -195,10 +195,11 @@ class Param(BaseBox):
         return f"Param(name={self.name}, value={self.value})"
 
     def eval(self):
+        if hasattr(self, 'params'):
+            self.value.params = self.params
+
         if isinstance(self.value, Memory):
             return self.value.address.value
-        elif isinstance(self.value, Word):
-            return self.value.value
         else:
             return self.value.eval()
 
