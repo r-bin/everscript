@@ -133,6 +133,9 @@ enum MEMORY {
     BOY_CURRENT_HP = <0x4EB3>,
     BOY_XP_REQUIRED = <0x4F1D>,
 
+    DOG_LEVEL = <0x0A9A>,
+    DOG_XP_REQUIRED = <0x4FCB>,
+
     ENEMY_SPAWNER_QUANTITY = <0x2433>,
 
     // NPCs
@@ -485,6 +488,8 @@ enum ITEM {
     // special/groups
     ALL = 0x0000,
     INGREDIENTS = 0x0001,
+    MONEY = 0x0002,
+    TRADING_GOODS = 0x0003,
 
     // charms
     JAGUAR_RING = 0x0100,
@@ -1039,6 +1044,28 @@ fun price(index, rate, drop, quantity) {
     }
 }
 
+// CURRENCY
+
+fun currency_get(type, amount) {
+    code(0x7c, type, 0x000000 + amount, "// (7c) Give 50 Talons (moniez)");
+}
+fun currency_take(type, amount) {
+    code(0x7c, type, 0x000000 + amount, "// (7d) Take 10 Talons (moniez)");
+}
+fun currency_convert(from_amount, from_type, to_amount, to_type) {
+    code(0x7e, 0xb0 + from_amount, from_type, 0xb0 + to_amount, to_type, "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
+}
+fun show_currency(show) {
+    if(show == True) {
+        eval("9f // (9f) PREPARE CURRENCY DISPLAY");
+        eval("a0 // (a0) SHOW CURRENCY AMOUNT");
+    } else {
+        eval("a1 // (a1) HIDE CURRENCY DISPLAY");
+    }
+}
+
+// MISC.
+
 fun add_enemy(enemy, x, y) {
     code(0xba, enemy, x, y, "// (ba) LOAD NPC 0b at 49 79");
 }
@@ -1209,6 +1236,11 @@ fun unlock(item) {
         <0x2314> = 0xff;
         <0x2315> = 0xff;
     } else if(item == ITEM.ALL) {
+        currency_get(CURRENCY.TALONS, 0x65B9AA);
+        currency_get(CURRENCY.JEWELES, 0x65B9AA);
+        currency_get(CURRENCY.GOLD_COINS, 0x65B9AA);
+        currency_get(CURRENCY.CREDITS, 0x65B9AA);
+
         // alchemy
         <0x2258> = 0xff;
         <0x2259> = 0xff;
@@ -1307,6 +1339,40 @@ fun unlock(item) {
         <0x2345> = 0xff;
         <0x2346> = 0xff;
         <0x2347> = 0xff;
+
+        // trading goods
+        <0x2517> = 0xff;
+        <0x2519> = 0xff;
+        <0x251b> = 0xff;
+        <0x251d> = 0xff;
+        <0x251f> = 0xff;
+        <0x2521> = 0xff;
+        <0x2523> = 0xff;
+        <0x2525> = 0xff;
+        <0x2527> = 0xff;
+        <0x2529> = 0xff;
+        <0x252b> = 0xff;
+        <0x252d> = 0xff;
+        <0x252f> = 0xff;
+    } else if(item == ITEM.MONEY) {
+        currency_get(CURRENCY.TALONS, 0x65B9AA);
+        currency_get(CURRENCY.JEWELES, 0x65B9AA);
+        currency_get(CURRENCY.GOLD_COINS, 0x65B9AA);
+        currency_get(CURRENCY.CREDITS, 0x65B9AA);
+    } else if(item == ITEM.TRADING_GOODS) {
+        <0x2517> = 0xff;
+        <0x2519> = 0xff;
+        <0x251b> = 0xff;
+        <0x251d> = 0xff;
+        <0x251f> = 0xff;
+        <0x2521> = 0xff;
+        <0x2523> = 0xff;
+        <0x2525> = 0xff;
+        <0x2527> = 0xff;
+        <0x2529> = 0xff;
+        <0x252b> = 0xff;
+        <0x252d> = 0xff;
+        <0x252f> = 0xff;
     } else if(item == ITEM.JAGUAR_RING) {
          set(<0x2262, 0x02>);
     } else if(item == ITEM.SPEAR_1) {
@@ -1469,10 +1535,6 @@ fun select_alchemy_with_preselection(alchemy_index) {
     select_alchemy();
 }
 
-fun level(level) {
-    MEMORY.BOY_LEVEL = level;
-}
-
 fun cast(character, target, spell, level) {
     // spell = CAST
 
@@ -1529,6 +1591,16 @@ fun face(character, direction) {
             code(0x76, character, "// (76) MAKE boy FACE WEST");
         }
     } else if(character == CHARACTER.LAST_ENTITY) {
+        if(direction == DIRECTION.NORTH) {
+            code(0x74, character, "// (74) MAKE boy FACE NORTH");
+        } else if(direction == DIRECTION.EAST) {
+            code(0x77, character, "// (77) MAKE boy FACE EAST");
+        } else if(direction == DIRECTION.SOUTH) {
+            code(0x75, character, "// (75) MAKE boy FACE SOUTH");
+        } else if(direction == DIRECTION.WEST) {
+            code(0x76, character, "// (76) MAKE boy FACE WEST");
+        }
+    } else if(character == CHARACTER.SCRIPT_OWNER) {
         if(direction == DIRECTION.NORTH) {
             code(0x74, character, "// (74) MAKE boy FACE NORTH");
         } else if(direction == DIRECTION.EAST) {
@@ -1622,6 +1694,8 @@ fun animate(character, mode, id) {
         code(0x78, character, 0x0000 + id, mode, "// (78) UNTRACED INSTR for boy, 0x8008 0 changes sprite/animation/...?");
     } else if(character == CHARACTER.LAST_ENTITY) {
         code(0x78, character, 0x0000 + id, mode, "// (78) UNTRACED INSTR for boy, 0x8008 0 changes sprite/animation/...?");
+    } else if(character == CHARACTER.SCRIPT_OWNER) {
+        code(0x78, character, 0x0000 + id, mode, "// (78) UNTRACED INSTR for boy, 0x8008 0 changes sprite/animation/...?");
     } else {
         code(0x78, 0x8d, character - 0x2834, 0x0000 + id, mode, "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
     }
@@ -1672,24 +1746,6 @@ fun special_script(script, id) {
         code(0x3f, 0xb5, 0x01, 0x00, 0x0000 + id, "// (3f) WRITE $0ea2+8=0x01, $0eac+8=0x178e (unknown): BBM Wings?");
     } else if(script == SPECIAL_SCRIPTS.UNKNOWN) {
         code(0x3f, 0xb6, 0x01, 0x00, 0x0000 + id, "// (3f) WRITE $0ea2+6=0x01, $0eac+6=0x1878 (unknown): Unnamed Short script 0x1878?");
-    }
-}
-
-fun currency_get(type, amount) {
-    code(0x7c, type, 0x000000 + amount, "// (7c) Give 50 Talons (moniez)");
-}
-fun currency_take(type, amount) {
-    code(0x7c, type, 0x000000 + amount, "// (7d) Take 10 Talons (moniez)");
-}
-fun currency_convert(from_amount, from_type, to_amount, to_type) {
-    code(0x7e, 0xb0 + from_amount, from_type, 0xb0 + to_amount, to_type, "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
-}
-fun show_currency(show) {
-    if(show == True) {
-        eval("9f // (9f) PREPARE CURRENCY DISPLAY");
-        eval("a0 // (a0) SHOW CURRENCY AMOUNT");
-    } else {
-        eval("a1 // (a1) HIDE CURRENCY DISPLAY");
     }
 }
 
