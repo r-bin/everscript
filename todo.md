@@ -28,3 +28,4 @@
   - ``(a9) UNTRACED INSTR modifies entity dog bits 28`` - See Enum ``ATTRIBUTE_BITS``
   - ``"Unknown 0eac+0 (set in lots of places)" = (id:172b => addr:0x92a4e1)`` - Default loot script (proccesses the rooms drops and rolls a reward)
   - ``(af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20`` - Drag entity to x/y (e.g. black owls during doubles)
+  - ``(ba) LOAD NPC 5d at 06 12`` - See Enum ``Enemy``
