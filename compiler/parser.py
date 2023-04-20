@@ -19,6 +19,13 @@ class Parser():
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'IDENTIFIER'
+            ],
+
+            # A list of precedence rules with ascending precedence, to
+            # disambiguate ambiguous production rules.
+            precedence=[
+                ('left', ['+', '-']),
+                ('left', ['*', '/'])
             ]
         )
         
