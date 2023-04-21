@@ -100,8 +100,6 @@ EOF
 
 - ``General``
   - ``if``-``else if`` should jump after the block instead of evaluating all ``else-if`` statements (``end`` is used in some scripts as hack)
-- ``ast_core.py``
-  - Parameters aren't passed correctly. The code tries to pass down variables, but should instead only have the parameters in scope (``TODO: parameters with different names``)
 
 ## Everscript
 

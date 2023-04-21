@@ -208,14 +208,20 @@ class Call(Function_Base):
             self.function = copy.deepcopy(function)
             self.address = function.address
             for p, a in zip(self.params, function.args):
-                p.name = a.name
+                if p.name == None:
+                    p.name = a.name
         elif isinstance(function, Param):
             self.function = None
             self.address = function.eval()
         else:
             raise Exception("todo")
+        pass
         
     def _code(self):
+        if self.function:
+            for p, a in zip(self.params, self.function.args):
+                p.name = a.name
+
         if self.function == None or self.function.install:
             address = "xx xx xx"
             if self.address != None:
