@@ -950,6 +950,13 @@ enum WALK_TYPE {
 
 // BASICS
 
+fun address(address) {
+    if(address >= 0x2834) {
+        code(address - 0x2834);
+    } else if(address >= 0x2258) {
+        code(address - 0x2258);
+    }
+}
 fun entity(character) {
     if(character == CHARACTER.BOY) {
         code(character);
@@ -1548,37 +1555,7 @@ fun select_alchemy_with_preselection(alchemy_index) {
 fun cast(character, target, spell, level) {
     // spell = CAST
 
-    if(character == CHARACTER.BOY) {
-        if(target == CHARACTER.BOY) {
-            code(0xac, 0xd0, 0x82, spell, 0x82, level, 0xd0, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        } else if(target == CHARACTER.DOG) {
-            code(0xac, 0xd0, 0x82, spell, 0x82, level, 0xd1, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        } else if(target == CHARACTER.BOTH) {
-            code(0xac, 0xd0, 0x82, spell, 0x82, level, 0xd0, 0xd1, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        } else {
-            code(0xac, 0xd0, 0x82, spell, 0x82, level, 0x8d, target - 0x2834, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        }
-    } else if(character == CHARACTER.LAST_ENTITY) {
-        if(target == CHARACTER.BOY) {
-            code(0xac, 0xad, 0x82, spell, 0x82, level, 0xd0, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        } else if(target == CHARACTER.DOG) {
-            code(0xac, 0xad, 0x82, spell, 0x82, level, 0xd1, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        } else if(target == CHARACTER.BOTH) {
-            code(0xac, 0xad, 0x82, spell, 0x82, level, 0xd0, 0xd1, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        } else {
-            code(0xac, 0xad, 0x82, spell, 0x82, level, 0x8d, target - 0x2834, 0xb0, "// (ac) entity attached to script? CASTS SPELL 0x26 POWER 0xdc ON boy, dog if alive");
-        }
-    } else {
-        if(target == CHARACTER.BOY) {
-            code(0xac, 0x8d,  character - 0x2834, 0x82, spell, 0x82, level, target, 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
-        } else if(target == CHARACTER.DOG) {
-            code(0xac, 0x8d, character - 0x2834, 0x82, spell, 0x82, level, target, 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
-        } else {
-            code(0xac, 0x8d, character - 0x2834, 0x82, spell, 0x82, level, 0x8d, target - 0x2834, 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
-        }
-    }
-   
-   // TODO: code(0xac, entity(character), 0x82, spell, 0x82, level, entity(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+    code(0xac, entity(character), 0x82, spell, 0x82, level, entity(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
 }
 
 fun face(character, direction) {
@@ -1623,8 +1600,8 @@ fun damage(character, value) {
     code(0x93, entity(character), 0x84, 0x0000 + value, "// (93) DAMAGE $2843 FOR 0x03e8");
 }
 
-fun store_last_entity(tmp) {
-    code(0x19, entity(character), 0xad, "// (19) WRITE $283b = last entity ($0341)");
+fun store_last_entity(character) {
+    code(0x19, address(character), 0xad, "// (19) WRITE $283b = last entity ($0341)");
 }
 
 fun animate(character, mode, id) {
@@ -1745,7 +1722,8 @@ fun scene_raptors_death_escape() {
 fun explode_boss(x, y, radius) {
     <0x23bb> = x;
     <0x23b9> = y;
-    code(0xb4, 0x03, 0x88, 0x23bb - 0x2258, 0x88, 0x23b9 - 0x2258, 0xb0 + radius, 0x1c, 0x5f, 0x00, "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
+    
+    code(0xb4, 0x03, entity(0x23bb), entity(0x23b9), 0xb0 + radius, 0x1c, 0x5f, 0x00, "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
 
     sleep(0xf0);
     call(ADDRESS.FADE_TO_WHITE);
@@ -1759,7 +1737,7 @@ fun explode_last_entity(radius) {
     eval("18 45 02 0d 00 00 29 6a 1a d5 // (18) WRITE $249d = *($2834 + 26)");
     eval("18 47 02 0d 00 00 29 6c 1a d5 // (18) WRITE $249f = *($2834 + 28)");
     
-    code(0xb4, 0x03, 0x88, 0x23bb - 0x2258, 0x88, 0x23b9 - 0x2258, 0xb0 + radius, 0x1c, 0x5f, 0x00, "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
+    code(0xb4, 0x03, entity(0x249d), entity(0x249f), 0xb0 + radius, 0x1c, 0x5f, 0x00, "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
 
     sleep(0xf0);
     call(ADDRESS.FADE_TO_WHITE);
@@ -1838,7 +1816,7 @@ fun homing_cannonball() {
         eval("18 1f 02 08 1f 02 29 32 9a // (18) WRITE $2477 = $2477 + 2");
 
         // teleport(0x2846, 0x1e, 0x21);
-        code(0x43, 0x8d, 0x2846 - 0x2834, 0x88, 0x021f, 0x88, 0x0221, "// (42) Teleport $2835 to a7, b9");
+        code(0x43, entity(0x2846), entity(0x2477), entity(0x2479), "// (42) Teleport $2835 to a7, b9");
 
         sleep(0x02);
     }
@@ -1857,8 +1835,7 @@ fun heel(character) {
     eval("18 61 01 50 29 6a 1a d5 // (18) WRITE $23b9 = boy.x");
     eval("18 63 01 50 29 6c 1a d5 // $23bb = boy.y");
 
-    code(0xaf, 0x04, 0x8d, character - 0x2834, 0x88, 0x23b9 - 0x2258, 0x88, 0x23bb - 0x2258, 0xd0 + 0x14, 0x03cc1e, "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
-    // TODO: code(0xaf, 0x04, entity(character), entity(0x23b9), entity(0x23bb), 0xd0 + 0x14, 0x03cc1e, "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+    code(0xaf, 0x04, entity(character), entity(0x23b9), entity(0x23bb), 0xd0 + 0x14, 0x03cc1e, "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
 }
 
 fun test_stuff() {

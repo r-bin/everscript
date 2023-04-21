@@ -5,13 +5,15 @@ from textwrap import wrap
 class Function_Base(BaseBox):
     params = []
 
-    # TODO: parameters with different names
     def code(self, params=[]):
         if self.params:
             sp = {x.name : x for x in self.params}
             p = {x.name : x for x in params}
+            test = sp.keys() & p.keys()
             for key in sp.keys() & p.keys():
-                sp[key].value = p[key].value
+                if sp[key].value == None:
+                    sp[key].value = p[key].value
+            pass
         else:
             self.params = params
 
@@ -228,7 +230,9 @@ class Function_Code(Function_Base):
                             pass
                         list.append(code)
                     else:
-                        list.append(a.value.code(self.params))
+                        code = a.value
+                        code = code.code(self.params)
+                        list.append(code)
                 case _ if isinstance(a, str):
                     list.append(a)
                 case None:
