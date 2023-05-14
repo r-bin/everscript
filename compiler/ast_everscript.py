@@ -19,8 +19,11 @@ class Function(Function_Base):
         self.address = None
         self.inject = []
         self.terminate = True
+        self.async_call = False
         for arg in function_args:
             match arg:
+                case _ if isinstance(arg, Arg_Async):
+                    self.async_call = True
                 case _ if isinstance(arg, Arg_Install):
                     self.install = True
                     self.address = arg.eval()
@@ -56,6 +59,10 @@ class Arg_Inject(BaseBox):
 
     def eval(self):
         return self.address.eval()
+    
+class Arg_Async(BaseBox):
+    def __init__(self):
+        pass
 
 class Address(Function_Base):
     def __init__(self, value, length=3):
@@ -202,11 +209,14 @@ class Label_Destination(BaseBox):
         self.value = re.sub(":", "", value)
 
 class Call(Function_Base):
+    async_call = False
+    
     def __init__(self, function, params=[]):
         self.params = params
         if isinstance(function, Function):
             self.function = copy.deepcopy(function)
             self.address = function.address
+            self.async_call = function.async_call
             for p, a in zip(self.params, function.args):
                 if p.name == None:
                     p.name = a.name
@@ -228,9 +238,14 @@ class Call(Function_Base):
                 address = Address(self.address)
                 address = address.code()
 
-            return f"""
+            if self.async_call:
+                return f"""
+07 {address}      // async_call({self.address})
+                """
+            else:
+                return f"""
 29 {address}      // call({self.address})
-            """
+                """
         
         else:
             return Function_Code(self.function.script, '\n').code(self.params)
