@@ -1,3 +1,4 @@
+; Created by Skarsnikus (See https://github.com/Skarsnik/sneshacking/blob/master/SoE/soepractice.asm)
 hirom
 header
 macro a8()

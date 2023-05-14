@@ -1,9 +1,4 @@
-;This is for rebuilding the debug menu including a 'Walk through walls'- and a 'Full equipment'-hack.
-;ROM: Secret of Evermore (U) [!].smc
-;     Size: 3145728 Bytes (exactly 3MB)
-;     CRC: 836922997 (linux cksum)
-;     Will be extended up to 4MB
-;header
+; Created by XaserLE (See https://www.romhacking.net/hacks/4638/)
 hirom
 
 !RING_MENU_MEMORY = $FE0000
