@@ -23,7 +23,7 @@ hirom
 !BUTTON_9_TITLE_MEMORY = $c466a6 ; "Debug: Select map[END]" (18 bytes)
 !BUTTON_9_TITLE = "9"
 !BUTTON_10_TITLE_MEMORY = $c466b8 ; "Debug: Mode 7 Flight[END]" (21 bytes)
-!BUTTON_10_TITLE = "10"
+!BUTTON_10_TITLE = "Windwalker"
 !BUTTON_11_TITLE_MEMORY = $c46e07 ; "Alchemist[END]" (10 bytes)
 !BUTTON_11_TITLE = "Alchemy"
 
