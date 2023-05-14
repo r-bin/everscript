@@ -16,7 +16,7 @@ class Parser():
                 'ELSEIF', 'IF', 'ELSE',
                 'WHILE',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                'FUN_INSTALL', 'FUN_INJECT', 'FUN', 'FUN_IDENTIFIER',
+                'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'FUN_IDENTIFIER',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'IDENTIFIER'
             ],
@@ -149,6 +149,9 @@ class Parser():
         @self.pg.production('function_arg_list : function_arg_list function_arg')
         def parse(p):
             return p[0] + [ p[1] ]
+        @self.pg.production('function_arg : FUN_ASYNC ( )')
+        def parse(p):
+            return Arg_Async()
         @self.pg.production('function_arg : FUN_INJECT ( expression )')
         @self.pg.production('function_arg : FUN_INJECT ( expression , expression )')
         def parse(p):

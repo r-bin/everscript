@@ -178,6 +178,21 @@ class OutUtils():
     def _apply_additional_patches(self, file, patches):
         for patch in os.scandir(patches):
             filename = Path(patch)
+            patch_size = os.path.getsize(patch)
+            if filename.suffix == ".asm":
+                print(f" - applying raw patch {patch.name} ({patch_size})")
+
+                output_dir = "out"
+
+                file_smc = Path(file)
+                file_sfc = file_smc.with_suffix('.sfc')
+                os.rename(file_smc, file_sfc)
+                call_args = ["asar", f"./{output_dir}/patches/{filename.name}", f"./{file_sfc}"]
+                call(call_args, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                os.rename(file_sfc, file_smc)
+
+        for patch in os.scandir(patches):
+            filename = Path(patch)
 
             if filename.suffix == ".sliver":
                 print(f" - converting patch {filename.name} to {filename.with_suffix('.txt').name}")

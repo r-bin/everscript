@@ -57,7 +57,21 @@ enum ADDRESS {
 
     EXPLODE_BOSS_STOP = 0x92df70,
 
-    RAIN = 0x92d92a
+    RAIN = 0x92d92a,
+
+    // asm
+
+    DEBUG_MENU_BUTTON_1 = 0xfd8000, // button 1, "ROM Creation Date", 40 bytes
+    DEBUG_MENU_BUTTON_2 = 0xfd8040, // button 2, "Debug: Create a monster"/"Debug: Full equipment", 40 bytes
+    DEBUG_MENU_BUTTON_3 = 0xfd8080, // button 3, "Debug: Heel", 40 bytes
+    DEBUG_MENU_BUTTON_4 = 0xfd80c0, // button 4, "Debug: Show thud balls on path"/"Debug: Walk through walls", 40 bytes
+    DEBUG_MENU_BUTTON_5 = 0xfd8100, // button 5, "Debug: Turn off both backgrounds", 40 bytes
+    DEBUG_MENU_BUTTON_6 = 0xfd8140, // button 6, "Debug: Show background 1 only", 40 bytes
+    DEBUG_MENU_BUTTON_7 = 0xfd8180, // button 7, "Debug: Show background 2 only", 40 bytes
+    DEBUG_MENU_BUTTON_8 = 0xfd81c0, // button 8, "Debug: Show both backgrounds", 40 bytes
+    DEBUG_MENU_BUTTON_9 = 0xfd8200, // button 9, "Debug: Select map", 40 bytes
+    DEBUG_MENU_BUTTON_10 = 0xfd8240, // button 10, "Debug: Mode 7 Flight", 40 bytes
+    DEBUG_MENU_BUTTON_11 = 0xfd8280 // button 11, "Alchemist", 40 bytes
 }
 
 enum ADDRESS_ID {
@@ -239,6 +253,23 @@ enum MEMORY {
     SPOON = <0x252b>,
     TAPESTRY = <0x252d>,
     TICKET_FOR_EXHIBITION = <0x252f>,
+
+    // weapon level
+    LEVEL_FIST = <0x0ADD>, // unused
+    LEVEL_BAZOOKA = <0x0AF7>,
+    LEVEL_DOG = <0x0B07>,
+    LEVEL_1_SWORD = <0x0ADF>, // bone crusher
+    LEVEL_1_AXE = <0x0AE7>,
+    LEVEL_1_SPEAR = <0x0AEF>,
+    LEVEL_2_SWORD = <0x0AE1>,
+    LEVEL_2_AXE = <0x0AE9>,
+    LEVEL_2_SPEAR = <0x0AF1>,
+    LEVEL_3_SWORD = <0x0AE3>,
+    LEVEL_3_AXE = <0x0AEB>,
+    LEVEL_3_SPEAR = <0x0AF3>,
+    LEVEL_4_SWORD = <0x0AE5>,
+    LEVEL_4_AXE = <0x0AED>,
+    LEVEL_4_SPEAR = <0x0AF5>,
 
     // rooms
     DARK_FOREST_XY = <0x2835>,
@@ -567,6 +598,11 @@ enum ITEM {
     INGREDIENTS = 0x0001,
     MONEY = 0x0002,
     TRADING_GOODS = 0x0003,
+    WEAPON_LEVEL_2 = 0x0004,
+    WEAPON_LEVEL_3 = 0x0005,
+    DOG_LEVEL_2 = 0x0005,
+    DOG_LEVEL_3 = 0x0006,
+    BASICS = 0x0007,
 
     // charms
     JAGUAR_RING = 0x0100,
@@ -1073,11 +1109,7 @@ enum SFX_EFFECT {
 // BASICS
 
 fun address(address) {
-    if(address >= 0x970000) {
-        code(address - 0x970000);
-    } else if(address >= 0x968000) {
-        code(address - 0x968000);
-    } else if(address >= 0x960000) {
+    if(address >= 0x960000) {
         code(address - 0x960000);
     } else if(address >= 0x958000) {
         code(address - 0x958000);
@@ -1158,6 +1190,10 @@ fun call_id(script_id) {
     code(0xa3, script_id, "// (a3) CALL 'Unnamed Global script 0x3d' (0x3d)");
 }
 
+fun call_async(script_address) {
+    code(0x07, address(script_address), "// (07) CALL 0x92a3e7");
+}
+
 // MUSIC
 
 fun music(music) {
@@ -1204,7 +1240,7 @@ fun teleport(character, x, y) {
     if(character == CHARACTER.BOTH) {
         code(0x20, x, y, "// (20) Teleport both to 43 93");
     } else {
-        code(0x42, entity(character), y, x, "// (42) Teleport $2835 to a7, b9");
+        code(0x42, entity(character), x, y, "// (42) Teleport $2835 to a7, b9");
     }
 }
 
@@ -1256,9 +1292,11 @@ fun add_enemy(enemy, x, y) {
 }
 
 fun add_enemy_with_flags(enemy, x, y, flags) {
-    // enemy = ENEMY * 2
-
     code(0x3c, 0x0000 + enemy * 0x02, 0x0000 + flags, x, y, "// (ba) LOAD NPC 0b at 49 79");
+}
+
+fun add_dynamic_enemy_with_flags(enemy, x, y, flags) {
+    code(0xa2, 0x0000 + enemy * 0x02, 0x0000 + flags, entity(x), entity(y), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
 }
 
 fun add_enemy_spawner(enemy, x, y, quantity) {
@@ -1556,12 +1594,49 @@ fun unlock(item) {
         MEMORY.SPICE = 0x0063;
         MEMORY.SPOON = 0x0063;
         MEMORY.TAPESTRY = 0x0063;
+    } else if(item == ITEM.WEAPON_LEVEL_2) {
+        MEMORY.LEVEL_FIST = 0x0200;
+        MEMORY.LEVEL_BAZOOKA = 0x0200;
+        MEMORY.LEVEL_1_SWORD = 0x0200;
+        MEMORY.LEVEL_1_AXE = 0x0200;
+        MEMORY.LEVEL_1_SPEAR = 0x0200;
+        MEMORY.LEVEL_2_SWORD = 0x0200;
+        MEMORY.LEVEL_2_AXE = 0x0200;
+        MEMORY.LEVEL_2_SPEAR = 0x0200;
+        MEMORY.LEVEL_3_SWORD = 0x0200;
+        MEMORY.LEVEL_3_AXE = 0x0200;
+        MEMORY.LEVEL_3_SPEAR = 0x0200;
+        MEMORY.LEVEL_4_SWORD = 0x0200;
+        MEMORY.LEVEL_4_AXE = 0x0200;
+        MEMORY.LEVEL_4_SPEAR = 0x0200;
+    } else if(item == ITEM.WEAPON_LEVEL_3) {
+        MEMORY.LEVEL_FIST = 0x0300;
+        MEMORY.LEVEL_BAZOOKA = 0x0300;
+        MEMORY.LEVEL_1_SWORD = 0x0300;
+        MEMORY.LEVEL_1_AXE = 0x0300;
+        MEMORY.LEVEL_1_SPEAR = 0x0300;
+        MEMORY.LEVEL_2_SWORD = 0x0300;
+        MEMORY.LEVEL_2_AXE = 0x0300;
+        MEMORY.LEVEL_2_SPEAR = 0x0300;
+        MEMORY.LEVEL_3_SWORD = 0x0300;
+        MEMORY.LEVEL_3_AXE = 0x0300;
+        MEMORY.LEVEL_3_SPEAR = 0x0300;
+        MEMORY.LEVEL_4_SWORD = 0x0300;
+        MEMORY.LEVEL_4_AXE = 0x0300;
+        MEMORY.LEVEL_4_SPEAR = 0x0300;
+    } else if(item == ITEM.DOG_LEVEL_2) {
+        MEMORY.LEVEL_DOG = 0x0200;
+    } else if(item == ITEM.DOG_LEVEL_3) {
+        MEMORY.LEVEL_DOG = 0x0300;
+    } else if(item == ITEM.BASICS) {
+        set(FLAG.JAGUAR_RING);
+        MEMORY.GAIN_WEAPON = 0x14;
     } else if(item == ITEM.JAGUAR_RING) {
          set(<0x2262, 0x02>);
     } else if(item == ITEM.SPEAR_1) {
-        <0x2441> = 0x14;
+       MEMORY.GAIN_WEAPON = 0x14;
     } else if(item == ITEM.SPEAR_3) {
-        <0x2441> = 0x18;
+        MEMORY.GAIN_WEAPON = 0x18;
     }
 }
 
@@ -1756,7 +1831,7 @@ fun attach_script(character, flag, id) {
     }
 }
 
-fun destroy(enemy) {
+fun destroy(character) {
     code(0x9b, entity(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
 }
 
