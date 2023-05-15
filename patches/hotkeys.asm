@@ -1,3 +1,8 @@
+
+macro ai16()
+  rep #$30
+endmacro
+
 hirom
 header
 
@@ -15,6 +20,7 @@ org !HOOK_MEMORY+0
 
 org !HOTKEY_MEMORY
 start_practice_stuff:
+  %ai16()
   ldx !PREV_INPUT
   lda $0104
   CMP !PREV_INPUT

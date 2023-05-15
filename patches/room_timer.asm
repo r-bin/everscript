@@ -166,6 +166,7 @@ after_hud_refresh:
 
  
 start_practice_stuff:
+  %ai16()
   ldx !PREV_INPUT
   lda $0104
   CMP !PREV_INPUT
