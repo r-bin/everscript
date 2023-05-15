@@ -19,7 +19,7 @@ pg = Parser(generator)
 pg.parse()
 parser = pg.get_parser()
 
-def handle_parse(outUtils, patches_dir, code, profile):
+def handle_parse(outUtils, rom_file, patches_dir, code, profile):
     def log(text):
         if profile:
             print(f"{text} ({'{:.1f}'.format(time.time() - start)}s)")
@@ -45,7 +45,8 @@ def handle_parse(outUtils, patches_dir, code, profile):
     outUtils.dump(generated_clean, "patch.clean.txt")
 
     outUtils.file(generated_clean, "everscript.ips")
-    outUtils.prepare_patches(patches_dir, generator.patches)
+    outUtils.prepare_rom(rom_file)
+    outUtils.prepare_patches(rom_file, patches_dir, generator.patches)
     
     log(f"done!")
 
@@ -125,14 +126,14 @@ examples:
     code = fileUtils.file2string(input_file)
 
     if not profile:
-        handle_parse(outUtils, patches_dir, code, True)
+        handle_parse(outUtils, rom_file, patches_dir, code, True)
     else:
         import cProfile, pstats
         import io
 
         profiler = cProfile.Profile()
         profiler.enable()
-        handle_parse(outUtils, patches_dir, code, profile)
+        handle_parse(outUtils, rom_file, patches_dir, code, profile)
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('tottime')
         
