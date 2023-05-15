@@ -25,6 +25,9 @@ macro i16()
   rep #$10
 endmacro
 
+
+!HOOK_MEMORY = $FE5000
+
 !MAP_ID = $ADB
 !PREVIOUS_MAP_ID = $7FF200
 !MAP_FRAME_COUNT = $7FF202
@@ -85,10 +88,14 @@ org $C08CAD
 ;  jsl mni_begin
 
 
-org $C084a3
-  JSL start_practice_stuff ; size 4
-  NOP ; size 1
-  NOP ; size 1
+;org $C084a3
+;  JSL start_practice_stuff ; size 4
+;  NOP ; size 1
+;  NOP ; size 1
+
+
+org !HOOK_MEMORY+4
+  JSL start_practice_stuff
 
 
 ;CF/8826:	AF61227E	lda $7E2261
@@ -116,7 +123,7 @@ mni_begin:
   
   lda #$0000
   tcd
-rtl
+  rtl
 
 after_hud_refresh:
  ;jsl $808650
@@ -159,29 +166,10 @@ after_hud_refresh:
 
  
 start_practice_stuff:
-  and $0104 ;
-  sta $0104 ; what we replaced
-  
-  PHA
-  PHB
-  PHP
-  PHX
-  PHY
-  %ai16()
   ldx !PREV_INPUT
   lda $0104
   CMP !PREV_INPUT
   BEQ .noInput
-  ; hotkeys
-  CMP !HOTKEY_START : BNE .after_hotkey_start
-    JSR hotkey_pressed_start
-  .after_hotkey_start
-  CMP !HOTKEY_START_L : BNE .after_hotkey_start_l
-    JSR hotkey_pressed_start_l
-  .after_hotkey_start_l
-  CMP !HOTKEY_START_R : BNE .after_hotkey_start_r
-    JSR hotkey_pressed_start_r
-  .after_hotkey_start_r
   ; Custom counter
   lda $0104
   CMP #$3000 : BNE .nocustcounter
@@ -206,6 +194,7 @@ start_practice_stuff:
     .endtogglecc
   .nocustcounter
   .noInput
+  
   LDA #$0000
   CMP !INIT : BEQ .init
   JMP .normal  
@@ -262,14 +251,7 @@ start_practice_stuff:
   .doneupdating
   %a16()
   .noCounterUpdate
-  lda $104
-  sta !PREV_INPUT
 
-  PLY
-  PLX
-  PLP
-  PLB
-  PLA
   RTL
 
 ; 74 ->  7A
@@ -475,42 +457,4 @@ draw_numbers:
   JMP .loop
   .endloop
   %a16()
-  rts
-    
-; hotkeys
-START_SCRIPT:
-  JSL $8ccf18
-  TXA
-  LDX $86
-  STA $7e2f28,x 
-  INX
-  INX
-  TDC
-  STA $7e2f28,x
-  STX $86
-  rts
-
-; 40 bytes, script 0xfd82c0
-hotkey_pressed_start:
-  LDA #$00c0
-  STA $0026
-  LDA #$1582
-  STA $0027
-  JML START_SCRIPT
-  rts
-; 40 bytes, script 0xfd8300
-hotkey_pressed_start_l:
-  LDA #$0000
-  STA $0026
-  LDA #$1583
-  STA $0027
-  JML START_SCRIPT
-  rts
-; 40 bytes, script 0xfd8340
-hotkey_pressed_start_r:
-  LDA #$0040
-  STA $0026
-  LDA #$1583
-  STA $0027
-  JML START_SCRIPT
   rts
