@@ -23,7 +23,9 @@ enum STRING {
     MENU_PRESETS = string("[0x96][0x8b]Speedrun[LF][0x8b]Speedrun+[LF][0x8b]God Mode[LF][0x8b]Normal(ish)[END]"),
     MENU_DOG = string("[0x96][0x8b]Podunk[LF][0x8b]Wolf[LF][0x8b]Greyhound[LF][0x8b]Poodle[LF][0x8b]Toaster[END]"),
     MENU_ENEMY = string("[0x96]Enemies: (Locked, no AI)[LF][0x8b]Mosquito[LF][0x8b]Thraxx[LF][0x8b]Magmar[LF][0x8b]Vigor[LF][0x8b]Aquagoth[LF][0x8b]FootKnight[LF][0x8b]Sterling[LF][0x8b]Mungola[LF][0x8b]Caleoptera[LF][0x8b]Toaster[LF][0x8b]Carltron[END]"),
-    MENU_FLAGS = string("[0x96][0x8b]+Debug[LF][0x8b]-Debug[END]"),
+    MENU_MEMORY_FLAGS = string("[0x96][0x8b]+Debug[LF][0x8b]-Debug[END]"),
+    MENU_TARGET = string("[0x96][0x8b]Boy[LF][0x8b]Dog[LF][0x8b]Both[LF][0x8b]None[END]"),
+    MENU_UNLOCK = string("[0x96][0x8b]All[LF][0x8b]Ingredients[LF][0x8b]Consumables[LF][0x8b]Alchemy[LF][0x8b]Weapons[LF][0x8b]Armor[LF][0x8b]Trading Goods[LF][0x8b]Charms[LF][0x8b]Money[END]"),
 
     PORTAL_ACT_1 = string("[0x96]Act 1:[LF][0x8b]Oil[LF][0x8b]Intro skip[LF][0x8b]Thraxx[LF][0x8b]Graveyard[LF][0x8b]Salabog[LF][0x8b]Solar[LF][0x8b]Magmar[END]"),
 
@@ -61,6 +63,7 @@ fun fake_level(level) {
 
     damage(CHARACTER.LAST_ENTITY, 0x03e8);
 }
+
 fun fake_atlas(character) {
     if(character == CHARACTER.BOY) {
         <0x0A3F> = 0xefff;
@@ -68,24 +71,41 @@ fun fake_atlas(character) {
 
         <0x4F29> = 0xefff;
         <0x4F2B> = 0xefff;
-
-        // <0x4ECF> = 0x0090;
-        // eval("17 77 2c 98 00                      // write status effect 1 = 0x0090");
-        // eval("10 5a ed 07 5a ed 29 31 9a          // write status effect count += 1");
         
-        <0x4ECF> = 0x0008;
-        eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
-        yield();
-        <0x4ECF> = 0xFFFF;
+        // <0x4ECF> = 0x0008;
+        // eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+        // yield();
+        // <0x4ECF> = 0xFFFF;
+        // eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
 
-        
-        eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
     } else if(character == CHARACTER.DOG) {
         <0x0A89> = 0xefff;
         <0x0A8B> = 0xefff;
 
         <0x4FD7> = 0xefff;
         <0x4FD9> = 0xefff;
+
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.INVINCIBLE_2);
+    }
+}
+fun unfake_atlas(character) {
+    if(character == CHARACTER.BOY) {
+        <0x0A3F> = 0x0010;
+        <0x0A41> = 0x0010;
+
+        <0x4F29> = 0x0000;
+        <0x4F2B> = 0x0000;
+        
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE_2);
+    } else if(character == CHARACTER.DOG) {
+        <0x0A89> = 0x0010;
+        <0x0A8B> = 0x0010;
+
+        <0x4FD7> = 0x0000;
+        <0x4FD9> = 0x0000;
+
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.VINCIBLE_2);
     }
 }
 
@@ -501,15 +521,12 @@ fun intro_skip() {
 
 @install(ADDRESS.STRONG_HEART_EXTERIOR_ENTER) // = brians room
 fun brians_room_enter() {
-    // set(FLAG.DEBUG);
     set(FLAG.FLOWERS_CUTSCENE_WATCHED);
 
     teleport(CHARACTER.BOY, 0x17, 0x19);
-    // animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.TELEPORT_IN);
     face(CHARACTER.BOY, DIRECTION.NORTH);
 
     teleport(CHARACTER.DOG, 0x1a, 0x19);
-    // animate(CHARACTER.DOG, ANIMATION_MODE.ONCE, ANIMATION_DOG.ACT2_TELEPORT);
     
     add_enemy(ENEMY.PLACEHOLDER, 0x17, 0x1a);
     animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.TELEPORT_IN);
@@ -562,18 +579,22 @@ fun menu_presets() {
 
     if(MEMORY.QUESTION_ANSWER == 0x00) { // speedrun
         unlock(ITEM.BASICS);
+        unlock(ITEM.ALCHEMY);
+        unlock(ITEM.INGREDIENTS);
 
         fake_atlas(CHARACTER.BOY);
         unfake_noclip(CHARACTER.BOY);
 
+        unfake_atlas(CHARACTER.DOG);
         fake_noclip(CHARACTER.DOG);
-        fake_atlas(CHARACTER.DOG);
     } else if(MEMORY.QUESTION_ANSWER == 0x01) { // speedrun+
         unlock(ITEM.ALL);
         unlock(ITEM.WEAPON_LEVEL_3);
 
         fake_atlas(CHARACTER.BOY);
+        unfake_noclip(CHARACTER.BOY);
 
+        unfake_atlas(CHARACTER.DOG);
         fake_noclip(CHARACTER.DOG);
     } else if(MEMORY.QUESTION_ANSWER == 0x02) { // god mode
         unlock(ITEM.ALL);
@@ -585,8 +606,10 @@ fun menu_presets() {
         fake_atlas(CHARACTER.DOG);
         fake_noclip(CHARACTER.DOG);
     } else if(MEMORY.QUESTION_ANSWER == 0x03) { // normal
+        unfake_atlas(CHARACTER.BOY);
         unfake_noclip(CHARACTER.BOY);
 
+        unfake_atlas(CHARACTER.DOG);
         unfake_noclip(CHARACTER.DOG);
     }
 }
@@ -607,22 +630,63 @@ fun menu_dog() {
         fake_dog(DOG.TOASTER);
     }
 }
-@install(ADDRESS.DEBUG_MENU_BUTTON_3)
-fun debug_menu_3_ball2() {
-    subtext(string("3[END]"));
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_3)
+fun menu_atlas() {
+    question(STRING.MENU_TARGET);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+        fake_atlas(CHARACTER.BOY);
+        unfake_atlas(CHARACTER.DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+        unfake_atlas(CHARACTER.BOY);
+        fake_atlas(CHARACTER.DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+        fake_atlas(CHARACTER.BOY);
+        fake_atlas(CHARACTER.DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // none
+        unfake_atlas(CHARACTER.BOY);
+        unfake_atlas(CHARACTER.DOG);
+    }
 }
-@install(ADDRESS.DEBUG_MENU_BUTTON_4)
-fun debug_menu_4_0() {
-    subtext(string("4[END]"));
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_4)
+fun menu_noclip() {
+    question(STRING.MENU_TARGET);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.CLIP);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.CLIP);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.NO_CLIP);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.NO_CLIP);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // none
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.CLIP);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.CLIP);
+    }
 }
-@install(ADDRESS.DEBUG_MENU_BUTTON_5)
-fun debug_menu_5_1() {
-    subtext(string("5[END]"));
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_5)
+fun menu_available() {
+    question(STRING.MENU_TARGET);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+        available(CHARACTER.BOY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+        available(CHARACTER.DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+        available(CHARACTER.BOTH);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // none
+        available(CHARACTER.NONE);
+    }
 }
 @install()
 @inject(ADDRESS.DEBUG_MENU_BUTTON_6)
-fun menu_flags() {
-    question(STRING.MENU_FLAGS);
+fun menu_memory_flags() {
+    question(STRING.MENU_MEMORY_FLAGS);
 
     if(MEMORY.QUESTION_ANSWER == 0x00) { // +debug
         set(FLAG.DEBUG);
@@ -663,9 +727,34 @@ fun menu_enemy() {
         prepare_enemy(ENEMY.CARLTRON_ROBOT);
     }
 }
-@install(ADDRESS.DEBUG_MENU_BUTTON_8)
-fun debug_menu_8_a() {
-    subtext(string("8[END]"));
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_8)
+fun menu_unlock() {
+    question_max(STRING.MENU_UNLOCK, 0x09 + 0x05);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // all
+        unlock(ITEM.ALL);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // ingredients
+        unlock(ITEM.INGREDIENTS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // consumables
+        unlock(ITEM.CONSUMABLES);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // alchemy
+        unlock(ITEM.ALCHEMY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x04) { // weapons
+        unlock(ITEM.WEAPONS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x05) { // armor
+        unlock(ITEM.ARMOR);
+    } else if(MEMORY.QUESTION_ANSWER == 0x06) { // trading goods
+        unlock(ITEM.TRADING_GOODS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x07) { // charms
+        unlock(ITEM.CHARMS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x08) { // money
+        unlock(ITEM.MONEY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x09) { // nop
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // nop
+        nop();
+    }
 }
 @install()
 @inject(ADDRESS.DEBUG_MENU_BUTTON_9)
@@ -687,21 +776,20 @@ fun menu_brians_room() {
 // hotkeys
 
 @install()
-fun hotkey_bomb() {
-    subtext(string("Start+R[END]"));
-}
-
-@install(ADDRESS.HOTKEY_START)
+@inject(ADDRESS.HOTKEY_START)
 fun hotkey_start() {
     subtext(string("Start[END]"));
 
     drop_bomb();
 }
-@install(ADDRESS.HOTKEY_START_L)
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
 fun hotkey_start_l() {
     subtext(string("Start+L[END]"));
 }
 @install(ADDRESS.HOTKEY_START_R)
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
 fun hotkey_start_r() {
     subtext(string("Start+R[END]"));
 }
