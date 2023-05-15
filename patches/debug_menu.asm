@@ -4,28 +4,31 @@ hirom
 !RING_MENU_MEMORY = $FE0000
 !BUTTON_MEMORY = $FE0300
 
-!BUTTON_1_TITLE_MEMORY = $c46771 ; "ROM Creation Date[END]" (18 bytes)
+!NUMBER_OF_BUTTONS = #$000B
+
+!BUTTON_1_TITLE_MEMORY = $c4668e ; "Debug: Create a Monster[END]" (24 bytes)
 !BUTTON_1_TITLE = "Character Presets"
-!BUTTON_2_TITLE_MEMORY = $c4668e ; "Debug: Create a Monster[END]" (24 bytes)
-!BUTTON_2_TITLE = "Brians Room"
-!BUTTON_3_TITLE_MEMORY = $c466cd ; "Debug: Heel[END]" (12 bytes)
-!BUTTON_3_TITLE = "Dog"
-!BUTTON_4_TITLE_MEMORY = $c465f5 ; "Debug: Show thud balls on path[END]" (31 bytes)
+!BUTTON_2_TITLE_MEMORY = $c466cd ; "Debug: Heel[END]" (12 bytes)
+!BUTTON_2_TITLE = "Dog"
+!BUTTON_3_TITLE_MEMORY = $c465f5 ; "Debug: Show thud balls on path[END]" (31 bytes)
+!BUTTON_3_TITLE = "3"
+!BUTTON_4_TITLE_MEMORY = $c46614 ; "Debug: Turn off both backgrounds[END]" (33 bytes)
 !BUTTON_4_TITLE = "4"
-!BUTTON_5_TITLE_MEMORY = $c46614 ; "Debug: Turn off both backgrounds[END]" (33 bytes)
+!BUTTON_5_TITLE_MEMORY = $c46635 ; "Debug: Show background 1 only[END]" (30 bytes)
 !BUTTON_5_TITLE = "5"
-!BUTTON_6_TITLE_MEMORY = $c46635 ; "Debug: Show background 1 only[END]" (30 bytes)
-!BUTTON_6_TITLE = "6"
-!BUTTON_7_TITLE_MEMORY = $c46653 ; "Debug: Show background 2 only[END]" (30 bytes)
-!BUTTON_7_TITLE = "7"
-!BUTTON_8_TITLE_MEMORY = $c46671 ; "Debug: Show both backgrounds[END]" (29 bytes)
-!BUTTON_8_TITLE = "Spawn Enemy"
-!BUTTON_9_TITLE_MEMORY = $c466a6 ; "Debug: Select map[END]" (18 bytes)
-!BUTTON_9_TITLE = "9"
-!BUTTON_10_TITLE_MEMORY = $c466b8 ; "Debug: Mode 7 Flight[END]" (21 bytes)
-!BUTTON_10_TITLE = "Windwalker"
-!BUTTON_11_TITLE_MEMORY = $c46e07 ; "Alchemist[END]" (10 bytes)
-!BUTTON_11_TITLE = "Alchemy"
+!BUTTON_6_TITLE_MEMORY = $c46653 ; "Debug: Show background 2 only[END]" (30 bytes)
+!BUTTON_6_TITLE = "Set/Unset Flags"
+!BUTTON_7_TITLE_MEMORY = $c46671 ; "Debug: Show both backgrounds[END]" (29 bytes)
+!BUTTON_7_TITLE = "Spawn Enemy"
+!BUTTON_8_TITLE_MEMORY = $c466a6 ; "Debug: Select map[END]" (18 bytes)
+!BUTTON_8_TITLE = "8"
+!BUTTON_9_TITLE_MEMORY = $c466b8 ; "Debug: Mode 7 Flight[END]" (21 bytes)
+!BUTTON_9_TITLE = "Windwalker"
+!BUTTON_10_TITLE_MEMORY = $c46e07 ; "Alchemist[END]" (10 bytes)
+!BUTTON_10_TITLE = "Alchemy"
+!BUTTON_11_TITLE_MEMORY = $c46771 ; "ROM Creation Date[END]" (18 bytes)
+!BUTTON_11_TITLE = "Brians Room"
+
 
 ; NOP-out a RTS that that makes it impossible to access the debug ring.
 ORG $CEA3EA
@@ -47,10 +50,10 @@ ORG !RING_MENU_MEMORY
 LOAD_DEBUG_RING:
     LDA #$0016   ; \ Repeat a part of the original code that loads the config ring.
     STA $0814    ; /
-    LDA #$000B   ; \
-    STA $0F5A    ;  |
-    LDA #$000A   ;  |
-    STA $0F5C    ;  |
+    LDA !NUMBER_OF_BUTTONS  ; \ 
+    STA $0F5A    ;  | = count
+    ;LDA #$000B   ;  |
+    ;STA $0F5C    ;  | = last selected
     LDA #$0000   ;  |
     STA $0F5E    ;  |
     LDA #$0002   ;  |
@@ -73,6 +76,8 @@ LOAD_DEBUG_RING:
     STA $0F70    ;  |
     LDA #$0014   ;  |
     STA $0F72    ; /
+    LDA #$0000   ;  |
+    STA $0F78    ; /
     RTL          ; Jump back to original code to finish loading the config ring.
 
 CLICK_EVENT:
@@ -85,39 +90,39 @@ CLICK_EVENT:
     CPY #$0F5A   ; \
     BNE $04      ;  | Create a monster (not implemented yet)
     ;JML START_SCRIPT  ; | NEW: We use this for 'Full equipment'-code
-    JML BUTTON_2_PRESSED  ; /
+    JML BUTTON_1_PRESSED  ; /
     CPY #$0F5C   ; \
     BNE $04      ;  | Heel
-    JML BUTTON_3_PRESSED  ; /
+    JML BUTTON_2_PRESSED  ; /
     CPY #$0F5E   ; \
     BNE $04      ;  | Show thud balls on path (not implemented yet)
     ;JML START_SCRIPT  ; | NEW: We use this for 'Walk throug walls'-code
-    JML BUTTON_4_PRESSED  ; /
+    JML BUTTON_3_PRESSED  ; /
     CPY #$0F60   ; \
     BNE $04      ;  | Turn off both backgrounds
-    JML BUTTON_5_PRESSED  ; /
+    JML BUTTON_4_PRESSED  ; /
     CPY #$0F62   ; \
     BNE $04      ;  | Show background 1 only
-    JML BUTTON_6_PRESSED  ; /
+    JML BUTTON_5_PRESSED  ; /
     CPY #$0F64   ; \
     BNE $04      ;  | Show background 2 only
-    JML BUTTON_7_PRESSED  ; /
+    JML BUTTON_6_PRESSED  ; /
     CPY #$0F66   ; \
     BNE $04      ;  | Show both backgrounds
-    JML BUTTON_8_PRESSED  ; /
+    JML BUTTON_7_PRESSED  ; /
     CPY #$0F68   ; \
     BNE $04      ;  | Select map (not implemented yet)
-    JML BUTTON_9_PRESSED  ; /
+    JML BUTTON_8_PRESSED  ; /
     CPY #$0F6A   ; \
     BNE $04      ;  | Mode 7 flight
-    JML BUTTON_10_PRESSED  ; /
+    JML BUTTON_9_PRESSED  ; /
     CPY #$0F6C   ; \
     BNE $04      ;  | Alchemist
     ;JML $CE95A6  ; | (normal alchemy menu)
-    JML BUTTON_11_PRESSED  ; /  (alchemy setup to select new spells)
+    JML BUTTON_10_PRESSED  ; /  (alchemy setup to select new spells)
     CPY #$0F6E   ; \
     BNE $04      ;  | ROM Creation Date
-    JML BUTTON_1_PRESSED  ; /
+    JML BUTTON_11_PRESSED  ; /
     RTL          ; Item was not from the debug ring, so go back to normal execution.
 
 ORG !BUTTON_MEMORY
@@ -134,7 +139,7 @@ START_SCRIPT:
     STX $86
     JML $cead67
 
-; button 1, "ROM Creation Date", 40 bytes, script 0xfd8000
+; button 1, "Create a monster"/"Debug: Full equipment", 40 bytes, script 0xfd8000
 BUTTON_1_PRESSED:
     LDA #$0000
     STA $0026
@@ -142,7 +147,7 @@ BUTTON_1_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 2, "Create a monster"/"Debug: Full equipment", 40 bytes, script 0xfd8040
+; button 2, "Debug: Heel", 40 bytes, script 0xfd8040
 BUTTON_2_PRESSED:
     LDA #$0040
     STA $0026
@@ -150,7 +155,7 @@ BUTTON_2_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 3, "Debug: Heel", 40 bytes, script 0xfd8080
+; button 3, "Show thud balls on path"/"Debug: Walk through walls", 40 bytes, script 0xfd8080
 BUTTON_3_PRESSED:
     LDA #$0080
     STA $0026
@@ -158,7 +163,7 @@ BUTTON_3_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 4, "Show thud balls on path"/"Debug: Walk through walls", 40 bytes, script 0xfd80c0
+; button 4, "Debug: Turn off both backgrounds", 40 bytes, script 0xfd80c0
 BUTTON_4_PRESSED:
     LDA #$00c0
     STA $0026
@@ -166,7 +171,7 @@ BUTTON_4_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 5, "Debug: Turn off both backgrounds", 40 bytes, script 0xfd8100
+; button 5, "Debug: Show background 1 only", 40 bytes, script 0xfd8100
 BUTTON_5_PRESSED:
     LDA #$0000
     STA $0026
@@ -174,7 +179,7 @@ BUTTON_5_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 6, "Debug: Show background 1 only", 40 bytes, script 0xfd8140
+; button 6, "Debug: Show background 2 only", 40 bytes, script 0xfd8140
 BUTTON_6_PRESSED:
     LDA #$0040
     STA $0026
@@ -182,7 +187,7 @@ BUTTON_6_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 7, "Debug: Show background 2 only", 40 bytes, script 0xfd8180
+; button 7, "Debug: Show both backgrounds", 40 bytes, script 0xfd8180
 BUTTON_7_PRESSED:
     LDA #$0080
     STA $0026
@@ -190,7 +195,7 @@ BUTTON_7_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 8, "Debug: Show both backgrounds", 40 bytes, script 0xfd81c0
+; button 8, "Debug: Select map", 40 bytes, script 0xfd81c0
 BUTTON_8_PRESSED:
     LDA #$00c0
     STA $0026
@@ -198,7 +203,7 @@ BUTTON_8_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 9, "Debug: Select map", 40 bytes, script 0xfd8200
+; button 9, "Debug: Mode 7 Flight", 40 bytes, script 0xfd8200
 BUTTON_9_PRESSED:
     LDA #$0000
     STA $0026
@@ -206,7 +211,7 @@ BUTTON_9_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 10, "Debug: Mode 7 Flight", 40 bytes, script 0xfd8240
+; button 10, "Alchemist", 40 bytes, script 0xfd8240
 BUTTON_10_PRESSED:
     LDA #$0040
     STA $0026
@@ -214,7 +219,7 @@ BUTTON_10_PRESSED:
     STA $0027
     JML START_SCRIPT
 
-; button 11, "Alchemist", 40 bytes, script 0xfd8280
+; button 11, "ROM Creation Date", 40 bytes, script 0xfd8280
 BUTTON_11_PRESSED:
     LDA #$0080
     STA $0026
