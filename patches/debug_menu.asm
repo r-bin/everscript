@@ -11,23 +11,23 @@ hirom
 !BUTTON_2_TITLE_MEMORY = $c466cd ; "Debug: Heel[END]" (12 bytes)
 !BUTTON_2_TITLE = "Dog"
 !BUTTON_3_TITLE_MEMORY = $c465f5 ; "Debug: Show thud balls on path[END]" (31 bytes)
-!BUTTON_3_TITLE = "3"
+!BUTTON_3_TITLE = "Atlas"
 !BUTTON_4_TITLE_MEMORY = $c46614 ; "Debug: Turn off both backgrounds[END]" (33 bytes)
-!BUTTON_4_TITLE = "4"
+!BUTTON_4_TITLE = "No-Clip"
 !BUTTON_5_TITLE_MEMORY = $c46635 ; "Debug: Show background 1 only[END]" (30 bytes)
-!BUTTON_5_TITLE = "5"
+!BUTTON_5_TITLE = "Available Character (Careful)"
 !BUTTON_6_TITLE_MEMORY = $c46653 ; "Debug: Show background 2 only[END]" (30 bytes)
 !BUTTON_6_TITLE = "Set/Unset Flags"
 !BUTTON_7_TITLE_MEMORY = $c46671 ; "Debug: Show both backgrounds[END]" (29 bytes)
 !BUTTON_7_TITLE = "Spawn Enemy"
 !BUTTON_8_TITLE_MEMORY = $c466a6 ; "Debug: Select map[END]" (18 bytes)
-!BUTTON_8_TITLE = "8"
+!BUTTON_8_TITLE = "Unlock Items"
 !BUTTON_9_TITLE_MEMORY = $c466b8 ; "Debug: Mode 7 Flight[END]" (21 bytes)
 !BUTTON_9_TITLE = "Windwalker"
 !BUTTON_10_TITLE_MEMORY = $c46e07 ; "Alchemist[END]" (10 bytes)
 !BUTTON_10_TITLE = "Alchemy"
 !BUTTON_11_TITLE_MEMORY = $c46771 ; "ROM Creation Date[END]" (18 bytes)
-!BUTTON_11_TITLE = "Brians Room"
+!BUTTON_11_TITLE = "Brian's Test Room"
 
 
 ; NOP-out a RTS that that makes it impossible to access the debug ring.
