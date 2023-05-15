@@ -81,6 +81,9 @@ start_practice_stuff:
 
   JSL hook
 
+  lda $104
+  sta !PREV_INPUT
+
   PLY
   PLX
   PLP
