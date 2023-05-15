@@ -176,7 +176,9 @@ class OutUtils():
                 shutil.copy(patch, self._patches)
 
     def _apply_additional_patches(self, file, patches):
-        for patch in os.scandir(patches):
+        for patch in sorted(os.listdir(patches)):
+            patch = Path(os.path.join(patches, patch))
+
             filename = Path(patch)
             patch_size = os.path.getsize(patch)
             if filename.suffix == ".asm":
