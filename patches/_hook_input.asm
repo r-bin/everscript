@@ -1,7 +1,3 @@
-macro ai16()
-	rep #$30
-endmacro
-
 hirom
 header
 
@@ -82,7 +78,6 @@ start_practice_stuff:
   PHP
   PHX
   PHY
-  %ai16()
 
   JSL hook
 
