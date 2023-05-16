@@ -420,6 +420,7 @@ class Parser():
 
             return Void()
         
+        @self.pg.production('program : FUN_PATCH ( param_list , )')
         @self.pg.production('program : FUN_PATCH ( param_list )')
         def parse(p):
             patch_list = p[2]

@@ -1,4 +1,4 @@
-; Created by Skarsnikus (See https://github.com/Skarsnik/sneshacking/blob/master/SoE/soepractice.asm)
+; Created by Skarsnik (See https://github.com/Skarsnik/sneshacking/blob/master/SoE/soepractice.asm)
 hirom
 header
 macro a8()
@@ -72,14 +72,9 @@ endmacro
 !HUD_VRAM_OWN_COUNTER_START = $0821
 ;!HUD_VRAM_OWN_COUNTER_START = $08CC
 
-!HOTKEY_START = #$1000 ; BYs(S) ↑↓←→ AXLR 0123
-!HOTKEY_START_L = #$1020 ; BYs(S) ↑↓←→ AX(L)R 0123
-!HOTKEY_START_R = #$1010 ; BYs(S) ↑↓←→ AXL(R) 0123
-
 ;8EAD
 org $C08CAD
   db $4C,"e_",$44,"og",$00
-
 
 ; This is the start of the MNI routine
 ;C0/8247:	A90000  	lda #$0000
@@ -92,7 +87,6 @@ org $C08CAD
 ;  JSL start_practice_stuff ; size 4
 ;  NOP ; size 1
 ;  NOP ; size 1
-
 
 org !HOOK_MEMORY+4
   JSL start_practice_stuff
@@ -158,12 +152,10 @@ after_hud_refresh:
  ldx #$000C
  jsl $808650
  
- 
  ;pla
  lda $7E2261
  plb
  rtl
-
  
 start_practice_stuff:
   %ai16()
@@ -174,7 +166,7 @@ start_practice_stuff:
   ; Custom counter
   lda $0104
   CMP #$3000 : BNE .nocustcounter
-      LDA #$0000
+    LDA #$0000
     CMP !OWN_COUNTER_TOGGLED
     BEQ .toggle_counter
        LDA #$0000
@@ -275,25 +267,25 @@ restore_01_06:
   rts
 
 clean_counter_onscreen:
-    lda #$0000
+  lda #$0000
   ldx #$0000
   .loopzero
-      sta !HUD_WRAM_OWN_COUNTER, X
-      INX
-      INX
-      CPX #$0010 : BNE .loopzero
+    sta !HUD_WRAM_OWN_COUNTER, X
+    INX
+    INX
+    CPX #$0010 : BNE .loopzero
   jsr put_counter_onscreen
   rts
 
 draw_own_counter:
-    jsr save_01_06
+  jsr save_01_06
   lda #$2bec
   ldx #$0000
   .loopzero
-      sta !HUD_WRAM_OWN_COUNTER, X
-      INX
-      INX
-      CPX #$0010 : BNE .loopzero
+    sta !HUD_WRAM_OWN_COUNTER, X
+    INX
+    INX
+    CPX #$0010 : BNE .loopzero
   ; min
   lda #!HUD_WRAM_OWN_COUNTER_4_START
     sta $F0
@@ -335,7 +327,6 @@ draw_own_counter:
   %a16()
   jsr draw_numbers
     jsr restore_01_06
-  
   rts
   
 put_counter_onscreen:
@@ -349,11 +340,9 @@ put_counter_onscreen:
   %a16()
   ldx #$0010
   jsl $808650
-rts
+  rts
 
-
-update_hud: 
-
+update_hud:
   ; the decompose routine erase 02->06
   ; need to save them 
   jsr save_01_06
@@ -419,7 +408,6 @@ update_hud:
 ; $F0 for the WRAM addr to put it
 ; $7A for the size in WRAM (number lenght x 2)
 draw_numbers:
-
   jsl $80870C ; this divise A and decompose it to $02, $03... until #FF
   ;STA !DEBUG_ADDR
   %a8()
