@@ -260,8 +260,8 @@ class OutUtils():
             argv = sys.argv
             argv = argv[1:]
 
-            input_file = None
-            output_dir = "out"
+            arg_input_file = None
+            arg_output_dir = "out"
 
             try:
                 opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
@@ -269,26 +269,26 @@ class OutUtils():
                 help()
 
             if len(args) == 1:
-                input_file = args[0]
+                arg_input_file = args[0]
             else:
                 help()
 
             for opt, arg in opts:
                 if opt in ("-r", "--rom"):
-                    rom_file = arg
+                    arg_rom_file = arg
                 elif opt in ("-o", "--out"):
-                    output_dir = arg
+                    arg_output_dir = arg
 
             quiet = True
             # print(f" - compiling patch {patch.name} to {patch.with_suffix('.txt').name}")
-            call_args = ["python3.11", f"./everscript.py", f"--out=./{output_dir}/patches/{patch.stem}/", f"{patch}"]
+            call_args = ["python3.11", f"./everscript.py", f"--out=./{arg_output_dir}/patches/{patch.stem}/", f"{patch}"]
 
             if quiet:
                 call(call_args, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             else:
                 call(call_args)
 
-            patch_from = f"./{output_dir}/patches/{patch.stem}/patch.txt"
+            patch_from = f"./{arg_output_dir}/patches/{patch.stem}/patch.txt"
             patch_to = patch.with_suffix('.txt')
             shutil.copy(patch_from, patch_to)
 
