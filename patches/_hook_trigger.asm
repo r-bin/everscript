@@ -10,23 +10,14 @@ header
 ;C0/824A:	5B      	tcd
 ;org $C08247
 ;  jsl mni_begin
-org $8facbd
+org $909062
   JSL start_practice_stuff ; size 4
-  NOP ; size 1
-  NOP ; size 1
-  NOP ; size 1
-  NOP ; size 1
-  NOP ; size 1
-  NOP ; size 1
  
 org !HOOK_MEMORY
 
 start_practice_stuff:
-  lda $1064   ; ad 64 10
-  sta $26     ; 85 26
-  
-  lda $1065   ; ad 65 10
-  sta $27     ; 85 27
+  ADC $1062
+  TAY
   ; what we replaced
   
   PHA
@@ -47,41 +38,58 @@ start_practice_stuff:
 !TRIGGER_MEMORY = $bdb51b
 ; !TRIGGER_MEMORY =  $b00000
   
-hook:
+hook:  
+  ; no og-trigger?
+  LDY #$000d
+  LDA [$8b], Y
+  CMP #$0000
+
+  BEQ .no_hack
+
   ; $26 = 1b b5 ad
 
-  lda $ADB
-  
-  CMP #$0033
-  BNE .not_33
+  LDY #$0013
+  LDA [$8b], Y
+  AND #$00ff
 
-  ; lda #$000c
-  lda #$0012
-  sta $1062
-  sta $1062
+  CMP #$0000
+  BNE .no_hack
+    ; $1062 = #$0012
+    INY
+    LDA [$8b], Y
 
-  ;lda $1064   ; ad 64 10
-  ;sta $26     ; 85 26
-  lda #$b51b
-  sta $26
-  
-  ;lda $1065   ; ad 65 10
-  ;sta $27     ; 85 27
-  lda #$bdb5
-  sta $27
+    sta $1062
 
-  .not_33:
+    ; $1064-66 = #$bdb51b
+    INY
+    INY
+    LDA [$8b], Y
+    sta $1064
+    INY
+    LDA [$8b], Y
+    sta $1065
+
+  .no_hack
 
   RTL
 
 ; org $adb519
+org $adb51f
   ; dw $000c
   ; dw $0012
   ; dw $000c
+  db $00
+  dw $0012
+  dl $bdb51b
 
 org !TRIGGER_MEMORY
+  ; db $00
+  ; dw $0012
+  ; dl $bdb51b
+
   db $0F, $27, $10, $28
   dw $0735
+
   ; db $2f, $31, $0d, $32
   db $0c, $2f, $0e, $30 ; left two
   dw $0738
