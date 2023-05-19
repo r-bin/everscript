@@ -73,6 +73,7 @@ class Parser():
 
             return Include(self.generator, path).eval()
 
+        @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list , }')
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list }')
         def parse(p):
             name = p[1]
