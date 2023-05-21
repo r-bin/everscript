@@ -17,6 +17,8 @@ from subprocess import call
 from rply import LexerGenerator, Token
 from rply import ParserGenerator
 
+version = "1.0.0"
+
 class FileUtils():
     def file2string(self, file):
         with open(file, 'r') as f:
@@ -63,10 +65,12 @@ class OutUtils():
     _patches = os.path.join(_out, "patches")
 
     def __init__(self, sub_dir = None):
+        args = self.parse_args()
+
         if(sub_dir == None):
-            self._out = self._parse_out()
+            self._out = args.output_dir
         else:
-            self._out = os.path.join(self._parse_out(), sub_dir)
+            self._out = os.path.join(args.output_dir, sub_dir)
             Path(self._out).mkdir(parents=True, exist_ok=True)
         self._tmp = os.path.join(self._out, "tmp")
         self._patches = os.path.join(self._out, "patches")
@@ -77,24 +81,6 @@ class OutUtils():
         Path(self._out).mkdir(parents=True, exist_ok=True)
         Path(self._tmp).mkdir(parents=True, exist_ok=True)
         Path(self._patches).mkdir(parents=True, exist_ok=True)
-
-
-    def _parse_out(self):
-        output_dir = "out"
-
-        argv = sys.argv
-        argv = argv[1:]
-
-        try:
-            opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
-        except getopt.GetoptError:
-            help()
-
-        for opt, arg in opts:
-            if opt in ("-o", "--out"):
-                output_dir = arg
-        
-        return output_dir
 
     def extend_rom(self, file_in, file_out):
         destfile = pathlib.Path(file_out)
@@ -227,7 +213,9 @@ class OutUtils():
         tmp_rom = tmp_rom.with_suffix('.sfc')
         shutil.copy(rom_file, tmp_rom)
 
-        call_args = ["asar", patch, tmp_rom]
+        args = self.parse_args()
+
+        call_args = [args.asm, patch, tmp_rom]
         call(call_args, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
 
         diff = os.path.join(directory_patch, patch.stem)
@@ -250,6 +238,90 @@ class OutUtils():
 
             self._prepare_patch_ips(rom_file, directory_patch, patch_ips)
 
+    def parse_args(self):
+        name = "everscript"
+        
+        example_rom_file = '"Secret of Evermore (U) [!].smc"'
+        example_input_file = "<input_file.evs>"
+        example_patches_dir = "</additional_patches>"
+
+        class Args():
+            executable = sys.executable
+
+            rom_file = None
+            input_file = None
+            patches_dir = None
+            profile = False
+            output_dir = "out"
+            asm = "asar"
+        
+        return_args = Args()
+
+        def help():
+            print(f"""
+Compiler for assembler based scripts, used in the SNES game "Secret of Evermore".
+Almost completely based on the results of https://github.com/black-sliver/SoETilesViewer and the work of Black Sliver.
+
+-r, --rom
+    Secret of Evermore ROM: English, good dump '[!]', no header ({example_rom_file})
+-s, --script, #1
+    Contains the code to be compiled into an IPS file and patched into the ROM.
+-p, --patches
+    Additional patches to be applied.
+-o, --out
+    Output directory. (Default: "/out")
+--asm
+    ASM compiler for '.asm' patches. (Default: "asar")
+--profile
+    Measures the performance of the compiler. Useful for finding problems.
+-v, --version
+    Current version ({name} - {version})
+
+examples:
+    {name} --rom {example_rom_file} {example_input_file}                                                rom + script
+    {name} --rom {example_rom_file} --script {example_input_file}                                       rom + script
+    {name} --rom {example_rom_file} --script {example_input_file} --patches {example_patches_dir}       rom + script + patches
+    {name} --rom {example_rom_file} --script {example_input_file} --profile                             profile(rom + script)
+            """.strip())
+            sys.exit()
+
+        argv = sys.argv
+        argv = argv[1:]
+
+        try:
+            opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out=", "asm="])
+        except getopt.GetoptError:
+            help()
+
+        if len(args) == 1:
+            return_args.input_file = args[0]
+        else:
+            help()
+
+        for opt, arg in opts:
+            if opt == "-h":
+                help()
+            elif opt in ("-v", "--version"):
+                print(version)
+                sys.exit()
+            elif opt in ("-p", "--profile"):
+                return_args.profile = True
+            elif opt in ("-r", "--rom"):
+                return_args.rom_file = arg
+            elif opt in ("-s", "--script"):
+                return_args.input_file = arg
+            elif opt in ("-p", "--patches"):
+                return_args.patches_dir = arg
+            elif opt in ("-o", "--out"):
+                return_args.output_dir = arg
+            elif opt in ("--asm"):
+                return_args.asm = arg
+
+        if not return_args.input_file:
+            help()
+
+        return return_args
+
     def _prepare_patch_evs(self, rom_file, directory_patch, patch):
         # print(f" - compiling patch {patch} to {patch.with_suffix('.txt').name} ({os.path.getsize(patch)})")
 
@@ -257,38 +329,18 @@ class OutUtils():
             p = f.read()
             p = self.clean(p)
 
-            argv = sys.argv
-            argv = argv[1:]
-
-            arg_input_file = None
-            arg_output_dir = "out"
-
-            try:
-                opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
-            except getopt.GetoptError:
-                help()
-
-            if len(args) == 1:
-                arg_input_file = args[0]
-            else:
-                help()
-
-            for opt, arg in opts:
-                if opt in ("-r", "--rom"):
-                    arg_rom_file = arg
-                elif opt in ("-o", "--out"):
-                    arg_output_dir = arg
+            args = self.parse_args()
 
             quiet = True
             # print(f" - compiling patch {patch.name} to {patch.with_suffix('.txt').name}")
-            call_args = ["python3.11", f"./everscript.py", f"--out=./{arg_output_dir}/patches/{patch.stem}/", f"{patch}"]
+            call_args = [args.executable, f"./everscript.py", f"--asm={args.asm}", f"--out=./{args.output_dir}/patches/{patch.stem}/", f"{patch}"]
 
             if quiet:
                 call(call_args, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
             else:
                 call(call_args)
 
-            patch_from = f"./{arg_output_dir}/patches/{patch.stem}/patch.txt"
+            patch_from = f"./{args.output_dir}/patches/{patch.stem}/patch.txt"
             patch_to = patch.with_suffix('.txt')
             shutil.copy(patch_from, patch_to)
 
