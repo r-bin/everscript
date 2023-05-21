@@ -1,5 +1,7 @@
-from utils.utils import *
+from injector import Injector, inject
+_injector = Injector()
 
+from utils.out_utils import *
 from compiler.lexer import Lexer
 from compiler.codegen import CodeGen
 from compiler.parser import Parser
@@ -7,8 +9,7 @@ from compiler.linker import Linker
 
 import time
 import re
-import sys, getopt
-import os
+
 
 lexer = Lexer().get_lexer()
 linker = Linker()
@@ -17,7 +18,12 @@ pg = Parser(generator)
 pg.parse()
 parser = pg.get_parser()
 
-def handle_parse(outUtils, rom_file, patches_dir, code, profile):
+def handle_parse(rom_file, patches_dir, code, profile):
+    class ParserOut:
+        everscript = None
+        patches = None
+    parser_out = ParserOut()
+
     def log(text):
         if profile:
             print(f"{text} ({'{:.1f}'.format(time.time() - start)}s)")
@@ -26,45 +32,45 @@ def handle_parse(outUtils, rom_file, patches_dir, code, profile):
 
     start = time.time()
     
-    log(f"lexing code...")
-    outUtils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
+    log(f"lexing code…")
+    out_utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
 
     lexed = lexer.lex(code)
-    log(f"generating objects...")
+    log(f"generating objects…")
     parsed = parser.parse(lexed)
 
-    log(f"creating artifacts...")
+    log(f"creating patch artifact…")
     generated = generator.generate()
-    generated = stringUtils.beautify_output(generated)
-    outUtils.dump(generated, "patch.txt")
-    outUtils.dump(generator.get_memory_allocation(), "memory_map.txt")
+    parser_out.patches = generator.patches
+    generated = string_utils.beautify_output(generated)
+    out_utils.dump(generated, "patch.txt")
+    out_utils.dump(generator.get_memory_allocation(), "memory_map.txt")
 
-    generated_clean = outUtils.clean(generated)
-    outUtils.dump(generated_clean, "patch.clean.txt")
+    generated_clean = file_utils.clean(generated)
+    out_utils.dump(generated_clean, "patch.clean.txt")
 
-    outUtils.file(generated_clean, "everscript.ips")
-    outUtils.prepare_rom(rom_file)
-    outUtils.prepare_patches(rom_file, patches_dir, generator.patches)
+    parser_out.everscript = out_utils.dump(generated_clean, "everscript.ips")
     
     log(f"done!")
 
-def parse_args(argv):
-    outUtils = OutUtils()
-    outUtils.init_out()
+    return parser_out
 
-    args = outUtils.parse_args()
+def main():
+    args = arg_utils.parse()
+    code = file_utils.file2string(args.input_file)
 
-    code = fileUtils.file2string(args.input_file)
+    parser_out = None
+    out_utils.init_out()
 
     if not args.profile:
-        handle_parse(outUtils, args.rom_file, args.patches_dir, code, True)
+        parser_out = handle_parse(args.rom_file, args.patches_dir, code, True)
     else:
         import cProfile, pstats
         import io
 
         profiler = cProfile.Profile()
         profiler.enable()
-        handle_parse(outUtils, args.rom_file, args.patches_dir, code, args.profile)
+        parser_out = handle_parse(args.rom_file, args.patches_dir, code, args.profile)
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('tottime')
         
@@ -77,6 +83,14 @@ def parse_args(argv):
         print(result)
 
     if(args.rom_file != None):
-        outUtils.patch(args.rom_file, "everscript.ips")
+        print("preparing rom:")
+        out_utils.prepare_rom(args.rom_file)
+        print("preparing patches:")
+        out_utils.prepare_patches(args.rom_file, args.patches_dir, parser_out.patches)
+    
+        print("evermizer patch:")
+        out_utils.patch(args.rom_file,parser_out.everscript)
 
-parse_args(sys.argv)
+    print(f"done!")
+
+main()
