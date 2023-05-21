@@ -1,6 +1,9 @@
+from injector import Injector, inject
+_injector = Injector()
+
 from compiler.ast_core import *
 from compiler.calculator import *
-from utils.utils import *
+from utils.out_utils import *
 
 from rply import LexerGenerator, Token
 from rply.token import BaseBox
@@ -9,6 +12,7 @@ from textwrap import wrap
 import copy
 import random
 import uuid
+
 
 class Function(Function_Base):
     def __init__(self, name, script, args, function_args=[]):
@@ -554,7 +558,7 @@ class Include(BaseBox):
         from compiler.lexer import Lexer
         from compiler.parser import Parser
 
-        print(f" - handle import '${self.path}':")
+        print(f" - handle import '{self.path}':")
 
         lexer = Lexer().get_lexer()
         pg = Parser(self.generator)
@@ -564,7 +568,7 @@ class Include(BaseBox):
         script = open(self.path, 'r').read()
         #print(f"{self.path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
-        outUtils = OutUtils("include")
+        outUtils = _injector.get(OutUtils)
         outUtils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
         script = lexer.lex(script)
         print(" - generating objects...")
