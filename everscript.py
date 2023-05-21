@@ -10,8 +10,6 @@ import re
 import sys, getopt
 import os
 
-version = "1.0.0"
-
 lexer = Lexer().get_lexer()
 linker = Linker()
 generator = CodeGen(linker)
@@ -51,89 +49,22 @@ def handle_parse(outUtils, rom_file, patches_dir, code, profile):
     log(f"done!")
 
 def parse_args(argv):
-    name = "everscript"
-    argv = argv[1:]
-
-    example_rom_file = '"Secret of Evermore (U) [!].smc"'
-    example_input_file = "<input_file.evs>"
-    example_patches_dir = "</additional_patches>"
-
-    rom_file = None
-    input_file = None
-    patches_dir = None
-    profile = False
-    output_dir = "out"
-
-    def help():
-        print(f"""
-Compiler for assembler based scripts, used in the SNES game "Secret of Evermore".
-Almost completely based on the results of https://github.com/black-sliver/SoETilesViewer and the work of Black Sliver.
-
--r, --rom
-    Secret of Evermore ROM: English, good dump '[!]', no header ({example_rom_file})
--s, --script, #1
-    Contains the code to be compiled into an IPS file and patched into the ROM.
--p, --patches
-    Additional patches to be applied.
--o, --out
-    Output directory. (Default: "/out")
---profile
-    Measures the performance of the compiler. Useful for finding problems.
--v, --version
-    Current version ({name} - {version})
-
-examples:
-    {name} --rom {example_rom_file} {example_input_file}                                                rom + script
-    {name} --rom {example_rom_file} --script {example_input_file}                                       rom + script
-    {name} --rom {example_rom_file} --script {example_input_file} --patches {example_patches_dir}       rom + script + patches
-    {name} --rom {example_rom_file} --script {example_input_file} --profile                             profile(rom + script)
-        """.strip())
-        sys.exit()
-
-    try:
-        opts, args = getopt.getopt(argv,"hpr:s:o:",["profile", "rom=", "script=", "patches=", "out="])
-    except getopt.GetoptError:
-        help()
-
-    if len(args) == 1:
-        input_file = args[0]
-    else:
-        help()
-
-    for opt, arg in opts:
-        if opt == "-h":
-            help()
-        elif opt in ("-v", "--version"):
-            print(version)
-            sys.exit()
-        elif opt in ("-p", "--profile"):
-            profile = True
-        elif opt in ("-r", "--rom"):
-            rom_file = arg
-        elif opt in ("-s", "--script"):
-            input_file = arg
-        elif opt in ("-p", "--patches"):
-            patches_dir = arg
-        elif opt in ("-o", "--out"):
-            output_dir = arg
-
-    if not input_file:
-        help()
-
     outUtils = OutUtils()
     outUtils.init_out()
 
-    code = fileUtils.file2string(input_file)
+    args = outUtils.parse_args()
 
-    if not profile:
-        handle_parse(outUtils, rom_file, patches_dir, code, True)
+    code = fileUtils.file2string(args.input_file)
+
+    if not args.profile:
+        handle_parse(outUtils, args.rom_file, args.patches_dir, code, True)
     else:
         import cProfile, pstats
         import io
 
         profiler = cProfile.Profile()
         profiler.enable()
-        handle_parse(outUtils, rom_file, patches_dir, code, profile)
+        handle_parse(outUtils, args.rom_file, args.patches_dir, code, args.profile)
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats('tottime')
         
@@ -141,11 +72,11 @@ examples:
         pstats.Stats(profiler, stream=result).sort_stats('tottime').print_stats()
         result = result.getvalue()
         
-        with open(f"{output_dir}/profile.txt", "w+") as f:
+        with open(f"{args.output_dir}/profile.txt", "w+") as f:
             print(result, file=f)
         print(result)
 
-    if(rom_file != None):
-        outUtils.patch(rom_file, "everscript.ips")
+    if(args.rom_file != None):
+        outUtils.patch(args.rom_file, "everscript.ips")
 
 parse_args(sys.argv)
