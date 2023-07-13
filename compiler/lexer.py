@@ -67,9 +67,11 @@ class Lexer():
         self.lexer.add('FUN_PATCH', '#patch(?=\()')
 
         self.lexer.add('FUN', 'fun(?=\ )')
-        self.lexer.add('FUN_IDENTIFIER', '[a-z_][a-z0-9_]+(?=\()')
+        self.lexer.add('NAME_IDENTIFIER', '[a-z_][a-z0-9][a-z0-9_]*(?=\()')
+        self.lexer.add('MAP', 'map(?=\ )')
         
         self.lexer.add('IDENTIFIER', '[a-zA-Z_][a-zA-Z0-9_]*(?![\(\{])')
+        self.lexer.add('VAL', 'val(?=\ )')
 
         # ignore whitespace 
         self.lexer.ignore('[ \t\r\f\v\n]+|\/\/.*\n')

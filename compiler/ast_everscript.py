@@ -12,6 +12,7 @@ from textwrap import wrap
 import copy
 import random
 import uuid
+from enum import StrEnum
 
 
 class Function(Function_Base):
@@ -254,6 +255,50 @@ class Call(Function_Base):
         else:
             return Function_Code(self.function.script, '\n').code(self.params)
 
+class Map(Function_Base):
+    class Trigger(StrEnum):
+        ENTER = "trigger_enter"
+
+    variant: int = None
+
+    functions: dict[str, Function] = {}
+    trigger_enter: Function = None
+
+    def __init__(self, name, params, code):
+        if isinstance(name, Token):
+            name = name.value
+        self.name = name
+
+        if isinstance(params, Token):
+            params = params.value
+        self.map = params[0]
+        if isinstance(self.map, Param):
+            self.map = self.map.value
+        if isinstance(self.map, Word):
+            self.map = self.map.value
+
+        self.functions = {c.name.value: c for c in code if isinstance(c, Function)}
+
+        self.trigger_enter = self._extract_function(self.Trigger.ENTER)
+
+        pass
+    
+    def _extract_function(self, trigger: Trigger):
+        if trigger in self.functions.keys():
+            return self.functions[trigger]
+        else:
+            return None
+
+
+class MapTransition(Function_Base):
+    pass
+
+class MapEntrance(Function_Base):
+    def __init__(self, x, y, direction):
+        self.x = x
+        self.y = y
+        self.direction = direction
+
 class End(Function_Base):
 
     def eval(self):
@@ -336,7 +381,7 @@ class Enum_Call(BaseBox):
         self.identifier = identifier.value
 
         enum_identifier = re.sub("\..*", "",  self.identifier)
-        enum = generator.get(enum_identifier)
+        enum = generator.get_identifier(enum_identifier)
 
         enum_value = re.sub(".*\.", "",  self.identifier)
         value = None
