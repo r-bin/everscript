@@ -1,8 +1,11 @@
 from rply import ParserGenerator
+
 from compiler.ast_everscript import *
+from compiler.codegen import Scope
+from compiler.codegen import CodeGen
 
 class Parser():
-    def __init__(self, generator):
+    def __init__(self, generator: CodeGen):
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
@@ -16,14 +19,14 @@ class Parser():
                 'ELSEIF', 'IF', 'ELSE',
                 'WHILE',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'FUN_IDENTIFIER',
+                'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'NAME_IDENTIFIER', 'MAP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'IDENTIFIER'
+                'IDENTIFIER', 'VAL'
             ],
 
             # A list of precedence rules with ascending precedence, to
             # disambiguate ambiguous production rules.
-            precedence=[
+            precedence = [
                 ('left', ['+', '-']),
                 ('left', ['*', '/'])
             ]
@@ -51,10 +54,11 @@ class Parser():
             "cstring": (lambda p: RawString(p[2][0])),
             "string_key": (lambda p: StringKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
-            "flag": (lambda p: self.generator.get_flag())
+            "flag": (lambda p: self.generator.get_flag()),
+            "map_transition": (lambda p: MapTransition(p[2][0], p[2][1]))
         }
 
-        self.generator = generator
+        self.generator: CodeGen = generator
 
     def parse(self):
         @self.pg.production('program_list : program_list program')
@@ -64,7 +68,8 @@ class Parser():
         def parse(p):
             return [ p[0] ]
         @self.pg.production('program : enum')
-        @self.pg.production('program : function_list')
+        @self.pg.production('program : object_map')
+        @self.pg.production('program : function')
         def parse(p):
             return p[0]
         @self.pg.production('program : FUN_INCLUDE ( expression )')
@@ -73,6 +78,32 @@ class Parser():
 
             return Include(self.generator, path).eval()
 
+        # maps
+
+        @self.pg.production('scope : MAP')
+        def parse(p):
+            scope: Scope = Scope(p[0])
+
+            self.generator.push_scope(scope)
+
+            return scope
+        
+        @self.pg.production('object_map : scope NAME_IDENTIFIER ( param_list ) { program_list } ;')
+        def parse(p):
+            name = p[1]
+            params = p[3]
+            code = p[6]
+
+            map = Map(name, params, code)
+
+            self.generator.set_identifier(name, map)
+            self.generator.add_map(map)
+
+            self.generator.pop_scope()
+            
+            return map
+        
+        # enum
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list , }')
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list }')
         def parse(p):
@@ -80,7 +111,7 @@ class Parser():
             values = p[3]
             enum = Enum(name, values)
 
-            self.generator.add_enum(enum)
+            self.generator.set_identifier(name.value, enum)
 
             return enum
         @self.pg.production('enum_entry_list : enum_entry')
@@ -96,44 +127,28 @@ class Parser():
 
             return Enum_Entry(name, value)
 
-        @self.pg.production('function_list : function')
-        def function_list(p):
-            list = []
-            element = p[0]
-
-            list.append(element)
-            self.generator.append(element)
-
-            return list
-        @self.pg.production('function_list : function_list function')
-        def parse(p):
-            list = p[0]
-            element = p[1]
-
-            list.append(element)
-            self.generator.append(element)
-
-            return list
-
-        @self.pg.production('function : FUN FUN_IDENTIFIER ( arg_list ) { expression_list }')
+        # functions
+        @self.pg.production('function : FUN NAME_IDENTIFIER ( arg_list ) { expression_list }')
         def parse(p):
             name = p[1]
             args = p[3]
             code = p[6]
 
             function = Function(name, code, args)
-            
+            self.generator.add_function(function)
+
             return function
-        @self.pg.production('function : FUN FUN_IDENTIFIER ( ) { expression_list }')
+        @self.pg.production('function : FUN NAME_IDENTIFIER ( ) { expression_list }')
         def parse(p):
             name = p[1]
             code = p[5]
             args = []
 
             function = Function(name, code, args)
+            self.generator.add_function(function)
             
             return function
-        @self.pg.production('function : function_arg_list FUN FUN_IDENTIFIER ( ) { expression_list }')
+        @self.pg.production('function : function_arg_list FUN NAME_IDENTIFIER ( ) { expression_list }')
         def parse(p):
             function_args = p[0]
             name = p[2]
@@ -141,6 +156,7 @@ class Parser():
             code = p[6]
 
             function = Function(name, code, args, function_args)
+            self.generator.add_function(function)
             
             return function
 
@@ -266,8 +282,8 @@ class Parser():
         def parse(p):
             return If(None, p[2])
 
-        @self.pg.production('expression : FUN_IDENTIFIER ( param_list )')
-        @self.pg.production('expression : FUN_IDENTIFIER ( )')
+        @self.pg.production('expression : NAME_IDENTIFIER ( param_list )')
+        @self.pg.production('expression : NAME_IDENTIFIER ( )')
         def parse(p):
             name = p[0]
             params = p[2]
@@ -278,7 +294,7 @@ class Parser():
                 function = self.functions[name.value](p)
                 return function
             else:
-                function = self.generator.function(name)
+                function = self.generator.get_function(name)
             
             return Call(function, params)
 

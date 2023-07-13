@@ -133,6 +133,43 @@ class MemoryManager():
 
         return flag
 
+
+class MapDataHandler():
+    class MapData():
+        address_trigger_offset = 0x0d
+
+        address_trigger_enter_base = 0x92801b
+        address_trigger_enter_size = 0x05
+
+        def __init__(self, index, data: int, trigger_step_count: int, trigger_b_count: int, trigger_enter: int):
+            self.index = index
+            self.data = data
+
+            self.trigger_step_count = trigger_step_count
+            self.trigger_b_count = trigger_b_count
+            self.trigger_enter = self.address_trigger_enter_base + (self.address_trigger_enter_size * index)
+            #self.trigger_enter = trigger_enter
+
+    map_data: MapData = None
+
+    def __init__(self):
+        maps = [
+            self.MapData(0x00, 0xabf4f1, 0x08, 0x01, 0x9b8fb5), # "Omnitopia - Alarm room"
+            self.MapData(0x01, 0xa9e517, 0x04, 0x00, 0x978e34), # "Prehistoria - Exterior of Blimp's Hut"
+            self.MapData(0x02, 0xacc12d, 0x00, 0x00, 0x92e59f), # "Intro - Mansion Exterior 1965"
+            self.MapData(0x03, 0xaaeaba, 0x00, 0x00, 0x92ef08), # "Intro - Mansion Exterior 1995"
+            self.MapData(0x04, 0xacd00a, 0x02, 0x00, 0x97c10c), # "Antiqua - Crustacia fire pit"
+            self.MapData(0x05, 0xa4d3b4, 0x14, 0x14, 0x9384d9), # "Antiqua - Between 'mids and halls"
+
+            self.MapData(0x38, 0x9e8000, 0x02, 0x1f, 0x9384d9), # "Prehistoria - South jungle / Start"]:
+        ]
+
+        maps = dict([(map.index, map) for map in maps])
+
+        self.maps: dict[self.MapData] = maps
+
+_MapDataHandler = MapDataHandler()
+
 class Linker():
     def __init__(self, code=[]):
         self.code = code
@@ -191,6 +228,13 @@ unallocated RAM:
                 address = self.memory_manager.allocate_script(count)
 
                 function.address = address
+
+    def link_map(self, maps: list[Map]):
+        for map in maps:
+            map.map_data = _MapDataHandler.maps[map.map]
+
+            if map.trigger_enter != None:
+                pass # TODO
 
     def link_call(self, code):
         for function in code:
