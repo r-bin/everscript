@@ -90,11 +90,11 @@ class BinaryOp(Function_Base):
         return ""
 
 class Word(Function_Base):
-    def __init__(self, value):
+    def __init__(self, value, value_count = 2):
         if isinstance(value, int):
             self.value_original = value
             self.value = value
-            self.value_count = 2
+            self.value_count = value_count
         else:
             self.value_original = value
             self.value = int(value.value, 16)

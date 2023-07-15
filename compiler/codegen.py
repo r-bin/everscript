@@ -55,6 +55,7 @@ class CodeGen():
         self.system = {}
 
         self.strings = []
+        self.map_transitions: list[MapTransition] = []
         self.memory = []
         self.flags = []
         self.patches = []
@@ -105,6 +106,9 @@ allocated RAM:
 
         self.strings.append(string)
 
+    def add_map_transition(self, map_transition: MapTransition):
+        self.map_transitions.append(map_transition)
+
     def add_function(self, function: Function): #TODO
         #self.code += f"<address> {expression.count()}\n"
         
@@ -114,8 +118,10 @@ allocated RAM:
             self.code.append(function)
     
     def get_function(self, name): #TODO
-        if name.value in self.system:
-            return self.system[name.value]
+        if isinstance(name, Token):
+            name = name.value
+        if name in self.system:
+            return self.system[name]
 
         for function in self.code:
             if function.name == name:
@@ -135,8 +141,10 @@ allocated RAM:
         if self.wipe_strings:
             list.append(self._wipe_strings())
 
-        self.linker.link_function(self.code)
         self.linker.link_map(self.maps)
+        self.linker.link_map_transitions(self.maps, self.map_transitions)
+        
+        self.linker.link_function(self.code)
         self.linker.link_call(self.code)
 
         for function in self.code:

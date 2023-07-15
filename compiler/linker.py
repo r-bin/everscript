@@ -233,10 +233,19 @@ unallocated RAM:
 
     def link_map(self, maps: list[Map]):
         for map in maps:
-            map.map_data = _MapDataHandler.maps[map.map]
+            map.map_data = _MapDataHandler.maps[map.map_index]
 
             if map.trigger_enter != None:
                 pass # TODO
+
+    def link_map_transitions(self, maps: list[Map], map_transitions: list[MapTransition]):
+        for map_transition in map_transitions:
+            self._link_map_transition(maps, map_transition)
+    def _link_map_transition(self, maps: list[Map], map_transition: MapTransition):
+        map: Map = next(map for map in maps if map.name == map_transition.map_name)
+        entrance: MapEntrance = next(entrance for entrance in map.enum_entrance.values if entrance.name == map_transition.entrance_name).value
+        
+        map_transition.link(map, entrance)
 
     def link_call(self, code):
         for function in code:
