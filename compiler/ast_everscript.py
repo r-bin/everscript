@@ -255,52 +255,7 @@ class Call(Function_Base):
         else:
             return Function_Code(self.function.script, '\n').code(self.params)
 
-class Map(Function_Base):
-    class Trigger(StrEnum):
-        ENTER = "trigger_enter"
-
-    variant: int = None
-
-    functions: dict[str, Function] = {}
-    trigger_enter: Function = None
-
-    def __init__(self, name, params, code):
-        if isinstance(name, Token):
-            name = name.value
-        self.name = name
-
-        if isinstance(params, Token):
-            params = params.value
-        self.map = params[0]
-        if isinstance(self.map, Param):
-            self.map = self.map.value
-        if isinstance(self.map, Word):
-            self.map = self.map.value
-
-        self.functions = {c.name.value: c for c in code if isinstance(c, Function)}
-
-        self.trigger_enter = self._extract_function(self.Trigger.ENTER)
-
-        pass
-    
-    def _extract_function(self, trigger: Trigger):
-        if trigger in self.functions.keys():
-            return self.functions[trigger]
-        else:
-            return None
-
-
-class MapTransition(Function_Base):
-    pass
-
-class MapEntrance(Function_Base):
-    def __init__(self, x, y, direction):
-        self.x = x
-        self.y = y
-        self.direction = direction
-
 class End(Function_Base):
-
     def eval(self):
         return 0
         
@@ -353,7 +308,7 @@ class Function_Goto(Function_Base):
         return 0
         
     def _code(self):
-        distance = "xx xx"
+        distance = "yy yy"
         if self.distance:
             distance = Word(self.distance).code()
 
@@ -813,3 +768,104 @@ class Range(BaseBox):
             return Range(self.start + o, self.end + o)
         else:
             raise Exception("invalid parameter")
+
+class MapEntrance(Function_Base):
+    def __init__(self, x, y, direction):
+        self.x = x.eval()
+        self.y = y.eval()
+        self.direction = direction.eval()
+
+class Map(Function_Base):
+    class Collection(StrEnum):
+        ENTRANCE = "entrance"
+
+    class Trigger(StrEnum):
+        ENTER = "trigger_enter"
+
+    variant: int = 0
+
+    enums: dict[str, Enum] = {}
+    enum_entrance: list[MapEntrance] = None
+
+    functions: dict[str, Function] = {}
+    trigger_enter: Function = None
+
+    def __init__(self, name, params, code):
+        if isinstance(name, Token):
+            name = name.value
+        self.name = name
+
+        if isinstance(params, Token):
+            params = params.value
+        self.map_index = params[0]
+        if isinstance(self.map_index, Param):
+            self.map_index = self.map_index.value
+        if isinstance(self.map_index, Word):
+            self.map_index = self.map_index.value
+
+        self.functions = {c.name.value: c for c in code if isinstance(c, Function)}
+        self.trigger_enter = self._extract_function(self.Trigger.ENTER)
+
+        self.enums = {c.name: c for c in code if isinstance(c, Enum)}
+        self.enum_entrance = self._extract_enum(self.Collection.ENTRANCE)
+
+        pass
+    
+    def _extract_function(self, trigger: Trigger):
+        if trigger in self.functions.keys():
+            return self.functions[trigger]
+        else:
+            return None
+        
+    def _extract_enum(self, enum: Collection):
+        if enum in self.enums.keys():
+            return self.enums[enum]
+        else:
+            return None
+
+
+class MapTransition(Function_Base):
+    map: Map = None
+    entrance: MapEntrance = None
+
+    def __init__(self, generator, map_name, entrance_name, direction):
+        self.map_name = map_name.name
+        self.entrance_name = entrance_name.name
+        self.direction = direction.value
+        if isinstance(self.direction, Word):
+            self.direction = self.direction.eval()
+
+        self._generator = generator
+        generator.add_map_transition(self)
+
+        pass
+
+    def link(self, map: Map, entrance: MapEntrance):
+        self.map = map
+        self.entrance = entrance
+
+        pass
+
+    def _code(self):
+        if self.map == None or self.entrance == None:
+            return f"""
+yy // linking required
+            """
+        else:
+            params = [
+                self.map.map_index,
+                self.entrance.x,
+                self.entrance.y,
+                self.direction,
+                self.entrance.direction
+            ]
+            params = [Param(None, Word(param, 1)) for param in params]
+
+            function_transition = self._generator.get_function("transition")
+            function_transition = Call(function_transition, params)
+            function_transition = function_transition
+
+            return Function_Code([
+                Asign(Memory(0x2258), Word(self.map.variant)),
+                function_transition
+            ]).code()

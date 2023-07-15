@@ -41,7 +41,7 @@ class Parser():
             self.generator.add_memory(memory)
             return memory
 
-        self.functions = {
+        self.native_functions = {
             "eval": (lambda p: Function_Eval(p[2][0])),
             "goto": (lambda p: Function_Goto(p[2][0])),
             "code": (lambda p: Function_Code(p[2])),
@@ -55,7 +55,8 @@ class Parser():
             "string_key": (lambda p: StringKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
             "flag": (lambda p: self.generator.get_flag()),
-            "map_transition": (lambda p: MapTransition(p[2][0], p[2][1]))
+            "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
+            "entrance": (lambda p: MapEntrance(p[2][0], p[2][1], p[2][2])),
         }
 
         self.generator: CodeGen = generator
@@ -79,7 +80,6 @@ class Parser():
             return Include(self.generator, path).eval()
 
         # maps
-
         @self.pg.production('scope : MAP')
         def parse(p):
             scope: Scope = Scope(p[0])
@@ -290,8 +290,8 @@ class Parser():
             if not isinstance(params, list):
                 params = []
 
-            if name.value in self.functions:
-                function = self.functions[name.value](p)
+            if name.value in self.native_functions:
+                function = self.native_functions[name.value](p)
                 return function
             else:
                 function = self.generator.get_function(name)
