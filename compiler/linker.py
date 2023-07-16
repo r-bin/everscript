@@ -217,26 +217,32 @@ unallocated RAM:
     def add_memory(self, memory):
         self.memory_manager.add(memory)
 
-    def link(self):
-        self.link_function(self.code)
+    def link_function(self, function):
+        if function.address == None:
+            count = sum([e.count() for e in function.script])
+            address = self.memory_manager.allocate_script(count)
 
-        for function in self.code:
-            self.link_goto(function)
-
-    def link_function(self, code):
-        for function in code:
-            if function.address == None:
-                count = sum([e.count() for e in function.script])
-                address = self.memory_manager.allocate_script(count)
-
-                function.address = address
+            function.address = address
 
     def link_map(self, maps: list[Map]):
+        variants = {}
+
         for map in maps:
             map.map_data = _MapDataHandler.maps[map.map_index]
 
+            if map.variant == None:
+                variant: int = None
+                if not map.map_index in variants:
+                    variants[map.map_index] = 0
+                variant = variants[map.map_index]
+                variants[map.map_index] = variants[map.map_index] + 1
+
+                map.variant = variant
+                pass
+
             if map.trigger_enter != None:
                 pass # TODO
+            
 
     def link_map_transitions(self, maps: list[Map], map_transitions: list[MapTransition]):
         for map_transition in map_transitions:

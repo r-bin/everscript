@@ -7,6 +7,8 @@ import binascii
 from textwrap import wrap
 from enum import StrEnum
 
+from compiler.linker import Linker
+
 class Scope(BaseBox):
     class Type(StrEnum):
         DEFAULT = "DEFAULT"
@@ -47,7 +49,7 @@ class CodeGen():
 
     def __init__(self, linker):
         print(f"CodeGen.init()")
-        self.linker = linker
+        self.linker: Linker = linker
 
         self.scopes: list[Scope] = [Scope()]
 
@@ -144,14 +146,14 @@ allocated RAM:
         self.linker.link_map(self.maps)
         self.linker.link_map_transitions(self.maps, self.map_transitions)
         
-        self.linker.link_function(self.code)
+        for function in self.code:
+            self.linker.link_function(function)
         self.linker.link_call(self.code)
 
         for function in self.code:
-            list.append(self._generate(function))
+            list.append(self._generate_function(function))
 
-        for map in self.maps:
-            list.append(self._generate_map(map))
+        list.append(self._generate_map())
 
         for string in self.strings:
             list.append(self._generate_string(string))
@@ -186,15 +188,42 @@ allocated RAM:
 
         return '\n'.join(list)
 
-    def _generate_map(self, map: Map):
+    def _generate_map(self):
         list = []
 
-        if map.trigger_enter != None:
-            name = map.trigger_enter.name
+        variants = self.get_map_variants()
+
+        for map_data, maps in variants.items():
+            address: int = None
+
+            if len(maps) == 1:
+                map = maps[0]
+
+                name = f"maps[{map_data.index}, {map.name}].{map.trigger_enter.name.value}()"
+                code = map.trigger_enter.address
+            else:
+                name = f"maps[{map_data.index}, {'/'.join([map.name for map in maps])}].trigger_enter()"
+                code_enter = []
+
+                for map in maps:
+                    test = If(
+                            Equals(Param(None, Memory(0x2258)), Param(None, Word(map.variant))),
+                            [Call(map.trigger_enter)]
+                        )
+                    code_enter.append(test)
+
+                code_enter = If_list(code_enter)
+                code_enter = [code_enter]
+
+                function_enter = Function("test", code_enter, [], [Arg_Install()])
+                self.linker.link_function(function_enter)
+                list.append(self._generate_function(function_enter))
+                
+                code = function_enter.address
+
             address = map.map_data.trigger_enter
             count = 3
 
-            code = map.trigger_enter.address
             code = Address(code).code()
 
             if address >= 0xC00000: # TODO
@@ -204,7 +233,7 @@ allocated RAM:
             elif address >= 0x400000: # TODO
                 address -= 0x400000
 
-            header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={name}"]
+            header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{name}'"]
             footer = []
 
             list += header + [code] + footer
@@ -231,7 +260,7 @@ allocated RAM:
         elif address >= 0x400000: # TODO
             address -= 0x400000
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={name}"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{name}'"]
         footer = []
 
         list += header + [code] + footer
@@ -255,7 +284,7 @@ allocated RAM:
 
         return '\n'.join(list)
 
-    def _generate(self, function: Function):
+    def _generate_function(self, function: Function):
         code = function.script
         address = function.address
         count = sum([e.count() for e in code])
@@ -272,7 +301,7 @@ allocated RAM:
         elif address >= 0x400000: # TODO
             address -= 0x400000
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{function.name}()'"]
         footer = []
 
         list += header + [e.code() for e in code] + footer
@@ -351,3 +380,19 @@ allocated RAM:
             raise Exception(f"Enum '{identifier}' does not exist!")
         
         return all_identifiers[identifier]
+    
+    def get_map_variants(self) -> dict[int, list[Map]]:
+        variants: dict[int, list[Map]] = {}
+
+        for map in self.maps:
+            key = map.map_data #map.map_index
+
+            if map.variant == None or key == None:
+                raise Exception("map need to be linked first")
+        
+            if not key in variants:
+                variants[key] = []
+
+            variants[key].append(map)
+
+        return variants
