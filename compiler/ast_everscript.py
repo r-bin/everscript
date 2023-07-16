@@ -96,11 +96,14 @@ class Address(Function_Base):
         return address
         
     def _code(self):
-        address = self.rom2scriptaddr(self.value)
+        address = self.eval()
         address = '{:06X}'.format(address, 'x')
         address = wrap(address, 2)
         
         return ' '.join(reversed(address))
+
+    def eval(self):
+        return self.rom2scriptaddr(self.value)
 
     def count(self):
         return len(self.code_clean().split(" "))
@@ -219,12 +222,17 @@ class Call(Function_Base):
     def __init__(self, function, params=[]):
         self.params = params
         if isinstance(function, Function):
-            self.function = copy.deepcopy(function)
-            self.address = function.address
-            self.async_call = function.async_call
-            for p, a in zip(self.params, function.args):
-                if p.name == None:
-                    p.name = a.name
+            if not function.install:
+                self.function = copy.deepcopy(function)
+                self.address = function.address
+                self.async_call = function.async_call
+                for p, a in zip(self.params, function.args):
+                    if p.name == None:
+                        p.name = a.name
+            else:
+                self.function = function
+                self.address = function.address
+                self.async_call = function.async_call
         elif isinstance(function, Param):
             self.function = None
             self.address = function.eval()
@@ -782,7 +790,7 @@ class Map(Function_Base):
     class Trigger(StrEnum):
         ENTER = "trigger_enter"
 
-    variant: int = 0
+    variant: int = None
 
     enums: dict[str, Enum] = {}
     enum_entrance: list[MapEntrance] = None
@@ -847,7 +855,7 @@ class MapTransition(Function_Base):
         pass
 
     def _code(self):
-        if self.map == None or self.entrance == None:
+        if self.map == None or self.entrance == None or self.map.variant == None:
             return f"""
 yy // linking required
             """
@@ -868,4 +876,4 @@ yy // linking required
             return Function_Code([
                 Asign(Memory(0x2258), Word(self.map.variant)),
                 function_transition
-            ]).code()
+            ], '\n').code()
