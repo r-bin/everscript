@@ -2,7 +2,6 @@ from injector import Injector, inject
 _injector = Injector()
 
 from compiler.ast_core import *
-from compiler.calculator import *
 from utils.out_utils import *
 
 from rply import LexerGenerator, Token
@@ -414,7 +413,7 @@ class If_list(Function_Base):
                 
         return Function_Code(list, '\n').code(self.params)
 
-class If(Function_Base):
+class If(Function_Base, Calculatable):
     def __init__(self, condition, script):
         self.condition = condition
         self.script = script
@@ -447,15 +446,27 @@ class If(Function_Base):
             destination = destination.code()
 
         if self.memory and self.condition:
-            if isinstance(self.condition, BinaryOp):
-                code = self.condition.flatten(self.condition)
-            else:
-                code = [self.condition]
-            code = ["if"] + code + [destination]
-            code = f"{Calculator(list(code)).code()} // Calculator({code})"
+            code = self.calculate()
+            code = self._clean_calucatable(code)
+            
             return code
         else:
             return Function_Code(self.script, '\n').code(self.params)
+        
+    def calculate(self):
+        destination = "xx xx"
+        if self.distance != None:
+            destination = Word(self.distance)
+            destination = destination.code()
+
+        code = []
+
+        condition = self.condition.calculate()
+
+        code = [0x09] + self._terminate(condition) + [destination]
+
+        return code
+
         
 class Equals(BinaryOp):
     def operator(self):
@@ -464,6 +475,23 @@ class Equals(BinaryOp):
     def _eval(self):
         return self.left.value.eval() == self.right.value.eval()
 
+    def _calculate(self, left, right):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [0x22]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [0x22]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [0x22]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [0x22]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
 class GreaterEquals(BinaryOp):
     def operator(self):
         return ">="
@@ -498,7 +526,26 @@ class Add(BinaryOp):
 
     def _eval(self):
         return self.left.eval() + self.right.eval()
+    
+    def _calculate(self, left, right):
+        code = []
 
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = [0x0d, left.code(), 0x29] + right + [0x1a]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = [0x08, left.code(), 0x29] + right + [0x1a]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
+                code = left.calculate() + [0x29] + right + [0x1a]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = [0x0d] + left.calculate() + [0x29] + right + [0x1a]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = [0x08] + left.calculate() + [0x29] + right + [0x1a]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
 class Sub(BinaryOp):
     def operator(self):
         return "-"
@@ -506,12 +553,28 @@ class Sub(BinaryOp):
     def _eval(self):
         return self.left.value.eval() - self.right.value.eval()
 
+    def _calculate(self, left, right):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = [0x0d, left.code(), 0x29] + right + [0x1b]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = [0x08, left.code(), 0x29] + right + [0x1b]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
 class Mul(BinaryOp):
     def operator(self):
         return "*"
 
     def _eval(self):
         return self.left.value.eval() * self.right.value.eval()
+
+    def _calculate(self, left, right):
+        pass
 
 class Div(BinaryOp):
     def operator(self):
@@ -533,14 +596,32 @@ class ShiftLeft(BinaryOp):
 
     def _eval(self):
         return self.left.value.eval() << self.right.value.eval()
-
+    
 class Asign(BinaryOp):
     def operator(self):
         return "="
 
     def _code(self):
-        code = self.flatten(self)
-        code = f"{Calculator(code).code()} // Calculator({code})"
+        code = self.calculate()
+        code = self._clean_calucatable(code)
+
+        return code
+    
+    def _calculate(self, left, right):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "xx":
+                code = [0x19, left.code()] + self._terminate(right)
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = [0x19, left.code()] + self._terminate(right)
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = [0x18, left.code()] + self._terminate(right)
+            case left if isinstance(left, Memory) and left.offset != None:
+                code = self._terminate([0x7a] + left.calculate(deref=False)) + self._terminate(right)
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
         return code
 
 class OrAsign(BinaryOp):

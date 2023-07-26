@@ -38,24 +38,207 @@ class Function_Base(BaseBox):
         count = len(count)
 
         return count
+    
+class Calculatable():
+    """
+    00…2f = opcodes
+    30…3f = value 0…f
+    40…3f = negative values?
+    50…5f = special characters?
+    60…6f = value = 10…1f
+    """
 
-class BinaryOp(Function_Base):
+    _instructions = {
+        "nop": 0x00, # noop?
+
+        # _: 0x01, # signed const byte
+        "unsigned byte": 0x02, # unsigned const byte
+
+        # _: 0x03, # signed const word
+        "word": 0x04, # unsigned const word
+
+        "test": 0x05, # test bit
+        "test temp": 0x0a, # test temp bit
+
+        # _: 0x06, # read byte, signed
+        # _: 0x07, # read byte, unsigned
+        "read word": 0x08, # read word, signed
+        "read signed word": 0x09, # read word, unsigned
+        # _: 0x0b, # read temp byte, signed
+        # _: 0x0c, # read temp byte, unsigned
+        "read signed temp word": 0x0d, # read temp word, signed
+        "read temp word": 0x0e, # read temp word, unsigned
+
+        # _: 0x0f, # script arg bit, like 05 and 08 but addr is only 8bit
+
+        # _: 0x10, # signed byte script arg
+        # _: 0x11, # unsigned byte script arg
+        # _: 0x12, # signed word script arg
+        # _: 0x13, # unsigned word script arg
+
+        # _: 0x14, # boolean invert
+        # _: 0x15, # bitwise invert
+        # _: 0x16, # flip sign
+        # _: 0x17, # pull from stack, res = pulled * res
+
+        "/": 0x18, # pulled / res
+        "+": 0x1a, # pulled + res
+        "-": 0x1b, # pulled - res
+        "<<": 0x1c, # pulled << res
+        ">>": 0x1d, # pulled >> res
+        "<": 0x1e, # pulled < res (signed)
+        ">": 0x1f, # pulled > res (signed)
+        "<=": 0x20, # pulled <= res (signed)
+        ">=": 0x21, # pulled >= res (signed)
+        "==": 0x22, # pulled == res
+        "!=": 0x23, # pulled != res
+        "&": 0x24, # pulled & res
+        "|": 0x25, # pulled | res
+        "^": 0x26, # pulled ^ res
+        "||": 0x27, # pulled || res
+        "&&": 0x28, # pulled && res
+
+        "push": 0x29, # push to stack
+        
+        # _: 0x2a, # random word
+        
+        # _: 0x2b, # (random word * $2) >> 16 = randrange[0,$2[
+            
+        # _: 0x2c, # dialog response
+        
+        # _: 0x54, # $2 = script data[0x09]
+        
+        # _: 0x55, # deref res
+        # _: 0x56, # deref res &0xff
+        
+        # _: 0x57: # (player==dog)
+            
+        # _: 0x58, # game timer bits 0-15 ($7e0b19..7e0b1a)
+        
+        # _: 0x59, # bits 16-32 ($7e0b1b..7e0b1c)
+        
+        # _: 0x5a, # Run shop: buy, get result
+        
+        # _: 0x5b, # sell
+        
+        # _: 0x5c, # Next damage will kill entity
+        
+        # _: 0x51, # WARN: Invalid sub-instr
+        # _: 0x19, # WARN: Invalid sub-instr
+        # _: 0x2f, # WARN: Invalid sub-instr
+        # _: 0x5d, # WARN: Invalid sub-instr
+        # _: 0x5e, # WARN: Invalid sub-instr
+        # _: 0x5f # WARN: Invalid sub-instr
+    }
+
+    _operators = {
+        "if": {
+            "22": 0x09,
+            "25": 0x1c,
+            "28": 0x09
+        },
+        "if!": {
+            "22": 0x08,
+            "25": 0x1c,
+            "28": 0x08
+        },
+        "=": {
+            "xx": 0x17,
+            "22": 0x18,
+            "28": 0x19
+        },
+
+        "read word": {
+            "22": _instructions["read word"],
+            "28": _instructions["read temp word"]
+        },
+        "test": {
+            "22": _instructions["test"],
+            "28": _instructions["test temp"]
+        }
+    }
+
+    def _terminate(self, code:list[int | str | list]):
+        code = list(reversed(code))
+
+        termination = 0x80
+
+        for i, c in enumerate(code):
+            match c:
+                case c if isinstance(c, str):
+                    pass
+                case c if isinstance(c, int):
+                    code[i] = [c, termination]
+                    break
+                case c if isinstance(c, list):
+                    code[i] = c + [termination]
+                    break
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(reversed(code))
+
+        return code
+    
+    def _clean_calucatable(self, code):
+        calculated_code = code
+
+        def stringify(c):
+            match c:
+                case c if isinstance(c, int):
+                    return '{:02X}'.format(c, 'x')
+                case c if isinstance(c, str):
+                    return c
+                case c if isinstance(c, list):
+                    return stringify(sum(c))
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(map(stringify, code))
+        code = ' '.join(code)
+        code = f"{code} // calculator({calculated_code})"
+        if getattr(self, "flatten", None):
+            code = f"{code} or {self.flatten(self)}"
+
+        return code
+
+
+class BinaryOp(Function_Base, Calculatable):
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
+        if isinstance(left, Param):
+            left = left.value
+        if isinstance(right, Param):
+            right = right.value
+
+        self.memory = False
+        if isinstance(left, Memory) or isinstance(right, Memory):
+            self.memory = True
+        elif isinstance(left, BinaryOp) and left.memory:
+            self.memory = True
+        elif isinstance(right, BinaryOp) and right.memory:
+            self.memory = True
+        else:
+            pass
+
         self.value_count = 2
     
-    def eval(self):
-        self.left.params = self.params
-        self.right.params = self.params
-
+    def handle_params(self):
         if self.params:
             sp = {x.name : x for x in self.params}
             if isinstance(self.left, Param) and self.left.name != None:
                 self.left.value = sp[self.left.name].value
             if isinstance(self.right, Param) and self.right.name != None:
                 self.right.value = sp[self.right.name].value
+
+
+    def eval(self):
+        self.handle_params()
+
+        self.left.params = self.params
+        self.right.params = self.params
 
         return self._eval()
 
@@ -74,6 +257,28 @@ class BinaryOp(Function_Base):
         value = wrap(value, 2)
         
         return ' '.join(reversed(value))
+    
+    def calculate(self):
+        self.handle_params() #todo
+
+        left = self.left
+        if isinstance(left, Param):
+            left = left.value
+
+        if isinstance(left, BinaryOp):
+            left = left.calculate()
+        
+        right = self.right
+        if isinstance(right, Param):
+            right = right.value
+            
+        if isinstance(right, BinaryOp) or isinstance(right, Word) or isinstance(right, Memory):
+            right = right.calculate()
+
+        if hasattr(self, "memory") and not self.memory:
+            return Word(self.eval()).calculate()
+        else:
+            return self._calculate(left, right)
     
     def flatten(self, x):
         if isinstance(x, BinaryOp):
@@ -129,33 +334,78 @@ class Word(Function_Base):
         
         return ' '.join(reversed(value))
     
+    def calculate(self):
+        i = self.eval()
+
+        if i in range(0x0, 0xf):
+            i = i & 0x0f
+            i = [[0x30, i]]
+        elif i in range(0x10, 0x1f):
+            i = (i - 0x10) & 0x0f
+            i = [[0x60, i]]
+        elif i in range(0xfff0, 0xffff):
+            i = (i - 0xfff0) & 0x0f
+            i = [[0x40, i]]
+        else:
+            match self.value_count:
+                case 1:
+                    i = [0x02, self.code()]
+                case 2:
+                    i = [0x04, self.code()]
+                case _:
+                    raise Exception("not supported")
+
+        return i
+    
 class Memory(Function_Base):
-    def __init__(self, address=None, flag=None):
+    """
+    valid addresses:
+        00…ff = special characters, like boy, dog, last entity, script owner (larger than required)
+        2834… = temp words
+        2258… = words
+        else = arbitrary access (hack)
+    """
+
+    def __init__(self, address=None, flag=None, offset=None):
         self.address = address
         if isinstance(self.address, Word):
             self.address = self.address.eval()
         self.flag = flag
         if isinstance(self.flag, Word):
             self.flag = self.flag.eval()
+        self.offset = offset
+        if isinstance(self.offset, Word):
+            self.offset = self.offset.eval()
+
         self.inverted = False
-        self.type = "xx"
+        self.handle_type()
+
+    def handle_type(self):
+        if self.address >= 0x2834:
+            self.type = "28"
+        elif self.address >= 0x2258:
+            self.type = "22"
+        elif self.address <= 0xff:
+            self.type = "char"
+        else:
+            self.type = "xx"
 
     def __repr__(self):
-        return f"Memory(address={self.address}, flag={self.flag})"
+        return f"Memory(address={self.address}/{self.type}, flag={self.flag}, offset={self.offset})"
     
     def eval(self):
         return self.address
 
     def _code(self):
+        self.handle_type()
+
         address = self.address
         flag = self.flag
         
         if address >= 0x2834:
             address -= 0x2834
-            self.type = "28"
         elif address >= 0x2258:
             address -= 0x2258
-            self.type = "24"
         else:
             if address >= 0x2258:
                 address -= 0x2258
@@ -163,7 +413,13 @@ class Memory(Function_Base):
                 address += 0xDDA8
             self.type = "xx"
 
-        if not flag:
+        if self.type == "char":
+            address = '{:02X}'.format(address, 'x')
+            address = wrap(address, 2)
+            address = ' '.join(reversed(address))
+
+            return address
+        elif not flag:
             address = '{:04X}'.format(address, 'x')
             address = wrap(address, 2)
             address = ' '.join(reversed(address))
@@ -185,6 +441,35 @@ class Memory(Function_Base):
             combined = ' '.join(reversed(combined))
 
             return combined
+        
+    def calculate(self, deref=True):
+        self.handle_type()
+
+        code = []
+
+        match [self.type, self.offset]:
+            case ["char", None]:
+                code = [self.eval()]
+            case ["28", None]:
+                code = [0x0d, self.code()]
+            case ["22", None]:
+                code = [0x08, self.code()]
+            case ["char", _]:
+                code = [self.eval(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
+                if deref:
+                    code += [0x55]
+            case ["28", _]:
+                code = [0x0d, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
+                if deref:
+                    code += [0x55]
+            case ["22", _]:
+                code = [0x08, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
+                if deref:
+                    code += [0x55]
+            case _:
+                raise Exception("not supported")
+
+        return code
 
 class Param(BaseBox):
     def __init__(self, name, value):

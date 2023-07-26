@@ -10,7 +10,7 @@ class Parser():
             # A list of all token names accepted by the parser.
             [
                 '..',
-                '(', ')', ',', ';', '{', '}', '<', '>', # '[', ']', '\n',
+                '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>',
                 'TRUE', 'FALSE',
@@ -353,6 +353,12 @@ class Parser():
             flag = Word(p[3])
 
             return Memory(address, flag)
+        @self.pg.production('memory :  < WORD > [ WORD ]')
+        def parse(p):
+            address = Word(p[1])
+            offset = Word(p[4])
+
+            return Memory(address, offset=offset)
         @self.pg.production('memory : < WORD >')
         def parse(p):
             address = Word(p[1])
