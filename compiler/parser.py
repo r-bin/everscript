@@ -57,6 +57,11 @@ class Parser():
             "flag": (lambda p: self.generator.get_flag()),
             "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
             "entrance": (lambda p: MapEntrance(p[2][0], p[2][1], p[2][2])),
+
+            # unary operators
+            "dead": (lambda p: Dead(p[2][0])),
+            "rand": (lambda p: Rand(p[2][0])),
+            "randrange": (lambda p: RandRange(p[2][0])),
         }
 
         self.generator: CodeGen = generator
