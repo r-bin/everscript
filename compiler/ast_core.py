@@ -38,261 +38,6 @@ class Function_Base(BaseBox):
         count = len(count)
 
         return count
-    
-class Calculatable():
-    """
-    00…2f = opcodes
-    30…3f = value 0…f
-    40…3f = negative values?
-    50…5f = special characters?
-    60…6f = value = 10…1f
-    """
-
-    _instructions = {
-        "nop": 0x00, # noop?
-
-        # _: 0x01, # signed const byte
-        "unsigned byte": 0x02, # unsigned const byte
-
-        # _: 0x03, # signed const word
-        "word": 0x04, # unsigned const word
-
-        "test": 0x05, # test bit
-        "test temp": 0x0a, # test temp bit
-
-        # _: 0x06, # read byte, signed
-        # _: 0x07, # read byte, unsigned
-        "read word": 0x08, # read word, signed
-        "read signed word": 0x09, # read word, unsigned
-        # _: 0x0b, # read temp byte, signed
-        # _: 0x0c, # read temp byte, unsigned
-        "read signed temp word": 0x0d, # read temp word, signed
-        "read temp word": 0x0e, # read temp word, unsigned
-
-        # _: 0x0f, # script arg bit, like 05 and 08 but addr is only 8bit
-
-        # _: 0x10, # signed byte script arg
-        # _: 0x11, # unsigned byte script arg
-        # _: 0x12, # signed word script arg
-        # _: 0x13, # unsigned word script arg
-
-        # _: 0x14, # boolean invert
-        # _: 0x15, # bitwise invert
-        # _: 0x16, # flip sign
-        # _: 0x17, # pull from stack, res = pulled * res
-
-        "/": 0x18, # pulled / res
-        "+": 0x1a, # pulled + res
-        "-": 0x1b, # pulled - res
-        "<<": 0x1c, # pulled << res
-        ">>": 0x1d, # pulled >> res
-        "<": 0x1e, # pulled < res (signed)
-        ">": 0x1f, # pulled > res (signed)
-        "<=": 0x20, # pulled <= res (signed)
-        ">=": 0x21, # pulled >= res (signed)
-        "==": 0x22, # pulled == res
-        "!=": 0x23, # pulled != res
-        "&": 0x24, # pulled & res
-        "|": 0x25, # pulled | res
-        "^": 0x26, # pulled ^ res
-        "||": 0x27, # pulled || res
-        "&&": 0x28, # pulled && res
-
-        "push": 0x29, # push to stack
-        
-        # _: 0x2a, # random word
-        
-        # _: 0x2b, # (random word * $2) >> 16 = randrange[0,$2[
-            
-        # _: 0x2c, # dialog response
-        
-        # _: 0x54, # $2 = script data[0x09]
-        
-        # _: 0x55, # deref res
-        # _: 0x56, # deref res &0xff
-        
-        # _: 0x57: # (player==dog)
-            
-        # _: 0x58, # game timer bits 0-15 ($7e0b19..7e0b1a)
-        
-        # _: 0x59, # bits 16-32 ($7e0b1b..7e0b1c)
-        
-        # _: 0x5a, # Run shop: buy, get result
-        
-        # _: 0x5b, # sell
-        
-        # _: 0x5c, # Next damage will kill entity
-        
-        # _: 0x51, # WARN: Invalid sub-instr
-        # _: 0x19, # WARN: Invalid sub-instr
-        # _: 0x2f, # WARN: Invalid sub-instr
-        # _: 0x5d, # WARN: Invalid sub-instr
-        # _: 0x5e, # WARN: Invalid sub-instr
-        # _: 0x5f # WARN: Invalid sub-instr
-    }
-
-    _operators = {
-        "if": {
-            "22": 0x09,
-            "25": 0x1c,
-            "28": 0x09
-        },
-        "if!": {
-            "22": 0x08,
-            "25": 0x1c,
-            "28": 0x08
-        },
-        "=": {
-            "xx": 0x17,
-            "22": 0x18,
-            "28": 0x19
-        },
-
-        "read word": {
-            "22": _instructions["read word"],
-            "28": _instructions["read temp word"]
-        },
-        "test": {
-            "22": _instructions["test"],
-            "28": _instructions["test temp"]
-        }
-    }
-
-    def _terminate(self, code:list[int | str | list]):
-        code = list(reversed(code))
-
-        termination = 0x80
-
-        for i, c in enumerate(code):
-            match c:
-                case c if isinstance(c, str):
-                    pass
-                case c if isinstance(c, int):
-                    code[i] = [c, termination]
-                    break
-                case c if isinstance(c, list):
-                    code[i] = c + [termination]
-                    break
-                case _:
-                    raise Exception("invalid type")
-
-        code = list(reversed(code))
-
-        return code
-    
-    def _clean_calucatable(self, code):
-        calculated_code = code
-
-        def stringify(c):
-            match c:
-                case c if isinstance(c, int):
-                    return '{:02X}'.format(c, 'x')
-                case c if isinstance(c, str):
-                    return c
-                case c if isinstance(c, list):
-                    return stringify(sum(c))
-                case _:
-                    raise Exception("invalid type")
-
-        code = list(map(stringify, code))
-        code = ' '.join(code)
-        code = f"{code} // calculator({calculated_code})"
-        if getattr(self, "flatten", None):
-            code = f"{code} or {self.flatten(self)}"
-
-        return code
-
-
-class BinaryOp(Function_Base, Calculatable):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-        if isinstance(left, Param):
-            left = left.value
-        if isinstance(right, Param):
-            right = right.value
-
-        self.memory = False
-        if isinstance(left, Memory) or isinstance(right, Memory):
-            self.memory = True
-        elif isinstance(left, BinaryOp) and left.memory:
-            self.memory = True
-        elif isinstance(right, BinaryOp) and right.memory:
-            self.memory = True
-        else:
-            pass
-
-        self.value_count = 2
-    
-    def handle_params(self):
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            if isinstance(self.left, Param) and self.left.name != None:
-                self.left.value = sp[self.left.name].value
-            if isinstance(self.right, Param) and self.right.name != None:
-                self.right.value = sp[self.right.name].value
-
-
-    def eval(self):
-        self.handle_params()
-
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self._eval()
-
-    def _code(self):
-        value = self.eval()
-        self.value_count = max(self.left.value.value_count, self.right.value.value_count)
-        
-        if self.value_count == 1:
-            value = '{:02X}'.format(value, 'x')
-        elif self.value_count == 2:
-            value = '{:04X}'.format(value, 'x')
-        elif self.value_count == 3:
-            value = '{:06X}'.format(value, 'x')
-
-        value = re.sub("0x", "", value)
-        value = wrap(value, 2)
-        
-        return ' '.join(reversed(value))
-    
-    def calculate(self):
-        self.handle_params() #todo
-
-        left = self.left
-        if isinstance(left, Param):
-            left = left.value
-
-        if isinstance(left, BinaryOp):
-            left = left.calculate()
-        
-        right = self.right
-        if isinstance(right, Param):
-            right = right.value
-            
-        if isinstance(right, BinaryOp) or isinstance(right, Word) or isinstance(right, Memory):
-            right = right.calculate()
-
-        if hasattr(self, "memory") and not self.memory:
-            return Word(self.eval()).calculate()
-        else:
-            return self._calculate(left, right)
-    
-    def flatten(self, x):
-        if isinstance(x, BinaryOp):
-            return self.flatten(x.left) + [x.operator()] + self.flatten(x.right)
-        elif isinstance(x, Param):
-            if not x.value:
-                sp = {x.name : x for x in self.params}
-                x.value = sp[x.name].value
-            return self.flatten(x.value)
-        else:
-            return [x]
-
-    def operator(self):
-        return ""
 
 class Word(Function_Base):
     def __init__(self, value, value_count = 2):
@@ -532,3 +277,287 @@ class Function_Code(Function_Base):
         return f"""
 {code}
         """
+ 
+class Calculatable():
+    """
+    00…2f = opcodes
+    30…3f = value 0…f
+    40…3f = negative values?
+    50…5f = special characters?
+    60…6f = value = 10…1f
+    """
+
+    _instructions = {
+        "nop": 0x00, # noop?
+
+        # _: 0x01, # signed const byte
+        "unsigned byte": 0x02, # unsigned const byte
+
+        # _: 0x03, # signed const word
+        "word": 0x04, # unsigned const word
+
+        "test": 0x05, # test bit
+        "test temp": 0x0a, # test temp bit
+
+        # _: 0x06, # read byte, signed
+        # _: 0x07, # read byte, unsigned
+        "read word": 0x08, # read word, signed
+        "read signed word": 0x09, # read word, unsigned
+        # _: 0x0b, # read temp byte, signed
+        # _: 0x0c, # read temp byte, unsigned
+        "read signed temp word": 0x0d, # read temp word, signed
+        "read temp word": 0x0e, # read temp word, unsigned
+
+        # _: 0x0f, # script arg bit, like 05 and 08 but addr is only 8bit
+
+        # _: 0x10, # signed byte script arg
+        # _: 0x11, # unsigned byte script arg
+        # _: 0x12, # signed word script arg
+        # _: 0x13, # unsigned word script arg
+
+        # _: 0x14, # boolean invert
+        # _: 0x15, # bitwise invert
+        # _: 0x16, # flip sign
+        # _: 0x17, # pull from stack, res = pulled * res
+
+        "/": 0x18, # pulled / res
+        "+": 0x1a, # pulled + res
+        "-": 0x1b, # pulled - res
+        "<<": 0x1c, # pulled << res
+        ">>": 0x1d, # pulled >> res
+        "<": 0x1e, # pulled < res (signed)
+        ">": 0x1f, # pulled > res (signed)
+        "<=": 0x20, # pulled <= res (signed)
+        ">=": 0x21, # pulled >= res (signed)
+        "==": 0x22, # pulled == res
+        "!=": 0x23, # pulled != res
+        "&": 0x24, # pulled & res
+        "|": 0x25, # pulled | res
+        "^": 0x26, # pulled ^ res
+        "||": 0x27, # pulled || res
+        "&&": 0x28, # pulled && res
+
+        "push": 0x29, # push to stack
+        
+        # _: 0x2a, # random word
+        
+        # _: 0x2b, # (random word * $2) >> 16 = randrange[0,$2[
+            
+        # _: 0x2c, # dialog response
+        
+        # _: 0x54, # $2 = script data[0x09]
+        
+        # _: 0x55, # deref res
+        # _: 0x56, # deref res &0xff
+        
+        # _: 0x57: # (player==dog)
+            
+        # _: 0x58, # game timer bits 0-15 ($7e0b19..7e0b1a)
+        
+        # _: 0x59, # bits 16-32 ($7e0b1b..7e0b1c)
+        
+        # _: 0x5a, # Run shop: buy, get result
+        
+        # _: 0x5b, # sell
+        
+        # _: 0x5c, # Next damage will kill entity
+        
+        # _: 0x51, # WARN: Invalid sub-instr
+        # _: 0x19, # WARN: Invalid sub-instr
+        # _: 0x2f, # WARN: Invalid sub-instr
+        # _: 0x5d, # WARN: Invalid sub-instr
+        # _: 0x5e, # WARN: Invalid sub-instr
+        # _: 0x5f # WARN: Invalid sub-instr
+    }
+
+    _operators = {
+        "if": {
+            "22": 0x09,
+            "25": 0x1c,
+            "28": 0x09
+        },
+        "if!": {
+            "22": 0x08,
+            "25": 0x1c,
+            "28": 0x08
+        },
+        "=": {
+            "xx": 0x17,
+            "22": 0x18,
+            "28": 0x19
+        },
+
+        "read word": {
+            "22": _instructions["read word"],
+            "28": _instructions["read temp word"]
+        },
+        "test": {
+            "22": _instructions["test"],
+            "28": _instructions["test temp"]
+        }
+    }
+
+    def _terminate(self, code:list[int | str | list]):
+        code = list(reversed(code))
+
+        termination = 0x80
+
+        for i, c in enumerate(code):
+            match c:
+                case c if isinstance(c, str):
+                    pass
+                case c if isinstance(c, int):
+                    code[i] = [c, termination]
+                    break
+                case c if isinstance(c, list):
+                    code[i] = c + [termination]
+                    break
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(reversed(code))
+
+        return code
+    
+    def _clean_calucatable(self, code):
+        calculated_code = code
+
+        def stringify(c):
+            match c:
+                case c if isinstance(c, int):
+                    return '{:02X}'.format(c, 'x')
+                case c if isinstance(c, str):
+                    return c
+                case c if isinstance(c, list):
+                    return stringify(sum(c))
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(map(stringify, code))
+        code = ' '.join(code)
+        code = f"{code} // calculator({calculated_code})"
+        if getattr(self, "flatten", None):
+            code = f"{code} or {self.flatten(self)}"
+
+        return code
+
+class UnaryOp(Function_Base, Calculatable):
+    params: list[Param]
+
+    def __init__(self, value):
+        self.value = value
+
+        if isinstance(value, Param):
+            value = value.value
+
+        self.memory = True
+
+    def handle_params(self):
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            if isinstance(self.value, Param) and self.value.name != None:
+                self.value.value = sp[self.value.name].value
+
+    def calculate(self):
+        self.handle_params() #todo
+
+        value = self.value
+        if isinstance(value, Param):
+            value = value.value
+
+        if isinstance(value, Word) or isinstance(value, Memory):
+            value = value.calculate()
+
+        return self._calculate(value)
+    
+class BinaryOp(Function_Base, Calculatable):
+    params: list[Param]
+
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+        if isinstance(left, Param):
+            left = left.value
+        if isinstance(right, Param):
+            right = right.value
+
+        self.memory = False
+        if isinstance(left, Memory) or isinstance(right, Memory):
+            self.memory = True
+        elif isinstance(left, BinaryOp) and left.memory:
+            self.memory = True
+        elif isinstance(right, BinaryOp) and right.memory:
+            self.memory = True
+        else:
+            pass
+
+        self.value_count = 2
+    
+    def handle_params(self):
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            if isinstance(self.left, Param) and self.left.name != None:
+                self.left.value = sp[self.left.name].value
+            if isinstance(self.right, Param) and self.right.name != None:
+                self.right.value = sp[self.right.name].value
+
+    def eval(self):
+        self.handle_params()
+
+        self.left.params = self.params
+        self.right.params = self.params
+
+        return self._eval()
+
+    def _code(self):
+        value = self.eval()
+        self.value_count = max(self.left.value.value_count, self.right.value.value_count)
+        
+        if self.value_count == 1:
+            value = '{:02X}'.format(value, 'x')
+        elif self.value_count == 2:
+            value = '{:04X}'.format(value, 'x')
+        elif self.value_count == 3:
+            value = '{:06X}'.format(value, 'x')
+
+        value = re.sub("0x", "", value)
+        value = wrap(value, 2)
+        
+        return ' '.join(reversed(value))
+    
+    def calculate(self):
+        self.handle_params() #todo
+
+        left = self.left
+        if isinstance(left, Param):
+            left = left.value
+
+        if isinstance(left, BinaryOp):
+            left = left.calculate()
+        
+        right = self.right
+        if isinstance(right, Param):
+            right = right.value
+            
+        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
+            right = right.calculate()
+
+        if hasattr(self, "memory") and not self.memory:
+            return Word(self.eval()).calculate()
+        else:
+            return self._calculate(left, right)
+    
+    def flatten(self, x):
+        if isinstance(x, BinaryOp):
+            return self.flatten(x.left) + [x.operator()] + self.flatten(x.right)
+        elif isinstance(x, Param):
+            if not x.value:
+                sp = {x.name : x for x in self.params}
+                x.value = sp[x.name].value
+            return self.flatten(x.value)
+        else:
+            return [x]
+
+    def operator(self):
+        return ""

@@ -420,6 +420,8 @@ class If(Function_Base, Calculatable):
         self.distance = None
         self.memory = False
 
+        if isinstance(condition, UnaryOp):
+            self.memory = condition.memory
         if isinstance(condition, Memory):
             self.memory = True
         elif isinstance(condition, BinaryOp) and isinstance(condition.left.value, Memory):
@@ -463,7 +465,11 @@ class If(Function_Base, Calculatable):
 
         condition = self.condition.calculate()
 
-        code = [0x09] + self._terminate(condition) + [destination]
+        opcode = 0x09
+        if isinstance(self.condition, UnaryOp): #TODO should be 0x09?
+            opcode = 0x08
+
+        code = [opcode] + self._terminate(condition) + [destination]
 
         return code
 
@@ -557,6 +563,8 @@ class Sub(BinaryOp):
         code = []
 
         match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate() + [0x29] + right + [0x1b]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
                 code = [0x0d, left.code(), 0x29] + right + [0x1b]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
@@ -612,7 +620,7 @@ class Asign(BinaryOp):
 
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "xx":
-                code = [0x19, left.code()] + self._terminate(right)
+                code = [0x18, left.code()] + self._terminate(right)
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
                 code = [0x19, left.code()] + self._terminate(right)
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
@@ -958,3 +966,30 @@ yy // linking required
                 Asign(Memory(0x2258), Word(self.map.variant)),
                 function_transition
             ], '\n').code()
+        
+# unary operators
+
+class Dead(UnaryOp):
+    def _calculate(self, value):
+        code = []
+
+        code = value + [0x5c]
+
+        return code
+    
+class Rand(UnaryOp):
+    def _calculate(self, value):
+        code = []
+
+        code = [0x2a, 0x29] + value + [0x24]
+
+        return code
+    
+class RandRange(UnaryOp):
+    def _calculate(self, value):
+        code = []
+
+        code = value + [0x2b]
+
+        return code
+    
