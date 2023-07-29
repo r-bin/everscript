@@ -36,6 +36,7 @@ class MemoryManager():
             "script": [],
             "text": [],
             "text_key": [],
+            "function_key": [],
 
             "memory": [],
             "flag": []
@@ -49,6 +50,9 @@ class MemoryManager():
                 if isinstance(m.start, StringKey):
                     for string_key in m.eval():
                         self.memory["text_key"].append(string_key)
+                elif isinstance(m.start, FunctionKey):
+                    for string_key in m.eval():
+                        self.memory["function_key"].append(string_key)
                 elif isinstance(m.start, Memory):
                     for address in m.eval():
                         self.memory["memory"].append(address)
@@ -57,6 +61,8 @@ class MemoryManager():
                     self._add(m)
             elif isinstance(m, StringKey):
                 self.memory["text_key"].append(m)
+            elif isinstance(m, FunctionKey):
+                self.memory["function_key"].append(m)
             elif isinstance(m, Memory):
                 self.memory["memory"].append(m)
             else:
@@ -116,6 +122,11 @@ class MemoryManager():
                 del(memory[i])
 
         raise Exception("no memory defined/available")
+    
+    def allocate_function_key(self, function):
+        function_key = self.memory["function_key"].pop(0)
+        
+        function.key = function_key
         
     def allocate_memory(self):
         memory = self.memory["memory"].pop(0)
@@ -136,10 +147,13 @@ class MemoryManager():
 
 class MapDataHandler():
     class MapData():
-        address_trigger_offset = 0x0d
-
         address_trigger_enter_base = 0x92801b
-        address_trigger_enter_size = 0x05
+        address_trigger_enter_size = 5
+
+        address_trigger_offset = 13
+
+        address_trigger_stepon_enter_size = 6
+        address_trigger_b_enter_size = 6
 
         def __init__(self, index, data: int, trigger_step_count: int, trigger_b_count: int):
             self.index = index
@@ -147,8 +161,28 @@ class MapDataHandler():
 
             self.trigger_step_count = trigger_step_count
             self.trigger_b_count = trigger_b_count
-            self.trigger_enter = self.address_trigger_enter_base + (self.address_trigger_enter_size * index)
+            self.trigger_enter = self.address_trigger_enter_base + (index * self.address_trigger_enter_size)
 
+        def address_stepon_trigger(self, index:int) -> int:
+            address = self.data
+            address += self.address_trigger_offset
+            address += 2
+            address += index * self.address_trigger_stepon_enter_size
+            address += 4
+
+            return address
+        
+        def address_b_trigger(self, index:int) -> int:
+            address = self.data
+            address += self.address_trigger_offset
+            address += 2
+            address += self.trigger_step_count * self.address_trigger_stepon_enter_size
+            address += 2
+            address += index * self.address_trigger_b_enter_size
+            address += 4
+
+            return address
+        
     map_data: MapData = None
 
     def __init__(self):
@@ -223,6 +257,11 @@ unallocated RAM:
             address = self.memory_manager.allocate_script(count)
 
             function.address = address
+    
+    def link_function_key(self, function:Function):
+        if function.key == None:
+            self.memory_manager.allocate_function_key(function)
+
 
     def link_map(self, maps: list[Map]):
         variants = {}
