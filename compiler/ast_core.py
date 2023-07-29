@@ -199,6 +199,8 @@ class Memory(Function_Base):
                 code = [0x0d, self.code()]
             case ["22", None]:
                 code = [0x08, self.code()]
+            case ["xx", None]:
+                code = [0x08, self.code()]
             case ["char", _]:
                 code = [self.eval(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:

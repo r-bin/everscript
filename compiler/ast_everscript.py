@@ -13,8 +13,34 @@ import random
 import uuid
 from enum import StrEnum
 
+class FunctionKey(Function_Base):
+    value_count:int = 3
+
+    def __init__(self, index):
+        self.index = index
+        if isinstance(self.index, Param):
+            self.index = self.index.eval()
+        self.address = 0x928294 + self.index
+        
+        if (self.index % self.value_count) != 0:
+            raise Exception("invalid index (only index%3==0 is allowed")
+
+    def __repr__(self):
+        return f"FunctionKey({self.index})"
+        
+    def eval(self):
+        return Range(self.address, self.address + (self.value_count - 1))
+
+    def _code(self):
+        code = Word(self.index)
+        code.value_count = self.value_count
+        code = code.code()
+
+        return code
 
 class Function(Function_Base):
+    key:FunctionKey = None
+
     def __init__(self, name, script, args, function_args=[]):
         self.name = name
         self.script = script
@@ -39,6 +65,9 @@ class Function(Function_Base):
         if self.install and self.terminate:
             self.script += [ End() ]
 
+    def __repr__(self):
+        return f"Function('{self.name}', {self.address}, {self.install})"
+        
     def _code(self):
         for script in self.script:
             script.params = self.params
@@ -806,28 +835,30 @@ class Void(BaseBox):
     pass
 
 class StringKey(Function_Base):
+    value_count:int = 3
+
     def __init__(self, index):
         self.index = index
         if isinstance(self.index, Param):
             self.index = self.index.eval()
         self.address = 0x91d000 + self.index
         
-        if (self.index % 3) != 0:
+        if (self.index % self.value_count) != 0:
             raise Exception("invalid index (only index%3==0 is allowed")
 
     def __repr__(self):
         return f"StringKey({self.index})"
         
     def eval(self):
-        return Range(self.address, self.address + 2)
+        return Range(self.address, self.address + (self.value_count - 1))
 
     def _code(self):
         code = Word(self.index)
-        code.value_count = 3
+        code.value_count = self.value_count
         code = code.code()
 
         return code
-
+    
 class Range(BaseBox):
     def __init__(self, start, end):
         self.start = start
@@ -846,9 +877,13 @@ class Range(BaseBox):
     def eval(self):
         list = []
         if isinstance(self.start, StringKey):
-            step = 3
+            step = self.start.value_count
             for index in range(self.start.index, self.end.index + step, step):
                 list.append(StringKey(index))
+        elif isinstance(self.start, FunctionKey):
+            step = self.start.value_count
+            for index in range(self.start.index, self.end.index + step, step):
+                list.append(FunctionKey(index))
         elif isinstance(self.start, Memory):
             step = 2
             for address in range(self.start.eval(), self.end.eval() + step, step):
@@ -875,6 +910,8 @@ class MapEntrance(Function_Base):
 class Map(Function_Base):
     class Collection(StrEnum):
         ENTRANCE = "entrance"
+        B_TRIGGER = "b_trigger"
+        STEPON_TRIGGER = "stepon_trigger"
 
     class Trigger(StrEnum):
         ENTER = "trigger_enter"
@@ -883,6 +920,8 @@ class Map(Function_Base):
 
     enums: dict[str, Enum] = {}
     enum_entrance: list[MapEntrance] = None
+    enum_stepon_trigger: list[Function] = None
+    enum_b_trigger: list[Function] = None
 
     functions: dict[str, Function] = {}
     trigger_enter: Function = None
@@ -905,6 +944,8 @@ class Map(Function_Base):
 
         self.enums = {c.name: c for c in code if isinstance(c, Enum)}
         self.enum_entrance = self._extract_enum(self.Collection.ENTRANCE)
+        self.enum_stepon_trigger = self._extract_enum(self.Collection.STEPON_TRIGGER)
+        self.enum_b_trigger = self._extract_enum(self.Collection.B_TRIGGER)
 
         pass
     
@@ -919,6 +960,27 @@ class Map(Function_Base):
             return self.enums[enum]
         else:
             return None
+        
+    def triggers_stepon(self) -> list:
+        return self.enum_to_list(self.enum_stepon_trigger, self.map_data.trigger_step_count)
+    
+    def triggers_b(self) -> list:
+        return self.enum_to_list(self.enum_b_trigger, self.map_data.trigger_b_count)
+
+    def enum_to_list(self, enum:Enum, count:int) -> list:
+        triggers = []
+        if enum != None:
+            triggers = enum.values
+
+        if len(triggers) > count:
+            raise Exception(f"invalid trigger count for {enum} ({len(triggers)} > {count})")
+
+        triggers = triggers + [None] * (count - len(triggers))
+
+        return triggers
+
+
+
 
 
 class MapTransition(Function_Base):

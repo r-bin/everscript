@@ -53,6 +53,7 @@ class Parser():
             "string": (lambda p: String(self.generator, p[2][0], True)),
             "cstring": (lambda p: RawString(p[2][0])),
             "string_key": (lambda p: StringKey(p[2][0])),
+            "function_key": (lambda p: FunctionKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
             "flag": (lambda p: self.generator.get_flag()),
             "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
@@ -126,6 +127,7 @@ class Parser():
         def parse(p):
             return p[0] + [ p[2] ]
         @self.pg.production('enum_entry : IDENTIFIER = expression')
+        @self.pg.production('enum_entry : IDENTIFIER = function')
         def parse(p):
             name = p[0]
             value = p[2]
