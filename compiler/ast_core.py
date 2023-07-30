@@ -45,6 +45,9 @@ class Word(Function_Base):
             self.value_original = value
             self.value = value
             self.value_count = value_count
+        elif isinstance(value, Word):
+            self.value_original = value
+            self.value = value.eval()
         else:
             self.value_original = value
             self.value = int(value.value, 16)
@@ -122,6 +125,8 @@ class Memory(Function_Base):
         if isinstance(self.offset, Word):
             self.offset = self.offset.eval()
 
+        self.count = 2
+
         self.inverted = False
         self.handle_type()
 
@@ -192,24 +197,28 @@ class Memory(Function_Base):
 
         code = []
 
-        match [self.type, self.offset]:
-            case ["char", None]:
+        match [self.type, self.offset, self.count]:
+            case ["char", None, _]:
                 code = [self.eval()]
-            case ["28", None]:
-                code = [0x0d, self.code()]
-            case ["22", None]:
+            case ["28", None, 1]:
+                code = [0x0c, self.code()]
+            case ["28", None, _]:
+                code = [0x0e, self.code()]
+            case ["22", None, 1]:
+                code = [0x07, self.code()]
+            case ["22", None, _]:
                 code = [0x08, self.code()]
-            case ["xx", None]:
+            case ["xx", None, _]:
                 code = [0x08, self.code()]
-            case ["char", _]:
+            case ["char", _, _]:
                 code = [self.eval(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:
                     code += [0x55]
-            case ["28", _]:
+            case ["28", _, _]:
                 code = [0x0d, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:
                     code += [0x55]
-            case ["22", _]:
+            case ["22", _, _]:
                 code = [0x08, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:
                     code += [0x55]

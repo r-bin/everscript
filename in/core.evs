@@ -307,16 +307,16 @@ enum DOG {
 }
 
 enum CHARACTER {
-    BOY = 0xd0,
-    DOG = 0xd1,
-    ACTIVE = 0xd2,
-    INACTIVE = 0xd3,
+    BOY = 0x50,
+    DOG = 0x51,
+    ACTIVE = 0x52,
+    INACTIVE = 0x53,
 
     BOTH = 0x00,
     NONE = 0x01,
 
-    LAST_ENTITY = 0xad,
-    SCRIPT_OWNER = 0xae,
+    LAST_ENTITY = 0x2d,
+    SCRIPT_OWNER = 0x2e,
 
     RANDOM = 0x2a
 }
@@ -1182,9 +1182,28 @@ fun entity(character) {
     } else if(character == CHARACTER.SCRIPT_OWNER) {
         code(character);
     } else if(character >= 0x2834) {
-        code(0x8d, character - 0x2834);
+        code(0x0d, character - 0x2834);
     } else if(character >= 0x2258) {
-        code(0x88, character - 0x2258);
+        code(0x08, character - 0x2258);
+    }
+}
+fun entity_t(character) {
+    // sometimes writes arg0…arg20
+
+    if(character == CHARACTER.BOY) {
+        code(0x80 + character);
+    } else if(character == CHARACTER.DOG) {
+        code(0x80 + character);
+    } else if(character == CHARACTER.ACTIVE) {
+        code(0x80 + character);
+    } else if(character == CHARACTER.LAST_ENTITY) {
+        code(0x80 + character);
+    } else if(character == CHARACTER.SCRIPT_OWNER) {
+        code(0x80 + character);
+    } else if(character >= 0x2834) {
+        code(0x80 + 0x0d, character - 0x2834);
+    } else if(character >= 0x2258) {
+        code(0x80 + 0x08, character - 0x2258);
     }
 }
 
@@ -1214,6 +1233,9 @@ fun call_async(script_address) {
 
 // MUSIC
 
+fun sound(sound_effect) {
+    code(0x30, sound_effect, "// (30) PLAY SOUND EFFECT 0x58 ??");
+}
 fun music(music) {
     code(0x33, music, "// PLAY MUSIC 0x12");
 }
@@ -1258,7 +1280,7 @@ fun teleport(character, x, y) {
     if(character == CHARACTER.BOTH) {
         code(0x20, x, y, "// (20) Teleport both to 43 93");
     } else {
-        code(0x42, entity(character), x, y, "// (42) Teleport $2835 to a7, b9");
+        code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
     }
 }
 
@@ -1314,7 +1336,7 @@ fun add_enemy_with_flags(enemy, x, y, flags) {
 }
 
 fun add_dynamic_enemy_with_flags(enemy, x, y, flags) {
-    code(0xa2, 0x0000 + enemy * 0x02, 0x0000 + flags, entity(x), entity(y), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
+    code(0xa2, 0x0000 + enemy * 0x02, 0x0000 + flags, entity_t(x), entity_t(y), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
 }
 
 fun add_enemy_spawner(enemy, x, y, quantity) {
@@ -1332,9 +1354,9 @@ fun control(character) {
 }
 fun control_enemy(character, control) {
     if(control == True) {
-        code(0x2a, entity(character), "// (2a) Make $2841 script controlled");
+        code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
     } else {
-        code(0x2b, entity(character), "// (2b) Make $2835 player/AI controlled");
+        code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
     }
 }
 
@@ -1348,7 +1370,7 @@ fun available(character) {
         set(FLAG.DOG_UNAVAILABLE);
 
         code(0xbd, "// (bd) BOY = Player controlled");
-        code(0x98, entity(character), "// (98) SWITCH CHAR TO boy");
+        code(0x98, entity_t(character), "// (98) SWITCH CHAR TO boy");
         code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
     } else if(character == CHARACTER.DOG) {
         // teleport(CHARACTER.BOY, 0x00, 0x00);
@@ -1357,7 +1379,7 @@ fun available(character) {
         unset(FLAG.DOG_UNAVAILABLE);
 
         code(0xbf, "// (bf) DOG = Player controlled");
-        code(0x98, entity(character), "// (98) SWITCH CHAR TO dog");
+        code(0x98, entity_t(character), "// (98) SWITCH CHAR TO dog");
         code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
     } else if(character == CHARACTER.BOTH) {
         unset(FLAG.BOY_UNAVAILABLE);
@@ -1764,15 +1786,15 @@ fun reward(item) {
 }
 
 fun wait(character) {
-    code(0x2e, entity(character), "// (2e) Wait for boy (d0) to reach destination");
+    code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
 }
 
 fun walk(walk_type, character, x, y, waiting) {
     if(waiting == True) {
-        code(walk_type, entity(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
         wait(character);
     } else {
-        code(walk_type, entity(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     }
 }
 
@@ -1827,17 +1849,17 @@ fun sfx_effect(effect, on) {
 fun heal(character, animation) {
     if(animation == False) {
         if(character == CHARACTER.BOTH) {
-            code(0x95, entity(CHARACTER.BOY), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
-            code(0x95, entity(CHARACTER.DOG), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(CHARACTER.BOY), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(CHARACTER.DOG), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
         } else {
-            code(0x95, entity(character), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(character), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
         }
     } else {
         if(character == CHARACTER.BOTH) {
-            code(0x94, entity(CHARACTER.BOY), 0x08, 0x8d, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL boy FOR *($23e5 + 15) WITH ANIMATION = health");
-            code(0x94, entity(CHARACTER.DOG), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
+            code(0x94, entity_t(CHARACTER.BOY), 0x08, 0x8d, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL boy FOR *($23e5 + 15) WITH ANIMATION = health");
+            code(0x94, entity_t(CHARACTER.DOG), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
         } else {
-            code(0x94, entity(character), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
+            code(0x94, entity_t(character), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
         }
     }
 }
@@ -1861,57 +1883,57 @@ fun select_alchemy_with_preselection(alchemy_index) {
 fun cast(character, target, spell, level) {
     // spell = CAST
 
-    code(0xac, entity(character), param(spell), param(level), entity(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+    code(0xac, entity_t(character), param(spell), param(level), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
 }
 
 fun face(character, direction) {
     if(direction == DIRECTION.NORTH) {
-        code(0x74, entity(character), "// (74) MAKE boy FACE NORTH");
+        code(0x74, entity_t(character), "// (74) MAKE boy FACE NORTH");
     } else if(direction == DIRECTION.EAST) {
-        code(0x77, entity(character), "// (77) MAKE boy FACE EAST");
+        code(0x77, entity_t(character), "// (77) MAKE boy FACE EAST");
     } else if(direction == DIRECTION.SOUTH) {
-        code(0x75, entity(character), "// (75) MAKE boy FACE SOUTH");
+        code(0x75, entity_t(character), "// (75) MAKE boy FACE SOUTH");
     } else if(direction == DIRECTION.WEST) {
-        code(0x76, entity(character), "// (76) MAKE boy FACE WEST");
+        code(0x76, entity_t(character), "// (76) MAKE boy FACE WEST");
     }
 }
 
 fun attach_to_script(character) {
-    code(0x4e, entity(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
+    code(0x4e, entity_t(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
 }
 
 fun attach_script(character, flag, id) {
     if(flag == SCRIPT_TRIGGER.TALK) {
         if(character == CHARACTER.BOTH) {
-            code(0x3d, entity(CHARACTER.BOY), id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
-            code(0x3d, entity(CHARACTER.DOG), id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3d, entity_t(CHARACTER.BOY), id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3d, entity_t(CHARACTER.DOG), id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         } else {
-            code(0x3d, entity(character), id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3d, entity_t(character), id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         }
     } else {
         if(character == CHARACTER.BOTH) {
-            code(0x3f, entity(CHARACTER.BOY), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
-            code(0x3f, entity(CHARACTER.DOG), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3f, entity_t(CHARACTER.BOY), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3f, entity_t(CHARACTER.DOG), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         } else {
-            code(0x3f, entity(character), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3f, entity_t(character), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         }
     }
 }
 
 fun destroy(character) {
-    code(0x9b, entity(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
+    code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
 }
 
 fun damage(character, value) {
-    code(0x93, entity(character), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+    code(0x93, entity_t(character), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
 }
 
 fun store_last_entity(character) {
-    code(0x19, address(character), entity(CHARACTER.LAST_ENTITY), "// (19) WRITE $283b = last entity ($0341)");
+    code(0x19, address(character), entity_t(CHARACTER.LAST_ENTITY), "// (19) WRITE $283b = last entity ($0341)");
 }
 
 fun animate(character, mode, id) {
-    code(0x78, entity(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+    code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
 }
 
 fun attribute(character, attribute, value) {
@@ -1945,7 +1967,7 @@ fun attribute(character, attribute, value) {
 }
 
 fun attribute_bit(character, attribute) {
-    code(0xa9, entity(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
+    code(0xa9, entity_t(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
 }
 
 fun special_script(script, id) {
@@ -2031,7 +2053,7 @@ fun explode_boss(x, y, radius) {
     <0x23bb> = x;
     <0x23b9> = y;
     
-    code(0xb4, 0x03, entity(0x23bb), entity(0x23b9), 0xb0 + radius, address(0x92df1c), "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
+    code(0xb4, 0x03, entity_t(0x23bb), entity_t(0x23b9), 0xb0 + radius, address(0x92df1c), "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
 
     sleep(0xf0);
     call(ADDRESS.FADE_TO_WHITE);
@@ -2045,7 +2067,7 @@ fun explode_last_entity(radius) {
     eval("18 45 02 0d 00 00 29 6a 1a d5 // (18) WRITE $249d = *($2834 + 26)");
     eval("18 47 02 0d 00 00 29 6c 1a d5 // (18) WRITE $249f = *($2834 + 28)");
     
-    code(0xb4, 0x03, entity(0x249d), entity(0x249f), param(radius), address(0x92df1c), "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
+    code(0xb4, 0x03, entity_t(0x249d), entity_t(0x249f), param(radius), address(0x92df1c), "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
 
     sleep(0xf0);
     call(ADDRESS.FADE_TO_WHITE);
@@ -2124,7 +2146,7 @@ fun homing_cannonball() {
         eval("18 1f 02 08 1f 02 29 32 9a // (18) WRITE $2477 = $2477 + 2");
 
         // teleport(0x2846, 0x1e, 0x21);
-        code(0x43, entity(0x2846), entity(0x2477), entity(0x2479), "// (42) Teleport $2835 to a7, b9");
+        code(0x43, entity_t(0x2846), entity_t(0x2477), entity_t(0x2479), "// (42) Teleport $2835 to a7, b9");
 
         sleep(0x02);
     }
@@ -2136,14 +2158,14 @@ fun drag(enemy, x, y) {
 
     // eval("af 04 8d 02 00 88 61 01 88 63 01 e0 1e cc 03 // (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
 
-    code(0xaf, 0x04, entity(enemy), entity(0x23b9), entity(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+    code(0xaf, 0x04, entity_t(enemy), entity_t(0x23b9), entity_t(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
 }
 
 fun heel(character) {
     eval("18 61 01 50 29 6a 1a d5 // (18) WRITE $23b9 = boy.x");
     eval("18 63 01 50 29 6c 1a d5 // $23bb = boy.y");
 
-    code(0xaf, 0x04, entity(character), entity(0x23b9), entity(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+    code(0xaf, 0x04, entity_t(character), entity_t(0x23b9), entity_t(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
 }
 
 fun test_stuff() {
