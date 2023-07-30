@@ -21,7 +21,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'NAME_IDENTIFIER', 'MAP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'IDENTIFIER', 'VAL'
+                'OBJECT', 'IDENTIFIER', 'VAL'
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -108,6 +108,12 @@ class Parser():
             self.generator.pop_scope()
             
             return map
+        
+        @self.pg.production('expression : OBJECT [ WORD ]')
+        def parse(p):
+            index = Word(p[2])
+
+            return Object(index)
         
         # enum
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list , }')

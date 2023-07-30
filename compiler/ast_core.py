@@ -2,6 +2,15 @@ from rply.token import BaseBox
 import re
 from textwrap import wrap
 
+class Memorable():
+    memory = False
+
+    def inherit_memory(self, memorable):
+        if isinstance(memorable, Memorable):
+            self.memory |= memorable.memory
+        else:
+            pass
+            
 class Function_Base(BaseBox):
     params = []
 
@@ -105,7 +114,7 @@ class Word(Function_Base):
 
         return i
     
-class Memory(Function_Base):
+class Memory(Function_Base, Memorable):
     """
     valid addresses:
         00…ff = special characters, like boy, dog, last entity, script owner (larger than required)
@@ -125,6 +134,7 @@ class Memory(Function_Base):
         if isinstance(self.offset, Word):
             self.offset = self.offset.eval()
 
+        self.memory = True
         self.count = 2
 
         self.inverted = False
@@ -481,7 +491,7 @@ class UnaryOp(Function_Base, Calculatable):
 
         return self._calculate(value)
     
-class BinaryOp(Function_Base, Calculatable):
+class BinaryOp(Function_Base, Calculatable, Memorable):
     params: list[Param]
 
     def __init__(self, left, right):
@@ -493,15 +503,8 @@ class BinaryOp(Function_Base, Calculatable):
         if isinstance(right, Param):
             right = right.value
 
-        self.memory = False
-        if isinstance(left, Memory) or isinstance(right, Memory):
-            self.memory = True
-        elif isinstance(left, BinaryOp) and left.memory:
-            self.memory = True
-        elif isinstance(right, BinaryOp) and right.memory:
-            self.memory = True
-        else:
-            pass
+        self.inherit_memory(left)
+        self.inherit_memory(right)
 
         self.value_count = 2
     
@@ -554,7 +557,7 @@ class BinaryOp(Function_Base, Calculatable):
         if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
             right = right.calculate()
 
-        if hasattr(self, "memory") and not self.memory:
+        if isinstance(self, Memorable) and not self.memory:
             return Word(self.eval()).calculate()
         else:
             return self._calculate(left, right)
