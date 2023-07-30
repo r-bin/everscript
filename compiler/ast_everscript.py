@@ -43,6 +43,8 @@ class Function(Function_Base):
 
     def __init__(self, name, script, args, function_args=[]):
         self.name = name
+        if isinstance(name, Token):
+            self.name = self.name.value
         self.script = script
         self.args = args
         self.install = False
@@ -267,6 +269,12 @@ class Call(Function_Base):
         else:
             raise Exception("todo")
         pass
+
+        if self.address == None:
+            pass
+
+    def __repr__(self):
+        return f"Call({self.address}, {self.function})"
         
     def _code(self):
         if self.function:
@@ -275,17 +283,21 @@ class Call(Function_Base):
 
         if self.function == None or self.function.install:
             address = "xx xx xx"
+            if self.address == None and self.function != None: #TODO: should be done by the linker
+                self.address = self.function.address
             if self.address != None:
                 address = Address(self.address)
                 address = address.code()
+            else:
+                pass
 
             if self.async_call:
                 return f"""
-07 {address}      // async_call({self.address})
+07 {address}      // async  {self}
                 """
             else:
                 return f"""
-29 {address}      // call({self.address})
+29 {address}      // {self}
                 """
         
         else:
@@ -939,7 +951,7 @@ class Map(Function_Base):
         if isinstance(self.map_index, Word):
             self.map_index = self.map_index.value
 
-        self.functions = {c.name.value: c for c in code if isinstance(c, Function)}
+        self.functions = {c.name: c for c in code if isinstance(c, Function)}
         self.trigger_enter = self._extract_function(self.Trigger.ENTER)
 
         self.enums = {c.name: c for c in code if isinstance(c, Enum)}

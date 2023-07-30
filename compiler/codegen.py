@@ -116,7 +116,7 @@ allocated RAM:
         #self.code += f"<address> {expression.count()}\n"
         
         if function.install == False:
-            self.system[function.name.value] = function
+            self.system[function.name] = function
         else:
             self.code.append(function)
     
@@ -251,9 +251,14 @@ allocated RAM:
                     if function == None:
                         function = function_nop
 
+                    if not isinstance(function, Call):
+                        function = Call(function)
+                    else:
+                        pass
+
                     test = If(
                             Equals(Param(None, Memory(0x2258)), Param(None, Word(map.variant))),
-                            [Call(function)]
+                            [function]
                         )
                     code_triggers.append(test)
                     
@@ -289,7 +294,7 @@ allocated RAM:
             if len(maps) == 1:
                 map = maps[0]
 
-                name = f"maps[{map_data.index}, {map.name}].{map.trigger_enter.name.value}()"
+                name = f"maps[{map_data.index}, {map.name}].{map.trigger_enter.name}()"
                 code = map.trigger_enter.address
             else:
                 name = f"maps[{map_data.index}, {'/'.join([map.name for map in maps])}].trigger_enter()"
