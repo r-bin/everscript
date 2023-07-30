@@ -72,6 +72,7 @@ class Lexer():
         self.lexer.add('NAME_IDENTIFIER', '[a-z_][a-z0-9][a-z0-9_]*(?=\()')
         self.lexer.add('MAP', 'map(?=\ )')
         
+        self.lexer.add('OBJECT', 'object(?=\[)')
         self.lexer.add('IDENTIFIER', '[a-zA-Z_][a-zA-Z0-9_]*(?![\(\{])')
         self.lexer.add('VAL', 'val(?=\ )')
 

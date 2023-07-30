@@ -13,6 +13,16 @@ import random
 import uuid
 from enum import StrEnum
 
+class Object(Function_Base, Memorable):
+    def __init__(self, index):
+        self.index = index
+
+        self.memory = True
+
+    def calculate(self):
+        code = self.index.calculate()
+
+        return code
 class FunctionKey(Function_Base):
     value_count:int = 3
 
@@ -717,6 +727,9 @@ class Asign(BinaryOp):
                 code = [0x18, left.code()] + self._terminate(right)
             case left if isinstance(left, Memory) and left.offset != None:
                 code = self._terminate([0x7a] + left.calculate(deref=False)) + self._terminate(right)
+
+            case left if isinstance(left, Object):
+                code = self._terminate([0x5c] + left.calculate()) + self._terminate(right)
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
