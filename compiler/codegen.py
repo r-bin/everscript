@@ -228,13 +228,25 @@ allocated RAM:
             
             for index in range(count):
                 name = "anonymous"
-                function = triggers[index]
+                function = triggers[index] or function_nop
                 if isinstance(function, Enum_Entry):
                     name = function.name
                     function = function.value
 
+                if isinstance(function, Function):
+                    self.code.append(function)
+                    self.linker.link_function(function)
+                    self.linker.link_function_key(function)
+                    code_list.append(self._generate_function(function))
+
+                    code = function.key
+                else:
+                    self.linker.link_function(function.function)
+                    self.linker.link_function_key(function.function)
+
+                    code = function.function.key
+
                 name = f"maps[{map_data.index}, {map.name}].trigger[{index}, {name}]"
-                code = function.key
 
                 append_trigger(code_list, address_triggers(index), code, name)
         else:

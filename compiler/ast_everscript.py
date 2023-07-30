@@ -465,8 +465,8 @@ class If(Function_Base, Calculatable):
             self.memory = condition.memory
         if isinstance(condition, Memory):
             self.memory = True
-        elif isinstance(condition, BinaryOp) and isinstance(condition.left.value, Memory):
-            self.memory = True
+        elif isinstance(condition, BinaryOp):
+            self.memory = condition.memory
 
     def eval(self):
         if self.condition != None:
@@ -526,6 +526,8 @@ class Equals(BinaryOp):
         code = []
 
         match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate() +  [0x29] + right + [0x22]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
                 code = left.calculate() +  [0x29] + right + [0x22]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
@@ -543,6 +545,25 @@ class GreaterEquals(BinaryOp):
     def operator(self):
         return ">="
 
+    def _calculate(self, left, right):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate() +  [0x29] + right + [0x21]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [0x21]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [0x21]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [0x21]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [0x21]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
     def _eval(self):
         return self.left.value.eval() >= self.right.value.eval()
 
@@ -645,6 +666,34 @@ class ShiftLeft(BinaryOp):
 
     def _eval(self):
         return self.left.value.eval() << self.right.value.eval()
+    
+class And(BinaryOp):
+    def operator(self):
+        return "&"
+
+    def _eval(self):
+        return self.left.value.eval() & self.right.value.eval()
+    
+    def _calculate(self, left, right):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory):
+                right = self.right
+                if isinstance(right, Param):
+                    right = right.value
+                right = right.eval()
+
+                if right == 0xff:
+                    left.count = 1
+                else:
+                    raise Exception(f"right parameter '${right}' not supported")
+
+                return left
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
     
 class Asign(BinaryOp):
     def operator(self):

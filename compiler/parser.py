@@ -12,7 +12,7 @@ class Parser():
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
-                '!', '+', '-', '*', '/', '<<', '>>',
+                '!', '+', '-', '*', '/', '<<', '>>', 'AND',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
@@ -28,7 +28,7 @@ class Parser():
             # disambiguate ambiguous production rules.
             precedence = [
                 ('left', ['+', '-']),
-                ('left', ['*', '/'])
+                ('left', ['*', '/', 'AND'])
             ]
         )
         
@@ -361,12 +361,14 @@ class Parser():
 
             return Memory(address, flag)
         @self.pg.production('memory :  < WORD > [ WORD ]')
+        @self.pg.production('memory :  < expression > [ expression ]')
         def parse(p):
             address = Word(p[1])
             offset = Word(p[4])
 
             return Memory(address, offset=offset)
         @self.pg.production('memory : < WORD >')
+        @self.pg.production('memory : < expression >')
         def parse(p):
             address = Word(p[1])
 
@@ -386,6 +388,7 @@ class Parser():
         @self.pg.production('expression : param / param')
         @self.pg.production('expression : param << param')
         @self.pg.production('expression : param >> param')
+        @self.pg.production('expression : param AND param')
         def parse(p):
             left = p[0]
             operator = p[1]
@@ -420,6 +423,8 @@ class Parser():
                     return ShiftLeft(left, right)
                 case '>>':
                     return ShiftRight(left, right)
+                case 'AND':
+                    return And(left, right)
                 case _:
                     raise AssertionError('Oops, this should not be possible!')
 
