@@ -10,6 +10,7 @@
 - SoETilesViewer
   - Memory:
     - ``0x23bf = 0x0001`` - Prevents attacking, e.g. villages
+    - ``0x235f``- "Current equipped weapon (00 - 1A, even numbers, inclusive. …)"
   - ``(6c) UNTRACED INSTR for boy with val1=0x5a,val2=0x14`` - Walks to x/y, kind of the same as ``6d``/``6e``
   - ``(78) UNTRACED INSTR for boy, 0x0028 4 changes sprite/animation/...?`` - See Enum ``ANIMATION_ALL``/``ANIMATION_BOY``/``ANIMATION_DOG``/``ANIMATION_PLACEHOLDER``/``ANIMATION_ENEMY``
   - ``(29) CALL 0x92d89b Unnamed ABS script 0x92d89b`` - Fade to night
