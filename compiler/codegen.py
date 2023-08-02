@@ -19,6 +19,7 @@ class Scope(BaseBox):
     type: Type = Type.DEFAULT
     name: str = None
     identifier: dict[str, any] = {}
+    objects: dict[str, any] = []
 
     def __init__(self, type: Type | BaseBox = Type.DEFAULT):
         if isinstance(type, BaseBox):
@@ -522,6 +523,9 @@ allocated RAM:
             raise Exception(f"Enum '{identifier}' does not exist!")
         
         return all_identifiers[identifier]
+
+    def add_object(self, object) -> None:
+        self._current_scope().objects.append(object)
     
     def get_map_variants(self) -> dict[int, list[Map]]:
         variants: dict[int, list[Map]] = {}
