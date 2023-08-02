@@ -14,8 +14,9 @@ import uuid
 from enum import StrEnum
 
 class Object(Function_Base, Memorable):
-    def __init__(self, index):
+    def __init__(self, index, flag=None):
         self.index = index
+        self.flag = flag
 
         self.memory = True
 
@@ -416,7 +417,7 @@ class Identifier(BaseBox):
     def __init__(self, value):
         self.value = value.value
 
-    def eval(self):
+    def eval(self, params=[]):
         # TODO
         for param in self.params:
             if param.name == self.value:
@@ -478,15 +479,20 @@ class If(Function_Base, Calculatable):
         elif isinstance(condition, BinaryOp):
             self.memory = condition.memory
 
-    def eval(self):
+    def resolve(self, thing):
+        match thing:
+            case Identifier():
+                pass
+
+    def eval(self, params=[]):
         if self.condition != None:
             self.condition.params = self.params
 
         match self.condition:
             case _ if isinstance(self.condition, Word):
-                return self.condition.eval() > 0
-            case _ if isinstance(self.condition, BinaryOp):
-                return self.condition.eval()
+                return self.condition.eval(self.params) > 0
+            case BinaryOp() | Identifier():
+                return self.condition.eval(self.params)
             case None:
                 return True
             case _:
@@ -710,7 +716,7 @@ class Asign(BinaryOp):
         return "="
 
     def _code(self):
-        code = self.calculate()
+        code = self.calculate(self.params)
         code = self._clean_calucatable(code)
 
         return code
@@ -782,23 +788,27 @@ class Set(Function_Base):
         self.memory = memory
 
     def _code(self):
-        address = self.memory.value.address
-        address -= 0x2258
-        address <<=  3
+        combined = "xx xx"
 
-        flag = self.memory.value.flag
-        f = 0
-        while  flag > 1:
-            flag >>= 1
-            f += 1
-        flag = f
-        flag &= 0b111
-        
-        combined = address + flag
-        #combined -= 1 # TODO
-        combined = '{:04X}'.format(combined, 'x')
-        combined = wrap(combined, 2)
-        combined = ' '.join(reversed(combined))
+        memory = self.resolve_param(self.memory)
+        if memory:
+            address = memory.address
+            address -= 0x2258
+            address <<=  3
+
+            flag = memory.flag
+            f = 0
+            while  flag > 1:
+                flag >>= 1
+                f += 1
+            flag = f
+            flag &= 0b111
+            
+            combined = address + flag
+            #combined -= 1 # TODO
+            combined = '{:04X}'.format(combined, 'x')
+            combined = wrap(combined, 2)
+            combined = ' '.join(reversed(combined))
 
         value = 0x01
         value &= 0b111
@@ -1129,3 +1139,24 @@ class RandRange(UnaryOp):
 
         return code
     
+class Loot(Function_Base):
+    def unwrap_param(self, param):
+        if isinstance(param, Param):
+            param = param.value
+
+    def __init__(self, generator, object, reward, amount, next):
+        self._generator = generator
+        self.object = object
+        self.reward = reward
+        self.amount = amount
+        self.next = next
+    
+        self.object = Object(object, self._generator.get_flag())
+        self._generator.add_object(self.object)
+
+        self.function = generator.get_function("loot")
+
+    def _code(self):
+        params = [Param(None, self.object.flag), Param(None, Word(self.object.index)), self.reward, self.amount, self.next]
+
+        return Call(self.function, params).code(self.params)

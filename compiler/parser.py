@@ -56,8 +56,11 @@ class Parser():
             "function_key": (lambda p: FunctionKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
             "flag": (lambda p: self.generator.get_flag()),
-            "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
+            "_loot": (lambda p: Loot(self.generator, p[2][0], p[2][1], p[2][2], p[2][3])),
+
+            # late link
             "entrance": (lambda p: MapEntrance(p[2][0], p[2][1], p[2][2])),
+            "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
 
             # unary operators
             "dead": (lambda p: Dead(p[2][0])),

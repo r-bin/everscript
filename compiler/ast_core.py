@@ -11,20 +11,30 @@ class Memorable():
         else:
             pass
             
+class Param(BaseBox):
+    def __init__(self, name, value):
+        self.name = None
+        if name != None:
+            self.name = name.value
+        self.value = value
+
+    def __repr__(self):
+        return f"Param(name={self.name}, value={self.value})"
+
+    def eval(self):
+        if hasattr(self, 'params'):
+            self.value.params = self.params
+
+        if isinstance(self.value, Memory):
+            return self.value.address.value
+        else:
+            return self.value.eval()
+
 class Function_Base(BaseBox):
     params = []
 
     def code(self, params=[]):
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            p = {x.name : x for x in params}
-            test = sp.keys() & p.keys()
-            for key in sp.keys() & p.keys():
-                if sp[key].value == None:
-                    sp[key].value = p[key].value
-            pass
-        else:
-            self.params = params
+        self.handle_params(params)
 
         code = self._code()
         code = re.sub("\n\s*\n", "", code)
@@ -32,8 +42,8 @@ class Function_Base(BaseBox):
 
         return code
         
-    def code_clean(self):
-        script = self.code(self.params)
+    def code_clean(self, params=[]):
+        script = self.code(params)
         script = re.sub("//.*", "", script)
         script = re.sub("[\s]+", " ", script)
         script = script.strip()
@@ -41,12 +51,42 @@ class Function_Base(BaseBox):
         return script
 
     def count(self):
-        count = self.code_clean()
+        count = self.code_clean(self.params)
         if len(count) > 0:
             count = count.split(" ")
         count = len(count)
 
         return count
+    
+    def resolve_identifier(self):
+        pass
+
+    def resolve_param(self, param):
+        if not isinstance(param, Param):
+            return param
+        
+        if param.value != None:
+            return param.value
+        elif param.name != None:
+            for p in self.params:
+                if p.name == param.name:
+                    return p.value
+        else:
+            raise Exception(f"param '{param}' cannot be resolved")
+
+    def handle_params(self, params:list[Param]=[]):
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            p = {x.name : x for x in params}
+            #test = sp.keys() & p.keys()
+            
+            for key in sp.keys() & p.keys():
+                if sp[key].value == None:
+                    sp[key].value = p[key].value
+            pass
+        else:
+            self.params = params
+
 
 class Word(Function_Base):
     def __init__(self, value, value_count = 2):
@@ -237,25 +277,6 @@ class Memory(Function_Base, Memorable):
 
         return code
 
-class Param(BaseBox):
-    def __init__(self, name, value):
-        self.name = None
-        if name != None:
-            self.name = name.value
-        self.value = value
-
-    def __repr__(self):
-        return f"Param(name={self.name}, value={self.value})"
-
-    def eval(self):
-        if hasattr(self, 'params'):
-            self.value.params = self.params
-
-        if isinstance(self.value, Memory):
-            return self.value.address.value
-        else:
-            return self.value.eval()
-
 class Function_Code(Function_Base):
     def __init__(self, script, delimiter=' '):
         self.script = script
@@ -266,25 +287,15 @@ class Function_Code(Function_Base):
 
         for a in self.script:
             match a:
-                case _ if isinstance(a, int):
+                case int():
                     list.append('{:02X}'.format(a, 'x')) # TODO
-                case _ if isinstance(a, Function_Base):
+                case Function_Base():
                     list.append(a.code(self.params))
-                case _ if isinstance(a, Param):
-                    if a.value == None:
-                        code = "xx"
-                        for param in self.params:
-                            if param.name == a.name:
-                                code = param.value.code()
-                                break
-                        if code == "xx":
-                            pass
-                        list.append(code)
-                    else:
-                        code = a.value
-                        code = code.code(self.params)
-                        list.append(code)
-                case _ if isinstance(a, str):
+                case Param():
+                    code = self.resolve_param(a)
+                    code = code.code(self.params)
+                    list.append(code)
+                case str():
                     list.append(a)
                 case None:
                     pass
@@ -461,10 +472,11 @@ class Calculatable():
             code = f"{code} or {self.flatten(self)}"
 
         return code
+ 
+class Operator(Function_Base, Calculatable, Memorable):
+    pass
 
-class UnaryOp(Function_Base, Calculatable):
-    params: list[Param]
-
+class UnaryOp(Operator):
     def __init__(self, value):
         self.value = value
 
@@ -473,42 +485,43 @@ class UnaryOp(Function_Base, Calculatable):
 
         self.memory = True
 
-    def handle_params(self):
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            if isinstance(self.value, Param) and self.value.name != None:
-                self.value.value = sp[self.value.name].value
+    def calculate(self, params=[]):
+        self.handle_params(params)
 
-    def calculate(self):
-        self.handle_params() #todo
-
-        value = self.value
-        if isinstance(value, Param):
-            value = value.value
+        value = self.resolve_param(self.value)
 
         if isinstance(value, Word) or isinstance(value, Memory):
             value = value.calculate()
 
         return self._calculate(value)
-    
-class BinaryOp(Function_Base, Calculatable, Memorable):
+   
+class BinaryOp(Operator):
     params: list[Param]
 
     def __init__(self, left, right):
         self.left = left
         self.right = right
 
-        if isinstance(left, Param):
-            left = left.value
-        if isinstance(right, Param):
-            right = right.value
+        left = self.resolve_param(left)
+        right = self.resolve_param(right)
 
         self.inherit_memory(left)
         self.inherit_memory(right)
 
         self.value_count = 2
     
-    def handle_params(self):
+    def handle_params(self, params=[]):
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            p = {x.name : x for x in params}
+            test = sp.keys() & p.keys()
+            for key in sp.keys() & p.keys():
+                if sp[key].value == None:
+                    sp[key].value = p[key].value
+            pass
+        else:
+            self.params = params
+
         if self.params:
             sp = {x.name : x for x in self.params}
             if isinstance(self.left, Param) and self.left.name != None:
@@ -516,8 +529,8 @@ class BinaryOp(Function_Base, Calculatable, Memorable):
             if isinstance(self.right, Param) and self.right.name != None:
                 self.right.value = sp[self.right.name].value
 
-    def eval(self):
-        self.handle_params()
+    def eval(self, params=[]):
+        self.handle_params(params)
 
         self.left.params = self.params
         self.right.params = self.params
@@ -540,21 +553,17 @@ class BinaryOp(Function_Base, Calculatable, Memorable):
         
         return ' '.join(reversed(value))
     
-    def calculate(self):
-        self.handle_params() #todo
+    def calculate(self, params=[]):
+        self.handle_params(params) #todo
 
-        left = self.left
-        if isinstance(left, Param):
-            left = left.value
-
+        left = self.resolve_param(self.left)
         if isinstance(left, BinaryOp):
-            left = left.calculate()
+            left = left.calculate(params)
         
-        right = self.right
-        if isinstance(right, Param):
-            right = right.value
-            
-        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
+        right = self.resolve_param(self.right)
+        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp):
+            right = right.calculate(params)
+        elif isinstance(right, Word) or isinstance(right, Memory):
             right = right.calculate()
 
         if isinstance(self, Memorable) and not self.memory:
