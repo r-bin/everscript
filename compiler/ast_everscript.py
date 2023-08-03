@@ -13,7 +13,7 @@ import random
 import uuid
 from enum import StrEnum
 
-class Object(Function_Base, Memorable):
+class Object(Function_Base, Calculatable, Memorable):
     def __init__(self, index, flag=None):
         self.index = index
         self.flag = flag
@@ -24,6 +24,18 @@ class Object(Function_Base, Memorable):
         code = self.index.calculate()
 
         return code
+    
+    def _code(self):
+        index = self.resolve(self.index)
+        flag = self.resolve(self.flag)
+        
+        code = [0x5d] + self._terminate(index.calculate() + [flag.code()])
+        code = self._clean_calucatable(code)
+
+        return f"""
+{code}     // (5d) IF $2268 & 0x40 THEN UNLOAD OBJ 0 (TODO: verify this)"
+        """
+    
 class FunctionKey(Function_Base):
     value_count:int = 3
 
@@ -413,86 +425,82 @@ class Enum_Call(BaseBox):
     def eval(self):
         return self.value
 
-class Identifier(BaseBox):
-    def __init__(self, value):
-        self.value = value.value
-
-    def eval(self, params=[]):
-        # TODO
-        for param in self.params:
-            if param.name == self.value:
-                return param.value.eval()
-
-        raise Exception("undefined parameter")
-
-class If_list(Function_Base):
+class If_list(Function_Base, Memorable):
     def __init__(self, list):
         self.list = list
-        self.memory = False
+
+        self.update_memory()
+
+    def update_memory(self, params=[]):
+        for script in self.list:
+            script.params = self.params
 
         for element in self.list:
-            if element.memory:
-                self.memory = True
-                break
+            element.update_memory(params)
+            self.inherit_memory(element)
 
         for element in self.list:
             element.memory = self.memory
 
+
     def _code(self):
-        for script in self.list:
-            script.params = self.params
+        self.update_memory(self.params)
 
         list = []
         if_depleted = False
 
-        if not self.memory:
+        if self.memory:
             for element in self.list:
-                if isinstance(element.condition, Memory):
-                    raise Exception("memory in non-memory if")
-                elif not if_depleted and (element.condition == None or element.eval()):
-                    list.append(element)
-                    if_depleted = True
-        else:
-            for element in self.list:
-                if self.memory:
+                if self.memory: #TODO: should be redundant
                     list.append(element)
                     list += element.script
-                    element.distance = Function_Code(element.script, '\n').count()
+                    element.distance = Function_Code(element.script, '\n', params=self.params).count()
                 elif element.condition == None:
                     list += element.script
                 else:
                     raise Exception("non memory in memory if")
+        else:
+            for element in self.list:
+                if isinstance(element.condition, Memory):
+                    raise Exception("memory in non-memory if")
+                elif not if_depleted and (element.condition == None or element.eval(self.params)):
+                    list.append(element)
+                    if_depleted = True
                 
         return Function_Code(list, '\n').code(self.params)
 
-class If(Function_Base, Calculatable):
+class If(Function_Base, Calculatable, Memorable):
     def __init__(self, condition, script):
         self.condition = condition
         self.script = script
         self.distance = None
-        self.memory = False
 
-        if isinstance(condition, UnaryOp):
-            self.memory = condition.memory
-        if isinstance(condition, Memory):
-            self.memory = True
-        elif isinstance(condition, BinaryOp):
-            self.memory = condition.memory
+        self.update_memory()
 
-    def resolve(self, thing):
-        match thing:
-            case Identifier():
-                pass
+    def update_memory(self, params=[]):
+        self.handle_params(params)
+        condition = self.resolve(self.condition)
+
+        if condition:
+            if isinstance(condition, UnaryOp):
+                self.memory = condition.memory
+            if isinstance(condition, Memory):
+                self.memory = True
+            elif isinstance(condition, BinaryOp):
+                self.memory = condition.memory
 
     def eval(self, params=[]):
-        if self.condition != None:
-            self.condition.params = self.params
+        self.update_memory(params)
+        condition = self.resolve(self.condition)
 
-        match self.condition:
-            case _ if isinstance(self.condition, Word):
-                return self.condition.eval(self.params) > 0
+        if condition != None:
+            condition.params = self.params
+
+        match condition:
+            case Word():
+                return condition.eval(self.params) > 0
             case BinaryOp() | Identifier():
-                return self.condition.eval(self.params)
+                return condition.eval(self.params)
             case None:
                 return True
             case _:
@@ -504,7 +512,8 @@ class If(Function_Base, Calculatable):
             destination = Word(self.distance)
             destination = destination.code()
 
-        if self.memory and self.condition:
+        condition = self.resolve(self.condition)
+        if self.memory and condition:
             code = self.calculate()
             code = self._clean_calucatable(code)
             
@@ -520,10 +529,11 @@ class If(Function_Base, Calculatable):
 
         code = []
 
-        condition = self.condition.calculate()
+        condition = self.resolve(self.condition)
+        condition = condition.calculate()
 
         opcode = 0x09
-        if isinstance(self.condition, UnaryOp): #TODO should be 0x09?
+        if self.condition.inverted or isinstance(self.condition, UnaryOp): #TODO should be 0x09?
             opcode = 0x08
 
         code = [opcode] + self._terminate(condition) + [destination]
@@ -1010,10 +1020,11 @@ class Map(Function_Base):
     functions: dict[str, Function] = {}
     trigger_enter: Function = None
 
-    def __init__(self, name, params, code):
+    def __init__(self, name, params, code, objects):
         if isinstance(name, Token):
             name = name.value
         self.name = name
+        self.objects = objects
 
         if isinstance(params, Token):
             params = params.value
@@ -1151,7 +1162,9 @@ class Loot(Function_Base):
         self.amount = amount
         self.next = next
     
-        self.object = Object(object, self._generator.get_flag())
+        flag = self._generator.get_flag()
+
+        self.object = Object(object, flag)
         self._generator.add_object(self.object)
 
         self.function = generator.get_function("loot")

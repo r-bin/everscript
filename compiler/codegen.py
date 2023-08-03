@@ -93,14 +93,18 @@ allocated RAM:
 {flag}
         """.strip()
 
-    def get_memory(self):
+    def get_memory(self) -> Memory:
         memory = self.linker.link_memory()
 
         self.memory.append(memory)
-    def get_flag(self):
+
+        return memory
+    def get_flag(self) -> Memory:
         memory = self.linker.link_flag()
 
         self.flags.append(memory)
+
+        return memory
 
     def add_patch(self, patch_name):
         self.patches.append(patch_name)
@@ -289,6 +293,15 @@ allocated RAM:
                 append_trigger(code_list, address_triggers(index), code, name)
                 
         return code_list
+    
+    def _late_generate(self, function:Function, link_key:bool):
+        self.code.append(function)
+        self.linker.link_function(function)
+
+        if link_key:
+            self.linker.link_function_key(function)
+
+        return self._generate_function(function)
 
     def _generate_map(self):
         list = []
@@ -296,10 +309,18 @@ allocated RAM:
         variants = self.get_map_variants()
         
         function_nop = Function("_trigger_nop", [], [], [Arg_Install()])
-        self.code.append(function_nop)
-        self.linker.link_function_key(function_nop)
-        self.linker.link_function(function_nop)
-        list.append(self._generate_function(function_nop))
+        list.append(self._late_generate(function_nop, True))
+
+        def _generate_trigger_enter(list, function:Function):
+
+            objects = []
+            objects = [object for object in map.objects]
+
+            function_enter = Function("_trigger_enter", 
+                objects + [Call(function)], [], [Arg_Install()])
+            list.append(self._late_generate(function_enter, True))
+
+            return function_enter
 
         for map_data, maps in variants.items():
             address: int = None
@@ -308,7 +329,10 @@ allocated RAM:
                 map = maps[0]
 
                 name = f"maps[{map_data.index}, {map.name}].{map.trigger_enter.name}()"
-                code = map.trigger_enter.address
+                #code = map.trigger_enter.address
+                code = _generate_trigger_enter(list, map.trigger_enter)
+                code = code.address
+                pass
             else:
                 name = f"maps[{map_data.index}, {'/'.join([map.name for map in maps])}].trigger_enter()"
                 code_enter = []
