@@ -3,6 +3,7 @@ import re
 from textwrap import wrap
 
 class Memorable():
+    inverted = False
     memory = False
 
     def inherit_memory(self, memorable):
@@ -15,7 +16,7 @@ class Param(BaseBox):
     def __init__(self, name, value):
         self.name = None
         if name != None:
-            self.name = name.value
+            self.name = name.name
         self.value = value
 
     def __repr__(self):
@@ -29,6 +30,18 @@ class Param(BaseBox):
             return self.value.address.value
         else:
             return self.value.eval()
+
+class Identifier(BaseBox):
+    def __init__(self, name):
+        self.name = name.value
+
+    def eval(self, params=[]):
+        # TODO
+        for param in self.params:
+            if param.name == self.value:
+                return param.value.eval()
+
+        raise Exception("undefined parameter")
 
 class Function_Base(BaseBox):
     params = []
@@ -58,12 +71,28 @@ class Function_Base(BaseBox):
 
         return count
     
-    def resolve_identifier(self):
-        pass
+    def resolve(self, value):
+        match value:
+            case Identifier():
+                return self.resolve_identifier(value)
+            case Param():
+                return self.resolve_param(value)
+            case _:
+                return value
+
+    def resolve_identifier(self, identifier):
+        if not isinstance(identifier, Identifier):
+            raise Exception(f"identifier '{identifier}' cannot be resolved")
+        
+        for p in self.params:
+            if p.name == identifier.name:
+                return p.value
+            
+        return None
 
     def resolve_param(self, param):
         if not isinstance(param, Param):
-            return param
+            raise Exception(f"param '{param}' cannot be resolved")
         
         if param.value != None:
             return param.value
@@ -71,8 +100,8 @@ class Function_Base(BaseBox):
             for p in self.params:
                 if p.name == param.name:
                     return p.value
-        else:
-            raise Exception(f"param '{param}' cannot be resolved")
+
+        return None
 
     def handle_params(self, params:list[Param]=[]):
         if self.params:
@@ -90,15 +119,15 @@ class Function_Base(BaseBox):
 
 class Word(Function_Base):
     def __init__(self, value, value_count = 2):
+        self.value_original = value
+        value = self.resolve(value)
+
         if isinstance(value, int):
-            self.value_original = value
             self.value = value
             self.value_count = value_count
         elif isinstance(value, Word):
-            self.value_original = value
             self.value = value.eval()
         else:
-            self.value_original = value
             self.value = int(value.value, 16)
 
             count = re.sub("0x", "", value.value)
@@ -175,7 +204,7 @@ class Memory(Function_Base, Memorable):
             self.offset = self.offset.eval()
 
         self.memory = True
-        self.count = 2
+        self.value_count = 2
 
         self.inverted = False
         self.handle_type()
@@ -247,40 +276,50 @@ class Memory(Function_Base, Memorable):
 
         code = []
 
-        match [self.type, self.offset, self.count]:
-            case ["char", None, _]:
+        match [self.type, self.offset, self.flag, self.value_count]:
+            case ["char", None, _, _]:
                 code = [self.eval()]
-            case ["28", None, 1]:
+
+            case ["28", None, _, 1]:
                 code = [0x0c, self.code()]
-            case ["28", None, _]:
+            case ["28", None, _, _]:
                 code = [0x0e, self.code()]
-            case ["22", None, 1]:
+
+            case ["22", None, _, 1]:
                 code = [0x07, self.code()]
-            case ["22", None, _]:
+            case ["22", None, int(), _]:
+                code = [0x05, self.code()]
+            case ["22", None, _, _]:
                 code = [0x08, self.code()]
-            case ["xx", None, _]:
-                code = [0x08, self.code()]
-            case ["char", _, _]:
+
+            case ["xx", None, _, _]:
+                code = [0x08, _, self.code()]
+
+            case ["char", _, _, _]:
                 code = [self.eval(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:
                     code += [0x55]
-            case ["28", _, _]:
+
+            case ["28", _, _, _]:
                 code = [0x0d, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:
                     code += [0x55]
-            case ["22", _, _]:
+
+            case ["22", _, _, _]:
                 code = [0x08, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
                 if deref:
                     code += [0x55]
+
             case _:
                 raise Exception("not supported")
 
         return code
 
 class Function_Code(Function_Base):
-    def __init__(self, script, delimiter=' '):
+    def __init__(self, script, delimiter=' ', params=[]):
         self.script = script
         self.delimiter = delimiter
+        self.params = params
 
     def _code(self):
         list = []
@@ -502,8 +541,8 @@ class BinaryOp(Operator):
         self.left = left
         self.right = right
 
-        left = self.resolve_param(left)
-        right = self.resolve_param(right)
+        left = self.resolve(left)
+        right = self.resolve(right)
 
         self.inherit_memory(left)
         self.inherit_memory(right)
@@ -556,11 +595,11 @@ class BinaryOp(Operator):
     def calculate(self, params=[]):
         self.handle_params(params) #todo
 
-        left = self.resolve_param(self.left)
+        left = self.resolve(self.left)
         if isinstance(left, BinaryOp):
             left = left.calculate(params)
         
-        right = self.resolve_param(self.right)
+        right = self.resolve(self.right)
         if isinstance(right, BinaryOp) or isinstance(right, UnaryOp):
             right = right.calculate(params)
         elif isinstance(right, Word) or isinstance(right, Memory):
