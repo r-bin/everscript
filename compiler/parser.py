@@ -11,7 +11,7 @@ class Parser():
             [
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
-                '==', '>=', '>', '<=', '<', 'OR=', '&=', '=',
+                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=',
                 '!', '+', '-', '*', '/', '<<', '>>', 'AND',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
@@ -56,7 +56,10 @@ class Parser():
             "function_key": (lambda p: FunctionKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
             "flag": (lambda p: self.generator.get_flag()),
+
+            # object
             "_loot": (lambda p: Loot(self.generator, p[2][0], p[2][1], p[2][2], p[2][3])),
+            "_axe2_wall": (lambda p: Axe2Wall(self.generator, p[2][0])),
 
             # late link
             "entrance": (lambda p: MapEntrance(p[2][0], p[2][1], p[2][2])),
@@ -112,9 +115,11 @@ class Parser():
             
             return map
         
-        @self.pg.production('expression : OBJECT [ WORD ]')
+        @self.pg.production('expression : OBJECT [ expression ]')
         def parse(p):
-            index = Word(p[2])
+            index = p[2]
+            if isinstance(index, Token):
+                index = Word(index)
 
             return Object(index)
         
@@ -372,8 +377,12 @@ class Parser():
         @self.pg.production('memory :  < WORD > [ WORD ]')
         @self.pg.production('memory :  < expression > [ expression ]')
         def parse(p):
-            address = Word(p[1])
+            address = p[1]
+            if isinstance(address, Token):
+                address = Word(address)
             offset = Word(p[4])
+            if isinstance(offset, Token):
+                offset = Word(offset)
 
             return Memory(address, offset=offset)
         @self.pg.production('memory : < WORD >')
@@ -384,6 +393,7 @@ class Parser():
             return Memory(address)
 
         @self.pg.production('expression : param == param')
+        @self.pg.production('expression : param != param')
         @self.pg.production('expression : param >= param')
         @self.pg.production('expression : param > param')
         @self.pg.production('expression : param <= param')
@@ -406,6 +416,8 @@ class Parser():
             match operator.gettokentype():
                 case '==':
                     return Equals(left, right)
+                case '!=':
+                    return NotEquals(left, right)
                 case '>=':
                     return GreaterEquals(left, right)
                 case '>':

@@ -130,7 +130,7 @@ class Word(Function_Base):
         else:
             self.value = int(value.value, 16)
 
-            count = re.sub("0x", "", value.value)
+            count = re.sub("[+-]{0,1}0x", "", value.value)
             count = wrap(count, 2)
             count = len(count)
             self.value_count = count
@@ -155,7 +155,7 @@ class Word(Function_Base):
         elif self.value_count == 3:
             value = '{:06X}'.format(value, 'x')
 
-        value = re.sub("0x", "", value)
+        value = re.sub("[+-]{0,1}0x", "", value)
         value = wrap(value, 2)
         
         return ' '.join(reversed(value))
@@ -541,14 +541,19 @@ class BinaryOp(Operator):
         self.left = left
         self.right = right
 
-        left = self.resolve(left)
-        right = self.resolve(right)
+        self.value_count = 2
+
+        self.update()
+
+    def update(self, params=[]):
+        self.handle_params(params)
+    
+        left = self.resolve(self.left)
+        right = self.resolve(self.right)
 
         self.inherit_memory(left)
         self.inherit_memory(right)
 
-        self.value_count = 2
-    
     def handle_params(self, params=[]):
         if self.params:
             sp = {x.name : x for x in self.params}
@@ -585,15 +590,16 @@ class BinaryOp(Operator):
         elif self.value_count == 2:
             value = '{:04X}'.format(value, 'x')
         elif self.value_count == 3:
+            self.value_count = 3
             value = '{:06X}'.format(value, 'x')
 
-        value = re.sub("0x", "", value)
+        value = re.sub("[+-]{0,1}0x", "", value)
         value = wrap(value, 2)
         
         return ' '.join(reversed(value))
     
     def calculate(self, params=[]):
-        self.handle_params(params) #todo
+        self.update(params)
 
         left = self.resolve(self.left)
         if isinstance(left, BinaryOp):

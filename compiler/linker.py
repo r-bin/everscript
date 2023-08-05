@@ -155,9 +155,10 @@ class MapDataHandler():
         address_trigger_stepon_enter_size = 6
         address_trigger_b_enter_size = 6
 
-        def __init__(self, index, data: int, trigger_step_count: int, trigger_b_count: int):
+        def __init__(self, index, data:int, trigger_step_count:int, trigger_b_count:int, name:str):
             self.index = index
             self.data = data
+            self.name = name
 
             self.trigger_step_count = trigger_step_count
             self.trigger_b_count = trigger_b_count
@@ -187,17 +188,24 @@ class MapDataHandler():
 
     def __init__(self):
         maps = [
-            self.MapData(0x00, 0xabf4f1, 0x08, 0x01), # "Omnitopia - Alarm room"
-            self.MapData(0x01, 0xa9e517, 0x04, 0x00), # "Prehistoria - Exterior of Blimp's Hut"
-            self.MapData(0x02, 0xacc12d, 0x00, 0x00), # "Intro - Mansion Exterior 1965"
-            self.MapData(0x03, 0xaaeaba, 0x00, 0x00), # "Intro - Mansion Exterior 1995"
-            self.MapData(0x04, 0xacd00a, 0x02, 0x00), # "Antiqua - Crustacia fire pit"
-            self.MapData(0x05, 0xa4d3b4, 0x14, 0x14), # "Antiqua - Between 'mids and halls"
+            self.MapData(0x00, 0xabf4f1, 0x08, 0x01, "Omnitopia - Alarm room"),
+            self.MapData(0x01, 0xa9e517, 0x04, 0x00, "Prehistoria - Exterior of Blimp's Hut"),
+            self.MapData(0x02, 0xacc12d, 0x00, 0x00, "Intro - Mansion Exterior 1965"),
+            self.MapData(0x03, 0xaaeaba, 0x00, 0x00, "Intro - Mansion Exterior 1995"),
+            self.MapData(0x04, 0xacd00a, 0x02, 0x00, "Antiqua - Crustacia fire pit"),
+            self.MapData(0x05, 0xa4d3b4, 0x14, 0x14, "Antiqua - Between 'mids and halls"),
             # …
-            self.MapData(0x15, 0xa0ff33, 0x00, 0x00), # "Brian's Test Ground"
+            self.MapData(0x07, 0xa793e9, 0x0a, 0x0d, "Antiqua - West of Crustacia"),
             # …
-            self.MapData(0x38, 0x9e8000, 0x02, 0x1f), # "Prehistoria - South jungle / Start"]:
+            self.MapData(0x15, 0xa0ff33, 0x00, 0x00, "Brian's Test Ground"),
             # …
+            self.MapData(0x33, 0xadb50c, 0x02, 0x01, "Strong Heart's Exterior"),
+            self.MapData(0x34, 0xadbd79, 0x02, 0x00, "Prehistoria - Strong Heart's Hut"),
+            # …
+            self.MapData(0x38, 0x9e8000, 0x02, 0x1f, "Prehistoria - South jungle / Start"),
+            # …
+            self.MapData(0x5b, 0xa78000, 0x05, 0x0b, "Prehistoria - East jungle"),
+            self.MapData(0x5c, 0xa8f590, 0x03, 0x04, "Prehistoria - Raptors"),
         ]
 
         maps = dict([(map.index, map) for map in maps])
@@ -217,7 +225,7 @@ class Linker():
         
         script = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["script"]])
 
-        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["memory"]])
+        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count(), 'x')}] {m}" for m in self.memory_manager.memory["memory"]])
         flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count(), 'x')}] {f}" for f in self.memory_manager.memory["flag"]])
 
         return f"""

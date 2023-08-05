@@ -21,6 +21,7 @@ class Object(Function_Base, Calculatable, Memorable):
         self.memory = True
 
     def calculate(self):
+        #index = self.resolve(self.index)
         code = self.index.calculate()
 
         return code
@@ -498,7 +499,7 @@ class If(Function_Base, Calculatable, Memorable):
 
         match condition:
             case Word():
-                return condition.eval(self.params) > 0
+                return condition.eval() > 0
             case BinaryOp() | Identifier():
                 return condition.eval(self.params)
             case None:
@@ -562,6 +563,32 @@ class Equals(BinaryOp):
                 code = left.calculate() +  [0x29] + right + [0x22]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
                 code = left.calculate() +  [0x29] + right + [0x22]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+        
+class NotEquals(BinaryOp):
+    def operator(self):
+        return "!="
+
+    def _eval(self):
+        return self.left.value.eval() != self.right.value.eval()
+
+    def _calculate(self, left, right):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate() +  [0x29] + right + [0x23]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [0x23]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [0x23]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [0x23]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [0x23]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -1171,5 +1198,25 @@ class Loot(Function_Base):
 
     def _code(self):
         params = [Param(None, self.object.flag), Param(None, Word(self.object.index)), self.reward, self.amount, self.next]
+
+        return Call(self.function, params).code(self.params)
+class Axe2Wall(Function_Base):
+    def unwrap_param(self, param):
+        if isinstance(param, Param):
+            param = param.value
+
+    def __init__(self, generator, object):
+        self._generator = generator
+        self.object = object
+    
+        flag = self._generator.get_flag()
+
+        self.object = Object(object, flag)
+        self._generator.add_object(self.object)
+
+        self.function = generator.get_function("axe2_wall")
+
+    def _code(self):
+        params = [Param(None, self.object.flag), Param(None, Word(self.object.index))]
 
         return Call(self.function, params).code(self.params)

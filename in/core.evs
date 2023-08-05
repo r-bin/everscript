@@ -335,7 +335,8 @@ enum DIRECTION {
     SOUTH = 0x21,
     WEST = 0x19,
     
-    UNKNOWN = 0x00
+    NONE = 0x00,
+    UNKNOWN = 0x01
 }
 
 enum FLAG {
@@ -1158,7 +1159,9 @@ fun arg_signed(index) {
 fun param(value) {
     // writes arg0…arg20
 
-    if(value <= 0x0f) {
+    if(value < 0x00) {
+        code(0xd0 + value);
+    } else if(value <= 0x0f) {
         code(0xb0 + value);
     } else if(value <= 0x1e) {
         code(0xd0 + value);
@@ -1251,6 +1254,30 @@ fun music_fade(on) {
     }
 }
 
+// character manipulation
+
+fun wait(character) {
+    code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
+}
+
+fun walk(walk_type, character, x, y, waiting) {
+    if(waiting == True) {
+        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        wait(character);
+    } else {
+        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+    }
+}
+
+fun walk_relative(walk_type, character, x, y, waiting) {
+    if(waiting == True) {
+        code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        wait(character);
+    } else {
+        code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+    }
+}
+
 // MAP INITIALIZATION
 
 fun fade_out() {
@@ -1263,16 +1290,47 @@ fun load_map(map, x, y) {
     code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
 }
 fun prepare_transition(direction_in, direction_out) {
-    eval("0c 9d 04 b1 // (0c) $22eb |= 0x20 (in animation)");
-    eval("18 37 01 b3 // (18) WRITE $238f = 0x0003");
-    eval("27 // (27) Fade-out screen (WRITE $0b83=0x8000)");
+    set(<0x22eb, 0x20>);
+    <0x238f> = 0x03;
+    fade_out();
     code(0xa3, direction_out, "// (a3) CALL 'Prepare room change? North exit/south entrance outdoor-indoor?' (0x26)"); // TODO: 4x4 combinations, not 4
-    eval("a7 10 // (a7) SLEEP 15 TICKS");
+    sleep(0x10);
 }
 
 fun transition(map, x, y, direction_in, direction_out) {
     music_fade(False);
-    prepare_transition(direction_in, direction_out);
+
+    if(direction_in == direction_out) {
+        if(direction_out != DIRECTION.NONE) {
+            code(0xa3, direction_out, "// (a3) CALL 'Prepare room change? North exit/south entrance outdoor-indoor?' (0x26)"); // TODO: 4x4 combinations, not 4
+        }
+    } else {
+        if(direction_out != DIRECTION.NONE) {
+            if(direction_out == DIRECTION.NORTH) {
+                <0x238f> = 0x04;
+            } else if(direction_out == DIRECTION.EAST) {
+                <0x238f> = 0x01;
+            } else if(direction_out == DIRECTION.SOUTH) {
+                <0x238f> = 0x03;
+            } else if(direction_out == DIRECTION.WEST) {
+                <0x238f> = 0x02;
+            }
+        }
+
+        if(direction_out != DIRECTION.NONE) {
+            if(direction_in == DIRECTION.NORTH) {
+                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, 0x00, -0x02, False);
+            } else if(direction_in == DIRECTION.EAST) {
+                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, 0x02, 0x00, False);
+            } else if(direction_in == DIRECTION.SOUTH) {
+                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, -0x02, 0x00, False);
+            } else if(direction_in == DIRECTION.WEST) {
+                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, -0x02, 0x00, False);
+            }
+            sleep(0x15);
+        }
+    }
+
     load_map(map, x, y);
 }
 
@@ -1283,6 +1341,10 @@ fun teleport(character, x, y) {
         code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
     }
 }
+// fun teleport_relative(character, x, y) {
+//     <character>[0x1a] = <character>[0x26];
+//     <character>[0x1c] = <character>[0x28];
+// }
 
 fun init_map(x_start, y_start, x_end, y_end) {
     code(0x1b, address(0x23e9), address(0x23eb), x_start, y_start, "// (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0010");
@@ -1785,19 +1847,6 @@ fun reward(item) {
     }
 }
 
-fun wait(character) {
-    code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
-}
-
-fun walk(walk_type, character, x, y, waiting) {
-    if(waiting == True) {
-        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
-        wait(character);
-    } else {
-        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
-    }
-}
-
 fun color_filter(color, saturation) {
     code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92d93e), "// (b4) CALL Absolute (24bit) script 0x92d93e ('Unnamed ABS script 0x92d93e')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
 }
@@ -1837,7 +1886,7 @@ fun sfx_effect(effect, on) {
         } else {
             color_filter(0x00, 0x00);
         }
-    } else if(effect = SFX_EFFECT.LIGHTNING) {
+    } else if(effect == SFX_EFFECT.LIGHTNING) {
         if(on == True) {
             call_id(0x36);
         } else {
@@ -2088,8 +2137,43 @@ fun attach_sterling_script_to_last_entity() {
     call(0x9997a7); // (07) CALL 0x9997a7 Sterling battle over, Gomi introduction
 }
 
-fun boy_falling() {
-    eval("7a 50 29 6e 9a 84 68 10 // (7a) WRITE *(boy + 30) = 0x1068");
+fun crash_land(character) {
+    if(character == CHARACTER.BOY) {
+        <CHARACTER.BOY>[0x1e] = 0x1068;
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        sleep(0x60);
+        <CHARACTER.BOY>[0x20] = 0x10;
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+        sleep(0x10);
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+        sleep(0x10);
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.KNEEL);
+    } else if(character == CHARACTER.DOG) {
+        <CHARACTER.DOG>[0x1e] = 0x1068;
+        animate(CHARACTER.DOG, ANIMATION_MODE.LOOP, ANIMATION_DOG.ACT1_FALL1);
+        sleep(0x60);
+        <CHARACTER.DOG>[0x20] = 0x10;
+        animate(CHARACTER.DOG, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+        sleep(0x10);
+        animate(CHARACTER.DOG, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_DOG.ACT1_FALL1);
+        sleep(0x10);
+        animate(CHARACTER.DOG, ANIMATION_MODE.ONCE, ANIMATION_DOG.ACT1_SIT);
+    } else if(character == CHARACTER.BOTH) {
+        <CHARACTER.BOY>[0x1e] = 0x1068;
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        <CHARACTER.DOG>[0x1e] = 0x1068;
+        animate(CHARACTER.DOG, ANIMATION_MODE.LOOP, ANIMATION_DOG.ACT1_FALL1);
+        sleep(0x60);
+        <CHARACTER.BOY>[0x20] = 0x10;
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+        <CHARACTER.DOG>[0x20] = 0x10;
+        animate(CHARACTER.DOG, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+        sleep(0x10);
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+        animate(CHARACTER.DOG, ANIMATION_MODE.ONCE, ANIMATION_DOG.ACT1_FALL1);
+        sleep(0x10);
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.KNEEL);
+    }
 }
 
 fun sand_tunnel() {
