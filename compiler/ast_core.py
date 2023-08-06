@@ -44,7 +44,7 @@ class Identifier(BaseBox):
         raise Exception("undefined parameter")
 
 class Function_Base(BaseBox):
-    params = []
+    params:Param = []
 
     def code(self, params=[]):
         self.handle_params(params)
@@ -468,7 +468,7 @@ class Calculatable():
         }
     }
 
-    def _terminate(self, code:list[int | str | list]):
+    def _terminate(self, code:list[int|str|list]):
         code = list(reversed(code))
 
         termination = 0x80
@@ -535,7 +535,7 @@ class UnaryOp(Operator):
         return self._calculate(value)
    
 class BinaryOp(Operator):
-    params: list[Param]
+    params:list[Param]
 
     def __init__(self, left, right):
         self.left = left

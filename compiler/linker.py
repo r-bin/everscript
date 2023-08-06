@@ -271,7 +271,7 @@ unallocated RAM:
             self.memory_manager.allocate_function_key(function)
 
 
-    def link_map(self, maps: list[Map]):
+    def link_map(self, maps:list[Map]):
         variants = {}
 
         for map in maps:
@@ -291,12 +291,12 @@ unallocated RAM:
                 pass # TODO
             
 
-    def link_map_transitions(self, maps: list[Map], map_transitions: list[MapTransition]):
+    def link_map_transitions(self, maps:list[Map], map_transitions:list[MapTransition]):
         for map_transition in map_transitions:
             self._link_map_transition(maps, map_transition)
-    def _link_map_transition(self, maps: list[Map], map_transition: MapTransition):
-        map: Map = next(map for map in maps if map.name == map_transition.map_name)
-        entrance: MapEntrance = next(entrance for entrance in map.enum_entrance.values if entrance.name == map_transition.entrance_name).value
+    def _link_map_transition(self, maps:list[Map], map_transition:MapTransition):
+        map = next(map for map in maps if map.name == map_transition.map_name)
+        entrance:MapEntrance = next(entrance for entrance in map.enum_entrance.values if entrance.name == map_transition.entrance_name).value
         
         map_transition.link(map, entrance)
 

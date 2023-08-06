@@ -16,12 +16,12 @@ class Scope(BaseBox):
         MAP = "MAP"
         OBJECT = "OBJECT"
 
-    type: Type = Type.DEFAULT
-    name: str = None
-    identifier: dict[str, any] = {}
-    objects: dict[str, any] = []
+    type:Type = Type.DEFAULT
+    name:str = None
+    identifier:dict[str, any] = {}
+    objects:dict[str, any] = []
 
-    def __init__(self, type: Type | BaseBox = Type.DEFAULT):
+    def __init__(self, type:Type|BaseBox = Type.DEFAULT):
         if isinstance(type, BaseBox):
             type = self.Type(type.name)
 
@@ -51,15 +51,15 @@ class CodeGen():
 
     def __init__(self, linker):
         print(f"CodeGen.init()")
-        self.linker: Linker = linker
+        self.linker:Linker = linker
 
-        self.scopes: list[Scope] = [Scope()]
+        self.scopes:list[Scope] = [Scope()]
 
-        self.code: list[Function] = []
+        self.code:list[Function] = []
         self.system = {}
 
         self.strings = []
-        self.map_transitions: list[MapTransition] = []
+        self.map_transitions:list[MapTransition] = []
         self.memory = []
         self.flags = []
         self.patches = []
@@ -114,10 +114,10 @@ allocated RAM:
 
         self.strings.append(string)
 
-    def add_map_transition(self, map_transition: MapTransition):
+    def add_map_transition(self, map_transition:MapTransition):
         self.map_transitions.append(map_transition)
 
-    def add_function(self, function: Function): #TODO
+    def add_function(self, function:Function):
         #self.code += f"<address> {expression.count()}\n"
         
         if function.install == False:
@@ -201,7 +201,7 @@ allocated RAM:
 
         return '\n'.join(list)
     
-    def _generate_map_trigger(self, map_data, maps:list[Map], count:int, enum_triggers:Callable[[Map], Enum_Entry|Function], address_triggers: Callable) -> list[str]:
+    def _generate_map_trigger(self, map_data, maps:list[Map], count:int, enum_triggers:Callable[[Map], Enum_Entry|Function], address_triggers:Callable) -> list[str]:
         code_list = []
 
         function_nop = self.get_function("_trigger_nop")
@@ -323,7 +323,7 @@ allocated RAM:
             return function_enter
 
         for map_data, maps in variants.items():
-            address: int = None
+            address:int = None
 
             if len(maps) == 1:
                 map = maps[0]
@@ -523,7 +523,7 @@ allocated RAM:
     def _current_scope(self) -> Scope:
         return self.scopes[-1]
     def _all_identifiers(self) -> dict[str, any]:
-        all_identifiers: dict[str, any] = {}
+        all_identifiers:dict[str, any] = {}
 
         for scope in self.scopes:
             for identifier, value in scope.identifier.items():
@@ -552,7 +552,7 @@ allocated RAM:
         self._current_scope().objects.append(object)
     
     def get_map_variants(self) -> dict[int, list[Map]]:
-        variants: dict[int, list[Map]] = {}
+        variants:dict[int, list[Map]] = {}
 
         for map in self.maps:
             key = map.map_data #map.map_index

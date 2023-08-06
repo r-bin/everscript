@@ -21,8 +21,8 @@ class Object(Function_Base, Calculatable, Memorable):
         self.memory = True
 
     def calculate(self):
-        #index = self.resolve(self.index)
-        code = self.index.calculate()
+        index = self.resolve(self.index)
+        code = index.calculate()
 
         return code
     
@@ -274,7 +274,8 @@ class Call(Function_Base):
     async_call = False
     
     def __init__(self, function, params=[]):
-        self.params = params
+        self.params = self._paramify(params)
+
         if isinstance(function, Function):
             if not function.install:
                 self.function = copy.deepcopy(function)
@@ -296,6 +297,13 @@ class Call(Function_Base):
 
         if self.address == None:
             pass
+
+    def _paramify(self, params=[]):
+        for index, param in enumerate(params):
+            if not isinstance(param, Param):
+                params[index] = Param(None, param)
+
+        return params
 
     def __repr__(self):
         return f"Call({self.address}, {self.function})"
@@ -935,17 +943,20 @@ class While(Function_Base):
         self.while_goto_end = Function_Goto()
 
         self.while_if = If(condition, [])
-        self.while_if.distance = Function_Code(script, '\n').count() + self.while_goto_end.count()
         self.memory = self.while_if.memory
 
         self.list = [self.while_if] + script + [self.while_goto_end]
 
-        self.while_goto_end.distance = -(self.while_if.count() + Function_Code(script, '\n').count() + self.while_goto_end.count())
-        pass
+    def _update_condition(self):
+        self.while_if.distance = Function_Code(self.script, '\n').count() + self.while_goto_end.count()
+        self.while_goto_end.distance = -(self.while_if.count() + Function_Code(self.script, '\n').count() + self.while_goto_end.count())
+
 
     def _code(self):
         for script in self.script:
             script.params = self.params
+
+        self._update_condition()
 
         code = self.list
         code = Function_Code(code, '\n').code(self.params)
@@ -1217,6 +1228,6 @@ class Axe2Wall(Function_Base):
         self.function = generator.get_function("axe2_wall")
 
     def _code(self):
-        params = [Param(None, self.object.flag), Param(None, Word(self.object.index))]
+        params = [self.object.flag, self.object]
 
         return Call(self.function, params).code(self.params)
