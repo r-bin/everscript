@@ -5,7 +5,7 @@ from compiler.codegen import Scope
 from compiler.codegen import CodeGen
 
 class Parser():
-    def __init__(self, generator: CodeGen):
+    def __init__(self, generator:CodeGen):
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
