@@ -18,15 +18,14 @@ class Scope(BaseBox):
 
     type:Type = Type.DEFAULT
     name:str = None
-    identifier:dict[str, any] = {}
-    objects:dict[str, any] = []
 
     def __init__(self, type:Type|BaseBox = Type.DEFAULT):
         if isinstance(type, BaseBox):
             type = self.Type(type.name)
 
         self.type = type
-        self.identifier = {} #TODO should be optional, but seems to be required
+        self.identifier:dict[str,any] = {}
+        self.objects:dict[str,Object] = []
 
 class _Splice():
     def __init__(self, list, element=None):
@@ -311,14 +310,14 @@ allocated RAM:
         function_nop = Function("_trigger_nop", [], [], [Arg_Install()])
         list.append(self._late_generate(function_nop, True))
 
-        def _generate_trigger_enter(list, function:Function):
+        def _generate_trigger_enter(list, map:Map, function:Function):
 
             objects = []
             objects = [object for object in map.objects]
 
             function_enter = Function("_trigger_enter", 
                 objects + [Call(function)], [], [Arg_Install()])
-            list.append(self._late_generate(function_enter, True))
+            list.append(self._late_generate(function_enter, False))
 
             return function_enter
 
@@ -330,7 +329,7 @@ allocated RAM:
 
                 name = f"maps[{map_data.index}, {map.name}].{map.trigger_enter.name}()"
                 #code = map.trigger_enter.address
-                code = _generate_trigger_enter(list, map.trigger_enter)
+                code = _generate_trigger_enter(list, map, map.trigger_enter)
                 code = code.address
                 pass
             else:
@@ -513,7 +512,7 @@ allocated RAM:
 
         return '\n'.join(header + code + footer)
 
-    def push_scope(self, scope: Scope) -> None:
+    def push_scope(self, scope:Scope) -> None:
         self.scopes.append(scope)
     def pop_scope(self) -> Scope:
         if len(self.scopes) <= 1:
@@ -522,7 +521,7 @@ allocated RAM:
         return self.scopes.pop()
     def _current_scope(self) -> Scope:
         return self.scopes[-1]
-    def _all_identifiers(self) -> dict[str, any]:
+    def _all_identifiers(self) -> dict[str,any]:
         all_identifiers:dict[str, any] = {}
 
         for scope in self.scopes:
@@ -548,7 +547,7 @@ allocated RAM:
         
         return all_identifiers[identifier]
 
-    def add_object(self, object) -> None:
+    def add_object(self, object:Object) -> None:
         self._current_scope().objects.append(object)
     
     def get_map_variants(self) -> dict[int, list[Map]]:
@@ -566,3 +565,10 @@ allocated RAM:
             variants[key].append(map)
 
         return variants
+    
+    def reference_function(self, function:Function):
+        if isinstance(function, Param):
+            function = function.value
+        self.linker.link_function_key(function)
+
+        return function.key

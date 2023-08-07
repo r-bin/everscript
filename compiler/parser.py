@@ -56,6 +56,7 @@ class Parser():
             "function_key": (lambda p: FunctionKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
             "flag": (lambda p: self.generator.get_flag()),
+            "reference": (lambda p: Reference(self.generator, p[2][0])),
 
             # object
             "_loot": (lambda p: Loot(self.generator, p[2][0], p[2][1], p[2][2], p[2][3])),
@@ -71,7 +72,7 @@ class Parser():
             "randrange": (lambda p: RandRange(p[2][0])),
         }
 
-        self.generator: CodeGen = generator
+        self.generator = generator
 
     def parse(self):
         @self.pg.production('program_list : program_list program')
@@ -94,7 +95,7 @@ class Parser():
         # maps
         @self.pg.production('scope : MAP')
         def parse(p):
-            scope: Scope = Scope(p[0])
+            scope = Scope(p[0])
 
             self.generator.push_scope(scope)
 

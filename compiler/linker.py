@@ -51,8 +51,8 @@ class MemoryManager():
                     for string_key in m.eval():
                         self.memory["text_key"].append(string_key)
                 elif isinstance(m.start, FunctionKey):
-                    for string_key in m.eval():
-                        self.memory["function_key"].append(string_key)
+                    for function_key in m.eval():
+                        self.memory["function_key"].append(function_key)
                 elif isinstance(m.start, Memory):
                     for address in m.eval():
                         self.memory["memory"].append(address)
@@ -184,7 +184,7 @@ class MapDataHandler():
 
             return address
         
-    map_data: MapData = None
+    map_data:MapData = None
 
     def __init__(self):
         maps = [
@@ -210,7 +210,7 @@ class MapDataHandler():
 
         maps = dict([(map.index, map) for map in maps])
 
-        self.maps: dict[self.MapData] = maps
+        self.maps:dict[self.MapData] = maps
 
 _MapDataHandler = MapDataHandler()
 
@@ -278,7 +278,7 @@ unallocated RAM:
             map.map_data = _MapDataHandler.maps[map.map_index]
 
             if map.variant == None:
-                variant: int = None
+                variant:int = None
                 if not map.map_index in variants:
                     variants[map.map_index] = 0
                 variant = variants[map.map_index]
