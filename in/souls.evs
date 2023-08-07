@@ -4,7 +4,7 @@
 
     0x300000..0x3fffff, // extension
 
-    <0x2258>
+    <0x2272>
 )
 #include("in/core.evs")
 
@@ -47,8 +47,15 @@ fun test_owner() {
         subtext(string("nay[END]"));
     }
 }
+fun test_owner2() {
+    if(<CHARACTER.SCRIPT_OWNER> == <0x2834>) {
+        subtext(string("yay[END]"));
+    } else {
+        subtext(string("nay[END]"));
+    }
+}
 
-fun loot(flag, object, reward, amount, next) {
+fun loot(flag, object_id, reward, amount, next) {
     if(!flag) {
         <0x2391> = reward;
 
@@ -81,7 +88,7 @@ fun loot(flag, object, reward, amount, next) {
 fun hotkey_start() {
     subtext(string("Start[END]"));
 
-    // drop_bomb();
+    drop_bomb();
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_L)
@@ -125,23 +132,36 @@ fun intro_skip() {
     map_transition(inbetwixx, start, DIRECTION.NONE);
 }
 
-@install(0x94b8ca)
-fun magmar_damage() {
+@install()
+fun bonfire_triggered() {
+    // test_owner2();
+    // end();
+    
     subtext(string("bonfire[END]"));
 
-    bonfire_activate(<CHARACTER.SCRIPT_OWNER>[0x1a], <CHARACTER.SCRIPT_OWNER>[0x1c]);
+    // bonfire_activate(<CHARACTER.SCRIPT_OWNER>[0x1a], <CHARACTER.SCRIPT_OWNER>[0x1c], reference(bonfire_triggered));
 
     destroy(CHARACTER.SCRIPT_OWNER);
 }
+@install()
+fun bomb_wall_triggered() {
+    animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+    // subtext(string("nice.[END]"));
+
+    object[<0x2834>] = <0x2836>;
+    // object[<CHARACTER.SCRIPT_OWNER>[0x2a]] = <CHARACTER.SCRIPT_OWNER>[0x15];
+
+    sleep(0x50);
+    destroy(CHARACTER.SCRIPT_OWNER);
+
+    if(<CHARACTER.SCRIPT_OWNER> == <0x283f>) {
+        subtext(string("yay[END]"));
+    } else {
+        subtext(string("nay[END]"));
+    }
+}
 
 // MAPS
-
-map flowers(0x38) {
-    fun trigger_enter() {
-        // map_transition(inbetwixx, start, DIRECTION.NONE);
-        map_transition(east_hut, hut, DIRECTION.WEST);
-    }
-};
 
 map inbetwixx(0x05) {
     enum entrance {
@@ -184,10 +204,10 @@ map inbetwixx(0x05) {
         stepon_9 = @install() fun test() {
             subtext(string("exit? 9 [END]"));
         },
-        stepon_10 = @install() fun test() {
+        west_2_east = @install() fun test() {
             map_transition(northeast_inbetwixx, east, DIRECTION.WEST);
         },
-        stepon_11 = @install() fun test() {
+        west_1_exit = @install() fun test() {
             map_transition(east_inbetwixx, east_2, DIRECTION.WEST);
         },
         stepon_12 = @install() fun test() {
@@ -219,12 +239,10 @@ map inbetwixx(0x05) {
 
     enum b_trigger {
         b_trigger_0 = @install() fun test() {
-            // _axe2_wall(0x00);
-            nop(); // TODO
+            _axe2_wall(0x00);
         },
         b_trigger_1 = @install() fun test() {
-            // _axe2_wall(0x01);
-            nop(); // TODO
+            _axe2_wall(0x01);
         },
         b_trigger_2 = @install() fun test() {
             subtext(string("b? 2 [END]"));
@@ -310,25 +328,12 @@ map inbetwixx(0x05) {
         animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.KNEEL);
     }
 
-    @install()
-    @inject(0x93d577) // 0x17d6
-    fun enemy_kill_script() {
-        animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-        // subtext(string("nice.[END]"));
-
-        object[<0x2834>] = <0x2836>;
-        // object[<CHARACTER.SCRIPT_OWNER>[0x2a]] = <CHARACTER.SCRIPT_OWNER>[0x15];
-
-        sleep(0x50);
-        destroy(CHARACTER.SCRIPT_OWNER);
-    }
-
     fun bomb_wall_trigger(object, x, y) {
         // add_enemy_with_flags(ENEMY.THRAXX_HEART, 0x3d, 0x3c, 0x0000);
         add_enemy_with_flags(ENEMY.FACE_ENTITY, x, y, 0x0004);
         // <CHARACTER.LAST_ENTITY>[0x2a] = object;
         // <CHARACTER.LAST_ENTITY>[0x15] = 0x01;
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, 0x17d6);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bomb_wall_triggered));
 
         <0x2834> = object;
         <0x2836> = 0x01;
@@ -351,9 +356,10 @@ map inbetwixx(0x05) {
             // load_map(0x05, 0x0f, 0x47);
         }
 
-        bonfire(0x31, 0x35);
+        bonfire(0x31, 0x35, reference(bonfire_triggered));
         
         bomb_wall_trigger(0x01, 0x3f, 0x3c);
+        <0x283f> = <CHARACTER.LAST_ENTITY>;
     }
 };
 
@@ -580,7 +586,7 @@ map northeast_inbetwixx(0x07) {
             subtext(string("b? 11 [END]"));
         },
         b_trigger_12 = @install() fun test() {
-            subtext(string("b? 12 [END]"));
+            _axe2_wall(0x00);
         }
     }
 

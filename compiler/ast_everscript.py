@@ -1050,13 +1050,13 @@ class Map(Function_Base):
 
     variant: int = None
 
-    enums: dict[str, Enum] = {}
-    enum_entrance: list[MapEntrance] = None
-    enum_stepon_trigger: list[Function] = None
-    enum_b_trigger: list[Function] = None
+    enums:dict[str, Enum] = {}
+    enum_entrance:list[MapEntrance] = None
+    enum_stepon_trigger:list[Function] = None
+    enum_b_trigger:list[Function] = None
 
-    functions: dict[str, Function] = {}
-    trigger_enter: Function = None
+    functions:dict[str, Function] = {}
+    trigger_enter:Function = None
 
     def __init__(self, name, params, code, objects):
         if isinstance(name, Token):
@@ -1208,7 +1208,7 @@ class Loot(Function_Base):
         self.function = generator.get_function("loot")
 
     def _code(self):
-        params = [Param(None, self.object.flag), Param(None, Word(self.object.index)), self.reward, self.amount, self.next]
+        params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
 
         return Call(self.function, params).code(self.params)
 class Axe2Wall(Function_Base):
@@ -1231,3 +1231,30 @@ class Axe2Wall(Function_Base):
         params = [self.object.flag, self.object]
 
         return Call(self.function, params).code(self.params)
+    
+class Reference(Function_Base):
+    def __init__(self, generator, name:any):
+        self._generator = generator
+
+        self.name = name
+
+        if isinstance(name, Param):
+            name = name.name
+
+        self.value = self._generator.get_function(name)
+        self._generator.reference_function(self.value)
+
+        self.value_count = None
+
+    def __repr__(self):
+        return f"Reference(name={self.name}, value={self.value})"
+
+    def eval(self):
+        if isinstance(self.value, Function):
+            self.value_count = 2
+
+            index = self.value.key
+            index = index.index
+            return index
+
+        raise Exception(f"reference {self.value} not supported")
