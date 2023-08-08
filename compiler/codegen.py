@@ -143,37 +143,43 @@ allocated RAM:
         self.exits.append(exit)
 
     def generate(self):
-        list = []
+        output = []
 
         if self.wipe_strings:
-            list.append(self._wipe_strings())
+            output.append(self._wipe_strings())
 
-        self.linker.link_map(self.maps)
+        # map.variant
+        self.linker.link_map_variants(self.maps)
+        # map_transition()
         self.linker.link_map_transitions(self.maps, self.map_transitions)
         
+        # function.count() -> function.address
         for function in self.code:
             self.linker.link_function(function)
-        self.linker.link_call(self.code)
+        # call()
+        self.linker.link_call_in_code(self.code, self.code)
 
+        # fun f() {}
         for function in self.code:
-            list.append(self._generate_function(function))
+            output.append(self._generate_function(function))
 
         variants = self.get_map_variants()
         if variants:
-            list.append(self._generate_map())
+            output.append(self._generate_map())
 
             function_keys = [function for function in self.code if function.key != None]
             function_keys.sort(key=lambda k: k.key.index)
             for function in function_keys:
-                list.append(self._generate_function_key(function))
+                output.append(self._generate_function_key(function))
 
+        # string()
         for string in self.strings:
-            list.append(self._generate_string(string))
+            output.append(self._generate_string(string))
 
         header = ["PATCH"]
         footer = ["EOF"]
         
-        return '\n'.join(header + list + footer)
+        return '\n'.join(header + output + footer)
 
     def _wipe_strings(self):
         list = []
@@ -296,6 +302,7 @@ allocated RAM:
     def _late_generate(self, function:Function, link_key:bool):
         self.code.append(function)
         self.linker.link_function(function)
+        self.linker.link_call_in_code([function], self.code)
 
         if link_key:
             self.linker.link_function_key(function)
@@ -303,21 +310,19 @@ allocated RAM:
         return self._generate_function(function)
 
     def _generate_map(self):
-        list = []
+        output = []
 
         variants = self.get_map_variants()
         
         function_nop = Function("_trigger_nop", [], [], [Arg_Install()])
-        list.append(self._late_generate(function_nop, True))
+        output.append(self._late_generate(function_nop, True))
 
-        def _generate_trigger_enter(list, map:Map, function:Function):
-
-            objects = []
+        def _generate_trigger_enter(output:list[str], map:Map, function:Function):
             objects = [object for object in map.objects]
 
             function_enter = Function("_trigger_enter", 
                 objects + [Call(function)], [], [Arg_Install()])
-            list.append(self._late_generate(function_enter, False))
+            output.append(self._late_generate(function_enter, False))
 
             return function_enter
 
@@ -329,7 +334,7 @@ allocated RAM:
 
                 name = f"maps[{map_data.index}, {map.name}].{map.trigger_enter.name}()"
                 #code = map.trigger_enter.address
-                code = _generate_trigger_enter(list, map, map.trigger_enter)
+                code = _generate_trigger_enter(output, map, map.trigger_enter)
                 code = code.address
                 pass
             else:
@@ -349,7 +354,7 @@ allocated RAM:
                 function_enter = Function("test", code_enter, [], [Arg_Install()])
                 self.code.append(function_enter)
                 self.linker.link_function(function_enter)
-                list.append(self._generate_function(function_enter))
+                output.append(self._generate_function(function_enter))
                 
                 code = function_enter.address
 
@@ -368,21 +373,21 @@ allocated RAM:
             header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{name}'"]
             footer = []
 
-            list += header + [code] + footer
+            output += header + [code] + footer
 
             triggers = [map.enum_b_trigger for map in maps]
             triggers = [len(enum.values) if enum != None else 0 for enum in triggers]
             triggers = sum(triggers)
             if triggers > 0:
-                list += self._generate_map_trigger(map_data, maps, map_data.trigger_b_count, (lambda map: map.triggers_b()), map_data.address_b_trigger)
+                output += self._generate_map_trigger(map_data, maps, map_data.trigger_b_count, (lambda map: map.triggers_b()), map_data.address_b_trigger)
 
             triggers = [map.enum_stepon_trigger for map in maps]
             triggers = [len(enum.values) if enum != None else 0 for enum in triggers]
             triggers = sum(triggers)
             if triggers > 0:
-                list += self._generate_map_trigger(map_data, maps, map_data.trigger_step_count, (lambda map: map.triggers_stepon()), map_data.address_stepon_trigger)
+                output += self._generate_map_trigger(map_data, maps, map_data.trigger_step_count, (lambda map: map.triggers_stepon()), map_data.address_stepon_trigger)
 
-        return '\n'.join(list)
+        return '\n'.join(output)
         
 
     def _generate_string(self, string):

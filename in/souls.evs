@@ -95,14 +95,14 @@ fun hotkey_start() {
 fun hotkey_start_l() {
     subtext(string("Start+L[END]"));
 
-    // map_transition(arena, left, DIRECTION.NONE);
+    map_transition(arena, left, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
 fun hotkey_start_r() {
     subtext(string("Start+R[END]"));
 
-    // map_transition(arena, right, DIRECTION.NONE);
+    map_transition(arena, right, DIRECTION.NONE);
 }
 
 fun axe2_wall(flag, object) {
@@ -146,19 +146,103 @@ fun bonfire_triggered() {
 @install()
 fun bomb_wall_triggered() {
     animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-    // subtext(string("nice.[END]"));
-
-    object[<0x2834>] = <0x2836>;
-    // object[<CHARACTER.SCRIPT_OWNER>[0x2a]] = <CHARACTER.SCRIPT_OWNER>[0x15];
+    object[<0x2838>] = <0x283a>;
 
     sleep(0x50);
-    destroy(CHARACTER.SCRIPT_OWNER);
 
-    if(<CHARACTER.SCRIPT_OWNER> == <0x283f>) {
-        subtext(string("yay[END]"));
-    } else {
-        subtext(string("nay[END]"));
-    }
+    destroy(CHARACTER.SCRIPT_OWNER);
+}
+
+// souls
+
+@install()
+fun dust_loot() {
+    // attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.LOOT, 0x172b);
+
+    // subtext(string("Reclaimed souls"));
+
+    currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.TALONS);
+
+    // <0x2391> = 0x0000;
+    // <0x2395> = 0x0000;
+    // call_id(0x3d);
+    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.LOOT);
+
+    destroy(0x2834);
+
+    // sleep(0x80);
+
+    show_currency(True);
+    sleep(0x40);
+    show_currency(False);
+}
+
+@install()
+fun dust_drop() {
+    // subtext(string("Souls in reach...[END]"));
+
+    attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.LOOT, reference(dust_loot));
+
+    <0x23d9> = 0x0001;
+    animate(0x2834, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+    sleep(0x3c);
+    <0x23d9> = 0x0001;
+    animate(0x2834, ANIMATION_MODE.FREEZE, ANIMATION_ENEMY.DUST);
+}
+
+@install()
+fun boy_death() {
+    control(CHARACTER.NONE);
+
+    show_currency(True);
+
+    // subtext(string("Souls lost"));
+
+    // damage(CHARACTER.DOG, 0x03e8);
+
+    currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
+
+    // eval("18 a7 02 50 29 6a 1a d5 // (18) WRITE $24ff = *(boy + 26)"); // X
+    <0x24ff> = <CHARACTER.BOY>[0x1a];
+    // eval("18 a9 02 50 29 6c 1a d5 // (18) WRITE $2501 = *(boy + 28)"); // Y
+    <0x2501> = <CHARACTER.BOY>[0x1c];
+    // <0x2503> = MEMORY.MAP;
+
+    // sleep(0x20);
+
+    // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
+    destroy(0x2834);
+
+    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+    animate(CHARACTER.DOG, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+
+    sleep(0xa0);
+
+    fade_out();
+
+    show_currency(False);
+
+    sleep(0x50);
+
+    heal(CHARACTER.BOTH, False);
+
+    map_transition(inbetwixx, start, DIRECTION.NONE);
+
+    control(CHARACTER.BOTH);
+}
+
+@install()
+fun init_souls() {
+    //if(<0x24ff> == 0) {
+    add_enemy(ENEMY.BEE, 0x00, 0x00);
+    store_last_entity(0x2834);
+    eval("43 8d 00 00 88 a7 02 88 a9 02 // (43) Teleport boy to x:$23b9, y:$23bb"); // X/Y
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(dust_drop));
+    
+    damage(0x2834, 0x03e8);
+    //}
+
+    attach_script(CHARACTER.BOY, SCRIPT_TRIGGER.DEATH, reference(boy_death));
 }
 
 // MAPS
@@ -302,6 +386,8 @@ map inbetwixx(0x05) {
     }
 
     fun init_room() {
+        init_souls();
+        
         sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
 
@@ -329,14 +415,15 @@ map inbetwixx(0x05) {
     }
 
     fun bomb_wall_trigger(object, x, y) {
-        // add_enemy_with_flags(ENEMY.THRAXX_HEART, 0x3d, 0x3c, 0x0000);
+        // add_enemy_with_flags(ENEMY.THRAXX_HEART, x, y, 0x0000);
         add_enemy_with_flags(ENEMY.FACE_ENTITY, x, y, 0x0004);
         // <CHARACTER.LAST_ENTITY>[0x2a] = object;
         // <CHARACTER.LAST_ENTITY>[0x15] = 0x01;
+        
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bomb_wall_triggered));
 
-        <0x2834> = object;
-        <0x2836> = 0x01;
+        <0x2838> = object;
+        <0x283a> = 0x01;
     }
 
     @install()
@@ -344,11 +431,16 @@ map inbetwixx(0x05) {
         init_room();
 
         if(!FLAG.IN_ANIMATION) {
-            // intro();
-            
-            unlock(ITEM.SPEAR_1);
-            cheat();
+            if(False) {
+                intro();
+            } else {
+                animate(CHARACTER.DOG, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
 
+                // unlock(ITEM.SPEAR_1);
+                unlock(ITEM.AXE_2);
+                cheat();
+            }
+            
             // code(0xa3, 0x18, "// (a3) CALL 'Prepare room change? North exit/south entrance outdoor-indoor?' (0x26)"); // TODO: 4x4 combinations, not 4
             // 19=ww, 1a=Ww, 1b=wn, 1c=ws, 1d=ee, 1e=Ee, 1f=EN
             // 20=ES, 21=SS, 22=Ss, 23=sW, 24=SW, 25=SE, 26=NN, 27=NN, 28=NE, 29=NW, 2a=NS, 2b=Ns, 2c=ns, 2d=ss
@@ -357,9 +449,8 @@ map inbetwixx(0x05) {
         }
 
         bonfire(0x31, 0x35, reference(bonfire_triggered));
-        
-        bomb_wall_trigger(0x01, 0x3f, 0x3c);
-        <0x283f> = <CHARACTER.LAST_ENTITY>;
+        // bomb_wall_trigger(0x01, 0x3f, 0x3c);
+        // bomb_wall_trigger(0x00, 0x43, 0x60);
     }
 };
 
@@ -391,6 +482,8 @@ map east_inbetwixx(0x5b) {
     }
 
     fun init_room() {
+        // init_souls();
+
         sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
 
@@ -422,6 +515,8 @@ map east_hut(0x33) {
     }
 
     fun init_room() {
+        // init_souls();
+
         sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
 
@@ -445,6 +540,8 @@ map east_hut2(0x34) {
     }
 
     fun init_room() {
+        // init_souls();
+
         // sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
 
@@ -485,6 +582,8 @@ map arena(0x5c) {
     }
 
     fun init_room() {
+        init_souls();
+
         sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
 
@@ -591,6 +690,8 @@ map northeast_inbetwixx(0x07) {
     }
 
     fun init_room() {
+        // init_souls();
+
         sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
 
