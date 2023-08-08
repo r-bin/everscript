@@ -130,6 +130,12 @@ class Address(Function_Base):
 
         self.scripts_start_addr = 0x928000
 
+    def __repr__(self):
+        if self.value:
+            return f"Address({self.value}/{self.eval()})"
+        else:
+            return f"Address(-)"
+    
     def print(self):
         return {'{:08X}'.format(self.value, 'x')} # TODO pattern
 
@@ -278,7 +284,7 @@ class Call(Function_Base):
 
         if isinstance(function, Function):
             if not function.install:
-                self.function = copy.deepcopy(function)
+                self.function = object_utils.deepcopy(function)
                 self.address = function.address
                 self.async_call = function.async_call
                 for p, a in zip(self.params, function.args):
@@ -306,7 +312,7 @@ class Call(Function_Base):
         return params
 
     def __repr__(self):
-        return f"Call({self.address}, {self.function})"
+        return f"Call({Address(self.address)}, {self.function})"
         
     def _code(self):
         if self.function:
@@ -391,6 +397,8 @@ class Function_Goto(Function_Base):
         distance = "yy yy"
         if self.distance:
             distance = Word(self.distance).code()
+        else:
+            pass
 
         return f"""
 04 {distance}      // goto({self.label}/{distance})

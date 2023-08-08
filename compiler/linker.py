@@ -271,7 +271,7 @@ unallocated RAM:
             self.memory_manager.allocate_function_key(function)
 
 
-    def link_map(self, maps:list[Map]):
+    def link_map_variants(self, maps:list[Map]):
         variants = {}
 
         for map in maps:
@@ -300,16 +300,28 @@ unallocated RAM:
         
         map_transition.link(map, entrance)
 
-    def link_call(self, code):
+    def link_call_in_code(self, code:list, all_code=[]):
         for function in code:
             for expression in function.script:
                 if isinstance(expression, Call):
-                    self._link_call(code, expression)
+                    self.link_call(expression, all_code)
+                    if expression.function != None:
+                        self.link_call_in_code([expression.function], all_code)
 
-    def _link_call(self, code, call):
-        for function in code:
-            if call.function != None and function.name == call.function.name:
-                call.address = function.address
+    def link_call(self, call:Call, all_code=[]):
+        if call.function != None:
+            call.address = call.function.address
+
+
+        if call.function and call.function.install and call.address == None:
+            #TODO: workaround because of diverging id()s
+            for c in all_code:
+                if call.function != None and call.function.name == c.name:
+                    call.address = c.address
+                    break
+
+        if call.function and call.function.install and call.address == None:
+            raise Exception(f"{call} could not be linked")
 
     def link_goto(self, function):
         code = function.script
