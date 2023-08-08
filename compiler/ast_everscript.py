@@ -700,6 +700,13 @@ class Sub(BinaryOp):
                 code = [0x0d, left.code(), 0x29] + right + [0x1b]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
                 code = [0x08, left.code(), 0x29] + right + [0x1b]
+
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
+                code = left.calculate() + [0x29] + right + [0x1b]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = [0x0d] + left.calculate() + [0x29] + right + [0x1b]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = [0x08] + left.calculate() + [0x29] + right + [0x1b]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -721,6 +728,27 @@ class Div(BinaryOp):
 
     def _eval(self):
         return self.left.value.eval() // self.right.value.eval()
+
+    def _calculate(self, left, right):
+        code = []
+        operator = 0x18
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate() + [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = [0x0d, left.code(), 0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = [0x08, left.code(), 0x29] + right + [operator]
+
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
+                code = left.calculate() + [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = [0x0d] + left.calculate() + [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = [0x08] + left.calculate() + [0x29] + right + [operator]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
 
 class ShiftRight(BinaryOp):
     def operator(self):
