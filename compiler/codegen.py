@@ -68,11 +68,11 @@ class CodeGen():
     def get_memory_allocation(self):
         strings = []
         for s in self.strings:
-            strings.append(f"   - [{'{:06X}'.format(s.text_key.address, 'x')}, {'{:04X}'.format(s.text_key.count(), 'x')}] {s.text_key}")
-            strings.append(f"   - [{'{:06X}'.format(s.address, 'x')}, {'{:04X}'.format(s.value.count(), 'x')}] {s}")
+            strings.append(f"   - [{'{:06X}'.format(s.text_key.address, 'x')}, {'{:04X}'.format(s.text_key.count([]), 'x')}] {s.text_key}")
+            strings.append(f"   - [{'{:06X}'.format(s.address, 'x')}, {'{:04X}'.format(s.value.count([]), 'x')}] {s}")
         strings = '\n'.join(strings)
-        memory = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count(), 'x')}] {m}" for m in self.memory])
-        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count(), 'x')}] {f}" for f in self.flags])
+        memory = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory])
+        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.flags])
 
         return f"""
 {self.linker.get_memory_allocation()}
@@ -108,7 +108,7 @@ allocated RAM:
     def add_patch(self, patch_name):
         self.patches.append(patch_name)
 
-    def add_string(self, string, text):
+    def add_string(self, string:String, text:RawString):
         self.linker.link_string(string, text)
 
         self.strings.append(string)
@@ -216,7 +216,7 @@ allocated RAM:
             
             code = code.index
             code = Word(code)
-            code = code.code()
+            code = code.code([])
 
             if address >= 0xC00000: # TODO
                 address -= 0xC00000
@@ -361,7 +361,7 @@ allocated RAM:
             address = map_data.trigger_enter
             count = 3
 
-            code = Address(code).code()
+            code = Address(code).code([])
 
             if address >= 0xC00000: # TODO
                 address -= 0xC00000
@@ -395,12 +395,12 @@ allocated RAM:
 
         name = '{:04X}'.format(string.text_key.index, 'x')
         address = string.text_key.address
-        count = string.text_key.count()
+        count = string.text_key.count([])
         code = string.address
         code -= 0xc00000
         code = Word((code & 0xffff) + ((code & 0x7f8000) >> 1))
         code.value_count = 3
-        code = code.code()
+        code = code.code([])
 
         if address >= 0xC00000: # TODO
             address -= 0xC00000
@@ -416,8 +416,8 @@ allocated RAM:
 
         name = string.value
         address = string.address
-        count = string.value.count()
-        code = string.value.code()
+        count = string.value.count([])
+        code = string.value.code([])
 
         if address >= 0xC00000: # TODO
             address -= 0xC00000
@@ -436,7 +436,7 @@ allocated RAM:
     def _generate_function(self, function:Function):
         code = function.script
         address = function.address
-        count = sum([e.count() for e in code])
+        count = sum([e.count([]) for e in code])
 
         list = []
 
@@ -453,7 +453,7 @@ allocated RAM:
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{function.name}()'"]
         footer = []
 
-        list += header + [e.code() for e in code] + footer
+        list += header + [e.code([]) for e in code] + footer
 
         return '\n'.join(list)
 
@@ -461,7 +461,7 @@ allocated RAM:
         code = function.address
         code = [Address(code)]
         address = function.key.address
-        count = sum([e.count() for e in code])
+        count = sum([e.count([]) for e in code])
 
         list = []
 
@@ -475,7 +475,7 @@ allocated RAM:
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{function.key}->{function.name}()'"]
         footer = []
 
-        list += header + [e.code() for e in code] + footer
+        list += header + [e.code([]) for e in code] + footer
 
         return '\n'.join(list)
 
@@ -491,15 +491,15 @@ allocated RAM:
         if inject == None:
             return []
         
-        address = inject.eval()
+        address = inject.eval([])
         call = Call(function)
-        count = call.count()
+        count = call.count([])
         if function.terminate:
             count += 1 # TODO
         
-        script = [call.code()]
+        script = [call.code([])]
         if function.terminate:
-            script += [ End().code() ]
+            script += [ End().code([]) ]
         else:
             pass
 

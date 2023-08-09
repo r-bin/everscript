@@ -6,7 +6,7 @@ import ujson
 
 
 class ObjectUtils():
-    def deepcopy(self, object):
+    def deepcopy(self, object:any) -> any:
         if True:
             return copy.deepcopy(object)
         if False:

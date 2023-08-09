@@ -104,8 +104,8 @@ class MemoryManager():
 
         raise Exception("no memory defined/available")
         
-    def allocate_text(self, string, text):
-        count = text.count()
+    def allocate_text(self, string:String, text:RawString):
+        count = text.count([])
         text_key = self.memory["text_key"].pop(0)
         memory = self.memory["text"]
         
@@ -226,13 +226,13 @@ class Linker():
         self.memory_manager = MemoryManager()
 
     def get_memory_allocation(self):
-        text_key = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count(), 'x')}] {m}" for m in self.memory_manager.memory["text_key"]])
+        text_key = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["text_key"]])
         text = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["text"]])
         
         script = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["script"]])
 
-        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count(), 'x')}] {m}" for m in self.memory_manager.memory["memory"]])
-        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count(), 'x')}] {f}" for f in self.memory_manager.memory["flag"]])
+        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]])
+        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]])
 
         return f"""
 unallocated ROM:
@@ -259,15 +259,15 @@ unallocated RAM:
     def link_flag(self):
         return self.memory_manager.allocate_flag()
 
-    def link_string(self, string, text):
+    def link_string(self, string:String, text:RawString):
         self.memory_manager.allocate_text(string, text)
 
     def add_memory(self, memory):
         self.memory_manager.add(memory)
 
-    def link_function(self, function):
-        if function.address == None:
-            count = sum([e.count() for e in function.script])
+    def link_function(self, function:Function):
+        if function.install and function.address == None:
+            count = sum([e.count([]) for e in function.script])
             address = self.memory_manager.allocate_script(count)
 
             function.address = address
