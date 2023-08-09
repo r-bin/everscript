@@ -209,7 +209,7 @@ class Parser():
         @self.pg.production('function_arg : FUN_INSTALL ( expression , expression )')
         def parse(p):
             address = p[2]
-            terminate = p[4].eval() > 0
+            terminate = p[4].eval([]) > 0
 
             return Arg_Install(address, terminate)
 
@@ -343,17 +343,25 @@ class Parser():
 
         @self.pg.production('param_list : param')
         def parse(p):
-            return [ p[0] ]
+            param = p[0]
+            param_list = [ param ]
+
+            return param_list
         @self.pg.production('param_list : param_list , param')
         def parse(p):
-            return p[0] + [ p[2] ]
+            param = p[2]
+            param_list = p[0] + [ param ]
+
+            return param_list
 
         @self.pg.production('param : expression')
         def parse(p):
-            if isinstance(p[0], Identifier):
-                return Param(p[0], None)
+            param = p[0]
+
+            if isinstance(param, Identifier):
+                return Param(param, None)
             else:
-                return Param(None, p[0])
+                return Param(None, param)
 
         @self.pg.production('expression : ! expression')
         def parse(p):

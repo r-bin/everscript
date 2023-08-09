@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from rply.token import BaseBox
+from rply import Token
 import re
 from textwrap import wrap
 
@@ -15,25 +18,29 @@ class Memorable():
 class Param(BaseBox):
     def __init__(self, name, value):
         self.name = None
-        if name != None:
+        if isinstance(name, Identifier):
             self.name = name.name
+
         self.value = value
 
     def __repr__(self):
         return f"Param(name={self.name}, value={self.value})"
 
-    def eval(self):
+    def eval(self, params:list[Param]):
         if hasattr(self, 'params'):
             self.value.params = self.params
 
         if isinstance(self.value, Memory):
             return self.value.address.value
         else:
-            return self.value.eval()
+            return self.value.eval(params)
 
 class Identifier(BaseBox):
     def __init__(self, name):
         self.name = name.value
+
+    def __repr__(self):
+        return f"Identifier({self.name})"
 
     def eval(self, params=[]):
         # TODO
@@ -45,88 +52,133 @@ class Identifier(BaseBox):
 
 class Function_Base(BaseBox):
     params:Param = []
+    #cache_code:str = None
+    cache_code_clean:str = None
 
-    def code(self, params=[]):
-        self.handle_params(params)
+    def code(self, params):
+        if True: # self.cache_code == None:
+            #self.handle_params(params)
 
-        code = self._code()
-        code = re.sub("\n\s*\n", "", code)
+            code = self._code(params)
+            code = re.sub("\n\s*\n", "", code)
+            code = code.strip()
+
+            #if self._valid_code(code):
+            #    self.cache_code = code
+
+            return code
+        else:
+            return self.cache_code
+        
+    def _valid_code(self, code:str) -> bool:
+        code = self._clean_code(code)
+        if "xx" in code:
+            return False
+        if "yy" in code:
+            return False
+        return True
+    
+    def _clean_code(self, code:str) -> str:
+        code = re.sub("//.*", "", code)
+        code = re.sub("[\s]+", " ", code)
         code = code.strip()
 
         return code
         
-    def code_clean(self, params=[]):
+    def code_clean(self, params):
         script = self.code(params)
-        script = re.sub("//.*", "", script)
-        script = re.sub("[\s]+", " ", script)
-        script = script.strip()
+        script = self._clean_code(script)
 
         return script
 
-    def count(self):
-        count = self.code_clean(self.params)
+    def count(self, params):
+        count = self.code_clean(params)
         if len(count) > 0:
             count = count.split(" ")
         count = len(count)
 
         return count
     
-    def resolve(self, value):
+    def resolve(self, value:any, params:list[Param]):
         match value:
             case Identifier():
-                return self.resolve_identifier(value)
+                return self.resolve_identifier(value, params)
             case Param():
-                return self.resolve_param(value)
+                return self.resolve_param(value, params)
             case _:
                 return value
 
-    def resolve_identifier(self, identifier):
+    def resolve_identifier(self, identifier:Identifier, params:list[Param]):
         if not isinstance(identifier, Identifier):
             raise Exception(f"identifier '{identifier}' cannot be resolved")
         
-        for p in self.params:
+        for p in params:
             if p.name == identifier.name:
                 return p.value
             
         return None
 
-    def resolve_param(self, param):
+    def resolve_param(self, param:Param, params:list[Param]):
         if not isinstance(param, Param):
             raise Exception(f"param '{param}' cannot be resolved")
         
         if param.value != None:
             return param.value
         elif param.name != None:
-            for p in self.params:
+            for p in params:
                 if p.name == param.name:
                     return p.value
 
         return None
+    
+    def inherit_params(self, params:list[Param]):
+        for param in params:
+            if param in self.params:
+                pass
+            else:
+                self.params.append(param)
 
-    def handle_params(self, params:list[Param]=[]):
-        if self.params:
-            sp = {x.name : x for x in self.params}
+    def handle_params(self, params:list[Param], function_params:list[Param]):
+        if function_params:
+            sp = {x.name : x for x in function_params}
             p = {x.name : x for x in params}
             #test = sp.keys() & p.keys()
             
             for key in sp.keys() & p.keys():
                 if sp[key].value == None:
                     sp[key].value = p[key].value
-            pass
+
+            return [value for name, value in sp.items()]
         else:
-            self.params = params
+            return params
+
+    def merge_params(self, params:list[Param], function_params:list[Param]):
+        fp = {x.name : x for x in function_params}
+        p = {x.name : x for x in params}
+        
+        keys = fp.keys()
+
+        params = [Param(key, fp[key].value if key in fp else p[key].value) for key in keys]
+
+        merged_params = [param for param in params]
+        for param in merged_params:
+            for p in function_params:
+                if param.name == p.name and p.value != None:
+                    param.value = p.value
+
+        return merged_params
 
 
 class Word(Function_Base):
     def __init__(self, value, value_count = 2):
         self.value_original = value
-        value = self.resolve(value)
+        value = self.resolve(value, [])
 
         if isinstance(value, int):
             self.value = value
             self.value_count = value_count
         elif isinstance(value, Word):
-            self.value = value.eval()
+            self.value = value.eval([])
         else:
             self.value = int(value.value, 16)
 
@@ -138,10 +190,10 @@ class Word(Function_Base):
     def __repr__(self):
         return f"Word({self.value_original})"
 
-    def eval(self):
+    def eval(self, params:list[Param]):
         return self.value
         
-    def _code(self):
+    def _code(self, params:list[Param]):
         value = self.value
 
         if value < 0:
@@ -160,8 +212,8 @@ class Word(Function_Base):
         
         return ' '.join(reversed(value))
     
-    def calculate(self):
-        i = self.eval()
+    def calculate(self, params:list[Param]):
+        i = self.eval(params)
 
         if i in range(0x0, 0xf):
             i = i & 0x0f
@@ -175,9 +227,9 @@ class Word(Function_Base):
         else:
             match self.value_count:
                 case 1:
-                    i = [0x02, self.code()]
+                    i = [0x02, self.code([])]
                 case 2:
-                    i = [0x04, self.code()]
+                    i = [0x04, self.code([])]
                 case _:
                     raise Exception("not supported")
 
@@ -195,13 +247,13 @@ class Memory(Function_Base, Memorable):
     def __init__(self, address=None, flag=None, offset=None):
         self.address = address
         if isinstance(self.address, Word):
-            self.address = self.address.eval()
+            self.address = self.address.eval([])
         self.flag = flag
         if isinstance(self.flag, Word):
-            self.flag = self.flag.eval()
+            self.flag = self.flag.eval([])
         self.offset = offset
         if isinstance(self.offset, Word):
-            self.offset = self.offset.eval()
+            self.offset = self.offset.eval([])
 
         self.memory = True
         self.value_count = 2
@@ -222,10 +274,10 @@ class Memory(Function_Base, Memorable):
     def __repr__(self):
         return f"Memory(address={self.address}/{self.type}, flag={self.flag}, offset={self.offset})"
     
-    def eval(self):
+    def eval(self, params:list[Param]):
         return self.address
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         self.handle_type()
 
         address = self.address
@@ -271,42 +323,42 @@ class Memory(Function_Base, Memorable):
 
             return combined
         
-    def calculate(self, deref=True):
+    def calculate(self, params:list[Param], deref=True):
         self.handle_type()
 
         code = []
 
         match [self.type, self.offset, self.flag, self.value_count]:
             case ["char", None, _, _]:
-                code = [self.eval()]
+                code = [self.eval(params)]
 
             case ["28", None, _, 1]:
-                code = [0x0c, self.code()]
+                code = [0x0c, self.code(params)]
             case ["28", None, _, _]:
-                code = [0x0e, self.code()]
+                code = [0x0e, self.code(params)]
 
             case ["22", None, _, 1]:
-                code = [0x07, self.code()]
+                code = [0x07, self.code(params)]
             case ["22", None, int(), _]:
-                code = [0x05, self.code()]
+                code = [0x05, self.code(params)]
             case ["22", None, _, _]:
-                code = [0x08, self.code()]
+                code = [0x08, self.code(params)]
 
             case ["xx", None, _, _]:
-                code = [0x08, _, self.code()]
+                code = [0x08, _, self.code(params)]
 
             case ["char", _, _, _]:
-                code = [self.eval(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
+                code = [self.eval(params), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
             case ["28", _, _, _]:
-                code = [0x0d, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
+                code = [0x0d, self.code(), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
             case ["22", _, _, _]:
-                code = [0x08, self.code(), 0x29] + Word(self.offset, 1).calculate() + [0x1a]
+                code = [0x08, self.code(), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
@@ -321,7 +373,7 @@ class Function_Code(Function_Base):
         self.delimiter = delimiter
         self.params = params
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         list = []
 
         for a in self.script:
@@ -329,10 +381,10 @@ class Function_Code(Function_Base):
                 case int():
                     list.append('{:02X}'.format(a, 'x')) # TODO
                 case Function_Base():
-                    list.append(a.code(self.params))
+                    list.append(a.code(params))
                 case Param():
-                    code = self.resolve_param(a)
-                    code = code.code(self.params)
+                    code = self.resolve(a, params)
+                    code = code.code(params)
                     list.append(code)
                 case str():
                     list.append(a)
@@ -358,6 +410,163 @@ class Calculatable():
     60…6f = value = 10…1f
     """
 
+    def _terminate(self, code:list[int|str|list]):
+        code = list(reversed(code))
+
+        termination = 0x80
+
+        for i, c in enumerate(code):
+            match c:
+                case c if isinstance(c, str):
+                    pass
+                case c if isinstance(c, int):
+                    code[i] = [c, termination]
+                    break
+                case c if isinstance(c, list):
+                    code[i] = c + [termination]
+                    break
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(reversed(code))
+
+        return code
+    
+    def _clean_calucatable(self, code, params:list[Param]):
+        calculated_code = code
+
+        def stringify(c):
+            match c:
+                case c if isinstance(c, int):
+                    return '{:02X}'.format(c, 'x')
+                case c if isinstance(c, str):
+                    return c
+                case c if isinstance(c, list):
+                    return stringify(sum(c))
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(map(stringify, code))
+        code = ' '.join(code)
+        code = f"{code} // calculator({calculated_code})"
+        if getattr(self, "flatten", None):
+            code = f"{code} or {self.flatten(self, params)}"
+
+        return code
+ 
+class Operator(Function_Base, Calculatable, Memorable):
+    pass
+
+class UnaryOp(Operator):
+    def __init__(self, value):
+        self.value = value
+
+        if isinstance(value, Param):
+            value = value.value
+
+        self.memory = True
+
+    def calculate(self, params:list[Param]):
+        #self.handle_params(params)
+
+        value = self.resolve(self.value, params)
+
+        if isinstance(value, Word) or isinstance(value, Memory):
+            value = value.calculate(params)
+
+        return self._calculate(value, params)
+   
+class BinaryOp(Operator):
+    params:list[Param]
+
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+        self.value_count = 2
+
+        self.update()
+
+    def update(self, params=[]):
+        #self.handle_params(params)
+    
+        left = self.resolve(self.left, params)
+        right = self.resolve(self.right, params)
+
+        self.inherit_memory(left)
+        self.inherit_memory(right)
+
+        if self.params:
+            sp = {x.name : x for x in self.params}
+            if isinstance(self.left, Param) and self.left.name != None:
+                self.left.value = sp[self.left.name].value
+            if isinstance(self.right, Param) and self.right.name != None:
+                self.right.value = sp[self.right.name].value
+
+    def eval(self, params:list[Param]):
+        #self.handle_params(params)
+        left = self.resolve(self.left, params)
+        right = self.resolve(self.right, params)
+
+        #left.inherit_params(self.params)
+        #right.inherit_params(self.params)
+
+        return self._eval(left, right, params)
+
+    def _code(self, params:list[Param]):
+        value = self.eval(params)
+
+        left = self.resolve(self.left, params)
+        right = self.resolve(self.right, params)
+        
+        self.value_count = max(left.value_count, right.value_count)
+        
+        if self.value_count == 1:
+            value = '{:02X}'.format(value, 'x')
+        elif self.value_count == 2:
+            value = '{:04X}'.format(value, 'x')
+        elif self.value_count == 3:
+            self.value_count = 3
+            value = '{:06X}'.format(value, 'x')
+
+        value = re.sub("[+-]{0,1}0x", "", value)
+        value = wrap(value, 2)
+        
+        return ' '.join(reversed(value))
+    
+    def calculate(self, params):
+        self.update(params)
+
+        left = self.resolve(self.left, params)
+        if isinstance(left, BinaryOp):
+            left = left.calculate(params)
+        
+        right = self.resolve(self.right, params)
+        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp):
+            right = right.calculate(params)
+        elif isinstance(right, Word) or isinstance(right, Memory):
+            right = right.calculate(params) #TODO
+
+        if isinstance(self, Memorable) and not self.memory:
+            return Word(self.eval()).calculate()
+        else:
+            return self._calculate(left, right, params)
+    
+    def flatten(self, x, params:list[Param]):
+        if isinstance(x, BinaryOp):
+            return self.flatten(x.left, params) + [x.operator()] + self.flatten(x.right, params)
+        elif isinstance(x, Param):
+            if not x.value:
+                sp = {x.name : x for x in params}
+                x.value = sp[x.name].value
+            return self.flatten(x.value, params)
+        else:
+            return [x]
+
+    def operator(self):
+        return ""
+
+class Opcode():
     _instructions = {
         "nop": 0x00, # noop?
 
@@ -467,165 +676,3 @@ class Calculatable():
             "28": _instructions["test temp"]
         }
     }
-
-    def _terminate(self, code:list[int|str|list]):
-        code = list(reversed(code))
-
-        termination = 0x80
-
-        for i, c in enumerate(code):
-            match c:
-                case c if isinstance(c, str):
-                    pass
-                case c if isinstance(c, int):
-                    code[i] = [c, termination]
-                    break
-                case c if isinstance(c, list):
-                    code[i] = c + [termination]
-                    break
-                case _:
-                    raise Exception("invalid type")
-
-        code = list(reversed(code))
-
-        return code
-    
-    def _clean_calucatable(self, code):
-        calculated_code = code
-
-        def stringify(c):
-            match c:
-                case c if isinstance(c, int):
-                    return '{:02X}'.format(c, 'x')
-                case c if isinstance(c, str):
-                    return c
-                case c if isinstance(c, list):
-                    return stringify(sum(c))
-                case _:
-                    raise Exception("invalid type")
-
-        code = list(map(stringify, code))
-        code = ' '.join(code)
-        code = f"{code} // calculator({calculated_code})"
-        if getattr(self, "flatten", None):
-            code = f"{code} or {self.flatten(self)}"
-
-        return code
- 
-class Operator(Function_Base, Calculatable, Memorable):
-    pass
-
-class UnaryOp(Operator):
-    def __init__(self, value):
-        self.value = value
-
-        if isinstance(value, Param):
-            value = value.value
-
-        self.memory = True
-
-    def calculate(self, params=[]):
-        self.handle_params(params)
-
-        value = self.resolve_param(self.value)
-
-        if isinstance(value, Word) or isinstance(value, Memory):
-            value = value.calculate()
-
-        return self._calculate(value)
-   
-class BinaryOp(Operator):
-    params:list[Param]
-
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-        self.value_count = 2
-
-        self.update()
-
-    def update(self, params=[]):
-        self.handle_params(params)
-    
-        left = self.resolve(self.left)
-        right = self.resolve(self.right)
-
-        self.inherit_memory(left)
-        self.inherit_memory(right)
-
-    def handle_params(self, params=[]):
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            p = {x.name : x for x in params}
-            test = sp.keys() & p.keys()
-            for key in sp.keys() & p.keys():
-                if sp[key].value == None:
-                    sp[key].value = p[key].value
-            pass
-        else:
-            self.params = params
-
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            if isinstance(self.left, Param) and self.left.name != None:
-                self.left.value = sp[self.left.name].value
-            if isinstance(self.right, Param) and self.right.name != None:
-                self.right.value = sp[self.right.name].value
-
-    def eval(self, params=[]):
-        self.handle_params(params)
-
-        self.left.params = self.params
-        self.right.params = self.params
-
-        return self._eval()
-
-    def _code(self):
-        value = self.eval()
-        self.value_count = max(self.left.value.value_count, self.right.value.value_count)
-        
-        if self.value_count == 1:
-            value = '{:02X}'.format(value, 'x')
-        elif self.value_count == 2:
-            value = '{:04X}'.format(value, 'x')
-        elif self.value_count == 3:
-            self.value_count = 3
-            value = '{:06X}'.format(value, 'x')
-
-        value = re.sub("[+-]{0,1}0x", "", value)
-        value = wrap(value, 2)
-        
-        return ' '.join(reversed(value))
-    
-    def calculate(self, params=[]):
-        self.update(params)
-
-        left = self.resolve(self.left)
-        if isinstance(left, BinaryOp):
-            left = left.calculate(params)
-        
-        right = self.resolve(self.right)
-        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp):
-            right = right.calculate(params)
-        elif isinstance(right, Word) or isinstance(right, Memory):
-            right = right.calculate()
-
-        if isinstance(self, Memorable) and not self.memory:
-            return Word(self.eval()).calculate()
-        else:
-            return self._calculate(left, right)
-    
-    def flatten(self, x):
-        if isinstance(x, BinaryOp):
-            return self.flatten(x.left) + [x.operator()] + self.flatten(x.right)
-        elif isinstance(x, Param):
-            if not x.value:
-                sp = {x.name : x for x in self.params}
-                x.value = sp[x.name].value
-            return self.flatten(x.value)
-        else:
-            return [x]
-
-    def operator(self):
-        return ""
