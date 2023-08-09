@@ -18,10 +18,14 @@ from enum import StrEnum
 class Object(Function_Base, Calculatable, Memorable):
     def __init__(self, index, flag=None):
         self.index = index
+        self.index = self.resolve(self.index, [])
         self.flag = flag
 
         self.memory = True
 
+    def __repr__(self):
+        return f"Object(index={self.index}, flag={self.flag})"
+        
     def calculate(self, params:list[Param]):
         index = self.resolve(self.index, params)
         code = index.calculate(params)
@@ -97,9 +101,6 @@ class Function(Function_Base):
         return f"Function('name={self.name}', address={self.address}, install={self.install}, args={self.args})"
         
     def _code(self, params:list[Param]):
-        for script in self.script:
-            script.inherit_params(self.params)
-
         return Function_Code(self.script, '\n').code()
 
 class Arg_Install(BaseBox):
@@ -281,27 +282,17 @@ class Label_Destination(BaseBox):
 class Call(Function_Base):
     async_call = False
     
-    def deepcopy(self, object:any) -> any:
-        if False:
-            match object:
-                case Function():
-                    return copy.deepcopy(object)
-                case _:
-                    return object_utils.deepcopy(object)
-        if True:
-            return object_utils.deepcopy(object)
-
     def __init__(self, function, params=[]):
         self.params = self._paramify(params)
 
         if isinstance(function, Function):
             if not function.install:
-                self.function = self.deepcopy(function)
+                self.function = function
                 self.address = function.address
                 self.async_call = function.async_call
-                for p, a in zip(self.params, function.args):
-                    if p.name == None:
-                        p.name = a.name
+                #for p, a in zip(self.params, function.args):
+                #    if p.name == None:
+                #        p.name = a.name
             else:
                 self.function = function
                 self.address = function.address
@@ -327,12 +318,23 @@ class Call(Function_Base):
         return f"Call(address={Address(self.address)}, function={self.function}, params={self.params})"
     
     def _code(self, params:list[Param]):
-        params = self.handle_params(params, self.params)
+        #params = self.handle_params(params, self.params)
         
         if self.function:
-            for param, arg in zip(params, self.function.args):
-                param.name = arg.name
-        
+            out_params = [Param(param.name, param.value) for param in self.params]
+
+            for param in out_params:
+                if param.value == None:
+                    for p in params:
+                        if param.name == p.name:
+                            param.value = p.value
+
+            #params = self.handle_params(params, self.params)
+
+            for p, a in zip(out_params, self.function.args):
+                if p.name != a.name:
+                    pass
+                p.name = a.name
 
         if self.function == None or self.function.install:
             address = "xx xx xx"
@@ -340,7 +342,7 @@ class Call(Function_Base):
                 self.address = self.function.address
             if self.address != None:
                 address = Address(self.address)
-                address = address.code(params)
+                address = address.code([])
             else:
                 pass
 
@@ -354,7 +356,7 @@ class Call(Function_Base):
                 """
         
         else:
-            return Function_Code(self.function.script, '\n').code(params)
+            return Function_Code(self.function.script, '\n').code(out_params)
 
 class End(Function_Base):
     def eval(self):
@@ -463,12 +465,8 @@ class If_list(Function_Base, Memorable):
 
         self.update_memory()
 
-    def update_memory(self, params=[]):
-        for script in self.list:
-            script.inherit_params(self.params)
-
+    def update_memory(self):
         for element in self.list:
-            element.update_memory(params)
             self.inherit_memory(element)
 
         for element in self.list:
@@ -476,7 +474,7 @@ class If_list(Function_Base, Memorable):
 
 
     def _code(self, params:list[Param]):
-        self.update_memory(self.params)
+        self.update_memory()
 
         list = []
         if_depleted = False
@@ -524,9 +522,6 @@ class If(Function_Base, Calculatable, Memorable):
     def eval(self, params:list[Param]):
         self.update_memory(params)
         condition = self.resolve(self.condition, params)
-
-        if condition != None:
-            condition.params = self.params
 
         match condition:
             case Word():
@@ -1045,13 +1040,10 @@ class While(Function_Base):
 
 
     def _code(self, params:list[Param]):
-        for script in self.script:
-            script.inherit_params(self.params)
-
         self._update_condition(params)
 
         code = self.list
-        code = Function_Code(code, '\n').code(self.params)
+        code = Function_Code(code, '\n').code(params)
 
         return code
 
@@ -1304,9 +1296,9 @@ class Loot(Function_Base):
         self.function = generator.get_function("loot")
 
     def _code(self, params:list[Param]):
-        params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
+        call_params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
 
-        return Call(self.function, params).code(self.params)
+        return Call(self.function, call_params).code(self.params)
 class Axe2Wall(Function_Base):
     def unwrap_param(self, param):
         if isinstance(param, Param):
@@ -1324,9 +1316,9 @@ class Axe2Wall(Function_Base):
         self.function = generator.get_function("axe2_wall")
 
     def _code(self, params:list[Param]):
-        params = [self.object.flag, self.object]
+        call_params = [self.object.flag, self.object]
 
-        return Call(self.function, params).code(self.params)
+        return Call(self.function, call_params).code(params)
     
 class Reference(Function_Base):
     def __init__(self, generator, name:any):

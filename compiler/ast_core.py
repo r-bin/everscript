@@ -18,7 +18,9 @@ class Memorable():
 class Param(BaseBox):
     def __init__(self, name, value):
         self.name = None
-        if isinstance(name, Identifier):
+        if isinstance(name, str):
+            self.name = name
+        elif isinstance(name, Identifier):
             self.name = name.name
 
         self.value = value
@@ -27,9 +29,6 @@ class Param(BaseBox):
         return f"Param(name={self.name}, value={self.value})"
 
     def eval(self, params:list[Param]):
-        if hasattr(self, 'params'):
-            self.value.params = self.params
-
         if isinstance(self.value, Memory):
             return self.value.address.value
         else:
@@ -41,19 +40,10 @@ class Identifier(BaseBox):
 
     def __repr__(self):
         return f"Identifier({self.name})"
-
-    def eval(self, params=[]):
-        # TODO
-        for param in self.params:
-            if param.name == self.value:
-                return param.value.eval()
-
-        raise Exception("undefined parameter")
-
+    
 class Function_Base(BaseBox):
-    params:Param = []
     #cache_code:str = None
-    cache_code_clean:str = None
+    #cache_code_clean:str = None
 
     def code(self, params):
         if True: # self.cache_code == None:
@@ -131,13 +121,6 @@ class Function_Base(BaseBox):
 
         return None
     
-    def inherit_params(self, params:list[Param]):
-        for param in params:
-            if param in self.params:
-                pass
-            else:
-                self.params.append(param)
-
     def handle_params(self, params:list[Param], function_params:list[Param]):
         if function_params:
             sp = {x.name : x for x in function_params}
@@ -148,7 +131,9 @@ class Function_Base(BaseBox):
                 if sp[key].value == None:
                     sp[key].value = p[key].value
 
-            return [value for name, value in sp.items()]
+            out_params = [Param(param.name, param.value) for name, param in sp.items()]
+
+            return out_params
         else:
             return params
 
@@ -368,10 +353,9 @@ class Memory(Function_Base, Memorable):
         return code
 
 class Function_Code(Function_Base):
-    def __init__(self, script, delimiter=' ', params=[]):
+    def __init__(self, script, delimiter=' '):
         self.script = script
         self.delimiter = delimiter
-        self.params = params
 
     def _code(self, params:list[Param]):
         list = []
@@ -487,6 +471,8 @@ class BinaryOp(Operator):
 
         self.update()
 
+        pass
+
     def update(self, params=[]):
         #self.handle_params(params)
     
@@ -496,20 +482,9 @@ class BinaryOp(Operator):
         self.inherit_memory(left)
         self.inherit_memory(right)
 
-        if self.params:
-            sp = {x.name : x for x in self.params}
-            if isinstance(self.left, Param) and self.left.name != None:
-                self.left.value = sp[self.left.name].value
-            if isinstance(self.right, Param) and self.right.name != None:
-                self.right.value = sp[self.right.name].value
-
     def eval(self, params:list[Param]):
-        #self.handle_params(params)
         left = self.resolve(self.left, params)
         right = self.resolve(self.right, params)
-
-        #left.inherit_params(self.params)
-        #right.inherit_params(self.params)
 
         return self._eval(left, right, params)
 
@@ -556,10 +531,11 @@ class BinaryOp(Operator):
         if isinstance(x, BinaryOp):
             return self.flatten(x.left, params) + [x.operator()] + self.flatten(x.right, params)
         elif isinstance(x, Param):
-            if not x.value:
-                sp = {x.name : x for x in params}
-                x.value = sp[x.name].value
-            return self.flatten(x.value, params)
+            #if not x.value:
+            #    sp = {x.name : x for x in params}
+            #    x.value = sp[x.name].value
+            x = self.resolve(x, params)
+            return self.flatten(x, params)
         else:
             return [x]
 
