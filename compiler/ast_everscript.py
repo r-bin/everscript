@@ -540,11 +540,14 @@ class If(Function_Base, Calculatable, Memorable):
             destination = destination.code(params)
 
         condition = self.resolve(self.condition, params)
-        if self.memory and condition:
-            code = self.calculate(params)
-            code = self._clean_calucatable(code, params)
-            
-            return code
+        if self.memory:
+            if condition:
+                code = self.calculate(params)
+                code = self._clean_calucatable(code, params)
+                
+                return code
+            else:
+                return Function_Code([], '\n').code(params) #TODO: else repeated self.script needlessly
         else:
             return Function_Code(self.script, '\n').code(params)
         
@@ -654,6 +657,25 @@ class Greater(BinaryOp):
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) > right.eval(params)
     
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        code = []
+        operator = 0x1f
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate() +  [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = left.calculate() +  [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = left.calculate(params) +  [0x29] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = left.calculate() +  [0x29] + right + [operator]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
 class LowerEquals(BinaryOp):
     def operator(self):
         return "<="

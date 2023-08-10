@@ -338,7 +338,7 @@ class Memory(Function_Base, Memorable):
                     code += [0x55]
 
             case ["28", _, _, _]:
-                code = [0x0d, self.code(), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
+                code = [0x0d, self.code(params), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
