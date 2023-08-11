@@ -31,6 +31,7 @@
 fun cheat() {
     unlock(ITEM.WEAPONS);
     unlock(ITEM.JAGUAR_RING);
+    unlock(ITEM.CONSUMABLES);
     
     // unlock(ITEM.SPEAR_1);
     unlock(ITEM.AXE_2);
@@ -43,22 +44,6 @@ fun cheat() {
 
 }
 
-fun test_owner() {
-    attach_to_script(CHARACTER.BOY);
-
-    if(<CHARACTER.SCRIPT_OWNER> == <CHARACTER.BOY>) {
-        subtext(string("yay[END]"));
-    } else {
-        subtext(string("nay[END]"));
-    }
-}
-fun test_owner2() {
-    if(<CHARACTER.SCRIPT_OWNER> == <0x2834>) {
-        subtext(string("yay[END]"));
-    } else {
-        subtext(string("nay[END]"));
-    }
-}
 fun test_map_palettes() {
     <0x2437> = 0x0000;
     sleep(0x30);
@@ -92,70 +77,6 @@ fun test_map_palettes() {
     sleep(0x30);
     <0x2437> = 0x000f;
     sleep(0x30);
-}
-
-fun loot(flag, object_id, reward, amount, next) {
-    if(!flag) {
-        <0x2391> = reward;
-
-        <0x2395> = object;
-
-        if(reward < 0x0100) { 
-            if(amount > 0x00) {
-                <0x2393> = amount;
-            }
-        } else {
-            if(amount > 0x00) {
-                <0x2461> = amount - 0x01;
-            }    
-        }
-
-        call_id(0x39);
-        
-        if(next > 0x00) {
-            <0x2461> = next - 0x01;
-        }
-
-        if(<0x22ea, 0x01>) {
-            set(flag);
-        }
-    }
-}
-
-@install()
-fun where_am_i() {
-    MEMORY.STRING_PARAMETER_1 = <CHARACTER.BOY>[0x1a];
-    MEMORY.STRING_PARAMETER_2 = <CHARACTER.BOY>[0x1c];
-
-    subtext(string("boy = [0xa1]/[0xa2][END]"));
-}
-fun show_memory(x, y) {
-    MEMORY.STRING_PARAMETER_1 = x;
-    MEMORY.STRING_PARAMETER_2 = y;
-
-    subtext(string("memory = [0xa1] / [0xa2][END]"));
-}
-
-fun axe2_wall(flag, object) {
-    if(<CHARACTER.ACTIVE> == <CHARACTER.BOY>) {
-        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ALL.SLASH_2);
-
-        if(<0x235f>&0xff >= 0x0c) {
-            if(<0x2360>&0xff == 0x02) {
-                add_enemy(ENEMY.PLACEHOLDER, 0x00, 0x00);
-                <CHARACTER.LAST_ENTITY>[0x1a] = <CHARACTER.BOY>[0x1a];
-                <CHARACTER.LAST_ENTITY>[0x1c] = <CHARACTER.BOY>[0x1c];
-                animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                sleep(0x04);
-
-                sound(0x58);
-
-                object = 0x01;
-                set(flag);
-            }
-        }
-    }
 }
 
 fun branch_lady(x, y, id) {
@@ -259,6 +180,7 @@ fun boy_death() {
 
     // damage(CHARACTER.DOG, 0x03e8);
 
+    currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
     currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
 
     SOULS_MEMORY.DUST_DROP_X = <CHARACTER.BOY>[0x1a];
@@ -315,17 +237,11 @@ fun bonfire(x, y, id) {
     if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
         if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
             add_enemy_with_flags(ENEMY.LANTERN_LIGHT_RED, x, y, FLAG_ENEMY.INACTIVE);
-        }
-    }
-    if(SOULS_MEMORY.BONFIRE_MAP != MEMORY.MAP&0xff) { // TODO: else
-        if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
+        } else {
             add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
         }
-    }
-    if(SOULS_MEMORY.BONFIRE_MAP != MEMORY.MAP&0xff) { // TODO: else
-        if(SOULS_MEMORY.BONFIRE_VARIANT != <0x2258>) { // TODO
-            add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
-        }
+    } else {
+        add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
     }
     
     attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, id);
@@ -363,6 +279,8 @@ fun init_souls() {
     }
 
     attach_script(CHARACTER.BOY, SCRIPT_TRIGGER.DEATH, reference(boy_death));
+
+    special_script(SPECIAL_SCRIPTS.WINGS, reference(return_to_bonfire));
 }
 
 // HOTKEYS
@@ -392,9 +310,6 @@ fun hotkey_start_r() {
     // map_transition(arena, right, DIRECTION.NONE);
     
     attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
-    // where_am_i();
-    // show_memory(SOULS_MEMORY.BONFIRE_MAP, MEMORY.MAP);
-    show_memory(SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
 }
 
 // MAPS
@@ -511,6 +426,8 @@ map inbetwixx(0x05) {
         },
         b_trigger_7 = @install() fun test() {
             subtext(string("b? 7 [END]"));
+
+            currency_get(CURRENCY.TALONS, 0x23);
         },
         b_trigger_8 = @install() fun test() {
             subtext(string("b? 8 [END]"));

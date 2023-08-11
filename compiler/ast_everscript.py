@@ -480,13 +480,26 @@ class If_list(Function_Base, Memorable):
         if_depleted = False
 
         if self.memory:
+            if_count = [Function_Code([element] + element.script + [Jump(None)], '\n').count(params) for element in self.list]
+            if_count.reverse()
+            if_count.pop()
+
+
             for element in self.list:
+                count = sum(if_count)
+                jump = Jump(count)
+                jump.distance = count
+                if if_count:
+                    if_count.pop()
+
+                script_with_jump = element.script + [jump]
+
                 if self.memory: #TODO: should be redundant
                     list.append(element)
-                    list += element.script
-                    element.distance = Function_Code(element.script, '\n').count(params)
+                    list += script_with_jump
+                    element.distance = Function_Code(script_with_jump, '\n').count(params)
                 elif element.condition == None:
-                    list += element.script
+                    list += script_with_jump
                 else:
                     raise Exception("non memory in memory if")
         else:
@@ -503,6 +516,7 @@ class If(Function_Base, Calculatable, Memorable):
     def __init__(self, condition, script):
         self.condition = condition
         self.script = script
+
         self.distance = None
 
         self.update_memory()
@@ -667,15 +681,15 @@ class Greater(BinaryOp):
 
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
                 code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -1374,3 +1388,18 @@ class Reference(Function_Base):
             return index
 
         raise Exception(f"reference {self.value} not supported")
+    
+class Jump(Function_Base):
+    def __init__(self, distance:int):
+        self.distance = distance
+
+    def _code(self, params:list[Param]):
+        code = "xx xx"
+        
+        if self.distance != None:
+            code = Word(self.distance)
+            code = code.code(params)
+
+        return f"""
+04 {code}       // (04) SKIP 10 (to 0x999907)
+        """
