@@ -129,33 +129,11 @@ fun where_am_i() {
 
     subtext(string("boy = [0xa1]/[0xa2][END]"));
 }
+fun show_memory(x, y) {
+    MEMORY.STRING_PARAMETER_1 = x;
+    MEMORY.STRING_PARAMETER_2 = y;
 
-@install()
-@inject(ADDRESS.HOTKEY_START)
-fun hotkey_start() {
-    subtext(string("Start[END]"));
-
-    drop_bomb();
-}
-@install()
-@inject(ADDRESS.HOTKEY_START_L)
-fun hotkey_start_l() {
-    subtext(string("Start+L[END]"));
-
-    // map_transition(waterfall, south, DIRECTION.NORTH);
-    // map_transition(arena, left, DIRECTION.NONE);
-    // map_transition(east_crossing, crash, DIRECTION.NONE);
-    map_transition(east_inbetwixx, east, DIRECTION.NONE);
-}
-@install()
-@inject(ADDRESS.HOTKEY_START_R)
-fun hotkey_start_r() {
-    subtext(string("Start+R[END]"));
-
-    // map_transition(arena, right, DIRECTION.NONE);
-    
-    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
-    where_am_i();
+    subtext(string("memory = [0xa1] / [0xa2][END]"));
 }
 
 fun axe2_wall(flag, object) {
@@ -194,17 +172,6 @@ fun intro_skip() {
 }
 
 @install()
-fun bonfire_triggered() {
-    // test_owner2();
-    // end();
-    
-    subtext(string("bonfire[END]"));
-
-    // bonfire_activate(<CHARACTER.SCRIPT_OWNER>[0x1a], <CHARACTER.SCRIPT_OWNER>[0x1c], reference(bonfire_triggered));
-
-    destroy(CHARACTER.SCRIPT_OWNER);
-}
-@install()
 fun bomb_wall_triggered() {
     animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
     object[<0x2838>] = <0x283a>;
@@ -216,8 +183,25 @@ fun bomb_wall_triggered() {
 
 // souls
 
+enum SOULS_MEMORY {
+    DUST_ENTITY = <0x2834>,
+    DUST_DROP_X = <0x24ff>,
+    DUST_DROP_Y = <0x2501>,
+    DUST_DROP_MAP = <0x2503>,
+    DUST_DROP_VARIANT = <0x2505>,
+
+    BONFIRE_X = <0x2507>,
+    BONFIRE_Y = <0x2509>,
+    BONFIRE_MAP = <0x250b>,
+    BONFIRE_VARIANT = <0x250d>,
+    BONFIRE_TELEPORT_REQUIRED = flag()
+}
+
 @install()
 fun dust_loot() {
+    SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
+    SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
+
     // attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.LOOT, 0x172b);
 
     // subtext(string("Reclaimed souls"));
@@ -229,7 +213,7 @@ fun dust_loot() {
     // call_id(0x3d);
     animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.LOOT);
 
-    destroy(0x2834);
+    destroy(SOULS_MEMORY.DUST_ENTITY);
 
     // sleep(0x80);
 
@@ -245,10 +229,24 @@ fun dust_drop() {
     attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.LOOT, reference(dust_loot));
 
     <0x23d9> = 0x0001;
-    animate(0x2834, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+    animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
     sleep(0x3c);
     <0x23d9> = 0x0001;
-    animate(0x2834, ANIMATION_MODE.FREEZE, ANIMATION_ENEMY.DUST);
+    animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.FREEZE, ANIMATION_ENEMY.DUST);
+}
+
+@install()
+fun return_to_bonfire() {
+    
+    if(SOULS_MEMORY.BONFIRE_MAP == 0x26) { // TODO: inbetwixx map id
+        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+        map_transition(inbetwixx, start, DIRECTION.NONE); // TODO
+    } else if(SOULS_MEMORY.BONFIRE_MAP == 0x1a) { // TODO: crossing map id
+        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+        map_transition(east_crossing, crash, DIRECTION.NONE); // TODO
+    }
+
+    map_transition(inbetwixx, start, DIRECTION.NONE);
 }
 
 @install()
@@ -263,11 +261,11 @@ fun boy_death() {
 
     currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
 
-    // eval("18 a7 02 50 29 6a 1a d5 // (18) WRITE $24ff = *(boy + 26)"); // X
-    <0x24ff> = <CHARACTER.BOY>[0x1a];
-    // eval("18 a9 02 50 29 6c 1a d5 // (18) WRITE $2501 = *(boy + 28)"); // Y
-    <0x2501> = <CHARACTER.BOY>[0x1c];
+    SOULS_MEMORY.DUST_DROP_X = <CHARACTER.BOY>[0x1a];
+    SOULS_MEMORY.DUST_DROP_Y = <CHARACTER.BOY>[0x1c];
     // <0x2503> = MEMORY.MAP;
+    SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP & 0xff;
+    SOULS_MEMORY.DUST_DROP_VARIANT = <0x2258>; // TODO
 
     // sleep(0x20);
 
@@ -287,23 +285,116 @@ fun boy_death() {
 
     heal(CHARACTER.BOTH, False);
 
-    map_transition(inbetwixx, start, DIRECTION.NONE);
+    return_to_bonfire();
 
     control(CHARACTER.BOTH);
 }
 
 @install()
-fun init_souls() {
-    //if(<0x24ff> == 0) {
-    add_enemy(ENEMY.BEE, 0x00, 0x00);
-    store_last_entity(0x2834);
-    eval("43 8d 00 00 88 a7 02 88 a9 02 // (43) Teleport boy to x:$23b9, y:$23bb"); // X/Y
-    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(dust_drop));
+fun bonfire_triggered() {
+    // test_owner2();
+    // end();
     
-    damage(0x2834, 0x03e8);
-    //}
+    subtext(string("bonfire[END]"));
+
+    // bonfire_activate(<CHARACTER.SCRIPT_OWNER>[0x1a], <CHARACTER.SCRIPT_OWNER>[0x1c], reference(bonfire_triggered));
+
+    // destroy(CHARACTER.SCRIPT_OWNER);
+
+    SOULS_MEMORY.BONFIRE_X = <CHARACTER.ACTIVE>[0x1a];
+    SOULS_MEMORY.BONFIRE_Y = <CHARACTER.ACTIVE>[0x1c];
+    SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP & 0xff;
+    SOULS_MEMORY.BONFIRE_VARIANT = <0x2258>; // TODO
+}
+
+fun bonfire(x, y, id) {
+    // add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE_IMORTAL);
+    // attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x181e);
+    // entity_script_controlled(CHARACTER.LAST_ENTITY);
+
+    if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
+        if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
+            add_enemy_with_flags(ENEMY.LANTERN_LIGHT_RED, x, y, FLAG_ENEMY.INACTIVE);
+        }
+    }
+    if(SOULS_MEMORY.BONFIRE_MAP != MEMORY.MAP&0xff) { // TODO: else
+        if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
+            add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
+        }
+    }
+    if(SOULS_MEMORY.BONFIRE_MAP != MEMORY.MAP&0xff) { // TODO: else
+        if(SOULS_MEMORY.BONFIRE_VARIANT != <0x2258>) { // TODO
+            add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
+        }
+    }
+    
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, id);
+    <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
+}
+
+@install()
+fun init_souls() {
+    if(SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP&0xff) {
+        if(SOULS_MEMORY.DUST_DROP_VARIANT == <0x2258>) { // TODO
+            add_dynamic_enemy_with_flags(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y, 0x00);
+            SOULS_MEMORY.DUST_ENTITY = <CHARACTER.LAST_ENTITY>;
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(dust_drop));
+            
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.MUTE);
+            damage(CHARACTER.LAST_ENTITY, 0x03e8);
+        }
+    }
+
+    if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
+        // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
+        //     if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
+        //         if(SOULS_MEMORY.BONFIRE_X != 0x00) {
+        //             if(SOULS_MEMORY.BONFIRE_Y != 0x00) { // TODO
+                        <CHARACTER.BOY>[0x1a] = SOULS_MEMORY.BONFIRE_X;
+                        <CHARACTER.BOY>[0x1c] = SOULS_MEMORY.BONFIRE_Y;
+
+                        <CHARACTER.DOG>[0x1a] = SOULS_MEMORY.BONFIRE_X;
+                        <CHARACTER.DOG>[0x1c] = SOULS_MEMORY.BONFIRE_Y;
+        //             }
+        //         }
+        //     }
+        // }
+        unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+    }
 
     attach_script(CHARACTER.BOY, SCRIPT_TRIGGER.DEATH, reference(boy_death));
+}
+
+// HOTKEYS
+
+@install()
+@inject(ADDRESS.HOTKEY_START)
+fun hotkey_start() {
+    subtext(string("Start[END]"));
+
+    drop_bomb();
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
+fun hotkey_start_l() {
+    subtext(string("Start+L[END]"));
+
+    // map_transition(waterfall, south, DIRECTION.NORTH);
+    // map_transition(arena, left, DIRECTION.NONE);
+    map_transition(east_crossing, crash, DIRECTION.NONE);
+    // map_transition(east_inbetwixx, east, DIRECTION.NONE);
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
+fun hotkey_start_r() {
+    subtext(string("Start+R[END]"));
+
+    // map_transition(arena, right, DIRECTION.NONE);
+    
+    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+    // where_am_i();
+    // show_memory(SOULS_MEMORY.BONFIRE_MAP, MEMORY.MAP);
+    show_memory(SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
 }
 
 // MAPS
@@ -498,9 +589,6 @@ map inbetwixx(0x05) {
 
     @install()
     fun trigger_enter() {
-        add_enemy(ENEMY.PLACEHOLDER, 0x2c, 0x25);
-        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.FREEZE, ANIMATION_PLACEHOLDER.ELEVATOR);
-
         init_room();
 
         if(!FLAG.IN_ANIMATION) {
@@ -522,19 +610,6 @@ map inbetwixx(0x05) {
         bonfire(0x31, 0x35, reference(bonfire_triggered));
         // bomb_wall_trigger(0x01, 0x3f, 0x3c);
         // bomb_wall_trigger(0x00, 0x43, 0x60);
-
-        add_enemy(ENEMY.BOMB, 0x0f, 0x47);
-        store_last_entity(0x2834);
-        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
-
-        add_enemy(ENEMY.STONE_ROUND, 0x00, 0x00);
-        store_last_entity(0x2836);
-
-        while(True) {
-            <0x2836>[0x1a] = <0x2834>[0x1a];
-            <0x2836>[0x1c] = <0x2834>[0x1c];
-            yield();
-        }
     }
 };
 
@@ -1233,6 +1308,8 @@ map east_crossing(0x4f) {
     fun trigger_enter() {
         add_enemy(ENEMY.STONE_ROUND, 0x24, 0x18);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(stone_triggered));
+
+        bonfire(0x2b, 0x20, reference(bonfire_triggered));
 
         init_room();
 

@@ -329,8 +329,12 @@ class Memory(Function_Base, Memorable):
             case ["22", None, _, _]:
                 code = [0x08, self.code(params)]
 
+            case ["xx", None, _, 1]:
+                code = [0x07, self.code(params)]
+            case ["xx", None, int(), _]:
+                code = [0x05, self.code(params)]
             case ["xx", None, _, _]:
-                code = [0x08, _, self.code(params)]
+                code = [0x08, self.code(params)]
 
             case ["char", _, _, _]:
                 code = [self.eval(params), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
