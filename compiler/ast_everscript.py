@@ -580,6 +580,8 @@ class Equals(BinaryOp):
     
     def _calculate(self, left:any, right:any, params:list[Param]):
         code = []
+        if not isinstance(right, list):
+            right = right.calculate(params)
 
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
@@ -606,18 +608,20 @@ class NotEquals(BinaryOp):
     
     def _calculate(self, left:any, right:any, params:list[Param]):
         code = []
+        if not isinstance(right, list):
+            right = right.calculate(params)
 
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate() +  [0x29] + right + [0x23]
+                code = left.calculate(params) +  [0x29] + right + [0x23]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [0x23]
+                code = left.calculate(params) +  [0x29] + right + [0x23]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [0x23]
+                code = left.calculate(params) +  [0x29] + right + [0x23]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [0x23]
+                code = left.calculate(params) +  [0x29] + right + [0x23]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [0x23]
+                code = left.calculate(params) +  [0x29] + right + [0x23]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -849,13 +853,11 @@ class And(BinaryOp):
 
         match left:
             case left if isinstance(left, Memory):
-                right = self.right
-                if isinstance(right, Param):
-                    right = right.value
+                right = self.resolve(self.right, params)
                 right = right.eval(params)
 
                 if right == 0xff:
-                    left.count = 1
+                    left.value_count = 1
                 else:
                     raise Exception(f"right parameter '${right}' not supported")
 
@@ -877,6 +879,8 @@ class Asign(BinaryOp):
     
     def _calculate(self, left:any, right:any, params:list[Param]):
         code = []
+        if not isinstance(right, list):
+            right = right.calculate(params)
 
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "xx":
