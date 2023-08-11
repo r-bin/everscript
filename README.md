@@ -99,7 +99,6 @@ EOF
 ## Python
 
 - ``General``
-  - ``if``-``else if`` should jump after the block instead of evaluating all ``else-if`` statements (``end`` is used in some scripts as hack)
 
 ## Everscript
 
