@@ -27,58 +27,6 @@
 
 // HELPER
 
-@install()
-fun cheat() {
-    unlock(ITEM.WEAPONS);
-    unlock(ITEM.JAGUAR_RING);
-    unlock(ITEM.CONSUMABLES);
-    
-    // unlock(ITEM.SPEAR_1);
-    unlock(ITEM.AXE_2);
-
-    if(False) {
-        unlock(ITEM.ALCHEMY);
-        unlock(ITEM.INGREDIENTS);
-        select_alchemy();
-    }
-
-}
-
-fun test_map_palettes() {
-    <0x2437> = 0x0000;
-    sleep(0x30);
-    <0x2437> = 0x0001;
-    sleep(0x30);
-    <0x2437> = 0x0002;
-    sleep(0x30);
-    <0x2437> = 0x0003;
-    sleep(0x30);
-    <0x2437> = 0x0004;
-    sleep(0x30);
-    <0x2437> = 0x0005;
-    sleep(0x30);
-    <0x2437> = 0x0006;
-    sleep(0x30);
-    <0x2437> = 0x0007;
-    sleep(0x30);
-    <0x2437> = 0x0008;
-    sleep(0x30);
-    <0x2437> = 0x0009;
-    sleep(0x30);
-    <0x2437> = 0x000a;
-    sleep(0x30);
-    <0x2437> = 0x000b;
-    sleep(0x30);
-    <0x2437> = 0x000c;
-    sleep(0x30);
-    <0x2437> = 0x000d;
-    sleep(0x30);
-    <0x2437> = 0x000e;
-    sleep(0x30);
-    <0x2437> = 0x000f;
-    sleep(0x30);
-}
-
 fun branch_lady(x, y, id) {
     add_enemy(ENEMY.VILLAGER_2_4, x, y);
     entity_script_controlled(CHARACTER.LAST_ENTITY);
@@ -115,7 +63,27 @@ enum SOULS_MEMORY {
     BONFIRE_Y = <0x2509>,
     BONFIRE_MAP = <0x250b>,
     BONFIRE_VARIANT = <0x250d>,
-    BONFIRE_TELEPORT_REQUIRED = flag()
+    BONFIRE_TELEPORT_REQUIRED = flag(),
+    
+    BOMB_ENABLED = flag(),
+}
+
+@install()
+fun cheat() {
+    unlock(ITEM.WEAPONS);
+    unlock(ITEM.JAGUAR_RING);
+    unlock(ITEM.CONSUMABLES);
+    
+    // unlock(ITEM.SPEAR_1);
+    unlock(ITEM.AXE_2);
+
+    if(False) {
+        unlock(ITEM.ALCHEMY);
+        unlock(ITEM.INGREDIENTS);
+        select_alchemy();
+    }
+
+    set(SOULS_MEMORY.BOMB_ENABLED);
 }
 
 @install()
@@ -158,7 +126,6 @@ fun dust_drop() {
 
 @install()
 fun return_to_bonfire() {
-    
     if(SOULS_MEMORY.BONFIRE_MAP == 0x26) { // TODO: inbetwixx map id
         set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
         map_transition(inbetwixx, start, DIRECTION.NONE); // TODO
@@ -290,7 +257,9 @@ fun init_souls() {
 fun hotkey_start() {
     subtext(string("Start[END]"));
 
-    drop_bomb();
+    if(SOULS_MEMORY.BOMB_ENABLED) {
+        drop_bomb();
+    }
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_L)
@@ -299,7 +268,8 @@ fun hotkey_start_l() {
 
     // map_transition(waterfall, south, DIRECTION.NORTH);
     // map_transition(arena, left, DIRECTION.NONE);
-    map_transition(east_crossing, crash, DIRECTION.NONE);
+    map_transition(bomb_arena, right, DIRECTION.NONE);
+    // map_transition(east_crossing, crash, DIRECTION.NONE);
     // map_transition(east_inbetwixx, east, DIRECTION.NONE);
 }
 @install()
@@ -309,13 +279,24 @@ fun hotkey_start_r() {
 
     // map_transition(arena, right, DIRECTION.NONE);
     
-    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+    // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+
+    // debug_boy();
+
+    map_transition(toaster_arena, center, DIRECTION.NONE);
 }
 
 // MAPS
 
-fun default_init_room() {
+fun init_hack() {
     init_souls();
+
+    MEMORY.DOG = DOG.WOLF;
+    available(CHARACTER.BOTH);
+}
+
+fun default_init_room() {
+    init_hack();
     
     music(0x14);
     // music(0x40);
@@ -573,9 +554,78 @@ map west_inbetwixx(0x5b) {
         <CHARACTER.SCRIPT_OWNER>[0x0b] = 0x0800;
         control_enemy(CHARACTER.SCRIPT_OWNER, False);
     }
+
+    @install()
+    fun transform() {
+        control_enemy(0x28a5, True);
+        control_enemy(0x28a7, True);
+
+        destroy(0x28a5);
+
+        attribute_bit(0x28a7, ATTRIBUTE_BITS.INVINCIBLE);
+
+        animate(0x28a7, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
+
+        sleep(0x30);
+
+        add_enemy(ENEMY.BOY_BLACK, 0x00, 0x00);
+        <CHARACTER.LAST_ENTITY>[0x1a] = <0x28a7>[0x1a];
+        <CHARACTER.LAST_ENTITY>[0x1c] = <0x28a7>[0x1c];
+        destroy(0x28a7);
+    }
+
+    @install()
+    @async()
+    fun grabby_owls() {
+        while(True) {
+            <0x2499> = <0x28a5>[0x1a];
+            <0x249b> = <0x28a5>[0x1c];
+            <0x24ad> = <0x28a7>[0x1a];
+            <0x24af> = <0x28a7>[0x1c];
+
+            if(<0x2499> < <0x24ad>) {
+                <0x2836> = <0x24ad> - <0x2499>;
+            } else {
+                <0x2836> = <0x2499> - <0x24ad>;
+            }
+
+            if(<0x249b> < <0x24af>) {
+                <0x2838> = <0x24af> - <0x249b>;
+            } else {
+                <0x2838> = <0x249b> - <0x24af>;
+            }
+
+            if(<0x2836> <= 0x10) {
+                if(<0x2838> <= 0x10) {
+                    transform();
+                    end();
+                }
+            }
+            yield();
+        }
+    }
     
+    @install()
+    fun owl_triggered() {
+        sleep(0x30);
+        animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
+    }
+
     fun trigger_enter() {
         branch_lady(0x58, 0x0f, reference(branch_triggered));
+
+        add_enemy(ENEMY.OWL_BLACK, 0x2d, 0x21);
+        <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
+        store_last_entity(0x28a5);
+
+        add_enemy(ENEMY.OWL_BLACK, 0x47, 0x42);
+        <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
+        store_last_entity(0x28a7);
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(owl_triggered));
+        face(CHARACTER.LAST_ENTITY, DIRECTION.SOUTH);
+
+        grabby_owls();
         
         init_room();
     }
@@ -617,7 +667,7 @@ map west_hut2(0x34) {
     }
 
     fun init_room() {
-        // init_souls();
+        // init_hack();
 
         // sfx_effect(SFX_EFFECT.RAIN, True);
         sfx_effect(SFX_EFFECT.NIGHT, True);
@@ -756,7 +806,7 @@ map waterfall(0x6b) {
     }
 
     fun init_room() {
-        // init_souls();
+        // init_hack();
 
         // MEMORY.MAP_PALETTE = 0x0007;
 
@@ -984,7 +1034,7 @@ map east_inbetwixx(0x59) {
             subtext(string("exit? 63 [END]"));
         },
         exit_east = @install() fun test() {
-            subtext(string("exit? 64 [END]"));
+            map_transition(eastern_crossing, west, DIRECTION.EAST);
         }
     }
 
@@ -1049,6 +1099,30 @@ map east_inbetwixx(0x59) {
         },
         b_trigger_19 = @install() fun test() {
             subtext(string("b? 19 [END]"));
+        },
+        b_trigger_20 = @install() fun test() {
+            subtext(string("b? 20 [END]"));
+        },
+        b_trigger_21 = @install() fun test() {
+            subtext(string("b? 21 [END]"));
+        },
+        b_trigger_22 = @install() fun test() {
+            subtext(string("b? 22 [END]"));
+        },
+        b_trigger_23 = @install() fun test() {
+            subtext(string("b? 23 [END]"));
+        },
+        b_trigger_24 = @install() fun test() {
+            subtext(string("b? 24 [END]"));
+        },
+        b_trigger_25 = @install() fun test() {
+            subtext(string("b? 25 [END]"));
+        },
+        b_trigger_26 = @install() fun test() {
+            subtext(string("b? 26 [END]"));
+        },
+        b_trigger_27 = @install() fun test() {
+            subtext(string("b? 27 [END]"));
         }
     }
 
@@ -1226,7 +1300,7 @@ map east_crossing(0x4f) {
         add_enemy(ENEMY.STONE_ROUND, 0x24, 0x18);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(stone_triggered));
 
-        bonfire(0x2b, 0x20, reference(bonfire_triggered));
+        bonfire(0x2d, 0x44, reference(bonfire_triggered));
 
         init_room();
 
@@ -1238,7 +1312,234 @@ map east_crossing(0x4f) {
     }
 };
 
+map eastern_crossing(0x13) {
+    enum entrance {
+        north = entrance(0x17, 0x01, DIRECTION.SOUTH),
+        east = entrance(0x2b, 0x11, DIRECTION.WEST),
+        west = entrance(0x06, 0x18, DIRECTION.EAST),
+    }
+
+    enum stepon_trigger {
+        exit_west = @install() fun test() {
+            map_transition(east_inbetwixx, east, DIRECTION.WEST);
+        },
+        stepon_1 = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_north = @install() fun test() {
+            map_transition(graveyard, south, DIRECTION.NORTH);
+        },
+        exit_east = @install() fun test() {
+            map_transition(sewers, west, DIRECTION.EAST);
+        },
+    }
+
+    enum b_trigger {
+        barrier = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+    }
+
+    fun trigger_enter() {
+        default_init_room();
+    }
+};
+
+map graveyard(0x27) {
+    enum entrance {
+        north = entrance(0x32, 0x0f, DIRECTION.SOUTH),
+        south = entrance(0x2f, 0x5f, DIRECTION.NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            map_transition(eastern_crossing, north, DIRECTION.SOUTH);
+        },
+        spawn_boss = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+        b_trigger_9 = @install() fun test() {
+            subtext(string("b? 9 [END]"));
+        },
+
+        b_trigger_10 = @install() fun test() {
+            subtext(string("b? 10 [END]"));
+        },
+        b_trigger_11 = @install() fun test() {
+            subtext(string("b? 11 [END]"));
+        },
+        b_trigger_12 = @install() fun test() {
+            subtext(string("b? 12 [END]"));
+        },
+        b_trigger_13 = @install() fun test() {
+            subtext(string("b? 13 [END]"));
+        },
+        b_trigger_14 = @install() fun test() {
+            subtext(string("b? 14 [END]"));
+        },
+        b_trigger_15 = @install() fun test() {
+            subtext(string("b? 15 [END]"));
+        },
+        b_trigger_16 = @install() fun test() {
+            subtext(string("b? 16 [END]"));
+        },
+        b_trigger_17 = @install() fun test() {
+            subtext(string("b? 17 [END]"));
+        },
+        b_trigger_18 = @install() fun test() {
+            subtext(string("b? 18 [END]"));
+        },
+        b_trigger_19 = @install() fun test() {
+            subtext(string("b? 19 [END]"));
+        },
+
+        b_trigger_20 = @install() fun test() {
+            subtext(string("b? 20 [END]"));
+        },
+        b_trigger_21 = @install() fun test() {
+            subtext(string("b? 21 [END]"));
+        },
+        b_trigger_22 = @install() fun test() {
+            subtext(string("b? 22 [END]"));
+        },
+        b_trigger_23 = @install() fun test() {
+            subtext(string("b? 23 [END]"));
+        },
+        b_trigger_24 = @install() fun test() {
+            subtext(string("b? 24 [END]"));
+        },
+        b_trigger_25 = @install() fun test() {
+            subtext(string("b? 25 [END]"));
+        },
+        b_trigger_26 = @install() fun test() {
+            subtext(string("b? 26 [END]"));
+        },
+        b_trigger_27 = @install() fun test() {
+            subtext(string("b? 27 [END]"));
+        },
+        b_trigger_28 = @install() fun test() {
+            subtext(string("b? 28 [END]"));
+        },
+        b_trigger_29 = @install() fun test() {
+            subtext(string("b? 29 [END]"));
+        }
+    }
+
+    fun trigger_enter() {
+        default_init_room();
+    }
+};
+
+map sewers(0x7a) {
+    enum entrance {
+        west = entrance(0x05, 0x0b, DIRECTION.EAST),
+        cinematic_west = entrance(0x2d, 0x7, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        pipe = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_west = @install() fun test() {
+            map_transition(eastern_crossing, east, DIRECTION.WEST);
+        },
+    }
+    
+    fun trigger_enter() {
+        default_init_room();
+    }
+};
+
 // misc
+
+@install()
+fun arena_death() {
+    control(CHARACTER.NONE);
+
+    subtext(string("You Died![END]"));
+
+    sleep(0xff);
+
+    return_to_bonfire();
+}
+
+fun character_selection(character) {
+    if(character == CHARACTER.BOY) {
+        available(CHARACTER.BOY);
+        teleport(CHARACTER.DOG, 0x00, 0x00);
+
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE);
+    } if(character == CHARACTER.DOG) {
+        available(CHARACTER.DOG);
+        teleport(CHARACTER.BOY, 0x00, 0x00);
+
+        MEMORY.DOG = DOG.TOASTER;
+
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.INVINCIBLE);
+
+        attach_script(CHARACTER.DOG, SCRIPT_TRIGGER.DEATH, reference(arena_death));
+    }
+}
+
+fun general_boss_defeated() {
+    attribute_bit(CHARACTER.ACTIVE, ATTRIBUTE_BITS.INVINCIBLE);
+
+    subtext(string("Yatta![END]"));
+
+    sleep(0xff);
+    sleep(0xff);
+}
+
+fun countdown(countdown) {
+    if(countdown >= 0x03) {
+        subtext(string("3...[END]"));
+        sleep(0x3c);
+    }
+    if(countdown >= 0x02) {
+        subtext(string("2...[END]"));
+        sleep(0x3c);
+    }
+    if(countdown >= 0x01) {
+        subtext(string("1...[END]"));
+        sleep(0x3c);
+    }
+    if(countdown >= 0x00) {
+        subtext(string("GO[END]"));
+    }
+}
 
 map arena(0x5c) {
     enum entrance {
@@ -1260,7 +1561,14 @@ map arena(0x5c) {
     }
 
     fun init_room() {
-        default_init_room();
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -1274,15 +1582,176 @@ map arena(0x5c) {
     fun trigger_enter() {
         init_room();
 
-        subtext(string("Arena[END]"));
+        close_exits(True);
 
         if(!FLAG.IN_ANIMATION) {
-            close_exits(True);
 
             // teleport(CHARACTER.DOG, 0x19, 0x1d);
             <CHARACTER.DOG>[0x1a] = <CHARACTER.DOG>[0x1a] + 0x20;
             <CHARACTER.DOG>[0x1c] = <CHARACTER.DOG>[0x1c] + 0x20;
             crash_land(CHARACTER.BOTH);
         }
+    }
+};
+
+map toaster_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        HEAL_AMOUNT = 0x0f,
+
+        HIT_COUNT_MEMORY = <0x2834>,
+        HIT_COUNT = 0x0a,
+
+        COUNTDOWN = 0x03
+    }
+
+    fun boss_defeated() {
+        general_boss_defeated();
+
+        map_transition(toaster_arena, center, DIRECTION.NONE);
+    }
+
+    fun boss_hit() {
+        BOSS.HIT_COUNT_MEMORY = BOSS.HIT_COUNT_MEMORY - 0x01;
+
+        if(BOSS.HIT_COUNT_MEMORY <= 0x00) {
+            boss_defeated();
+        } else {
+            MEMORY.STRING_PARAMETER_1 = BOSS.HIT_COUNT_MEMORY;
+            MEMORY.STRING_PARAMETER_2 = BOSS.HIT_COUNT;
+
+            subtext(string("[0xa1]/[0xa2][END]"));
+        }
+    }
+
+    @install()
+    fun guardbot_down() {
+        boss_hit();
+
+        yield();
+        attribute_bit(CHARACTER.SCRIPT_OWNER, ATTRIBUTE_BITS.INVINCIBLE);
+
+        animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+
+        sleep(0xff);
+        sleep(0xff);
+
+        cast(CHARACTER.SCRIPT_OWNER, CHARACTER.SCRIPT_OWNER, CAST.HEAL, BOSS.HEAL_AMOUNT);
+        sleep(0xff);
+
+        animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+        attribute_bit(CHARACTER.SCRIPT_OWNER, ATTRIBUTE_BITS.VINCIBLE);
+    }
+
+    fun spawn_guardbot(x, y) {
+        add_enemy(ENEMY.GATE_BOT, x, y);
+        attribute(CHARACTER.LAST_ENTITY, ATTRIBUTE.HP, 0x0fff);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(guardbot_down));
+    }
+
+    fun trigger_enter() {
+        init_room();
+        character_selection(CHARACTER.DOG);
+
+        close_exits(True);
+
+        BOSS.HIT_COUNT_MEMORY = BOSS.HIT_COUNT;
+
+        spawn_guardbot(0x29, 0x2b);
+        spawn_guardbot(0x13, 0x29);
+        spawn_guardbot(0x29, 0x1b);
+        spawn_guardbot(0x13, 0x19);
+
+        countdown(BOSS.COUNTDOWN);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.VINCIBLE);
+    }
+};
+
+map bomb_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    @install()
+    fun boss_defeated2() {
+        general_boss_defeated();
+
+        map_transition(bomb_arena, right, DIRECTION.NONE);
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    fun trigger_enter() {
+        close_exits(True);
+        character_selection(CHARACTER.BOY);
+
+        add_enemy(ENEMY.VIGOR, 0x15, 0x1e);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated2));
+
+        init_room();
+
+        countdown(0x03);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
     }
 };

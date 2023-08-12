@@ -521,10 +521,8 @@ class BinaryOp(Operator):
             left = left.calculate(params)
         
         right = self.resolve(self.right, params)
-        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp):
+        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
             right = right.calculate(params)
-        elif isinstance(right, Word) or isinstance(right, Memory):
-            right = right.calculate(params) #TODO
 
         if isinstance(self, Memorable) and not self.memory:
             return Word(self.eval()).calculate()
