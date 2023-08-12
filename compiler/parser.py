@@ -16,8 +16,8 @@ class Parser():
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
-                'ELSEIF', 'IF', 'ELSE',
-                'WHILE',
+                'ELSEIF!', 'ELSEIF', 'IF!', 'IF', 'ELSE',
+                'WHILE', 'WHILE!',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'NAME_IDENTIFIER', 'MAP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
@@ -265,32 +265,49 @@ class Parser():
         def parse(p):
             return Label_Destination(p[0])
 
-        @self.pg.production('expression_entry : IF ( expression ) { expression_list }')
+        @self.pg.production('if : IF')
         def parse(p):
+            return False
+        @self.pg.production('if : IF!')
+        def parse(p):
+            return True
+        @self.pg.production('elseif : ELSEIF')
+        def parse(p):
+            return False
+        @self.pg.production('elseif : ELSEIF!')
+        def parse(p):
+            return True
+        
+        @self.pg.production('expression_entry : if ( expression ) { expression_list }')
+        def parse(p):
+            inverted = p[0]
             condition = p[2]
             script = p[5]
 
-            return If_list([If(condition, script)])
-        @self.pg.production('expression_entry : IF ( expression ) { expression_list } else_list')
+            return If_list([If(condition, script, inverted)])
+        @self.pg.production('expression_entry : if ( expression ) { expression_list } else_list')
         def parse(p):
+            inverted = p[0]
             condition = p[2]
             script = p[5]
             list = p[7]
 
-            return If_list([If(condition, script)] + list)
-        @self.pg.production('else_list : ELSEIF ( expression ) { expression_list }')
+            return If_list([If(condition, script, inverted)] + list)
+        @self.pg.production('else_list : elseif ( expression ) { expression_list }')
         def parse(p):
+            inverted = p[0]
             condition = p[2]
             script = p[5]
 
-            return [ If(condition, script) ]
-        @self.pg.production('else_list : ELSEIF ( expression ) { expression_list } else_list')
+            return [ If(condition, script, inverted) ]
+        @self.pg.production('else_list : elseif ( expression ) { expression_list } else_list')
         def parse(p):
+            inverted = p[0]
             condition = p[2]
             script = p[5]
             list = p[7]
 
-            return [ If(condition, script) ] + list
+            return [ If(condition, script, inverted) ] + list
         @self.pg.production('else_list : else')
         def parse(p):
             return [ p[0] ]
@@ -302,7 +319,7 @@ class Parser():
             return p[0] + p[1]
         @self.pg.production('else : ELSE { expression_list }')
         def parse(p):
-            return If(None, p[2])
+            return If(None, p[2], False)
 
         @self.pg.production('expression : NAME_IDENTIFIER ( param_list )')
         @self.pg.production('expression : NAME_IDENTIFIER ( )')
@@ -368,6 +385,8 @@ class Parser():
             expression = p[1]
             
             expression.inverted = True
+
+            TODO("invert was temporarily replaced with if!()")
 
             return expression
 
@@ -465,12 +484,20 @@ class Parser():
         def parse(p):
             return Word(0)
 
-        @self.pg.production('expression_entry : WHILE ( expression ) { expression_list }')
+        @self.pg.production('while : WHILE')
         def parse(p):
+            return False
+        @self.pg.production('while : WHILE!')
+        def parse(p):
+            return True
+        
+        @self.pg.production('expression_entry : while ( expression ) { expression_list }')
+        def parse(p):
+            inverted = p[0]
             condition = p[2]
             script = p[5]
 
-            return While(condition, script)
+            return While(condition, script, inverted)
 
         @self.pg.production('expression : expression .. expression')
         def parse(p):
