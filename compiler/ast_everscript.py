@@ -734,15 +734,15 @@ class Lower(BinaryOp):
 
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
                 code = left.calculate(params) +  [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [operator]
+                code = left.calculate(params) +  [0x29] + right + [operator]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -833,13 +833,15 @@ class Div(BinaryOp):
                 code = [0x08, left.code(params), 0x29] + right + [operator]
 
             case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
-                code = left.calculate() + [0x29] + right + [operator]
+                code = left.calculate(params) + [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = [0x0d] + left.calculate(params) + [0x29] + right + [operator]
+                code = left.calculate(params) + [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = [0x08] + left.calculate(params) + [0x29] + right + [operator]
+                code = left.calculate(params) + [0x29] + right + [operator]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
+            
+        return code
 
 class ShiftRight(BinaryOp):
     def operator(self):
@@ -1371,23 +1373,34 @@ class Reference(Function_Base):
         if isinstance(name, Identifier):
             name = name.name
 
-        self.value = self._generator.get_function(name)
-        self._generator.reference_function(self.value)
-
+        self.value = None
         self.value_count = None
+
+        self.update_reference(name)
 
     def __repr__(self):
         return f"Reference(name={self.name}, value={self.value})"
+    
+    def update_reference(self, name:str):
+        if not self.value:
+            self.value = self._generator.get_function(name)
+            if self.value:
+                self._generator.reference_function(self.value)
 
     def eval(self, params:list[Param]):
-        if isinstance(self.value, Function):
-            self.value_count = 2
+        self.update_reference(self.name)
 
-            index = self.value.key
-            index = index.index
-            return index
+        match self.value:
+            case Function():
+                self.value_count = 2
 
-        raise Exception(f"reference {self.value} not supported")
+                index = self.value.key
+                index = index.index
+                return index
+            case _:
+                self.value_count = 2
+
+                raise Exception(f"invalid reference {self.value}")
     
 class Jump(Function_Base):
     def __init__(self, distance:int):
