@@ -513,9 +513,10 @@ class If_list(Function_Base, Memorable):
         return Function_Code(list, '\n').code(params)
 
 class If(Function_Base, Calculatable, Memorable):
-    def __init__(self, condition, script):
+    def __init__(self, condition, script, inverted):
         self.condition = condition
         self.script = script
+        self.inverted = inverted
 
         self.distance = None
 
@@ -576,9 +577,14 @@ class If(Function_Base, Calculatable, Memorable):
         condition = self.resolve(self.condition, params)
         condition = condition.calculate(params)
 
-        opcode = 0x09
-        if self.condition.inverted or isinstance(self.condition, UnaryOp): #TODO should be 0x09?
+        inverted = self.inverted
+        if isinstance(self.condition, UnaryOp):
+            inverted = not inverted
+
+        if inverted:
             opcode = 0x08
+        else:
+            opcode = 0x09
 
         code = [opcode] + self._terminate(condition) + [destination]
 
@@ -1066,12 +1072,13 @@ class Rnd(Function_Base):
         return Word(rnd)
 
 class While(Function_Base):
-    def __init__(self, condition, script):
+    def __init__(self, condition, script, inverted):
         self.script = script
+        self.inverted = inverted
 
         self.while_goto_end = Function_Goto()
 
-        self.while_if = If(condition, [])
+        self.while_if = If(condition, [], inverted)
         self.memory = self.while_if.memory
 
         self.list = [self.while_if] + script + [self.while_goto_end]

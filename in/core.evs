@@ -360,6 +360,8 @@ enum FLAG {
 
     JAGUAR_RING = <0x2262, 0x02>,
 
+    ENERGY_CORE = <0x2264, 0x20>,
+
     // progress
 
     BLIMP_BRIDGE = <0x225f, 0x01>,
@@ -717,7 +719,10 @@ enum ITEM {
     BONE = 0x512,
     ATLAS_AMULET = 0x513,
     ASH = 0x514,
-    ACORN = 0x515
+    ACORN = 0x515,
+
+    // rare items
+    ENERGY_CORE = 0x600
 }
 
 enum ALCHEMY_INDEX {
@@ -1410,8 +1415,17 @@ fun show_currency(show) {
 
 // MISC.
 
+fun animate(character, mode, id) {
+    code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+}
+
 fun add_enemy(enemy, x, y) {
     code(0xba, enemy, x, y, "// (ba) LOAD NPC 0b at 49 79");
+}
+
+fun add_placeholder(animation, x, y) {
+    add_enemy(ENEMY.STONE, x, y);
+    animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.LOOP, animation);
 }
 
 fun add_enemy_with_flags(enemy, x, y, flags) {
@@ -1811,6 +1825,8 @@ fun unlock(item) {
         MEMORY.GAIN_WEAPON = 0x18;
     } else if(item == ITEM.AXE_2) {
         MEMORY.GAIN_WEAPON = 0x0c;
+    } else if(item == ITEM.ENERGY_CORE) {
+        set(FLAG.ENERGY_CORE);
     }
 }
 
@@ -2008,10 +2024,6 @@ fun store_last_entity(character) {
     code(0x19, address(character), entity_t(CHARACTER.LAST_ENTITY), "// (19) WRITE $283b = last entity ($0341)");
 }
 
-fun animate(character, mode, id) {
-    code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
-}
-
 fun attribute(character, attribute, value) {
     // value = 2 bytes
 
@@ -2086,7 +2098,7 @@ fun save(slot, location) { // buggy
 // complex scripts
 
 fun loot(flag, object_id, reward, amount, next) {
-    if(!flag) {
+    if!(flag) {
         <0x2391> = reward;
 
         <0x2395> = object;

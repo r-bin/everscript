@@ -159,7 +159,7 @@ fun boy_death() {
     // sleep(0x20);
 
     // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
-    destroy(0x2834);
+    destroy(SOULS_MEMORY.DUST_ENTITY);
 
     animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
     animate(CHARACTER.DOG, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
@@ -258,7 +258,9 @@ fun hotkey_start() {
     subtext(string("Start[END]"));
 
     if(SOULS_MEMORY.BOMB_ENABLED) {
-        drop_bomb();
+        if(FLAG.ENERGY_CORE) {
+            drop_bomb();
+        }
     }
 }
 @install()
@@ -272,7 +274,8 @@ fun hotkey_start_l() {
     // map_transition(east_crossing, crash, DIRECTION.NONE);
     // map_transition(east_inbetwixx, east, DIRECTION.NONE);
     // map_transition(aquagoth, south, DIRECTION.NONE);
-    map_transition(mosquito_arena, right, DIRECTION.NONE);
+    // map_transition(mosquito_arena, right, DIRECTION.NONE);
+    map_transition(invisible_arena, right, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -488,10 +491,27 @@ map inbetwixx(0x05) {
     }
 
     @install()
+    fun energy_core_triggered() {
+        if(<CHARACTER.ACTIVE> == <CHARACTER.BOY>) {
+            animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.LOOT);
+            sleep(0x10);
+
+            unlock(ITEM.ENERGY_CORE);
+
+            destroy(CHARACTER.SCRIPT_OWNER);
+        }
+    }
+
+    @install()
     fun trigger_enter() {
+        if!(FLAG.ENERGY_CORE) {
+            add_placeholder(ANIMATION_PLACEHOLDER.ENERGY_CORE_OPEN, 0x1f, 0x47);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(energy_core_triggered));
+        }
+
         init_room();
 
-        if(!FLAG.IN_ANIMATION) {
+        if!(FLAG.IN_ANIMATION) {
             if(False) {
                 intro();
             } else {
@@ -1542,7 +1562,7 @@ map east_crossing(0x4f) {
 
         init_room();
 
-        if(!FLAG.IN_ANIMATION) {
+        if!(FLAG.IN_ANIMATION) {
             <CHARACTER.DOG>[0x1a] = <CHARACTER.DOG>[0x1a] - 0x20;
             <CHARACTER.DOG>[0x1c] = <CHARACTER.DOG>[0x1c] - 0x20;
             crash_land(CHARACTER.BOTH);
@@ -1822,7 +1842,7 @@ map arena(0x5c) {
 
         close_exits(True);
 
-        if(!FLAG.IN_ANIMATION) {
+        if!(FLAG.IN_ANIMATION) {
 
             // teleport(CHARACTER.DOG, 0x19, 0x1d);
             <CHARACTER.DOG>[0x1a] = <CHARACTER.DOG>[0x1a] + 0x20;
@@ -2094,6 +2114,90 @@ map mosquito_arena(0x5c) {
         spawn_mosquito(0x2838, 0x13, 0x29, reference(mosquito_3_dead));
         sleep(0x20);
         spawn_mosquito(0x283a, 0x29, 0x2b, reference(mosquito_4_dead));
+    }
+};
+
+map invisible_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    @install()
+    fun boss_defeated4() {
+        general_boss_defeated();
+
+        map_transition(invisible_arena, right, DIRECTION.NONE);
+    }
+
+    @install()
+    fun revealer_triggered() {
+        destroy(0x2834);
+
+        attribute_bit(0x2846, ATTRIBUTE_BITS.VISIBLE);
+    }
+
+    @install()
+    @async()
+    fun stack_revealer_boss() {
+        while!(dead(<0x2834>)) {
+            <0x2834>[0x1a] = <0x2846>[0x1a];
+            <0x2834>[0x1c] = <0x2846>[0x1c];
+            yield();
+        }
+    }
+
+    fun trigger_enter() {
+        close_exits(True);
+
+        add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+        store_last_entity(0x2846);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated4));
+
+        init_room();
+
+        add_enemy(ENEMY.REVEALER_TARGET_ENTITY, 0x1e, 0x21);
+        store_last_entity(0x2834);
+
+        special_script(SPECIAL_SCRIPTS.REVEALER, reference(revealer_triggered));
+        stack_revealer_boss();
+
+        countdown(0x03);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+
     }
 };
 

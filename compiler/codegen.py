@@ -280,7 +280,8 @@ allocated RAM:
 
                     test = If(
                             Equals(Param(None, Memory(0x2258)), Param(None, Word(map.variant))),
-                            [function]
+                            [function],
+                            False
                         )
                     code_triggers.append(test)
                     
@@ -344,7 +345,8 @@ allocated RAM:
                 for map in maps:
                     test = If(
                             Equals(Param(None, Memory(0x2258)), Param(None, Word(map.variant))),
-                            [Call(map.trigger_enter)]
+                            [Call(map.trigger_enter)],
+                            False
                         )
                     code_enter.append(test)
 

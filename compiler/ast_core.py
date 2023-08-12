@@ -5,8 +5,10 @@ from rply import Token
 import re
 from textwrap import wrap
 
+def TODO(message = ""):
+    raise Exception(message)
+
 class Memorable():
-    inverted = False
     memory = False
 
     def inherit_memory(self, memorable):
@@ -102,11 +104,14 @@ class Function_Base(BaseBox):
         if not isinstance(identifier, Identifier):
             raise Exception(f"identifier '{identifier}' cannot be resolved")
         
+        out = None
+
         for p in params:
             if p.name == identifier.name:
-                return p.value
+                out = p.value
+                break
             
-        return None
+        return out
 
     def resolve_param(self, param:Param, params:list[Param]):
         if not isinstance(param, Param):
