@@ -169,6 +169,7 @@ class Word(Function_Base):
             self.value_count = value_count
         elif isinstance(value, Word):
             self.value = value.eval([])
+            self.value_count = value_count
         else:
             self.value = int(value.value, 16)
 
@@ -313,12 +314,12 @@ class Memory(Function_Base, Memorable):
 
             return combined
         
-    def calculate(self, params:list[Param], deref=True):
+    def calculate(self, params:list[Param], offset=None, deref=True):
         self.handle_type()
 
         code = []
 
-        match [self.type, self.offset, self.flag, self.value_count]:
+        match [self.type, offset, self.flag, self.value_count]:
             case ["char", None, _, _]:
                 code = [self.eval(params)]
 
@@ -342,17 +343,17 @@ class Memory(Function_Base, Memorable):
                 code = [0x08, self.code(params)]
 
             case ["char", _, _, _]:
-                code = [self.eval(params), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
+                code = [self.eval(params), 0x29] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
             case ["28", _, _, _]:
-                code = [0x0d, self.code(params), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
+                code = [0x0d, self.code(params), 0x29] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
             case ["22", _, _, _]:
-                code = [0x08, self.code(), 0x29] + Word(self.offset, 1).calculate([]) + [0x1a]
+                code = [0x08, self.code(), 0x29] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [0x55]
 
