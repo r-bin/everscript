@@ -412,17 +412,16 @@ class Parser():
             flag = Word(p[3])
 
             return Memory(address, flag)
-        @self.pg.production('memory :  < WORD > [ WORD ]')
-        @self.pg.production('memory :  < expression > [ expression ]')
+        
+        @self.pg.production('expression :  expression [ WORD ]')
         def parse(p):
-            address = p[1]
-            if isinstance(address, Token):
-                address = Word(address)
-            offset = Word(p[4])
+            expression = p[0]
+            offset = Word(p[2])
             if isinstance(offset, Token):
                 offset = Word(offset)
 
-            return Memory(address, offset=offset)
+            return Deref(expression, offset)
+
         @self.pg.production('memory : < WORD >')
         @self.pg.production('memory : < expression >')
         def parse(p):

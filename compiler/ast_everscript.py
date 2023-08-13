@@ -15,22 +15,60 @@ import random
 import uuid
 from enum import StrEnum
 
+class Deref(Function_Base, Calculatable, Memorable):
+    def __init__(self, value, offset):
+        match value:
+            case Memory() | Arg():
+                self.value = value
+            case _:
+                TODO(f"value {value} cannot be deref'ed")
+
+        self.offset = offset
+
+        self.inherit_memory(self.value)
+
+    def __repr__(self):
+        return f"Deref(value={self.value}, offset={self.offset})"
+
+    def calculate(self, params:list[Param], deref=True):
+        code = None
+
+        match self.value:
+            case Memory():
+                code = self.value.calculate(params, offset=self.offset, deref=deref)
+            case Arg():
+                code = self.value.calculate(params, offset=self.offset, deref=deref)
+            case _:
+                TODO()
+
+        return code
+
+    def _code(self, params:list[Param]):
+        pass
 class Arg(Function_Base, Calculatable, Memorable):
-    def __init__(self, index, flag=None):
+    def __init__(self, index):
         self.index = index
         self.index = self.resolve(self.index, [])
-        self.flag = flag
+        self.offset = None
 
         self.memory = True
 
     def __repr__(self):
-        return f"Arg(index={self.index}, flag={self.flag})"
+        return f"Arg(index={self.index})"
         
-    def calculate(self, params:list[Param]):
+    def calculate(self, params:list[Param], offset=None, deref=True):
         index = self.resolve(self.index, params)
         index = index.code(params)
 
-        code = [0x13, index]
+        match [offset]:
+            case [None]:
+                code = [0x13, index]
+            case [_]:
+                code = [0x12, index, 0x29] + offset.calculate(params) + [0x1a]
+                if deref:
+                    code += [0x55]
+            case _:
+                TODO()
 
         return code
 
@@ -616,9 +654,36 @@ class If(Function_Base, Calculatable, Memorable):
         code = [opcode] + self._terminate(condition) + [destination]
 
         return code
+    
+class BinaryDefaultCalculator():
+    def _default_calculate(self, operator:int, left:any, right:any, params:list[Param]):
+        code = []
+        if not isinstance(right, list):
+            right = right.calculate(params)
 
+        match left:
+            case Memory():
+                match left.type:
+                    case "char":
+                        code = left.calculate(params) + [0x29] + right + [operator]
+                    case "28":
+                        code = [0x0d, left.code(params), 0x29] + right + [operator]
+                    case "22" | "xx":
+                        code = [0x08, left.code(params), 0x29] + right + [operator]
+                    case _:
+                        TODO()
+            case Deref():
+                code = left.calculate(params) + [0x29] + right + [operator]
+            case Object():
+                TODO()
+            case Arg():
+                code = left.calculate(params) + [0x29] + right + [operator]
+            case _:
+                TODO()
+
+        return code
         
-class Equals(BinaryOp):
+class Equals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "=="
 
@@ -626,25 +691,9 @@ class Equals(BinaryOp):
         return left.eval(params) == right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
-        if not isinstance(right, list):
-            right = right.calculate(params)
+        operator = 0x22
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) +  [0x29] + right + [0x22]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate(params) +  [0x29] + right + [0x22]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) +  [0x29] + right + [0x22]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = left.calculate(params) +  [0x29] + right + [0x22]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [0x22]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
         
 class NotEquals(BinaryOp):
     def operator(self):
@@ -727,7 +776,7 @@ class Greater(BinaryOp):
                 raise Exception(f"left parameter '${left}' not supported")
 
         return code
-class LowerEquals(BinaryOp):
+class LowerEquals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<="
 
@@ -735,26 +784,11 @@ class LowerEquals(BinaryOp):
         return left.eval(params) <= right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
         operator = 0x20
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate() +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate(params) +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate() +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate() +  [0x29] + right + [operator]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
     
-class Lower(BinaryOp):
+class Lower(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<"
 
@@ -762,26 +796,11 @@ class Lower(BinaryOp):
         return left.eval(params) < right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
         operator = 0x1e
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate(params) +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = left.calculate(params) +  [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) +  [0x29] + right + [operator]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
     
-class Add(BinaryOp):
+class Add(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "+"
 
@@ -789,31 +808,11 @@ class Add(BinaryOp):
         return left.eval(params) + right.eval(params)
 
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
-
         operator = 0x1a
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = [0x0d, left.code(params), 0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = [0x08, left.code(params), 0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
-                code = left.calculate(params) + [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) + [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) + [0x29] + right + [operator]
-
-            case left if isinstance(left, Arg):
-                code = left.calculate(params) + [0x29] + right + [operator]
-
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
     
-class Sub(BinaryOp):
+class Sub(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "-"
 
@@ -821,26 +820,9 @@ class Sub(BinaryOp):
         return left.eval(params) - right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
+        operator = 0x1b
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) + [0x29] + right + [0x1b]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = [0x0d, left.code(params), 0x29] + right + [0x1b]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = [0x08, left.code(params), 0x29] + right + [0x1b]
-
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
-                code = left.calculate(params) + [0x29] + right + [0x1b]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) + [0x29] + right + [0x1b]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) + [0x29] + right + [0x1b]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
     
 class Mul(BinaryOp):
     def operator(self):
@@ -852,7 +834,7 @@ class Mul(BinaryOp):
     def _calculate(self, left:any, right:any, params:list[Param]):
         pass
 
-class Div(BinaryOp):
+class Div(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "/"
 
@@ -860,27 +842,9 @@ class Div(BinaryOp):
         return left.eval(params) // right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
         operator = 0x18
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) + [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = [0x0d, left.code(params), 0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = [0x08, left.code(params), 0x29] + right + [operator]
-
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
-                code = left.calculate(params) + [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) + [0x29] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) + [0x29] + right + [operator]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-            
-        return code
+        return self._default_calculate(operator, left, right, params)
 
 class ShiftRight(BinaryOp):
     def operator(self):
@@ -938,25 +902,26 @@ class Asign(BinaryOp):
             right = right.calculate(params)
 
         match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) + self._terminate(right)
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "xx":
-                code = [0x18, left.code(params)] + self._terminate(right)
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = [0x19, left.code(params)] + self._terminate(right)
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = [0x18, left.code(params)] + self._terminate(right)
-            case left if isinstance(left, Memory) and left.offset != None:
-                code = self._terminate([0x7a] + left.calculate(params, deref=False)) + self._terminate(right)
-
-            case left if isinstance(left, Object):
+            case Memory():
+                match left.type:
+                    case "char":
+                        code = left.calculate(params) + self._terminate(right)
+                    case "xx":
+                        code = [0x18, left.code(params)] + self._terminate(right)
+                    case "28":
+                        code = [0x19, left.code(params)] + self._terminate(right)
+                    case "22":
+                        code = [0x18, left.code(params)] + self._terminate(right)
+                    case _:
+                        TODO()
+            case Deref():
+                code = [0x7a] + self._terminate(left.calculate(params, deref=False)) + self._terminate(right)
+            case Object():
                 code = self._terminate([0x5c] + left.calculate(params)) + self._terminate(right)
-
-            case left if isinstance(left, Arg):
+            case Arg():
                 code = [0x1a, left.code(params)] + self._terminate(right)
-
             case _:
-                raise Exception(f"left parameter '${left}' not supported")
+                TODO()
 
         return code
 

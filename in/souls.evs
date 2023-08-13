@@ -273,11 +273,11 @@ fun hotkey_start_l() {
     // map_transition(bomb_arena, right, DIRECTION.NONE);
     // map_transition(east_crossing, crash, DIRECTION.NONE);
     // map_transition(east_inbetwixx, east, DIRECTION.NONE);
-    // map_transition(aquagoth, south, DIRECTION.NONE);
+    map_transition(aquagoth, south, DIRECTION.NONE);
     // map_transition(mosquito_arena, right, DIRECTION.NONE);
     // map_transition(invisible_arena, right, DIRECTION.NONE);
     // map_transition(abomination_arena, right, DIRECTION.NONE);
-    map_transition(radahn_arena, right, DIRECTION.NONE);
+    // map_transition(radahn_arena, right, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -288,7 +288,7 @@ fun hotkey_start_r() {
     
     attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
     // debug_boy();
-    debug_memory(<0x2834>[0x0b], <0x2836>[0x0b]);
+    debug_memory(<0x2834>[0x15], <0x2836>[0x2a]);
 
     // map_transition(toaster_arena, center, DIRECTION.NONE);
 }
@@ -488,6 +488,7 @@ map inbetwixx(0x05) {
         // <CHARACTER.LAST_ENTITY>[0x15] = 0x01;
         
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bomb_wall_triggered));
+        // store_last_entity(0x2834);
 
         <0x2838> = object;
         <0x283a> = 0x01;
@@ -584,48 +585,55 @@ map west_inbetwixx(0x5b) {
         control_enemy(CHARACTER.SCRIPT_OWNER, False);
     }
 
+    enum BOSS {
+        ID_OWL_1 = <0x28a5>,
+        ID_OWL_2 = <0x28a7>,
+
+        TRANSFORM_DISTANCE = 0x10
+    }
+
     @install()
     fun transform() {
-        control_enemy(0x28a5, True);
-        control_enemy(0x28a7, True);
+        control_enemy(BOSS.ID_OWL_1, True);
+        control_enemy(BOSS.ID_OWL_2, True);
 
-        destroy(0x28a5);
+        destroy(BOSS.ID_OWL_1);
 
-        attribute_bit(0x28a7, ATTRIBUTE_BITS.INVINCIBLE);
+        attribute_bit(BOSS.ID_OWL_2, ATTRIBUTE_BITS.INVINCIBLE);
 
-        animate(0x28a7, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
+        animate(BOSS.ID_OWL_2, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
 
         sleep(0x30);
 
         add_enemy(ENEMY.BOY_BLACK, 0x00, 0x00);
-        <CHARACTER.LAST_ENTITY>[0x1a] = <0x28a7>[0x1a];
-        <CHARACTER.LAST_ENTITY>[0x1c] = <0x28a7>[0x1c];
-        destroy(0x28a7);
+        <CHARACTER.LAST_ENTITY>[0x1a] = BOSS.ID_OWL_2[0x1a];
+        <CHARACTER.LAST_ENTITY>[0x1c] = BOSS.ID_OWL_2[0x1c];
+        destroy(BOSS.ID_OWL_2);
     }
 
     @install()
     @async()
     fun grabby_owls() {
         while(True) {
-            <0x2499> = <0x28a5>[0x1a];
-            <0x249b> = <0x28a5>[0x1c];
-            <0x24ad> = <0x28a7>[0x1a];
-            <0x24af> = <0x28a7>[0x1c];
+            arg[0x00] = BOSS.ID_OWL_1[0x1a];
+            arg[0x02] = BOSS.ID_OWL_1[0x1c];
+            arg[0x04] = BOSS.ID_OWL_2[0x1a];
+            arg[0x06] = BOSS.ID_OWL_2[0x1c];
 
-            if(<0x2499> < <0x24ad>) {
-                <0x2836> = <0x24ad> - <0x2499>;
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
             } else {
-                <0x2836> = <0x2499> - <0x24ad>;
+                arg[0x08] = arg[0x00] - arg[0x04];
             }
 
-            if(<0x249b> < <0x24af>) {
-                <0x2838> = <0x24af> - <0x249b>;
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
             } else {
-                <0x2838> = <0x249b> - <0x24af>;
+                arg[0x0a] = arg[0x02] - arg[0x06];
             }
 
-            if(<0x2836> <= 0x10) {
-                if(<0x2838> <= 0x10) {
+            if(arg[0x08] <= BOSS.TRANSFORM_DISTANCE) {
+                if(arg[0x0a] <= BOSS.TRANSFORM_DISTANCE) {
                     transform();
                     end();
                 }
@@ -645,11 +653,11 @@ map west_inbetwixx(0x5b) {
 
         add_enemy(ENEMY.OWL_BLACK, 0x2d, 0x21);
         <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
-        store_last_entity(0x28a5);
+        store_last_entity(BOSS.ID_OWL_1);
 
         add_enemy(ENEMY.OWL_BLACK, 0x47, 0x42);
         <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
-        store_last_entity(0x28a7);
+        store_last_entity(BOSS.ID_OWL_2);
         animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(owl_triggered));
         face(CHARACTER.LAST_ENTITY, DIRECTION.SOUTH);
@@ -2416,21 +2424,21 @@ map abomination_arena(0x5c) {
     @install()
     @async()
     fun stack_t0123() {
-        while!(dead(<0x2834>)) {
-            <0x2836>[0x1a] = <0x2834>[0x1a] - 0x05;
-            <0x2836>[0x1c] = <0x2834>[0x1c] - 0x1a;
+        while!(dead(BOSS.ID_CARLTRON)) {
+            BOSS.ID_LEFT[0x1a] = BOSS.ID_CARLTRON[0x1a] - 0x05;
+            BOSS.ID_LEFT[0x1c] = BOSS.ID_CARLTRON[0x1c] - 0x1a;
 
             // sleep(0x02);
             yield();
 
-            <0x2838>[0x1a] = <0x2834>[0x1a] + 0x05;
-            <0x2838>[0x1c] = <0x2834>[0x1c] - 0x1a;
+            BOSS.ID_RIGHT[0x1a] = BOSS.ID_CARLTRON[0x1a] + 0x05;
+            BOSS.ID_RIGHT[0x1c] = BOSS.ID_CARLTRON[0x1c] - 0x1a;
 
             // sleep(0x0);
             yield();
 
-            <0x283a>[0x1a] = <0x2834>[0x1a];
-            <0x283a>[0x1c] = <0x2834>[0x1c] - 0x20;
+            BOSS.ID_BACK[0x1a] = BOSS.ID_CARLTRON[0x1a];
+            BOSS.ID_BACK[0x1c] = BOSS.ID_CARLTRON[0x1c] - 0x20;
 
             // sleep(0x02);
             yield();
@@ -2522,9 +2530,9 @@ map radahn_arena(0x5c) {
     @install()
     @async()
     fun stack_t01_offset() {
-        while!(dead(<0x2836>)) {
-            <0x2834>[0x1a] = <0x2836>[0x1a];
-            <0x2834>[0x1c] = <0x2836>[0x1c] - 0x15;
+        while!(dead(BOSS.MOUNT_ID)) {
+            BOSS.RIDER_ID[0x1a] = BOSS.MOUNT_ID[0x1a];
+            BOSS.RIDER_ID[0x1c] = BOSS.MOUNT_ID[0x1c] - 0x15;
             yield();
         }
     }
@@ -2549,7 +2557,7 @@ map radahn_arena(0x5c) {
                 BOSS.TIMER = 0x00;
             }
         
-            if(<0x2834>[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
                 BOSS.TIMER = BOSS.TIMER + 0x01;
             }
             yield();
@@ -2731,34 +2739,34 @@ map squidmar(0x6d) {
     @install()
     @async()
     fun fake_exit_scanner() {
+        attach_to_script(0x2834);
+
         while(True) {
-            attach_to_script(0x2834);
+            arg[0x00] = <CHARACTER.ACTIVE>[0x1a];
+            arg[0x02] = <CHARACTER.ACTIVE>[0x1c];
+            arg[0x04] = <CHARACTER.SCRIPT_OWNER>[0x1a];
+            arg[0x06] = <CHARACTER.SCRIPT_OWNER>[0x1c];
 
-            <0x2836> = <CHARACTER.ACTIVE>[0x1a];
-            <0x2838> = <CHARACTER.ACTIVE>[0x1c];
-            <0x283a> = <CHARACTER.SCRIPT_OWNER>[0x1a];
-            <0x283c> = <CHARACTER.SCRIPT_OWNER>[0x1c];
-
-            if(<0x2836> < <0x283a>) {
-                <0x283e> = <0x283a> - <0x2836>;
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
             } else {
-                <0x283e> = <0x2836> - <0x283a>;
+                arg[0x08] = arg[0x00] - arg[0x04];
             }
 
-            if(<0x2838> < <0x283c>) {
-                <0x2841> = <0x283c> - <0x2838>;
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
             } else {
-                <0x2841> = <0x2838> - <0x283c>;
+                arg[0x0a] = arg[0x02] - arg[0x06];
             }
-            
-            yield();
 
-            if(<0x283e> <= 0x20) {
-                if(<0x2841> <= 0x20) {
+            if(arg[0x08] <= 0x20) {
+                if(arg[0x0a] <= 0x20) {
                     fake_exit();
                     end();
                 }
             }
+
+            yield();
         }
     }
 
@@ -2796,35 +2804,35 @@ map aquagoth(0x6d) {
 
     @install()
     @async()
-    fun fake_exit_scanner_aquagoth() {
+    fun fake_exit_scanner() {
+        attach_to_script(0x2834);
+
         while(True) {
-            attach_to_script(0x2834);
+            arg[0x00] = <CHARACTER.ACTIVE>[0x1a];
+            arg[0x02] = <CHARACTER.ACTIVE>[0x1c];
+            arg[0x04] = <CHARACTER.SCRIPT_OWNER>[0x1a];
+            arg[0x06] = <CHARACTER.SCRIPT_OWNER>[0x1c];
 
-            <0x2836> = <CHARACTER.ACTIVE>[0x1a];
-            <0x2838> = <CHARACTER.ACTIVE>[0x1c];
-            <0x283a> = <CHARACTER.SCRIPT_OWNER>[0x1a];
-            <0x283c> = <CHARACTER.SCRIPT_OWNER>[0x1c];
-
-            if(<0x2836> < <0x283a>) {
-                <0x283e> = <0x283a> - <0x2836>;
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
             } else {
-                <0x283e> = <0x2836> - <0x283a>;
+                arg[0x08] = arg[0x00] - arg[0x04];
             }
 
-            if(<0x2838> < <0x283c>) {
-                <0x2841> = <0x283c> - <0x2838>;
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
             } else {
-                <0x2841> = <0x2838> - <0x283c>;
+                arg[0x0a] = arg[0x02] - arg[0x06];
             }
-            
-            yield();
 
-            if(<0x283e> <= 0x20) {
-                if(<0x2841> <= 0x20) {
+            if(arg[0x08] <= 0x20) {
+                if(arg[0x0a] <= 0x20) {
                     fake_exit();
                     end();
                 }
             }
+
+            yield();
         }
     }
 
@@ -2857,7 +2865,7 @@ map aquagoth(0x6d) {
         add_enemy(ENEMY.PLACEHOLDER, 0x1b, 0x52);
         <0x2834> = <CHARACTER.LAST_ENTITY>;
         sleep(0x10);
-        fake_exit_scanner_aquagoth();
+        fake_exit_scanner();
 
         subtext(string("A fould stench is in the air.[END]"));
     }
