@@ -64,6 +64,7 @@ class Parser():
 
             # late link
             "entrance": (lambda p: MapEntrance(p[2][0], p[2][1], p[2][2])),
+            "soundtrack": (lambda p: Soundtrack(self.generator, p[2][0], p[2][1])),
             "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
 
             # unary operators
@@ -110,6 +111,7 @@ class Parser():
             scope = self.generator.pop_scope()
 
             map = Map(name, params, code, scope.objects)
+            scope.value = map
 
             self.generator.set_identifier(name, map)
             self.generator.add_map(map)
