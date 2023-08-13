@@ -1143,7 +1143,7 @@ class Range(BaseBox):
     def __repr__(self):
         return f"Range({self.start}..{self.end})"
 
-    def eval(self):
+    def eval(self, params:[Param]):
         list = []
         if isinstance(self.start, StringKey):
             step = self.start.value_count
@@ -1155,7 +1155,7 @@ class Range(BaseBox):
                 list.append(FunctionKey(index))
         elif isinstance(self.start, Memory):
             step = 2
-            for address in range(self.start.eval(), self.end.eval() + step, step):
+            for address in range(self.start.eval(params), self.end.eval(params) + step, step):
                 list.append(Memory(address))
         else:
             raise Exception("unknown type")
