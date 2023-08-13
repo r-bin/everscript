@@ -38,7 +38,7 @@ class MemoryManager():
             "text_key": [],
             "function_key": [],
 
-            "memory": [],
+            "memory": {"22":[], "28":[]},
             "flag": []
         }
 
@@ -47,24 +47,17 @@ class MemoryManager():
             if isinstance(m, Word):
                 self._add(m)
             elif isinstance(m, Range):
-                if isinstance(m.start, StringKey):
-                    for string_key in m.eval():
-                        self.memory["text_key"].append(string_key)
-                elif isinstance(m.start, FunctionKey):
-                    for function_key in m.eval():
-                        self.memory["function_key"].append(function_key)
-                elif isinstance(m.start, Memory):
-                    for address in m.eval():
-                        self.memory["memory"].append(address)
-                    pass
-                else:
-                    self._add(m)
+                match m.start:
+                    case StringKey() | FunctionKey() | Memory():
+                        self.add(m.eval([]))
+                    case _:
+                        self._add(m)
             elif isinstance(m, StringKey):
                 self.memory["text_key"].append(m)
             elif isinstance(m, FunctionKey):
                 self.memory["function_key"].append(m)
             elif isinstance(m, Memory):
-                self.memory["memory"].append(m)
+                self.memory["memory"][m.type].append(m)
             else:
                 raise Exception(f"unsupported memory: {m}")
 
@@ -128,12 +121,12 @@ class MemoryManager():
         
         function.key = function_key
         
-    def allocate_memory(self):
-        memory = self.memory["memory"].pop(0)
+    def allocate_memory(self, type:str):
+        memory = self.memory["memory"][type].pop(0)
         return memory
     def allocate_flag(self):
         if not self.memory["flag"]:
-            memory = self.memory["memory"].pop(0)
+            memory = self.memory["memory"]["22"].pop(0)
 
             for offset in range(0, 8):
                 self.memory["flag"].append(Memory(memory.address, 1 << offset))
@@ -266,7 +259,8 @@ class Linker():
         
         script = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["script"]])
 
-        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]])
+        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["22"]])
+        memory_tmp = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["28"]])
         flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]])
 
         return f"""
@@ -284,14 +278,17 @@ unallocated RAM:
   memory:
 {memory}
 
+  temp memory:
+{memory_tmp}
+
   flags:
 {flag}
         """.strip()
 
-    def link_memory(self):
-        return self.memory_manager.allocate_memory()
+    def link_memory(self) -> Memory:
+        return self.memory_manager.allocate_memory("22")
         
-    def link_flag(self):
+    def link_flag(self) -> Memory:
         return self.memory_manager.allocate_flag()
 
     def link_string(self, string:String, text:RawString):

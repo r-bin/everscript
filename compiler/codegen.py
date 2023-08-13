@@ -19,8 +19,11 @@ class Scope(BaseBox):
     type:Type = Type.DEFAULT
     name:str = None
     value:any = None
+    temp_memory = None
 
-    def __init__(self, type:Type|BaseBox = Type.DEFAULT):
+    def __init__(self, generator, type:Type|BaseBox = Type.DEFAULT):
+        self._generator = generator
+
         if isinstance(type, BaseBox):
             type = self.Type(type.name)
 
@@ -28,6 +31,22 @@ class Scope(BaseBox):
         self.identifier:dict[str,any] = {}
         self.objects:dict[str,Object] = []
         self.functions:dict[Function] = {}
+
+        self._update_memory()
+
+    def _update_memory(self) -> None:
+        if not self.temp_memory:
+            self.temp_memory = [m for m in self._generator.linker.memory_manager.memory["memory"]["28"]]
+            self.temp_memory = list(reversed(self.temp_memory))
+
+    def allocate_memory(self) -> Memory:
+        self._update_memory()
+
+        memory = self.temp_memory
+        memory = list(reversed(memory))
+        memory = self.temp_memory.pop()
+
+        return memory
 
 class _Splice():
     def __init__(self, list, element=None):
@@ -54,7 +73,7 @@ class CodeGen():
         print(f"CodeGen.init()")
         self.linker:Linker = linker
 
-        self.scopes:list[Scope] = [Scope()]
+        self.scopes:list[Scope] = [Scope(self)]
 
         self.code:list[Function] = []
         self.system = {}

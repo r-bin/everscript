@@ -55,6 +55,7 @@ class Parser():
             "string_key": (lambda p: StringKey(p[2][0])),
             "function_key": (lambda p: FunctionKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
+            "memory_tmp": (lambda p: self.generator.current_scope().allocate_memory()),
             "flag": (lambda p: self.generator.get_flag()),
             "reference": (lambda p: Reference(self.generator, p[2][0])),
 
@@ -96,7 +97,7 @@ class Parser():
         # maps
         @self.pg.production('scope : MAP')
         def parse(p):
-            scope = Scope(p[0])
+            scope = Scope(self.generator, p[0])
 
             self.generator.push_scope(scope)
 

@@ -4,7 +4,10 @@
 
     0x300000..0x3fffff, // extension
 
-    <0x2272>
+    // reserved: <0x2258>
+    <0x2272>,
+
+    <0x2834>..<0x28ff>
 )
 #include("in/core.evs")
 
@@ -273,11 +276,11 @@ fun hotkey_start_l() {
     // map_transition(bomb_arena, right, DIRECTION.NONE);
     // map_transition(east_crossing, crash, DIRECTION.NONE);
     // map_transition(east_inbetwixx, east, DIRECTION.NONE);
-    map_transition(aquagoth, south, DIRECTION.NONE);
+    // map_transition(aquagoth, south, DIRECTION.NONE);
     // map_transition(mosquito_arena, right, DIRECTION.NONE);
     // map_transition(invisible_arena, right, DIRECTION.NONE);
     // map_transition(abomination_arena, right, DIRECTION.NONE);
-    // map_transition(radahn_arena, right, DIRECTION.NONE);
+    map_transition(radahn_arena, right, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -586,8 +589,8 @@ map west_inbetwixx(0x5b) {
     }
 
     enum BOSS {
-        ID_OWL_1 = <0x28a5>,
-        ID_OWL_2 = <0x28a7>,
+        ID_OWL_1 = memory_tmp(),
+        ID_OWL_2 = memory_tmp(),
 
         TRANSFORM_DISTANCE = 0x10
     }
@@ -662,9 +665,9 @@ map west_inbetwixx(0x5b) {
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(owl_triggered));
         face(CHARACTER.LAST_ENTITY, DIRECTION.SOUTH);
 
-        grabby_owls();
-        
         init_room();
+        
+        grabby_owls();
     }
 };
 
@@ -2062,6 +2065,23 @@ map mosquito_arena(0x5c) {
         center = nop()
     }
 
+    enum BOSS {
+        BOSS_ID = memory_tmp(),
+
+        MOSQUITO_1_ID = memory_tmp(),
+        MOSQUITO_1_X = 0x13,
+        MOSQUITO_1_Y = 0x19,
+        MOSQUITO_2_ID = memory_tmp(),
+        MOSQUITO_2_X = 0x29,
+        MOSQUITO_2_Y = 0x1b,
+        MOSQUITO_3_ID = memory_tmp(),
+        MOSQUITO_3_X = 0x13,
+        MOSQUITO_3_Y = 0x29,
+        MOSQUITO_4_ID = memory_tmp(),
+        MOSQUITO_4_X = 0x29,
+        MOSQUITO_4_Y = 0x2b,
+    }
+
     @install()
     fun boss_defeated() {
         general_boss_defeated();
@@ -2093,7 +2113,7 @@ map mosquito_arena(0x5c) {
         animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.GORE);
         attribute_bit(CHARACTER.SCRIPT_OWNER, ATTRIBUTE_BITS.INVINCIBLE);
 
-        cast(id, 0x2846, CAST.FIREBALL, 0xff);
+        cast(id, BOSS.BOSS_ID, CAST.FIREBALL, 0xff);
 
         sleep(0x20);
         animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
@@ -2108,19 +2128,19 @@ map mosquito_arena(0x5c) {
 
     @install()
     fun mosquito_1_dead() {
-        mosquito_dead(0x2834, 0x13, 0x19);
+        mosquito_dead(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y);
     }
     @install()
     fun mosquito_2_dead() {
-        mosquito_dead(0x2836, 0x29, 0x1b);
+        mosquito_dead(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y);
     }
     @install()
     fun mosquito_3_dead() {
-        mosquito_dead(0x2838, 0x13, 0x29);
+        mosquito_dead(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y);
     }
     @install()
     fun mosquito_4_dead() {
-        mosquito_dead(0x283a, 0x29, 0x2b);
+        mosquito_dead(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y);
     }
 
     fun spawn_mosquito(id, x, y, script_id) {
@@ -2134,7 +2154,7 @@ map mosquito_arena(0x5c) {
         character_selection(CHARACTER.BOY);
 
         add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
-        store_last_entity(0x2846);
+        store_last_entity(BOSS.BOSS_ID);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
 
         init_room();
@@ -2142,13 +2162,13 @@ map mosquito_arena(0x5c) {
         countdown(0x03);
         attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
 
-        spawn_mosquito(0x2834, 0x13, 0x19, reference(mosquito_1_dead));
+        spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
         sleep(0x40);
-        spawn_mosquito(0x2836, 0x29, 0x1b, reference(mosquito_2_dead));
+        spawn_mosquito(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y, reference(mosquito_2_dead));
         sleep(0x20);
-        spawn_mosquito(0x2838, 0x13, 0x29, reference(mosquito_3_dead));
+        spawn_mosquito(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y, reference(mosquito_3_dead));
         sleep(0x20);
-        spawn_mosquito(0x283a, 0x29, 0x2b, reference(mosquito_4_dead));
+        spawn_mosquito(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y, reference(mosquito_4_dead));
     }
 };
 
@@ -2169,6 +2189,14 @@ map invisible_arena(0x5c) {
         center = @install() fun test() {
             subtext(string("exit? 2 [END]"));
         }
+    }
+
+    enum ROOM {
+        REVEALER_ID = memory_tmp(),
+    }
+
+    enum BOSS {
+        BOSS_ID = memory_tmp(),
     }
 
     fun init_room() {
@@ -2199,17 +2227,17 @@ map invisible_arena(0x5c) {
 
     @install()
     fun revealer_triggered() {
-        destroy(0x2834);
+        destroy(ROOM.REVEALER_ID);
 
-        attribute_bit(0x2846, ATTRIBUTE_BITS.VISIBLE);
+        attribute_bit(BOSS.BOSS_ID, ATTRIBUTE_BITS.VISIBLE);
     }
 
     @install()
     @async()
     fun stack_revealer_boss() {
-        while!(dead(<0x2834>)) {
-            <0x2834>[0x1a] = <0x2846>[0x1a];
-            <0x2834>[0x1c] = <0x2846>[0x1c];
+        while!(dead(ROOM.REVEALER_ID)) {
+            ROOM.REVEALER_ID[0x1a] = BOSS.BOSS_ID[0x1a];
+            ROOM.REVEALER_ID[0x1c] = BOSS.BOSS_ID[0x1c];
             yield();
         }
     }
@@ -2219,13 +2247,13 @@ map invisible_arena(0x5c) {
 
         add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
         attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
-        store_last_entity(0x2846);
+        store_last_entity(BOSS.BOSS_ID);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated4));
 
         init_room();
 
         add_enemy(ENEMY.REVEALER_TARGET_ENTITY, 0x1e, 0x21);
-        store_last_entity(0x2834);
+        store_last_entity(ROOM.REVEALER_ID);
 
         special_script(SPECIAL_SCRIPTS.REVEALER, reference(revealer_triggered));
         stack_revealer_boss();
@@ -2279,12 +2307,12 @@ map abomination_arena(0x5c) {
     }
 
     enum BOSS {
-        ID_CARLTRON = <0x2834>,
-        ID_LEFT = <0x2836>,
-        ID_RIGHT = <0x2838>,
-        ID_BACK = <0x283a>,
+        ID_CARLTRON = memory_tmp(),
+        ID_LEFT = memory_tmp(),
+        ID_RIGHT = memory_tmp(),
+        ID_BACK = memory_tmp(),
 
-        PHASE = <0x2890>
+        PHASE = memory_tmp(),
     }
 
     @install()
@@ -2447,7 +2475,7 @@ map abomination_arena(0x5c) {
 
     fun abomination() {
         add_enemy(ENEMY.CARLTRON, 0x10, 0x13);
-        store_last_entity(0x2834);
+        store_last_entity(BOSS.ID_CARLTRON);
         <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
 
@@ -2509,11 +2537,11 @@ map radahn_arena(0x5c) {
     }
 
     enum BOSS {
-        RIDER_ID = <0x2834>,
-        MOUNT_ID = <0x2836>,
+        RIDER_ID = memory_tmp(),
+        MOUNT_ID = memory_tmp(),
 
-        PHASE = <0x2890>,
-        TIMER = <0x2892>,
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
 
         TIME_BEFORE_SALVAGE = 0x300,
     }
@@ -2732,6 +2760,10 @@ map squidmar(0x6d) {
         south = entrance(0x1b, 0x51, DIRECTION.NORTH)
     }
 
+    enum ROOM {
+        FAKE_EXIT_ID = memory_tmp()
+    }
+
     fun fake_exit() {
         map_transition(dungeon_volcano, north_1, DIRECTION.NORTH);
     }
@@ -2739,7 +2771,7 @@ map squidmar(0x6d) {
     @install()
     @async()
     fun fake_exit_scanner() {
-        attach_to_script(0x2834);
+        attach_to_script(ROOM.FAKE_EXIT_ID);
 
         while(True) {
             arg[0x00] = <CHARACTER.ACTIVE>[0x1a];
@@ -2787,7 +2819,7 @@ map squidmar(0x6d) {
         fade_in();
 
         add_enemy(ENEMY.PLACEHOLDER, 0x1b, 0x52);
-        <0x2834> = <CHARACTER.LAST_ENTITY>;
+        ROOM.FAKE_EXIT_ID = <CHARACTER.LAST_ENTITY>;
         sleep(0x10);
         fake_exit_scanner();
     }
@@ -2798,6 +2830,10 @@ map aquagoth(0x6d) {
         south = entrance(0x1b, 0x51, DIRECTION.NORTH)
     }
 
+    enum ROOM {
+        FAKE_EXIT_ID = memory_tmp(),
+    }
+
     fun fake_exit() {
         map_transition(dungeon_volcano, north_2, DIRECTION.NORTH);
     }
@@ -2805,7 +2841,7 @@ map aquagoth(0x6d) {
     @install()
     @async()
     fun fake_exit_scanner() {
-        attach_to_script(0x2834);
+        attach_to_script(ROOM.FAKE_EXIT_ID);
 
         while(True) {
             arg[0x00] = <CHARACTER.ACTIVE>[0x1a];
@@ -2863,7 +2899,7 @@ map aquagoth(0x6d) {
         init_room();
 
         add_enemy(ENEMY.PLACEHOLDER, 0x1b, 0x52);
-        <0x2834> = <CHARACTER.LAST_ENTITY>;
+        ROOM.FAKE_EXIT_ID = <CHARACTER.LAST_ENTITY>;
         sleep(0x10);
         fake_exit_scanner();
 
