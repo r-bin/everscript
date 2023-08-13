@@ -906,6 +906,8 @@ class Asign(BinaryOp):
             right = right.calculate(params)
 
         match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate(params) + self._terminate(right)
             case left if isinstance(left, Memory) and left.offset == None and left.type == "xx":
                 code = [0x18, left.code(params)] + self._terminate(right)
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
