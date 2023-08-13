@@ -772,9 +772,9 @@ class Add(BinaryOp):
             case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
                 code = left.calculate(params) + [0x29] + right + [0x1a]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = [0x0d] + left.calculate(params) + [0x29] + right + [0x1a]
+                code = left.calculate(params) + [0x29] + right + [0x1a]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = [0x08] + left.calculate(params) + [0x29] + right + [0x1a]
+                code = left.calculate(params) + [0x29] + right + [0x1a]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -801,9 +801,9 @@ class Sub(BinaryOp):
             case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
                 code = left.calculate(params) + [0x29] + right + [0x1b]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = [0x0d] + left.calculate(params) + [0x29] + right + [0x1b]
+                code = left.calculate(params) + [0x29] + right + [0x1b]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = [0x08] + left.calculate(params) + [0x29] + right + [0x1b]
+                code = left.calculate(params) + [0x29] + right + [0x1b]
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 

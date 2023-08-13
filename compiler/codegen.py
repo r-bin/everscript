@@ -26,6 +26,7 @@ class Scope(BaseBox):
         self.type = type
         self.identifier:dict[str,any] = {}
         self.objects:dict[str,Object] = []
+        self.functions:dict[Function] = {}
 
 class _Splice():
     def __init__(self, list, element=None):
@@ -64,6 +65,26 @@ class CodeGen():
         self.patches = []
         self.maps = []
         self.exits = []
+
+    def push_scope(self, scope:Scope) -> None:
+        self.scopes.append(scope)
+    def pop_scope(self) -> Scope:
+        if len(self.scopes) <= 1:
+            raise Exception("default scope cannot be popped")
+        
+        return self.scopes.pop()
+    def _current_scope(self) -> Scope:
+        return self.scopes[-1]
+    def _base_scope(self) -> Scope:
+        return self.scopes[0]
+    def _all_identifiers(self) -> dict[str,any]:
+        all_identifiers:dict[str, any] = {}
+
+        for scope in self.scopes:
+            for identifier, value in scope.identifier.items():
+                all_identifiers[identifier] = value
+
+        return all_identifiers
 
     def get_memory_allocation(self):
         strings = []
@@ -116,23 +137,30 @@ allocated RAM:
     def add_map_transition(self, map_transition:MapTransition):
         self.map_transitions.append(map_transition)
 
-    def add_function(self, function:Function):
-        #self.code += f"<address> {expression.count()}\n"
+    def add_function(self, function:Function, scope:Scope=None):
+        if not scope:
+            scope = self._current_scope()
+
+        scope.functions[function.name] = function
         
-        if function.install == False:
-            self.system[function.name] = function
-        else:
-            self.code.append(function)
+        self.code.append(function)
     
     def get_function(self, name): #TODO
         if isinstance(name, Token):
             name = name.value
-        if name in self.system:
-            return self.system[name]
 
-        for function in self.code:
-            if function.name == name:
-                return function
+        function = None
+        for scope in reversed(self.scopes):
+            if name in scope.functions.keys():
+                function = scope.functions[name]
+                break
+
+        if function:
+            return function
+        
+        for f in self.code:
+            if f.name == name:
+                pass
         
         raise Exception(f"function '{name}' is not defined: {self.code}")
 
@@ -161,7 +189,8 @@ allocated RAM:
 
         # fun f() {}
         for function in self.code:
-            output.append(self._generate_function(function))
+            if function.install:
+                output.append(self._generate_function(function))
 
         variants = self.get_map_variants()
         if variants:
@@ -300,8 +329,8 @@ allocated RAM:
                 
         return code_list
     
-    def _late_generate(self, function:Function, link_key:bool):
-        self.code.append(function)
+    def _late_generate(self, function:Function, link_key:bool, scope:Scope=None):
+        self.add_function(function, scope)
         self.linker.link_function(function)
         self.linker.link_call_in_code([function], self.code)
 
@@ -316,7 +345,7 @@ allocated RAM:
         variants = self.get_map_variants()
         
         function_nop = Function("_trigger_nop", [], [], [Arg_Install()])
-        output.append(self._late_generate(function_nop, True))
+        output.append(self._late_generate(function_nop, True, self._base_scope()))
 
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):
             objects = [object for object in map.objects]
@@ -518,24 +547,6 @@ allocated RAM:
         footer = []
 
         return '\n'.join(header + code + footer)
-
-    def push_scope(self, scope:Scope) -> None:
-        self.scopes.append(scope)
-    def pop_scope(self) -> Scope:
-        if len(self.scopes) <= 1:
-            raise Exception("default scope cannot be popped")
-        
-        return self.scopes.pop()
-    def _current_scope(self) -> Scope:
-        return self.scopes[-1]
-    def _all_identifiers(self) -> dict[str,any]:
-        all_identifiers:dict[str, any] = {}
-
-        for scope in self.scopes:
-            for identifier, value in scope.identifier.items():
-                all_identifiers[identifier] = value
-
-        return all_identifiers
 
     def set_identifier(self, identifier:str, value:any) -> None:
         if isinstance(identifier, Token):

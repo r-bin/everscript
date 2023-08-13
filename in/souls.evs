@@ -270,12 +270,13 @@ fun hotkey_start_l() {
 
     // map_transition(waterfall, south, DIRECTION.NORTH);
     // map_transition(arena, left, DIRECTION.NONE);
-    // map_transition(bomb_arena, right, DIRECTION.NONE);
+    map_transition(bomb_arena, right, DIRECTION.NONE);
     // map_transition(east_crossing, crash, DIRECTION.NONE);
     // map_transition(east_inbetwixx, east, DIRECTION.NONE);
     // map_transition(aquagoth, south, DIRECTION.NONE);
     // map_transition(mosquito_arena, right, DIRECTION.NONE);
-    map_transition(invisible_arena, right, DIRECTION.NONE);
+    // map_transition(invisible_arena, right, DIRECTION.NONE);
+    // map_transition(abomination_arena, right, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -1381,6 +1382,14 @@ map east_inbetwixx(0x59) {
         }
     }
 
+    @install()
+    fun branch_triggered() {
+        dialog(string("...[0x80][0x19][0x81][END]"));
+
+        <CHARACTER.SCRIPT_OWNER>[0x0b] = 0x0800;
+        control_enemy(CHARACTER.SCRIPT_OWNER, False);
+    }
+
     fun init_room() {
         default_init_room();
     }
@@ -1975,7 +1984,7 @@ map bomb_arena(0x5c) {
     }
 
     @install()
-    fun boss_defeated2() {
+    fun boss_defeated() {
         general_boss_defeated();
 
         map_transition(bomb_arena, right, DIRECTION.NONE);
@@ -2005,7 +2014,7 @@ map bomb_arena(0x5c) {
         character_selection(CHARACTER.BOY);
 
         add_enemy(ENEMY.VIGOR, 0x15, 0x1e);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated2));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
 
         init_room();
 
@@ -2028,7 +2037,7 @@ map mosquito_arena(0x5c) {
     }
 
     @install()
-    fun boss_defeated3() {
+    fun boss_defeated() {
         general_boss_defeated();
 
         map_transition(mosquito_arena, right, DIRECTION.NONE);
@@ -2100,7 +2109,7 @@ map mosquito_arena(0x5c) {
 
         add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
         store_last_entity(0x2846);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated3));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
 
         init_room();
 
@@ -2198,6 +2207,229 @@ map invisible_arena(0x5c) {
         countdown(0x03);
         attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
 
+    }
+};
+
+map abomination_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        ID_CARLTRON = <0x2834>,
+        ID_LEFT = <0x2836>,
+        ID_RIGHT = <0x2838>,
+        ID_BACK = <0x283a>,
+
+        PHASE = <0x2890>
+    }
+
+    @install()
+    fun abomination_triggered() {
+        if(<CHARACTER.SCRIPT_OWNER> == BOSS.ID_CARLTRON) {
+            // subtext(string("c[END]"));
+
+            
+            attribute_bit(BOSS.ID_CARLTRON, ATTRIBUTE_BITS.NO_CLIP);
+            control(CHARACTER.NONE);
+            face(CHARACTER.ACTIVE, DIRECTION.NORTH);
+            animate(CHARACTER.ACTIVE, ANIMATION_MODE.ONCE, ANIMATION_ALL.KNOCKBACK);
+            damage(CHARACTER.BOY, 0x05);
+            sleep(0x01);
+            attribute_bit(BOSS.ID_CARLTRON, ATTRIBUTE_BITS.CLIP);
+
+            animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.CARLTRON_TALK);
+            sleep(0x50);
+            animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+
+            control(CHARACTER.BOTH);
+
+            if(BOSS.PHASE == 0x00) {
+                BOSS.PHASE = 0x01;
+            }
+        } else if(<CHARACTER.SCRIPT_OWNER> == BOSS.ID_LEFT) {
+            // subtext(string("l[END]"));
+
+            if(BOSS.PHASE == 0x01) {
+                if(dead(<CHARACTER.SCRIPT_OWNER>)) {
+                    BOSS.PHASE = 0x02;
+                }
+            }
+        } else if(<CHARACTER.SCRIPT_OWNER> == BOSS.ID_RIGHT) {
+            if(BOSS.PHASE >= 0x02) {
+                if(dead(<CHARACTER.SCRIPT_OWNER>)) {
+                    BOSS.PHASE = BOSS.PHASE + 0x01;
+                }
+            }
+        } else if(<CHARACTER.SCRIPT_OWNER> == BOSS.ID_BACK) {
+            if(BOSS.PHASE >= 0x02) {
+                if(dead(<CHARACTER.SCRIPT_OWNER>)) {
+                    BOSS.PHASE = BOSS.PHASE + 0x01;
+                }
+            }
+        }
+    }
+    @install()
+    @async()
+    fun abomination_watcher() {
+        subtext(string("phase 0[END]"));
+
+        while(BOSS.PHASE == 0x00) {
+            yield();
+        }
+
+        subtext(string("phase 1[END]"));
+
+        animate(BOSS.ID_CARLTRON, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
+
+        add_enemy(ENEMY.THRAXX_LEFT_ARM, 0x00, 0x00);
+        store_last_entity(BOSS.ID_LEFT);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
+
+        sleep(0x50);
+
+        while(BOSS.PHASE == 0x01) {
+            yield();
+        }
+
+        subtext(string("phase 2[END]"));
+
+        animate(BOSS.ID_CARLTRON, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
+
+        add_enemy(ENEMY.THRAXX2_LEFT_ARM, 0x00, 0x00);
+        store_last_entity(BOSS.ID_LEFT);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
+
+        sleep(0x50);
+
+        add_enemy(ENEMY.THRAXX_RIGHT_ARM, 0x00, 0x00);
+        store_last_entity(BOSS.ID_RIGHT);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
+
+        sleep(0x50);
+
+        add_enemy(ENEMY.BONE_SNAKE, 0x00, 0x00);
+        store_last_entity(BOSS.ID_BACK);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
+
+        sleep(0x50);
+
+        while(BOSS.PHASE == 0x02) {
+            yield();
+        }
+
+        subtext(string("phase 3[END]"));
+
+        while(BOSS.PHASE == 0x03) {
+            yield();
+        }
+
+        subtext(string("phase 4[END]"));
+
+        while(BOSS.PHASE == 0x04) {
+            yield();
+        }
+
+        subtext(string("phase 5[END]"));
+
+        add_enemy(ENEMY.SALABOG, 0x00, 0x00);
+        store_last_entity(BOSS.ID_BACK);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
+
+        while(BOSS.PHASE == 0x05) {
+            yield();
+        }
+
+        control_enemy(BOSS.ID_CARLTRON, True);
+        attribute_bit(BOSS.ID_CARLTRON, ATTRIBUTE_BITS.INVINCIBLE);
+        face(BOSS.ID_CARLTRON, DIRECTION.SOUTH);
+        animate(BOSS.ID_CARLTRON, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.CARLTRON_DROPPING);
+        sleep(0x80);
+
+        animate(BOSS.ID_CARLTRON, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.CARLTRON_LYING);
+        destroy(BOSS.ID_LEFT);
+        destroy(BOSS.ID_RIGHT);
+        destroy(BOSS.ID_BACK);
+        sleep(0xff);
+
+        // destroy(BOSS.ID_CARLTRON);
+
+        subtext(string("yatta![END]"));
+    }
+
+    @install()
+    @async()
+    fun stack_t0123() {
+        while!(dead(<0x2834>)) {
+            <0x2836>[0x1a] = <0x2834>[0x1a] - 0x05;
+            <0x2836>[0x1c] = <0x2834>[0x1c] - 0x1a;
+
+            // sleep(0x02);
+            yield();
+
+            <0x2838>[0x1a] = <0x2834>[0x1a] + 0x05;
+            <0x2838>[0x1c] = <0x2834>[0x1c] - 0x1a;
+
+            // sleep(0x0);
+            yield();
+
+            <0x283a>[0x1a] = <0x2834>[0x1a];
+            <0x283a>[0x1c] = <0x2834>[0x1c] - 0x20;
+
+            // sleep(0x02);
+            yield();
+        }
+    }
+
+    fun abomination() {
+        add_enemy(ENEMY.CARLTRON, 0x10, 0x13);
+        store_last_entity(0x2834);
+        <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
+
+        abomination_watcher();
+    }
+
+    fun trigger_enter() {
+        init_room();
+
+        close_exits(True);
+        
+        abomination();
+        stack_t0123();
     }
 };
 
