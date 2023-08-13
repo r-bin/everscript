@@ -76,6 +76,7 @@ class Function(Function_Base):
         if isinstance(name, Token):
             self.name = self.name.value
         self.script = script
+        self.script = list(filter(lambda item: item is not None, self.script))
         self.args = args
         self.install = False
         self.address = None
@@ -1172,9 +1173,24 @@ class MapEntrance(Function_Base):
         self.y = y.eval([])
         self.direction = direction.eval([])
 
+class Soundtrack(Function_Base):
+    def __init__(self, generator, track, volume):
+        self.track = track
+        self.volume = volume
+
+        self._generator = generator
+    
+    def _code(self, params:list[Param]):
+        function_transition = self._generator.get_function("music_enter")
+        function_transition = Call(function_transition, [self.track, self.volume])
+        function_transition = function_transition.code(params)
+
+        return function_transition
+
 class Map(Function_Base):
     class Collection(StrEnum):
         ENTRANCE = "entrance"
+        SOUNDTRACK = "soundtrack"
         B_TRIGGER = "b_trigger"
         STEPON_TRIGGER = "stepon_trigger"
 
@@ -1185,6 +1201,7 @@ class Map(Function_Base):
 
     enums:dict[str, Enum] = {}
     enum_entrance:list[MapEntrance] = None
+    enum_soundtrack:list[Soundtrack] = None
     enum_stepon_trigger:list[Function] = None
     enum_b_trigger:list[Function] = None
 
@@ -1210,6 +1227,7 @@ class Map(Function_Base):
 
         self.enums = {c.name: c for c in code if isinstance(c, Enum)}
         self.enum_entrance = self._extract_enum(self.Collection.ENTRANCE)
+        self.enum_soundtrack = self._extract_enum(self.Collection.SOUNDTRACK)
         self.enum_stepon_trigger = self._extract_enum(self.Collection.STEPON_TRIGGER)
         self.enum_b_trigger = self._extract_enum(self.Collection.B_TRIGGER)
 
@@ -1232,6 +1250,12 @@ class Map(Function_Base):
     
     def triggers_b(self) -> list:
         return self.enum_to_list(self.enum_b_trigger, self.map_data.trigger_b_count)
+    
+    def soundtrack(self) -> Soundtrack:
+        if self.enum_soundtrack:
+            return self.enum_soundtrack.values[0].value
+        else:
+            return None
 
     def enum_to_list(self, enum:Enum, count:int) -> list:
         triggers = []
@@ -1244,11 +1268,7 @@ class Map(Function_Base):
         triggers = triggers + [None] * (count - len(triggers))
 
         return triggers
-
-
-
-
-
+    
 class MapTransition(Function_Base):
     map: Map = None
     entrance: MapEntrance = None
@@ -1262,6 +1282,7 @@ class MapTransition(Function_Base):
 
         self._generator = generator
         generator.add_map_transition(self)
+        self.scope = generator.current_scope()
 
         pass
 
@@ -1277,12 +1298,30 @@ class MapTransition(Function_Base):
 yy // linking required
             """
         else:
+            track_in = self.scope.value
+            if track_in:
+                track_in = track_in.soundtrack()
+            if track_in:
+                track_in = track_in.track
+                track_in = track_in.eval(params)
+            
+            track_out = self.map.soundtrack()
+            if track_out:
+                track_out = self.map.soundtrack().track
+                track_out = track_out.eval(params)
+            
+            if track_in != track_out:
+                change_music = Word(0x01)
+            else:
+                change_music = Word(0x00)
+
             call_params = [
                 self.map.map_index,
                 self.entrance.x,
                 self.entrance.y,
                 self.direction,
-                self.entrance.direction
+                self.entrance.direction,
+                change_music
             ]
             call_params = [Param(None, Word(param, 1)) for param in call_params]
 

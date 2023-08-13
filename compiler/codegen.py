@@ -18,6 +18,7 @@ class Scope(BaseBox):
 
     type:Type = Type.DEFAULT
     name:str = None
+    value:any = None
 
     def __init__(self, type:Type|BaseBox = Type.DEFAULT):
         if isinstance(type, BaseBox):
@@ -73,9 +74,9 @@ class CodeGen():
             raise Exception("default scope cannot be popped")
         
         return self.scopes.pop()
-    def _current_scope(self) -> Scope:
+    def current_scope(self) -> Scope:
         return self.scopes[-1]
-    def _base_scope(self) -> Scope:
+    def base_scope(self) -> Scope:
         return self.scopes[0]
     def _all_identifiers(self) -> dict[str,any]:
         all_identifiers:dict[str, any] = {}
@@ -139,7 +140,7 @@ allocated RAM:
 
     def add_function(self, function:Function, scope:Scope=None):
         if not scope:
-            scope = self._current_scope()
+            scope = self.current_scope()
 
         scope.functions[function.name] = function
         
@@ -345,13 +346,18 @@ allocated RAM:
         variants = self.get_map_variants()
         
         function_nop = Function("_trigger_nop", [], [], [Arg_Install()])
-        output.append(self._late_generate(function_nop, True, self._base_scope()))
+        output.append(self._late_generate(function_nop, True, self.base_scope()))
 
-        def _generate_trigger_enter(output:list[str], map:Map, function:Function):
+        def _prepare_trigger_enter(map:Map, function:Function) -> Function:
             objects = [object for object in map.objects]
+            soundtrack = map.soundtrack()
 
             function_enter = Function("_trigger_enter", 
-                objects + [Call(function)], [], [Arg_Install()])
+                [soundtrack] + objects + [Call(function)], [], [Arg_Install()])
+            
+            return function_enter
+        def _generate_trigger_enter(output:list[str], map:Map, function:Function):
+            function_enter = _prepare_trigger_enter(map, function)
             output.append(self._late_generate(function_enter, False))
 
             return function_enter
@@ -372,9 +378,11 @@ allocated RAM:
                 code_enter = []
 
                 for map in maps:
+                    code = map.trigger_enter
+                    code = _generate_trigger_enter(output, map, code)
                     test = If(
                             Equals(Param(None, Memory(0x2258)), Param(None, Word(map.variant))),
-                            [Call(map.trigger_enter)],
+                            [Call(code)],
                             False
                         )
                     code_enter.append(test)
@@ -552,10 +560,10 @@ allocated RAM:
         if isinstance(identifier, Token):
             identifier = identifier.value
 
-        if identifier in self._current_scope().identifier:
+        if identifier in self.current_scope().identifier:
             raise Exception(f"redeclaration of identifier '${identifier}'")
 
-        self._current_scope().identifier[identifier] = value
+        self.current_scope().identifier[identifier] = value
 
     def get_identifier(self, identifier:str) -> any:
         all_identifiers = self._all_identifiers()
@@ -566,7 +574,7 @@ allocated RAM:
         return all_identifiers[identifier]
 
     def add_object(self, object:Object) -> None:
-        self._current_scope().objects.append(object)
+        self.current_scope().objects.append(object)
     
     def get_map_variants(self) -> dict[int, list[Map]]:
         variants:dict[int, list[Map]] = {}
