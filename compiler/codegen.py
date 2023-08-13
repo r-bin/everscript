@@ -318,7 +318,7 @@ allocated RAM:
                 code_triggers = If_list(code_triggers)
                 code_triggers = [code_triggers]
 
-                function = Function("test", code_triggers, [], [Arg_Install()])
+                function = Function("test", code_triggers, [], [FunctionAnnotation_Install()])
                 self.code.append(function)
                 self.linker.link_function(function)
                 self.linker.link_function_key(function)
@@ -345,7 +345,7 @@ allocated RAM:
 
         variants = self.get_map_variants()
         
-        function_nop = Function("_trigger_nop", [], [], [Arg_Install()])
+        function_nop = Function("_trigger_nop", [], [], [FunctionAnnotation_Install()])
         output.append(self._late_generate(function_nop, True, self.base_scope()))
 
         def _prepare_trigger_enter(map:Map, function:Function) -> Function:
@@ -353,7 +353,7 @@ allocated RAM:
             soundtrack = map.soundtrack()
 
             function_enter = Function("_trigger_enter", 
-                [soundtrack] + objects + [Call(function)], [], [Arg_Install()])
+                [soundtrack] + objects + [Call(function)], [], [FunctionAnnotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):
@@ -390,7 +390,7 @@ allocated RAM:
                 code_enter = If_list(code_enter)
                 code_enter = [code_enter]
 
-                function_enter = Function("test", code_enter, [], [Arg_Install()])
+                function_enter = Function("test", code_enter, [], [FunctionAnnotation_Install()])
                 self.code.append(function_enter)
                 self.linker.link_function(function_enter)
                 output.append(self._generate_function(function_enter))

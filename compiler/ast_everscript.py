@@ -15,6 +15,32 @@ import random
 import uuid
 from enum import StrEnum
 
+class Arg(Function_Base, Calculatable, Memorable):
+    def __init__(self, index, flag=None):
+        self.index = index
+        self.index = self.resolve(self.index, [])
+        self.flag = flag
+
+        self.memory = True
+
+    def __repr__(self):
+        return f"Arg(index={self.index}, flag={self.flag})"
+        
+    def calculate(self, params:list[Param]):
+        index = self.resolve(self.index, params)
+        index = index.code(params)
+
+        code = [0x13, index]
+
+        return code
+
+    def _code(self, params:list[Param]):
+        index = self.resolve(self.index, params)
+        
+        code = index.code(params)
+
+        return code
+
 class Object(Function_Base, Calculatable, Memorable):
     def __init__(self, index, flag=None):
         self.index = index
@@ -85,13 +111,13 @@ class Function(Function_Base):
         self.async_call = False
         for arg in function_args:
             match arg:
-                case _ if isinstance(arg, Arg_Async):
+                case _ if isinstance(arg, FunctionAnnotation_Async):
                     self.async_call = True
-                case _ if isinstance(arg, Arg_Install):
+                case _ if isinstance(arg, FunctionAnnotation_Install):
                     self.install = True
                     self.address = arg.eval()
                     self.terminate = arg.terminate
-                case _ if isinstance(arg, Arg_Inject):
+                case _ if isinstance(arg, FunctionAnnotation_Inject):
                     self.inject.append(arg)
                     self.terminate = arg.terminate
 
@@ -104,7 +130,7 @@ class Function(Function_Base):
     def _code(self, params:list[Param]):
         return Function_Code(self.script, '\n').code()
 
-class Arg_Install(BaseBox):
+class FunctionAnnotation_Install(BaseBox):
     def __init__(self, address=None, terminate=True):
         self.address = address
         self.terminate = terminate
@@ -115,7 +141,7 @@ class Arg_Install(BaseBox):
         else:
             return None
     
-class Arg_Inject(BaseBox):
+class FunctionAnnotation_Inject(BaseBox):
     def __init__(self, address, terminate):
         self.address = address
         self.terminate = terminate
@@ -123,7 +149,7 @@ class Arg_Inject(BaseBox):
     def eval(self, params:list[Param]):
         return self.address.eval(params)
     
-class Arg_Async(BaseBox):
+class FunctionAnnotation_Async(BaseBox):
     def __init__(self):
         pass
 
@@ -258,7 +284,7 @@ class RawString(Function_Base):
         code = ' '.join(code) + f" // '{self.value}'"
         return code
         
-class Arg(BaseBox):
+class FunctionArg(BaseBox):
     def __init__(self, name):
         self.name = name
 
@@ -765,17 +791,23 @@ class Add(BinaryOp):
     def _calculate(self, left:any, right:any, params:list[Param]):
         code = []
 
+        operator = 0x1a
+
         match left:
             case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = [0x0d, left.code(params), 0x29] + right + [0x1a]
+                code = [0x0d, left.code(params), 0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = [0x08, left.code(params), 0x29] + right + [0x1a]
+                code = [0x08, left.code(params), 0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "char":
-                code = left.calculate(params) + [0x29] + right + [0x1a]
+                code = left.calculate(params) + [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) + [0x29] + right + [0x1a]
+                code = left.calculate(params) + [0x29] + right + [operator]
             case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) + [0x29] + right + [0x1a]
+                code = left.calculate(params) + [0x29] + right + [operator]
+
+            case left if isinstance(left, Arg):
+                code = left.calculate(params) + [0x29] + right + [operator]
+
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 
@@ -919,6 +951,10 @@ class Asign(BinaryOp):
 
             case left if isinstance(left, Object):
                 code = self._terminate([0x5c] + left.calculate(params)) + self._terminate(right)
+
+            case left if isinstance(left, Arg):
+                code = [0x1a, left.code(params)] + self._terminate(right)
+
             case _:
                 raise Exception(f"left parameter '${left}' not supported")
 

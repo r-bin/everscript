@@ -21,7 +21,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'NAME_IDENTIFIER', 'MAP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'OBJECT', 'IDENTIFIER', 'VAL'
+                'OBJECT', 'ARG', 'IDENTIFIER', # 'VAL'
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -126,6 +126,14 @@ class Parser():
 
             return Object(index)
         
+        @self.pg.production('expression : ARG [ expression ]')
+        def parse(p):
+            index = p[2]
+            if isinstance(index, Token):
+                index = Word(index)
+
+            return Arg(index)
+        
         # enum
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list , }')
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list }')
@@ -192,7 +200,7 @@ class Parser():
             return p[0] + [ p[1] ]
         @self.pg.production('function_arg : FUN_ASYNC ( )')
         def parse(p):
-            return Arg_Async()
+            return FunctionAnnotation_Async()
         @self.pg.production('function_arg : FUN_INJECT ( expression )')
         @self.pg.production('function_arg : FUN_INJECT ( expression , expression )')
         def parse(p):
@@ -201,19 +209,19 @@ class Parser():
             if len(p) >= 5 and isinstance(p[4], Word):
                 terminate = p[4].eval() == 0
 
-            return Arg_Inject(address, terminate)
+            return FunctionAnnotation_Inject(address, terminate)
         @self.pg.production('function_arg : FUN_INSTALL ( )')
         def parse(p):
-            return Arg_Install()
+            return FunctionAnnotation_Install()
         @self.pg.production('function_arg : FUN_INSTALL ( expression )')
         def parse(p):
-            return Arg_Install(p[2])
+            return FunctionAnnotation_Install(p[2])
         @self.pg.production('function_arg : FUN_INSTALL ( expression , expression )')
         def parse(p):
             address = p[2]
             terminate = p[4].eval([]) > 0
 
-            return Arg_Install(address, terminate)
+            return FunctionAnnotation_Install(address, terminate)
 
         @self.pg.production('expression_entry : expression ;')
         def parse(p):
@@ -358,7 +366,7 @@ class Parser():
             return p[0] + [ p[2] ]
         @self.pg.production('arg : IDENTIFIER')
         def parse(p):
-            return Arg(p[0].value)
+            return FunctionArg(p[0].value)
 
         @self.pg.production('param_list : param')
         def parse(p):
