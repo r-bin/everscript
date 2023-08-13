@@ -530,7 +530,7 @@ class BinaryOp(Operator):
             right = right.calculate(params)
 
         if isinstance(self, Memorable) and not self.memory:
-            return Word(self.eval()).calculate()
+            return Word(self.eval(params)).calculate(params)
         else:
             return self._calculate(left, right, params)
     

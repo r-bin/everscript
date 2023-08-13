@@ -276,7 +276,8 @@ fun hotkey_start_l() {
     // map_transition(aquagoth, south, DIRECTION.NONE);
     // map_transition(mosquito_arena, right, DIRECTION.NONE);
     // map_transition(invisible_arena, right, DIRECTION.NONE);
-    map_transition(abomination_arena, right, DIRECTION.NONE);
+    // map_transition(abomination_arena, right, DIRECTION.NONE);
+    map_transition(radahn_arena, right, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -2323,6 +2324,7 @@ map abomination_arena(0x5c) {
             }
         }
     }
+
     @install()
     @async()
     fun abomination_watcher() {
@@ -2453,6 +2455,131 @@ map abomination_arena(0x5c) {
         
         abomination();
         stack_t0123();
+    }
+};
+
+map radahn_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x32, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        RIDER_ID = <0x2834>,
+        MOUNT_ID = <0x2836>,
+
+        PHASE = <0x2890>,
+        TIMER = <0x2892>,
+
+        TIME_BEFORE_SALVAGE = 0x300,
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        if(BOSS.PHASE == 0x00) {
+            BOSS.TIMER = 0x00;
+        }
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(<0x2836>)) {
+            <0x2834>[0x1a] = <0x2836>[0x1a];
+            <0x2834>[0x1c] = <0x2836>[0x1c] - 0x15;
+            yield();
+        }
+    }
+
+    fun cast_salvage(target, level) {
+        animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        subtext(string("phase 0[END]"));
+
+        while(BOSS.PHASE == 0x00) {
+            if(BOSS.TIMER > 0x200) {
+                cast_salvage(CHARACTER.BOY, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(<0x2834>[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        subtext(string("phase 1[END]"));
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.VERMINATOR, x, y);
+        store_last_entity(BOSS.RIDER_ID);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+
+        add_enemy(ENEMY.RAPTOR_BLACK, x, y);
+        store_last_entity(BOSS.MOUNT_ID);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+    }
+
+    fun trigger_enter() {
+        init_room();
+
+        close_exits(True);
+
+        spawn_boss(0x10, 0x13);
+        stack_t01_offset();
+        boss_watcher();
+
+        character_selection(CHARACTER.BOY);
+        // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
     }
 };
 
