@@ -135,7 +135,7 @@ class FunctionKey(Function_Base):
 class Function(Function_Base):
     key:FunctionKey = None
 
-    def __init__(self, name, script, args, function_args=[]):
+    def __init__(self, name, script, args, annotations=[]):
         self.name = name
         if isinstance(name, Token):
             self.name = self.name.value
@@ -147,28 +147,42 @@ class Function(Function_Base):
         self.inject = []
         self.terminate = True
         self.async_call = False
-        for arg in function_args:
-            match arg:
-                case _ if isinstance(arg, FunctionAnnotation_Async):
-                    self.async_call = True
-                case _ if isinstance(arg, FunctionAnnotation_Install):
-                    self.install = True
-                    self.address = arg.eval()
-                    self.terminate = arg.terminate
-                case _ if isinstance(arg, FunctionAnnotation_Inject):
-                    self.inject.append(arg)
-                    self.terminate = arg.terminate
+        if annotations:
+            self.set_annotations(annotations)
 
+        pass
+
+    def set_annotations(self, annotations):
+        for annotation in annotations:
+            match annotation:
+                case Annotation_Async():
+                    self.async_call = True
+                case Annotation_Install():
+                    self.install = True
+                    self.address = annotation.eval()
+                    self.terminate = annotation.terminate
+                case Annotation_Inject():
+                    self.inject.append(annotation)
+                    self.terminate = annotation.terminate
+                case _:
+                    TODO()
+        
         if self.install and self.terminate:
+            #if self.script and not isinstance(self.script[-1], End):
             self.script += [ End() ]
 
     def __repr__(self):
         return f"Function('name={self.name}', address={self.address}, install={self.install}, args={self.args})"
         
     def _code(self, params:list[Param]):
-        return Function_Code(self.script, '\n').code()
+        out_params = []
 
-class FunctionAnnotation_Install(BaseBox):
+        for index, arg in enumerate(self.args):
+            out_params.append(Param(arg.name, Arg(Word(index * 2, 1))))
+
+        return Function_Code(self.script, '\n').code(out_params)
+
+class Annotation_Install(BaseBox):
     def __init__(self, address=None, terminate=True):
         self.address = address
         self.terminate = terminate
@@ -179,7 +193,7 @@ class FunctionAnnotation_Install(BaseBox):
         else:
             return None
     
-class FunctionAnnotation_Inject(BaseBox):
+class Annotation_Inject(BaseBox):
     def __init__(self, address, terminate):
         self.address = address
         self.terminate = terminate
@@ -187,7 +201,7 @@ class FunctionAnnotation_Inject(BaseBox):
     def eval(self, params:list[Param]):
         return self.address.eval(params)
     
-class FunctionAnnotation_Async(BaseBox):
+class Annotation_Async(BaseBox):
     def __init__(self):
         pass
 
@@ -344,7 +358,7 @@ class Label_Destination(BaseBox):
             value = value.value
         self.value = re.sub(":", "", value)
 
-class Call(Function_Base):
+class Call(Function_Base, Calculatable):
     async_call = False
     
     def __init__(self, function, params=[]):
@@ -382,9 +396,27 @@ class Call(Function_Base):
     def __repr__(self):
         return f"Call(address={Address(self.address)}, function={self.function}, params={self.params})"
     
+    def calculate(self, address:str, call_params:list[Param], params:list[Param]):
+        code = []
+
+        if not call_params:
+            match self.async_call:
+                case True:
+                    code = [0x07, address]
+                case False:
+                    code = [0x29, address]
+        else:
+            for param in call_params:
+                code += self._terminate(param.value.calculate(params))
+
+            code = [0xb4, Word(len(call_params), 1).code(params)] + code + [address]
+
+        return code
+    
     def _code(self, params:list[Param]):
         #params = self.handle_params(params, self.params)
         
+        out_params = []
         if self.function:
             out_params = [Param(param.name, param.value) for param in self.params]
 
@@ -411,14 +443,10 @@ class Call(Function_Base):
             else:
                 pass
 
-            if self.async_call:
-                return f"""
-07 {address}      // async  {self}
-                """
-            else:
-                return f"""
-29 {address}      // {self}
-                """
+            code = self.calculate(address, out_params, params)
+            code = self._clean_calucatable(code, params)
+
+            return code
         
         else:
             return Function_Code(self.function.script, '\n').code(out_params)
