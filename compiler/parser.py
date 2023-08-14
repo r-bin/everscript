@@ -45,6 +45,7 @@ class Parser():
             "eval": (lambda p: Function_Eval(p[2][0])),
             "goto": (lambda p: Function_Goto(p[2][0])),
             "code": (lambda p: Function_Code(p[2])),
+            "calculate": (lambda p: Function_Calculate(p[2])),
             "set": (lambda p: Set(p[2][0])),
             "unset": (lambda p: Unset(p[2][0])),
             "len": (lambda p: Len(p[2][0]).eval()),

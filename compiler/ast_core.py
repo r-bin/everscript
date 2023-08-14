@@ -8,6 +8,59 @@ from textwrap import wrap
 def TODO(message = ""):
     raise Exception(message)
 
+class Calculatable():
+    """
+    00…2f = opcodes
+    30…3f = value 0…f
+    40…3f = negative values?
+    50…5f = special characters?
+    60…6f = value = 10…1f
+    """
+
+    def _terminate(self, code:list[int|str|list]):
+        code = list(reversed(code))
+
+        termination = 0x80
+
+        for i, c in enumerate(code):
+            match c:
+                case c if isinstance(c, str):
+                    pass
+                case c if isinstance(c, int):
+                    code[i] = [c, termination]
+                    break
+                case c if isinstance(c, list):
+                    code[i] = c + [termination]
+                    break
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(reversed(code))
+
+        return code
+    
+    def _clean_calucatable(self, code, params:list[Param]):
+        calculated_code = code
+
+        def stringify(c):
+            match c:
+                case c if isinstance(c, int):
+                    return '{:02X}'.format(c, 'x')
+                case c if isinstance(c, str):
+                    return c
+                case c if isinstance(c, list):
+                    return stringify(sum(c))
+                case _:
+                    raise Exception("invalid type")
+
+        code = list(map(stringify, code))
+        code = ' '.join(code)
+        code = f"{code} // calculator({calculated_code})"
+        if getattr(self, "flatten", None):
+            code = f"{code} or {self.flatten(self, params)}"
+
+        return code
+    
 class Memorable():
     memory = False
 
@@ -170,6 +223,9 @@ class Word(Function_Base):
         elif isinstance(value, Word):
             self.value = value.eval([])
             self.value_count = value_count
+        #elif isinstance(value, Memory) and value.type == "char":
+        #    self.value = value.eval([])
+        #    self.value_count = 1
         else:
             self.value = int(value.value, 16)
 
@@ -394,59 +450,41 @@ class Function_Code(Function_Base):
         return f"""
 {code}
         """
- 
-class Calculatable():
-    """
-    00…2f = opcodes
-    30…3f = value 0…f
-    40…3f = negative values?
-    50…5f = special characters?
-    60…6f = value = 10…1f
-    """
+class Function_Calculate(Function_Base, Calculatable):
+    def __init__(self, script, delimiter=' '):
+        self.script = script
+        self.delimiter = delimiter
 
-    def _terminate(self, code:list[int|str|list]):
-        code = list(reversed(code))
+    def _code(self, params:list[Param]):
+        list = []
 
-        termination = 0x80
-
-        for i, c in enumerate(code):
-            match c:
-                case c if isinstance(c, str):
+        for a in self.script:
+            if isinstance(a, Param):
+                a = self.resolve(a, params)
+            
+            match a:
+                case Word():
+                    list.append(a.code(params))
+                case int():
+                    list.append('{:02X}'.format(a, 'x')) # TODO
+                case Function_Base():
+                    list += a.calculate(params)
+                case str():
+                    list.append(a)
+                case None:
                     pass
-                case c if isinstance(c, int):
-                    code[i] = [c, termination]
-                    break
-                case c if isinstance(c, list):
-                    code[i] = c + [termination]
-                    break
                 case _:
-                    raise Exception("invalid type")
+                    raise Exception(f"unknown type: can't generate code for:\n{a}")
 
-        code = list(reversed(code))
+        code = self._terminate(list)
+        code = self._clean_calucatable(code, params)
+        code = self._clean_code(code)
+        if "xx" in code:
+            pass
 
-        return code
-    
-    def _clean_calucatable(self, code, params:list[Param]):
-        calculated_code = code
-
-        def stringify(c):
-            match c:
-                case c if isinstance(c, int):
-                    return '{:02X}'.format(c, 'x')
-                case c if isinstance(c, str):
-                    return c
-                case c if isinstance(c, list):
-                    return stringify(sum(c))
-                case _:
-                    raise Exception("invalid type")
-
-        code = list(map(stringify, code))
-        code = ' '.join(code)
-        code = f"{code} // calculator({calculated_code})"
-        if getattr(self, "flatten", None):
-            code = f"{code} or {self.flatten(self, params)}"
-
-        return code
+        return f"""
+{code}
+        """
  
 class Operator(Function_Base, Calculatable, Memorable):
     pass
