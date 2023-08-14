@@ -337,7 +337,7 @@ allocated RAM:
                 code_triggers = If_list(code_triggers)
                 code_triggers = [code_triggers]
 
-                function = Function("test", code_triggers, [], [FunctionAnnotation_Install()])
+                function = Function("test", code_triggers, [], [Annotation_Install()])
                 self.code.append(function)
                 self.linker.link_function(function)
                 self.linker.link_function_key(function)
@@ -364,7 +364,7 @@ allocated RAM:
 
         variants = self.get_map_variants()
         
-        function_nop = Function("_trigger_nop", [], [], [FunctionAnnotation_Install()])
+        function_nop = Function("_trigger_nop", [], [], [Annotation_Install()])
         output.append(self._late_generate(function_nop, True, self.base_scope()))
 
         def _prepare_trigger_enter(map:Map, function:Function) -> Function:
@@ -372,7 +372,7 @@ allocated RAM:
             soundtrack = map.soundtrack()
 
             function_enter = Function("_trigger_enter", 
-                [soundtrack] + objects + [Call(function)], [], [FunctionAnnotation_Install()])
+                [soundtrack] + objects + [Call(function)], [], [Annotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):
@@ -409,7 +409,7 @@ allocated RAM:
                 code_enter = If_list(code_enter)
                 code_enter = [code_enter]
 
-                function_enter = Function("test", code_enter, [], [FunctionAnnotation_Install()])
+                function_enter = Function("test", code_enter, [], [Annotation_Install()])
                 self.code.append(function_enter)
                 self.linker.link_function(function_enter)
                 output.append(self._generate_function(function_enter))
@@ -492,9 +492,9 @@ allocated RAM:
         return '\n'.join(list)
 
     def _generate_function(self, function:Function):
-        code = function.script
+        code = function.code([])
         address = function.address
-        count = sum([e.count([]) for e in code])
+        count = function.count([])
 
         list = []
 
@@ -511,7 +511,7 @@ allocated RAM:
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{function.name}()'"]
         footer = []
 
-        list += header + [e.code([]) for e in code] + footer
+        list += header + [code] + footer
 
         return '\n'.join(list)
 

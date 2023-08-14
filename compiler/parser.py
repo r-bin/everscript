@@ -181,48 +181,45 @@ class Parser():
             self.generator.add_function(function)
             
             return function
-        @self.pg.production('function : function_arg_list FUN NAME_IDENTIFIER ( ) { expression_list }')
+        @self.pg.production('function : annotation_list function')
         def parse(p):
-            function_args = p[0]
-            name = p[2]
-            args = []
-            code = p[6]
+            args = p[0]
+            function = p[1]
 
-            function = Function(name, code, args, function_args)
-            self.generator.add_function(function)
+            function.set_annotations(args)
             
             return function
 
-        @self.pg.production('function_arg_list : function_arg')
+        @self.pg.production('annotation_list : annotation')
         def parse(p):
             return [ p[0] ]
-        @self.pg.production('function_arg_list : function_arg_list function_arg')
+        @self.pg.production('annotation_list : annotation_list annotation')
         def parse(p):
             return p[0] + [ p[1] ]
-        @self.pg.production('function_arg : FUN_ASYNC ( )')
+        @self.pg.production('annotation : FUN_ASYNC ( )')
         def parse(p):
-            return FunctionAnnotation_Async()
-        @self.pg.production('function_arg : FUN_INJECT ( expression )')
-        @self.pg.production('function_arg : FUN_INJECT ( expression , expression )')
+            return Annotation_Async()
+        @self.pg.production('annotation : FUN_INJECT ( expression )')
+        @self.pg.production('annotation : FUN_INJECT ( expression , expression )')
         def parse(p):
             address = p[2]
             terminate = True
             if len(p) >= 5 and isinstance(p[4], Word):
                 terminate = p[4].eval() == 0
 
-            return FunctionAnnotation_Inject(address, terminate)
-        @self.pg.production('function_arg : FUN_INSTALL ( )')
+            return Annotation_Inject(address, terminate)
+        @self.pg.production('annotation : FUN_INSTALL ( )')
         def parse(p):
-            return FunctionAnnotation_Install()
-        @self.pg.production('function_arg : FUN_INSTALL ( expression )')
+            return Annotation_Install()
+        @self.pg.production('annotation : FUN_INSTALL ( expression )')
         def parse(p):
-            return FunctionAnnotation_Install(p[2])
-        @self.pg.production('function_arg : FUN_INSTALL ( expression , expression )')
+            return Annotation_Install(p[2])
+        @self.pg.production('annotation : FUN_INSTALL ( expression , expression )')
         def parse(p):
             address = p[2]
             terminate = p[4].eval([]) > 0
 
-            return FunctionAnnotation_Install(address, terminate)
+            return Annotation_Install(address, terminate)
 
         @self.pg.production('expression_entry : expression ;')
         def parse(p):

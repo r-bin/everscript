@@ -299,7 +299,7 @@ unallocated RAM:
 
     def link_function(self, function:Function):
         if function.install and function.address == None:
-            count = sum([e.count([]) for e in function.script])
+            count = function.count([])
             address = self.memory_manager.allocate_script(count)
 
             function.address = address
