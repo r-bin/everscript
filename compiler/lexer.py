@@ -64,9 +64,7 @@ class Lexer():
         self.lexer.add('WHILE!', 'while!(?=\()')
         self.lexer.add('WHILE', 'while(?=\()')
 
-        self.lexer.add('FUN_INSTALL', '@install(?=\()')
-        self.lexer.add('FUN_INJECT', '@inject(?=\()')
-        self.lexer.add('FUN_ASYNC', '@async(?=\()')
+        self.lexer.add('@', '@')
 
         self.lexer.add('FUN_INCLUDE', '#include(?=\()')
         self.lexer.add('FUN_MEMORY', '#memory(?=\()')
