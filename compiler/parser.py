@@ -19,7 +19,7 @@ class Parser():
                 'ELSEIF!', 'ELSEIF', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                'FUN_INSTALL', 'FUN_INJECT', 'FUN_ASYNC', 'FUN', 'NAME_IDENTIFIER', 'MAP',
+                '@', 'FUN', 'NAME_IDENTIFIER', 'MAP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'OBJECT', 'ARG', 'IDENTIFIER', # 'VAL'
             ],
@@ -197,30 +197,33 @@ class Parser():
         @self.pg.production('annotation_list : annotation_list annotation')
         def parse(p):
             return p[0] + [ p[1] ]
-        @self.pg.production('annotation : FUN_ASYNC ( )')
+        @self.pg.production('annotation :  @ NAME_IDENTIFIER ( )')
+        @self.pg.production('annotation :  @ NAME_IDENTIFIER ( param_list )')
         def parse(p):
-            return Annotation_Async()
-        @self.pg.production('annotation : FUN_INJECT ( expression )')
-        @self.pg.production('annotation : FUN_INJECT ( expression , expression )')
-        def parse(p):
-            address = p[2]
-            terminate = True
-            if len(p) >= 5 and isinstance(p[4], Word):
-                terminate = p[4].eval() == 0
+            name = p[1]
+            name = name.value
+            params = p[3]
+            if not isinstance(params, list):
+                params = []
 
-            return Annotation_Inject(address, terminate)
-        @self.pg.production('annotation : FUN_INSTALL ( )')
-        def parse(p):
-            return Annotation_Install()
-        @self.pg.production('annotation : FUN_INSTALL ( expression )')
-        def parse(p):
-            return Annotation_Install(p[2])
-        @self.pg.production('annotation : FUN_INSTALL ( expression , expression )')
-        def parse(p):
-            address = p[2]
-            terminate = p[4].eval([]) > 0
-
-            return Annotation_Install(address, terminate)
+            match [name, len(params)]:
+                case ["install", 0]:
+                    return Annotation_Install()
+                case ["install", 1]:
+                    return Annotation_Install(params[0])
+                case ["install", 2]:
+                    return Annotation_Install(params[0], params[1].eval([]) > 0)
+                
+                case ["inject", 1]:
+                    return Annotation_Inject(params[0], True)
+                case ["inject", 2]:
+                    return Annotation_Inject(params[0], params[1].eval() == 0)
+                
+                case ["async", 0]:
+                    return Annotation_Async()
+                
+                case _:
+                    raise Exception(f"invalid annotation {name}")
 
         @self.pg.production('expression_entry : expression ;')
         def parse(p):
