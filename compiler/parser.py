@@ -418,7 +418,7 @@ class Parser():
 
             return Memory(address, flag)
         
-        @self.pg.production('expression :  expression [ WORD ]')
+        @self.pg.production('expression :  expression [ expression ]')
         def parse(p):
             expression = p[0]
             offset = Word(p[2])
