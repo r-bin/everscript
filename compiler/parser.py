@@ -197,8 +197,8 @@ class Parser():
         @self.pg.production('annotation_list : annotation_list annotation')
         def parse(p):
             return p[0] + [ p[1] ]
-        @self.pg.production('annotation :  @ NAME_IDENTIFIER ( )')
-        @self.pg.production('annotation :  @ NAME_IDENTIFIER ( param_list )')
+        @self.pg.production('annotation : @ NAME_IDENTIFIER ( )')
+        @self.pg.production('annotation : @ NAME_IDENTIFIER ( param_list )')
         def parse(p):
             name = p[1]
             name = name.value
@@ -221,6 +221,9 @@ class Parser():
                 
                 case ["async", 0]:
                     return Annotation_Async()
+                
+                case ["count_limit", 1]:
+                    return Annotation_CountLimit(params[0])
                 
                 case _:
                     raise Exception(f"invalid annotation {name}")

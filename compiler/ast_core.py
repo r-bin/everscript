@@ -20,16 +20,19 @@ class Calculatable():
     def _terminate(self, code:list[int|str|list]):
         code = list(reversed(code))
 
-        termination = 0x80
+        termination = Operand("termination")
 
         for i, c in enumerate(code):
             match c:
-                case c if isinstance(c, str):
-                    pass
-                case c if isinstance(c, int):
+                case Opcode() | Operand():
                     code[i] = [c, termination]
                     break
-                case c if isinstance(c, list):
+                case str():
+                    pass
+                case int():
+                    code[i] = [c, termination]
+                    break
+                case list():
                     code[i] = c + [termination]
                     break
                 case _:
@@ -44,11 +47,14 @@ class Calculatable():
 
         def stringify(c):
             match c:
-                case c if isinstance(c, int):
+                case Opcode() | Operand():
+                    return stringify(c.value)
+                case int():
                     return '{:02X}'.format(c, 'x')
-                case c if isinstance(c, str):
+                case str():
                     return c
-                case c if isinstance(c, list):
+                case list():
+                    c = [i if isinstance(i, int) else i.value for i in c]
                     return stringify(sum(c))
                 case _:
                     raise Exception("invalid type")
@@ -97,6 +103,8 @@ class Identifier(BaseBox):
         return f"Identifier({self.name})"
     
 class Function_Base(BaseBox):
+    _value_count:int = None
+
     #cache_code:str = None
     #cache_code_clean:str = None
 
@@ -143,6 +151,9 @@ class Function_Base(BaseBox):
         count = len(count)
 
         return count
+    
+    def value_count(self):
+        return self._value_count
     
     def resolve(self, value:any, params:list[Param]):
         match value:
@@ -219,20 +230,20 @@ class Word(Function_Base):
 
         if isinstance(value, int):
             self.value = value
-            self.value_count = value_count
+            self._value_count = value_count
         elif isinstance(value, Word):
             self.value = value.eval([])
-            self.value_count = value_count
+            self._value_count = value_count
         #elif isinstance(value, Memory) and value.type == "char":
         #    self.value = value.eval([])
-        #    self.value_count = 1
+        #    self._value_count = 1
         else:
             self.value = int(value.value, 16)
 
             count = re.sub("[+-]{0,1}0x", "", value.value)
             count = wrap(count, 2)
             count = len(count)
-            self.value_count = count
+            self._value_count = count
 
     def __repr__(self):
         return f"Word({self.value_original})"
@@ -244,14 +255,14 @@ class Word(Function_Base):
         value = self.value
 
         if value < 0:
-            nbits = self.value_count * 8
+            nbits = self.value_count() * 8
             value = (value + (1 << nbits)) % (1 << nbits)
 
-        if self.value_count == 1:
+        if self.value_count() == 1:
             value = '{:02X}'.format(value, 'x')
-        elif self.value_count == 2:
+        elif self.value_count() == 2:
             value = '{:04X}'.format(value, 'x')
-        elif self.value_count == 3:
+        elif self.value_count() == 3:
             value = '{:06X}'.format(value, 'x')
 
         value = re.sub("[+-]{0,1}0x", "", value)
@@ -264,19 +275,19 @@ class Word(Function_Base):
 
         if i in range(0x0, 0xf):
             i = i & 0x0f
-            i = [[0x30, i]]
+            i = [[Operand("int 0-f"), i]]
         elif i in range(0x10, 0x1f):
             i = (i - 0x10) & 0x0f
-            i = [[0x60, i]]
+            i = [[Operand("int 10-1f"), i]]
         elif i in range(0xfff0, 0xffff):
             i = (i - 0xfff0) & 0x0f
-            i = [[0x40, i]]
+            i = [[Operand(0x40), i]]
         else:
-            match self.value_count:
+            match self.value_count():
                 case 1:
-                    i = [0x02, self.code([])]
+                    i = [Operand("unsigned byte"), self.code([])]
                 case 2:
-                    i = [0x04, self.code([])]
+                    i = [Operand("word"), self.code([])]
                 case _:
                     raise Exception("not supported")
 
@@ -303,7 +314,7 @@ class Memory(Function_Base, Memorable):
             self.offset = self.offset.eval([])
 
         self.memory = True
-        self.value_count = 2
+        self._value_count = 2
 
         self.inverted = False
         self.handle_type()
@@ -319,7 +330,7 @@ class Memory(Function_Base, Memorable):
             self.type = "xx"
 
     def __repr__(self):
-        return f"Memory(address={self.address}/{self.type}, flag={self.flag}, offset={self.offset})"
+        return f"Memory(address={'{:02X}'.format(self.address, 'x')}/{self.type}, flag={self.flag}, offset={self.offset})"
     
     def eval(self, params:list[Param]):
         return self.address
@@ -375,43 +386,43 @@ class Memory(Function_Base, Memorable):
 
         code = []
 
-        match [self.type, offset, self.flag, self.value_count]:
+        match [self.type, offset, self.flag, self.value_count()]:
             case ["char", None, _, _]:
                 code = [self.eval(params)]
 
             case ["28", None, _, 1]:
-                code = [0x0c, self.code(params)]
+                code = [Operand("read temp byte"), self.code(params)]
             case ["28", None, _, _]:
-                code = [0x0e, self.code(params)]
+                code = [Operand("read temp word"), self.code(params)]
 
             case ["22", None, _, 1]:
-                code = [0x07, self.code(params)]
+                code = [Operand("read byte"), self.code(params)]
             case ["22", None, int(), _]:
-                code = [0x05, self.code(params)]
+                code = [Operand("test"), self.code(params)]
             case ["22", None, _, _]:
-                code = [0x08, self.code(params)]
+                code = [Operand("read signed word"), self.code(params)]
 
             case ["xx", None, _, 1]:
-                code = [0x07, self.code(params)]
+                code = [Operand("read byte"), self.code(params)]
             case ["xx", None, int(), _]:
-                code = [0x05, self.code(params)]
+                code = [Operand("test"), self.code(params)]
             case ["xx", None, _, _]:
-                code = [0x08, self.code(params)]
+                code = [Operand("read signed word"), self.code(params)]
 
             case ["char", _, _, _]:
-                code = [self.eval(params), 0x29] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [self.eval(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
-                    code += [0x55]
+                    code += [Operand("deref")]
 
             case ["28", _, _, _]:
-                code = [0x0d, self.code(params), 0x29] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [Operand("read signed temp word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
-                    code += [0x55]
+                    code += [Operand("deref")]
 
             case ["22", _, _, _]:
-                code = [0x08, self.code(), 0x29] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [Operand("read signed word"), self.code(), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
-                    code += [0x55]
+                    code += [Operand("deref")]
 
             case _:
                 raise Exception("not supported")
@@ -515,7 +526,7 @@ class BinaryOp(Operator):
         self.left = left
         self.right = right
 
-        self.value_count = 2
+        self._value_count = 2
 
         self.update()
 
@@ -542,14 +553,13 @@ class BinaryOp(Operator):
         left = self.resolve(self.left, params)
         right = self.resolve(self.right, params)
         
-        self.value_count = max(left.value_count, right.value_count)
+        self._value_count = max(left.value_count(), right.value_count())
         
-        if self.value_count == 1:
+        if self.value_count() == 1:
             value = '{:02X}'.format(value, 'x')
-        elif self.value_count == 2:
+        elif self.value_count() == 2:
             value = '{:04X}'.format(value, 'x')
-        elif self.value_count == 3:
-            self.value_count = 3
+        elif self.value_count() == 3:
             value = '{:06X}'.format(value, 'x')
 
         value = re.sub("[+-]{0,1}0x", "", value)
@@ -588,8 +598,8 @@ class BinaryOp(Operator):
     def operator(self):
         return ""
 
-class Opcode():
-    _instructions = {
+class Operand():
+    _operands = {
         "nop": 0x00, # noop?
 
         # _: 0x01, # signed const byte
@@ -602,11 +612,11 @@ class Opcode():
         "test temp": 0x0a, # test temp bit
 
         # _: 0x06, # read byte, signed
-        # _: 0x07, # read byte, unsigned
-        "read word": 0x08, # read word, signed
-        "read signed word": 0x09, # read word, unsigned
+        "read byte": 0x07, # read byte, unsigned
+        "read signed word": 0x08, # read word, signed
+        "read word": 0x09, # read word, unsigned
         # _: 0x0b, # read temp byte, signed
-        # _: 0x0c, # read temp byte, unsigned
+        "read temp byte": 0x0c, # read temp byte, unsigned
         "read signed temp word": 0x0d, # read temp word, signed
         "read temp word": 0x0e, # read temp word, unsigned
 
@@ -641,15 +651,15 @@ class Opcode():
 
         "push": 0x29, # push to stack
         
-        # _: 0x2a, # random word
+        "random word": 0x2a, # random word
         
-        # _: 0x2b, # (random word * $2) >> 16 = randrange[0,$2[
+        "randrange": 0x2b, # (random word * $2) >> 16 = randrange[0,$2[
             
         # _: 0x2c, # dialog response
         
         # _: 0x54, # $2 = script data[0x09]
         
-        # _: 0x55, # deref res
+        "deref": 0x55, # deref res
         # _: 0x56, # deref res &0xff
         
         # _: 0x57: # (player==dog)
@@ -662,7 +672,7 @@ class Opcode():
         
         # _: 0x5b, # sell
         
-        # _: 0x5c, # Next damage will kill entity
+        "dead": 0x5c, # Next damage will kill entity
         
         # _: 0x51, # WARN: Invalid sub-instr
         # _: 0x19, # WARN: Invalid sub-instr
@@ -670,9 +680,14 @@ class Opcode():
         # _: 0x5d, # WARN: Invalid sub-instr
         # _: 0x5e, # WARN: Invalid sub-instr
         # _: 0x5f # WARN: Invalid sub-instr
+
+        # custom
+        "int 0-f": 0x30,
+        "int 10-1f": 0x60,
+        "termination": 0x80
     }
 
-    _operators = {
+    _opcodes = {
         "if": {
             "22": 0x09,
             "25": 0x1c,
@@ -690,11 +705,50 @@ class Opcode():
         },
 
         "read word": {
-            "22": _instructions["read word"],
-            "28": _instructions["read temp word"]
+            "22": _operands["read word"],
+            "28": _operands["read temp word"]
         },
         "test": {
-            "22": _instructions["test"],
-            "28": _instructions["test temp"]
+            "22": _operands["test"],
+            "28": _operands["test temp"]
         }
     }
+
+    def find_key_by_value(self, value:int) -> str:
+        key = self._operands.values().index(value)
+        key = self._operands.keys()[key]
+
+        return key
+
+    def find_value_by_key(self, key:str) -> int:
+        value = self._operands[key]
+
+        return value
+
+    def __init__(self, value):
+        match value:
+            case int():
+                self.value = value
+                self.name = self.find_key_by_value(value)
+            case str():
+                self.value = self.find_value_by_key(value)
+                self.name = value
+            case _:
+                TODO()
+
+    def __repr__(self):
+        return f"Operand({'{:02X}'.format(self.value, 'x')}/{self.name})"
+    
+class Opcode():
+    def __init__(self, value):
+        match value:
+            case int():
+                self.value = value
+                self.name = "?"
+            case str():
+                TODO()
+            case _:
+                TODO()
+
+    def __repr__(self):
+        return f"Opcode({'{:02X}'.format(self.value, 'x')}/{self.name})"
