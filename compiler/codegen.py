@@ -457,7 +457,7 @@ allocated RAM:
         code = string.address
         code -= 0xc00000
         code = Word((code & 0xffff) + ((code & 0x7f8000) >> 1))
-        code.value_count = 3
+        code._value_count = 3
         code = code.code([])
 
         if address >= 0xC00000: # TODO
@@ -495,6 +495,8 @@ allocated RAM:
         code = function.code([])
         address = function.address
         count = function.count([])
+        if function.count_limit and not function.inject and count > function.count_limit:
+            raise Exception(f"function '{function.name}' (count={count}) violated @count_limit({function.count_limit}) ")
 
         list = []
 

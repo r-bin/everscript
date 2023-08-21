@@ -2,25 +2,26 @@
     // <0x2266>,
 
     string_key(0x0000)..string_key(0x232b), // all string keys
-    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
 
-    0x350000..0x3fffff, // extension
-
-    <0x2834>..<0x28ff>
+    0x350000..0x3fffff // extension
 )
 #include("in/core.evs")
 
 #patch(
-    // "void_maps",
+    "void_maps",
 
+    "skip_intro",
+    "brian",
     "camera_hack",
     // "free_graveyard_ids",
+    // "save_file_growth",
 
     // asm
-    "_hook_input", // 0x3f0000…0x310000
     "debug_menu", // uses 0x3f0000…???
-    // "hotkeys", // uses 0x3f00000…???
-    "room_timer" // uses 0x300000…???
+    "_hook_input", // 0x3f0000…0x310000
+        "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
 )
 
 enum STRING {
@@ -30,6 +31,10 @@ enum STRING {
     MENU_MEMORY_FLAGS = string("[0x96][0x8b]+Debug[LF][0x8b]-Debug[END]"),
     MENU_TARGET = string("[0x96][0x8b]Boy[LF][0x8b]Dog[LF][0x8b]Both[LF][0x8b]None[END]"),
     MENU_UNLOCK = string("[0x96][0x8b]All[LF][0x8b]Ingredients[LF][0x8b]Consumables[LF][0x8b]Alchemy[LF][0x8b]Weapons[LF][0x8b]Armor[LF][0x8b]Trading Goods[LF][0x8b]Charms[LF][0x8b]Money[END]"),
+    MENU_OBJECT_LIST_1 = string("[0x96][0x8b]0[LF][0x8b]1[LF][0x8b]2[LF][0x8b]3[LF][0x8b]4[LF][0x8b]5[LF][0x8b]6[LF][0x8b]7[LF][0x8b]8[LF][0x8b]9[LF][0x8b]Next[END]"),
+    MENU_OBJECT_LIST_2 = string("[0x96][0x8b]10[LF][0x8b]11[LF][0x8b]12[LF][0x8b]13[LF][0x8b]14[LF][0x8b]15[LF][0x8b]16[LF][0x8b]17[LF][0x8b]18[LF][0x8b]19[LF][0x8b]Next[END]"),
+    MENU_OBJECT_LIST_3 = string("[0x96][0x8b]20[LF][0x8b]21[LF][0x8b]22[LF][0x8b]23[LF][0x8b]24[LF][0x8b]25[LF][0x8b]26[LF][0x8b]27[LF][0x8b]28[LF][0x8b]29[LF][0x8b]30[END]"),
+    MENU_OBJECT_VALUE = string("[0x96][0x8b]0[LF][0x8b]1[LF][0x8b]2[END]"),
 
     PORTAL_ACT_1 = string("[0x96]Act 1:[LF][0x8b]Oil[LF][0x8b]Intro skip[LF][0x8b]Thraxx[LF][0x8b]Graveyard[LF][0x8b]Salabog[LF][0x8b]Solar[LF][0x8b]Magmar[END]"),
 
@@ -46,6 +51,9 @@ enum STRING {
     
     PORTAL_ACT_4 = string("[0x96]Act 4:[LF][0x8b]Saturn[LF][0x8b]Carltron[END]")
 }
+
+//  map test(0x05) {    
+// };
 
 fun fake_level(level) {
     MEMORY.BOY_LEVEL = level;
@@ -153,32 +161,148 @@ fun portal_activated_slow() {
 // dialogues
 
 @install()
+@inject(0x93d577) // 0x17d6
 fun enemy_kill_script() {
     subtext(string("nice.[END]"));
 }
 
 fun prepare_enemy(enemy) {
-    add_dynamic_enemy_with_flags(enemy, <CHARACTER.BOY>[0x1a], <CHARACTER.BOY>[0x1c] - 0x14, 0x0000);
+    eval("18 61 01 50 29 6a 1a d5 // (18) WRITE $23b9 = boy.x");
+    eval("18 63 01 50 29 6c 1a d5 // $23bb = boy.y");
+
+    eval("18 63 01 08 63 01 29 02 20 9b // (18) WRITE $23bb = $23bb - 20 = boy.y");
+
+    add_dynamic_enemy_with_flags(enemy, 0x23b9, 0x23bb, 0x0000);
 
     MEMORY.PACIFIED = 0x0000;
     attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
 
-    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(enemy_kill_script));
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, 0x17d6);
 }
 fun prepare_invisible_enemy(enemy) {
     prepare_enemy(enemy);
 
     attach_to_script(CHARACTER.LAST_ENTITY);
 
-    while!(dead(<CHARACTER.SCRIPT_OWNER>)) {
+    while(True) {
         animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.LOOP, ANIMATION_PLACEHOLDER.COOK_RUNNING);
+
+        eval("08 2e dc 01 00 // (08) IF (entity attached to script? will die) == FALSE THEN SKIP 1 (to 0x9ba26a)");
+        end();
 
         yield();
     }
 }
 
+fun menu_object_value(object_index) {
+    code(0x5c, param(object_index), param(0x7e));
+    end();
+
+    question(STRING.MENU_OBJECT_VALUE);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // 0
+        // object(object_index, 0x00);
+        // code(0x5c, param(object_index), param(0x00));
+        // code(0x5c, object_index, 0x00);
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // 1
+        // object(object_index, 0x01);
+        // code(0x5c, param(object_index), param(0x01));
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // 2
+        // object(object_index, 0x02);
+        // code(0x5c, param(object_index), param(0x02));
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // nop
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x04) { // nop
+        nop();
+    }
+}
+
 @install()
+fun menu_object() {
+    question_max(STRING.MENU_OBJECT_LIST_1, 0x0b + 0x08);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // 0
+        menu_object_value(0x00);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // 1
+        menu_object_value(0x01);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // 2
+        menu_object_value(0x02);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // 3
+        menu_object_value(0x03);
+    } else if(MEMORY.QUESTION_ANSWER == 0x04) { // 4
+        menu_object_value(0x04);
+    } else if(MEMORY.QUESTION_ANSWER == 0x05) { // 5
+        menu_object_value(0x05);
+    } else if(MEMORY.QUESTION_ANSWER == 0x06) { // 6
+        menu_object_value(0x06);
+    } else if(MEMORY.QUESTION_ANSWER == 0x07) { // 7
+        menu_object_value(0x07);
+    } else if(MEMORY.QUESTION_ANSWER == 0x08) { // 8
+        menu_object_value(0x08);
+    } else if(MEMORY.QUESTION_ANSWER == 0x09) { // 9
+        menu_object_value(0x09);
+    } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // next
+        question_max(STRING.MENU_OBJECT_LIST_2, 0x0b + 0x08);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // 10
+            menu_object_value(0x0a);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // 11
+            menu_object_value(0x0b);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // 12
+            menu_object_value(0x0c);
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // 13
+            menu_object_value(0x0d);
+        } else if(MEMORY.QUESTION_ANSWER == 0x04) { // 14
+            menu_object_value(0x0e);
+        } else if(MEMORY.QUESTION_ANSWER == 0x05) { // 15
+            menu_object_value(0x0f);
+        } else if(MEMORY.QUESTION_ANSWER == 0x06) { // 16
+            menu_object_value(0x10);
+        } else if(MEMORY.QUESTION_ANSWER == 0x07) { // 17
+            menu_object_value(0x11);
+        } else if(MEMORY.QUESTION_ANSWER == 0x08) { // 18
+            menu_object_value(0x12);
+        } else if(MEMORY.QUESTION_ANSWER == 0x09) { // 19
+            menu_object_value(0x13);
+        } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // next
+            question_max(STRING.MENU_OBJECT_LIST_3, 0x0b + 0x08);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // 20
+                menu_object_value(0x14);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // 21
+                menu_object_value(0x15);
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // 22
+                menu_object_value(0x16);
+            } else if(MEMORY.QUESTION_ANSWER == 0x03) { // 23
+                menu_object_value(0x17);
+            } else if(MEMORY.QUESTION_ANSWER == 0x04) { // 24
+                menu_object_value(0x18);
+            } else if(MEMORY.QUESTION_ANSWER == 0x05) { // 25
+                menu_object_value(0x19);
+            } else if(MEMORY.QUESTION_ANSWER == 0x06) { // 26
+                menu_object_value(0x1a);
+            } else if(MEMORY.QUESTION_ANSWER == 0x07) { // 27
+                menu_object_value(0x1b);
+            } else if(MEMORY.QUESTION_ANSWER == 0x08) { // 28
+                menu_object_value(0x1c);
+            } else if(MEMORY.QUESTION_ANSWER == 0x09) { // 29
+                menu_object_value(0x1d);
+            } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // 30
+                menu_object_value(0x1e);
+            }
+        }
+    }
+}
+
+@install()
+@inject(0x94d5c7) // 0x1857
 fun portal_act_1() {
+    menu_object();
+    end();
+
     attach_to_script(CHARACTER.BOY);
 
     question_max(STRING.PORTAL_ACT_1, 0x07 + 0x06);
@@ -237,6 +361,7 @@ fun portal_act_1() {
 }
 
 @install()
+@inject(0x96db1c) // 0x196b
 fun portal_act_2() {
     attach_to_script(CHARACTER.BOY);
 
@@ -350,6 +475,7 @@ fun portal_act_2() {
 }
 
 @install()
+@inject(0x98ef5e) // 0x1a49
 fun portal_act_3() {
     attach_to_script(CHARACTER.BOY);
 
@@ -470,6 +596,7 @@ fun portal_act_3() {
 }
 
 @install()
+@inject(0x9bcf23) // 0x1b72
 fun portal_act_4() {
     attach_to_script(CHARACTER.BOY);
 
@@ -700,33 +827,36 @@ fun menu_windwalker() {
 }
 @install(ADDRESS.DEBUG_MENU_BUTTON_10)
 fun debug_menu_10_alchemy() {
+    menu_object();
+    end();
+
     select_alchemy();
 }
 @install()
 @inject(ADDRESS.DEBUG_MENU_BUTTON_11)
 fun menu_brians_room() {
-    load_map(MAP.BRIAN, 0x00, 0x00);
+    load_map(0x47, 0x05, 0x05);
 }
 
 // hotkeys
 
 @install()
 @inject(ADDRESS.HOTKEY_START)
-@count_limit(0x20)
 fun hotkey_start() {
     subtext(string("Start[END]"));
 
     // drop_bomb();
+
+    
+    load_map(0x33, 0x25, 0x12);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_L)
-@count_limit(0x20)
 fun hotkey_start_l() {
     subtext(string("Start+L[END]"));
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
-@count_limit(0x20)
 fun hotkey_start_r() {
     subtext(string("Start+R[END]"));
 }
@@ -735,14 +865,11 @@ fun hotkey_start_r() {
 
 @install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
 fun intro_skip() {
-    map_transition(brians_room, center, DIRECTION.NONE);
+    load_map(MAP.BRIAN, 0x00, 0x00);
 }
 
 map brians_room(MAP.BRIAN) {
-    enum entrance {
-        center = entrance(0x17, 0x19, DIRECTION.NONE)
-    }
-
+    @install()
     fun trigger_enter() {
         set(FLAG.FLOWERS_CUTSCENE_WATCHED);
 
@@ -763,19 +890,19 @@ map brians_room(MAP.BRIAN) {
 
         // FE
         add_enemy_with_flags(ENEMY.FIRE_EYES, 0x10, 0x05, FLAG_ENEMY.INACTIVE_IMORTAL);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(portal_act_1));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x1857);
         
         // horace
         add_enemy_with_flags(ENEMY.HORACE, 0x14, 0x05, FLAG_ENEMY.INACTIVE_IMORTAL);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(portal_act_2));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x196b);
 
         // queen
         add_enemy_with_flags(ENEMY.QUEEN, 0x19, 0x05, FLAG_ENEMY.INACTIVE_IMORTAL);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(portal_act_3));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x1a49);
 
         // prof
         add_enemy(ENEMY.PROFESSOR, 0x1e, 0x05);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(portal_act_4));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x1b72);
         entity_script_controlled(CHARACTER.LAST_ENTITY);
 
         fade_in();

@@ -1,0 +1,119 @@
+#memory(
+    string_key(0x0000)..string_key(0x232b), // all string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    <0x2272>
+)
+#include("in/core.evs")
+
+#patch(
+    "skip_intro",
+)
+
+fun asign_memory() {
+    <0x2834> = <0x2834> + 0x02 * 0x02;
+    <0x2834> = <0x2834> - 0x02;
+
+    <0x2834> = <0x2834>;
+    <0x2258> = <0x2258>;
+
+    <0x2834> = 0x50;
+
+    <0x2834> = 0x01 + 0x01 - 0x02 + 0x01;
+
+    <0x2834> = 0x02 * 0x50 + 0x01;
+    // EQUALS(<0x2834, ADD(MUL(0x02, 0x50), 0x01))
+    //      MUL(0x02, 0x50) = 0xA0
+    //      ADD(0xA0, 0x01) = 0xA1
+    //      EQUALS(<0x2834>, 0xA1)
+
+    <0x2834> = 0x01 + 0x50 * 0x02;
+    // EQUALS(<0x2834, ADD(0x01, MUL(0x02, 0x50))
+    //      MUL(0x02, 0x50) = 0xA0
+    //      ADD(0x01, 0xA0) = 0xA1
+    //      EQUALS(<0x2834>, 0xA1)
+}
+fun asign_memory_type_xx() {
+    <0x0A3F> = 0xefff;
+}
+fun asign_memory_byte() {
+    // SCRIPT ERROR: <0x2360>&0xff;
+
+    if(<0x2360>&0xff == 0x02) {
+        nop();
+    }
+}
+
+fun equals_memory() {
+    if(<0x2834>[0x20] == 0x00) {
+        nop();
+    }
+
+    if(<0x2834> == 0x00) {
+        nop();
+    }
+}
+
+fun attribute_entity() {
+    // ERROR: <0x2834>[0x20];
+
+    <CHARACTER.BOY>[0x10] = <CHARACTER.SCRIPT_OWNER> - 0x10;
+    <CHARACTER.BOY>[0x10] = <CHARACTER.BOY>[0x10];
+    <CHARACTER.BOY>[0x10] = <CHARACTER.BOY>[0x10] + 0x01;
+    <CHARACTER.BOY>[0x10] = 0x10;
+
+    <0x2834>[0x10] = <0x2834>[0x20] + 0x10;
+
+    <0x2834> = <0x2834>[0x20] + 0x10;
+    // ERROR: <0x2834> = 0x10 + <0x2834>[0x20];
+
+    <0x2834> = <0x2834>[0x20];
+
+    <0x2834>[0x20] = 0x11;
+}
+
+fun unary_operators() {
+    <CHARACTER.BOY>[0x10] = randrange(0x05);
+    <CHARACTER.BOY>[0x10] = rand(0x01);
+
+    if(rand(0x01)) {
+        nop();
+    }
+    //       [0xb080ef] (08) IF (RAND & 1) == FALSE THEN SKIP 4 (to 0xb080fa)
+
+    if(dead(<0x2834>)) {
+        nop();
+    }
+    //       [0xb080fa] (08) IF ($2834 will die) == FALSE THEN SKIP 4 (to 0xb08105)
+}
+
+fun asign_object() {
+    object[0x24] = 0x7e;
+    //       [0xb080da] (5c) SET OBJ 0x24 STATE = val:0x7e (load/unload)
+}
+
+map flowers(MAP.FLOWERS) {
+    fun trigger_enter() {
+        add_dynamic_enemy_with_flags(ENEMY.BOY_DERPY, <0x2834>, <0x2836>, 0x0000);
+        add_dynamic_enemy_with_flags(ENEMY.BOY_DERPY, <0x2834>, <0x2836> - 0x14, 0x0000);
+        add_dynamic_enemy_with_flags(ENEMY.BOY_DERPY, <CHARACTER.BOY>[0x1a], <CHARACTER.BOY>[0x1c] - 0x14, 0x0000);
+        end();
+
+        asign_memory();
+        asign_memory_type_xx();
+        asign_memory_byte();
+        
+        equals_memory();
+
+        attribute_entity();
+        asign_object();
+
+        unary_operators();
+    }
+};
+// [0x38] Prehistoria - South jungle / Start at 0x9ffec7
+//   data at 0x9e8000
+//   enter script at 0x928133 => 0xb0801b
+//       [0xb0801b] …
