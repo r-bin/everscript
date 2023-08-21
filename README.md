@@ -96,16 +96,10 @@ EOF
 ```
 
 # Known Bugs
-## Python
-
-- ``General``
-
 ## Everscript
 
 - ``in/practice.evs``
   - NPCs are trashing some dialoges to make space for the new strings and B-triggers
-- ``in/patches/camera_hack.evs``
-  - Known missing maps: Southern Forest, Ebon Keep balcony, some Ebon Keep houses?
 
 # Credits
 - [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) - Black Sliver
