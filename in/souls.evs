@@ -12,12 +12,7 @@
 #include("in/core.evs")
 
 #patch(
-    // "void_maps",
-
     "skip_intro",
-    // "brian",
-    // "camera_hack",
-    // "free_graveyard_ids",
     // "save_file_growth",
 
     // asm
@@ -65,6 +60,10 @@ fun bomb_wall_triggered() {
 // souls
 
 enum SOULS_MEMORY {
+    INIT = flag(),
+
+    MAP_VARIANT = <0x2258>, // TODO: hardcoded
+
     DUST_ENTITY = <0x24fd>,
     DUST_DROP_X = <0x24ff>,
     DUST_DROP_Y = <0x2501>,
@@ -76,6 +75,9 @@ enum SOULS_MEMORY {
     BONFIRE_MAP = <0x250b>,
     BONFIRE_VARIANT = <0x250d>,
     BONFIRE_TELEPORT_REQUIRED = flag(),
+    
+    ESTUS_CHARGES = <0x250f>,
+    ESTUS_CHARGES_INIT = 0x01,
     
     BOMB_ENABLED = flag(),
 }
@@ -148,7 +150,7 @@ fun boy_death() {
     SOULS_MEMORY.DUST_DROP_Y = <CHARACTER.BOY>[ATTRIBUTE.Y];
     // <0x2503> = MEMORY.MAP;
     SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP & 0xff;
-    SOULS_MEMORY.DUST_DROP_VARIANT = <0x2258>; // TODO
+    SOULS_MEMORY.DUST_DROP_VARIANT = SOULS_MEMORY.MAP_VARIANT;
 
     // sleep(0x20);
 
@@ -187,7 +189,9 @@ fun bonfire_triggered() {
     SOULS_MEMORY.BONFIRE_X = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
     SOULS_MEMORY.BONFIRE_Y = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
     SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP & 0xff;
-    SOULS_MEMORY.BONFIRE_VARIANT = <0x2258>; // TODO
+    SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
+
+    MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
 }
 
 fun bonfire(x, y, id) {
@@ -196,7 +200,7 @@ fun bonfire(x, y, id) {
     // entity_script_controlled(CHARACTER.LAST_ENTITY);
 
     if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
-        if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
+        if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
             add_enemy_with_flags(ENEMY.LANTERN_LIGHT_RED, x, y, FLAG_ENEMY.INACTIVE);
         } else {
             add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
@@ -211,8 +215,15 @@ fun bonfire(x, y, id) {
 
 @install()
 fun init_souls() {
+    if!(SOULS_MEMORY.INIT) {
+        set(SOULS_MEMORY.INIT);
+
+        SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
+        MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+    }
+
     if(SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP&0xff) {
-        if(SOULS_MEMORY.DUST_DROP_VARIANT == <0x2258>) { // TODO
+        if(SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
             add_dynamic_enemy_with_flags(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y, 0x00);
             SOULS_MEMORY.DUST_ENTITY = <CHARACTER.LAST_ENTITY>;
             attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(dust_drop));
@@ -224,7 +235,7 @@ fun init_souls() {
 
     if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
         // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
-        //     if(SOULS_MEMORY.BONFIRE_VARIANT == <0x2258>) { // TODO
+        //     if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
         //         if(SOULS_MEMORY.BONFIRE_X != 0x00) {
         //             if(SOULS_MEMORY.BONFIRE_Y != 0x00) { // TODO
                         <CHARACTER.BOY>[ATTRIBUTE.X] = SOULS_MEMORY.BONFIRE_X;
@@ -250,7 +261,7 @@ fun init_souls() {
 @inject(ADDRESS.HOTKEY_START)
 @count_limit(0x20)
 fun hotkey_start() {
-    subtext(string("Start[END]"));
+    // subtext(string("Start[END]"));
 
     if(SOULS_MEMORY.BOMB_ENABLED) {
         if(FLAG.ENERGY_CORE) {
@@ -505,24 +516,24 @@ map inbetwixx(0x05) {
     fun test_room_portal() {
         attach_to_script(CHARACTER.BOY);
 
-        question_max(string("[0x96]Test Rooms:[LF][0x8b]Toaster Arena[LF][0x8b]Bomb Arena[LF][0x8b]Mosquite Arena[LF][0x8b]Invisible Arena[LF][0x8b]Abomination Arena[LF][0x8b]Radahn Arena[END]"), 0x07 + 0x06);
+        question_max(string("[0x96]Dog Test Rooms:[LF][0x8b]Gate Bots[LF][0x8b]Rats[LF]Boy Test Rooms:[LF][0x8b]Bomb[LF][0x8b]Mosquite[LF][0x8b]Invisible[LF][0x8b]Abomination[LF][0x8b]Radahn[LF][0x8b]Drone[END]"), 0x09 + 0x07);
 
         if(MEMORY.QUESTION_ANSWER == 0x00) { // toaster arena
             map_transition(toaster_arena, center, DIRECTION.NONE);
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // bomb arena
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // rats arena
+            map_transition(rats_arena, right, DIRECTION.NONE);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // bomb arena
             map_transition(bomb_arena, right, DIRECTION.NONE);
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // mosquito arena
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // mosquito arena
             map_transition(mosquito_arena, right, DIRECTION.NONE);
-        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // invisible arena
+        } else if(MEMORY.QUESTION_ANSWER == 0x04) { // invisible arena
             map_transition(invisible_arena, right, DIRECTION.NONE);
-        } else if(MEMORY.QUESTION_ANSWER == 0x04) { // abomination arena
+        } else if(MEMORY.QUESTION_ANSWER == 0x05) { // abomination arena
             map_transition(abomination_arena, right, DIRECTION.NONE);
-        } else if(MEMORY.QUESTION_ANSWER == 0x05) { // radahn arena
+        } else if(MEMORY.QUESTION_ANSWER == 0x06) { // radahn arena
             map_transition(radahn_arena, right, DIRECTION.NONE);
-        } else if(MEMORY.QUESTION_ANSWER == 0x06) { // nop
-            nop();
-        } else if(MEMORY.QUESTION_ANSWER == 0x07) { // nop
-            nop();
+        } else if(MEMORY.QUESTION_ANSWER == 0x07) { // drone arena
+            map_transition(drone_arena, right, DIRECTION.NONE);
         } else if(MEMORY.QUESTION_ANSWER == 0x08) { // nop
             nop();
         } else if(MEMORY.QUESTION_ANSWER == 0x09) { // nop
@@ -2698,6 +2709,232 @@ map radahn_arena(0x5c) {
         attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
     }
 };
+
+map drone_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    enum BOSS {
+        RIDER_1_ID = memory_tmp(),
+        MOUNT_1_ID = memory_tmp(),
+
+        RIDER_2_ID = memory_tmp(),
+        MOUNT_2_ID = memory_tmp(),
+
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
+
+        COUNTDOWN = 0x03,
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    @install()
+    @async()
+    fun stack_t01_t23() {
+        while(True) {
+            if!(dead(BOSS.RIDER_1_ID)) {
+                BOSS.RIDER_1_ID[ATTRIBUTE.X] = BOSS.MOUNT_1_ID[ATTRIBUTE.X];
+                BOSS.RIDER_1_ID[ATTRIBUTE.Y] = BOSS.MOUNT_1_ID[ATTRIBUTE.Y] - 0x15;
+                yield();
+            }
+            if!(dead(BOSS.RIDER_2_ID)) {
+                BOSS.RIDER_2_ID[ATTRIBUTE.X] = BOSS.MOUNT_2_ID[ATTRIBUTE.X];
+                BOSS.RIDER_2_ID[ATTRIBUTE.Y] = BOSS.MOUNT_2_ID[ATTRIBUTE.Y] - 0x15;
+                yield();
+            }
+
+            yield();
+        }
+    }
+
+    fun turret(id_1, id_2, x, y, mount_type) {
+        add_enemy(ENEMY.GATE_BOT, x, y);
+        store_last_entity(id_1);
+
+        add_enemy(mount_type, x, y);
+        store_last_entity(id_2);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.MUTE);
+    }
+
+    fun spawn_boss(x, y) {
+        turret(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, x, y, ENEMY.MOSQUITO);
+        turret(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, x, y, ENEMY.BEE);
+    }
+
+    fun trigger_enter() {
+        init_room();
+
+        close_exits(True);
+
+        spawn_boss(0x10, 0x20);
+        stack_t01_t23();
+        // boss_watcher();
+
+        character_selection(CHARACTER.BOY);
+        // character_selection(CHARACTER.DOG);
+        countdown(BOSS.COUNTDOWN);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+        // attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.VINCIBLE);
+    }
+};
+
+map rats_arena(0x5c) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        }
+    }
+
+    enum BOSS {
+        RAT_1_ID = memory_tmp(),
+        RAT_1_X = 0x13,
+        RAT_1_Y = 0x19,
+        RAT_2_ID = memory_tmp(),
+        RAT_2_X = 0x29,
+        RAT_2_Y = 0x1b,
+        RAT_3_ID = memory_tmp(),
+        RAT_3_X = 0x13,
+        RAT_3_Y = 0x25,
+        RAT_4_ID = memory_tmp(),
+        RAT_4_X = 0x29,
+        RAT_4_Y = 0x27,
+
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
+
+        COUNTDOWN = 0x03,
+    }
+
+    fun init_room() {
+        init_hack();
+        
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        fade_in();
+
+        subtext(string("Arena[END]"));
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    fun rat_dead(x, y, death_trigger) {
+        add_enemy(ENEMY.RAT, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, death_trigger);
+        attribute(CHARACTER.LAST_ENTITY, ATTRIBUTE.HP, 0x0001);
+
+        sleep(0x20);
+        destroy(CHARACTER.SCRIPT_OWNER);
+    }
+
+    @install()
+    fun rat_1_dead() {
+        rat_dead(BOSS.RAT_1_X, BOSS.RAT_1_Y, reference(rat_1_dead));
+    }
+    @install()
+    fun rat_2_dead() {
+        rat_dead(BOSS.RAT_2_X, BOSS.RAT_2_Y, reference(rat_2_dead));
+    }
+    @install()
+    fun rat_3_dead() {
+        rat_dead(BOSS.RAT_3_X, BOSS.RAT_3_Y, reference(rat_3_dead));
+    }
+    @install()
+    fun rat_4_dead() {
+        rat_dead(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
+    }
+
+    fun spawn_rat(x, y, death_trigger) {
+        add_enemy(ENEMY.RAT, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, death_trigger);
+        attribute(CHARACTER.LAST_ENTITY, ATTRIBUTE.HP, 0x0001);
+    }
+
+    fun trigger_enter() {
+        init_room();
+
+        close_exits(True);
+
+        character_selection(CHARACTER.DOG);
+        // character_selection(CHARACTER.DOG);
+        // countdown(BOSS.COUNTDOWN);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.VINCIBLE);
+        // attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.VINCIBLE);
+
+        spawn_rat(BOSS.RAT_1_X, BOSS.RAT_1_Y, reference(rat_1_dead));
+        spawn_rat(BOSS.RAT_1_X, BOSS.RAT_1_Y, reference(rat_1_dead));
+
+        sleep(0x40);
+
+        spawn_rat(BOSS.RAT_2_X, BOSS.RAT_2_Y, reference(rat_2_dead));
+        spawn_rat(BOSS.RAT_2_X, BOSS.RAT_2_Y, reference(rat_2_dead));
+
+        sleep(0x20);
+
+        spawn_rat(BOSS.RAT_3_X, BOSS.RAT_3_Y, reference(rat_3_dead));
+        spawn_rat(BOSS.RAT_3_X, BOSS.RAT_3_Y, reference(rat_3_dead));
+
+        sleep(0x20);
+
+        spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
+        spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
+    }
+};
+
+// dungeons
 
 map dungeon_volcano(0x3b) {
     enum entrance {

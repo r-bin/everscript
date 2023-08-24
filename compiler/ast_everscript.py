@@ -1454,6 +1454,7 @@ class Axe2Wall(Function_Base):
 class Reference(Function_Base):
     def __init__(self, generator, name:any):
         self._generator = generator
+        self._scope = generator.current_scope()
 
         self.name = name
 
@@ -1472,7 +1473,7 @@ class Reference(Function_Base):
     
     def update_reference(self, name:str):
         if not self.value:
-            self.value = self._generator.get_function(name)
+            self.value = self._generator.get_function(name, self._scope)
             if self.value:
                 self._generator.reference_function(self.value)
 
@@ -1486,6 +1487,11 @@ class Reference(Function_Base):
                 index = self.value.key
                 index = index.index
                 return index
+            case None:
+                self._value_count = 2
+                self.update_reference(self.name)
+
+                return 0xffff
             case _:
                 raise Exception(f"invalid reference {self.value}")
     
