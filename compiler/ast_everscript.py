@@ -565,57 +565,71 @@ class Enum_Call(BaseBox):
         return self.value
 
 class If_list(Function_Base, Memorable):
-    def __init__(self, list):
-        self.list = list
+    def __init__(self, if_list):
+        self.if_list = if_list
 
-        self.update_memory()
+        self.update_memory([])
 
-    def update_memory(self):
-        for element in self.list:
+    def update_memory(self, params:list[Param]):
+        for element in self.if_list:
+            element.update_memory(params)
             self.inherit_memory(element)
 
-        for element in self.list:
+        for element in self.if_list:
             element.memory = self.memory
 
 
     def _code(self, params:list[Param]):
-        self.update_memory()
+        self.update_memory(params)
 
-        list = []
+        if_list = []
         if_depleted = False
 
         if self.memory:
-            if_count = [Function_Code([element] + element.script + [Jump(None)], '\n').count(params) for element in self.list]
+            def pad_all_but_last(element:If, is_last:bool):
+                script = [element] + element.script
+                if not is_last:
+                    script += [Jump(None)]
+
+                return script
+                                 
+            if_count = [Function_Code(pad_all_but_last(element, index == (len(self.if_list) - 1)), '\n').count(params) for index,element in enumerate(self.if_list)]
             if_count.reverse()
             if_count.pop()
 
 
-            for element in self.list:
+            for element in self.if_list:
                 count = sum(if_count)
-                jump = Jump(count)
-                jump.distance = count
+                if count > 0:
+                    jump = Jump(count)
+                    jump.distance = count
+                    script_with_jump = element.script + [jump]
+                else:
+                    script_with_jump = element.script
+
                 if if_count:
                     if_count.pop()
 
-                script_with_jump = element.script + [jump]
-
                 if self.memory: #TODO: should be redundant
-                    list.append(element)
-                    list += script_with_jump
+                    if_list.append(element)
+                    if_list += script_with_jump
                     element.distance = Function_Code(script_with_jump, '\n').count(params)
                 elif element.condition == None:
-                    list += script_with_jump
+                    if_list += script_with_jump
                 else:
                     raise Exception("non memory in memory if")
         else:
-            for element in self.list:
-                if isinstance(element.condition, Memory):
+            for element in self.if_list:
+                condition = self.resolve(element.condition, params)
+
+                if isinstance(condition, Memory):
+                    self.update_memory(params)
                     raise Exception("memory in non-memory if")
-                elif not if_depleted and (element.condition == None or element.eval(params)):
-                    list.append(element)
+                elif not if_depleted and (condition == None or element.eval(params)):
+                    if_list.append(element)
                     if_depleted = True
                 
-        return Function_Code(list, '\n').code(params)
+        return Function_Code(if_list, '\n').code(params)
 
 class If(Function_Base, Calculatable, Memorable):
     def __init__(self, condition, script, inverted):
@@ -625,9 +639,9 @@ class If(Function_Base, Calculatable, Memorable):
 
         self.distance = None
 
-        self.update_memory()
+        self.update_memory([])
 
-    def update_memory(self, params=[]):
+    def update_memory(self, params):
         #self.handle_params(params)
         condition = self.resolve(self.condition, params)
 
@@ -645,13 +659,15 @@ class If(Function_Base, Calculatable, Memorable):
 
         match condition:
             case Word():
-                return condition.eval(params) > 0
+                condition = condition.eval(params) > 0
             case BinaryOp() | Identifier():
-                return condition.eval(params)
+                condition = condition.eval(params)
             case None:
-                return True
+                condition = True
             case _:
                 raise Exception("unknown type for IF condition")
+            
+        return condition
 
     def _code(self, params:list[Param]):
         destination = "xx xx"
@@ -1429,7 +1445,8 @@ class Loot(Function_Base):
     def _code(self, params:list[Param]):
         call_params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
 
-        return Call(self.function, call_params).code(self.params)
+        return Call(self.function, call_params).code(params)
+    
 class Axe2Wall(Function_Base):
     def unwrap_param(self, param):
         if isinstance(param, Param):
