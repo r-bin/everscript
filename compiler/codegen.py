@@ -165,9 +165,11 @@ allocated RAM:
         
         self.code.append(function)
     
-    def get_function(self, name): #TODO
+    def get_function(self, name, scope=None): #TODO
         if isinstance(name, Token):
             name = name.value
+        elif isinstance(name, Param):
+            name = name.name
 
         function = None
         for scope in reversed(self.scopes):
@@ -178,11 +180,17 @@ allocated RAM:
         if function:
             return function
         
+        if scope: #TODO: returns the wrong scope
+            if name in scope.functions.keys():
+                function = scope.functions[name]
+
+        
         for f in self.code:
             if f.name == name:
-                pass
+                return f #TODO: returns the last method with the same name, not necessarily from the same scope
         
-        raise Exception(f"function '{name}' is not defined: {self.code}")
+        # raise Exception(f"function '{name}' is not defined: {self.code}")
+        return None
 
     def add_map(self, map):
         self.maps.append(map)
