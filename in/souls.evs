@@ -275,16 +275,7 @@ fun hotkey_start() {
 fun hotkey_start_l() {
     subtext(string("Start+L[END]"));
 
-    // map_transition(waterfall, south, DIRECTION.NORTH);
-    // map_transition(arena, left, DIRECTION.NONE);
-    // map_transition(bomb_arena, right, DIRECTION.NONE);
-    // map_transition(east_crossing, crash, DIRECTION.NONE);
-    // map_transition(east_inbetwixx, east, DIRECTION.NONE);
-    // map_transition(aquagoth, south, DIRECTION.NONE);
-    // map_transition(mosquito_arena, right, DIRECTION.NONE);
-    // map_transition(invisible_arena, right, DIRECTION.NONE);
-    // map_transition(abomination_arena, right, DIRECTION.NONE);
-    map_transition(radahn_arena, right, DIRECTION.NONE);
+    map_transition(inbetwixx, start, DIRECTION.NONE);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -518,7 +509,7 @@ map inbetwixx(0x05) {
     fun test_room_portal() {
         attach_to_script(CHARACTER.BOY);
 
-        question_max(string("[0x96]Dog Test Rooms:[LF][0x8b]Gate Bots[LF][0x8b]Rats[LF]Boy Test Rooms:[LF][0x8b]Bomb[LF][0x8b]Mosquite[LF][0x8b]Invisible[LF][0x8b]Abomination[LF][0x8b]Radahn[LF][0x8b]Drone[END]"), 0x09 + 0x07);
+        question_max(string("[0x96]Dog Test Rooms:[LF][0x8b]Gate Bots (90%)[LF][0x8b]Rats (80%)[LF]Boy Test Rooms:[LF][0x8b]Bomb (50%)[LF][0x8b]Mosquite (80%)[LF][0x8b]Invisible (100%)[LF][0x8b]Abomination (80%)[LF][0x8b]Radahn (90%)[LF][0x8b]Drone (80%)[END]"), 0x09 + 0x07);
 
         if(MEMORY.QUESTION_ANSWER == 0x00) { // toaster arena
             map_transition(toaster_arena, center, DIRECTION.NONE);
@@ -2596,15 +2587,9 @@ map radahn_arena(0x5c) {
     }
 
     enum stepon_trigger {
-        exit_north = @install() fun test() {
-            subtext(string("exit? 0 [END]"));
-        },
-        exit_south = @install() fun test() {
-            subtext(string("exit? 1 [END]"));
-        },
-        center = @install() fun test() {
-            subtext(string("exit? 2 [END]"));
-        }
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
     }
 
     fun init_room() {
@@ -2627,24 +2612,30 @@ map radahn_arena(0x5c) {
     }
 
     enum BOSS {
+        DEBUG = False,
+
         RIDER_ID = memory_tmp(),
         MOUNT_ID = memory_tmp(),
 
         PHASE = memory_tmp(),
         TIMER = memory_tmp(),
 
-        TIME_BEFORE_SALVAGE = 0x300,
+        HP = 0x03e8, // 1000
 
         COUNTDOWN = 0x03,
-    }
 
-    @install()
-    fun boss_damage() {
-        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+        // p1
 
-        if(BOSS.PHASE == 0x00) {
-            BOSS.TIMER = 0x00;
-        }
+        P1_THRASHOLD = 0x320, // 800
+        P1_TIME_BEFORE_SALVAGE = 0x200,
+
+        // p2
+
+        P2_THRASHOLD = 0x1f4, // 500
+        P2_TIME_BEFORE_SALVAGE = 0x300,
+
+        RANDOM_SPELL = memory_tmp(),
+        TIME_BEFORE_RANDOM_SPELL = 0x300,
     }
 
     @install()
@@ -2660,19 +2651,47 @@ map radahn_arena(0x5c) {
     fun cast_salvage(target, level) {
         animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
         cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
         cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
-        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
-        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        if(BOSS.PHASE == 0x00) {
+            BOSS.TIMER = 0x00;
+
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRASHOLD) {
+                BOSS.PHASE = 0x01;
+            }
+        } else if(BOSS.PHASE == 0x01) {
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRASHOLD) {
+                BOSS.PHASE = 0x02;
+            }
+        } else if(BOSS.PHASE == 0x02) {
+            BOSS.TIMER = BOSS.TIMER - 0x60;
+        }
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[ATTRIBUTE.HP];
+            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+            subtext(string("Rider = [0xa1]/[0xa2][END]"));
+        }
     }
 
     @install()
     @async()
     fun boss_watcher() {
-        subtext(string("phase 0[END]"));
+        if(BOSS.DEBUG) {
+            subtext(string("phase 0[END]"));
+        }
 
         while(BOSS.PHASE == 0x00) {
-            if(BOSS.TIMER > 0x200) {
-                cast_salvage(CHARACTER.BOY, 0x00);
+            if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
 
                 BOSS.TIMER = 0x00;
             }
@@ -2683,11 +2702,59 @@ map radahn_arena(0x5c) {
             yield();
         }
 
-        subtext(string("phase 1[END]"));
+        if(BOSS.DEBUG) {
+            subtext(string("phase 1[END]"));
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            BOSS.TIMER = BOSS.TIMER + 0x01;
+
+            if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                BOSS.TIMER = 0x0000;
+
+                BOSS.RANDOM_SPELL = randrange(0x03);
+
+                if(BOSS.RANDOM_SPELL == 0x00) {
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+                } else if(BOSS.RANDOM_SPELL == 0x01) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.DRAIN, 0x30);
+                } else if(BOSS.RANDOM_SPELL == 0x02) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.PLAGUE, 0x01);
+                } 
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 2[END]"));
+        }
     }
 
     fun spawn_boss(x, y) {
         add_enemy(ENEMY.VERMINATOR, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.HP;
         store_last_entity(BOSS.RIDER_ID);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
         attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
