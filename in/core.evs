@@ -1145,13 +1145,6 @@ enum ANIMATION_PLACEHOLDER {
     AEGIS_MASK_2 = 0x00c2,
     AEGIS_MASK_3 = 0x00c4,
 
-    PIG_RUNNING = 0x00dc,
-    PIG_STAND = 0x00de,
-    PIGOODLE_RUNNING_SOUTH = 0x00d4,
-    PIGOODLE_RUNNING_EAST = 0x00d6,
-    PIGOODLE_RUNNING_WEST = 0x00d8,
-    PIGOODLE_STAND = 0x00da,
-
     SZEPTER = 0x0102,
 
     // npcs
@@ -1169,6 +1162,14 @@ enum ANIMATION_PLACEHOLDER {
 
     COOK_RUNNING = 0x0116,
     COOK_COOKING = 0x0118,
+
+    PIG_RUNNING = 0x00dc,
+    PIG_STAND = 0x00de,
+    
+    PIGOODLE_RUNNING_SOUTH = 0x00d4,
+    PIGOODLE_RUNNING_EAST = 0x00d6,
+    PIGOODLE_RUNNING_WEST = 0x00d8,
+    PIGOODLE_STAND = 0x00da,
 
     // environment
 
@@ -1471,6 +1472,13 @@ fun teleport(character, x, y) {
         code(0x20, x, y, "// (20) Teleport both to 43 93");
     } else {
         code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
+    }
+}
+fun _teleport(character, x, y) {
+    if(character == CHARACTER.BOTH) {
+        code(0x20, calculate(x), calculate(y), "// (20) Teleport both to 43 93");
+    } else {
+        code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
     }
 }
 // fun teleport_relative(character, x, y) {
@@ -2120,9 +2128,19 @@ fun destroy(character) {
 
 fun damage(character, value, animation) {
     if(animation) {
-        code(0x92, entity_t(character), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+        if(character == CHARACTER.BOTH) {
+            code(0x92, entity_t(CHARACTER.BOY), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+            code(0x92, entity_t(CHARACTER.DOG), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+        } else {
+            code(0x92, entity_t(character), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+        }
     } else {
-        code(0x93, entity_t(character), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+        if(character == CHARACTER.BOTH) {
+            code(0x93, entity_t(CHARACTER.BOY), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+            code(0x93, entity_t(CHARACTER.DOG), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+        } else {
+            code(0x93, entity_t(character), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+        }
     }
 }
 
@@ -2272,6 +2290,50 @@ fun debug_memory(x, y) {
 }
 
 // CINEMATICS
+
+    @install()
+    fun fall_into_pit(height) {
+        control(CHARACTER.NONE);
+
+        <0x24ab> = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+        <0x24af> = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+
+        <0x249d> = 0x0128;
+        <0x249f> = height;
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        animate(CHARACTER.DOG, ANIMATION_MODE.LOOP, ANIMATION_DOG.ACT2_FALL_4);
+
+        yield();
+
+        <0x23db> = 0x0020;
+        _teleport(CHARACTER.BOY, <0x24ab> + 0x08, <0x24af>);
+        yield();
+        <0x23db> = 0x0020;
+        _teleport(CHARACTER.DOG, <0x24ab> - 0x08, <0x24af>);
+        yield();
+
+        while(<0x24af> < <0x249f>) {
+            <0x23db> = 0x0020;
+            _teleport(CHARACTER.BOY, <0x24ab> + 0x08, <0x24af>);
+            yield();
+            <0x23db> = 0x0020;
+            _teleport(CHARACTER.DOG, <0x24ab> - 0x08, <0x24af>);
+            yield();
+
+            <0x24af> = <0x24af> + 0x02;
+        }
+
+        // animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_ALL.INVISIBLE);
+        // animate(CHARACTER.DOG, ANIMATION_MODE.LOOP, ANIMATION_ALL.INVISIBLE);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVISIBLE);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.INVISIBLE);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        yield();
+
+        set(<0x22ed, 0x80>);
+    }
 
 fun scene_raptors_death_escape() {
     control(CHARACTER.NONE);

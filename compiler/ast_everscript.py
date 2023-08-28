@@ -807,7 +807,7 @@ class GreaterEquals(BinaryOp):
 
         return code
     
-class Greater(BinaryOp):
+class Greater(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return ">"
 
@@ -815,24 +815,10 @@ class Greater(BinaryOp):
         return left.eval(params) > right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
         operator = Operand(">")
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
+    
 class LowerEquals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<="
