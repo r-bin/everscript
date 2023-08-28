@@ -207,6 +207,8 @@ class MapDataHandler():
             # …
             self.MapData(0x27, 0xa6d67a, 0x03, 0x1e, "Prehistoria - Mammoth Graveyard"),
             # …
+            self.MapData(0x2f, 0xa0cd23, 0x06, 0x14, "Antiqua - Horace's camp"),
+            # …
             self.MapData(0x33, 0xadb50c, 0x02, 0x01, "Strong Heart's Exterior"),
             self.MapData(0x34, 0xadbd79, 0x01, 0x03, "Prehistoria - Strong Heart's Hut"),
             # …
@@ -214,7 +216,9 @@ class MapDataHandler():
             self.MapData(0x38, 0x9e8000, 0x02, 0x1f, "Prehistoria - South jungle / Start"),
             # …
             self.MapData(0x3b, 0xa2c0a8, 0x04, 0x22, "Prehistoria - Volcano Room 2"),
-            # …
+            self.MapData(0x3c, 0xa2a161, 0x15, 0x19, "Prehistoria - Volcano Room 1"),
+            self.MapData(0x3d, 0xa39eca, 0x27, 0x00, "Prehistoria - Pipe maze"),
+            self.MapData(0x3e, 0xa98000, 0x0c, 0x0e, "Prehistoria - Side rooms of pipe maze "),
             self.MapData(0x3f, 0xaabd2c, 0x01, 0x00, "Prehistoria - Volcano Boss Room"),
             # …
             self.MapData(0x45, 0xa3da2c, 0x02, 0x00, "Omnitopia - Secret boss room"),
@@ -336,7 +340,10 @@ unallocated RAM:
             self._link_map_transition(maps, map_transition)
     def _link_map_transition(self, maps:list[Map], map_transition:MapTransition):
         map = next(map for map in maps if map.name == map_transition.map_name)
-        entrance:MapEntrance = next(entrance for entrance in map.enum_entrance.values if entrance.name == map_transition.entrance_name).value
+        entrance = [entrance for entrance in map.enum_entrance.values if entrance.name == map_transition.entrance_name]
+        if len(entrance) != 1:
+            raise Exception(f"entrance '{map_transition.entrance_name}' could not be found in map '{map.name}' ({[entrance.name for entrance in map.enum_entrance.values]})")
+        entrance:MapEntrance = entrance[0].value
         
         map_transition.link(map, entrance)
 
