@@ -149,8 +149,8 @@ fun boy_death() {
     currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
     currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
 
-    SOULS_MEMORY.DUST_DROP_X = <CHARACTER.BOY>[ATTRIBUTE.X];
-    SOULS_MEMORY.DUST_DROP_Y = <CHARACTER.BOY>[ATTRIBUTE.Y];
+    SOULS_MEMORY.DUST_DROP_X = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X];
+    SOULS_MEMORY.DUST_DROP_Y = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y];
     // <0x2503> = MEMORY.MAP;
     SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP & 0xff;
     SOULS_MEMORY.DUST_DROP_VARIANT = SOULS_MEMORY.MAP_VARIANT;
@@ -257,6 +257,9 @@ fun init_souls() {
     attach_script(CHARACTER.BOY, SCRIPT_TRIGGER.DEATH, reference(boy_death));
 
     special_script(SPECIAL_SCRIPTS.WINGS, reference(return_to_bonfire));
+
+    MEMORY.BOY_XP_REQUIRED = 0x7fff;
+    MEMORY.DOG_XP_REQUIRED = 0x7fff;
 }
 
 // HOTKEYS
@@ -265,7 +268,9 @@ fun init_souls() {
 @inject(ADDRESS.HOTKEY_START)
 @count_limit(0x20)
 fun hotkey_start() {
-    subtext(string("Start[END]"));
+    if(FLAG.DEBUG) {
+        subtext(string("Start[END]"));
+    }
 
     if(SOULS_MEMORY.BOMB_ENABLED) {
         if(FLAG.ENERGY_CORE) {
@@ -277,30 +282,34 @@ fun hotkey_start() {
 @inject(ADDRESS.HOTKEY_START_L)
 @count_limit(0x20)
 fun hotkey_start_l() {
-    subtext(string("Start+L[END]"));
+    if(FLAG.DEBUG) {
+        subtext(string("Start+L[END]"));
 
-    // map_transition(inbetwixx, start, DIRECTION.NONE);
-    // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
-    // map_transition(east_crossing, crash, DIRECTION.NONE);
-    map_transition(pipe_rooms, pipe_west, DIRECTION.NONE);
+        // map_transition(inbetwixx, start, DIRECTION.NONE);
+        // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
+        // map_transition(east_crossing, crash, DIRECTION.NONE);
+        map_transition(pipe_rooms, pipe_west, DIRECTION.NONE);
 
-    // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
+        // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
+    }
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
 @count_limit(0x20)
 fun hotkey_start_r() {
-    subtext(string("Start+R[END]"));
+    if(FLAG.DEBUG) {
+        subtext(string("Start+R[END]"));
 
-    // map_transition(arena, right, DIRECTION.NONE);
-    
-    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
-    debug_boy();
-    // debug_memory(<0x2834>[0x15], <0x2836>[0x2a]);
+        // map_transition(arena, right, DIRECTION.NONE);
+        
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+        debug_boy();
+        // debug_memory(<0x2834>[0x15], <0x2836>[0x2a]);
 
-    // map_transition(toaster_arena, center, DIRECTION.NONE);
+        // map_transition(toaster_arena, center, DIRECTION.NONE);
 
-    // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE + 0x01;
+        // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE + 0x01;
+    }
 }
 
 // MAPS
@@ -312,11 +321,15 @@ fun init_hack() {
     available(CHARACTER.BOTH);
 }
 
-fun default_init_room() {
+fun default_init_room(night, rain) {
     init_hack();
     
-    sfx_effect(SFX_EFFECT.RAIN, True);
-    sfx_effect(SFX_EFFECT.NIGHT, True);
+    if(rain) {
+        sfx_effect(SFX_EFFECT.RAIN, True);
+    }
+    if(night) {
+        sfx_effect(SFX_EFFECT.NIGHT, True);
+    }
 
     fade_in();
 }
@@ -467,7 +480,7 @@ map inbetwixx(0x05) {
     }
 
     fun init_room() {
-        default_init_room();
+        default_init_room(True, True);
 
         subtext(string("Inbetwixx[END]"));
     }
@@ -663,7 +676,7 @@ map west_inbetwixx(0x5b) {
 
     fun init_room() {
         init_map(0x00, 0x06, 0x6e, 0x52);
-        default_init_room();
+        default_init_room(True, True);
 
         subtext(string("West Inbetwixx[END]"));
     }
@@ -783,17 +796,13 @@ map west_hut(0x33) {
         }
     }
 
-    fun init_room() {
-        default_init_room();
-    }
-
     @install()
     fun secret_room_triggered() {
         map_transition(potato_room, stairs, DIRECTION.WEST);
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, True);
 
         // add_enemy(ENEMY.PLACEHOLDER, 0x0d, 0x0e);
         add_enemy(ENEMY.PLACEHOLDER, 0x0d, 0x12);
@@ -824,17 +833,8 @@ map potato_room(0x60) {
         },
     }
 
-    fun init_room() {
-        init_hack();
-
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-    }
-
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
     }
 };
 
@@ -861,17 +861,8 @@ map west_hut2(0x34) {
         },
     }
 
-    fun init_room() {
-        init_hack();
-
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-    }
-
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
     }
 };
 
@@ -1096,7 +1087,7 @@ map volcano(0x69) {
     }
 
     fun trigger_enter() {
-        default_init_room();
+        default_init_room(True, True);
     }
 };
 
@@ -1192,7 +1183,7 @@ map northwest_inbetwixx(0x07) {
     }
 
     fun init_room() {
-        default_init_room();
+        default_init_room(True, True);
     }
 
     fun trigger_enter() {
@@ -1231,19 +1222,8 @@ map northern_waterfall(0x6b) {
         }
     }
 
-    fun init_room() {
-        // init_hack();
-
-        // MEMORY.MAP_PALETTE = 0x0007;
-
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-    }
-
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, True);
     }
 };
 
@@ -1565,7 +1545,7 @@ map east_inbetwixx(0x59) {
     }
 
     fun init_room() {
-        default_init_room();
+        default_init_room(True, True);
     }
 
     fun trigger_enter() {
@@ -1598,7 +1578,7 @@ map east_crossing(0x4f) {
 
         sleep(0xd0);
 
-        damage(CHARACTER.BOTH, 0x14, True);
+        damage(CHARACTER.BOTH, 0x50, True);
         sleep(0x60);
         yield();
 
@@ -1717,7 +1697,7 @@ map east_crossing(0x4f) {
     }
 
     fun init_room() {
-        default_init_room();
+        default_init_room(True, True);
     }
 
     fun trigger_enter() {
@@ -1769,7 +1749,7 @@ map eastern_barrier(0x13) {
     }
 
     fun trigger_enter() {
-        default_init_room();
+        default_init_room(True, True);
     }
 };
 
@@ -1899,7 +1879,7 @@ map eastern_river(0x2f) {
             remove_water(True);
         }
 
-        default_init_room();
+        default_init_room(True, True);
     }
 };
 
@@ -1933,19 +1913,8 @@ map eastern_waterfall(0x6b) {
         }
     }
 
-    fun init_room() {
-        init_hack();
-
-        // MEMORY.MAP_PALETTE = 0x0007;
-
-        sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-    }
-
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, True);
     }
 };
 
@@ -2063,7 +2032,7 @@ map graveyard(0x27) {
     }
 
     fun trigger_enter() {
-        default_init_room();
+        default_init_room(True, True);
     }
 };
 
@@ -2090,7 +2059,7 @@ map pipe_rooms(0x3e) {
             subtext(string("exit? 2 [END]"));
         },
         exit_room_empty = @install() fun test() {
-            subtext(string("exit? 3 [END]"));
+            map_transition(mosquito_arena, right, DIRECTION.NORTH); // TODO: placeholder
         },
         exit_north_1 = @install() fun test() {
             map_transition(pipe_rooms, room_switch, DIRECTION.NORTH);
@@ -2176,8 +2145,8 @@ map pipe_rooms(0x3e) {
     @async()
     fun hidden_exit_check() {
         while(True) {
-            arg[0x00] = <CHARACTER.BOY>[ATTRIBUTE.X];
-            arg[0x02] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+            arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
             arg[0x04] = ROOM.SECRET_PASSAGE_TRIGGER[ATTRIBUTE.X];
             arg[0x06] = ROOM.SECRET_PASSAGE_TRIGGER[ATTRIBUTE.Y];
 
@@ -2209,7 +2178,7 @@ map pipe_rooms(0x3e) {
     }
     
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
 
         add_enemy(ENEMY.PLACEHOLDER, 0x30, 0x17);
         ROOM.SECRET_PASSAGE_TRIGGER = <CHARACTER.LAST_ENTITY>;
@@ -2401,7 +2370,7 @@ map hidden_room(0x3c) {
     }
     
     fun trigger_enter() {
-        fade_in();
+        default_init_room(False, False);
 
         add_enemy(ENEMY.STONE_ROUND, 0xdd, 0x27);
     }
@@ -2425,22 +2394,11 @@ map sewers(0x7a) {
     }
     
     fun trigger_enter() {
-        default_init_room();
+        default_init_room(True, True);
     }
 };
 
 // misc
-
-@install()
-fun arena_death() {
-    control(CHARACTER.NONE);
-
-    subtext(string("You Died![END]"));
-
-    sleep(0xff);
-
-    return_to_bonfire();
-}
 
 fun character_selection(character) {
     if(character == CHARACTER.BOY) {
@@ -2456,7 +2414,7 @@ fun character_selection(character) {
 
         attribute_bit(CHARACTER.DOG, ATTRIBUTE_BITS.INVINCIBLE);
 
-        attach_script(CHARACTER.DOG, SCRIPT_TRIGGER.DEATH, reference(arena_death));
+        attach_script(CHARACTER.DOG, SCRIPT_TRIGGER.DEATH, reference(boy_death));
     }
 }
 
@@ -2506,17 +2464,6 @@ map arena(0x5c) {
         }
     }
 
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
-    }
-
     fun close_exits(close) {
         if(close) {
             object[0x04] = 0x04;
@@ -2526,7 +2473,7 @@ map arena(0x5c) {
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
 
         close_exits(True);
 
@@ -2555,17 +2502,6 @@ map toaster_arena(0x5c) {
         exit_north = nop(),
         exit_south = nop(),
         center = nop(),
-    }
-
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -2630,7 +2566,7 @@ map toaster_arena(0x5c) {
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
         character_selection(CHARACTER.DOG);
 
         close_exits(True);
@@ -2673,17 +2609,6 @@ map bomb_arena(0x5c) {
         map_transition(bomb_arena, right, DIRECTION.NONE);
     }
 
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
-    }
-
     fun close_exits(close) {
         if(close) {
             object[0x04] = 0x04;
@@ -2699,7 +2624,7 @@ map bomb_arena(0x5c) {
         add_enemy(ENEMY.VIGOR, 0x15, 0x1e);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
 
-        init_room();
+        default_init_room(True, False);
 
         countdown(0x03);
         attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
@@ -2741,17 +2666,6 @@ map mosquito_arena(0x5c) {
         general_boss_defeated();
 
         map_transition(mosquito_arena, right, DIRECTION.NONE);
-    }
-
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -2811,7 +2725,11 @@ map mosquito_arena(0x5c) {
         store_last_entity(BOSS.BOSS_ID);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
 
-        init_room();
+        default_init_room(True, True);
+
+        if!(FLAG.IN_ANIMATION) {
+            crash_land(CHARACTER.BOTH);
+        }
 
         countdown(0x03);
         attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
@@ -2851,17 +2769,6 @@ map invisible_arena(0x5c) {
 
     enum BOSS {
         BOSS_ID = memory_tmp(),
-    }
-
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -2904,7 +2811,7 @@ map invisible_arena(0x5c) {
         store_last_entity(BOSS.BOSS_ID);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated4));
 
-        init_room();
+        default_init_room(True, False);
 
         add_enemy(ENEMY.REVEALER_TARGET_ENTITY, 0x1e, 0x21);
         store_last_entity(ROOM.REVEALER_ID);
@@ -2939,17 +2846,6 @@ map abomination_arena(0x5c) {
         center = @install() fun test() {
             subtext(string("exit? 2 [END]"));
         }
-    }
-
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -3139,7 +3035,7 @@ map abomination_arena(0x5c) {
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
 
         close_exits(True);
 
@@ -3170,17 +3066,6 @@ map radahn_arena(0x5c) {
             map_transition(radahn_exit, room_nw_north, DIRECTION.SOUTH);
         },
         center = nop(),
-    }
-
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -3345,7 +3230,7 @@ map radahn_arena(0x5c) {
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
 
         close_exits(True);
 
@@ -3542,7 +3427,7 @@ map radahn_exit(0x3c) {
     }
 
     fun trigger_enter() {
-        fade_in();
+        default_init_room(False, False);
     }
 };
 
@@ -3576,17 +3461,6 @@ map drone_arena(0x5c) {
         TIMER = memory_tmp(),
 
         COUNTDOWN = 0x03,
-    }
-
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
     }
 
     fun close_exits(close) {
@@ -3633,7 +3507,7 @@ map drone_arena(0x5c) {
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
 
         close_exits(True);
 
@@ -3688,17 +3562,6 @@ map rats_arena(0x5c) {
         COUNTDOWN = 0x03,
     }
 
-    fun init_room() {
-        init_hack();
-        
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        sfx_effect(SFX_EFFECT.NIGHT, True);
-
-        fade_in();
-
-        subtext(string("Arena[END]"));
-    }
-
     fun close_exits(close) {
         if(close) {
             object[0x04] = 0x04;
@@ -3740,7 +3603,7 @@ map rats_arena(0x5c) {
     }
 
     fun trigger_enter() {
-        init_room();
+        default_init_room(True, False);
 
         close_exits(True);
 
@@ -3904,7 +3767,7 @@ map dungeon_volcano(0x3b) {
     }
 
     fun trigger_enter() {
-        fade_in();
+        default_init_room(False, False);
     }
 };
 
@@ -3969,7 +3832,7 @@ map squidmar(0x6d) {
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(squidmar_combat));
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(squidmar_dialog));
 
-        fade_in();
+        default_init_room(True, False);
 
         add_enemy(ENEMY.PLACEHOLDER, 0x1b, 0x52);
         ROOM.FAKE_EXIT_ID = <CHARACTER.LAST_ENTITY>;
@@ -4035,13 +3898,9 @@ map aquagoth(0x6d) {
     }
 
     fun init_room() {
-        init_hack();
-
-        // sfx_effect(SFX_EFFECT.RAIN, True);
-        // sfx_effect(SFX_EFFECT.NIGHT, True);
         sfx_effect(SFX_EFFECT.SEPIA, True);
-
-        fade_in();
+        
+        default_init_room(False, False);
     }
 
     fun trigger_enter() {
