@@ -1,6 +1,10 @@
+from injector import Injector, inject
+
+from compiler.ast_core import Param
+_injector = Injector()
+
 from compiler.ast_core import *
-from compiler.calculator import *
-from utils.utils import *
+from utils.out_utils import *
 
 from rply import LexerGenerator, Token
 from rply.token import BaseBox
@@ -9,53 +13,209 @@ from textwrap import wrap
 import copy
 import random
 import uuid
+from enum import StrEnum
+
+class Deref(Function_Base, Calculatable, Memorable):
+    def __init__(self, value, offset):
+        match value:
+            case Memory() | Arg():
+                self.value = value
+            case _:
+                TODO(f"value {value} cannot be deref'ed")
+
+        self.offset = offset
+
+        self.inherit_memory(self.value)
+
+    def __repr__(self):
+        return f"Deref(value={self.value}, offset={self.offset})"
+
+    def eval(self, params:list[Param]):
+        return self.value.eval(params)
+    
+    def value_count(self):
+        return self.value.value_count()
+    
+    def calculate(self, params:list[Param], deref=True):
+        code = None
+
+        match self.value:
+            case Memory():
+                code = self.value.calculate(params, offset=self.offset, deref=deref)
+            case Arg():
+                code = self.value.calculate(params, offset=self.offset, deref=deref)
+            case _:
+                TODO()
+
+        return code
+
+    def _code(self, params:list[Param]):
+        pass
+class Arg(Function_Base, Calculatable, Memorable):
+    def __init__(self, index):
+        self.index = index
+        self.index = self.resolve(self.index, [])
+        self.offset = None
+
+        self.memory = True
+
+    def __repr__(self):
+        return f"Arg(index={self.index})"
+        
+    def calculate(self, params:list[Param], offset=None, deref=True):
+        index = self.resolve(self.index, params)
+        index = index.code(params)
+
+        match [offset]:
+            case [None]:
+                code = [Opcode(0x13), index]
+            case [_]:
+                code = [Opcode(0x12), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
+                if deref:
+                    code += [Operand("deref")]
+            case _:
+                TODO()
+
+        return code
+
+    def _code(self, params:list[Param]):
+        index = self.resolve(self.index, params)
+        
+        code = index.code(params)
+
+        return code
+
+class Object(Function_Base, Calculatable, Memorable):
+    def __init__(self, index, flag=None):
+        self.index = index
+        self.index = self.resolve(self.index, [])
+        self.flag = flag
+
+        self.memory = True
+
+    def __repr__(self):
+        return f"Object(index={self.index}, flag={self.flag})"
+        
+    def calculate(self, params:list[Param]):
+        index = self.resolve(self.index, params)
+        code = index.calculate(params)
+
+        return code
+    
+    def _code(self, params:list[Param]):
+        index = self.resolve(self.index, params)
+        flag = self.resolve(self.flag, params)
+        
+        code = [Opcode(0x5d)] + self._terminate(index.calculate(params) + [flag.code(params)])
+        code = self._clean_calucatable(code, params)
+
+        return f"""
+{code}     // (5d) IF $2268 & 0x40 THEN UNLOAD OBJ 0 (TODO: verify this)"
+        """
+    
+class FunctionKey(Function_Base):
+    def __init__(self, index):
+        self.index = index
+        self._value_count = 3
+        if isinstance(self.index, Param):
+            self.index = self.index.eval([])
+        self.address = 0x928294 + self.index
+        
+        if (self.index % self.value_count()) != 0:
+            raise Exception("invalid index (only index%3==0 is allowed")
+
+    def __repr__(self):
+        return f"FunctionKey({self.index})"
+        
+    def eval(self):
+        return Range(self.address, self.address + (self.value_count() - 1))
+
+    def _code(self, params:list[Param]):
+        code = Word(self.index)
+        code._value_count = self.value_count()
+        code = code.code()
+
+        return code
 
 class Function(Function_Base):
-    def __init__(self, name, script, args, function_args=[]):
+    key:FunctionKey = None
+
+    def __init__(self, name, script, args, annotations=[]):
         self.name = name
+        if isinstance(name, Token):
+            self.name = self.name.value
         self.script = script
+        self.script = list(filter(lambda item: item is not None, self.script))
         self.args = args
         self.install = False
         self.address = None
         self.inject = []
         self.terminate = True
-        for arg in function_args:
-            match arg:
-                case _ if isinstance(arg, Arg_Install):
-                    self.install = True
-                    self.address = arg.eval()
-                    self.terminate = arg.terminate
-                case _ if isinstance(arg, Arg_Inject):
-                    self.inject.append(arg)
-                    self.terminate = arg.terminate
+        self.async_call = False
+        self.count_limit = None
+        if annotations:
+            self.set_annotations(annotations)
 
+        pass
+
+    def set_annotations(self, annotations):
+        for annotation in annotations:
+            match annotation:
+                case Annotation_Async():
+                    self.async_call = True
+                case Annotation_Install():
+                    self.install = True
+                    self.address = annotation.eval()
+                    self.terminate = annotation.terminate
+                case Annotation_Inject():
+                    self.inject.append(annotation)
+                    self.terminate = annotation.terminate
+                case Annotation_CountLimit():
+                    self.count_limit = annotation.count_limit.eval([])
+                case _:
+                    TODO()
+        
         if self.install and self.terminate:
+            #if self.script and not isinstance(self.script[-1], End):
             self.script += [ End() ]
 
-    def _code(self):
-        for script in self.script:
-            script.params = self.params
+    def __repr__(self):
+        return f"Function('name={self.name}', address={self.address}, install={self.install}, args={self.args})"
+        
+    def _code(self, params:list[Param]):
+        out_params = []
 
-        return Function_Code(self.script, '\n').code()
+        for index, arg in enumerate(self.args):
+            out_params.append(Param(arg.name, Arg(Word(index * 2, 1))))
 
-class Arg_Install(BaseBox):
+        return Function_Code(self.script, '\n').code(out_params)
+
+class Annotation_Install(BaseBox):
     def __init__(self, address=None, terminate=True):
         self.address = address
         self.terminate = terminate
 
     def eval(self):
         if self.address != None:
-            return self.address.eval()
+            return self.address.eval([])
         else:
             return None
     
-class Arg_Inject(BaseBox):
+class Annotation_Inject(BaseBox):
     def __init__(self, address, terminate):
         self.address = address
         self.terminate = terminate
 
-    def eval(self):
-        return self.address.eval()
+    def eval(self, params:list[Param]):
+        return self.address.eval(params)
+    
+class Annotation_Async(BaseBox):
+    def __init__(self):
+        pass
+
+class Annotation_CountLimit(BaseBox):
+    def __init__(self, count_limit):
+        self.count_limit = count_limit
 
 class Address(Function_Base):
     def __init__(self, value, length=3):
@@ -64,6 +224,12 @@ class Address(Function_Base):
 
         self.scripts_start_addr = 0x928000
 
+    def __repr__(self):
+        if self.value:
+            return f"Address({self.value}/{self.eval()})"
+        else:
+            return f"Address(-)"
+    
     def print(self):
         return {'{:08X}'.format(self.value, 'x')} # TODO pattern
 
@@ -83,15 +249,18 @@ class Address(Function_Base):
 
         return address
         
-    def _code(self):
-        address = self.rom2scriptaddr(self.value)
+    def _code(self, params:list[Param]):
+        address = self.eval()
         address = '{:06X}'.format(address, 'x')
         address = wrap(address, 2)
         
         return ' '.join(reversed(address))
 
-    def count(self):
-        return len(self.code_clean().split(" "))
+    def eval(self):
+        return self.rom2scriptaddr(self.value)
+
+    def count(self, params:list[Param]):
+        return len(self.code_clean(params).split(" "))
 
 class _Address(BaseBox):
     def __init__(self, value):
@@ -123,12 +292,12 @@ class String(Function_Base):
     def eval(self):
         return self.value
         
-    def _code(self):
+    def _code(self, params:list[Param]):
         if not self.install:
             code = re.sub("\"", "", self.value)
         else:
             code = Word(self.text_key.index)
-            code = code.code()
+            code = code.code([])
         return code
         
 class RawString(Function_Base):
@@ -148,7 +317,7 @@ class RawString(Function_Base):
         value = re.sub("\"", "", value)
         return value
         
-    def _code(self):
+    def _code(self, params:list[Param]):
         code = re.sub("\"", "", self.eval())
 
         lexer = LexerGenerator()
@@ -179,7 +348,7 @@ class RawString(Function_Base):
         code = ' '.join(code) + f" // '{self.value}'"
         return code
         
-class Arg(BaseBox):
+class FunctionArg(BaseBox):
     def __init__(self, name):
         self.name = name
 
@@ -201,40 +370,104 @@ class Label_Destination(BaseBox):
             value = value.value
         self.value = re.sub(":", "", value)
 
-class Call(Function_Base):
+class Call(Function_Base, Calculatable):
+    async_call = False
+    
     def __init__(self, function, params=[]):
-        self.params = params
+        self.params = self._paramify(params)
+
         if isinstance(function, Function):
-            self.function = copy.deepcopy(function)
-            self.address = function.address
-            for p, a in zip(self.params, function.args):
-                p.name = a.name
+            if not function.install:
+                self.function = function
+                self.address = function.address
+                self.async_call = function.async_call
+                #for p, a in zip(self.params, function.args):
+                #    if p.name == None:
+                #        p.name = a.name
+            else:
+                self.function = function
+                self.address = function.address
+                self.async_call = function.async_call
         elif isinstance(function, Param):
             self.function = None
-            self.address = function.eval()
+            self.address = function.eval([])
         else:
             raise Exception("todo")
+        pass
+
+        if self.address == None:
+            pass
+
+    def _paramify(self, params=[]):
+        for index, param in enumerate(params):
+            if not isinstance(param, Param):
+                params[index] = Param(None, param)
+
+        return params
+
+    def __repr__(self):
+        return f"Call(address={Address(self.address)}, function={self.function}, params={self.params})"
+    
+    def calculate(self, address:str, call_params:list[Param], params:list[Param]):
+        code = []
+
+        if not call_params:
+            match self.async_call:
+                case True:
+                    code = [Opcode(0x07), address]
+                case False:
+                    code = [Opcode(0x29), address]
+        else:
+            for param in call_params:
+                code += self._terminate(param.value.calculate(params))
+
+            code = [Opcode(0xb4), Word(len(call_params), 1).code(params)] + code + [address]
+
+        return code
+    
+    def _code(self, params:list[Param]):
+        #params = self.handle_params(params, self.params)
         
-    def _code(self):
+        out_params = []
+        if self.function:
+            out_params = [Param(param.name, param.value) for param in self.params]
+
+            for param in out_params:
+                if param.value == None:
+                    for p in params:
+                        if param.name == p.name:
+                            param.value = p.value
+
+            #params = self.handle_params(params, self.params)
+
+            for p, a in zip(out_params, self.function.args):
+                if p.name != a.name:
+                    pass
+                p.name = a.name
+
         if self.function == None or self.function.install:
             address = "xx xx xx"
+            if self.address == None and self.function != None: #TODO: should be done by the linker
+                self.address = self.function.address
             if self.address != None:
                 address = Address(self.address)
-                address = address.code()
+                address = address.code([])
+            else:
+                pass
 
-            return f"""
-29 {address}      // call({self.address})
-            """
+            code = self.calculate(address, out_params, params)
+            code = self._clean_calucatable(code, params)
+
+            return code
         
         else:
-            return Function_Code(self.function.script, '\n').code(self.params)
+            return Function_Code(self.function.script, '\n').code(out_params)
 
 class End(Function_Base):
-
     def eval(self):
         return 0
         
-    def _code(self):
+    def _code(self, params:list[Param]):
         return f"""
 00      // (00) END (return)"
         """
@@ -249,7 +482,7 @@ class Function_Transition(Function_Base): # TODO
     def eval(self):
         return 0
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         if hasattr(self, 'label_destination'):
             prefix = f"{self.label_destination.value}: "
         else:
@@ -269,9 +502,9 @@ class Function_Eval(Function_Base):
     def eval(self):
         return 0
         
-    def _code(self):
+    def _code(self, params:list[Param]):
         return f"""
-{self.text.value.code()}        // eval({self.text.value})
+{self.text.value.code(params)}        // eval({self.text.value})
         """
 
 class Function_Goto(Function_Base):
@@ -282,10 +515,12 @@ class Function_Goto(Function_Base):
     def eval(self):
         return 0
         
-    def _code(self):
-        distance = "xx xx"
+    def _code(self, params:list[Param]):
+        distance = "yy yy"
         if self.distance:
-            distance = Word(self.distance).code()
+            distance = Word(self.distance).code(params)
+        else:
+            pass
 
         return f"""
 04 {distance}      // goto({self.label}/{distance})
@@ -311,212 +546,450 @@ class Enum_Call(BaseBox):
         self.identifier = identifier.value
 
         enum_identifier = re.sub("\..*", "",  self.identifier)
-        enum = generator.get(enum_identifier)
+        enum = generator.get_identifier(enum_identifier)
 
         enum_value = re.sub(".*\.", "",  self.identifier)
+        value = None
         for v in enum.values:
             if v.name == enum_value:
                 value = v.value
                 break
 
+        if value == None:
+            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}'"
+            raise Exception(error)
+        
         self.value = value
 
     def eval(self):
         return self.value
 
-class Identifier(BaseBox):
-    def __init__(self, value):
-        self.value = value.value
+class If_list(Function_Base, Memorable):
+    def __init__(self, if_list):
+        self.if_list = if_list
 
-    def eval(self):
-        # TODO
-        for param in self.params:
-            if param.name == self.value:
-                return param.value.eval()
+        self.update_memory([])
 
-        raise Exception("undefined parameter")
+    def update_memory(self, params:list[Param]):
+        for element in self.if_list:
+            element.update_memory(params)
+            self.inherit_memory(element)
 
-class If_list(Function_Base):
-    def __init__(self, list):
-        self.list = list
-        self.memory = False
-
-        for element in self.list:
-            if element.memory:
-                self.memory = True
-                break
-
-        for element in self.list:
+        for element in self.if_list:
             element.memory = self.memory
 
-    def _code(self):
-        for script in self.list:
-            script.params = self.params
 
-        list = []
+    def _code(self, params:list[Param]):
+        self.update_memory(params)
+
+        if_list = []
         if_depleted = False
 
-        if not self.memory:
-            for element in self.list:
-                if isinstance(element.condition, Memory):
-                    raise Exception("memory in non-memory if")
-                elif not if_depleted and (element.condition == None or element.eval()):
-                    list.append(element)
-                    if_depleted = True
-        else:
-            for element in self.list:
-                if self.memory:
-                    list.append(element)
-                    list += element.script
-                    element.distance = Function_Code(element.script, '\n').count()
+        if self.memory:
+            def pad_all_but_last(element:If, is_last:bool):
+                script = [element] + element.script
+                if not is_last:
+                    script += [Jump(None)]
+
+                return script
+                                 
+            if_count = [Function_Code(pad_all_but_last(element, index == (len(self.if_list) - 1)), '\n').count(params) for index,element in enumerate(self.if_list)]
+            if_count.reverse()
+            if_count.pop()
+
+
+            for element in self.if_list:
+                count = sum(if_count)
+                if count > 0:
+                    jump = Jump(count)
+                    jump.distance = count
+                    script_with_jump = element.script + [jump]
+                else:
+                    script_with_jump = element.script
+
+                if if_count:
+                    if_count.pop()
+
+                if self.memory: #TODO: should be redundant
+                    if_list.append(element)
+                    if_list += script_with_jump
+                    element.distance = Function_Code(script_with_jump, '\n').count(params)
                 elif element.condition == None:
-                    list += element.script
+                    if_list += script_with_jump
                 else:
                     raise Exception("non memory in memory if")
-                
-        return Function_Code(list, '\n').code(self.params)
+        else:
+            for element in self.if_list:
+                condition = self.resolve(element.condition, params)
 
-class If(Function_Base):
-    def __init__(self, condition, script):
+                if isinstance(condition, Memory):
+                    self.update_memory(params)
+                    raise Exception("memory in non-memory if")
+                elif not if_depleted and (condition == None or element.eval(params)):
+                    if_list.append(element)
+                    if_depleted = True
+                
+        return Function_Code(if_list, '\n').code(params)
+
+class If(Function_Base, Calculatable, Memorable):
+    def __init__(self, condition, script, inverted):
         self.condition = condition
         self.script = script
+        self.inverted = inverted
+
         self.distance = None
-        self.memory = False
 
-        if isinstance(condition, Memory):
-            self.memory = True
-        elif isinstance(condition, BinaryOp) and isinstance(condition.left.value, Memory):
-            self.memory = True
+        self.update_memory([])
 
-    def eval(self):
-        if self.condition != None:
-            self.condition.params = self.params
+    def update_memory(self, params):
+        #self.handle_params(params)
+        condition = self.resolve(self.condition, params)
 
-        match self.condition:
-            case _ if isinstance(self.condition, Word):
-                return self.condition.eval() > 0
-            case _ if isinstance(self.condition, BinaryOp):
-                return self.condition.eval()
+        if condition:
+            if isinstance(condition, UnaryOp):
+                self.memory = condition.memory
+            if isinstance(condition, Memory):
+                self.memory = True
+            elif isinstance(condition, BinaryOp):
+                self.memory = condition.memory
+
+    def eval(self, params:list[Param]):
+        self.update_memory(params)
+        condition = self.resolve(self.condition, params)
+
+        match condition:
+            case Word():
+                condition = condition.eval(params) > 0
+            case BinaryOp() | Identifier():
+                condition = condition.eval(params)
             case None:
-                return True
+                condition = True
             case _:
                 raise Exception("unknown type for IF condition")
+            
+        return condition
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         destination = "xx xx"
         if self.distance != None:
             destination = Word(self.distance)
-            destination = destination.code()
+            destination = destination.code(params)
 
-        if self.memory and self.condition:
-            if isinstance(self.condition, BinaryOp):
-                code = self.condition.flatten(self.condition)
+        condition = self.resolve(self.condition, params)
+        if self.memory:
+            if condition:
+                code = self.calculate(params)
+                code = self._clean_calucatable(code, params)
+                
+                return code
             else:
-                code = [self.condition]
-            code = ["if"] + code + [destination]
-            code = f"{Calculator(list(code)).code()} // Calculator({code})"
-            return code
+                return Function_Code([], '\n').code(params) #TODO: else repeated self.script needlessly
         else:
-            return Function_Code(self.script, '\n').code(self.params)
+            return Function_Code(self.script, '\n').code(params)
         
-class Equals(BinaryOp):
+    def calculate(self, params:list[Param]):
+        destination = "xx xx"
+        if self.distance != None:
+            destination = Word(self.distance)
+            destination = destination.code(params)
+
+        code = []
+
+        condition = self.resolve(self.condition, params)
+        condition = condition.calculate(params)
+
+        inverted = self.inverted
+        if isinstance(self.condition, UnaryOp):
+            inverted = not inverted
+
+        if inverted:
+            opcode = Opcode(0x08)
+        else:
+            opcode = Opcode(0x09)
+
+        code = [opcode] + self._terminate(condition) + [destination]
+
+        return code
+    
+class BinaryDefaultCalculator():
+    def _default_calculate(self, operator:int, left:any, right:any, params:list[Param]):
+        code = []
+        if not isinstance(right, list):
+            right = right.calculate(params)
+
+        match left:
+            case Memory():
+                match left.type:
+                    case "char":
+                        code = left.calculate(params) + [Operand("push")] + right + [operator]
+                    case "28":
+                        code = [Operand("read signed temp word"), left.code(params), Operand("push")] + right + [operator]
+                    case "22" | "xx":
+                        code = [Operand("read signed word"), left.code(params), Operand("push")] + right + [operator]
+                    case _:
+                        TODO()
+            case Deref():
+                code = left.calculate(params) + [Operand("push")] + right + [operator]
+            case Object():
+                TODO()
+            case Arg():
+                code = left.calculate(params) + [Operand("push")] + right + [operator]
+            case _:
+                TODO()
+
+        return code
+        
+class Equals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "=="
 
-    def _eval(self):
-        return self.left.value.eval() == self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) == right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("==")
 
+        return self._default_calculate(operator, left, right, params)
+        
+class NotEquals(BinaryOp):
+    def operator(self):
+        return "!="
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) != right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        code = []
+        operator = Operand("!=")
+        if not isinstance(right, list):
+            right = right.calculate(params)
+
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
 class GreaterEquals(BinaryOp):
     def operator(self):
         return ">="
 
-    def _eval(self):
-        return self.left.value.eval() >= self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) >= right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        code = []
+        operator = Operand(">=")
 
-class Greater(BinaryOp):
+        match left:
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
+                code = left.calculate(params) +  [Operand("push")] + right + [operator]
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
+class Greater(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return ">"
 
-    def _eval(self):
-        return self.left.value.eval() > self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) > right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand(">")
 
-class LowerEquals(BinaryOp):
+        return self._default_calculate(operator, left, right, params)
+    
+class LowerEquals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<="
 
-    def _eval(self):
-        return self.left.value.eval() <= self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) <= right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("<=")
 
-class Lower(BinaryOp):
+        return self._default_calculate(operator, left, right, params)
+    
+class Lower(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<"
 
-    def _eval(self):
-        return self.left.value.eval() < self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) < right.eval(params)
     
-class Add(BinaryOp):
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("<")
+
+        return self._default_calculate(operator, left, right, params)
+    
+class Add(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "+"
 
-    def _eval(self):
-        return self.left.value.eval() + self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) + right.eval(params)
 
-class Sub(BinaryOp):
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("+")
+
+        return self._default_calculate(operator, left, right, params)
+    
+class Sub(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "-"
 
-    def _eval(self):
-        return self.left.value.eval() - self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) - right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("-")
 
+        return self._default_calculate(operator, left, right, params)
+    
 class Mul(BinaryOp):
     def operator(self):
         return "*"
 
-    def _eval(self):
-        return self.left.value.eval() * self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) * right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        pass
 
-class Div(BinaryOp):
+class Div(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "/"
 
-    def _eval(self):
-        return self.left.value.eval() // self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) // right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("/")
 
-class ShiftRight(BinaryOp):
+        return self._default_calculate(operator, left, right, params)
+
+class ShiftRight(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return ">>"
 
-    def _eval(self):
-        return self.left.value.eval() >> self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) >> right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand(">>")
 
-class ShiftLeft(BinaryOp):
+        return self._default_calculate(operator, left, right, params)
+    
+class ShiftLeft(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<<"
 
-    def _eval(self):
-        return self.left.value.eval() << self.right.value.eval()
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) << right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("<<")
 
+        return self._default_calculate(operator, left, right, params)
+    
+class And(BinaryOp):
+    def operator(self):
+        return "&"
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) & right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        code = []
+
+        match left:
+            case left if isinstance(left, Memory):
+                right = self.resolve(self.right, params)
+                right = right.eval(params)
+
+                if right == 0xff:
+                    left._value_count = 1
+                else:
+                    raise Exception(f"right parameter '${right}' not supported")
+
+                return left
+            case _:
+                raise Exception(f"left parameter '${left}' not supported")
+
+        return code
+    
 class Asign(BinaryOp):
     def operator(self):
         return "="
 
-    def _code(self):
-        code = self.flatten(self)
-        code = f"{Calculator(code).code()} // Calculator({code})"
+    def _code(self, params:list[Param]):
+        code = self.calculate(params)
+        code = self._clean_calucatable(code, params)
+
+        return code
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        code = []
+        if not isinstance(right, list):
+            right = right.calculate(params)
+
+        match left:
+            case Memory():
+                match left.type:
+                    case "char":
+                        code = left.calculate(params) + self._terminate(right)
+                    case "xx":
+                        code = [Opcode(0x18), left.code(params)] + self._terminate(right)
+                    case "28":
+                        code = [Opcode(0x19), left.code(params)] + self._terminate(right)
+                    case "22":
+                        code = [Opcode(0x18), left.code(params)] + self._terminate(right)
+                    case _:
+                        TODO()
+            case Deref():
+                code = [Opcode(0x7a)] + self._terminate(left.calculate(params, deref=False)) + self._terminate(right)
+            case Object():
+                code = self._terminate([Opcode(0x5c)] + left.calculate(params)) + self._terminate(right)
+            case Arg():
+                code = [Opcode(0x1a), left.code(params)] + self._terminate(right)
+            case _:
+                TODO()
+
         return code
 
 class OrAsign(BinaryOp):
     def operator(self):
         return "|="
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         raise Exception("not implemented")
 
 class AndAsign(BinaryOp):
     def operator(self):
         return "&="
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         raise Exception("not implemented")
 
 class Include(BaseBox):
@@ -528,7 +1001,7 @@ class Include(BaseBox):
         from compiler.lexer import Lexer
         from compiler.parser import Parser
 
-        print(f" - handle import '${self.path}':")
+        print(f" - handle import '{self.path}':")
 
         lexer = Lexer().get_lexer()
         pg = Parser(self.generator)
@@ -538,6 +1011,7 @@ class Include(BaseBox):
         script = open(self.path, 'r').read()
         #print(f"{self.path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
+        outUtils = _injector.get(OutUtils)
         outUtils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
         script = lexer.lex(script)
         print(" - generating objects...")
@@ -550,7 +1024,42 @@ class Set(Function_Base):
     def __init__(self, memory):
         self.memory = memory
 
-    def _code(self):
+    def _code(self, params:list[Param]):
+        combined = "xx xx"
+
+        memory = self.resolve(self.memory, params)
+        if memory:
+            address = memory.address
+            address -= 0x2258
+            address <<=  3
+
+            flag = memory.flag
+            f = 0
+            while  flag > 1:
+                flag >>= 1
+                f += 1
+            flag = f
+            flag &= 0b111
+            
+            combined = address + flag
+            #combined -= 1 # TODO
+            combined = '{:04X}'.format(combined, 'x')
+            combined = wrap(combined, 2)
+            combined = ' '.join(reversed(combined))
+
+        value = 0x01
+        value &= 0b111
+        value += 0xb0
+        value = '{:02X}'.format(value, 'x')
+
+        return f"""
+0c {combined} {value}       // set({self.memory})
+        """
+class Unset(Function_Base):
+    def __init__(self, memory):
+        self.memory = memory
+
+    def _code(self, params:list[Param]):
         address = self.memory.value.address
         address -= 0x2258
         address <<=  3
@@ -569,7 +1078,7 @@ class Set(Function_Base):
         combined = wrap(combined, 2)
         combined = ' '.join(reversed(combined))
 
-        value = 0x01
+        value = 0x00
         value &= 0b111
         value += 0xb0
         value = '{:02X}'.format(value, 'x')
@@ -589,12 +1098,18 @@ class Len(Function_Base):
                 script = Word(script.count())
                 
                 return script
+            case _ if isinstance(self.script, Param):
+                script = self.script
+                script = script.value
+                script = Word(script.count())
+                
+                return script
             case None:
                 return 0
             case _:
                 raise Exception(f"unknown type: can't generate code")
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         match self.script:
             case _ if isinstance(self.script, Function_Base):
                 script = self.script
@@ -614,26 +1129,27 @@ class Rnd(Function_Base):
         return Word(rnd)
 
 class While(Function_Base):
-    def __init__(self, condition, script):
+    def __init__(self, condition, script, inverted):
         self.script = script
+        self.inverted = inverted
 
         self.while_goto_end = Function_Goto()
 
-        self.while_if = If(condition, [])
-        self.while_if.distance = Function_Code(script, '\n').count() + self.while_goto_end.count()
+        self.while_if = If(condition, [], inverted)
         self.memory = self.while_if.memory
 
         self.list = [self.while_if] + script + [self.while_goto_end]
 
-        self.while_goto_end.distance = -(self.while_if.count() + Function_Code(script, '\n').count() + self.while_goto_end.count())
-        pass
+    def _update_condition(self, params:list[Param]):
+        self.while_if.distance = Function_Code(self.script, '\n').count(params) + self.while_goto_end.count(params)
+        self.while_goto_end.distance = -(self.while_if.count(params) + Function_Code(self.script, '\n').count(params) + self.while_goto_end.count(params))
 
-    def _code(self):
-        for script in self.script:
-            script.params = self.params
+
+    def _code(self, params:list[Param]):
+        self._update_condition(params)
 
         code = self.list
-        code = Function_Code(code, '\n').code(self.params)
+        code = Function_Code(code, '\n').code(params)
 
         return code
 
@@ -643,34 +1159,35 @@ class Void(BaseBox):
 class StringKey(Function_Base):
     def __init__(self, index):
         self.index = index
+        self._value_count = 3
         if isinstance(self.index, Param):
-            self.index = self.index.eval()
+            self.index = self.index.eval([])
         self.address = 0x91d000 + self.index
         
-        if (self.index % 3) != 0:
+        if (self.index % self.value_count()) != 0:
             raise Exception("invalid index (only index%3==0 is allowed")
 
     def __repr__(self):
         return f"StringKey({self.index})"
         
     def eval(self):
-        return Range(self.address, self.address + 2)
+        return Range(self.address, self.address + (self.value_count() - 1))
 
-    def _code(self):
+    def _code(self, params:list[Param]):
         code = Word(self.index)
-        code.value_count = 3
-        code = code.code()
+        code._value_count = self.value_count()
+        code = code.code(params)
 
         return code
-
+    
 class Range(BaseBox):
     def __init__(self, start, end):
         self.start = start
         if isinstance(self.start, Word):
-            self.start = self.start.eval()
+            self.start = self.start.eval([])
         self.end = end
         if isinstance(self.end, Word):
-            self.end = self.end.eval()
+            self.end = self.end.eval([])
 
         if type(self.start) != type(self.end):
             raise Exception("type of start and end don't match")
@@ -678,15 +1195,19 @@ class Range(BaseBox):
     def __repr__(self):
         return f"Range({self.start}..{self.end})"
 
-    def eval(self):
+    def eval(self, params:[Param]):
         list = []
         if isinstance(self.start, StringKey):
-            step = 3
+            step = self.start.value_count()
             for index in range(self.start.index, self.end.index + step, step):
                 list.append(StringKey(index))
+        elif isinstance(self.start, FunctionKey):
+            step = self.start.value_count()
+            for index in range(self.start.index, self.end.index + step, step):
+                list.append(FunctionKey(index))
         elif isinstance(self.start, Memory):
             step = 2
-            for address in range(self.start.eval(), self.end.eval() + step, step):
+            for address in range(self.start.eval(params), self.end.eval(params) + step, step):
                 list.append(Memory(address))
         else:
             raise Exception("unknown type")
@@ -700,3 +1221,304 @@ class Range(BaseBox):
             return Range(self.start + o, self.end + o)
         else:
             raise Exception("invalid parameter")
+
+class MapEntrance(Function_Base):
+    def __init__(self, x, y, direction):
+        self.x = x.eval([])
+        self.y = y.eval([])
+        self.direction = direction.eval([])
+
+class Soundtrack(Function_Base):
+    def __init__(self, generator, track, volume):
+        self.track = track
+        self.volume = volume
+
+        self._generator = generator
+    
+    def _code(self, params:list[Param]):
+        function_transition = self._generator.get_function("music_enter")
+        function_transition = Call(function_transition, [self.track, self.volume])
+        function_transition = function_transition.code(params)
+
+        return function_transition
+
+class Map(Function_Base):
+    class Collection(StrEnum):
+        ENTRANCE = "entrance"
+        SOUNDTRACK = "soundtrack"
+        B_TRIGGER = "b_trigger"
+        STEPON_TRIGGER = "stepon_trigger"
+
+    class Trigger(StrEnum):
+        ENTER = "trigger_enter"
+
+    variant: int = None
+
+    enums:dict[str, Enum] = {}
+    enum_entrance:list[MapEntrance] = None
+    enum_soundtrack:list[Soundtrack] = None
+    enum_stepon_trigger:list[Function] = None
+    enum_b_trigger:list[Function] = None
+
+    functions:dict[str, Function] = {}
+    trigger_enter:Function = None
+
+    def __init__(self, name, params, code, objects):
+        if isinstance(name, Token):
+            name = name.value
+        self.name = name
+        self.objects = objects
+
+        if isinstance(params, Token):
+            params = params.value
+        self.map_index = params[0]
+        if isinstance(self.map_index, Param):
+            self.map_index = self.map_index.value
+        if isinstance(self.map_index, Word):
+            self.map_index = self.map_index.value
+
+        self.functions = {c.name: c for c in code if isinstance(c, Function)}
+        self.trigger_enter = self._extract_function(self.Trigger.ENTER)
+
+        self.enums = {c.name: c for c in code if isinstance(c, Enum)}
+        self.enum_entrance = self._extract_enum(self.Collection.ENTRANCE)
+        self.enum_soundtrack = self._extract_enum(self.Collection.SOUNDTRACK)
+        self.enum_stepon_trigger = self._extract_enum(self.Collection.STEPON_TRIGGER)
+        self.enum_b_trigger = self._extract_enum(self.Collection.B_TRIGGER)
+
+        pass
+    
+    def _extract_function(self, trigger: Trigger):
+        if trigger in self.functions.keys():
+            return self.functions[trigger]
+        else:
+            return None
+        
+    def _extract_enum(self, enum: Collection):
+        if enum in self.enums.keys():
+            return self.enums[enum]
+        else:
+            return None
+        
+    def triggers_stepon(self) -> list:
+        return self.enum_to_list(self.enum_stepon_trigger, self.map_data.trigger_step_count)
+    
+    def triggers_b(self) -> list:
+        return self.enum_to_list(self.enum_b_trigger, self.map_data.trigger_b_count)
+    
+    def soundtrack(self) -> Soundtrack:
+        if self.enum_soundtrack:
+            return self.enum_soundtrack.values[0].value
+        else:
+            return None
+
+    def enum_to_list(self, enum:Enum, count:int) -> list:
+        triggers = []
+        if enum != None:
+            triggers = enum.values
+
+        if len(triggers) > count:
+            raise Exception(f"invalid trigger count for {enum} ({len(triggers)} > {count})")
+
+        triggers = triggers + [None] * (count - len(triggers))
+
+        return triggers
+    
+class MapTransition(Function_Base):
+    map: Map = None
+    entrance: MapEntrance = None
+
+    def __init__(self, generator, map_name, entrance_name, direction):
+        self.map_name = map_name.name
+        self.entrance_name = entrance_name.name
+        self.direction = direction.value
+        if isinstance(self.direction, Word):
+            self.direction = self.direction.eval([])
+
+        self._generator = generator
+        generator.add_map_transition(self)
+        self.scope = generator.current_scope()
+
+        pass
+
+    def link(self, map: Map, entrance: MapEntrance):
+        self.map = map
+        self.entrance = entrance
+
+        pass
+
+    def _code(self, params:list[Param]):
+        if self.map == None or self.entrance == None or self.map.variant == None:
+            return f"""
+yy // linking required
+            """
+        else:
+            track_in = self.scope.value
+            if track_in:
+                track_in = track_in.soundtrack()
+            if track_in:
+                track_in = track_in.track
+                track_in = track_in.eval(params)
+            
+            track_out = self.map.soundtrack()
+            if track_out:
+                track_out = self.map.soundtrack().track
+                track_out = track_out.eval(params)
+            
+            if track_in != track_out:
+                change_music = Word(0x01)
+            else:
+                change_music = Word(0x00)
+
+            call_params = [
+                self.map.map_index,
+                self.entrance.x,
+                self.entrance.y,
+                self.direction,
+                self.entrance.direction,
+                change_music
+            ]
+            call_params = [Param(None, Word(param, 1)) for param in call_params]
+
+            function_transition = self._generator.get_function("transition")
+            function_transition = Call(function_transition, call_params)
+            function_transition = function_transition
+
+            params = self.merge_params(params, call_params)
+
+            code = Function_Code([
+                Asign(Memory(0x2258), Word(self.map.variant)),
+                function_transition
+            ], '\n').code(params)
+
+            return code
+        
+# unary operators
+
+class Dead(UnaryOp):
+    def _calculate(self, value:any, params:list[Param]):
+        code = []
+
+        code = value + [Operand("dead")]
+
+        return code
+    
+class Rand(UnaryOp):
+    def _calculate(self, value:any, params:list[Param]):
+        code = []
+
+        code = [Operand("random word"), Operand("push")] + value + [Operand("&")]
+
+        return code
+    
+class RandRange(UnaryOp):
+    def _calculate(self, value:any, params:list[Param]):
+        code = []
+
+        code = value + [Operand("randrange")]
+
+        return code
+    
+class Loot(Function_Base):
+    def unwrap_param(self, param):
+        if isinstance(param, Param):
+            param = param.value
+
+    def __init__(self, generator, object, reward, amount, next):
+        self._generator = generator
+        self.object = object
+        self.reward = reward
+        self.amount = amount
+        self.next = next
+    
+        flag = self._generator.get_flag()
+
+        self.object = Object(object, flag)
+        self._generator.add_object(self.object)
+
+        self.function = generator.get_function("loot")
+
+    def _code(self, params:list[Param]):
+        call_params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
+
+        return Call(self.function, call_params).code(params)
+    
+class Axe2Wall(Function_Base):
+    def unwrap_param(self, param):
+        if isinstance(param, Param):
+            param = param.value
+
+    def __init__(self, generator, object):
+        self._generator = generator
+        self.object = object
+    
+        flag = self._generator.get_flag()
+
+        self.object = Object(object, flag)
+        self._generator.add_object(self.object)
+
+        self.function = generator.get_function("axe2_wall")
+
+    def _code(self, params:list[Param]):
+        call_params = [self.object.flag, self.object]
+
+        return Call(self.function, call_params).code(params)
+    
+class Reference(Function_Base):
+    def __init__(self, generator, name:any):
+        self._generator = generator
+        self._scope = generator.current_scope()
+
+        self.name = name
+
+        if isinstance(name, Param):
+            name = name.name
+        if isinstance(name, Identifier):
+            name = name.name
+
+        self.value = None
+        self._value_count = None
+
+        self.update_reference(name)
+
+    def __repr__(self):
+        return f"Reference(name={self.name}, value={self.value})"
+    
+    def update_reference(self, name:str):
+        if not self.value:
+            self.value = self._generator.get_function(name, self._scope)
+            if self.value:
+                self._generator.reference_function(self.value)
+
+    def eval(self, params:list[Param]):
+        self.update_reference(self.name)
+
+        match self.value:
+            case Function():
+                self._value_count = 2
+
+                index = self.value.key
+                index = index.index
+                return index
+            case None:
+                self._value_count = 2
+                self.update_reference(self.name)
+
+                return 0xffff
+            case _:
+                raise Exception(f"invalid reference {self.value}")
+    
+class Jump(Function_Base):
+    def __init__(self, distance:int):
+        self.distance = distance
+
+    def _code(self, params:list[Param]):
+        code = "xx xx"
+        
+        if self.distance != None:
+            code = Word(self.distance)
+            code = code.code(params)
+
+        return f"""
+04 {code}       // (04) SKIP 10 (to 0x999907)
+        """

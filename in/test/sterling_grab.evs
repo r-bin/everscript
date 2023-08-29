@@ -1,0 +1,335 @@
+#memory(
+    string_key(0x0000)..string_key(0x232b), // all string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    <0x2258>
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "skip_intro",
+    // "brian",
+    // "camera_hack",
+    // "free_graveyard_ids",
+    // "save_file_growth",
+
+    // asm
+    // "debug_menu", // uses 0x3f0000…???
+    // "_hook_input", // 0x3f0000…0x310000
+        // "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
+)
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(demo_map, center, DIRECTION.NONE);
+}
+
+map demo_map(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x15, 0x17, DIRECTION.NONE),
+    }
+
+    @install()
+    fun branch_triggered() {
+        subtext(string("hello world[END]"));
+
+        <CHARACTER.SCRIPT_OWNER>[0x0b] = 0x0800;
+        control_enemy(CHARACTER.SCRIPT_OWNER, False);
+
+        MEMORY.STRING_PARAMETER_1 = <CHARACTER.SCRIPT_OWNER>;
+        attach_to_script(CHARACTER.LAST_ENTITY);
+        MEMORY.STRING_PARAMETER_2 = <CHARACTER.SCRIPT_OWNER>;
+
+        subtext(string("boy = [0xa1]/[0xa2][END]"));
+
+        if(False) {
+            if(<CHARACTER.SCRIPT_OWNER> == <CHARACTER.BOY>) {
+                subtext(string("boy[END]"));
+            } else if(<CHARACTER.SCRIPT_OWNER> == <0x2834>) {
+                subtext(string("$2834[END]"));
+            } else if(<CHARACTER.SCRIPT_OWNER> == <CHARACTER.SCRIPT_OWNER>) {
+                subtext(string("owner[END]"));
+            } else {
+                subtext(string("???[END]"));
+            }
+        }
+    }
+    
+    fun branch_lady(x, y, id) {
+        add_enemy(ENEMY.VILLAGER_2_4, x, y);
+        entity_script_controlled(CHARACTER.LAST_ENTITY);
+        face(CHARACTER.LAST_ENTITY, DIRECTION.WEST);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, id);
+    }
+
+    @install()
+    fun grabby_elevator_up() {
+        walk(WALK_TYPE.ABSOLUTE, CHARACTER.BOY, 0x0f, 0x13, True);
+        face(CHARACTER.BOY, DIRECTION.SOUTH);
+        walk(WALK_TYPE.ABSOLUTE, CHARACTER.DOG, 0x11, 0x13, True);
+        face(CHARACTER.DOG, DIRECTION.SOUTH);
+
+        // while(True) {
+        //     <CHARACTER.BOY>[0x1e] = <CHARACTER.BOY>[0x1e] + 0x01;
+        // }
+
+        // <0x24ab> = 0x00f8;
+        // <0x24af> = 0x02a0;
+        // <0x24cf> = 0x00f8;
+        // <0x24d1> = 0x00b8;
+
+        // set(<0x2834, 0x02>);
+        // <0x2835> = 0xffff;
+
+        // call(0x958000);
+
+        animate(0x283d, ANIMATION_MODE.LOOP, ANIMATION_PLACEHOLDER.ELEVATOR);
+
+        <0x283f> = 0x00;
+        <0x2841> = 0x01;
+
+        sfx_effect(SFX_EFFECT.SHAKING, True);
+        sleep(0x07);
+        sfx_effect(SFX_EFFECT.SHAKING, False);
+
+        while(True) {
+        // while(<0x283f> < 0xff) {
+            <0x283d>[0x20] = <0x283f>;
+            <CHARACTER.BOY>[0x20] = <0x283f>;
+            <CHARACTER.DOG>[0x20] = <0x283f>;
+
+            <0x283f> = <0x283f> + <0x2841>;
+            sleep(0x05);
+            yield();
+
+            if(<0x283f> > 0x05) {
+                <0x2841> = 0x03;
+            }
+            if(<0x283f> > 0x50) {
+                map_transition(demo_map, center, DIRECTION.NONE);
+            }
+        }
+    }
+    @install()
+    fun grabby_elevator_down() {
+        walk(WALK_TYPE.ABSOLUTE, CHARACTER.BOY, 0x0f, 0x13, True);
+        face(CHARACTER.BOY, DIRECTION.SOUTH);
+        walk(WALK_TYPE.ABSOLUTE, CHARACTER.DOG, 0x11, 0x13, True);
+        face(CHARACTER.DOG, DIRECTION.SOUTH);
+
+        // while(True) {
+        //     <CHARACTER.BOY>[0x1e] = <CHARACTER.BOY>[0x1e] + 0x01;
+        // }
+
+        // <0x24ab> = 0x00f8;
+        // <0x24af> = 0x02a0;
+        // <0x24cf> = 0x00f8;
+        // <0x24d1> = 0x00b8;
+
+        // set(<0x2834, 0x02>);
+        // <0x2835> = 0xffff;
+
+        // call(0x958000);
+
+        animate(0x283d, ANIMATION_MODE.LOOP, ANIMATION_PLACEHOLDER.ELEVATOR);
+
+        <0x283f> = 0xa00;
+        
+        <0x283d>[0x1e] = <0x283f>;
+        <CHARACTER.BOY>[0x1e] = <0x283f>;
+        <CHARACTER.DOG>[0x1e] = <0x283f>;
+
+        sleep(0x50);
+
+        control(CHARACTER.BOTH);
+
+        sleep(0x50);
+
+        map_transition(demo_map, center, DIRECTION.NONE);
+    }
+
+    @install()
+    @async()
+    fun grabby() {
+        while(True) {
+            attach_to_script(0x283d);
+
+            <0x249d> = <CHARACTER.BOY>[0x1a];
+            <0x249f> = <CHARACTER.BOY>[0x1c];
+            <0x24a1> = <CHARACTER.SCRIPT_OWNER>[0x1a];
+            <0x24a3> = <CHARACTER.SCRIPT_OWNER>[0x1c];
+
+            if(<0x249d> < <0x24a1>) {
+                <0x2834> = <0x24a1> - <0x249d>;
+                <0x2838> = 0x01;
+            } else {
+                <0x2834> = <0x249d> - <0x24a1>;
+                <0x2838> = 0x02;
+            }
+
+            if(<0x249f> < <0x24a3>) {
+                <0x2836> = <0x24a3> - <0x249f>;
+                <0x283a> = 0x01;
+            } else {
+                <0x2836> = <0x249f> - <0x24a3>;
+                <0x283a> = 0x02;
+            }
+
+            if(<0x2834> <= 0x20) {
+                if(<0x2836> <= 0x20) {
+                    grabby_elevator_up();
+                    end();
+                }
+            }
+
+            MEMORY.STRING_PARAMETER_1 = <0x2834>;
+            MEMORY.STRING_PARAMETER_2 = <0x2836>;
+
+            subtext(string("grab = [0xa1]/[0xa2][END]"));
+
+            sleep(0x20);
+            yield();
+        }
+    }
+
+    @install()
+    fun transform() {
+        control_enemy(0x28a5, True);
+        control_enemy(0x28a7, True);
+
+        destroy(0x28a5);
+
+        attribute_bit(0x28a7, ATTRIBUTE_BITS.INVINCIBLE);
+
+        animate(0x28a7, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
+
+        sleep(0x30);
+
+        add_enemy(ENEMY.BOY_BLACK, 0x00, 0x00);
+        <CHARACTER.LAST_ENTITY>[0x1a] = <0x28a7>[0x1a];
+        <CHARACTER.LAST_ENTITY>[0x1c] = <0x28a7>[0x1c];
+        destroy(0x28a7);
+    }
+
+    @install()
+    @async()
+    fun grabby_owls() {
+        while(True) {
+            <0x2499> = <0x28a5>[0x1a];
+            <0x249b> = <0x28a5>[0x1c];
+            <0x24ad> = <0x28a7>[0x1a];
+            <0x24af> = <0x28a7>[0x1c];
+
+            if(<0x2499> < <0x24ad>) {
+                <0x2836> = <0x24ad> - <0x2499>;
+            } else {
+                <0x2836> = <0x2499> - <0x24ad>;
+            }
+
+            if(<0x249b> < <0x24af>) {
+                <0x2838> = <0x24af> - <0x249b>;
+            } else {
+                <0x2838> = <0x249b> - <0x24af>;
+            }
+
+            if(<0x2836> <= 0x10) {
+                if(<0x2838> <= 0x10) {
+                    transform();
+                    end();
+                }
+            }
+
+
+            // MEMORY.STRING_PARAMETER_1 = <0x249d>;
+            // MEMORY.STRING_PARAMETER_2 = <0x249f>;
+
+            // MEMORY.STRING_PARAMETER_1 = <0x24a1>;
+            // MEMORY.STRING_PARAMETER_2 = <0x24a3>;
+
+            // MEMORY.STRING_PARAMETER_1 = <0x249d>;
+            // MEMORY.STRING_PARAMETER_2 = <0x24a1>;
+
+            // MEMORY.STRING_PARAMETER_1 = <0x2834>;
+            // MEMORY.STRING_PARAMETER_2 = <0x2836>;
+            
+            // MEMORY.STRING_PARAMETER_1 = <0x2838>;
+            // MEMORY.STRING_PARAMETER_2 = <0x283a>;
+
+            // subtext(string("grab = [0xa1]/[0xa2][END]"));
+
+            // sleep(0x20);
+            yield();
+        }
+    }
+
+    fun test_grabby() {
+        // branch_lady(0x10, 0x12, reference(branch_triggered));
+        add_enemy(ENEMY.PLACEHOLDER, 0x10, 0x12);
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_PLACEHOLDER.ELEVATOR);
+        store_last_entity(0x283d);
+
+        grabby();
+    }
+
+    @install()
+    fun owl_triggered() {
+        // subtext(string("ouch[END]"));
+        sleep(0x30);
+        animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
+    }
+
+    fun test_owl_transform() {
+        add_enemy(ENEMY.OWL_BLACK, 0x05, 0x15);
+        <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
+        store_last_entity(0x28a5);
+        if(True) {
+            control_enemy(0x28a5, True);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(owl_triggered));
+        }
+
+        add_enemy(ENEMY.OWL_BLACK, 0x25, 0x25);
+        <CHARACTER.LAST_ENTITY>[0x2a] = 0x0fff;
+        store_last_entity(0x28a7);
+        if(True) {
+            control_enemy(0x28a7, True);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(owl_triggered));
+        }
+
+        grabby_owls();
+
+        if(False) {
+            control_enemy(0x28a7, True);
+            add_enemy(ENEMY.BOMB, 0x25, 0x25);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+            store_last_entity(0x28a9);
+
+            while(True) {
+                <0x28a9>[0x1a] = <0x28a7>[0x1a];
+                <0x28a9>[0x1c] = <0x28a7>[0x1c];
+                yield();
+            }
+        }
+    }
+
+    fun trigger_enter() {
+        // sfx_effect(SFX_EFFECT.RAIN, True);
+        // sfx_effect(SFX_EFFECT.NIGHT, True);
+
+        // available(CHARACTER.BOY);
+        // teleport(CHARACTER.DOG, 0x00, 0x00);
+
+        fade_in();
+
+        test_grabby();
+        test_owl_transform();
+    }
+};
