@@ -889,19 +889,29 @@ class Div(BinaryOp, BinaryDefaultCalculator):
 
         return self._default_calculate(operator, left, right, params)
 
-class ShiftRight(BinaryOp):
+class ShiftRight(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return ">>"
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) >> right.eval(params)
     
-class ShiftLeft(BinaryOp):
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand(">>")
+
+        return self._default_calculate(operator, left, right, params)
+    
+class ShiftLeft(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "<<"
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) << right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("<<")
+
+        return self._default_calculate(operator, left, right, params)
     
 class And(BinaryOp):
     def operator(self):
