@@ -1,0 +1,210 @@
+#memory(
+    string_key(0x0000)..string_key(0x232b), // all string keys
+
+    0x300000..0x3fffff // extension
+)
+#include("in/core.evs")
+
+enum STRING_SOULS {
+    CHOOSE_CLASS = string("[0x96][0x8b]Warrior[LF][0x8b]Explorer[LF][0x8b]Alchemist[LF][0x8b]Cleric[END]"),
+    CHOOSE_ITEM = string("[0x96][0x8b]Chocobo Egg[LF][0x8b]Nectar[LF][0x8b]Wings[LF][0x8b]Queen's Key[END]"),
+    BONFIRE_1 = string("[0x96][0x8b]?[END]")
+}
+
+// souls
+
+@install()
+fun dust_loot() {
+    // attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.LOOT, 0x172b);
+
+    // subtext(string("Reclaimed souls"));
+
+    currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.TALONS);
+
+    // <0x2391> = 0x0000;
+    // <0x2395> = 0x0000;
+    // call_id(0x3d);
+    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.LOOT);
+
+    destroy(0x2834);
+
+    // sleep(0x80);
+
+    show_currency(True);
+    sleep(0x40);
+    show_currency(False);
+}
+
+@install()
+fun dust_drop() {
+    subtext(string("Souls in reach...[END]"));
+
+    attach_script(CHARACTER.SCRIPT_OWNER, SCRIPT_TRIGGER.LOOT, reference(dust_loot));
+
+    <0x23d9> = 0x0001;
+    animate(0x2834, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+    sleep(0x3c);
+    <0x23d9> = 0x0001;
+    animate(0x2834, ANIMATION_MODE.FREEZE, ANIMATION_ENEMY.DUST);
+}
+
+@install()
+fun boy_death() {
+    control(CHARACTER.NONE);
+
+    show_currency(True);
+
+    // subtext(string("Souls lost"));
+
+    // damage(CHARACTER.DOG, 0x03e8);
+
+    currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
+
+    // eval("18 a7 02 50 29 6a 1a d5 // (18) WRITE $24ff = *(boy + 26)"); // X
+    <0x24ff> = <CHARACTER.BOY>[0x1a];
+    // eval("18 a9 02 50 29 6c 1a d5 // (18) WRITE $2501 = *(boy + 28)"); // Y
+    <0x2501> = <CHARACTER.BOY>[0x1c];
+    // <0x2503> = MEMORY.MAP;
+
+    // sleep(0x20);
+
+    // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
+    destroy(0x2834);
+
+    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+    animate(CHARACTER.DOG, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.DUST);
+
+    sleep(0xa0);
+
+    fade_out();
+
+    show_currency(False);
+
+    sleep(0x50);
+
+    heal(CHARACTER.BOTH, False);
+
+    map_transition(inbetwixx, start, DIRECTION.NONE);
+
+    control(CHARACTER.BOTH);
+}
+
+@install()
+fun init_souls() {
+    //if(<0x24ff> == 0) {
+    add_enemy(ENEMY.BEE, 0x00, 0x00);
+    store_last_entity(0x2834);
+    eval("43 8d 00 00 88 a7 02 88 a9 02 // (43) Teleport boy to x:$23b9, y:$23bb"); // X/Y
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(dust_drop));
+    
+    damage(0x2834, 0x03e8);
+    //}
+
+    attach_script(CHARACTER.BOY, SCRIPT_TRIGGER.DEATH, reference(boy_death));
+}
+
+// /souls
+
+@install()
+@inject(ADDRESS.SOUTH_JUNGLE_ENTER)
+fun enter_map_south_jungle() {
+    MEMORY.DOG = DOG.WOLF;
+
+    if(!FLAG.IN_ANIMATION) {
+        teleport(CHARACTER.BOTH, 0x50, 0x83);
+    }
+
+    // add_enemy(ENEMY.STONE, 0x45, 0x85); // stone
+    // add_enemy_with_flags(0x3e, 0x45, 0x85, FLAG_ENEMY.PHASING); // bonfire
+    add_enemy_with_flags(0xc8, 0x45, 0x83, FLAG_ENEMY.INVINCIBLE); // bonfire
+    store_last_entity(0x2835);
+    control_enemy(0x2835, True);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x1857);
+
+    music_volume(MUSIC.START, 0x64);
+
+    fade_in();
+
+    question(STRING_SOULS.CHOOSE_CLASS);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // warrior
+        reward(ITEM.AXE_1);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // explorer
+        MEMORY.WAX = 0x04;
+        MEMORY.ASH = 0x02;
+        unlock(ITEM.REVEALER);
+
+        select_alchemy();
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // alchemist
+        // eval("18 e9 01 cf");
+        // MEMORY.PACIFIED = 0x01;
+
+        MEMORY.CRYSTAL = 0x02;
+        MEMORY.CLAY = 0x02;
+        unlock(ITEM.HARD_BALL);
+
+        MEMORY.ETHANOL = 0x02;
+        MEMORY.ROOT = 0x04;
+        unlock(ITEM.DRAIN);
+
+        select_alchemy();
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // cleric
+        unlock(ITEM.HEAL);
+        unlock(ITEM.CURE);
+
+        select_alchemy();
+    }
+
+    question(STRING_SOULS.CHOOSE_ITEM);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // chocobo egg
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // nectar
+        reward(ITEM.NECTAR);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // wings
+        reward(ITEM.WINGS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // queens key
+        nop();
+    }
+}
+
+@install()
+@inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)
+fun enter_map_raptors() {
+    MEMORY.BOY_XP_REQUIRED = 0xffff;
+    MEMORY.TALONS = 0x0032;
+
+    transition(MAP.RAPTORS, 0x1d, 0x33, DIRECTION.NORTH, DIRECTION.NORTH);
+}
+
+@install()
+@inject(ADDRESS.RAPTORS_EXIT_ENTER)
+fun south_forest_enter() {
+    MEMORY.DOG = DOG.WOLF;
+
+    // unlock(ITEM.SPEAR_1);
+    // unlock(ITEM.JAGUAR_RING);
+
+    music_volume(MUSIC.START, 0x64);
+    
+    init_souls();
+
+    fade_in();
+}
+
+@install(ADDRESS.RAPTORS_STEP_ON_FIGHT)
+fun raptor_fight() {
+    add_enemy(ENEMY.MAGMAR, 0x15, 0x1e);
+}
+
+@install() // "Fire Eyes" = (id:1857 => addr:0x94d5c7)
+@inject(0x94d5c7)
+fun bonfire() {
+    // question(STRING_SOULS.BONFIRE_1);
+    bonfire_dialog();
+}
+@install() // "Hut NPC 1" = (id:1845 => addr:0x94d0bc)
+@inject(0x94d0bc)
+fun mosquito_4_dead() {
+    nop();
+}

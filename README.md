@@ -3,6 +3,11 @@ Compiler for assembler based scripts, used in the SNES game "Secret of Evermore"
 
 Almost completely based on the results of [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) and the work of [Black Sliver](https://github.com/black-sliver).
 
+Currently being developed:
+
+- [in/practice.evs](https://github.com/r-bin/everscript/blob/develop/in/practice.evs) (host: [romhacking.net](https://www.romhacking.net/hacks/7800/))
+- [in/souls.evs](https://github.com/r-bin/everscript/blob/develop/in/souls.evs)
+
 # Idea
 The game already uses a script language (instead of pure ASM) for the game logic/story, which can be made available to developers:
 
@@ -95,7 +100,15 @@ a7 10            // (a7) SLEEP 15 TICKS
 EOF
 ```
 
+# Known Bugs
+## Everscript
+
+- ``in/practice.evs``
+  - NPCs are trashing some dialoges to make space for the new strings and B-triggers
+
 # Credits
 - [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) - Black Sliver
 - [rply](https://github.com/alex/rply)
+- [ips_util](https://github.com/nleseul/ips_util)
 - `/patches/skip_intro.txt` - Black Sliver
+- `/research/maps/*` - Grizzly
