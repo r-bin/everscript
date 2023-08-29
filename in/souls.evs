@@ -281,7 +281,8 @@ fun hotkey_start_l() {
 
     // map_transition(inbetwixx, start, DIRECTION.NONE);
     // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
-    map_transition(east_crossing, crash, DIRECTION.NONE);
+    // map_transition(east_crossing, crash, DIRECTION.NONE);
+    map_transition(pipe_rooms, pipe_west, DIRECTION.NONE);
 
     // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
 }
@@ -676,6 +677,8 @@ map west_inbetwixx(0x5b) {
     }
 
     enum BOSS {
+        DEBUG = False,
+
         ID_OWL_1 = memory_tmp(),
         ID_OWL_2 = memory_tmp(),
 
@@ -729,6 +732,11 @@ map west_inbetwixx(0x5b) {
                 }
             }
             yield();
+
+            if(BOSS.DEBUG) {
+                debug_memory(arg[0x08], arg[0x0a]);
+                sleep(0x20);
+            }
         }
     }
     
@@ -1750,7 +1758,7 @@ map eastern_barrier(0x13) {
             map_transition(graveyard, south, DIRECTION.NORTH);
         },
         exit_east = @install() fun test() {
-            map_transition(pipe_rooms, pipe_east, DIRECTION.EAST);
+            map_transition(pipe_rooms, pipe_west, DIRECTION.EAST);
         },
     }
 
@@ -2061,9 +2069,9 @@ map graveyard(0x27) {
 
 map pipe_rooms(0x3e) {
     enum entrance {
-        pipe_east = entrance(0x07, 0x17, DIRECTION.NONE),
+        pipe_east = entrance(0x2d, 0x17, DIRECTION.NONE),
         south = entrance(0x1a, 0x2f, DIRECTION.NORTH),
-        pipe_west = entrance(0x2d, 0x17, DIRECTION.NONE),
+        pipe_west = entrance(0x07, 0x17, DIRECTION.NONE),
         
         room_switch = entrance(0xbf, 0x23, DIRECTION.NONE),
         room_gate = entrance(0x87, 0x1f, DIRECTION.NONE),
@@ -2072,35 +2080,35 @@ map pipe_rooms(0x3e) {
     }
 
     enum stepon_trigger {
-        stepon_0 = @install() fun test() {
+        switch_triggered = @install() fun test() {
             subtext(string("exit? 0 [END]"));
         },
-        stepon_1 = @install() fun test() {
-            subtext(string("exit? 1 [END]"));
+        exit_room_switch = @install() fun test() {
+            map_transition(mosquito_arena, right, DIRECTION.NORTH);
         },
         stepon_2 = @install() fun test() {
             subtext(string("exit? 2 [END]"));
         },
-        stepon_3 = @install() fun test() {
+        exit_room_empty = @install() fun test() {
             subtext(string("exit? 3 [END]"));
         },
         exit_north_1 = @install() fun test() {
-            subtext(string("exit? 4 [END]"));
+            map_transition(pipe_rooms, room_switch, DIRECTION.NORTH);
         },
         exit_north_2 = @install() fun test() {
-            subtext(string("exit? 5 [END]"));
+            map_transition(pipe_rooms, room_empty, DIRECTION.NORTH);
         },
-        stepon_6 = @install() fun test() {
-            subtext(string("exit? 6 [END]"));
+        jump_room_switch = @install() fun test() {
+            call(0x94af0d);
         },
         stepon_7 = @install() fun test() {
             subtext(string("exit? 7 [END]"));
         },
         exit_south = @install() fun test() {
-            map_transition(hidden_room, room_alchemist, DIRECTION.SOUTH);
+            map_transition(hidden_room, room_nss_north, DIRECTION.SOUTH);
         },
-        stepon_9 = @install() fun test() {
-            subtext(string("exit? 9 [END]"));
+        jump_empty_room = @install() fun test() {
+            call(0x94af0d);
         },
 
         stepon_10 = @install() fun test() {
@@ -2157,8 +2165,56 @@ map pipe_rooms(0x3e) {
         },
     }
 
+    enum ROOM {
+        DEBUG = False,
+
+        SECRET_PASSAGE_TRIGGER = memory_tmp(),
+        SECRET_PASSAGE_DISTANCE = 0x20,
+    }
+
+    @install()
+    @async()
+    fun hidden_exit_check() {
+        while(True) {
+            arg[0x00] = <CHARACTER.BOY>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+            arg[0x04] = ROOM.SECRET_PASSAGE_TRIGGER[ATTRIBUTE.X];
+            arg[0x06] = ROOM.SECRET_PASSAGE_TRIGGER[ATTRIBUTE.Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if(arg[0x08] <= ROOM.SECRET_PASSAGE_DISTANCE) {
+                if(arg[0x0a] <= ROOM.SECRET_PASSAGE_DISTANCE) {
+                    map_transition(sewers, pipe, DIRECTION.EAST);
+                    end();
+                }
+            }
+            yield();
+
+            if(ROOM.DEBUG) {
+                debug_memory(arg[0x08], arg[0x0a]);
+                sleep(0x20);
+            }
+        }
+    }
+    
     fun trigger_enter() {
-        fade_in();
+        init_room();
+
+        add_enemy(ENEMY.PLACEHOLDER, 0x30, 0x17);
+        ROOM.SECRET_PASSAGE_TRIGGER = <CHARACTER.LAST_ENTITY>;
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        hidden_exit_check();
     }
 };
 
@@ -2237,17 +2293,17 @@ map hidden_room(0x3c) {
         stepon_12 = @install() fun test() {
             subtext(string("exit? 12 [END]"));
         },
-        stepon_13 = @install() fun test() {
-            subtext(string("exit? 13 [END]"));
+        exit_room_nss_south_2 = @install() fun test() {
+            subtext(string("Does not open from this side.[END]"));
         },
-        stepon_14 = @install() fun test() {
-            subtext(string("exit? 14 [END]"));
+        exit_room_nss_south_1 = @install() fun test() {
+            map_transition(hidden_room, room_alchemist, DIRECTION.SOUTH);
         },
-        stepon_15 = @install() fun test() {
-            subtext(string("exit? 15 [END]"));
+        exit_room_nss_north = @install() fun test() {
+            map_transition(pipe_rooms, south, DIRECTION.NORTH);
         },
         stepon_16 = @install() fun test() {
-            map_transition(pipe_rooms, south, DIRECTION.NORTH);
+            map_transition(hidden_room, room_nss_south_1, DIRECTION.NORTH);
         },
         stepon_17 = @install() fun test() {
             subtext(string("exit? 17 [END]"));
@@ -2351,18 +2407,20 @@ map hidden_room(0x3c) {
     }
 };
 
-map sewers(0x7a) { // UNUSED
+map sewers(0x7a) {
     enum entrance {
         west = entrance(0x05, 0x0b, DIRECTION.EAST),
-        cinematic_west = entrance(0x2d, 0x7, DIRECTION.NONE),
+        pipe = entrance(0x05, 0x15, DIRECTION.NONE),
+
+        cinematic_east = entrance(0x2d, 0x7, DIRECTION.NONE),
     }
 
     enum stepon_trigger {
         pipe = @install() fun test() {
-            subtext(string("exit? 0 [END]"));
+            jump_from_ledge();
         },
         exit_west = @install() fun test() {
-            map_transition(eastern_barrier, east, DIRECTION.WEST);
+            map_transition(hidden_room, room_nss_south_2, DIRECTION.WEST);
         },
     }
     

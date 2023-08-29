@@ -281,7 +281,7 @@ class Word(Function_Base):
             i = [[Operand("int 10-1f"), i]]
         elif i in range(0xfff0, 0xffff):
             i = (i - 0xfff0) & 0x0f
-            i = [[Operand(0x40), i]]
+            i = [[Operand("int fff0-ffff"), i]]
         else:
             match self.value_count():
                 case 1:
@@ -684,6 +684,7 @@ class Operand():
         # custom
         "int 0-f": 0x30,
         "int 10-1f": 0x60,
+        "int fff0-ffff": 0x40,
         "termination": 0x80
     }
 
