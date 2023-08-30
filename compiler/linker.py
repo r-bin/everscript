@@ -197,6 +197,9 @@ class MapDataHandler():
             self.MapData(0x18, 0xab8ad2, 0x03, 0x02, "Prehistoria - Thraxx' room"),
             self.MapData(0x19, 0xa48000, 0x05, 0x13, "Gothica - Chessboard"),
             # …
+            self.MapData(0x1a, 0xa8e53c, 0x04, 0x01, "Gothica - Below chessboard"),
+            # …
+            self.MapData(0x1c, 0xa7e153, 0x06, 0x014, "Antiqua - Nobilia, North of Market"),
             self.MapData(0x1d, 0xa7f396, 0x00, 0x00, "Antiqua - Nobilia, Arena (Vigor Fight)"),
             # …
             self.MapData(0x1f, 0xa8d4ca, 0x02, 0x00, "Gothica - Doubles room in forest"),
@@ -215,6 +218,7 @@ class MapDataHandler():
             self.MapData(0x37, 0x9dbcf3, 0x0c, 0x16, "Gothica - Gomi's Tower"),
             self.MapData(0x38, 0x9e8000, 0x02, 0x1f, "Prehistoria - South jungle / Start"),
             # …
+            self.MapData(0x3a, 0xadab68, 0x02, 0x00, "Antiqua - Nobilia, Fire pit"),
             self.MapData(0x3b, 0xa2c0a8, 0x04, 0x22, "Prehistoria - Volcano Room 2"),
             self.MapData(0x3c, 0xa2a161, 0x15, 0x19, "Prehistoria - Volcano Room 1"),
             self.MapData(0x3d, 0xa39eca, 0x27, 0x00, "Prehistoria - Pipe maze"),
@@ -225,6 +229,8 @@ class MapDataHandler():
             # …
             self.MapData(0x4a, 0xabebf5, 0x02, 0x08, "Omnitopia - Final Boss Room"),
             # …
+            self.MapData(0x4d, 0xad8669, 0x00, 0x00, "Antiqua - Nobilia, Inside palace (Horace cutscene)"),
+            self.MapData(0x4e, 0xaab123, 0x02, 0x00, "Gothica - Ivor Tower, west alley (market)"),
             self.MapData(0x4f, 0xa99f92, 0x19, 0x10, "Antiqua - East of Crustacia"),
             # …
             self.MapData(0x58, 0xad8cbb, 0x05, 0x00, "Antiqua - 'mids boss room (Rimsala)"),
@@ -240,11 +246,15 @@ class MapDataHandler():
             self.MapData(0x69, 0xa18000, 0x1f, 0x21, "Prehistoria - Volcano path"),
             # …
             self.MapData(0x6b, 0xa99047, 0x07, 0x00, "Antiqua - Waterfall"),
+            self.MapData(0x6c, 0xabc707, 0x01, 0x01, "Gothica - SE of Ivor Tower (Well)"),
             # …
             self.MapData(0x6d, 0xabb3bc, 0x00, 0x00, "Antique - Aquagoth Room"),
             # …
+            self.MapData(0x70, 0xa9cb12, 0x0a, 0x00, "Gothica - Ivor Tower Exterior Bridges and Balconies"),
+            # …
             self.MapData(0x7a, 0xadc17d, 0x02, 0x00, "Gothica - Ivor Tower Sewers Exterior (landing spot)"),
             # …
+            self.MapData(0x76, 0x9dea4e, 0x02, 0x14, "Gothica - South of Ivor Tower (Gate)"),
             self.MapData(0x77, 0xaba009, 0x03, 0x00, "Gothica - Ivor Tower Puppet Show / Mungola"),
         ]
 
