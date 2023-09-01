@@ -1366,9 +1366,44 @@ yy // linking required
                 track_out = track_out.eval(params)
             
             if track_in != track_out:
-                change_music = Word(0x01)
+                change_music = True
             else:
-                change_music = Word(0x00)
+                change_music = False
+
+            track_in = self.scope.value
+            if track_in:
+                track_in = track_in.soundtrack()
+            if track_in:
+                track_in = track_in.volume
+                track_in = track_in.eval(params)
+            
+            track_out = self.map.soundtrack()
+            if track_out:
+                track_out = self.map.soundtrack().volume
+                track_out = track_out.eval(params)
+            
+
+            if track_in != track_out:
+                change_volume = True
+            else:
+                change_volume = False
+            
+            match [change_music, change_volume]:
+                case [True, _]:
+                    change_music = Word(0x01)
+                case [_, True]:
+                    change_music = Word(0x01)
+
+                # TODO: don't restart music if only the volume changes
+                #case [True, False]:
+                #    change_music = Word(0x01)
+                #case [False, True]:
+                #    change_music = Word(0x02)
+                #case [True, True]:
+                #    change_music = Word(0x03)
+                
+                case _:
+                    change_music = Word(0x00)
 
             call_params = [
                 self.map.map_index,
