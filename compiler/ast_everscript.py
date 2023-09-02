@@ -1422,7 +1422,7 @@ yy // linking required
             params = self.merge_params(params, call_params)
 
             code = Function_Code([
-                Asign(Memory(0x2258), Word(self.map.variant)),
+                Asign(Memory(0x23b9), Word(self.map.variant)),
                 function_transition
             ], '\n').code(params)
 
