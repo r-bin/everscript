@@ -719,13 +719,15 @@ class BinaryDefaultCalculator():
 
         match left:
             case Memory():
-                match left.type:
-                    case "char":
+                match [left.type, left.value_count()]:
+                    case ["char", _]:
                         code = left.calculate(params) + [Operand("push")] + right + [operator]
-                    case "28":
-                        code = [Operand("read signed temp word"), left.code(params), Operand("push")] + right + [operator]
-                    case "22" | "xx":
-                        code = [Operand("read signed word"), left.code(params), Operand("push")] + right + [operator]
+                    case ["28", _]:
+                        code = [Operand("read temp word"), left.code(params), Operand("push")] + right + [operator]
+                    case ["22" | "xx", 1]:
+                        code = [Operand("read byte"), left.code(params), Operand("push")] + right + [operator]
+                    case ["22" | "xx", _]:
+                        code = [Operand("read word"), left.code(params), Operand("push")] + right + [operator]
                     case _:
                         TODO()
             case Deref():
@@ -956,14 +958,16 @@ class Asign(BinaryOp):
 
         match left:
             case Memory():
-                match left.type:
-                    case "char":
+                match [left.type, left.value_count()]:
+                    case ["char", _]:
                         code = left.calculate(params) + self._terminate(right)
-                    case "xx":
-                        code = [Opcode(0x18), left.code(params)] + self._terminate(right)
-                    case "28":
+                    case ["28", 1]:
+                        code = [Opcode(0x10), left.code(params)] + self._terminate(right)
+                    case ["28", _]:
                         code = [Opcode(0x19), left.code(params)] + self._terminate(right)
-                    case "22":
+                    case ["22"|"xx", 1]:
+                        code = [Opcode(0x14), left.code(params)] + self._terminate(right)
+                    case ["22"|"xx", _]:
                         code = [Opcode(0x18), left.code(params)] + self._terminate(right)
                     case _:
                         TODO()

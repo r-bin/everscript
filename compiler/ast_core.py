@@ -279,9 +279,9 @@ class Word(Function_Base):
         elif i in range(0x10, 0x1f):
             i = (i - 0x10) & 0x0f
             i = [[Operand("int 10-1f"), i]]
-        elif i in range(0xfff0, 0xffff):
-            i = (i - 0xfff0) & 0x0f
-            i = [[Operand("int fff0-ffff"), i]]
+        #elif i in range(0xfff0, 0xffff):
+        #    i = (i - 0xfff0) & 0x0f
+        #    i = [[Operand("int fff0-ffff"), i]]
         else:
             match self.value_count():
                 case 1:
@@ -400,14 +400,14 @@ class Memory(Function_Base, Memorable):
             case ["22", None, int(), _]:
                 code = [Operand("test"), self.code(params)]
             case ["22", None, _, _]:
-                code = [Operand("read signed word"), self.code(params)]
+                code = [Operand("read word"), self.code(params)]
 
             case ["xx", None, _, 1]:
                 code = [Operand("read byte"), self.code(params)]
             case ["xx", None, int(), _]:
                 code = [Operand("test"), self.code(params)]
             case ["xx", None, _, _]:
-                code = [Operand("read signed word"), self.code(params)]
+                code = [Operand("read word"), self.code(params)]
 
             case ["char", _, _, _]:
                 code = [self.eval(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
@@ -415,12 +415,12 @@ class Memory(Function_Base, Memorable):
                     code += [Operand("deref")]
 
             case ["28", _, _, _]:
-                code = [Operand("read signed temp word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [Operand("read temp word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [Operand("deref")]
 
             case ["22", _, _, _]:
-                code = [Operand("read signed word"), self.code(), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [Operand("read word"), self.code(), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
                 if deref:
                     code += [Operand("deref")]
 
