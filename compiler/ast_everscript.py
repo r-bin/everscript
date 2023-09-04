@@ -15,35 +15,82 @@ import random
 import uuid
 from enum import StrEnum
 
+class RawAddress(Function_Base):
+    def __init__(self, value):
+        match value:
+            case Param():
+                self.value = self.resolve(value, [])
+            case Memory():
+                self.value = value
+            case _:
+                TODO()
+
+    def calculate(self, params:list[Param], deref=True):
+        return Word(self.value.address).calculate(params)
+
 class Deref(Function_Base, Calculatable, Memorable):
     def __init__(self, value, offset):
         match value:
+            case Param()|Identifier():
+                self.value = value
             case Memory() | Arg():
+                self.value = value
+            case Deref():
                 self.value = value
             case _:
                 TODO(f"value {value} cannot be deref'ed")
 
         self.offset = offset
 
+        self.update([])
+
+        if not self.value:
+            pass
+
+    def update(self, params:list[Param]):
+        if isinstance(self.value, Param) or isinstance(self.value, Identifier):
+            value = self.resolve(self.value, params)
+            if value:
+                self.value = value
+
+        if not self.value:
+            pass
+        
         self.inherit_memory(self.value)
 
     def __repr__(self):
         return f"Deref(value={self.value}, offset={self.offset})"
 
     def eval(self, params:list[Param]):
+        self.update([])
+
         return self.value.eval(params)
     
     def value_count(self):
+        self.update([])
+
         return self.value.value_count()
     
     def calculate(self, params:list[Param], deref=True):
         code = None
+
+        self.update(params)
+
+        #if isinstance(self.value, Param):
+        #    self.value = self.resolve(self.value, params)
 
         match self.value:
             case Memory():
                 code = self.value.calculate(params, offset=self.offset, deref=deref)
             case Arg():
                 code = self.value.calculate(params, offset=self.offset, deref=deref)
+            case Deref():
+                code = self.value.value
+                code = self.resolve(code, params)
+                code = code.calculate(params, deref=True)
+                code = code + [Operand("push")] + self.offset.calculate(params) + [Operand("+")]
+                if deref:
+                    code += [Operand("deref")]
             case _:
                 TODO()
 
@@ -62,15 +109,19 @@ class Arg(Function_Base, Calculatable, Memorable):
     def __repr__(self):
         return f"Arg(index={self.index})"
         
-    def calculate(self, params:list[Param], offset=None, deref=True):
+    def calculate(self, params:list[Param], offset=None, deref=False):
         index = self.resolve(self.index, params)
         index = index.code(params)
 
+        deref |= self.requires_deref
+
         match [offset]:
             case [None]:
-                code = [Opcode(0x13), index]
+                code = [Opcode("arg"), index]
+                if deref:
+                    code += [Operand("deref")]
             case [_]:
-                code = [Opcode(0x12), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
+                code = [Opcode("deref arg"), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
             case _:
@@ -106,7 +157,7 @@ class Object(Function_Base, Calculatable, Memorable):
         index = self.resolve(self.index, params)
         flag = self.resolve(self.flag, params)
         
-        code = [Opcode(0x5d)] + self._terminate(index.calculate(params) + [flag.code(params)])
+        code = [Opcode("obj")] + self._terminate(index.calculate(params) + [flag.code(params)])
         code = self._clean_calucatable(code, params)
 
         return f"""
@@ -392,7 +443,7 @@ class Call(Function_Base, Calculatable):
             self.function = None
             self.address = function.eval([])
         else:
-            raise Exception("todo")
+            TODO()
         pass
 
         if self.address == None:
@@ -414,19 +465,26 @@ class Call(Function_Base, Calculatable):
         if not call_params:
             match self.async_call:
                 case True:
-                    code = [Opcode(0x07), address]
+                    code = [Opcode("async call"), address]
                 case False:
-                    code = [Opcode(0x29), address]
+                    code = [Opcode("call"), address]
         else:
             for param in call_params:
                 code += self._terminate(param.value.calculate(params))
 
-            code = [Opcode(0xb4), Word(len(call_params), 1).code(params)] + code + [address]
+            code = [Opcode("call params"), Word(len(call_params), 1).code(params)] + code + [address]
 
         return code
     
     def _code(self, params:list[Param]):
         #params = self.handle_params(params, self.params)
+
+        # TODO: should be done for all elements
+        for param in self.params:
+            param = self.resolve(param, params)
+            
+            if isinstance(param, Deref):
+                param.update(params)
         
         out_params = []
         if self.function:
@@ -556,7 +614,7 @@ class Enum_Call(BaseBox):
                 break
 
         if value == None:
-            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}'"
+            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}' ({[entry.name for entry in enum.values]})"
             raise Exception(error)
         
         self.value = value
@@ -703,9 +761,9 @@ class If(Function_Base, Calculatable, Memorable):
             inverted = not inverted
 
         if inverted:
-            opcode = Opcode(0x08)
+            opcode = Opcode("if!")
         else:
-            opcode = Opcode(0x09)
+            opcode = Opcode("if")
 
         code = [opcode] + self._terminate(condition) + [destination]
 
@@ -962,21 +1020,21 @@ class Asign(BinaryOp):
                     case ["char", _]:
                         code = left.calculate(params) + self._terminate(right)
                     case ["28", 1]:
-                        code = [Opcode(0x10), left.code(params)] + self._terminate(right)
+                        code = [Opcode("write temp byte"), left.code(params)] + self._terminate(right)
                     case ["28", _]:
-                        code = [Opcode(0x19), left.code(params)] + self._terminate(right)
+                        code = [Opcode("write temp word"), left.code(params)] + self._terminate(right)
                     case ["22"|"xx", 1]:
-                        code = [Opcode(0x14), left.code(params)] + self._terminate(right)
+                        code = [Opcode("write byte"), left.code(params)] + self._terminate(right)
                     case ["22"|"xx", _]:
-                        code = [Opcode(0x18), left.code(params)] + self._terminate(right)
+                        code = [Opcode("write word"), left.code(params)] + self._terminate(right)
                     case _:
                         TODO()
             case Deref():
-                code = [Opcode(0x7a)] + self._terminate(left.calculate(params, deref=False)) + self._terminate(right)
+                code = [Opcode("write deref")] + self._terminate(left.calculate(params, deref=False)) + self._terminate(right)
             case Object():
-                code = self._terminate([Opcode(0x5c)] + left.calculate(params)) + self._terminate(right)
+                code = self._terminate([Opcode("write object")] + left.calculate(params)) + self._terminate(right)
             case Arg():
-                code = [Opcode(0x1a), left.code(params)] + self._terminate(right)
+                code = [Opcode("write arg"), left.code(params)] + self._terminate(right)
             case _:
                 TODO()
 
@@ -1546,6 +1604,11 @@ class Reference(Function_Base):
                 return 0xffff
             case _:
                 raise Exception(f"invalid reference {self.value}")
+    
+    def calculate(self, params:list[Param]):
+        code = Word(self.eval(params)).code(params)
+        
+        return code
     
 class Jump(Function_Base):
     def __init__(self, distance:int):

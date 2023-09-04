@@ -69,6 +69,8 @@ class Calculatable():
     
 class Memorable():
     memory = False
+    offset = None
+    requires_deref = False
 
     def inherit_memory(self, memorable):
         if isinstance(memorable, Memorable):
@@ -410,17 +412,17 @@ class Memory(Function_Base, Memorable):
                 code = [Operand("read word"), self.code(params)]
 
             case ["char", _, _, _]:
-                code = [self.eval(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [self.eval(params), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
             case ["28", _, _, _]:
-                code = [Operand("read temp word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [Operand("read temp word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
             case ["22", _, _, _]:
-                code = [Operand("read word"), self.code(), Operand("push")] + Word(offset, 1).calculate([]) + [0x1a]
+                code = [Operand("read word"), self.code(), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
@@ -741,13 +743,47 @@ class Operand():
         return f"Operand({'{:02X}'.format(self.value, 'x')}/{self.name})"
     
 class Opcode():
+    _opcodes = {
+        "call": 0x29,
+        "call params": 0xb4,
+        "async call": 0x07,
+
+        "if": 0x09,
+        "if!": 0x08,
+
+        "deref arg": 0x12,
+        "arg": 0x13,
+
+        "obj": 0x5d,
+
+        "write temp byte": 0x10,
+        "write temp word": 0x19,
+        "write byte": 0x14,
+        "write word": 0x18,
+        "write deref": 0x7a,
+        "write object": 0x5c,
+        "write arg": 0x1a,
+    }
+
+    def find_key_by_value(self, value:int) -> str:
+        key = self._opcodes.values().index(value)
+        key = self._opcodes.keys()[key]
+
+        return key
+
+    def find_value_by_key(self, key:str) -> int:
+        value = self._opcodes[key]
+
+        return value
+
     def __init__(self, value):
         match value:
             case int():
                 self.value = value
-                self.name = "?"
+                self.name = self.find_key_by_value(value)
             case str():
-                TODO()
+                self.value = self.find_value_by_key(value)
+                self.name = value
             case _:
                 TODO()
 

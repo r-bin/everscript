@@ -5,7 +5,7 @@
     0x300000..0x3fffff, // extension
 
     // reserved: <0x23b9>
-    <0x2272>,
+    <0x2272>..<0x22ff>,
 
     <0x2834>..<0x28ff>
 )
@@ -32,12 +32,26 @@ fun string_revealver_entity_name() {
 
 // HELPER
 
+@install()
+@async()
+fun crash_both() {
+    <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] - 0x20;
+    <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] - 0x20;
+
+    crash_land(CHARACTER.BOTH);
+}
+
+@install()
+fun contraption_trigger() {
+    subtext(string("Locked by some contraption.[END]"));
+}
+
 fun branch_lady(x, y, id) {
     add_enemy(ENEMY.VILLAGER_2_4, x, y);
     entity_script_controlled(CHARACTER.LAST_ENTITY);
     face(CHARACTER.LAST_ENTITY, DIRECTION.WEST);
     attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, id);
-    <CHARACTER.LAST_ENTITY>[0x0b] = 0x50;
+    <CHARACTER.LAST_ENTITY>[ATTRIBUTE.PALETTE] = 0x50;
 }
 
 @install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
@@ -84,6 +98,16 @@ enum SOULS_MEMORY {
     ESTUS_CHARGES_INIT = 0x01,
     
     BOMB_ENABLED = flag(),
+
+
+    // bosses
+    BOSSES_DEFEATED_COUNTER = memory(),
+    PROGRESS_COUNTER = memory(),
+
+    // east
+    DEAD_ARENA_MOSQUITO = flag(),
+    DEAD_ARENA_RADAHN = flag(),
+    DEAD_VOLCANO_HYDRA = flag(),
 }
 
 @install()
@@ -218,7 +242,7 @@ fun bonfire(x, y, id) {
     }
     
     attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, id);
-    <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x7fff;
+    <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
 }
 
 @install()
@@ -262,8 +286,8 @@ fun init_souls() {
 
     special_script(SPECIAL_SCRIPTS.WINGS, reference(return_to_bonfire));
 
-    MEMORY.BOY_XP_REQUIRED = 0x7fff;
-    MEMORY.DOG_XP_REQUIRED = 0x7fff;
+    MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+    MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
 }
 
 // HOTKEYS
@@ -291,14 +315,18 @@ fun hotkey_start_l() {
 
         // return_to_bonfire();
 
+        map_transition(dungeon_volcano, south_2, DIRECTION.NONE);
         // map_transition(inbetwixx, start, DIRECTION.NONE);
         // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
         // map_transition(east_crossing, crash, DIRECTION.NONE);
         // map_transition(castle_bridges, west, DIRECTION.NONE);
         // map_transition(town_center, west_1, DIRECTION.NONE);
+        // map_transition(pipe_entrance, pipe_west, DIRECTION.NONE);
         // map_transition(pipe_maze, pipe_east, DIRECTION.NONE);
         // map_transition(town_temple_switch, west, DIRECTION.NONE);
         // map_transition(bog_bridges, south, DIRECTION.NONE);
+
+        // map_transition(east_inbetwixx, south_2, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -313,10 +341,12 @@ fun hotkey_start_r() {
         // map_transition(arena, right, DIRECTION.NONE);
         
         attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
-        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
-        // debug_boy();
+        // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
+        <CHARACTER.BOY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
+        
+        debug_boy();
         // debug_memory(<0x2834>[0x15], <0x2836>[ATTRIBUTE.HP]);
-        debug_memory(<0x2834>[ATTRIBUTE.HP], <0x2836>[ATTRIBUTE.HP]);
+        // debug_memory(<0x2834>[ATTRIBUTE.HP], <0x2836>[ATTRIBUTE.HP]);
         
         // map_transition(toaster_arena, center, DIRECTION.NONE);
 
@@ -579,7 +609,7 @@ map inbetwixx(0x05) {
     fun cheat_selection() {
         attach_to_script(CHARACTER.BOY);
 
-        question(string("[0x96]Cheats:[LF][0x8b]Basics[LF][0x8b]Alchemy[LF][0x8b]Money[END]"));
+        question_max(string("[0x96]Cheats:[LF][0x8b]Basics[LF][0x8b]All[LF][0x8b]Alchemy[LF][0x8b]Money[END]"), 0x08);
 
         if(MEMORY.QUESTION_ANSWER == 0x00) { // basics
             unlock(ITEM.WEAPONS);
@@ -590,15 +620,15 @@ map inbetwixx(0x05) {
             unlock(ITEM.AXE_2);
 
             set(SOULS_MEMORY.BOMB_ENABLED);
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // alchemy
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // all
+            unlock(ITEM.ALL);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // alchemy
             unlock(ITEM.ALCHEMY);
             unlock(ITEM.INGREDIENTS);
 
             select_alchemy();
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // money
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // money
             currency_get(CURRENCY.TALONS, 0x29a);
-        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // nop
-            nop();
         } else if(MEMORY.QUESTION_ANSWER == 0x04) { // nop
             nop();
         } else if(MEMORY.QUESTION_ANSWER == 0x05) { // nop
@@ -680,6 +710,19 @@ map west_inbetwixx(0x5b) {
         default = soundtrack(0x0a, 0xff)
     }
 
+    enum ROOM {
+        BRANCH_USED = flag(),
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        ID_OWL_1 = memory_tmp(),
+        ID_OWL_2 = memory_tmp(),
+
+        TRANSFORM_DISTANCE = 0x10
+    }
+
     enum stepon_trigger {
         exit_east_1 = @install() fun test() {
             map_transition(west_inbetwixx, east_3, DIRECTION.EAST);
@@ -707,19 +750,19 @@ map west_inbetwixx(0x5b) {
 
     @install()
     fun branch_triggered() {
-        dialog(string("...[0x80][0x19][0x81][END]"));
+        if(MEMORY.SPOON & 0xff > 0x00) {
+            question(string("[0x96]Use Spoon[LF][0x8b]Yes[LF][0x8b]No[END]"));
 
-        <CHARACTER.SCRIPT_OWNER>[0x0b] = 0x0800;
-        control_enemy(CHARACTER.SCRIPT_OWNER, False);
-    }
+            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                MEMORY.SPOON & 0xff = MEMORY.SPOON & 0xff - 0x01;
+                set(ROOM.BRANCH_USED);
 
-    enum BOSS {
-        DEBUG = False,
-
-        ID_OWL_1 = memory_tmp(),
-        ID_OWL_2 = memory_tmp(),
-
-        TRANSFORM_DISTANCE = 0x10
+                <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.PALETTE] = 0x0800;
+                control_enemy(CHARACTER.SCRIPT_OWNER, False);
+            }
+        } else {
+            dialog(string("...[0x80][0x19][0x81][END]"));
+        }
     }
 
     @install()
@@ -784,18 +827,20 @@ map west_inbetwixx(0x5b) {
     }
 
     fun trigger_enter() {
-        branch_lady(0x58, 0x0f, reference(branch_triggered));
+        if!(ROOM.BRANCH_USED) {
+            branch_lady(0x58, 0x0f, reference(branch_triggered));
+        }
 
         if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
             add_enemy(ENEMY.RAPTOR, 0x5c, 0x26);
         }
 
         add_enemy(ENEMY.OWL_BLACK, 0x2d, 0x21);
-        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x7fff;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
         store_last_entity(BOSS.ID_OWL_1);
 
         add_enemy(ENEMY.OWL_BLACK, 0x47, 0x42);
-        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x7fff;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
         store_last_entity(BOSS.ID_OWL_2);
         animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(owl_triggered));
@@ -902,6 +947,10 @@ map west_hut2(0x34) {
     }
 };
 
+enum AREA_ALTUS_PLATEAU {
+    ENTRANCE_UNLOCKED = flag(),
+}
+
 map volcano(0x69) {
     enum entrance {
         cutscene_north_1 = entrance(0x4a, 0x38, DIRECTION.NONE),
@@ -960,7 +1009,11 @@ map volcano(0x69) {
             subtext(string("step-on? 12 [END]"));
         },
         cave_west = @install() fun test() {
-            map_transition(stairs, stairs_west_bottom, DIRECTION.NORTH);
+            if(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+                map_transition(stairs, stairs_west_bottom, DIRECTION.NORTH);
+            } else {
+                subtext(string("Does not open from this side.[END]"));
+            }
         },
         cave_center = @install() fun test() {
             subtext(string("step-on? 14 [END]"));
@@ -1943,6 +1996,10 @@ map east_inbetwixx(0x59) {
         default = soundtrack(MUSIC.BUGMUCK_AMBIENT_MELODY, 0xff)
     }
 
+    enum ROOM {
+        BRANCH_USED = flag(),
+    }
+
     enum stepon_trigger {
         stepon_0 = @install() fun test() {
             subtext(string("step-on? 0 [END]"));
@@ -2237,10 +2294,39 @@ map east_inbetwixx(0x59) {
 
     @install()
     fun branch_triggered() {
-        dialog(string("...[0x80][0x19][0x81][END]"));
+        if(MEMORY.SPOON & 0xff > 0x00) {
+            question(string("[0x96]Use Spoon[LF][0x8b]Yes[LF][0x8b]No[END]"));
 
-        <CHARACTER.SCRIPT_OWNER>[0x0b] = 0x0800;
-        control_enemy(CHARACTER.SCRIPT_OWNER, False);
+            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                MEMORY.SPOON & 0xff = MEMORY.SPOON & 0xff - 0x01;
+                set(ROOM.BRANCH_USED);
+
+                <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.PALETTE] = 0x0800;
+                control_enemy(CHARACTER.SCRIPT_OWNER, False);
+            }
+        } else {
+            dialog(string("...[0x80][0x19][0x81][END]"));
+        }
+    }
+
+    fun open_sandpits() {
+        object[0x03] = 0x04; // 9
+        object[0x04] = 0x04; // 10
+
+        object[0x05] = 0x04; // 8
+        object[0x06] = 0x04; // 7
+        
+        object[0x07] = 0x04; // 6
+
+        object[0x08] = 0x04; // 5
+        object[0x09] = 0x04; // 4
+
+        object[0x0a] = 0x04; // 3 <- bottleneck
+        object[0x0b] = 0x04; // 2
+
+        object[0x0c] = 0x04; // 1_1
+        object[0x0d] = 0x04; // 1_2
+        object[0x0e] = 0x04; // 1_3
     }
 
     fun init_room() {
@@ -2248,9 +2334,17 @@ map east_inbetwixx(0x59) {
     }
 
     fun trigger_enter() {
-        branch_lady(0x4e, 0x2c, reference(branch_triggered));
+        open_sandpits();
+
+        if!(ROOM.BRANCH_USED) {
+            branch_lady(0x4e, 0x2c, reference(branch_triggered));
+        }
+
+        add_enemy(ENEMY.MEGATAUR, 0x38, 0x44);
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
 
         init_room();
+
     }
 };
 
@@ -2268,7 +2362,14 @@ map east_crossing(0x4f) {
     }
 
     enum ROOM {
-        STONE_TRIGGERED = flag()
+        DEBUG = True,
+
+        STONE_TRIGGERED = flag(),
+        STONE_DOOR_TRIGGERED = flag(),
+
+        ID_STONE = memory_tmp(),
+        ID_STONE_BOMB = memory_tmp(),
+        ID_STONE_HOLE = memory_tmp(),
     }
 
     @install()
@@ -2312,16 +2413,20 @@ map east_crossing(0x4f) {
         },
 
         exit_cave = @install() fun test() {
-            subtext(string("Does not open from this side.[END]"));
+            if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+                subtext(string("Does not open from this side.[END]"));
+            } else {
+                map_transition(radahn_exit, room_nw_west, DIRECTION.NORTH);
+            }
         },
         exit_west = @install() fun test() {
             map_transition(eastern_river, east, DIRECTION.WEST);
         },
         elevator_bottom = @install() fun test() {
-            map_transition(dungeon_volcano, south_1, DIRECTION.NORTH);
+            map_transition(dungeon_volcano, south_2, DIRECTION.NORTH);
         },
         elevator_top = @install() fun test() {
-            map_transition(dungeon_volcano, south_2, DIRECTION.NORTH);
+            map_transition(dungeon_volcano, south_1, DIRECTION.NORTH);
         },
         exit_north = @install() fun test() {
             map_transition(east_inbetwixx, south_2, DIRECTION.NORTH);
@@ -2385,7 +2490,7 @@ map east_crossing(0x4f) {
         if(<CHARACTER.ACTIVE> == <CHARACTER.BOY>) {
             animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ALL.SLASH_2);
 
-            <CHARACTER.SCRIPT_OWNER>[0x20] = 0x30;
+            <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.JUMP_HEIGHT] = 0x30;
             sleep(0x50);
 
             object[0x00] = 0x01;
@@ -2395,11 +2500,86 @@ map east_crossing(0x4f) {
         }
     }
 
+    @install()
+    fun stone_door_triggered() {
+        subtext(string("Does not open from this side.[END]"));
+    }
+
+    fun tiny_bridge(connected) {
+        if(connected) {
+            object[0x11] = 0x01;
+        } else {
+            object[0x11] = 0x00;
+        }
+    }
+
+    @install()
+    fun stone_hole_triggered() {
+        set(ROOM.STONE_DOOR_TRIGGERED);
+
+        destroy(ROOM.ID_STONE);
+        destroy(ROOM.ID_STONE_BOMB);
+        destroy(ROOM.ID_STONE_HOLE);
+
+        tiny_bridge(True);
+    }
+
+    @install()
+    @async()
+    fun stack_stone_bomb() {
+        while!(dead(ROOM.ID_STONE)) {
+            ROOM.ID_STONE[ATTRIBUTE.X] = ROOM.ID_STONE_BOMB[ATTRIBUTE.X];
+            ROOM.ID_STONE[ATTRIBUTE.Y] = ROOM.ID_STONE_BOMB[ATTRIBUTE.Y];
+            yield();
+        }
+    }
+    
+    @install()
+    @async()
+    fun stone_hole_scanner() {
+        while(True) {
+            arg[0x00] = ROOM.ID_STONE[ATTRIBUTE.X];
+            arg[0x02] = ROOM.ID_STONE[ATTRIBUTE.Y];
+            arg[0x04] = ROOM.ID_STONE_HOLE[ATTRIBUTE.X];
+            arg[0x06] = ROOM.ID_STONE_HOLE[ATTRIBUTE.Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if(arg[0x08] <= 0x0a) {
+                if(arg[0x0a] <= 0x0a) {
+                    stone_hole_triggered();
+                    end();
+                }
+            }
+
+            yield();
+
+            if(ROOM.DEBUG) {
+                debug_memory(arg[0x08], arg[0x0a]);
+                sleep(0x20);
+            }
+        }
+    }
+    
     fun init_room() {
         default_init_room(True, True);
     }
 
     fun trigger_enter() {
+        if!(FLAG.IN_ANIMATION) {
+            crash_both();
+        }
+
         if!(ROOM.STONE_TRIGGERED) {
             add_enemy(ENEMY.STONE_ROUND, 0x24, 0x18);
             attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(stone_triggered));
@@ -2411,10 +2591,25 @@ map east_crossing(0x4f) {
 
         init_room();
 
-        if!(FLAG.IN_ANIMATION) {
-            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] - 0x20;
-            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] - 0x20;
-            crash_land(CHARACTER.BOTH);
+        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+            add_enemy(ENEMY.STONE_ROUND, 0x15, 0x1b);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(stone_door_triggered));
+        } else if!(ROOM.STONE_DOOR_TRIGGERED) {
+            add_enemy(ENEMY.STONE_ROUND, 0x00, 0x00);
+            ROOM.ID_STONE = <CHARACTER.LAST_ENTITY>;
+
+            add_enemy(ENEMY.BOMB, 0x15, 0x22);
+            ROOM.ID_STONE_BOMB = <CHARACTER.LAST_ENTITY>;
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+
+            stack_stone_bomb();
+
+            add_enemy(ENEMY.PLACEHOLDER, 0x2f, 0x2e);
+            ROOM.ID_STONE_HOLE = <CHARACTER.LAST_ENTITY>;
+
+            stone_hole_scanner();
+        } else {
+            tiny_bridge(True);
         }
     }
 };
@@ -3178,6 +3373,10 @@ map graveyard(0x27) {
     }
 };
 
+enum PIPE_MAZE {
+    HIDDEN_ROOM_OPEND = flag(),
+}
+
 map pipe_entrance(0x3e) {
     enum entrance {
         pipe_east = entrance(0x2d, 0x17, DIRECTION.NONE),
@@ -3192,7 +3391,11 @@ map pipe_entrance(0x3e) {
 
     enum stepon_trigger {
         switch_triggered = @install() fun test() {
-            subtext(string("step-on? 0 [END]"));
+            if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
+                subtext(string("Somewhere a door has opened.[END]"));
+
+                set(PIPE_MAZE.HIDDEN_ROOM_OPEND);
+            }
         },
         exit_room_switch = @install() fun test() {
             map_transition(mosquito_arena, right, DIRECTION.NORTH);
@@ -3306,7 +3509,6 @@ map pipe_entrance(0x3e) {
 
             if(arg[0x08] <= ROOM.SECRET_PASSAGE_DISTANCE) {
                 if(arg[0x0a] <= ROOM.SECRET_PASSAGE_DISTANCE) {
-                    // map_transition(sewers, pipe, DIRECTION.EAST);
                     map_transition(eastern_barrier, east, DIRECTION.WEST);
                     end();
                 }
@@ -3319,14 +3521,24 @@ map pipe_entrance(0x3e) {
             }
         }
     }
+
+    @install()
+    fun test_triggered() {
+        if(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
+            map_transition(sewers, pipe, DIRECTION.EAST);
+        } else {
+            subtext(string("Locked by some contraption.[END]"));
+        }
+    }
     
     fun trigger_enter() {
         default_init_room(True, False);
 
-        // add_enemy(ENEMY.PLACEHOLDER, 0x30, 0x17);
-        add_enemy(ENEMY.PLACEHOLDER, 0x05, 0x17);
+        add_enemy(ENEMY.PLACEHOLDER, 0x2d, 0x16);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(test_triggered));
+        
+        add_enemy(ENEMY.PLACEHOLDER, 0x05, 0x16);
         ROOM.SECRET_PASSAGE_TRIGGER = <CHARACTER.LAST_ENTITY>;
-        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
 
         sleep(0x10);
         hidden_exit_check();
@@ -3409,7 +3621,11 @@ map hidden_room(0x3c) {
             subtext(string("step-on? 12 [END]"));
         },
         exit_room_nss_south_2 = @install() fun test() {
-            subtext(string("Does not open from this side.[END]"));
+            if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
+                subtext(string("Does not open from this side.[END]"));
+            } else {
+                map_transition(mosquito_arena, north, DIRECTION.SOUTH);
+            }
         },
         exit_room_nss_south_1 = @install() fun test() {
             map_transition(hidden_room, room_alchemist, DIRECTION.SOUTH);
@@ -4112,13 +4328,11 @@ map town_center(0x08) {
     }
 
     fun trigger_enter() {
-        fade_in();
-
         if!(FLAG.IN_ANIMATION) {
-            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] - 0x20;
-            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] - 0x20;
-            crash_land(CHARACTER.BOTH);
+            crash_both();
         }
+
+        fade_in();
     }
 };
 
@@ -4199,7 +4413,7 @@ map town_market(0x0a) {
         door_1 = entrance(0x5c, 0x3a, DIRECTION.SOUTH),
         door_2 = entrance(0x5a, 0x72, DIRECTION.SOUTH),
 
-        crash = entrance(0x43, 0x79, DIRECTION.NONE),
+        crash = entrance(0x45, 0x7b, DIRECTION.NONE),
     }
 
     enum stepon_trigger {
@@ -4247,13 +4461,11 @@ map town_market(0x0a) {
     }
 
     fun trigger_enter() {
-        fade_in();
-
         if!(FLAG.IN_ANIMATION) {
-            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] - 0x20;
-            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y];
-            crash_land(CHARACTER.BOTH);
+            crash_both();
         }
+
+        fade_in();
     }
 };
 
@@ -5070,7 +5282,7 @@ map toaster_arena(0x5c) {
 
     fun spawn_guardbot(x, y) {
         add_enemy(ENEMY.GATE_BOT, x, y);
-        attribute(CHARACTER.LAST_ENTITY, ATTRIBUTE.HP, 0x7fff);
+        attribute(CHARACTER.LAST_ENTITY, ATTRIBUTE.HP, SYSTEM.HP_MAX);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(guardbot_down));
     }
 
@@ -5140,6 +5352,9 @@ map bomb_arena(0x5c) {
 
 map mosquito_arena(0x5c) {
     enum entrance {
+        north = entrance(0x1b, 0x03, DIRECTION.SOUTH),
+        south = entrance(0x1d, 0x33, DIRECTION.NORTH),
+
         left = entrance(0x15, 0x1c, DIRECTION.NONE),
         center = entrance(0x1e, 0x21, DIRECTION.NONE),
         right = entrance(0x2a, 0x23, DIRECTION.NONE)
@@ -5155,6 +5370,10 @@ map mosquito_arena(0x5c) {
 
     enum BOSS {
         BOSS_ID = memory_tmp(),
+
+        BOSS_START_X = memory_tmp(),
+        BOSS_START_Y = memory_tmp(),
+        BOSS_START_TIMER = memory_tmp(),
 
         MOSQUITO_1_ID = memory_tmp(),
         MOSQUITO_1_X = 0x13,
@@ -5174,7 +5393,9 @@ map mosquito_arena(0x5c) {
     fun boss_defeated() {
         general_boss_defeated();
 
-        // map_transition(mosquito_arena, right, DIRECTION.NONE);
+        SOULS_MEMORY.BOSSES_DEFEATED_COUNTER = SOULS_MEMORY.BOSSES_DEFEATED_COUNTER + 0x01;
+        SOULS_MEMORY.PROGRESS_COUNTER = SOULS_MEMORY.PROGRESS_COUNTER + 0x01;
+        set(SOULS_MEMORY.DEAD_ARENA_MOSQUITO);
 
         close_exits(False);
     }
@@ -5201,7 +5422,7 @@ map mosquito_arena(0x5c) {
 
         // heal(CHARACTER.SCRIPT_OWNER, 0x10, False);
         animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
-        <CHARACTER.SCRIPT_OWNER>[0x0b] = 0x0a00;
+        <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.PALETTE] = 0x0a00;
         attribute_bit(CHARACTER.SCRIPT_OWNER, ATTRIBUTE_BITS.VINCIBLE);
     }
 
@@ -5228,30 +5449,54 @@ map mosquito_arena(0x5c) {
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, script_id);
     }
 
+    @install()
+    @async()
+    fun lock_temporary() {
+        BOSS.BOSS_START_X = BOSS.BOSS_ID[ATTRIBUTE.X];
+        BOSS.BOSS_START_Y = BOSS.BOSS_ID[ATTRIBUTE.Y];
+
+        while(BOSS.BOSS_START_TIMER < 0x78) {
+            BOSS.BOSS_START_TIMER = BOSS.BOSS_START_TIMER + 0x01;
+
+            BOSS.BOSS_ID[ATTRIBUTE.X] = BOSS.BOSS_START_X;
+            BOSS.BOSS_ID[ATTRIBUTE.Y] = BOSS.BOSS_START_Y;
+
+            yield();
+        }
+    }
+
     fun trigger_enter() {
-        close_exits(True);
-        character_selection(CHARACTER.BOY);
-
-        add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
-        store_last_entity(BOSS.BOSS_ID);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
-
-        default_init_room(True, False);
-
         if!(FLAG.IN_ANIMATION) {
-            crash_land(CHARACTER.BOTH);
+            crash_both();
         }
 
-        countdown(0x03);
-        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+        default_init_room(True, False);
+        
+        if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
+            close_exits(True);
 
-        spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
-        sleep(0x40);
-        spawn_mosquito(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y, reference(mosquito_2_dead));
-        sleep(0x20);
-        spawn_mosquito(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y, reference(mosquito_3_dead));
-        sleep(0x20);
-        spawn_mosquito(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y, reference(mosquito_4_dead));
+            add_enemy(ENEMY.MAGMAR, 0x1e, 0x21);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+            store_last_entity(BOSS.BOSS_ID);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
+            lock_temporary();
+
+            character_selection(CHARACTER.BOY);
+
+            countdown(0x03);
+            attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+
+            spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
+            sleep(0x40);
+            spawn_mosquito(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y, reference(mosquito_2_dead));
+            sleep(0x20);
+            spawn_mosquito(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y, reference(mosquito_3_dead));
+            sleep(0x20);
+            spawn_mosquito(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y, reference(mosquito_4_dead));
+        } else {
+            object[0x04] = 0x04;
+            object[0x05] = 0x04;
+        }
     }
 };
 
@@ -5527,7 +5772,7 @@ map abomination_arena(0x5c) {
     fun abomination() {
         add_enemy(ENEMY.CARLTRON, 0x10, 0x13);
         store_last_entity(BOSS.ID_CARLTRON);
-        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x7fff;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(abomination_triggered));
 
         abomination_watcher();
@@ -5550,6 +5795,9 @@ map abomination_arena(0x5c) {
 
 map radahn_arena(0x5c) {
     enum entrance {
+        north = entrance(0x1b, 0x03, DIRECTION.SOUTH),
+        south = entrance(0x1d, 0x33, DIRECTION.NORTH),
+
         left = entrance(0x15, 0x1c, DIRECTION.NONE),
         center = entrance(0x1e, 0x21, DIRECTION.NONE),
         right = entrance(0x2a, 0x23, DIRECTION.NONE)
@@ -5600,6 +5848,16 @@ map radahn_arena(0x5c) {
 
         RANDOM_SPELL = memory_tmp(),
         TIME_BEFORE_RANDOM_SPELL = 0x300,
+    }
+
+    fun boss_killed() {
+        set(SOULS_MEMORY.DEAD_ARENA_RADAHN);
+        SOULS_MEMORY.BOSSES_DEFEATED_COUNTER = SOULS_MEMORY.BOSSES_DEFEATED_COUNTER + 0x01;
+        SOULS_MEMORY.PROGRESS_COUNTER = SOULS_MEMORY.PROGRESS_COUNTER + 0x01;
+
+        fanfare();
+
+        object[0x04] = 0x00;
     }
 
     @install()
@@ -5681,7 +5939,7 @@ map radahn_arena(0x5c) {
                 BOSS.TIMER = 0x00;
             }
         
-            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+            if(BOSS.RIDER_ID[ATTRIBUTE.PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
                 BOSS.TIMER = BOSS.TIMER + 0x01;
             }
             yield();
@@ -5714,6 +5972,8 @@ map radahn_arena(0x5c) {
         if(BOSS.DEBUG) {
             subtext(string("phase 2[END]"));
         }
+
+        boss_killed();
     }
 
     fun spawn_boss(x, y) {
@@ -5729,17 +5989,23 @@ map radahn_arena(0x5c) {
     }
 
     fun trigger_enter() {
+        if!(FLAG.IN_ANIMATION) {
+            crash_both();
+        }
+
         default_init_room(True, False);
 
-        close_exits(True);
+        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+            close_exits(True);
 
-        spawn_boss(0x10, 0x13);
-        stack_t01_offset();
-        boss_watcher();
+            spawn_boss(0x10, 0x13);
+            stack_t01_offset();
+            boss_watcher();
 
-        character_selection(CHARACTER.BOY);
-        countdown(BOSS.COUNTDOWN);
-        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+            character_selection(CHARACTER.BOY);
+            countdown(BOSS.COUNTDOWN);
+            attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+        }
     }
 };
 
@@ -5778,8 +6044,8 @@ map radahn_exit(0x3c) {
     }
 
     enum stepon_trigger {
-        stepon_0 = @install() fun test() {
-            subtext(string("step-on? 0 [END]"));
+        exit_room_nw_north = @install() fun test() {
+            map_transition(radahn_arena, south, DIRECTION.NORTH);
         },
         exit_room_nw_west = @install() fun test() {
             map_transition(east_crossing, cave, DIRECTION.WEST);
@@ -6130,8 +6396,25 @@ map dungeon_volcano(0x3b) {
     enum entrance {
         north_1 = entrance(0x2e, 0x05, DIRECTION.SOUTH),
         north_2 = entrance(0x76, 0x06, DIRECTION.SOUTH),
-        south_1 = entrance(0x51, 0xb1, DIRECTION.NORTH),
-        south_2 = entrance(0x7d, 0xb1, DIRECTION.NORTH),
+        south_1 = entrance(0x7d, 0xb1, DIRECTION.NORTH),
+        south_2 = entrance(0x51, 0xb1, DIRECTION.NORTH),
+    }
+
+    enum ROOM {
+        ID_STONE = memory_tmp(),
+
+        Z_UPSTAIRS = 0x10,
+        Z_DOWNSTAIRS = 0x20,
+    }
+
+    enum BOSS {
+        DEBUG = True,
+
+        HEAD_1_ID = memory_tmp(),
+        HEAD_2_ID = memory_tmp(),
+        HEAD_3_ID = memory_tmp(),
+
+        PHASE = memory_tmp(),
     }
 
     enum stepon_trigger {
@@ -6257,8 +6540,70 @@ map dungeon_volcano(0x3b) {
         },
     }
 
+    fun boss_defeated() {
+        SOULS_MEMORY.BOSSES_DEFEATED_COUNTER = SOULS_MEMORY.BOSSES_DEFEATED_COUNTER + 0x01;
+        SOULS_MEMORY.PROGRESS_COUNTER = SOULS_MEMORY.PROGRESS_COUNTER + 0x01;
+
+        set(SOULS_MEMORY.DEAD_VOLCANO_HYDRA);
+
+        animate(ROOM.ID_STONE, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+    }
+
+    fun spawn_snake(x, y) {
+        add_enemy(ENEMY.BONE_SNAKE, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Z] = ROOM.Z_UPSTAIRS;
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(head_killed));
+    }
+    fun spawn_salabog(x, y) {
+        add_enemy(ENEMY.SALABOG, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Z] = ROOM.Z_UPSTAIRS;
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(head_killed));
+    }
+
+    fun spawn_1_head() {
+        spawn_snake(0x47, 0x74);
+    }
+    fun spawn_2_head() {
+        spawn_snake(0x47, 0x74);
+        spawn_snake(0x48, 0x74);
+    }
+    fun spawn_big_head() {
+        spawn_salabog(0x47, 0x74);
+    }
+
+    @install()
+    fun head_killed() {
+        if(BOSS.PHASE == 0x00) {
+            spawn_2_head();
+        } else if(BOSS.PHASE == 0x02) {
+            spawn_big_head();
+        } else if(BOSS.PHASE > 0x02) {
+            boss_defeated();
+        }
+
+        BOSS.PHASE = BOSS.PHASE + 0x01;
+    }
+
     fun trigger_enter() {
         default_init_room(False, False);
+
+        debug_memory(<CHARACTER.BOY>[ATTRIBUTE.Z], ROOM.Z_UPSTAIRS);
+
+        if!(SOULS_MEMORY.DEAD_VOLCANO_HYDRA) {
+            if(<CHARACTER.BOY>[ATTRIBUTE.Z] == ROOM.Z_UPSTAIRS) {
+                spawn_1_head();
+                // add_enemy(ENEMY.OGLIN, 0x44, 0x65);
+                add_enemy(ENEMY.SLIME_PINK, 0x44, 0x65);
+                add_enemy(ENEMY.SLIME_PINK, 0x51, 0x6d);
+            } else {
+                spawn_1_head();
+                attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+            }
+
+            add_enemy(ENEMY.STONE_ROUND, 0x44, 0x85);
+            ROOM.ID_STONE = <CHARACTER.LAST_ENTITY>;
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(contraption_trigger));
+        }
     }
 };
 
