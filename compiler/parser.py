@@ -59,6 +59,8 @@ class Parser():
             "memory_tmp": (lambda p: self.generator.current_scope().allocate_memory()),
             "flag": (lambda p: self.generator.get_flag()),
             "reference": (lambda p: Reference(self.generator, p[2][0])),
+            "deref": (lambda p: Deref(p[2][0], None)),
+            "_address": (lambda p: RawAddress(p[2][0])),
 
             # object
             "_loot": (lambda p: Loot(self.generator, p[2][0], p[2][1], p[2][2], p[2][3])),
