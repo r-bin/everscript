@@ -105,9 +105,12 @@ enum SOULS_MEMORY {
     PROGRESS_COUNTER = memory(),
 
     // east
-    DEAD_ARENA_MOSQUITO = flag(),
-    DEAD_ARENA_RADAHN = flag(),
     DEAD_VOLCANO_HYDRA = flag(),
+    DEAD_ARENA_RADAHN = flag(),
+    
+    DEAD_ARENA_MOSQUITO = flag(),
+
+    DEAD_TEMPLE_MINITAUR = flag(),
 }
 
 @install()
@@ -315,7 +318,7 @@ fun hotkey_start_l() {
 
         // return_to_bonfire();
 
-        map_transition(dungeon_volcano, south_2, DIRECTION.NONE);
+        // map_transition(dungeon_volcano, south_1, DIRECTION.NONE);
         // map_transition(inbetwixx, start, DIRECTION.NONE);
         // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
         // map_transition(east_crossing, crash, DIRECTION.NONE);
@@ -323,7 +326,7 @@ fun hotkey_start_l() {
         // map_transition(town_center, west_1, DIRECTION.NONE);
         // map_transition(pipe_entrance, pipe_west, DIRECTION.NONE);
         // map_transition(pipe_maze, pipe_east, DIRECTION.NONE);
-        // map_transition(town_temple_switch, west, DIRECTION.NONE);
+        map_transition(town_temple_switch, west, DIRECTION.NONE);
         // map_transition(bog_bridges, south, DIRECTION.NONE);
 
         // map_transition(east_inbetwixx, south_2, DIRECTION.NONE);
@@ -2362,7 +2365,7 @@ map east_crossing(0x4f) {
     }
 
     enum ROOM {
-        DEBUG = True,
+        DEBUG = False,
 
         STONE_TRIGGERED = flag(),
         STONE_DOOR_TRIGGERED = flag(),
@@ -2589,8 +2592,6 @@ map east_crossing(0x4f) {
 
         bonfire(0x2d, 0x44, reference(bonfire_triggered));
 
-        init_room();
-
         if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
             add_enemy(ENEMY.STONE_ROUND, 0x15, 0x1b);
             attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(stone_door_triggered));
@@ -2611,6 +2612,8 @@ map east_crossing(0x4f) {
         } else {
             tiny_bridge(True);
         }
+
+        init_room();
     }
 };
 
@@ -3958,6 +3961,10 @@ map pipe_maze(0x3d) {
     }
 };
 
+enum AREA_TOWN_TEMPLE {
+    SECRET_PASSAGE_OPENED = flag(),
+}
+
 map town_market_alley(0x4e) {
     enum entrance {
         north = entrance(0x2a, 0x01, DIRECTION.SOUTH),
@@ -4019,7 +4026,11 @@ map town_temple(0x29) {
             subtext(string("exit? 8 [END]"));
         },
         door_east_2 = @install() fun test() {
-            map_transition(town_level_2, west, DIRECTION.EAST);
+            if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+                map_transition(town_level_2, west, DIRECTION.EAST);
+            } else {
+                contraption_trigger();
+            }
         },
 
         door_east_1 = @install() fun test() {
@@ -4028,7 +4039,7 @@ map town_temple(0x29) {
         stepon_11 = @install() fun test() {
             subtext(string("exit? 11 [END]"));
         },
-        switch = @install() fun test() {
+        switch_triggered = @install() fun test() {
             subtext(string("exit? 12 [END]"));
         },
         stepon_13 = @install() fun test() {
@@ -4132,6 +4143,8 @@ map town_temple_switch(0x2c) {
     }
 
     enum BOSS {
+        DEBUG = True,
+
         RIDER_ID = memory_tmp(),
         MOUNT_ID = memory_tmp(),
         TMP_ID = memory_tmp(),
@@ -4142,14 +4155,31 @@ map town_temple_switch(0x2c) {
         DISMOUNT = memory_tmp(),
 
         COUNTDOWN = 0x03,
-
-        DEBUG = True,
     }
 
-    fun switch_activated() {
-        // object[0x00] = 0x0b;
+    fun show_switch(show) {
+        if(show) {
+            object[0x00] = 0x0a;
+        } else {
+            object[0x00] = 0x00;
+        }
+    }
 
-        debug_memory(BOSS.DISMOUNT, BOSS.DISMOUNT);
+    @install()
+    fun boss_defeated() {
+        set(SOULS_MEMORY.DEAD_TEMPLE_MINITAUR);
+        SOULS_MEMORY.BOSSES_DEFEATED_COUNTER = SOULS_MEMORY.BOSSES_DEFEATED_COUNTER + 0x01;
+        SOULS_MEMORY.PROGRESS_COUNTER = SOULS_MEMORY.PROGRESS_COUNTER + 0x01;
+
+        show_switch(True);
+    }
+    fun switch_activated() {
+        if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+            set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
+
+            // debug_memory(BOSS.DISMOUNT, BOSS.DISMOUNT);
+            object[0x00] = 0x0b;
+        }
     }
 
     enum stepon_trigger {
@@ -4158,14 +4188,6 @@ map town_temple_switch(0x2c) {
         },
         switch = @install() fun test() {
             switch_activated();
-        }
-    }
-
-    fun show_switch(show) {
-        if(show) {
-            object[0x00] = 0x0a;
-        } else {
-            object[0x00] = 0x00;
         }
     }
 
@@ -4186,12 +4208,20 @@ map town_temple_switch(0x2c) {
         if(BOSS.PHASE == 0x00) {
             BOSS.DISMOUNT = BOSS.DISMOUNT + 0x100;
             // attribute_bit(BOSS.RIDER_ID, ATTRIBUTE_BITS.CLIP);
+        } else if(BOSS.PHASE == 0x01) {
+            if(dead(BOSS.MOUNT_ID)) { // TODO: doesn't trigger if minitaur dies last
+                BOSS.PHASE = 0x02;
+                end();
+            }
         }
     }
     @install()
     fun mount_damage() {
         if(BOSS.PHASE == 0x00) {
-            // BOSS.PHASE = 0x01;
+            if(BOSS.MOUNT_ID[ATTRIBUTE.HP] < 0x012c) {
+                BOSS.PHASE = 0x01;
+                end();
+            }
             nop();
         } if(BOSS.PHASE == 0x01) {
             BOSS.DISMOUNT = BOSS.DISMOUNT + 0x100;
@@ -4257,14 +4287,11 @@ map town_temple_switch(0x2c) {
         if(BOSS.DEBUG) {
             subtext(string("yatta[END]"));
         }
+
+        boss_defeated();
     }
-    fun trigger_enter() {
-        show_switch(True);
 
-        fade_in();
-
-        <CHARACTER.BOY>[ATTRIBUTE.HP] = 0x3fff;
-
+    fun spawn_boss() {
         add_enemy(ENEMY.MINITAUR, 0x20, 0x20);
         BOSS.MOUNT_ID = <CHARACTER.LAST_ENTITY>;
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(mount_damage));
@@ -4276,6 +4303,22 @@ map town_temple_switch(0x2c) {
         
         stack_t01_offset();
         boss_watcher();
+    }
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_TEMPLE_MINITAUR) {
+            show_switch(False);
+
+            spawn_boss();
+        } else {
+            if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+                object[0x00] = 0x0b;
+            } else {
+                show_switch(True);
+            }
+        }
+
+        fade_in();
     }
 };
 
@@ -4610,7 +4653,9 @@ map town_level_2(0x7b) {
     }
 
     fun trigger_enter() {
-        // block_market(True);
+        if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+            block_market(True);
+        }
 
         fade_in();
 
@@ -6585,10 +6630,6 @@ map dungeon_volcano(0x3b) {
     }
 
     fun trigger_enter() {
-        default_init_room(False, False);
-
-        debug_memory(<CHARACTER.BOY>[ATTRIBUTE.Z], ROOM.Z_UPSTAIRS);
-
         if!(SOULS_MEMORY.DEAD_VOLCANO_HYDRA) {
             if(<CHARACTER.BOY>[ATTRIBUTE.Z] == ROOM.Z_UPSTAIRS) {
                 spawn_1_head();
@@ -6603,6 +6644,13 @@ map dungeon_volcano(0x3b) {
             add_enemy(ENEMY.STONE_ROUND, 0x44, 0x85);
             ROOM.ID_STONE = <CHARACTER.LAST_ENTITY>;
             attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(contraption_trigger));
+        }
+
+        default_init_room(False, False);
+
+        if(<CHARACTER.BOY>[ATTRIBUTE.Z] == ROOM.Z_UPSTAIRS) {
+            available(CHARACTER.BOY);
+            animate(CHARACTER.DOG, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
         }
     }
 };
