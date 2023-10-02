@@ -12,7 +12,7 @@ class Parser():
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=',
-                '!', '+', '-', '*', '/', '<<', '>>', 'AND',
+                '!', '+', '-', '*', '/', '<<', '>>', 'AND', 'OR',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
@@ -452,6 +452,7 @@ class Parser():
         @self.pg.production('expression : param << param')
         @self.pg.production('expression : param >> param')
         @self.pg.production('expression : param AND param')
+        @self.pg.production('expression : param OR param')
         def parse(p):
             left = p[0]
             operator = p[1]
@@ -490,6 +491,8 @@ class Parser():
                     return ShiftRight(left, right)
                 case 'AND':
                     return And(left, right)
+                case 'OR':
+                    return Or(left, right)
                 case _:
                     raise AssertionError('Oops, this should not be possible!')
 
@@ -538,6 +541,12 @@ class Parser():
                 self.generator.add_patch(patch_name)
 
             return Void()
+        
+        @self.pg.production('expression : ( expression )')
+        def parse(p):
+            term = p[1]
+
+            return term
 
         @self.pg.error
         def error_handle_lex(token):

@@ -82,23 +82,23 @@ enum SOULS_MEMORY {
 
     MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
-    DUST_ENTITY = <0x24fd>,
-    DUST_DROP_X = <0x24ff>,
-    DUST_DROP_Y = <0x2501>,
-    DUST_DROP_MAP = <0x2503>,
-    DUST_DROP_VARIANT = <0x2505>,
+    DUST_ENTITY = memory(), // <0x24fd>,
+    DUST_DROP_X = memory(), // <0x24ff>,
+    DUST_DROP_Y = memory(), // <0x2501>,
+    DUST_DROP_MAP = memory(), // <0x2503>,
+    DUST_DROP_VARIANT = memory(), // <0x2505>,
 
-    BONFIRE_X = <0x2507>,
-    BONFIRE_Y = <0x2509>,
-    BONFIRE_MAP = <0x250b>,
-    BONFIRE_VARIANT = <0x250d>,
+    BONFIRE_X = memory(), // <0x2507>,
+    BONFIRE_Y = memory(), // <0x2509>,
+    BONFIRE_MAP = memory(), // <0x250b>,
+    BONFIRE_VARIANT = memory(), // <0x250d>,
     BONFIRE_TELEPORT_REQUIRED = flag(),
     
-    ESTUS_CHARGES = <0x250f>,
+    ESTUS_CHARGES = memory(), // <0x250f>,
+    ESTUS_SHARDS = memory(), // <0x2512>,
     ESTUS_CHARGES_INIT = 0x01,
     
     BOMB_ENABLED = flag(),
-
 
     // bosses
     BOSSES_DEFEATED_COUNTER = memory(),
@@ -111,6 +111,24 @@ enum SOULS_MEMORY {
     DEAD_ARENA_MOSQUITO = flag(),
 
     DEAD_TEMPLE_MINITAUR = flag(),
+    DEAD_TAVERN_BOXERS = flag(),
+
+    DEAD_NARIS = flag(),
+}
+
+@install()
+fun upgrade_estus() { // TODO: test
+    dialog(string("hi[END]"));
+    
+    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
+        dialog(string("estus upgrade?[LF][0x8b]yes[LF][0x8b]no[END]"));
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) {
+            SOULS_MEMORY.ESTUS_SHARDS = SOULS_MEMORY.ESTUS_SHARDS - 0x01;
+
+            SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES + 0x01;
+        }
+    }
 }
 
 @install()
@@ -331,7 +349,10 @@ fun hotkey_start_l() {
         // map_transition(bog_bridges, south, DIRECTION.NONE);
 
         // map_transition(east_inbetwixx, south_2, DIRECTION.NONE);
-        map_transition(radahn2_arena, right, DIRECTION.NONE);
+
+        map_transition(radahn2_arena, right, DIRECTION.NONE); // TODO
+        // map_transition(town_level_3, south, DIRECTION.NONE);
+        // map_transition(bog_curve, south, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -936,7 +957,7 @@ map west_inbetwixx(0x5b) {
         }
 
         if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
-            add_enemy(ENEMY.RAPTOR, 0x5c, 0x26);
+            add_enemy(ENEMY.RAPTOR_GREEN, 0x5c, 0x26);
         }
 
         add_enemy(ENEMY.OWL_BLACK, 0x2d, 0x21);
@@ -4540,7 +4561,174 @@ map town_room(0x30) {
         },
     }
 
+    enum ROOM {
+        RIDER_1_ID = memory_tmp(),
+        MOUNT_1_ID = memory_tmp(),
+        RIDER_2_ID = memory_tmp(),
+        MOUNT_2_ID = memory_tmp(),
+        RIDER_3_ID = memory_tmp(),
+        MOUNT_3_ID = memory_tmp(),
+
+        HITS_BOXER_1 = memory_tmp(),
+        HITS_BOXER_2 = memory_tmp(),
+        HITS_BOXER_3 = memory_tmp(),
+
+        HITS_THRESHOLD = 0x05,
+
+        BOXERS_BEATEN = memory_tmp(),
+
+        BOXERS_BEATEN_THRESHOLD = 0x03,
+    }
+
+    @install()
+    @async()
+    fun stack_boxer1() {
+        while!(dead(ROOM.RIDER_1_ID)) {
+            ROOM.RIDER_1_ID[ATTRIBUTE.X] = ROOM.MOUNT_1_ID[ATTRIBUTE.X];
+            ROOM.RIDER_1_ID[ATTRIBUTE.Y] = ROOM.MOUNT_1_ID[ATTRIBUTE.Y];
+            yield();
+        }
+    }
+    @install()
+    @async()
+    fun stack_boxer2() {
+        while!(dead(ROOM.RIDER_2_ID)) {
+            ROOM.RIDER_2_ID[ATTRIBUTE.X] = ROOM.MOUNT_2_ID[ATTRIBUTE.X];
+            ROOM.RIDER_2_ID[ATTRIBUTE.Y] = ROOM.MOUNT_2_ID[ATTRIBUTE.Y];
+            yield();
+        }
+    }
+    @install()
+    @async()
+    fun stack_boxer3() {
+        while!(dead(ROOM.RIDER_3_ID)) {
+            ROOM.RIDER_3_ID[ATTRIBUTE.X] = ROOM.MOUNT_3_ID[ATTRIBUTE.X];
+            ROOM.RIDER_3_ID[ATTRIBUTE.Y] = ROOM.MOUNT_3_ID[ATTRIBUTE.Y];
+            yield();
+        }
+    }
+
+    fun boxer_hit(rider_id, mount_id, hit_counter) { // TODO: buggy
+        hit_counter = hit_counter + 0x01;
+
+        debug_memory(hit_counter, ROOM.HITS_THRESHOLD);
+
+        if(hit_counter >= ROOM.HITS_THRESHOLD) {
+            add_enemy(ENEMY.PLACEHOLDER, 0x00, 0x00);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = rider_id[ATTRIBUTE.X];
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = rider_id[ATTRIBUTE.Y];
+
+            destroy(mount_id);
+            destroy(rider_id);
+
+            ROOM.BOXERS_BEATEN = ROOM.BOXERS_BEATEN + 0x01;
+            
+        }
+    }
+
+    fun boxer_killed() {
+        ROOM.BOXERS_BEATEN = ROOM.BOXERS_BEATEN + 0x01;
+
+        if(ROOM.BOXERS_BEATEN >= ROOM.BOXERS_BEATEN_THRESHOLD) {
+            subtext(string("yatta[END]"));
+
+            SOULS_MEMORY.PROGRESS_COUNTER = SOULS_MEMORY.PROGRESS_COUNTER + 0x01;
+            SOULS_MEMORY.BOSSES_DEFEATED_COUNTER = SOULS_MEMORY.BOSSES_DEFEATED_COUNTER + 0x01;
+
+            set(SOULS_MEMORY.DEAD_TAVERN_BOXERS);
+        }
+    }
+
+    @install()
+    fun boxer1dead() {
+        // boxer_hit(ROOM.RIDER_1_ID, ROOM.MOUNT_1_ID ,ROOM.HITS_BOXER_1);
+
+        ROOM.HITS_BOXER_1 = ROOM.HITS_BOXER_1 + 0x01;
+
+        if(ROOM.HITS_BOXER_1 >= ROOM.HITS_THRESHOLD) {
+            add_enemy(ENEMY.PLACEHOLDER, 0x00, 0x00);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = ROOM.RIDER_1_ID[ATTRIBUTE.X];
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = ROOM.RIDER_1_ID[ATTRIBUTE.Y];
+
+            destroy(ROOM.MOUNT_1_ID);
+            destroy(ROOM.RIDER_1_ID);
+
+            boxer_killed();
+        }
+    }
+    @install()
+    fun boxer2dead() {
+        // boxer_hit(ROOM.RIDER_2_ID, ROOM.MOUNT_2_ID ,ROOM.HITS_BOXER_2);
+
+        ROOM.HITS_BOXER_2 = ROOM.HITS_BOXER_2 + 0x01;
+
+        if(ROOM.HITS_BOXER_2 >= ROOM.HITS_THRESHOLD) {
+            add_enemy(ENEMY.PLACEHOLDER, 0x00, 0x00);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = ROOM.RIDER_2_ID[ATTRIBUTE.X];
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = ROOM.RIDER_2_ID[ATTRIBUTE.Y];
+
+            destroy(ROOM.RIDER_2_ID);
+            destroy(ROOM.MOUNT_2_ID);
+
+            boxer_killed();
+        }
+    }
+    @install()
+    fun boxer3dead() {
+        // boxer_hit(ROOM.RIDER_3_ID, ROOM.MOUNT_3_ID ,ROOM.HITS_BOXER_3);
+
+        ROOM.HITS_BOXER_3 = ROOM.HITS_BOXER_3 + 0x01;
+
+        if(ROOM.HITS_BOXER_3 >= ROOM.HITS_THRESHOLD) {
+            add_enemy(ENEMY.PLACEHOLDER, 0x00, 0x00);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = ROOM.RIDER_3_ID[ATTRIBUTE.X];
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = ROOM.RIDER_3_ID[ATTRIBUTE.Y];
+
+            destroy(ROOM.RIDER_3_ID);
+            destroy(ROOM.MOUNT_3_ID);
+
+            boxer_killed();
+        }
+    }
+
     fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_TAVERN_BOXERS) {
+            add_enemy(ENEMY.BOXER_1, 0x5c, 0x49);
+            ROOM.RIDER_1_ID = <CHARACTER.LAST_ENTITY>;
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boxer1dead));
+            add_enemy(ENEMY.MAGGOT_RED, 0x5c, 0x49);
+            ROOM.MOUNT_1_ID = <CHARACTER.LAST_ENTITY>;
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+
+            add_enemy(ENEMY.BOXER_2, 0x80, 0x3d);
+            ROOM.RIDER_2_ID = <CHARACTER.LAST_ENTITY>;
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boxer2dead));
+            add_enemy(ENEMY.MAGGOT_RED, 0x80, 0x3d);
+            ROOM.MOUNT_2_ID = <CHARACTER.LAST_ENTITY>;
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+
+            add_enemy(ENEMY.BOXER_2, 0x80, 0x45);
+            ROOM.RIDER_3_ID = <CHARACTER.LAST_ENTITY>;
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boxer3dead));
+            add_enemy(ENEMY.MAGGOT_RED, 0x80, 0x45);
+            ROOM.MOUNT_3_ID = <CHARACTER.LAST_ENTITY>;
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+
+            stack_boxer1();
+            stack_boxer2();
+            stack_boxer3();
+        }
+
         fade_in();
     }
 };
@@ -4857,6 +5045,141 @@ map town_level_3(0x0b) {
         }
     }
 
+    enum BOSS {
+        DEBUG = False,
+
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
+
+        BOSS_1_ID = memory_tmp(),
+        BOSS_2_ID = memory_tmp(),
+        BOSS_REMAINING_ID = memory_tmp(),
+
+        LAST_DAMAGED = memory_tmp(),
+        RNG = memory_tmp(),
+
+        P1_SPELL = CAST.DISRUPT,
+        P1_SPELL_LEVEL = 0x30,
+
+        P2_TIMER_THRARSHOLD = 0x258, // 600
+    }
+
+    fun puppet_damaged(self, other, boss_id, dance_animation) {
+        if(BOSS.PHASE == 0x00) {
+            BOSS.PHASE = 0x01;
+
+            // if(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.HP] > 0x00) {
+                cast(CHARACTER.SCRIPT_OWNER, CHARACTER.SCRIPT_OWNER, CAST.FORCEFIELD, 0x00);
+            // }
+        } else if(BOSS.PHASE == 0x01) {
+            if(BOSS.LAST_DAMAGED == boss_id) {
+                sleep(0x05);
+                animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.LOOP, dance_animation);
+                sleep(0x20);
+                cast(CHARACTER.SCRIPT_OWNER, CHARACTER.BOY, BOSS.P1_SPELL, BOSS.P1_SPELL_LEVEL);
+                animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+            }
+            
+            BOSS.LAST_DAMAGED = boss_id;
+
+            if(dead(<CHARACTER.SCRIPT_OWNER>)) {
+                BOSS.BOSS_REMAINING_ID = other;
+                BOSS.PHASE = 0x02;
+            }
+        }
+    }
+
+    @install()
+    fun damage_1() {
+        puppet_damaged(BOSS.BOSS_1_ID, BOSS.BOSS_2_ID, 0x11, ANIMATION_ENEMY.PUPPET_1_DANCE);
+    }
+    @install()
+    fun damage_2() {
+        puppet_damaged(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, 0x22, ANIMATION_ENEMY.PUPPET_2_DANCE);
+    }
+
+    @install()
+    @async()
+    fun boss_ai() {
+        if(BOSS.DEBUG) {
+            subtext(string("phase 0[END]"));
+        }
+        
+        while(BOSS.PHASE == 0x00) {
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 1[END]"));
+        }
+        
+        while(BOSS.PHASE == 0x01) {
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 2[END]"));
+        }
+
+        BOSS.TIMER = 0x0000;
+
+        while!(dead(BOSS.BOSS_REMAINING_ID)) {
+            if(BOSS.TIMER > BOSS.P2_TIMER_THRARSHOLD) {
+                BOSS.TIMER = 0x0000;
+                BOSS.RNG = randrange(0x03);
+
+                if(BOSS.BOSS_REMAINING_ID == BOSS.BOSS_1_ID) {
+                    if(BOSS.RNG == 0x00) {
+                        animate(BOSS.BOSS_REMAINING_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
+
+                        cast(BOSS.BOSS_REMAINING_ID, CHARACTER.BOY, CAST.COROSION, 0x10);
+                        cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, CAST.FORCEFIELD, 0x00);
+                    } else if(BOSS.RNG == 0x01) {
+                        animate(BOSS.BOSS_REMAINING_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
+
+                        cast(BOSS.BOSS_REMAINING_ID, CHARACTER.BOY, CAST.CONFOUND, 0x10);
+                    } else if(BOSS.RNG == 0x02) {
+                        cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, CAST.FORCEFIELD, 0x00);
+                        animate(BOSS.BOSS_REMAINING_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.PUPPET_1_DANCE);
+                    }
+                } else {
+                    if(BOSS.RNG == 0x00) {
+                        animate(BOSS.BOSS_REMAINING_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
+
+                        cast(CHARACTER.BOY, CHARACTER.BOY, CAST.COROSION, 0x10);
+                        cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, CAST.FORCEFIELD, 0x00);
+                    } else if(BOSS.RNG == 0x01) {
+                        animate(BOSS.BOSS_REMAINING_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
+
+                        cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, CAST.HEAL, 0x10);
+                    } else if(BOSS.RNG == 0x02) {
+                        cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, CAST.FORCEFIELD, 0x00);
+                        animate(BOSS.BOSS_REMAINING_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.PUPPET_2_DANCE);
+                    }
+                }
+            } else {
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("yatta[END]"));
+        }
+    }
+
+    fun puppet_1(x, y) {
+        add_enemy(ENEMY.PUPPET_1, x, y);
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.PUPPET_1_DANGLING);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+    }
+    fun puppet_2(x, y) {
+        add_enemy(ENEMY.PUPPET_2, x, y);
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.PUPPET_2_DANGLING);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+    }
+
     fun trigger_enter() {
         open_gate(True);
 
@@ -4868,7 +5191,20 @@ map town_level_3(0x0b) {
             crash_land(CHARACTER.BOTH);
         }
 
-        subtext(string("Empty map - nothing to explore[END]"));
+        // puppet_1(0x40, 0x29);
+        // puppet_1(0x6c, 0x29);
+        // puppet_2(0x56, 0x30);
+
+
+        puppet_1(0x4b, 0x29);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(damage_1));
+        BOSS.BOSS_1_ID = <CHARACTER.LAST_ENTITY>;
+
+        puppet_2(0x61, 0x29);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(damage_2));
+        BOSS.BOSS_2_ID = <CHARACTER.LAST_ENTITY>;
+
+        boss_ai();
     }
 };
 
@@ -4934,9 +5270,205 @@ map bog_curve(0x20) {
         }
     }
 
+    fun boss_defeated() {
+        SOULS_MEMORY.BOSSES_DEFEATED_COUNTER = SOULS_MEMORY.BOSSES_DEFEATED_COUNTER + 0x01;
+        SOULS_MEMORY.PROGRESS_COUNTER = SOULS_MEMORY.PROGRESS_COUNTER + 0x01;
+
+        set(SOULS_MEMORY.DEAD_NARIS);
+    }
+
+    enum BOSS {
+        DEBUG = True,
+
+        RIDER_ID = memory_tmp(),
+        MOUNT_ID = memory_tmp(),
+
+        BOSS_HP = 0x07d0, // 0d2000
+
+        GUESS_RNG = memory_tmp(),
+        ANGER_LEVEL = 0x0000,
+
+        P1_THRESHOLD = 0x00,
+    }
+
+    @install()
+    fun naris_opening() {
+        dialog(string("[0x96]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![0x86][END]"));
+    }
+
+    // @install()
+    fun spawn_enemies(enemy_id) {
+        add_enemy(enemy_id, 0x00, 0x00);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+        add_enemy(enemy_id, 0x00, 0x00);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+    }
+
+    @install()
+    fun young_naris_question() {
+        control_enemy(BOSS.MOUNT_ID, True);
+        MEMORY.STRING_PARAMETER_1 = 0x00;
+        MEMORY.STRING_PARAMETER_2 = 0x01;
+
+        question(string("Guess the number of marbles in my hand and I'll give you something.[0x86]What's your guess?[LF][PAUSE:3d][0x8b][0xa1].[LF][0x8b][0xa2].[END]"));
+
+        BOSS.GUESS_RNG = randrange(0x02);
+
+        if(MEMORY.QUESTION_ANSWER == BOSS.GUESS_RNG) {
+            if(BOSS.DEBUG) {
+                subtext(string("yay[END]"));
+            }
+
+            damage(BOSS.MOUNT_ID, 0x29a);
+        } else if(MEMORY.QUESTION_ANSWER == 0x00) {
+            if(BOSS.DEBUG) {
+                subtext(string("nay 0[END]"));
+            }
+
+            spawn_enemies(ENEMY.MAGGOT);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+            if(BOSS.DEBUG) {
+                subtext(string("nay 1[END]"));
+            }
+
+            spawn_enemies(ENEMY.MOSQUITO);
+        }
+
+        if(BOSS.DEBUG) {
+            sleep(0x30);
+            debug_memory(MEMORY.QUESTION_ANSWER, BOSS.GUESS_RNG);
+        }
+
+        control_enemy(BOSS.MOUNT_ID, False);
+    }
+    @install()
+    fun old_naris_question() {
+        control_enemy(BOSS.MOUNT_ID, True);
+        MEMORY.STRING_PARAMETER_1 = 0x00;
+        MEMORY.STRING_PARAMETER_2 = 0x01;
+        MEMORY.STRING_PARAMETER_3 = 0x02;
+
+        question(string("Guess the number of marbles in my hand and I'll give you something.[0x86]What's your guess?[LF][PAUSE:3d][0x8b][0xa1].[LF][0x8b][0xa2].[LF][0x8b][0xa3].[END]"));
+
+        BOSS.GUESS_RNG = randrange(0x03);
+
+        if(MEMORY.QUESTION_ANSWER == BOSS.GUESS_RNG) {
+            if(BOSS.DEBUG) {
+                subtext(string("yay[END]"));
+            }
+
+            damage(BOSS.MOUNT_ID, 0x29a);
+        } else if(MEMORY.QUESTION_ANSWER == 0x00) {
+            if(BOSS.DEBUG) {
+                subtext(string("nay 0[END]"));
+            }
+
+            spawn_enemies(ENEMY.MAGGOT);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+            if(BOSS.DEBUG) {
+                subtext(string("nay 1[END]"));
+            }
+
+            spawn_enemies(ENEMY.MOSQUITO);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) {
+            if(BOSS.DEBUG) {
+                subtext(string("nay 2[END]"));
+            }
+
+            spawn_enemies(ENEMY.SKELESNAIL);
+        }
+
+        if(BOSS.DEBUG) {
+            sleep(0x30);
+            debug_memory(MEMORY.QUESTION_ANSWER, BOSS.GUESS_RNG);
+        }
+
+        control_enemy(BOSS.MOUNT_ID, False);
+    }
+    
+    fun spawn_young_naris() {
+        add_enemy(ENEMY.NARIS_YOUNG, 0x14, 0x14);
+        BOSS.MOUNT_ID = <CHARACTER.LAST_ENTITY>;
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(naris_opening));
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.BOSS_HP;
+    }
+
+    fun spawn_old_naris() {
+        add_enemy(ENEMY.VILLAGER_3_4, 0x00, 0x00);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+        BOSS.MOUNT_ID = <CHARACTER.LAST_ENTITY>;
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(DEBUG) {
+            subtext(string("phase 0[END]"));
+        }
+
+        while(BOSS.RIDER_ID[ATTRIBUTE.HP] >= SYSTEM.HP_MAX) {
+            yield();
+        }
+
+        attach_script(BOSS.RIDER_ID, SCRIPT_TRIGGER.DAMAGE, reference(young_naris_question));
+
+        if(DEBUG) {
+            subtext(string("phase 1[END]"));
+        }
+
+        while!(dead(BOSS.MOUNT_ID)) {
+            yield();
+        }
+
+        spawn_old_naris();
+        attach_script(BOSS.RIDER_ID, SCRIPT_TRIGGER.DAMAGE, reference(old_naris_question));
+
+        if(DEBUG) {
+            subtext(string("phase 2[END]"));
+        }
+
+        while!(dead(BOSS.MOUNT_ID)) {
+            yield();
+        }
+
+        destroy(BOSS.RIDER_ID);
+
+        if(DEBUG) {
+            subtext(string("yatta[END]"));
+        }
+
+        boss_defeated();
+    }
+
+    @install()
+    @async()
+    fun stack_t01() {
+        while!(dead(BOSS.RIDER_ID)) {
+            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+            yield();
+        }
+    }
+
     fun trigger_enter() {
         // object[0x00] = 0x7e;
         object[0x01] = 0x7e;
+
+        if!(SOULS_MEMORY.DEAD_NARIS) {
+            add_enemy_with_flags(ENEMY.LIZARD, 0x14, 0x14, FLAG_ENEMY.INACTIVE_INVISIBLE);
+            BOSS.RIDER_ID = <CHARACTER.LAST_ENTITY>;
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+            attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+            <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
+
+            spawn_young_naris();
+
+            boss_watcher();
+            stack_t01();
+        }
 
         fade_in();
     }
@@ -5986,12 +6518,12 @@ map radahn_arena(0x5c) {
 
         // p1
 
-        P1_THRASHOLD = 0x320, // 800
+        P1_THRESHOLD = 0x320, // 800
         P1_TIME_BEFORE_SALVAGE = 0x200,
 
         // p2
 
-        P2_THRASHOLD = 0x1f4, // 500
+        P2_THRESHOLD = 0x1f4, // 500
         P2_TIME_BEFORE_SALVAGE = 0x300,
 
         RANDOM_SPELL = memory_tmp(),
@@ -6033,11 +6565,11 @@ map radahn_arena(0x5c) {
         if(BOSS.PHASE == 0x00) {
             BOSS.TIMER = 0x00;
 
-            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRASHOLD) {
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRESHOLD) {
                 BOSS.PHASE = 0x01;
             }
         } else if(BOSS.PHASE == 0x01) {
-            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRASHOLD) {
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRESHOLD) {
                 BOSS.PHASE = 0x02;
             }
         } else if(BOSS.PHASE == 0x02) {
@@ -6535,6 +7067,314 @@ map rats_arena(0x5c) {
 
         spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
         spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
+    }
+};
+
+
+map radahn2_arena(0x5c) {
+    enum entrance {
+        north = entrance(0x1b, 0x03, DIRECTION.SOUTH),
+        south = entrance(0x1d, 0x33, DIRECTION.NORTH),
+
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x32, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        DEBUG = True,
+
+        RIDER_ID = memory_tmp(),
+        MOUNT_ID = memory_tmp(),
+
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
+
+        HP = 0x03e8, // 1000
+
+        COUNTDOWN = 0x03,
+
+        STOMP_ENTITY = memory_tmp(),
+        STOMP_DISTANCE = 0x20,
+        STOMP_COOL_DOWN_TIMER = memory_tmp(),
+        STOMP_COOL_DOWN = 0x100,
+        STOMP_DAMAGE_CLOSE = 0x50,
+        STOMP_DAMAGE = 0x10,
+        STOMP_EXPLOSION_DISTANCE = 0x30,
+
+        // p1
+
+        P1_THRESHOLD = 0x320, // 800
+        P1_TIME_BEFORE_SALVAGE = 0x500,
+
+        // p2
+
+        P2_THRESHOLD = 0x1f4, // 500
+        P2_TIME_BEFORE_SALVAGE = 0x300,
+
+        RANDOM_SPELL = memory_tmp(),
+        TIME_BEFORE_RANDOM_SPELL = 0x300,
+    }
+
+    fun boss_killed() {
+        nop();
+    }
+
+    @install()
+    @async()
+    fun stomp() {
+        BOSS.RIDER_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x38;
+        BOSS.MOUNT_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x30;
+
+        // attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+
+        sleep(0x60);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_3, 0x00, 0x00);
+        BOSS.STOMP_ENTITY = <CHARACTER.LAST_ENTITY>;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x10;
+
+        arg[0x00] = BOSS.STOMP_ENTITY[ATTRIBUTE.X];
+        arg[0x02] = BOSS.STOMP_ENTITY[ATTRIBUTE.Y];
+        arg[0x04] = <CHARACTER.BOY>[ATTRIBUTE.X];
+        arg[0x06] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        if(arg[0x00] < arg[0x04]) {
+            arg[0x08] = arg[0x04] - arg[0x00];
+        } else {
+            arg[0x08] = arg[0x00] - arg[0x04];
+        }
+
+        if(arg[0x02] < arg[0x06]) {
+            arg[0x0a] = arg[0x06] - arg[0x02];
+        } else {
+            arg[0x0a] = arg[0x02] - arg[0x06];
+        }
+
+        if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
+            if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
+                damage(CHARACTER.BOY, BOSS.STOMP_DAMAGE_CLOSE);
+            }
+        } else if(arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) {
+            if(arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE) {
+                damage(CHARACTER.BOY, BOSS.STOMP_DAMAGE);
+            }
+        }
+
+        if(BOSS.DEBUG) {
+            debug_memory(arg[0x08], arg[0x0a]);
+            sleep(0x20);
+        }
+
+        sleep(0x30);
+        destroy(BOSS.STOMP_ENTITY);
+        // attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.UNLOCK);
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(BOSS.MOUNT_ID)) {
+            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x15;
+            yield();
+
+            if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
+                arg[0x00] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+                arg[0x02] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+                arg[0x04] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+                arg[0x06] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+
+                if(arg[0x00] < arg[0x04]) {
+                    arg[0x08] = arg[0x04] - arg[0x00];
+                } else {
+                    arg[0x08] = arg[0x00] - arg[0x04];
+                }
+
+                if(arg[0x02] < arg[0x06]) {
+                    arg[0x0a] = arg[0x06] - arg[0x02];
+                } else {
+                    arg[0x0a] = arg[0x02] - arg[0x06];
+                }
+
+                if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
+                    if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
+                        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
+
+                        stomp();
+                    }
+                }
+                yield();
+
+                // if(BOSS.DEBUG) {
+                //     debug_memory(arg[0x08], arg[0x0a]);
+                //     sleep(0x20);
+                // }
+            } else {
+                BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN_TIMER - 0x01;
+            }
+        }
+    }
+
+    fun cast_salvage(target, level) {
+        animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        if(BOSS.PHASE == 0x00) {
+            BOSS.TIMER = 0x00;
+
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRESHOLD) {
+                BOSS.PHASE = 0x01;
+            }
+        } else if(BOSS.PHASE == 0x01) {
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRESHOLD) {
+                BOSS.PHASE = 0x02;
+            }
+        } else if(BOSS.PHASE == 0x02) {
+            BOSS.TIMER = BOSS.TIMER - 0x60;
+        }
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[ATTRIBUTE.HP];
+            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+            subtext(string("Rider = [0xa1]/[0xa2][END]"));
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(BOSS.DEBUG) {
+            subtext(string("phase 0[END]"));
+        }
+
+        while(BOSS.PHASE == 0x00) {
+            if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 1[END]"));
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[ATTRIBUTE.PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        BOSS.TIMER = 0x0000;
+        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            BOSS.TIMER = BOSS.TIMER + 0x01;
+
+            if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                BOSS.TIMER = 0x0000;
+
+                BOSS.RANDOM_SPELL = randrange(0x03);
+
+                if(BOSS.RANDOM_SPELL == 0x00) {
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+                } else if(BOSS.RANDOM_SPELL == 0x01) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.DRAIN, 0x30);
+                } else if(BOSS.RANDOM_SPELL == 0x02) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.PLAGUE, 0x01);
+                } 
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 2[END]"));
+        }
+
+        boss_killed();
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.VERMINATOR, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.HP;
+        store_last_entity(BOSS.RIDER_ID);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+
+        // add_enemy(ENEMY.STERLING, x, y);
+        add_enemy(ENEMY.FORESTDRAKE, x, y);
+        store_last_entity(BOSS.MOUNT_ID);
+        // attach_sterling_script_to_last_entity(CHARACTER.LAST_ENTITY);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+    }
+
+    fun trigger_enter() {
+        if!(FLAG.IN_ANIMATION) {
+            crash_both();
+        }
+
+        default_init_room(True, False);
+
+        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+            close_exits(True);
+
+            spawn_boss(0x10, 0x13);
+            stack_t01_offset();
+            boss_watcher();
+
+            character_selection(CHARACTER.BOY);
+            countdown(BOSS.COUNTDOWN);
+            attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+        }
     }
 };
 

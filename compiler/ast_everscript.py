@@ -794,6 +794,8 @@ class BinaryDefaultCalculator():
                 TODO()
             case Arg():
                 code = left.calculate(params) + [Operand("push")] + right + [operator]
+            case list():
+                code = left + [Operand("push")] + right + [operator]
             case _:
                 TODO()
 
@@ -840,7 +842,7 @@ class NotEquals(BinaryOp):
 
         return code
     
-class GreaterEquals(BinaryOp):
+class GreaterEquals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return ">="
 
@@ -848,24 +850,9 @@ class GreaterEquals(BinaryOp):
         return left.eval(params) >= right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
         operator = Operand(">=")
 
-        match left:
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "char":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "28":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "28":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset == None and left.type == "22":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case left if isinstance(left, Memory) and left.offset != None and left.type == "22":
-                code = left.calculate(params) +  [Operand("push")] + right + [operator]
-            case _:
-                raise Exception(f"left parameter '${left}' not supported")
-
-        return code
+        return self._default_calculate(operator, left, right, params)
     
 class Greater(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
@@ -927,7 +914,7 @@ class Sub(BinaryOp, BinaryDefaultCalculator):
 
         return self._default_calculate(operator, left, right, params)
     
-class Mul(BinaryOp):
+class Mul(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "*"
 
@@ -935,7 +922,9 @@ class Mul(BinaryOp):
         return left.eval(params) * right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        pass
+        operator = Operand("*")
+
+        return self._default_calculate(operator, left, right, params)
 
 class Div(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
@@ -999,6 +988,18 @@ class And(BinaryOp):
 
         return code
     
+class Or(BinaryOp):
+    def operator(self):
+        return "|"
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) | right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        code = []
+
+        TODO()
+
 class Asign(BinaryOp):
     def operator(self):
         return "="
