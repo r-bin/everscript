@@ -574,11 +574,19 @@ class BinaryOp(Operator):
 
         left = self.resolve(self.left, params)
         if isinstance(left, BinaryOp):
-            left = left.calculate(params)
+            new_left = left.calculate(params)
+            if new_left == None:
+                TODO()
+            else:
+                left = new_left
         
         right = self.resolve(self.right, params)
         if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
-            right = right.calculate(params)
+            new_right = right.calculate(params)
+            if new_right == None:
+                TODO()
+            else:
+                right = new_right
 
         if isinstance(self, Memorable) and not self.memory:
             return Word(self.eval(params)).calculate(params)
@@ -632,8 +640,8 @@ class Operand():
         # _: 0x14, # boolean invert
         # _: 0x15, # bitwise invert
         # _: 0x16, # flip sign
-        # _: 0x17, # pull from stack, res = pulled * res
-
+        
+        "*": 0x17, # pull from stack, res = pulled * res
         "/": 0x18, # pulled / res
         "+": 0x1a, # pulled + res
         "-": 0x1b, # pulled - res
