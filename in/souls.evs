@@ -233,21 +233,31 @@ fun bonfire_triggered() {
     // test_owner2();
     // end();
     
-    // subtext(string("bonfire[END]"));
+    // subtext(string("Bonfire Lit[END]"));
 
     // bonfire_activate(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X], <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y], reference(bonfire_triggered));
 
-    // destroy(CHARACTER.SCRIPT_OWNER);
+    MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+}
+
+@install()
+fun bonfire_lit() {    
+    subtext(string("Bonfire Lit[END]"));
+
+    add_enemy_with_flags(ENEMY.LANTERN_LIGHT_RED, 0x00, 0x00, FLAG_ENEMY.INACTIVE);
+    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bonfire_triggered));
+    <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X];
+    <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y];
+
+    destroy(CHARACTER.SCRIPT_OWNER);
 
     SOULS_MEMORY.BONFIRE_X = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
     SOULS_MEMORY.BONFIRE_Y = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
     SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP & 0xff;
     SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
-
-    MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
 }
 
-fun bonfire(x, y, id) {
+fun bonfire(x, y) {
     // add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE_IMORTAL);
     // attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, 0x181e);
     // entity_script_controlled(CHARACTER.LAST_ENTITY);
@@ -255,14 +265,17 @@ fun bonfire(x, y, id) {
     if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
         if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
             add_enemy_with_flags(ENEMY.LANTERN_LIGHT_RED, x, y, FLAG_ENEMY.INACTIVE);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bonfire_triggered));
         } else {
             add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bonfire_lit));
         }
     } else {
         add_enemy_with_flags(ENEMY.LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(bonfire_lit));
     }
     
-    attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, id);
+    attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
     <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
 }
 
@@ -350,9 +363,12 @@ fun hotkey_start_l() {
 
         // map_transition(east_inbetwixx, south_2, DIRECTION.NONE);
 
-        map_transition(radahn2_arena, right, DIRECTION.NONE); // TODO
+        // map_transition(radahn2_arena, right, DIRECTION.NONE);
+        // map_transition(radahn3_arena, right, DIRECTION.NONE);
         // map_transition(town_level_3, south, DIRECTION.NONE);
         // map_transition(bog_curve, south, DIRECTION.NONE);
+        
+        map_transition(projectile_test, south, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -366,17 +382,28 @@ fun hotkey_start_r() {
 
         // map_transition(arena, right, DIRECTION.NONE);
         
-        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+        // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
         // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
         <CHARACTER.BOY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
         
-        debug_boy();
+        // debug_boy();
         // debug_memory(<0x2834>[0x15], <0x2836>[ATTRIBUTE.HP]);
         // debug_memory(<0x2834>[ATTRIBUTE.HP], <0x2836>[ATTRIBUTE.HP]);
         
         // map_transition(toaster_arena, center, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE + 0x01;
+
+        // eval("b5 8d 15 00 8d 01 00 88 1f 02 88 21 02 ba 92 04 92 06 e4");
+        // code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), arg[0x04], arg[0x06], param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        // <0x2849> = 0x1a;
+        // <0x2835> = <CHARACTER.DOG>;
+        // <0x2477> = 0x00;
+        // <0x2479> = 0x00;
+        // code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0xee), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        <0x2849> = <0x2849> + 0x02;
+        debug_memory(<0x2849>, <0x2849>);
     }
 }
 
@@ -418,6 +445,13 @@ map inbetwixx(0x05) {
 
     enum soundtrack {
         default = soundtrack(MUSIC.BUGMUCK_AMBIENT_MELODY, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+        
+        BRIDGE_REVEALED = flag(),
+        BRIDGE_REVEALER_ENTITY = memory_tmp(),
     }
 
     @install()
@@ -673,6 +707,53 @@ map inbetwixx(0x05) {
     }
 
     @install()
+    @async()
+    fun revealer_approached() {
+        attach_to_script(ROOM.BRIDGE_REVEALER_ENTITY);
+
+        while!(dead(<CHARACTER.SCRIPT_OWNER>)) {
+            arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+            arg[0x04] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X];
+            arg[0x06] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if(arg[0x08] <= 0x20) {
+                if(arg[0x0a] <= 0x20) {
+                    ravine_triggered();
+                    end();
+                }
+            }
+
+            if(ROOM.DEBUG) {
+                debug_memory(arg[0x08], arg[0x0a]);
+                sleep(0x20);
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    fun revealer_triggered() {
+        set(ROOM.BRIDGE_REVEALED);
+        object[0x02] = 0x7e;
+        sleep(0x29);
+        destroy(ROOM.BRIDGE_REVEALER_ENTITY);
+    }
+
+    @install()
     fun trigger_enter() {
         if(SOULS_MEMORY.DEMO_MODE) {
             if!(FLAG.ENERGY_CORE) {
@@ -697,6 +778,16 @@ map inbetwixx(0x05) {
             add_enemy(ENEMY.FLOWER_PURPLE, 0x59, 0x4f);
         }
 
+        if!(ROOM.BRIDGE_REVEALED) {
+            add_enemy(ENEMY.REVEALER_TARGET_ENTITY, 0x24, 0x1a);
+            ROOM.BRIDGE_REVEALER_ENTITY = <CHARACTER.LAST_ENTITY>;
+
+            special_script(SPECIAL_SCRIPTS.REVEALER, reference(revealer_triggered));
+            revealer_approached();
+        } else {
+            revealer_triggered();
+        }
+
         init_room();
 
         if!(FLAG.IN_ANIMATION) {
@@ -715,11 +806,170 @@ map inbetwixx(0x05) {
             // load_map(0x05, 0x0f, 0x47);
         }
 
-        bonfire(0x31, 0x35, reference(bonfire_triggered));
+        bonfire(0x31, 0x35);
         // bomb_wall_trigger(0x01, 0x3f, 0x3c);
         // bomb_wall_trigger(0x00, 0x43, 0x60);
     }
 };
+
+
+map projectile_test(0x1d) {
+    enum entrance {
+        north_cinematic = entrance(0x20, 0x07, DIRECTION.NONE),
+        south = entrance(0x22, 0x69, DIRECTION.NORTH) // 0x22, 0x6a
+    }
+
+    enum BOSS {
+        RING_PROJECTILE = THROWABLE.CITRON,
+        RING_SLEEP = 0x05,
+        RING_STEP = 0x40,
+        RING_RADIUS = 0x100,
+
+        RING_DOUBLE = False,
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE);
+
+        if(False) {
+            add_enemy_with_flags(ENEMY.VIGOR, 0x13, 0x49, FLAG_ENEMY.INACTIVE);
+            <0x2835> = <CHARACTER.LAST_ENTITY>;
+            call(ADDRESS.RNG2849);
+            unset(<0x2834, 0x02>);
+            call(0x99e8d6);
+
+            // eval("b5 8d 15 00 8d 01 00 88 1f 02 88 21 02 ba 92 04 92 06 e4");
+            // code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+            sleep(0x60);
+
+            <0x2849> = 0x000c;
+
+            while(True) {
+                code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                sleep(0x10);
+            }
+        }
+        if(False) {
+            add_enemy_with_flags(ENEMY.MOSQUITO, 0x00, 0x00, FLAG_ENEMY.INACTIVE);
+            <0x2837> = <CHARACTER.LAST_ENTITY>;
+            add_enemy_with_flags(ENEMY.MOSQUITO, 0x13, 0x49, 0x00);
+            <0x2835> = <CHARACTER.LAST_ENTITY>;
+            call(ADDRESS.RNG2849);
+            unset(<0x2834, 0x02>);
+            call(0x99e8d6);
+
+            // eval("b5 8d 15 00 8d 01 00 88 1f 02 88 21 02 ba 92 04 92 06 e4");
+            // code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+            sleep(0x60);
+
+            <0x2849> = 0x0000;
+            // <0x2835> = <CHARACTER.DOG>;
+
+            while(True) {
+                // face(0x2835, DIRECTION.NORTH);
+                code(0xb5, param(0x04), entity_t(0x2837), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x30), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                sleep(0x20);
+            }
+        }
+        if(True) {
+            add_enemy_with_flags(ENEMY.VIGOR, 0x13, 0x49, FLAG_ENEMY.INACTIVE);
+            <0x2835> = <CHARACTER.LAST_ENTITY>;
+            call(ADDRESS.RNG2849);
+            unset(<0x2834, 0x02>);
+            call(0x99e8d6);
+
+            // eval("b5 8d 15 00 8d 01 00 88 1f 02 88 21 02 ba 92 04 92 06 e4");
+            // code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+            sleep(0x60);
+
+            <0x2849> = THROWABLE.ONION;
+
+            <0x2837> = 0x0100;
+            <0x2839> = 0x0000;
+
+            while(True) {
+                face(0x2835, DIRECTION.EAST);
+
+                while(<0x2839> < BOSS.RING_RADIUS) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2839> = <0x2839> + BOSS.RING_STEP;
+                }
+                while(<0x2837> > 0x00) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2837> = <0x2837> - BOSS.RING_STEP;
+                }
+
+                face(0x2835, DIRECTION.SOUTH);
+                while(<0x2837> < BOSS.RING_RADIUS) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2837> = <0x2837> + BOSS.RING_STEP;
+                }
+                while(<0x2839> > 0x00) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2839> = <0x2839> - BOSS.RING_STEP;
+                }
+
+                face(0x2835, DIRECTION.WEST);
+                while(<0x2839> < BOSS.RING_RADIUS) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2839> = <0x2839> + BOSS.RING_STEP;
+                }
+                while(<0x2837> > 0x00) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2837> = <0x2837> - BOSS.RING_STEP;
+                }
+
+                face(0x2835, DIRECTION.NORTH);
+                while(<0x2837> < BOSS.RING_RADIUS) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2837> = <0x2837> + BOSS.RING_STEP;
+                }
+                while(<0x2839> > 0x00) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] + <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] - <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    if(BOSS.RING_DOUBLE) {
+                        code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<0x2835>[ATTRIBUTE.X] - <0x2837>), calculate(<0x2835>[ATTRIBUTE.Y] + <0x2839>), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                    }
+                    sleep(BOSS.RING_SLEEP);
+                    <0x2839> = <0x2839> - BOSS.RING_STEP;
+                }
+            }
+        }
+    }
+};
+
 
 // north
 
@@ -930,9 +1180,7 @@ map west_inbetwixx(0x5b) {
 
             if(arg[0x08] <= BOSS.TRANSFORM_DISTANCE) {
                 if(arg[0x0a] <= BOSS.TRANSFORM_DISTANCE) {
-                    // transform();
-                    <0x283d> = BOSS.ID_OWL_1;
-                    call(0x99992d);
+                    transform();
                     end();
                 }
             }
@@ -7082,7 +7330,7 @@ map radahn2_arena(0x5c) {
     }
 
     enum soundtrack {
-        default = soundtrack(0x32, 0xff)
+        default = soundtrack(0x24, 0xff)
     }
 
     enum stepon_trigger {
@@ -7222,6 +7470,7 @@ map radahn2_arena(0x5c) {
                         BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
 
                         stomp();
+                        call_async(ADDRESS.STERLING_ROAR);
                     }
                 }
                 yield();
@@ -7349,9 +7598,427 @@ map radahn2_arena(0x5c) {
         store_last_entity(BOSS.RIDER_ID);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
         attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.NO_CLIP);
 
         // add_enemy(ENEMY.STERLING, x, y);
         add_enemy(ENEMY.FORESTDRAKE, x, y);
+        store_last_entity(BOSS.MOUNT_ID);
+        // attach_sterling_script_to_last_entity(CHARACTER.LAST_ENTITY);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+    }
+
+    fun trigger_enter() {
+        if!(FLAG.IN_ANIMATION) {
+            crash_both();
+        }
+
+        default_init_room(True, False);
+
+        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+            close_exits(True);
+
+            spawn_boss(0x10, 0x13);
+            stack_t01_offset();
+            boss_watcher();
+
+            character_selection(CHARACTER.BOY);
+            countdown(BOSS.COUNTDOWN);
+            attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+        }
+    }
+};
+
+map radahn3_arena(0x5c) {
+    enum entrance {
+        north = entrance(0x1b, 0x03, DIRECTION.SOUTH),
+        south = entrance(0x1d, 0x33, DIRECTION.NORTH),
+
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x32, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        DEBUG = True,
+
+        RIDER_ID = memory_tmp(),
+        MOUNT_ID = memory_tmp(),
+
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
+
+        HP = 0x03e8, // 1000
+
+        COUNTDOWN = 0x03,
+
+        STOMP_ENTITY = memory_tmp(),
+        STOMP_DISTANCE = 0x20,
+        STOMP_COOL_DOWN_TIMER = memory_tmp(),
+        STOMP_COOL_DOWN = 0x100,
+        STOMP_DAMAGE_CLOSE = 0x50,
+        STOMP_DAMAGE = 0x10,
+        STOMP_EXPLOSION_DISTANCE = 0x30,
+
+        // p1
+
+        P1_THRESHOLD = 0x320, // 800
+        P1_TIME_BEFORE_SALVAGE = 0x500,
+
+        // p2
+
+        P2_THRESHOLD = 0x1f4, // 500
+        P2_TIME_BEFORE_SALVAGE = 0x300,
+
+        RANDOM_SPELL = memory_tmp(),
+        TIME_BEFORE_RANDOM_SPELL = 0x300,
+    }
+
+    fun boss_killed() {
+        nop();
+    }
+
+    @install()
+    @async()
+    fun grab() {
+        <0x283d> = BOSS.MOUNT_ID;
+
+        if(dead(<0x283d>)) {
+            subtext(string("dead 1[END]"));
+            end();
+        }
+        control(CHARACTER.NONE);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        attribute_bit(<0x283d>, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+
+        <0x249d> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        <0x249f> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+        <0x24ab> = 0x01d8;
+        <0x24af> = 0x00f8;
+
+        if(<0x249d> < <0x24ab>) {
+            arg[0x00] = 0x01;
+        }
+        animate(0x283d, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.STERLING_FLY_2);
+
+        <0x249d> = <0x283d>[ATTRIBUTE.X];
+        <0x249f> = <0x283d>[ATTRIBUTE.Y];
+
+        <0x24a1> = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x06;
+        <0x24a1> = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x1f;
+
+        <0x2847> = 0x1e;
+        <0x249f> = <0x249f> - 0x10;
+
+        _teleport(<0x283d>, <0x249d>, <0x249f>);
+
+        <0x283f> = <0x24a1> - <0x249d>;
+        <0x2841> = <0x24a3> - <0x249f>;
+
+        <0x2843> = (<0x283f> lshift 0x04) / <0x2847>;
+        <0x2845> = (<0x2841> lshift 0x04) / <0x2847>;
+
+        <0x23b9> = <0x249d> lshift 0x04;
+        <0x23bb> = <0x24bb> lshift 0x04;
+
+        <0x283d>[ATTRIBUTE.JUMP_HEIGHT] = <0x2847> / 0x02;
+        arg[0x02] = 0x00;
+
+        while(arg[0x02] <= <0x2847>) {
+            <0x23b9> = <0x23b9> + <0x2843>;
+            <0x23bb> = <0x23bb> + <0x2845>;
+            <0x23db> = 0x0000;
+            _teleport(<0x283d>, <0x23b9> rshift 0x04, <0x23bb> rshift 0x04);
+            yield();
+            arg[0x02] = arg[0x02] + 0x01;
+
+            sleep(0x30);
+            debug_memory(<0x23b9> rshift 0x04, <0x23bb> rshift 0x04);
+        }
+
+        // if(dead(<0x283d>)) {
+        //     subtext(string("dead 2[END]"));
+        //     end();
+        // }
+
+        // call(0x99988a);
+
+        debug_memory(<0x2843>, <0x2845>);
+        // subtext(string("test 2[END]"));
+        end();
+
+        <0x249d> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        <0x249f> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        if(arg[0x00] == 0x01) {
+            <0x24a1> = 0x00f8;
+            <0x24a3> = 0x00e8;
+            face(CHARACTER.BOY, DIRECTION.WEST);
+            face(0x283d, DIRECTION.WEST);
+        } else {
+            <0x24a1> = 0x02d8;
+            <0x24a3> = 0x00e8;
+            face(CHARACTER.BOY, DIRECTION.EAST);
+            face(0x283d, DIRECTION.EAST);
+        }
+
+        yield();
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        <0x2847> = 0x004b;
+        <0x249f> = <0x249f> - 0x10;
+        <0x23db> = 0x0010;
+        _teleport(<CHARACTER.BOY>, <0x249d>, <0x249f>);
+
+        <0x23db> = 0x0000;
+        _teleport(<0x283d>, <0x249d> - 0x06, <0x249f> - 0x1f);
+
+        <0x283f> = <0x24a1> - <0x249d>;
+        <0x2841> = <0x24a3> - <0x249f>;
+
+        <0x2843> = (<0x283f> lshift 0x04) / <0x2847>;
+        <0x2845> = (<0x2841> lshift 0x04) / <0x2847>;
+
+        <0x23b9> = <0x249d> lshift 0x04;
+        <0x23bb> = <0x249f> lshift 0x04;
+
+        <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = <0x2847> / 0x02;
+        <0x283d>[ATTRIBUTE.JUMP_HEIGHT] = <0x2847> / 0x02;
+
+        arg[0x02] = 0x00;
+
+        while(arg[0x02] <= <0x2847>) {
+            <0x23b9> = <0x23b9> + <0x2843>;
+            <0x23bb> = <0x23bb> + <0x2845>;
+            <0x23db> = 0x0010;
+            _teleport(<CHARACTER.BOY>, <0x23b9> rshift 0x04, <0x23bb> rshift 0x04);
+            <0x23db> = 0x0000;
+            _teleport(<0x283d>, (<0x23b9> rshift 0x04) - 0x06, (<0x23bb> rshift 0x04) - 0x1f);
+            yield();
+            arg[0x02] = arg[0x02] + 0x01;
+        }
+
+        sleep(0x1d);
+        call(0x99988a);
+
+        <0x249d> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        <0x249f> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        if(arg[0x00] == 0x01) {
+            <0x24a1> = 0x00f8;
+            <0x24a3> = 0x01e8;
+        } else {
+            <0x24a1> = 0x02d8;
+            <0x24a3> = 0x0258;
+        }
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        _teleport(<CHARACTER.BOY>, <0x249d>, <0x249f>);
+
+        while(<0x249f> < <0x24a3>) {
+            _teleport(<CHARACTER.BOY>, <0x249d>, <0x249f>);
+            yield();
+            <0x249f> = <0x249f> + 0x04;
+        }
+
+        sfx_effect(SFX_EFFECT.SHAKING, True);
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.FALL_1);
+        <0x23d7> = 0x0001;
+        damage(CHARACTER.BOY, 0x5a);
+        sleep(0x0e);
+
+        sfx_effect(SFX_EFFECT.SHAKING, False);
+
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.UNLOCK);
+        control(CHARACTER.BOY);
+
+        <0x24ab> = 0x0158;
+        <0x24af> = 0x00e8;
+
+        _teleport(<0x283d>, <0x24ab>, <0x24af>);
+        yield();
+        attribute_bit(<0x283d>, ATTRIBUTE_BITS.UNLOCK);
+
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(BOSS.MOUNT_ID)) {
+            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x15;
+            yield();
+
+            if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
+                arg[0x00] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+                arg[0x02] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+                arg[0x04] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+                arg[0x06] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+
+                if(arg[0x00] < arg[0x04]) {
+                    arg[0x08] = arg[0x04] - arg[0x00];
+                } else {
+                    arg[0x08] = arg[0x00] - arg[0x04];
+                }
+
+                if(arg[0x02] < arg[0x06]) {
+                    arg[0x0a] = arg[0x06] - arg[0x02];
+                } else {
+                    arg[0x0a] = arg[0x02] - arg[0x06];
+                }
+
+                if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
+                    if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
+                        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
+
+                        grab();
+                        call_async(ADDRESS.STERLING_ROAR);
+                    }
+                }
+                yield();
+
+                // if(BOSS.DEBUG) {
+                //     debug_memory(arg[0x08], arg[0x0a]);
+                //     sleep(0x20);
+                // }
+            } else {
+                BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN_TIMER - 0x01;
+            }
+        }
+    }
+
+    fun cast_salvage(target, level) {
+        animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        if(BOSS.PHASE == 0x00) {
+            BOSS.TIMER = 0x00;
+
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRESHOLD) {
+                BOSS.PHASE = 0x01;
+            }
+        } else if(BOSS.PHASE == 0x01) {
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRESHOLD) {
+                BOSS.PHASE = 0x02;
+            }
+        } else if(BOSS.PHASE == 0x02) {
+            BOSS.TIMER = BOSS.TIMER - 0x60;
+        }
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[ATTRIBUTE.HP];
+            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+            subtext(string("Rider = [0xa1]/[0xa2][END]"));
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(BOSS.DEBUG) {
+            subtext(string("phase 0[END]"));
+        }
+
+        while(BOSS.PHASE == 0x00) {
+            if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 1[END]"));
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[ATTRIBUTE.PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            BOSS.TIMER = BOSS.TIMER + 0x01;
+
+            if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                BOSS.TIMER = 0x0000;
+
+                BOSS.RANDOM_SPELL = randrange(0x03);
+
+                if(BOSS.RANDOM_SPELL == 0x00) {
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+                } else if(BOSS.RANDOM_SPELL == 0x01) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.DRAIN, 0x30);
+                } else if(BOSS.RANDOM_SPELL == 0x02) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.PLAGUE, 0x01);
+                } 
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 2[END]"));
+        }
+
+        boss_killed();
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.VERMINATOR, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.HP;
+        store_last_entity(BOSS.RIDER_ID);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+
+        add_enemy(ENEMY.STERLING, x, y);
         store_last_entity(BOSS.MOUNT_ID);
         // attach_sterling_script_to_last_entity(CHARACTER.LAST_ENTITY);
         // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
