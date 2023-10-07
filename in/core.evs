@@ -67,6 +67,13 @@ enum ADDRESS {
     MODE7_SPACESHIP = 0x92dc1b,
     MODE7_SPACESHIP_ACT4 = 0x92dc51,
 
+    STERLING_ROAR = 0x99988a,
+    METAL_MAGMAR_HEAL = 0x9ba56b,
+
+    // script (weird)
+
+    RNG2849 = 0x99e8a2, // sets $2949 to #12,#14,#16 or #18 at random, to decide what the vigor mob throws
+
     // asm
 
     DEBUG_MENU_BUTTON_1 = 0xfd8000, // button 1, "Debug: Create a monster"/"Debug: Full equipment", 40 bytes
@@ -433,7 +440,7 @@ enum ATTRIBUTE {
     X_TILE = 0x26,
     Y_TILE = 0x28,
     HP = 0x2a,
-    UNKNOWN_5 = 0x30,
+    UNKNOWN_5 = 0x30, // set to 0 for exploded bombs
     UNKNOWN_6 = 0x32,
     UNKNOWN_7 = 0x36,
     UNKNOWN_8 = 0x3c,
@@ -1001,6 +1008,28 @@ enum CAST {
     // derpy
     WATER = 0x30
     // CRASH: 2e, 32, 34, 36, …
+}
+
+enum THROWABLE {
+    BEACH_BALL = 0x00,
+    SPOON = 0x02,
+    SPEAR = 0x04,
+    MISSILE_2 = 0x06,
+    LIGHTNING_BALL = 0x08, // salabog
+    BIDENT = 0x0a, // vigor
+    BOOMERANG = 0x0c, // vigor
+
+    ONION = 0x0e,
+    ONION = 0x10,
+    BOTTLE = 0x12,
+    BOTTLE_BROKEN = 0x14,
+    CITRON = 0x16,
+    ROCK = 0x18,
+
+    LIGHTNING = 0x1a, // no damage
+    BOMB_EXPLOSION = 0x1c, // piercing
+    MISSILE = 0x1e, // carltron
+    // CRASH: 20, 22, …
 }
 
 enum ANIMATION_MODE {
@@ -1638,6 +1667,8 @@ fun currency_convert(from_amount, from_type, to_amount, to_type) {
     code(0x7e, param(from_amount), param(from_type), param(to_amount), param(to_type), "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
 }
 fun show_currency(show) {
+    code(0x55, "// (55) CLEAR TEXT"); // workaround, in case a subtext is being shown and would cause a crash
+
     if(show == True) {
         code(0x9f, "// (9f) PREPARE CURRENCY DISPLAY");
         code(0xa0, "// (a0) SHOW CURRENCY AMOUNT");
@@ -2389,6 +2420,23 @@ fun axe2_wall(flag, object) {
             }
         }
     }
+}
+
+fun throw(throwable, source, source_x, source_y, x, y, arc) {
+    // (b5) REVEAL ENTITY?? args 26 $2869 $24ab + 20 $24af - 0x30 0 signed arg0 signed arg2 0x3c // thraxx eye
+    // (b5) REVEAL ENTITY?? args 26 boy $2890 $2894 0 $2898 $289a 30 // aegis
+    // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
+    // (b5) REVEAL ENTITY?? args 26 boy $2839 $283b 0 $283d - 8 $283f 1 // professor
+    // (b5) REVEAL ENTITY?? args 26 boy $24ab $24af - 0x28 0 $2861 $2863 - 16 0x78 // boss rush
+
+    // (b5) REVEAL ENTITY?? args 28 boy signed arg0 signed arg2 0 0x32 0x32 0 // bomb 1
+    // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg0 signed arg2 0 0x32 0x28 0 // bomb 2
+
+    // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
+    // (b5) REVEAL ENTITY?? args 30 entity attached to script? signed arg0 signed arg2 0x0140 signed arg0 signed arg2 + 0x20 0 // carltron missile
+    // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg10 signed arg12 0 0x46 0x32 0 // carltron stomp
+
+    code(0xb5, entity_t(throwable), entity_t(source), entity_t(source_x), entity_t(source_y), param(0x0a), x, y, param(arc), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
 }
 
 // DEBUG
