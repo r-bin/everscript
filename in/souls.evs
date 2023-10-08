@@ -107,6 +107,7 @@ enum SOULS_MEMORY {
     // east
     DEAD_VOLCANO_HYDRA = flag(),
     DEAD_ARENA_RADAHN = flag(),
+    DEAD_STOMPY_RADAHN = flag(),
     
     DEAD_ARENA_MOSQUITO = flag(),
 
@@ -349,6 +350,7 @@ fun hotkey_start_l() {
 
         // return_to_bonfire();
 
+        map_transition(graveyard, south, DIRECTION.NONE);
         // map_transition(dungeon_volcano, south_1, DIRECTION.NONE);
         // map_transition(inbetwixx, start, DIRECTION.NONE);
         // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
@@ -368,7 +370,9 @@ fun hotkey_start_l() {
         // map_transition(town_level_3, south, DIRECTION.NONE);
         // map_transition(bog_curve, south, DIRECTION.NONE);
         
-        map_transition(projectile_test, south, DIRECTION.NONE);
+        // map_transition(projectile_test, south, DIRECTION.NONE);
+        // map_transition(projectile_test2, west, DIRECTION.NONE);
+        // map_transition(river, right, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -382,11 +386,11 @@ fun hotkey_start_r() {
 
         // map_transition(arena, right, DIRECTION.NONE);
         
-        // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.NO_CLIP);
         // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
-        <CHARACTER.BOY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
+        // <CHARACTER.BOY>[ATTRIBUTE.HP] = SYSTEM.HP_MAX;
         
-        // debug_boy();
+        debug_boy();
         // debug_memory(<0x2834>[0x15], <0x2836>[ATTRIBUTE.HP]);
         // debug_memory(<0x2834>[ATTRIBUTE.HP], <0x2836>[ATTRIBUTE.HP]);
         
@@ -402,8 +406,8 @@ fun hotkey_start_r() {
         // <0x2479> = 0x00;
         // code(0xb5, entity_t(0x2849), entity_t(0x2835), entity_t(0x2477), entity_t(0x2479), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0xee), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
 
-        <0x2849> = <0x2849> + 0x02;
-        debug_memory(<0x2849>, <0x2849>);
+        // <0x2849> = <0x2849> + 0x02;
+        // debug_memory(<0x2849>, <0x2849>);
     }
 }
 
@@ -812,6 +816,603 @@ map inbetwixx(0x05) {
     }
 };
 
+map river(0x53) {
+    enum entrance {
+        center = entrance(0x32, 0x10, DIRECTION.NONE),
+        right = entrance(0x64, 0x10, DIRECTION.WEST),
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        SHIP_ID = memory_tmp(),
+
+        ROCK_1 = memory_tmp(),
+        ROCK_2 = memory_tmp(),
+        ROCK_3 = memory_tmp(),
+        ROCK_CRASH_SIZE = 0x0a,
+
+        CRASH = memory_tmp(),
+    }
+
+    enum BOSS {
+        ID = memory_tmp(),
+
+        X = 0x52,
+        Y = 0x07,
+
+        HIDDEN = True,
+    }
+
+    fun yeet() {
+        // source: call(0x94e9d8);
+        
+        control(CHARACTER.NONE);
+
+        // <0x24ab> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        // <0x24af> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        // <0x24cf> = 0x0228;
+        // <0x24d1> = 0x0058;
+
+        // <0x24cf> = <0x24cf> + 0x05;
+        // sleep(0x17);
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_1);
+        // sleep(0x03);
+        // animate(CHARACTER.DOG, ANIMATION_MODE.LOOP, ANIMATION_DOG.ACT1_ANGRY);
+        sleep(0x05);
+
+        // call_async(0x94eb06);
+        // call_async(0x94eb0c);
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+
+        while(<CHARACTER.BOY>[ATTRIBUTE.X] > 0x70) {
+            // _teleport(<CHARACTER.BOY>, <0x24ab>, <0x24af>);
+            <CHARACTER.BOY>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x01;
+            // _teleport(CHARACTER.DOG, <0x24ab>, <0x24af>);
+            // _teleport(0x2838, 0x24ab, 0x24af - 0x01);
+
+            // <0x24ab> = <0x24ab> - 0x01;
+            yield();
+
+            // debug_memory(<0x24ab>, <0x24cf>);
+            // sleep(0x20);
+        }
+
+        while(<CHARACTER.BOY>[ATTRIBUTE.Y] < 0xd0) {
+            // _teleport(<CHARACTER.BOY>, <0x24ab>, <0x24af>);
+            <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] + 0x03;
+            // _teleport(CHARACTER.DOG, <0x24ab>, <0x24af>);
+            // _teleport(0x2838, 0x24ab, 0x24af - 0x01);
+
+            // <0x24ab> = <0x24ab> - 0x01;
+            yield();
+
+            // debug_memory(<0x24ab>, <0x24cf>);
+            // sleep(0x20);
+        }
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(<CHARACTER.BOY>)) {
+            if(ROOM.CRASH) {
+                damage(CHARACTER.BOY, 0xff, True);
+                yield();
+            } else {
+                <CHARACTER.BOY>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x02;
+
+                ROOM.SHIP_ID[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X];
+                ROOM.SHIP_ID[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x03;
+                yield();
+                
+                if(<CHARACTER.BOY>[ATTRIBUTE.Y] < 0x40) {
+                    <CHARACTER.BOY>[ATTRIBUTE.Y] = 0x40;
+                } else if(<CHARACTER.BOY>[ATTRIBUTE.Y] > 0xd0) {
+                    <CHARACTER.BOY>[ATTRIBUTE.Y] = 0xd0;
+                }
+                // yield();
+
+                if(<CHARACTER.BOY>[ATTRIBUTE.X] < 0xb0) {
+                    yeet();
+
+                    map_transition(inbetwixx, start, DIRECTION.NONE);
+                } 
+                yield();
+            }
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        while!(dead(BOSS.ID)) {
+            sleep(0xff);
+            sleep(0xff);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.SALABOG_DUCK);
+            attribute_bit(BOSS.ID, ATTRIBUTE_BITS.INVINCIBLE);
+            sleep(0xff);
+            animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+            attribute_bit(BOSS.ID, ATTRIBUTE_BITS.VINCIBLE);
+        }
+    }
+
+    fun spawn_boss() {
+        add_enemy(ENEMY.SALABOG, BOSS.X, BOSS.Y);
+        BOSS.ID = <CHARACTER.LAST_ENTITY>;
+
+        boss_watcher();
+    }
+
+    @install()
+    fun revealer_triggered() {
+        destroy(CHARACTER.SCRIPT_OWNER);
+
+        spawn_boss();
+    }
+
+    @install()
+    fun crash() {
+        ROOM.CRASH = 0x01;
+
+        control(CHARACTER.NONE);
+
+        damage(CHARACTER.BOY, 0xff, True);
+        destroy(ROOM.SHIP_ID);
+
+        
+    }
+
+    fun rock_check() {
+        if(arg[0x00] < arg[0x04]) {
+            arg[0x08] = arg[0x04] - arg[0x00];
+        } else {
+            arg[0x08] = arg[0x00] - arg[0x04];
+        }
+
+        if(arg[0x02] < arg[0x06]) {
+            arg[0x0a] = arg[0x06] - arg[0x02];
+        } else {
+            arg[0x0a] = arg[0x02] - arg[0x06];
+        }
+
+        if(arg[0x08] <= ROOM.ROCK_CRASH_SIZE) {
+            if(arg[0x0a] <= ROOM.ROCK_CRASH_SIZE) {
+                crash();
+                end();
+            }
+        }
+        sleep(0x05);
+
+        if(ROOM.DEBUG) {
+            debug_memory(arg[0x08], arg[0x0a]);
+            sleep(0x20);
+        }
+    }
+
+    @install()
+    @async()
+    fun rock_1_check() {
+        while(True) {
+            arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+            arg[0x04] = ROOM.ROCK_1[ATTRIBUTE.X] + 0x0a;
+            arg[0x06] = ROOM.ROCK_1[ATTRIBUTE.Y];
+
+            rock_check();
+        }
+    }
+
+    @install()
+    @async()
+    fun rock_2_check() {
+        while(True) {
+            arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+            arg[0x04] = ROOM.ROCK_2[ATTRIBUTE.X] + 0x0a;
+            arg[0x06] = ROOM.ROCK_2[ATTRIBUTE.Y];
+
+            rock_check();
+        }
+    }
+    @install()
+    @async()
+    fun rock_3_check() {
+        while(True) {
+            arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+            arg[0x04] = ROOM.ROCK_3[ATTRIBUTE.X] + 0x0a;
+            arg[0x06] = ROOM.ROCK_3[ATTRIBUTE.Y];
+
+            rock_check();
+        }
+    }
+
+    fun add_rock(x, y, id) {
+        add_enemy_with_flags(ENEMY.STONE, x, y, FLAG_ENEMY.INVISBLE_INVINCIBLE_INACTIVE);
+        id = <CHARACTER.LAST_ENTITY>;
+    }
+
+    fun trigger_enter() {
+        available(CHARACTER.BOY);
+        teleport(CHARACTER.DOG, 0x00, 0x00);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.SHELL_BOAT, 0x00, 0x00);
+        ROOM.SHIP_ID = <CHARACTER.LAST_ENTITY>;
+
+        stack_t01_offset();
+
+        if(BOSS.HIDDEN) {
+            add_enemy(ENEMY.REVEALER_TARGET_ENTITY, BOSS.X, BOSS.Y);
+            special_script(SPECIAL_SCRIPTS.REVEALER, reference(revealer_triggered));
+        } else {
+            spawn_boss();
+        }
+        
+        fade_in();
+
+        add_rock(0x45, 0x10, ROOM.ROCK_1);
+        rock_1_check();
+        yield();
+        add_rock(0x2d, 0x16, ROOM.ROCK_2);
+        rock_2_check();
+        yield();
+        add_rock(0x19, 0x10, ROOM.ROCK_3);
+        rock_3_check();
+
+        add_enemy(ENEMY.TENTACLE_WHIP, 0x21, 0x0c);
+        // add_enemy(ENEMY.TENTACLE_SPIKE, 0x1e, 0x0b);
+        add_enemy(ENEMY.TENTACLE_SPIKE, 0x1b, 0x0e);
+    }
+};
+
+map projectile_test2(0x50) {
+    enum entrance {
+        west = entrance(0x06, 0x0f, DIRECTION.NONE),
+        south = entrance(0x10, 0x19, DIRECTION.NONE),
+    }
+
+    enum ROOM {
+        SHIP_ID = memory_tmp(),
+
+        START_HEIGHT = 0x1fff,
+
+        LANE_1 = 0x05,
+        LANE_2 = 0x0c,
+        LANE_3 = 0x15,
+    }
+
+    enum BOSS {
+        DEBUG = True,
+        
+        ID = memory_tmp(),
+        PHASE = memory_tmp(),
+
+        HP = 0x05,
+
+        TURN_TIME = 0x30,
+
+        P1_THRESHOLD = 0x04,
+
+        RING_TIMER = memory_tmp(),
+        RING_X = memory_tmp(),
+        RING_Y = memory_tmp(),
+        RING_PROJECTILE = THROWABLE.CITRON,
+        RING_SLEEP = 0x05,
+        RING_STEP = 0x40,
+        RING_RADIUS = 0x100,
+
+        RING_DOUBLE = False,
+    }
+
+    @install()
+    @async()
+    fun ring() {
+        BOSS.RING_X = 0x0100;
+        BOSS.RING_Y = 0x0000;
+
+        while(BOSS.RING_TIMER > 0x00) {
+            face(BOSS.ID, DIRECTION.EAST);
+
+            while(BOSS.RING_Y < BOSS.RING_RADIUS) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_Y = BOSS.RING_Y + BOSS.RING_STEP;
+            }
+            while(BOSS.RING_X > 0x00) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_X = BOSS.RING_X - BOSS.RING_STEP;
+            }
+
+            face(BOSS.ID, DIRECTION.SOUTH);
+            while(BOSS.RING_X < BOSS.RING_RADIUS) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_X = BOSS.RING_X + BOSS.RING_STEP;
+            }
+            while(BOSS.RING_Y > 0x00) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_Y = BOSS.RING_Y - BOSS.RING_STEP;
+            }
+
+            face(BOSS.ID, DIRECTION.WEST);
+            while(BOSS.RING_Y < BOSS.RING_RADIUS) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_Y = BOSS.RING_Y + BOSS.RING_STEP;
+            }
+            while(BOSS.RING_X > 0x00) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_X = BOSS.RING_X - BOSS.RING_STEP;
+            }
+
+            face(BOSS.ID, DIRECTION.NORTH);
+            while(BOSS.RING_X < BOSS.RING_RADIUS) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_X = BOSS.RING_X + BOSS.RING_STEP;
+            }
+            while(BOSS.RING_Y > 0x00) {
+                code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] - BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                if(BOSS.RING_DOUBLE) {
+                    code(0xb5, param(BOSS.RING_PROJECTILE), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - BOSS.RING_X), calculate(BOSS.ID[ATTRIBUTE.Y] + BOSS.RING_Y), param(0x14), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                }
+                sleep(BOSS.RING_SLEEP);
+                BOSS.RING_Y = BOSS.RING_Y - BOSS.RING_STEP;
+            }
+        }
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(<CHARACTER.BOY>)) {
+            ROOM.SHIP_ID[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X];
+            ROOM.SHIP_ID[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] + 0x05;
+            yield();
+
+            // <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x05;
+            // <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+            // yield();
+        }
+    }
+
+    fun enemy(enemy, y) {
+        add_enemy(enemy, 0x20, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x01;
+        face(CHARACTER.LAST_ENTITY, DIRECTION.WEST);
+        
+        // attach_to_script(CHARACTER.LAST_ENTITY);
+        // walk(WALK_TYPE.ABSOLUTE, CHARACTER.LAST_ENTITY, 0x00, y, True);
+        // destroy(CHARACTER.SCRIPT_OWNER);
+    }
+
+    fun shooting_mosquito(enemy, y) {
+        add_enemy(enemy, 0x20, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x01;
+        face(CHARACTER.LAST_ENTITY, DIRECTION.WEST);
+        
+        attach_to_script(CHARACTER.LAST_ENTITY);
+        walk(WALK_TYPE.ABSOLUTE, CHARACTER.LAST_ENTITY, 0x00, y, False);
+
+        while!(dead(<CHARACTER.SCRIPT_OWNER>)) {
+            if(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] <= 0x00) {
+                destroy(CHARACTER.SCRIPT_OWNER);
+                end();
+            }
+            code(0xb5, param(THROWABLE.CITRON), entity_t(CHARACTER.SCRIPT_OWNER), calculate(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X]), calculate(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y]), param(0xff), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            sleep(0x80);
+        }
+    }
+
+    @install()
+    @async()
+    fun shooting_mosquito_1() {
+        shooting_mosquito(ENEMY.MOSQUITO, ROOM.LANE_1);
+    }
+    @install()
+    @async()
+    fun shooting_mosquito_2() {
+        shooting_mosquito(ENEMY.MOSQUITO, ROOM.LANE_2);
+    }
+    @install()
+    @async()
+    fun shooting_mosquito_3() {
+        shooting_mosquito(ENEMY.MOSQUITO, ROOM.LANE_3);
+    }
+
+    @install()
+    @async()
+    fun shooting_fan_2() {
+        attach_to_script(BOSS.ID);
+
+        while!(dead(<CHARACTER.SCRIPT_OWNER>)) {
+            if(BOSS.RING_TIMER == 0x00) {
+                code(0xb5, param(THROWABLE.CITRON), entity_t(CHARACTER.SCRIPT_OWNER), calculate(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X]), calculate(<CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y]), param(0xff), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            sleep(0x40);
+            BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x05;
+            sleep(0x40);
+            BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x05;
+        }
+    }
+
+    @install()
+    fun fan_damage() {
+        if(BOSS.PHASE == 0x00) {
+            if(BOSS.ID[ATTRIBUTE.HP] <= BOSS.P1_THRESHOLD) {
+                BOSS.PHASE = 0x01;
+                BOSS.RING_TIMER = 0x200;
+            }
+        }
+    }
+
+    @install()
+    @async()
+    fun shooting_fan() {
+        add_enemy(ENEMY.FAN_BOT, 0x20, ROOM.LANE_2);
+        control_enemy(CHARACTER.LAST_ENTITY, True);
+        BOSS.ID = <CHARACTER.LAST_ENTITY>;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.HP;
+        face(CHARACTER.LAST_ENTITY, DIRECTION.WEST);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(fan_damage));
+        
+        attach_to_script(CHARACTER.LAST_ENTITY);
+
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+        walk(WALK_TYPE.ABSOLUTE, CHARACTER.SCRIPT_OWNER, 0x17, ROOM.LANE_2, True);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.VINCIBLE);
+        shooting_fan_2();
+
+        while!(dead(<CHARACTER.SCRIPT_OWNER>)) {
+            if(BOSS.RING_TIMER == 0x00) {
+                walk(WALK_TYPE.ABSOLUTE, CHARACTER.SCRIPT_OWNER, 0x17, ROOM.LANE_1, True);
+            }
+            if(BOSS.RING_TIMER == 0x00) {
+                sleep(BOSS.TURN_TIME);
+            }
+
+            if(BOSS.RING_TIMER == 0x00) {
+                walk(WALK_TYPE.ABSOLUTE, CHARACTER.SCRIPT_OWNER, 0x17, ROOM.LANE_3, True);
+            }
+            if(BOSS.RING_TIMER == 0x00) {
+                sleep(BOSS.TURN_TIME);
+            } else {
+                attribute_bit(BOSS.ID, ATTRIBUTE_BITS.INVINCIBLE);
+                BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x30;
+                walk(WALK_TYPE.ABSOLUTE, CHARACTER.SCRIPT_OWNER, 0x10, 0x10, True);
+
+                attribute_bit(BOSS.ID, ATTRIBUTE_BITS.VINCIBLE);
+                attribute_bit(BOSS.ID, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+                ring();
+                while(BOSS.RING_TIMER > 0x00) {
+                    BOSS.RING_TIMER = BOSS.RING_TIMER - 0x01;
+
+                    yield();
+                }
+                attribute_bit(BOSS.ID, ATTRIBUTE_BITS.UNLOCK);
+            }
+        }
+    }
+
+    fun trigger_enter() {
+        available(CHARACTER.BOY);
+        teleport(CHARACTER.DOG, 0xff, 0xff);
+        face(CHARACTER.BOY, DIRECTION.EAST);
+
+        <CHARACTER.BOY>[ATTRIBUTE.FALLING_HEIGHT] = ROOM.START_HEIGHT;
+        <0x0A47> = 0x0001;
+        <0x4F2F> = 0x0020;
+
+        fade_in();
+
+        add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x10, 0x10);
+        ROOM.SHIP_ID = <CHARACTER.LAST_ENTITY>;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.FALLING_HEIGHT] = ROOM.START_HEIGHT;
+
+        stack_t01_offset();
+
+        subtext(string("go![END]"));
+
+        sleep(0xff);
+
+        if(False) {
+            enemy(ENEMY.MOSQUITO, 0x10);
+
+            sleep(0xff);
+
+            enemy(ENEMY.MOSQUITO, 0x05);
+            enemy(ENEMY.MOSQUITO, 0x15);
+
+            sleep(0xff);
+
+            enemy(ENEMY.MOSQUITO, 0x05);
+            enemy(ENEMY.MOSQUITO, 0x15);
+
+            sleep(0xff);
+
+            enemy(ENEMY.BUZZARD_1, 0x10);
+
+            sleep(0xff);
+        }
+
+        if(False) {
+            shooting_mosquito_2();
+
+            sleep(0xff);
+
+            shooting_mosquito_1();
+            shooting_mosquito_3();
+
+            sleep(0xff);
+
+            shooting_mosquito_1();
+            shooting_mosquito_2();
+            shooting_mosquito_3();
+
+            sleep(0xff);
+        }
+
+        if(True) {
+            shooting_fan();
+            sleep(0x60);
+
+            if(BOSS.DEBUG) {
+                subtext(string("boss start[END]"));
+            }
+            while!(dead(BOSS.ID)) {
+                yield();
+            }
+            if(BOSS.DEBUG) {
+                subtext(string("boss end[END]"));
+            }
+
+
+            sleep(0xff);
+        }
+
+        if(True) {
+            <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+            ROOM.SHIP_ID[ATTRIBUTE.JUMP_HEIGHT] = 0xa0;
+            sleep(0x30);
+
+            <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = 0xff;
+            ROOM.SHIP_ID[ATTRIBUTE.JUMP_HEIGHT] = 0xff;
+            sleep(0x50);
+
+            map_transition(inbetwixx, start, DIRECTION.NONE);
+        }
+    }
+};
 
 map projectile_test(0x1d) {
     enum entrance {
@@ -826,6 +1427,24 @@ map projectile_test(0x1d) {
         RING_RADIUS = 0x100,
 
         RING_DOUBLE = False,
+    }
+
+    @install()
+    fun puke() {
+        sleep(0x20);
+        
+        <0x2837> = 0x20;
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X]), calculate(<0x2835>[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x02);
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x02);
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x05);
+        code(0xb5, param(THROWABLE.ONION), entity_t(0x2835), calculate(<0x2835>[ATTRIBUTE.X] + randrange(0x05)), calculate(<0x2835>[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(<0x2837> + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
     }
 
     fun trigger_enter() {
@@ -875,7 +1494,7 @@ map projectile_test(0x1d) {
                 sleep(0x20);
             }
         }
-        if(True) {
+        if(False) {
             add_enemy_with_flags(ENEMY.VIGOR, 0x13, 0x49, FLAG_ENEMY.INACTIVE);
             <0x2835> = <CHARACTER.LAST_ENTITY>;
             call(ADDRESS.RNG2849);
@@ -966,6 +1585,12 @@ map projectile_test(0x1d) {
                     <0x2839> = <0x2839> - BOSS.RING_STEP;
                 }
             }
+        }
+        if(True) {
+            add_enemy_with_flags(ENEMY.VIGOR, 0x13, 0x49, FLAG_ENEMY.INACTIVE);
+            <0x2835> = <CHARACTER.LAST_ENTITY>;
+
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(puke));
         }
     }
 };
@@ -1315,7 +1940,19 @@ map west_hut2(0x34) {
         },
     }
 
+    @install()
+    fun trap_door() {
+        subtext(string("trapdoor[END]"));
+    }
+
     fun trigger_enter() {
+        object[0x00] = 0x01;
+        object[0x01] = 0x01;
+        object[0x02] = 0x01;
+
+        add_enemy(ENEMY.PLACEHOLDER, 0x0f, 0x12);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door));
+
         default_init_room(True, False);
     }
 };
@@ -3634,6 +4271,271 @@ map graveyard(0x27) {
         south = entrance(0x2f, 0x5f, DIRECTION.NORTH)
     }
 
+    enum soundtrack {
+        default = soundtrack(0x24, 0xff)
+    }
+
+    enum BOSS {
+        DEBUG = False,
+        IN_PROGRESS = memory_tmp(),
+
+        RIDER_ID = memory_tmp(),
+        MOUNT_ID = memory_tmp(),
+
+        PHASE = memory_tmp(),
+        TIMER = memory_tmp(),
+
+        HP = 0x03e8, // 1000
+
+        COUNTDOWN = 0x03,
+
+        STOMP_ENTITY = memory_tmp(),
+        STOMP_DISTANCE = 0x20,
+        STOMP_COOL_DOWN_TIMER = memory_tmp(),
+        STOMP_COOL_DOWN = 0x100,
+        STOMP_DAMAGE_CLOSE = 0x50,
+        STOMP_DAMAGE = 0x10,
+        STOMP_EXPLOSION_DISTANCE = 0x30,
+
+        // p1
+
+        P1_THRESHOLD = 0x320, // 800
+        P1_TIME_BEFORE_SALVAGE = 0x500,
+
+        // p2
+
+        P2_THRESHOLD = 0x1f4, // 500
+        P2_TIME_BEFORE_SALVAGE = 0x300,
+
+        RANDOM_SPELL = memory_tmp(),
+        TIME_BEFORE_RANDOM_SPELL = 0x300,
+    }
+
+    fun boss_killed() {
+        set(SOULS_MEMORY.DEAD_STOMPY_RADAHN);
+    }
+
+    @install()
+    @async()
+    fun stomp() {
+        BOSS.RIDER_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x38;
+        BOSS.MOUNT_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x30;
+
+        // attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+
+        sleep(0x60);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_3, 0x00, 0x00);
+        BOSS.STOMP_ENTITY = <CHARACTER.LAST_ENTITY>;
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x10;
+
+        arg[0x00] = BOSS.STOMP_ENTITY[ATTRIBUTE.X];
+        arg[0x02] = BOSS.STOMP_ENTITY[ATTRIBUTE.Y];
+        arg[0x04] = <CHARACTER.BOY>[ATTRIBUTE.X];
+        arg[0x06] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        if(arg[0x00] < arg[0x04]) {
+            arg[0x08] = arg[0x04] - arg[0x00];
+        } else {
+            arg[0x08] = arg[0x00] - arg[0x04];
+        }
+
+        if(arg[0x02] < arg[0x06]) {
+            arg[0x0a] = arg[0x06] - arg[0x02];
+        } else {
+            arg[0x0a] = arg[0x02] - arg[0x06];
+        }
+
+        if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
+            if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
+                damage(CHARACTER.BOY, BOSS.STOMP_DAMAGE_CLOSE);
+            }
+        } else if(arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) {
+            if(arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE) {
+                damage(CHARACTER.BOY, BOSS.STOMP_DAMAGE);
+            }
+        }
+
+        if(BOSS.DEBUG) {
+            debug_memory(arg[0x08], arg[0x0a]);
+            sleep(0x20);
+        }
+
+        sleep(0x30);
+        destroy(BOSS.STOMP_ENTITY);
+        // attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.UNLOCK);
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(BOSS.MOUNT_ID)) {
+            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x15;
+            yield();
+
+            if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
+                arg[0x00] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+                arg[0x02] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+                arg[0x04] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+                arg[0x06] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+
+                if(arg[0x00] < arg[0x04]) {
+                    arg[0x08] = arg[0x04] - arg[0x00];
+                } else {
+                    arg[0x08] = arg[0x00] - arg[0x04];
+                }
+
+                if(arg[0x02] < arg[0x06]) {
+                    arg[0x0a] = arg[0x06] - arg[0x02];
+                } else {
+                    arg[0x0a] = arg[0x02] - arg[0x06];
+                }
+
+                if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
+                    if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
+                        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
+
+                        stomp();
+                        call_async(ADDRESS.STERLING_ROAR);
+                    }
+                }
+                yield();
+
+                // if(BOSS.DEBUG) {
+                //     debug_memory(arg[0x08], arg[0x0a]);
+                //     sleep(0x20);
+                // }
+            } else {
+                BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN_TIMER - 0x01;
+            }
+        }
+    }
+
+    fun cast_salvage(target, level) {
+        animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        if(BOSS.PHASE == 0x00) {
+            BOSS.TIMER = 0x00;
+
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRESHOLD) {
+                BOSS.PHASE = 0x01;
+            }
+        } else if(BOSS.PHASE == 0x01) {
+            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRESHOLD) {
+                BOSS.PHASE = 0x02;
+            }
+        } else if(BOSS.PHASE == 0x02) {
+            BOSS.TIMER = BOSS.TIMER - 0x60;
+        }
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[ATTRIBUTE.HP];
+            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+            subtext(string("Rider = [0xa1]/[0xa2][END]"));
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(BOSS.DEBUG) {
+            subtext(string("phase 0[END]"));
+        }
+
+        while(BOSS.PHASE == 0x00) {
+            if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 1[END]"));
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                cast_salvage(CHARACTER.ACTIVE, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[ATTRIBUTE.PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER = BOSS.TIMER + 0x01;
+            }
+            yield();
+        }
+
+        BOSS.TIMER = 0x0000;
+        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            BOSS.TIMER = BOSS.TIMER + 0x01;
+
+            if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                BOSS.TIMER = 0x0000;
+
+                BOSS.RANDOM_SPELL = randrange(0x03);
+
+                if(BOSS.RANDOM_SPELL == 0x00) {
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
+                } else if(BOSS.RANDOM_SPELL == 0x01) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.DRAIN, 0x30);
+                } else if(BOSS.RANDOM_SPELL == 0x02) {
+                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.PLAGUE, 0x01);
+                } 
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext(string("phase 2[END]"));
+        }
+
+        boss_killed();
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.VERMINATOR, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.HP;
+        store_last_entity(BOSS.RIDER_ID);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.NO_CLIP);
+
+        // add_enemy(ENEMY.STERLING, x, y);
+        add_enemy(ENEMY.FORESTDRAKE, x, y);
+        store_last_entity(BOSS.MOUNT_ID);
+        // attach_sterling_script_to_last_entity(CHARACTER.LAST_ENTITY);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+    }
+
     enum stepon_trigger {
         exit_north = @install() fun test() {
             subtext(string("step-on? 0 [END]"));
@@ -3642,7 +4544,16 @@ map graveyard(0x27) {
             map_transition(eastern_barrier, north, DIRECTION.SOUTH);
         },
         spawn_boss = @install() fun test() {
-            subtext(string("step-on? 2 [END]"));
+            if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
+                if(BOSS.IN_PROGRESS == 0x00) {
+                    BOSS.IN_PROGRESS = 0x01;
+                    object[0x1f] = 0x7e;
+                    
+                    spawn_boss(0x39, 0x23);
+                    stack_t01_offset();
+                    boss_watcher();
+                }
+            }
         }
     }
 
@@ -4746,6 +5657,10 @@ map town_center(0x08) {
         }
 
         fade_in();
+
+        object[0x0d] = 0x02;
+
+        // object[0x0e] = 0x01;
     }
 };
 
@@ -7315,316 +8230,6 @@ map rats_arena(0x5c) {
 
         spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
         spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
-    }
-};
-
-
-map radahn2_arena(0x5c) {
-    enum entrance {
-        north = entrance(0x1b, 0x03, DIRECTION.SOUTH),
-        south = entrance(0x1d, 0x33, DIRECTION.NORTH),
-
-        left = entrance(0x15, 0x1c, DIRECTION.NONE),
-        center = entrance(0x1e, 0x21, DIRECTION.NONE),
-        right = entrance(0x2a, 0x23, DIRECTION.NONE)
-    }
-
-    enum soundtrack {
-        default = soundtrack(0x24, 0xff)
-    }
-
-    enum stepon_trigger {
-        exit_north = nop(),
-        exit_south = nop(),
-        center = nop(),
-    }
-
-    fun close_exits(close) {
-        if(close) {
-            object[0x04] = 0x04;
-        } else {
-            object[0x05] = 0x04;
-        }
-    }
-
-    enum BOSS {
-        DEBUG = True,
-
-        RIDER_ID = memory_tmp(),
-        MOUNT_ID = memory_tmp(),
-
-        PHASE = memory_tmp(),
-        TIMER = memory_tmp(),
-
-        HP = 0x03e8, // 1000
-
-        COUNTDOWN = 0x03,
-
-        STOMP_ENTITY = memory_tmp(),
-        STOMP_DISTANCE = 0x20,
-        STOMP_COOL_DOWN_TIMER = memory_tmp(),
-        STOMP_COOL_DOWN = 0x100,
-        STOMP_DAMAGE_CLOSE = 0x50,
-        STOMP_DAMAGE = 0x10,
-        STOMP_EXPLOSION_DISTANCE = 0x30,
-
-        // p1
-
-        P1_THRESHOLD = 0x320, // 800
-        P1_TIME_BEFORE_SALVAGE = 0x500,
-
-        // p2
-
-        P2_THRESHOLD = 0x1f4, // 500
-        P2_TIME_BEFORE_SALVAGE = 0x300,
-
-        RANDOM_SPELL = memory_tmp(),
-        TIME_BEFORE_RANDOM_SPELL = 0x300,
-    }
-
-    fun boss_killed() {
-        nop();
-    }
-
-    @install()
-    @async()
-    fun stomp() {
-        BOSS.RIDER_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x38;
-        BOSS.MOUNT_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x30;
-
-        // attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.LOCK_IN_PLACE);
-        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
-
-        sleep(0x60);
-
-        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_3, 0x00, 0x00);
-        BOSS.STOMP_ENTITY = <CHARACTER.LAST_ENTITY>;
-        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
-        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x10;
-
-        arg[0x00] = BOSS.STOMP_ENTITY[ATTRIBUTE.X];
-        arg[0x02] = BOSS.STOMP_ENTITY[ATTRIBUTE.Y];
-        arg[0x04] = <CHARACTER.BOY>[ATTRIBUTE.X];
-        arg[0x06] = <CHARACTER.BOY>[ATTRIBUTE.Y];
-
-        if(arg[0x00] < arg[0x04]) {
-            arg[0x08] = arg[0x04] - arg[0x00];
-        } else {
-            arg[0x08] = arg[0x00] - arg[0x04];
-        }
-
-        if(arg[0x02] < arg[0x06]) {
-            arg[0x0a] = arg[0x06] - arg[0x02];
-        } else {
-            arg[0x0a] = arg[0x02] - arg[0x06];
-        }
-
-        if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
-            if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
-                damage(CHARACTER.BOY, BOSS.STOMP_DAMAGE_CLOSE);
-            }
-        } else if(arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) {
-            if(arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE) {
-                damage(CHARACTER.BOY, BOSS.STOMP_DAMAGE);
-            }
-        }
-
-        if(BOSS.DEBUG) {
-            debug_memory(arg[0x08], arg[0x0a]);
-            sleep(0x20);
-        }
-
-        sleep(0x30);
-        destroy(BOSS.STOMP_ENTITY);
-        // attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.UNLOCK);
-    }
-
-    @install()
-    @async()
-    fun stack_t01_offset() {
-        while!(dead(BOSS.MOUNT_ID)) {
-            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
-            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x15;
-            yield();
-
-            if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
-                arg[0x00] = BOSS.MOUNT_ID[ATTRIBUTE.X];
-                arg[0x02] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
-                arg[0x04] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
-                arg[0x06] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
-
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if(arg[0x08] <= BOSS.STOMP_DISTANCE) {
-                    if(arg[0x0a] <= BOSS.STOMP_DISTANCE) {
-                        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
-
-                        stomp();
-                        call_async(ADDRESS.STERLING_ROAR);
-                    }
-                }
-                yield();
-
-                // if(BOSS.DEBUG) {
-                //     debug_memory(arg[0x08], arg[0x0a]);
-                //     sleep(0x20);
-                // }
-            } else {
-                BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN_TIMER - 0x01;
-            }
-        }
-    }
-
-    fun cast_salvage(target, level) {
-        animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
-        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
-        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
-        cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
-        cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
-    }
-
-    @install()
-    fun boss_damage() {
-        // animate(BOSS.RIDER_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
-
-        if(BOSS.PHASE == 0x00) {
-            BOSS.TIMER = 0x00;
-
-            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P1_THRESHOLD) {
-                BOSS.PHASE = 0x01;
-            }
-        } else if(BOSS.PHASE == 0x01) {
-            if(BOSS.RIDER_ID[ATTRIBUTE.HP] < BOSS.P2_THRESHOLD) {
-                BOSS.PHASE = 0x02;
-            }
-        } else if(BOSS.PHASE == 0x02) {
-            BOSS.TIMER = BOSS.TIMER - 0x60;
-        }
-
-        if(BOSS.DEBUG) {
-            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[ATTRIBUTE.HP];
-            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
-
-            subtext(string("Rider = [0xa1]/[0xa2][END]"));
-        }
-    }
-
-    @install()
-    @async()
-    fun boss_watcher() {
-        if(BOSS.DEBUG) {
-            subtext(string("phase 0[END]"));
-        }
-
-        while(BOSS.PHASE == 0x00) {
-            if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                cast_salvage(CHARACTER.ACTIVE, 0x00);
-
-                BOSS.TIMER = 0x00;
-            }
-        
-            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
-                BOSS.TIMER = BOSS.TIMER + 0x01;
-            }
-            yield();
-        }
-
-        if(BOSS.DEBUG) {
-            subtext(string("phase 1[END]"));
-        }
-
-        BOSS.TIMER = 0x0000;
-        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
-        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
-
-        while(BOSS.PHASE == 0x01) {
-            if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                cast_salvage(CHARACTER.ACTIVE, 0x00);
-
-                BOSS.TIMER = 0x00;
-            }
-        
-            if(BOSS.RIDER_ID[ATTRIBUTE.PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
-                BOSS.TIMER = BOSS.TIMER + 0x01;
-            }
-            yield();
-        }
-
-        BOSS.TIMER = 0x0000;
-        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
-        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
-        cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
-
-        while(BOSS.PHASE == 0x01) {
-            BOSS.TIMER = BOSS.TIMER + 0x01;
-
-            if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
-                BOSS.TIMER = 0x0000;
-
-                BOSS.RANDOM_SPELL = randrange(0x03);
-
-                if(BOSS.RANDOM_SPELL == 0x00) {
-                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
-                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.CONFOUND, 0x05);
-                } else if(BOSS.RANDOM_SPELL == 0x01) {
-                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.DRAIN, 0x30);
-                } else if(BOSS.RANDOM_SPELL == 0x02) {
-                    cast(BOSS.RIDER_ID, CHARACTER.ACTIVE, CAST.PLAGUE, 0x01);
-                } 
-            }
-            yield();
-        }
-
-        if(BOSS.DEBUG) {
-            subtext(string("phase 2[END]"));
-        }
-
-        boss_killed();
-    }
-
-    fun spawn_boss(x, y) {
-        add_enemy(ENEMY.VERMINATOR, x, y);
-        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = BOSS.HP;
-        store_last_entity(BOSS.RIDER_ID);
-        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(boss_damage));
-        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
-        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.NO_CLIP);
-
-        // add_enemy(ENEMY.STERLING, x, y);
-        add_enemy(ENEMY.FORESTDRAKE, x, y);
-        store_last_entity(BOSS.MOUNT_ID);
-        // attach_sterling_script_to_last_entity(CHARACTER.LAST_ENTITY);
-        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
-    }
-
-    fun trigger_enter() {
-        if!(FLAG.IN_ANIMATION) {
-            crash_both();
-        }
-
-        default_init_room(True, False);
-
-        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
-            close_exits(True);
-
-            spawn_boss(0x10, 0x13);
-            stack_t01_offset();
-            boss_watcher();
-
-            character_selection(CHARACTER.BOY);
-            countdown(BOSS.COUNTDOWN);
-            attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
-        }
     }
 };
 
