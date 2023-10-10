@@ -72,6 +72,14 @@ fun bomb_wall_triggered() {
 
 // souls
 
+enum BUTTON_MAP {
+    NORMAL = 0x00,
+
+    BOMBS = 0x01,
+    AIRSHIP = 0x02,
+    ISAAC = 0x03,
+}
+
 enum SOULS_MEMORY {
     INIT = flag(),
     INTRO_WATCHED = flag(),
@@ -98,6 +106,8 @@ enum SOULS_MEMORY {
     ESTUS_SHARDS = memory(), // <0x2512>,
     ESTUS_CHARGES_INIT = 0x01,
     
+    // button map
+    BUTTON_MAP = memory(), // TODO: should be memory_tmp()
     BOMB_ENABLED = flag(),
 
     // bosses
@@ -323,6 +333,8 @@ fun init_souls() {
 
     MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
     MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
+
+    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
 }
 
 // HOTKEYS
@@ -335,10 +347,16 @@ fun hotkey_start() {
         subtext(string("Start[END]"));
     }
 
-    if(SOULS_MEMORY.BOMB_ENABLED) {
-        if(FLAG.ENERGY_CORE) {
-            drop_bomb(True);
+    if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.BOMBS) {
+        if(SOULS_MEMORY.BOMB_ENABLED) {
+            if(FLAG.ENERGY_CORE) {
+                drop_bomb(True);
+            }
         }
+    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
+        windwalker_rocket();
+    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
+        isaac_tear(False);
     }
 }
 @install()
@@ -350,7 +368,7 @@ fun hotkey_start_l() {
 
         // return_to_bonfire();
 
-        map_transition(graveyard, south, DIRECTION.NONE);
+        // map_transition(graveyard, south, DIRECTION.NONE);
         // map_transition(dungeon_volcano, south_1, DIRECTION.NONE);
         // map_transition(inbetwixx, start, DIRECTION.NONE);
         // map_transition(hidden_room, room_alchemist, DIRECTION.NONE);
@@ -373,6 +391,7 @@ fun hotkey_start_l() {
         // map_transition(projectile_test, south, DIRECTION.NONE);
         // map_transition(projectile_test2, west, DIRECTION.NONE);
         // map_transition(river, right, DIRECTION.NONE);
+        map_transition(basement_0_1, room_5_center, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -1334,6 +1353,7 @@ map projectile_test2(0x50) {
         <0x4F2F> = 0x0020;
 
         fade_in();
+        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.AIRSHIP;
 
         add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x10, 0x10);
         ROOM.SHIP_ID = <CHARACTER.LAST_ENTITY>;
@@ -8647,6 +8667,1146 @@ map radahn3_arena(0x5c) {
             countdown(BOSS.COUNTDOWN);
             attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
         }
+    }
+};
+
+map isaac3_arena(0x5c) { // unused
+    enum entrance {
+        left = entrance(0x15, 0x1c, DIRECTION.NONE),
+        center = entrance(0x1e, 0x21, DIRECTION.NONE),
+        right = entrance(0x2a, 0x23, DIRECTION.NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() fun test() {
+            subtext(string("step-on? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            subtext(string("step-on? 1 [END]"));
+        },
+        center = @install() fun test() {
+            subtext(string("step-on? 2 [END]"));
+        }
+    }
+
+    enum BOSS {
+        MOUNT_ID = memory_tmp(),
+        RIDER_ID = memory_tmp(),
+
+        FOLLOWING = memory_tmp(),
+
+        PUKE_HELPER = memory_tmp(),
+
+        MOVE_RNG = memory_tmp(),
+
+        CANNONBALL_X = memory_tmp(),
+        CANNONBALL_Y = memory_tmp(),
+        CANNONBALL_COUNT = memory_tmp(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    @install()
+    fun shoot_w() {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x20), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x20), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @install()
+    fun shoot_line() {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x0a);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x0a);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x0a);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x0a);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x0a);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @async()
+    @install()
+    fun fly_left_right() {
+        while(True) {
+            while(BOSS.MOUNT_ID[ATTRIBUTE.X] < 0x150) {
+                BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x01;
+                yield();
+            }
+            while(BOSS.MOUNT_ID[ATTRIBUTE.X] > 0x50) {
+                BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x01;
+                yield();
+            }
+        }
+    }
+
+    @install()
+    fun monstro_damage() {
+        yield();
+        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+
+        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ALL.DEFAULT);
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while!(dead(<CHARACTER.BOY>)) {
+            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x50;
+            yield();
+
+            // <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x05;
+            // <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+            // yield();
+        }
+    }
+
+    fun move() {
+        // control(BOSS.MOUNT_ID, True);
+        sleep(0x20);
+
+        BOSS.MOVE_RNG = randrange(0x03);
+
+        if(BOSS.MOVE_RNG == 0x00) {
+            shoot_w();
+        } else if(BOSS.MOVE_RNG == 0x01) {
+            shoot_line();
+        } else {
+            nop();
+        }
+
+        sleep(0x20);
+        // control(BOSS.MOUNT_ID, False);
+    }
+
+    @async()
+    @install()
+    fun move_logic() {
+        sleep(0x80);
+         
+        while(True) {
+            move();
+            
+            sleep(0x60);
+        }
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.RIMSALA_BOSS_1, x, y);
+        BOSS.RIDER_ID = <CHARACTER.LAST_ENTITY>;
+        // animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(monstro_damage));
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+
+        // add_enemy_with_flags(ENEMY.DRAKE, x, y, FLAG_ENEMY.INACTIVE);
+        // add_enemy_with_flags(ENEMY.FOOTKNIGHT, x, y, FLAG_ENEMY.INACTIVE);
+        add_enemy(ENEMY.RIMSALA_BOSS_2, x, y);
+        BOSS.MOUNT_ID = <CHARACTER.LAST_ENTITY>;
+        // <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x100;
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+
+        fly_left_right();
+        move_logic();
+        stack_t01_offset();
+    }
+
+    fun trigger_enter() {
+        spawn_boss(0x10, 0x08);
+
+        available(CHARACTER.BOY);
+        teleport(CHARACTER.DOG, 0x00, 0x00);
+
+        default_init_room(True, False);
+        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+
+        close_exits(True);
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_0_1(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        },
+        exit_room_1_east = @install() fun test() {
+            subtext(string("exit? 3 [END]"));
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            subtext(string("exit? 8 [END]"));
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            map_transition(basement_0_2, room_3_south, DIRECTION.NORTH);
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            subtext(string("exit? 13 [END]"));
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun trigger_enter() {
+        object[0x04] = 0x01; // opens room_5_west
+        object[0x05] = 0x01; // opens room_5_east
+        // object[0x0b] = 0x01; // shows room_5_decoration_1 (sign)
+        // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
+        // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
+
+        fade_in();
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_0_2(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            map_transition(basement_0_1, room_5_north, DIRECTION.SOUTH);
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        },
+        exit_room_1_east = @install() fun test() {
+            subtext(string("exit? 3 [END]"));
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            subtext(string("exit? 8 [END]"));
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            subtext(string("exit? 10 [END]"));
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            map_transition(basement_0_boss, south, DIRECTION.NORTH);
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun trigger_enter() {
+        object[0x08] = 0x01; // opens room_3_south, closes room_3_west
+        // object[0x08] = 0x02; // closes room_3_west
+        // object[0x0f] = 0x01; // shows room_3_decoration_1 (sign)
+        // object[0x10] = 0x01; // shows room_3_decoration_2 (stone)
+        // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
+        // object[0x13] = 0x01; // closes room_3_north
+
+        fade_in();
+    }
+};
+
+map basement_0_boss(0x20) {
+    enum entrance {
+        east = entrance(0x2b, 0x15, DIRECTION.WEST),
+        south = entrance(0x1b, 0x29, DIRECTION.NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            map_transition(basement_0_2, room_3_north, DIRECTION.SOUTH);
+        }
+    }
+
+    enum BOSS {
+        ID = memory_tmp(),
+
+        FOLLOWING = memory_tmp(),
+
+        PUKE_HELPER = memory_tmp(),
+
+        MOVE_RNG = memory_tmp(),
+
+        CANNONBALL_X = memory_tmp(),
+        CANNONBALL_Y = memory_tmp(),
+        CANNONBALL_COUNT = memory_tmp(),
+    }
+
+    @install()
+    fun flop() {
+        BOSS.PUKE_HELPER = 0x20;
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @install()
+    fun puke() {
+        // sleep(0x20);
+        
+        BOSS.PUKE_HELPER = 0x20;
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X]), calculate(BOSS.ID[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x02);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x02);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x05);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.ID), calculate(BOSS.ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @async()
+    @install()
+    fun following() {
+        while(True) {
+            if(BOSS.FOLLOWING > 0x00) {
+                if(BOSS.ID[ATTRIBUTE.X] > <CHARACTER.BOY>[ATTRIBUTE.X]) {
+                    BOSS.ID[ATTRIBUTE.X] = BOSS.ID[ATTRIBUTE.X] - BOSS.FOLLOWING;
+                } else if(BOSS.ID[ATTRIBUTE.X] < <CHARACTER.BOY>[ATTRIBUTE.X]) {
+                    BOSS.ID[ATTRIBUTE.X] = BOSS.ID[ATTRIBUTE.X] + BOSS.FOLLOWING;
+                }
+
+                if(BOSS.ID[ATTRIBUTE.Y] > <CHARACTER.BOY>[ATTRIBUTE.Y]) {
+                    BOSS.ID[ATTRIBUTE.Y] = BOSS.ID[ATTRIBUTE.Y] - BOSS.FOLLOWING;
+                } else if(BOSS.ID[ATTRIBUTE.Y] < <CHARACTER.BOY>[ATTRIBUTE.Y]) {
+                    BOSS.ID[ATTRIBUTE.Y] = BOSS.ID[ATTRIBUTE.Y] + BOSS.FOLLOWING;
+                }
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    fun yeet() {
+        BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x55;
+        
+        BOSS.FOLLOWING = 0x01;
+        sleep(0xa0);
+        BOSS.FOLLOWING = 0x00;
+
+        flop();
+    }
+
+    @install()
+    fun hop() {
+        BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+
+        BOSS.FOLLOWING = 0x01;
+        sleep(0x40);
+        BOSS.FOLLOWING = 0x00;
+    }
+
+    fun move() {
+        BOSS.MOVE_RNG = randrange(0x05);
+
+        if(BOSS.MOVE_RNG == 0x00) {
+            puke();
+            sleep(0x50);
+        } else if(BOSS.MOVE_RNG == 0x01) {
+            yeet();
+            sleep(0x60);
+        } else {
+            hop();
+            sleep(0x20);
+        }
+    }
+
+    @async()
+    @install()
+    fun move_logic() {
+        sleep(0x80);
+         
+        while(True) {
+            move();
+        }
+    }
+
+    @install()
+    fun monstro_damage() {
+        yield();
+        animate(BOSS.ID, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.MAGMAR, x, y);
+        BOSS.ID = <CHARACTER.LAST_ENTITY>;
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(monstro_damage));
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+
+        following();
+        move_logic();
+    }
+
+    fun intro() {
+        subtext(string("Isaac vs. Monstro[END]"));
+    }
+
+    @install()
+    fun trap_door_interacted() {
+        map_transition(basement_1_0, room_5_center, DIRECTION.NONE);
+    }
+
+    fun trigger_enter() {
+        spawn_boss(0x10, 0x13);
+
+        // available(CHARACTER.BOY);
+        // teleport(CHARACTER.DOG, 0x00, 0x00);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
+
+        default_init_room(True, False);
+        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+
+        intro();
+    }
+};
+
+map basement_1_0(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        },
+        exit_room_1_east = @install() fun test() {
+            subtext(string("exit? 3 [END]"));
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            map_transition(basement_1_1, room_1_east, DIRECTION.WEST);
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            subtext(string("exit? 10 [END]"));
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            subtext(string("exit? 13 [END]"));
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun trigger_enter() {
+        object[0x04] = 0x01; // opens room_5_west
+        // object[0x05] = 0x01; // opens room_5_east
+        // object[0x0b] = 0x01; // shows room_5_decoration_1 (sign)
+        // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
+        // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
+
+        fade_in();
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_1_1(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            map_transition(basement_1_boss, east, DIRECTION.WEST);
+        },
+        exit_room_1_east = @install() fun test() {
+            map_transition(basement_1_0, room_5_west, DIRECTION.EAST);
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            subtext(string("exit? 8 [END]"));
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            subtext(string("exit? 10 [END]"));
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            subtext(string("exit? 13 [END]"));
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun trigger_enter() {
+        object[0x04] = 0x01; // opens room_5_west
+        // object[0x05] = 0x01; // opens room_5_east
+        // object[0x0b] = 0x01; // shows room_5_decoration_1 (sign)
+        // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
+        // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
+
+        fade_in();
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_1_boss(0x20) {
+    enum entrance {
+        east = entrance(0x2b, 0x15, DIRECTION.WEST),
+        south = entrance(0x1b, 0x29, DIRECTION.NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() fun test() {
+            map_transition(basement_1_1, room_1_west, DIRECTION.EAST);
+        },
+        exit_south = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        }
+    }
+
+    enum BOSS {
+        MOUNT_ID = memory_tmp(),
+        RIDER_ID = memory_tmp(),
+
+        FOLLOWING = memory_tmp(),
+
+        PUKE_HELPER = memory_tmp(),
+
+        MOVE_RNG = memory_tmp(),
+
+        CANNONBALL_X = memory_tmp(),
+        CANNONBALL_Y = memory_tmp(),
+        CANNONBALL_COUNT = memory_tmp(),
+    }
+
+    @install()
+    fun flop() {
+        BOSS.PUKE_HELPER = 0x20;
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x20 + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x20 - randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x20 + randrange(0x20)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x20 - randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @install()
+    fun puke() {
+        // sleep(0x20);
+        
+        BOSS.PUKE_HELPER = 0x20;
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x02);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x02);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        sleep(0x05);
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + randrange(0x05)), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + randrange(0x05)), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + randrange(0x40)), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + randrange(0x20)), calculate(BOSS.PUKE_HELPER + randrange(0x10)), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @async()
+    @install()
+    fun following() {
+        while(True) {
+            if(BOSS.FOLLOWING > 0x00) {
+                if(BOSS.MOUNT_ID[ATTRIBUTE.X] > <CHARACTER.BOY>[ATTRIBUTE.X]) {
+                    BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] - BOSS.FOLLOWING;
+                } else if(BOSS.MOUNT_ID[ATTRIBUTE.X] < <CHARACTER.BOY>[ATTRIBUTE.X]) {
+                    BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] + BOSS.FOLLOWING;
+                }
+
+                if(BOSS.MOUNT_ID[ATTRIBUTE.Y] > <CHARACTER.BOY>[ATTRIBUTE.Y]) {
+                    BOSS.MOUNT_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] - BOSS.FOLLOWING;
+                } else if(BOSS.MOUNT_ID[ATTRIBUTE.Y] < <CHARACTER.BOY>[ATTRIBUTE.Y]) {
+                    BOSS.MOUNT_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y] + BOSS.FOLLOWING;
+                }
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    fun yeet() {
+        BOSS.MOUNT_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x55;
+        
+        BOSS.FOLLOWING = 0x01;
+        sleep(0xa0);
+        BOSS.FOLLOWING = 0x00;
+
+        flop();
+    }
+
+    @install()
+    fun hop() {
+        BOSS.MOUNT_ID[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+
+        BOSS.FOLLOWING = 0x01;
+        sleep(0x40);
+        BOSS.FOLLOWING = 0x00;
+    }
+
+    @install()
+    fun shoot_x() {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x80), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x80), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x80), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x80), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @install()
+    fun shoot_plus() {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x80), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x80), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+
+    @install()
+    fun shoot_star() {
+        // shoot_x();
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x60), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x60), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] + 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x60), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0xff), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x60), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y] - 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+        shoot_plus();
+    }
+
+    @install()
+    fun charge_right() {
+        face(BOSS.MOUNT_ID, DIRECTION.EAST);
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+
+        BOSS.CANNONBALL_COUNT = 0x0000;
+
+        while(BOSS.CANNONBALL_COUNT <= 0x02) {
+            if(BOSS.MOUNT_ID[ATTRIBUTE.X] > 0x200) {
+                BOSS.CANNONBALL_COUNT = BOSS.CANNONBALL_COUNT + 0x01;
+
+                BOSS.MOUNT_ID[ATTRIBUTE.X] = 0x00;
+                BOSS.MOUNT_ID[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+            }
+
+            BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x08;
+            code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x00), param(0x10), param(0x10), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+            yield();
+        }
+
+        BOSS.CANNONBALL_X = <CHARACTER.BOY>[ATTRIBUTE.X];
+        BOSS.CANNONBALL_Y = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        BOSS.MOUNT_ID[ATTRIBUTE.X] = 0x00;
+        BOSS.MOUNT_ID[ATTRIBUTE.Y] = BOSS.CANNONBALL_Y;
+
+        while(BOSS.MOUNT_ID[ATTRIBUTE.X] < BOSS.CANNONBALL_X) {
+            BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] + 0x08;
+            code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(BOSS.MOUNT_ID), calculate(BOSS.MOUNT_ID[ATTRIBUTE.X]), calculate(BOSS.MOUNT_ID[ATTRIBUTE.Y]), param(0x00), param(0x10), param(0x10), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+
+            yield();
+        }
+
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+
+        BOSS.CANNONBALL_X = BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x10;
+
+        while(BOSS.MOUNT_ID[ATTRIBUTE.X] > BOSS.CANNONBALL_X) {
+            BOSS.MOUNT_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X] - 0x01;
+
+            sleep(0x02);
+        }
+
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+    }
+
+    @install()
+    fun monstro_damage() {
+        yield();
+        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+
+        // animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ALL.DEFAULT);
+    }
+
+    @install()
+    @async()
+    fun stack_t01() {
+        while!(dead(<CHARACTER.BOY>)) {
+            BOSS.RIDER_ID[ATTRIBUTE.X] = BOSS.MOUNT_ID[ATTRIBUTE.X];
+            BOSS.RIDER_ID[ATTRIBUTE.Y] = BOSS.MOUNT_ID[ATTRIBUTE.Y];
+            yield();
+
+            // <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x05;
+            // <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y];
+            // yield();
+        }
+    }
+
+    fun move() {
+        attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+        control(BOSS.MOUNT_ID, True);
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.LIZARD_DUCK_1);
+        sleep(0x20);
+
+        BOSS.MOVE_RNG = randrange(0x03);
+
+        if(BOSS.MOVE_RNG == 0x00) {
+            shoot_x();
+            sleep(0x50);
+            shoot_plus();
+        } else if(BOSS.MOVE_RNG == 0x01) {
+            shoot_star();
+        } else {
+            charge_right();
+        }
+
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+        sleep(0x20);
+        animate(BOSS.MOUNT_ID, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+        attribute_bit(BOSS.MOUNT_ID, ATTRIBUTE_BITS.UNLOCK);
+        control(BOSS.MOUNT_ID, False);
+    }
+
+    @async()
+    @install()
+    fun move_logic() {
+        sleep(0x80);
+         
+        while(True) {
+            move();
+            
+            sleep(0x60);
+        }
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(ENEMY.MAGMAR, x, y);
+        BOSS.RIDER_ID = <CHARACTER.LAST_ENTITY>;
+        animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(monstro_damage));
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+        attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVINCIBLE);
+
+        // add_enemy_with_flags(ENEMY.DRAKE, x, y, FLAG_ENEMY.INACTIVE);
+        // add_enemy_with_flags(ENEMY.FOOTKNIGHT, x, y, FLAG_ENEMY.INACTIVE);
+        add_enemy_with_flags(ENEMY.LIZARD_BLACK, x, y, 0x00);
+        BOSS.MOUNT_ID = <CHARACTER.LAST_ENTITY>;
+
+        following();
+        move_logic();
+        stack_t01();
+    }
+
+    fun intro() {
+        subtext(string("Isaac vs. Dark One[END]"));
+    }
+
+    fun trigger_enter() {
+        object[0x00] = 0x01; // close south
+        object[0x01] = 0x7e; // open east
+
+        spawn_boss(0x10, 0x13);
+
+        // available(CHARACTER.BOY);
+        // teleport(CHARACTER.DOG, 0x00, 0x00);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
+
+        default_init_room(True, False);
+        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+
+        intro();
     }
 };
 
