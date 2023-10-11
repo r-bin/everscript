@@ -391,7 +391,8 @@ fun hotkey_start_l() {
         // map_transition(projectile_test, south, DIRECTION.NONE);
         // map_transition(projectile_test2, west, DIRECTION.NONE);
         // map_transition(river, right, DIRECTION.NONE);
-        map_transition(basement_0_1, room_5_center, DIRECTION.NONE);
+        // map_transition(basement_0_1, room_5_center, DIRECTION.NONE);
+        map_transition(west_hut_inside, door, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -452,6 +453,24 @@ fun default_init_room(night, rain) {
     }
 
     fade_in();
+}
+
+fun isaac_mode() {
+    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+    MEMORY.PACIFIED = 0x01;
+}
+
+fun isaac_init(night, rain) {
+    // TODO: dog should stay unavailable
+    available(CHARACTER.BOY);
+    teleport(CHARACTER.DOG, 0xff, 0xff);
+
+    default_init_room(night, rain);
+
+    available(CHARACTER.BOY);
+    teleport(CHARACTER.DOG, 0xff, 0xff);
+
+    isaac_mode();
 }
 
 // center
@@ -1752,7 +1771,7 @@ map west_inbetwixx(0x5b) {
             map_transition(inbetwixx, west_1, DIRECTION.EAST);
         },
         exit_west = @install() fun test() {
-            map_transition(west_hut, east, DIRECTION.WEST);
+            map_transition(west_hut_outside, east, DIRECTION.WEST);
         },
         exit_north = @install() fun test() {
             map_transition(volcano, south, DIRECTION.NORTH);
@@ -1870,7 +1889,7 @@ map west_inbetwixx(0x5b) {
     }
 };
 
-map west_hut(0x33) {
+map west_hut_outside(0x33) {
     enum entrance {
         hut = entrance(0x13, 0x13, DIRECTION.SOUTH), // TODO: 13/15
         east = entrance(0x25, 0x12, DIRECTION.WEST),
@@ -1884,7 +1903,7 @@ map west_hut(0x33) {
 
     enum stepon_trigger {
         stepon_0 = @install() fun test() {
-            map_transition(west_hut2, door, DIRECTION.NORTH);
+            map_transition(west_hut_inside, door, DIRECTION.NORTH);
         },
         stepon_1 = @install() fun test() {
             map_transition(west_inbetwixx, west, DIRECTION.EAST);
@@ -1897,6 +1916,7 @@ map west_hut(0x33) {
     }
 
     fun trigger_enter() {
+
         default_init_room(True, True);
 
         // add_enemy(ENEMY.PLACEHOLDER, 0x0d, 0x0e);
@@ -1912,7 +1932,7 @@ map potato_room(0x60) {
 
     enum stepon_trigger {
         stepon_0 = @install() fun test() {
-            map_transition(west_hut, backdoor, DIRECTION.EAST);
+            map_transition(west_hut_outside, backdoor, DIRECTION.EAST);
         },
     }
 
@@ -1933,7 +1953,7 @@ map potato_room(0x60) {
     }
 };
 
-map west_hut2(0x34) {
+map west_hut_inside(0x34) {
     enum entrance {
         door = entrance(0x12, 0x23, DIRECTION.NORTH)
     }
@@ -1942,33 +1962,57 @@ map west_hut2(0x34) {
         default = soundtrack(MUSIC.BUGMUCK_AMBIENT_MELODY, 0xff)
     }
 
+    enum ROOM {
+        CLUE_1 = flag(),
+        CLUE_2 = flag(),
+    }
+
     enum stepon_trigger {
         stepon_0 = @install() fun test() {
-            map_transition(west_hut, hut, DIRECTION.SOUTH);
+            map_transition(west_hut_outside, hut, DIRECTION.SOUTH);
         }
     }
 
     enum b_trigger {
-        b_trigger_0 = @install() fun test() {
-            subtext(string("b? 0 [END]"));
+        gourd_1  = @install() fun test() {
+            nop();
         },
-        b_trigger_1 = @install() fun test() {
-            subtext(string("b? 1 [END]"));
+        gourd_2 = @install() fun test() {
+            object[0x02] = 0x01; // unload gourd_2
+            subtext(string("Locked away childrens toys.[END]"));
+            set(ROOM.CLUE_1);
         },
-        b_trigger_2 = @install() fun test() {
-            subtext(string("b? 2 [END]"));
+        gourd_3 = @install() fun test() {
+            object[0x01] = 0x01; // unload gourd_3
+            subtext(string("Cheap religious artifacts.[END]"));
+            set(ROOM.CLUE_2);
         },
     }
 
     @install()
     fun trap_door() {
-        subtext(string("trapdoor[END]"));
+        if!(ROOM.CLUE_1) {
+            end();
+        }
+        if!(ROOM.CLUE_2) {
+            end();
+        }
+        
+        question(string("[0x96]A trap door. Do you want to enter it?[LF][0x8b]Yes[LF][0x8b]No[END]"));
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) {
+            map_transition(basement_0_start, room_5_center, DIRECTION.NONE);
+        }
     }
 
     fun trigger_enter() {
-        object[0x00] = 0x01;
-        object[0x01] = 0x01;
-        object[0x02] = 0x01;
+        object[0x00] = 0x01; // unload gourd_1
+        if(ROOM.CLUE_1) {
+            object[0x02] = 0x01; // unload gourd_2
+        }
+        if(ROOM.CLUE_2) {
+            object[0x01] = 0x01; // unload gourd_3
+        }
 
         add_enemy(ENEMY.PLACEHOLDER, 0x0f, 0x12);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door));
@@ -8844,7 +8888,7 @@ map isaac3_arena(0x5c) { // unused
     }
 };
 
-map basement_0_1(0x22) {
+map basement_0_start(0x22) {
     enum entrance {
         room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
         room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
@@ -8903,7 +8947,7 @@ map basement_0_1(0x22) {
         },
 
         exit_room_5_north = @install() fun test() {
-            map_transition(basement_0_2, room_3_south, DIRECTION.NORTH);
+            map_transition(basement_0_1, room_3_south, DIRECTION.NORTH);
         },
         exit_room_5_south = @install() fun test() {
             subtext(string("exit? 11 [END]"));
@@ -8955,6 +8999,20 @@ map basement_0_1(0x22) {
         },
     }
 
+    fun prepare_room(index) {
+        if(index == 0x01) {
+            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+        } else if(index == 0x02) {
+            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+        } else if(index == 0x03) {
+            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+        } else if(index == 0x04) {
+            init_map(0x26, 0x24, 0x48, 0x54); // room_4
+        } else if(index == 0x05) {
+            init_map(0x00, 0x24, 0x22, 0x54); // room_5
+        }
+    }
+
     fun trigger_enter() {
         object[0x04] = 0x01; // opens room_5_west
         object[0x05] = 0x01; // opens room_5_east
@@ -8962,7 +9020,15 @@ map basement_0_1(0x22) {
         // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
         // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-        fade_in();
+        //   init_map(0x00, 0x00, 0x1a, 0x0f);
+        // init_map(0x1c, 0x00, 0x37, 0x0f);
+        //   init_map(0x00, 0x12, 0x11, 0x2a);
+        // init_map(0x13, 0x12, 0x24, 0x2a);
+        //   init_map(0x26, 0x12, 0x37, 0x2a);
+
+        prepare_room(0x05);
+
+        isaac_init(True, False);
 
         if!(FLAG.IN_ANIMATION) {
             // teleport(CHARACTER.DOG, 0x19, 0x1d);
@@ -8973,7 +9039,7 @@ map basement_0_1(0x22) {
     }
 };
 
-map basement_0_2(0x22) {
+map basement_0_1(0x22) {
     enum entrance {
         room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
         room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
@@ -9001,7 +9067,7 @@ map basement_0_2(0x22) {
 
     enum stepon_trigger {
         exit_room_3_south = @install() fun test() {
-            map_transition(basement_0_1, room_5_north, DIRECTION.SOUTH);
+            map_transition(basement_0_start, room_5_north, DIRECTION.SOUTH);
         },
         exit_room_4_west = @install() fun test() {
             subtext(string("exit? 1 [END]"));
@@ -9041,7 +9107,7 @@ map basement_0_2(0x22) {
             subtext(string("exit? 12 [END]"));
         },
         exit_room_3_north = @install() fun test() {
-            map_transition(basement_0_boss, south, DIRECTION.NORTH);
+            map_transition(basement_0_door, south, DIRECTION.NORTH);
         },
         exit_room_4_east = @install() fun test() {
             subtext(string("exit? 14 [END]"));
@@ -9084,6 +9150,20 @@ map basement_0_2(0x22) {
         },
     }
 
+    fun prepare_room(index) {
+        if(index == 0x01) {
+            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+        } else if(index == 0x02) {
+            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+        } else if(index == 0x03) {
+            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+        } else if(index == 0x04) {
+            init_map(0x26, 0x24, 0x48, 0x54); // room_4
+        } else if(index == 0x05) {
+            init_map(0x00, 0x24, 0x22, 0x54); // room_5
+        }
+    }
+
     fun trigger_enter() {
         object[0x08] = 0x01; // opens room_3_south, closes room_3_west
         // object[0x08] = 0x02; // closes room_3_west
@@ -9092,11 +9172,14 @@ map basement_0_2(0x22) {
         // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
         // object[0x13] = 0x01; // closes room_3_north
 
-        fade_in();
+        prepare_room(0x03);
+
+        default_init_room(True, False);
+        isaac_init(True, False);
     }
 };
 
-map basement_0_boss(0x20) {
+map basement_0_door(0x20) {
     enum entrance {
         east = entrance(0x2b, 0x15, DIRECTION.WEST),
         south = entrance(0x1b, 0x29, DIRECTION.NORTH)
@@ -9107,7 +9190,348 @@ map basement_0_boss(0x20) {
             subtext(string("exit? 0 [END]"));
         },
         exit_south = @install() fun test() {
-            map_transition(basement_0_2, room_3_north, DIRECTION.SOUTH);
+            map_transition(basement_0_1, room_3_north, DIRECTION.SOUTH);
+        }
+    }
+
+    @install()
+    fun trap_door_interacted() {
+        map_transition(basement_1_start, room_5_center, DIRECTION.NONE);
+    }
+
+    fun trigger_enter() {
+        add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
+
+        isaac_init(True, False);
+
+        // object[0x00] = 0x01; // close south
+        // object[0x01] = 0x01; // open east
+    }
+};
+
+map basement_1_start(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        },
+        exit_room_1_east = @install() fun test() {
+            subtext(string("exit? 3 [END]"));
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            subtext(string("exit? 8 [END]"));
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            subtext(string("exit? 10 [END]"));
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            subtext(string("exit? 13 [END]"));
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun prepare_room(index) {
+        if(index == 0x01) {
+            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+        } else if(index == 0x02) {
+            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+        } else if(index == 0x03) {
+            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+        } else if(index == 0x04) {
+            init_map(0x26, 0x24, 0x48, 0x54); // room_4
+        } else if(index == 0x05) {
+            init_map(0x00, 0x24, 0x22, 0x54); // room_5
+        }
+    }
+
+    @install()
+    fun trap_door_interacted() {
+        map_transition(basement_2_start, room_5_center, DIRECTION.NONE);
+    }
+
+    fun trigger_enter() {
+        add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x09, 0x37);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
+
+        object[0x04] = 0x01; // opens room_5_west
+        object[0x05] = 0x01; // opens room_5_east
+        // object[0x0b] = 0x01; // shows room_5_decoration_1 (sign)
+        // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
+        // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
+
+        //   init_map(0x00, 0x00, 0x1a, 0x0f);
+        // init_map(0x1c, 0x00, 0x37, 0x0f);
+        //   init_map(0x00, 0x12, 0x11, 0x2a);
+        // init_map(0x13, 0x12, 0x24, 0x2a);
+        //   init_map(0x26, 0x12, 0x37, 0x2a);
+
+        prepare_room(0x05);
+
+        isaac_init(True, False);
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_2_start(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        },
+        exit_room_1_east = @install() fun test() {
+            subtext(string("exit? 3 [END]"));
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            subtext(string("exit? 8 [END]"));
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            map_transition(basement_2_boss, south, DIRECTION.NORTH);
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            subtext(string("exit? 13 [END]"));
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun prepare_room(index) {
+        if(index == 0x01) {
+            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+        } else if(index == 0x02) {
+            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+        } else if(index == 0x03) {
+            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+        } else if(index == 0x04) {
+            init_map(0x26, 0x24, 0x48, 0x54); // room_4
+        } else if(index == 0x05) {
+            init_map(0x00, 0x24, 0x22, 0x54); // room_5
+        }
+    }
+
+    fun trigger_enter() {
+        object[0x04] = 0x01; // opens room_5_west
+        object[0x05] = 0x01; // opens room_5_east
+        // object[0x0b] = 0x01; // shows room_5_decoration_1 (sign)
+        // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
+        // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
+
+        //   init_map(0x00, 0x00, 0x1a, 0x0f);
+        // init_map(0x1c, 0x00, 0x37, 0x0f);
+        //   init_map(0x00, 0x12, 0x11, 0x2a);
+        // init_map(0x13, 0x12, 0x24, 0x2a);
+        //   init_map(0x26, 0x12, 0x37, 0x2a);
+
+        prepare_room(0x05);
+
+        isaac_init(True, False);
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_2_boss(0x20) {
+    enum entrance {
+        east = entrance(0x2b, 0x15, DIRECTION.WEST),
+        south = entrance(0x1b, 0x29, DIRECTION.NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_south = @install() fun test() {
+            map_transition(basement_2_start, room_5_north, DIRECTION.SOUTH);
         }
     }
 
@@ -9250,7 +9674,7 @@ map basement_0_boss(0x20) {
 
     @install()
     fun trap_door_interacted() {
-        map_transition(basement_1_0, room_5_center, DIRECTION.NONE);
+        map_transition(basement_3_start, room_5_center, DIRECTION.NONE);
     }
 
     fun trigger_enter() {
@@ -9262,14 +9686,13 @@ map basement_0_boss(0x20) {
         add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
 
-        default_init_room(True, False);
-        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+        isaac_init(True, False);
 
         intro();
     }
 };
 
-map basement_1_0(0x22) {
+map basement_3_start(0x22) {
     enum entrance {
         room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
         room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
@@ -9321,7 +9744,166 @@ map basement_1_0(0x22) {
             subtext(string("exit? 7 [END]"));
         },
         exit_room_5_west = @install() fun test() {
-            map_transition(basement_1_1, room_1_east, DIRECTION.WEST);
+            subtext(string("exit? 8 [END]"));
+        },
+        exit_room_5_east = @install() fun test() {
+            subtext(string("exit? 9 [END]"));
+        },
+
+        exit_room_5_north = @install() fun test() {
+            subtext(string("exit? 10 [END]"));
+        },
+        exit_room_5_south = @install() fun test() {
+            subtext(string("exit? 11 [END]"));
+        },
+        exit_room_4_north = @install() fun test() {
+            subtext(string("exit? 12 [END]"));
+        },
+        exit_room_3_north = @install() fun test() {
+            subtext(string("exit? 13 [END]"));
+        },
+        exit_room_4_east = @install() fun test() {
+            subtext(string("exit? 14 [END]"));
+        },
+        exit_room_3_west = @install() fun test() {
+            subtext(string("exit? 15 [END]"));
+        },
+        exit_room_2_south_1 = @install() fun test() {
+            subtext(string("exit? 16 [END]"));
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() fun test() {
+            subtext(string("b? 0 [END]"));
+        },
+        b_trigger_1 = @install() fun test() {
+            subtext(string("b? 1 [END]"));
+        },
+        b_trigger_2 = @install() fun test() {
+            subtext(string("b? 2 [END]"));
+        },
+        b_trigger_3 = @install() fun test() {
+            subtext(string("b? 3 [END]"));
+        },
+        b_trigger_4 = @install() fun test() {
+            subtext(string("b? 4 [END]"));
+        },
+        b_trigger_5 = @install() fun test() {
+            subtext(string("b? 5 [END]"));
+        },
+        b_trigger_6 = @install() fun test() {
+            subtext(string("b? 6 [END]"));
+        },
+        b_trigger_7 = @install() fun test() {
+            subtext(string("b? 7 [END]"));
+        },
+        b_trigger_8 = @install() fun test() {
+            subtext(string("b? 8 [END]"));
+        },
+    }
+
+    fun prepare_room(index) {
+        if(index == 0x01) {
+            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+        } else if(index == 0x02) {
+            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+        } else if(index == 0x03) {
+            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+        } else if(index == 0x04) {
+            init_map(0x26, 0x24, 0x48, 0x54); // room_4
+        } else if(index == 0x05) {
+            init_map(0x00, 0x24, 0x22, 0x54); // room_5
+        }
+    }
+
+    @install()
+    fun trap_door_interacted() {
+        map_transition(basement_4_start, room_5_center, DIRECTION.NONE);
+    }
+
+    fun trigger_enter() {
+        add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x09, 0x37);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
+
+        object[0x04] = 0x01; // opens room_5_west
+        object[0x05] = 0x01; // opens room_5_east
+        // object[0x0b] = 0x01; // shows room_5_decoration_1 (sign)
+        // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
+        // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
+
+        //   init_map(0x00, 0x00, 0x1a, 0x0f);
+        // init_map(0x1c, 0x00, 0x37, 0x0f);
+        //   init_map(0x00, 0x12, 0x11, 0x2a);
+        // init_map(0x13, 0x12, 0x24, 0x2a);
+        //   init_map(0x26, 0x12, 0x37, 0x2a);
+
+        prepare_room(0x05);
+
+        isaac_init(True, False);
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(CHARACTER.DOG, 0x19, 0x1d);
+            <CHARACTER.DOG>[ATTRIBUTE.X] = <CHARACTER.DOG>[ATTRIBUTE.X] + 0x20;
+            <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] + 0x20;
+            crash_land(CHARACTER.BOTH);
+        }
+    }
+};
+
+map basement_4_start(0x22) {
+    enum entrance {
+        room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
+        room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
+        room_1_west = entrance(0x00, 0x15, DIRECTION.EAST),
+
+        room_2_east = entrance(0x6f, 0x17, DIRECTION.WEST),
+        room_2_south_1 = entrance(0x65, 0x1f, DIRECTION.NORTH),
+        room_2_south_2 = entrance(0x46, 0x1f, DIRECTION.NORTH),
+        room_2_west = entrance(0x38, 0x18, DIRECTION.EAST),
+
+        room_3_north = entrance(0x5f, 0x25, DIRECTION.SOUTH),
+        room_3_west = entrance(0x4b, 0x4c, DIRECTION.EAST),
+        room_3_south = entrance(0x5a, 0x55, DIRECTION.NORTH),
+
+        room_4_north = entrance(0x39, 0x24, DIRECTION.SOUTH),
+        room_4_east = entrance(0x48, 0x4b, DIRECTION.WEST),
+        room_4_west = entrance(0x26, 0x4e, DIRECTION.EAST),
+
+        room_5_north = entrance(0x11, 0x25, DIRECTION.SOUTH),
+        room_5_east = entrance(0x22, 0x38, DIRECTION.WEST),
+        room_5_south = entrance(0x11, 0x55, DIRECTION.NORTH),
+        room_5_west = entrance(0x00, 0x38, DIRECTION.EAST),
+        room_5_center = entrance(0x12, 0x38, DIRECTION.NONE),
+    }
+
+    enum stepon_trigger {
+        exit_room_3_south = @install() fun test() {
+            subtext(string("exit? 0 [END]"));
+        },
+        exit_room_4_west = @install() fun test() {
+            subtext(string("exit? 1 [END]"));
+        },
+        exit_room_1_west = @install() fun test() {
+            subtext(string("exit? 2 [END]"));
+        },
+        exit_room_1_east = @install() fun test() {
+            subtext(string("exit? 3 [END]"));
+        },
+        exit_room_1_south = @install() fun test() {
+            subtext(string("exit? 4 [END]"));
+        },
+        exit_room_2_south_2 = @install() fun test() {
+            subtext(string("exit? 5 [END]"));
+        },
+        exit_room_2_east = @install() fun test() {
+            subtext(string("exit? 6 [END]"));
+        },
+        stepon_7 = @install() fun test() {
+            subtext(string("exit? 7 [END]"));
+        },
+        exit_room_5_west = @install() fun test() {
+            map_transition(basement_4_1, room_1_east, DIRECTION.WEST);
         },
         exit_room_5_east = @install() fun test() {
             subtext(string("exit? 9 [END]"));
@@ -9387,7 +9969,8 @@ map basement_1_0(0x22) {
         // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
         // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-        fade_in();
+        prepare_room(0x05);
+        isaac_init(True, False);
 
         if!(FLAG.IN_ANIMATION) {
             // teleport(CHARACTER.DOG, 0x19, 0x1d);
@@ -9398,7 +9981,7 @@ map basement_1_0(0x22) {
     }
 };
 
-map basement_1_1(0x22) {
+map basement_4_1(0x22) {
     enum entrance {
         room_1_east = entrance(0x35, 0x16, DIRECTION.WEST),
         room_1_north = entrance(0x18, 0x1f, DIRECTION.NORTH),
@@ -9432,10 +10015,10 @@ map basement_1_1(0x22) {
             subtext(string("exit? 1 [END]"));
         },
         exit_room_1_west = @install() fun test() {
-            map_transition(basement_1_boss, east, DIRECTION.WEST);
+            map_transition(basement_4_boss, east, DIRECTION.WEST);
         },
         exit_room_1_east = @install() fun test() {
-            map_transition(basement_1_0, room_5_west, DIRECTION.EAST);
+            map_transition(basement_4_start, room_5_west, DIRECTION.EAST);
         },
         exit_room_1_south = @install() fun test() {
             subtext(string("exit? 4 [END]"));
@@ -9516,7 +10099,8 @@ map basement_1_1(0x22) {
         // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
         // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-        fade_in();
+        prepare_room(0x01);
+        isaac_init(True, False);
 
         if!(FLAG.IN_ANIMATION) {
             // teleport(CHARACTER.DOG, 0x19, 0x1d);
@@ -9527,7 +10111,7 @@ map basement_1_1(0x22) {
     }
 };
 
-map basement_1_boss(0x20) {
+map basement_4_boss(0x20) {
     enum entrance {
         east = entrance(0x2b, 0x15, DIRECTION.WEST),
         south = entrance(0x1b, 0x29, DIRECTION.NORTH)
@@ -9535,7 +10119,7 @@ map basement_1_boss(0x20) {
 
     enum stepon_trigger {
         exit_east = @install() fun test() {
-            map_transition(basement_1_1, room_1_west, DIRECTION.EAST);
+            map_transition(basement_4_1, room_1_west, DIRECTION.EAST);
         },
         exit_south = @install() fun test() {
             subtext(string("exit? 1 [END]"));
@@ -9791,6 +10375,11 @@ map basement_1_boss(0x20) {
         subtext(string("Isaac vs. Dark One[END]"));
     }
 
+    @install()
+    fun trap_door_interacted() {
+        map_transition(west_hut_outside, hut, DIRECTION.NONE);
+    }
+
     fun trigger_enter() {
         object[0x00] = 0x01; // close south
         object[0x01] = 0x7e; // open east
@@ -9803,8 +10392,7 @@ map basement_1_boss(0x20) {
         add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(trap_door_interacted));
 
-        default_init_room(True, False);
-        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+        isaac_init(True, False);
 
         intro();
     }
@@ -10021,12 +10609,7 @@ map dungeon_volcano(0x3b) {
             attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(contraption_trigger));
         }
 
-        default_init_room(False, False);
-
-        if(<CHARACTER.BOY>[ATTRIBUTE.Z] == ROOM.Z_UPSTAIRS) {
-            available(CHARACTER.BOY);
-            animate(CHARACTER.DOG, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
-        }
+        isaac_init(True, False);
     }
 };
 
