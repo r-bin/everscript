@@ -801,6 +801,29 @@ class BinaryDefaultCalculator():
 
         return code
         
+class And(BinaryOp, BinaryDefaultCalculator):
+    def operator(self):
+        return "&&"
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) == right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("&&")
+
+        return self._default_calculate(operator, left, right, params)
+class Or(BinaryOp, BinaryDefaultCalculator):
+    def operator(self):
+        return "||"
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) == right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("||")
+
+        return self._default_calculate(operator, left, right, params)
+    
 class Equals(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "=="
@@ -962,7 +985,7 @@ class ShiftLeft(BinaryOp, BinaryDefaultCalculator):
 
         return self._default_calculate(operator, left, right, params)
     
-class And(BinaryOp):
+class BinaryAnd(BinaryOp):
     def operator(self):
         return "&"
 
@@ -988,7 +1011,7 @@ class And(BinaryOp):
 
         return code
     
-class Or(BinaryOp):
+class BinaryOr(BinaryOp):
     def operator(self):
         return "|"
 

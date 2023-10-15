@@ -1,0 +1,377 @@
+#memory(
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    // reserved: <0x23b9>
+    <0x2272>..<0x22ff>,
+
+    <0x2834>..<0x28ff>
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "skip_intro",
+    // "brian",
+    // "camera_hack",
+    // "free_graveyard_ids",
+    // "save_file_growth",
+
+    // asm
+    // "debug_menu", // uses 0x3f0000…???
+    // "_hook_input", // 0x3f0000…0x310000
+        // "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
+)
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(demo_map, center, DIRECTION.NONE);
+}
+
+map demo_map(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x15, 0x17, DIRECTION.NONE),
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        ID = memory_tmp(),
+        GRAB_RANGE = 0x30,
+
+        GRAB_DISTANCE = memory_tmp(),
+    }
+    
+    @async()
+    @install()
+    fun grab_hold() {
+        while(BOSS.GRAB_DISTANCE > 0x00) {
+            BOSS.ID[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] + 0x08;
+            BOSS.ID[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] - BOSS.GRAB_DISTANCE;
+            BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT];
+
+            yield();
+        }
+        while(BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] > 0x00) {
+            BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] - 0x01;
+
+            yield();
+        }
+    }
+
+    @async()
+    @install()
+    fun grab() {
+        subtext(string("grab[END]"));
+        control_enemy(BOSS.ID, True);
+        face(BOSS.ID, DIRECTION.EAST);
+
+        call(ADDRESS.STERLING_ROAR);
+        // control(CHARACTER.NONE);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
+        face(CHARACTER.BOY, DIRECTION.SOUTH);
+
+
+        animate(BOSS.ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+        BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x10;
+        sleep(0x10);
+        _heel(BOSS.ID, <CHARACTER.BOY>[ATTRIBUTE.X] + 0x08, <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x0a);
+
+        sleep(0x20);
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+
+        // walk(WALK_TYPE.ABSOLUTE, CHARACTER.BOY, 0x2a, 0x23, True);
+        // end();
+
+        BOSS.GRAB_DISTANCE = 0x1a;
+        grab_hold();
+
+        _heel(CHARACTER.BOY, 0x2a lshift 0x03, 0x23 lshift 0x03);
+        // BOSS.ID[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+        <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+        sleep(0x50);
+
+        BOSS.GRAB_DISTANCE = 0x00;
+
+        end();
+
+        while(<CHARACTER.BOY>[ATTRIBUTE.X] < (0x2a lshift 0x03)) {
+            <CHARACTER.BOY>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] + 0x02;
+            
+            if(<CHARACTER.BOY>[ATTRIBUTE.Y] < (0x23 lshift 0x03)) {
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] + 0x01;
+            } else if(<CHARACTER.BOY>[ATTRIBUTE.Y] > (0x23 lshift 0x03)) {
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x01;
+            }
+            
+            yield();
+        }
+        while(<CHARACTER.BOY>[ATTRIBUTE.X] > (0x2a lshift 0x03)) {
+            <CHARACTER.BOY>[ATTRIBUTE.X] = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x02;
+            
+            if(<CHARACTER.BOY>[ATTRIBUTE.Y] < (0x23 lshift 0x03)) {
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] + 0x01;
+            } else if(<CHARACTER.BOY>[ATTRIBUTE.Y] > (0x23 lshift 0x03)) {
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x01;
+            }
+
+            yield();
+        }
+
+        while(<CHARACTER.BOY>[ATTRIBUTE.Y] > (0x23 lshift 0x03)) {
+            <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x02;
+
+            yield();
+        }
+        while(<CHARACTER.BOY>[ATTRIBUTE.Y] < (0x23 lshift 0x03)) {
+            <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] + 0x02;
+
+            yield();
+        }
+    }
+
+    @install()
+    @async()
+    fun og_grab() {
+        <0x283d> = BOSS.ID;
+
+        debug_memory(<0x283d>, BOSS.ID);
+        sleep(0x60);
+
+        if(dead(<0x283d>)) {
+            subtext(string("dead 1[END]"));
+            end();
+        }
+        control(CHARACTER.NONE);
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        attribute_bit(<0x283d>, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+
+        <0x249d> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        <0x249f> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+        <0x24ab> = 0x01d8;
+        <0x24af> = 0x00f8;
+
+        if(<0x249d> < <0x24ab>) {
+            arg[0x00] = 0x01;
+        }
+        animate(0x283d, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.STERLING_FLY_2);
+
+        <0x249d> = <0x283d>[ATTRIBUTE.X];
+        <0x249f> = <0x283d>[ATTRIBUTE.Y];
+
+        <0x24a1> = <CHARACTER.BOY>[ATTRIBUTE.X] - 0x06;
+        // <0x24a3> = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x1f;
+        eval("18 4b 02 50 29 6c 1a 55 29 01 e0 9a");
+
+        <0x2847> = 0x1e;
+        <0x249f> = <0x249f> - 0x10;
+
+        _teleport(<0x283d>, <0x249d>, <0x249f>);
+
+        subtext(string("1[END]"));
+        sleep(0x50);
+
+        // <0x283f> = <0x24a1> - <0x249d>; // TODO: 09 = read signed byte
+        eval("19 0b 00 08 49 02 29 08 45 02 9b");
+        // <0x2841> = <0x24a3> - <0x249f>;
+        eval("19 0d 00 08 4b 02 29 08 47 02 9b");
+
+        // <0x2843> = (<0x283f> lshift 0x04) / <0x2847>;
+        eval("19 0b 00 08 49 02 29 08 45 02 9b");
+        // <0x2845> = (<0x2841> lshift 0x04) / <0x2847>;
+        eval("19 0d 00 08 4b 02 29 08 47 02 9b");
+
+        // <0x23b9> = <0x249d> lshift 0x04;
+        eval("19 0f 00 0d 0b 00 29 34 1c 29 0d 13 00 98");
+        // <0x23bb> = <0x24bb> lshift 0x04;
+        eval("19 11 00 0d 0d 00 29 34 1c 29 0d 13 00 98");
+
+        // <0x283d>[ATTRIBUTE.JUMP_HEIGHT] = <0x2847> / 0x02;
+        eval("7a 0d 09 00 29 02 20 9a 0d 13 00 29 32 98");
+        arg[0x02] = 0x00;
+
+        while(arg[0x02] <= <0x2847>) {
+            // <0x23b9> = <0x23b9> + <0x2843>;
+            eval("18 61 01 08 61 01 29 0d 0f 00 9a");
+            // <0x23bb> = <0x23bb> + <0x2845>;
+            eval("18 63 01 08 63 01 29 0d 11 00 9a");
+            <0x23db> = 0x0000;
+            // _teleport(<0x283d>, <0x23b9> rshift 0x04, <0x23bb> rshift 0x04);
+            eval("43 8d 09 00 08 61 01 29 34 9d 08 63 01 29 34 9d");
+            yield();
+            arg[0x02] = arg[0x02] + 0x01;
+
+            // sleep(0x50);
+            // debug_memory(<0x23b9> rshift 0x04, <0x23bb> rshift 0x04);
+            // debug_memory(<0x23b9>, <0x23bb>);
+            // debug_memory(arg[0x02], <0x2847>);
+        }
+
+        // if(dead(<0x283d>)) {
+        //     subtext(string("dead 2[END]"));
+        //     end();
+        // }
+
+        // call(0x99988a);
+
+        debug_memory(<0x2843>, <0x2845>);
+        // subtext(string("test 2[END]"));
+        end();
+
+        <0x249d> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        <0x249f> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        if(arg[0x00] == 0x01) {
+            <0x24a1> = 0x00f8;
+            <0x24a3> = 0x00e8;
+            face(CHARACTER.BOY, DIRECTION.WEST);
+            face(0x283d, DIRECTION.WEST);
+        } else {
+            <0x24a1> = 0x02d8;
+            <0x24a3> = 0x00e8;
+            face(CHARACTER.BOY, DIRECTION.EAST);
+            face(0x283d, DIRECTION.EAST);
+        }
+
+        yield();
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        <0x2847> = 0x004b;
+        <0x249f> = <0x249f> - 0x10;
+        <0x23db> = 0x0010;
+        _teleport(<CHARACTER.BOY>, <0x249d>, <0x249f>);
+
+        <0x23db> = 0x0000;
+        _teleport(<0x283d>, <0x249d> - 0x06, <0x249f> - 0x1f);
+
+        <0x283f> = <0x24a1> - <0x249d>;
+        <0x2841> = <0x24a3> - <0x249f>;
+
+        <0x2843> = (<0x283f> lshift 0x04) / <0x2847>;
+        <0x2845> = (<0x2841> lshift 0x04) / <0x2847>;
+
+        <0x23b9> = <0x249d> lshift 0x04;
+        <0x23bb> = <0x249f> lshift 0x04;
+
+        <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = <0x2847> / 0x02;
+        <0x283d>[ATTRIBUTE.JUMP_HEIGHT] = <0x2847> / 0x02;
+
+        arg[0x02] = 0x00;
+
+        while(arg[0x02] <= <0x2847>) {
+            <0x23b9> = <0x23b9> + <0x2843>;
+            <0x23bb> = <0x23bb> + <0x2845>;
+            <0x23db> = 0x0010;
+            _teleport(<CHARACTER.BOY>, <0x23b9> rshift 0x04, <0x23bb> rshift 0x04);
+            <0x23db> = 0x0000;
+            _teleport(<0x283d>, (<0x23b9> rshift 0x04) - 0x06, (<0x23bb> rshift 0x04) - 0x1f);
+            yield();
+            arg[0x02] = arg[0x02] + 0x01;
+        }
+
+        sleep(0x1d);
+        call(0x99988a);
+
+        <0x249d> = <CHARACTER.BOY>[ATTRIBUTE.X];
+        <0x249f> = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+        if(arg[0x00] == 0x01) {
+            <0x24a1> = 0x00f8;
+            <0x24a3> = 0x01e8;
+        } else {
+            <0x24a1> = 0x02d8;
+            <0x24a3> = 0x0258;
+        }
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_BOY.FALL_2);
+        _teleport(<CHARACTER.BOY>, <0x249d>, <0x249f>);
+
+        while(<0x249f> < <0x24a3>) {
+            _teleport(<CHARACTER.BOY>, <0x249d>, <0x249f>);
+            yield();
+            <0x249f> = <0x249f> + 0x04;
+        }
+
+        sfx_effect(SFX_EFFECT.SHAKING, True);
+
+        animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_BOY.FALL_1);
+        <0x23d7> = 0x0001;
+        damage(CHARACTER.BOY, 0x5a);
+        sleep(0x0e);
+
+        sfx_effect(SFX_EFFECT.SHAKING, False);
+
+        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.UNLOCK);
+        control(CHARACTER.BOY);
+
+        <0x24ab> = 0x0158;
+        <0x24af> = 0x00e8;
+
+        _teleport(<0x283d>, <0x24ab>, <0x24af>);
+        yield();
+        attribute_bit(<0x283d>, ATTRIBUTE_BITS.UNLOCK);
+
+    }
+
+    @install()
+    @async()
+    fun grab_check() {
+        while(True) {
+            arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+            arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+            arg[0x04] = BOSS.ID[ATTRIBUTE.X];
+            arg[0x06] = BOSS.ID[ATTRIBUTE.Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if(arg[0x08] <= BOSS.GRAB_RANGE) {
+                if(arg[0x0a] <= BOSS.GRAB_RANGE) {
+                    // grab();
+                    og_grab();
+
+                    end();
+                }
+            }
+            yield();
+
+            // if(BOSS.DEBUG) {
+            //     debug_memory(arg[0x08], arg[0x0a]);
+            //     sleep(0x20);
+            // }
+        }
+    }
+    
+    fun trigger_enter() {
+        // add_enemy_with_flags(ENEMY.RAT, 0x18, 0x18, FLAG_ENEMY.INACTIVE);
+        add_enemy_with_flags(ENEMY.RAT, 0x18, 0x18, 0x00);
+        BOSS.ID = <CHARACTER.LAST_ENTITY>;
+        // <0x283d> = <CHARACTER.LAST_ENTITY>;
+        grab_check();
+
+        available(CHARACTER.BOY);
+        destroy(CHARACTER.DOG);
+
+        fade_in();
+
+        if(False) {
+            add_enemy_with_flags(ENEMY.RAT_RED, 0x1b, 0x18, FLAG_ENEMY.INACTIVE);
+            attach_sterling_script_to_last_entity();
+        }
+    }
+};

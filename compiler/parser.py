@@ -11,8 +11,9 @@ class Parser():
             [
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
+                'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=',
-                '!', '+', '-', '*', '/', '<<', '>>', 'AND', 'OR',
+                '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
@@ -28,7 +29,7 @@ class Parser():
             # disambiguate ambiguous production rules.
             precedence = [
                 ('left', ['+', '-']),
-                ('left', ['*', '/', 'AND'])
+                ('left', ['*', '/', 'B_AND'])
             ]
         )
         
@@ -436,6 +437,8 @@ class Parser():
 
             return Memory(address)
 
+        @self.pg.production('expression : param AND param')
+        @self.pg.production('expression : param OR param')
         @self.pg.production('expression : param == param')
         @self.pg.production('expression : param != param')
         @self.pg.production('expression : param >= param')
@@ -451,14 +454,18 @@ class Parser():
         @self.pg.production('expression : param / param')
         @self.pg.production('expression : param << param')
         @self.pg.production('expression : param >> param')
-        @self.pg.production('expression : param AND param')
-        @self.pg.production('expression : param OR param')
+        @self.pg.production('expression : param B_AND param')
+        @self.pg.production('expression : param B_OR param')
         def parse(p):
             left = p[0]
             operator = p[1]
             right = p[2]
 
             match operator.gettokentype():
+                case 'AND':
+                    return And(left, right)
+                case 'OR':
+                    return BinaryOr(left, right)
                 case '==':
                     return Equals(left, right)
                 case '!=':
@@ -489,10 +496,10 @@ class Parser():
                     return ShiftLeft(left, right)
                 case '>>':
                     return ShiftRight(left, right)
-                case 'AND':
-                    return And(left, right)
-                case 'OR':
-                    return Or(left, right)
+                case 'B_AND':
+                    return BinaryAnd(left, right)
+                case 'B_OR':
+                    return BinaryOr(left, right)
                 case _:
                     raise AssertionError('Oops, this should not be possible!')
 
