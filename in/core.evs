@@ -390,6 +390,17 @@ enum DIRECTION {
     UNKNOWN = 0x01
 }
 
+enum FACE_DIRECTION {
+    NORTH = 0x00,
+    NORTH_EAST = 0x02,
+    EAST = 0x04,
+    SOUTH_EAST = 0x06,
+    SOUTH = 0x08,
+    SOUTH_WEST = 0x0a,
+    WEST = 0x0c,
+    NORTH_WEST = 0x0e,
+}
+
 enum FLAG {
     DEBUG = <0x22eb, 0x08>,
 
@@ -429,28 +440,27 @@ enum FLAG {
 enum ATTRIBUTE {
     // See data crystals: 7E3DE5 to 7E4E88 = Monster/NPC data for the current room. Each Monster/NPC gets x8E bytes of data.
 
-    UNKNOWN_1 = 0x0f, // only used on 0x23e5+0x0f (boy max health?) and 0x23e7+0x0f (dog max health?) in combination with heals and during the intro cutscene
-    HP_MAX = 0x15,
+    // used in the scripts
+    MAX_HP = 0x0f, // <0x23e5>[0x0f] = boy max hp, <0x23e7>[0x0f] = dog max hp
     Z = 0x18,
     X = 0x1a,
     Y = 0x1c,
     FALLING_HEIGHT = 0x1e, // used for boss rush intro
     JUMP_HEIGHT = 0x20, // used for wings (0xe0 signed), magmar, megataur, act2 intro, puppets, sterling flight
-    FACE_DIRECTION = 0x22, // enum = DIRECTION
+    FACE_DIRECTION = 0x22, // enum FACE_DIRECTION
     X_TILE = 0x26,
     Y_TILE = 0x28,
     HP = 0x2a,
-    UNKNOWN_5 = 0x30, // set to 0 for exploded bombs
-    UNKNOWN_6 = 0x32,
-    UNKNOWN_7 = 0x36,
-    UNKNOWN_8 = 0x3c,
+    UNKNOWN = 0x30, // TODO: used for secret boss bombs (set to 0 for exploded bombs) and speakers (indexed from 2^0 to 2^8)
+    UNKNOWN = 0x32, // TODO: used for secret boss and boss rush fans
+    WEAPON_HIT = 0x36, // used for vigor (on weapon damage 0x4e89, on magic damage and default 0x0000)
+    UNKNOWN = 0x3c, // TODO: used in ebon keep sewers (seems to be based on the tile the character stands on)
 
     // weird
     PALETTE_BLACK_GREEN = 0x00,
     INVISIBLE = 0x05,
     TILE_GLITCH_1 = 0x06,
     INVISIBLE_OR_TILE_GLITCH = 0x07,
-    TILE_GLITCH_2 = 0x08,
     TILE_GLITCH_3 = 0x0a,
     PALETTE = 0x0b,
     PALETTE_BLACK_OR_TILE_GLITCH = 0x0c,
@@ -2198,13 +2208,13 @@ fun sfx_effect(effect, on) {
     }
 }
 
-fun heal(character, animation) {
+fun heal(character, amount, animation) {
     if(animation == False) {
         if(character == CHARACTER.BOTH) {
-            code(0x95, entity_t(CHARACTER.BOY), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
-            code(0x95, entity_t(CHARACTER.DOG), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(CHARACTER.BOY), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(CHARACTER.DOG), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
         } else {
-            code(0x95, entity_t(character), param(0x03e7), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(character), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
         }
     } else {
         if(character == CHARACTER.BOTH) {
@@ -2213,6 +2223,13 @@ fun heal(character, animation) {
         } else {
             code(0x94, entity_t(character), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
         }
+    }
+}
+fun full_heal(character, animation) {
+    if(animation == False) {
+        heal(character, 0x03e7, animation);
+    } else {
+        heal(character, 0x00, animation);
     }
 }
 

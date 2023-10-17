@@ -422,7 +422,7 @@ class Memory(Function_Base, Memorable):
                     code += [Operand("deref")]
 
             case ["22", _, _, _]:
-                code = [Operand("read word"), self.code(), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
+                code = [Operand("read word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
