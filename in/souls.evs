@@ -26,7 +26,7 @@
 // STRINGS
 
 @install(0x4713f)
-fun string_revealver_entity_name() {
+fun string_revealer_entity_name() {
     cstring("SECRET[END]");
 }
 
@@ -232,7 +232,7 @@ fun boy_death() {
 
     sleep(0x50);
 
-    heal(CHARACTER.BOTH, False);
+    full_heal(CHARACTER.BOTH, False);
 
     return_to_bonfire();
 
@@ -340,14 +340,16 @@ fun hotkey_start() {
         subtext(string("Start[END]"));
     }
 
-    if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.BOMBS) {
-        if((SOULS_MEMORY.BOMB_ENABLED) && (FLAG.ENERGY_CORE)) {
-            drop_bomb(True);
-        }
-    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
+    if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
         windwalker_rocket();
     } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
         isaac_tear(False);
+    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.BOMBS) {
+        drop_bomb(False);
+    } else {
+        if((SOULS_MEMORY.BOMB_ENABLED) && (FLAG.ENERGY_CORE)) {
+            drop_bomb(True);
+        }
     }
 }
 @install()
@@ -7436,6 +7438,10 @@ map bomb_arena(0x5c) {
         center = nop(),
     }
 
+    enum BOSS {
+        ID = memory_tmp(),
+    }
+
     @install()
     fun boss_defeated() {
         general_boss_defeated();
@@ -7451,21 +7457,42 @@ map bomb_arena(0x5c) {
         }
     }
 
+    @install()
+    fun memscan() {
+        // animate(BOSS.ID, ANIMATION_MODE.LOOP, ANIMATION_ENEMY.VIGOR_FLEX);
+        // yield();
+
+        debug_memory(BOSS.ID[0x36], BOSS.ID[ATTRIBUTE.HP]);
+
+        if(BOSS.ID[ATTRIBUTE.WEAPON_HIT] > 0x00) {
+            heal(CHARACTER.SCRIPT_OWNER, 0x00, False);
+        }
+
+        sleep(0x50);
+
+        debug_memory(BOSS.ID[0x36], BOSS.ID[ATTRIBUTE.HP]);
+    }
+
     fun trigger_enter() {
         close_exits(True);
         character_selection(CHARACTER.BOY);
 
         add_enemy(ENEMY.VIGOR, 0x15, 0x1e);
+        BOSS.ID = <CHARACTER.LAST_ENTITY>;
         attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(boss_defeated));
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DAMAGE, reference(memscan));
 
         default_init_room(True, False);
+        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
 
         countdown(0x03);
-        attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
+        // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE);
 
         set(SOULS_MEMORY.BOMB_ENABLED);
         unlock(ITEM.ENERGY_CORE);
         subtext(string("Start = Bomb[END]"));
+
+        sleep(0x50);
     }
 };
 
@@ -7539,7 +7566,7 @@ map mosquito_arena(0x5c) {
         teleport(id, x, y);
         sleep(0x60);
 
-        // heal(CHARACTER.SCRIPT_OWNER, 0x10, False);
+        // full_heal(CHARACTER.SCRIPT_OWNER, 0x10, False);
         animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
         <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.PALETTE] = 0x0a00;
         attribute_bit(CHARACTER.SCRIPT_OWNER, ATTRIBUTE_BITS.VINCIBLE);
@@ -10807,7 +10834,7 @@ map dungeon_volcano(0x3b) {
             attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(contraption_trigger));
         }
 
-        isaac_init(True, False);
+        default_init_room(True, False);
     }
 };
 
