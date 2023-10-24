@@ -6676,19 +6676,214 @@ map ship(0x68) {
 // dungeons
 
 area dungeon_isaac() {
+    enum ROOM {
+        DEBUG = True,
+
+        // ENABLE_DOORS = memory_tmp(),
+
+        ENEMY_COUNT_TOTAL = memory_tmp(),
+        ENEMY_COUNT = memory_tmp(),
+    }
+
     @install()
-    @async()
-    fun isaac_fly_ai(enemy) {
-        while!(dead(enemy)) {
-            code(0xb5, param(THROWABLE.ONION), calculate(arg[0x00]), calculate(arg[0x00][ATTRIBUTE.X]), calculate(arg[0x00][ATTRIBUTE.Y]), param(0x1a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            sleep(0xa0);
+    fun enemies_alive() {
+        MEMORY.STRING_PARAMETER_1 = ROOM.ENEMY_COUNT;
+        MEMORY.STRING_PARAMETER_2 = ROOM.ENEMY_COUNT_TOTAL;
+
+        subtext(string("[0xa1]/[0xa2] enemies alive.[END]"));
+    }
+
+    fun check_exits() {
+        if(ROOM.ENEMY_COUNT > 0x00) {
+            enemies_alive();
+
+            end();
         }
     }
 
-    fun add_isaac_enemy_fly(x, y) {
-        add_enemy(ENEMY.MOSQUITO, x, y);
+    @install()
+    fun shoot(entity) {
+        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0xff), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+    @install()
+    fun shoot_plus(entity) {
+        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0xff), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y] - 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0xff), calculate(entity[ATTRIBUTE.X] + 0x80), calculate(entity[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0xff), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0xff), calculate(entity[ATTRIBUTE.X] - 0x80), calculate(entity[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    }
+    @install()
+    fun shoot_bomb(entity) {
+        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0x1a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x2a), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        arg[0x02] = <CHARACTER.BOY>[ATTRIBUTE.X];
+        arg[0x04] = <CHARACTER.BOY>[ATTRIBUTE.Y];
 
-        isaac_fly_ai(<CHARACTER.LAST_ENTITY>);
+        sleep(0x50);
+        code(0xb5, param(THROWABLE.BOMB_EXPLOSION), calculate(entity), calculate(arg[0x02]), calculate(arg[0x04]), param(0x00), param(0x60), param(0x60), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_1, 0x00, 0x00);
+        arg[0x06] = <CHARACTER.LAST_ENTITY>;
+
+        arg[0x06][ATTRIBUTE.X] = arg[0x02];
+        arg[0x06][ATTRIBUTE.Y] = arg[0x04];
+        sleep(0x20);
+        _destroy(arg[0x06]);
+    }
+    @install()
+    fun explode(entity) {
+        code(0xb5, param(THROWABLE.BOMB_EXPLOSION), calculate(entity), calculate(entity[ATTRIBUTE.X]), calculate(entity[ATTRIBUTE.Y]), param(0x00), param(0x70), param(0x70), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_1, 0x00, 0x00);
+        arg[0x02] = <CHARACTER.LAST_ENTITY>;
+
+        arg[0x02][ATTRIBUTE.X] = entity[ATTRIBUTE.X];
+        arg[0x02][ATTRIBUTE.Y] = entity[ATTRIBUTE.Y];
+        sleep(0x20);
+        _destroy(arg[0x02]);
+    }
+
+    @install()
+    fun jump(entity) {
+        entity[ATTRIBUTE.JUMP_HEIGHT] = 0x30;
+        
+        while(arg[0x02] <= 0x30) {
+            arg[0x02] = arg[0x02] + 0x01;
+
+            if(entity[ATTRIBUTE.X] > <CHARACTER.BOY>[ATTRIBUTE.X]) {
+                entity[ATTRIBUTE.X] = entity[ATTRIBUTE.X] - 0x01;
+            } else if(entity[ATTRIBUTE.X] < <CHARACTER.BOY>[ATTRIBUTE.X]) {
+                entity[ATTRIBUTE.X] = entity[ATTRIBUTE.X] + 0x01;
+            }
+
+            if(entity[ATTRIBUTE.Y] > <CHARACTER.BOY>[ATTRIBUTE.Y]) {
+                entity[ATTRIBUTE.Y] = entity[ATTRIBUTE.Y] - 0x01;
+            } else if(entity[ATTRIBUTE.Y] < <CHARACTER.BOY>[ATTRIBUTE.Y]) {
+                entity[ATTRIBUTE.Y] = entity[ATTRIBUTE.Y] + 0x01;
+            }
+
+            sleep(0x02);
+        }
+    }
+
+    @install()
+    @async()
+    fun isaac_ai_shooting(enemy) {
+        sleep(0x60);
+
+        while!(dead(enemy)) {
+            shoot(enemy);
+            // shoot_plus(enemy);
+            // shoot_bomb(enemy);
+
+            sleep(0xa0);
+        }
+    }
+    @install()
+    @async()
+    fun isaac_ai_shooting_plus(enemy) {
+        sleep(0x60);
+
+        while!(dead(enemy)) {
+            // shoot(enemy);
+            shoot_plus(enemy);
+            // shoot_bomb(enemy);
+
+            sleep(0xf0);
+        }
+    }
+    @install()
+    @async()
+    fun isaac_ai_jumping(enemy) {
+        sleep(0x60);
+
+        while!(dead(enemy)) {
+            // _control_enemy(enemy, False);
+            jump(enemy);
+            // _control_enemy(enemy, True);
+
+            sleep(0xf0);
+        }
+    }
+
+    @install()
+    fun isaac_enemy_death() {
+        ROOM.ENEMY_COUNT = ROOM.ENEMY_COUNT - 0x01;
+
+        // if(ROOM.ENEMY_COUNT == 0x00) {
+        //     ROOM.ENABLE_DOORS = 0x01;
+        // }
+
+        if(ROOM.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = ROOM.ENEMY_COUNT;
+            MEMORY.STRING_PARAMETER_2 = ROOM.ENEMY_COUNT_TOTAL;
+
+            subtext(string("[0xa1] / [0xa2][END]"));
+        }
+    }
+    @install()
+    fun isaac_enemy_death_shoot_plus() {
+        isaac_enemy_death();
+
+        shoot_plus(<CHARACTER.SCRIPT_OWNER>);
+    }
+    @install()
+    fun isaac_enemy_death_shoot_bomb() {
+        isaac_enemy_death();
+
+        shoot_bomb(<CHARACTER.SCRIPT_OWNER>);
+    }
+    @install()
+    fun isaac_enemy_death_explode() {
+        isaac_enemy_death();
+
+        explode(<CHARACTER.SCRIPT_OWNER>);
+    }
+
+    fun add_isaac_enemy() {
+        ROOM.ENEMY_COUNT_TOTAL = ROOM.ENEMY_COUNT_TOTAL + 0x01;
+        ROOM.ENEMY_COUNT = ROOM.ENEMY_COUNT + 0x01;
+    }
+    fun add_isaac_enemy_fly_shooting(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(ENEMY.MOSQUITO, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(isaac_enemy_death));
+        isaac_ai_shooting(<CHARACTER.LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_fly_exploding(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(ENEMY.MOSQUITO, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(isaac_enemy_death_shoot_bomb));
+    }
+    fun add_isaac_enemy_maggot(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(ENEMY.MAGGOT, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(isaac_enemy_death));
+    }
+    fun add_isaac_enemy_slime(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(ENEMY.SLIME_GREEN, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(isaac_enemy_death));
+        isaac_ai_shooting_plus(<CHARACTER.LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_frippo(x, y) {
+        add_isaac_enemy();
+
+        // add_enemy(ENEMY.DANCING_DEVIL_1, x, y);
+        // add_enemy(ENEMY.MUMMY, x, y);
+        add_enemy(ENEMY.FRIPPO, x, y);
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(isaac_enemy_death));
+        // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+        isaac_ai_jumping(<CHARACTER.LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_spider(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(ENEMY.SPIDER, x, y);
+        <CHARACTER.LAST_ENTITY>[ATTRIBUTE.HP] = 0x01;
+        attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(isaac_enemy_death_explode));
+        // isaac_ai_jumping(<CHARACTER.LAST_ENTITY>);
     }
 
     map basement_0_start(0x22) {
@@ -6750,6 +6945,8 @@ area dungeon_isaac() {
             },
 
             exit_room_5_north = @install() fun test() {
+                check_exits();
+
                 map_transition(basement_0_1, room_3_south, DIRECTION.NORTH);
             },
             exit_room_5_south = @install() fun test() {
@@ -6825,8 +7022,12 @@ area dungeon_isaac() {
 
             prepare_room(0x05);
 
-            add_isaac_enemy_fly(0x1a, 0x30);
-            add_isaac_enemy_fly(0x1a, 0x30);
+            // add_isaac_enemy_fly_shooting(0x1a, 0x30);
+            add_isaac_enemy_fly_exploding(0x15, 0x30);
+            // add_isaac_enemy_maggot(0x15, 0x30);
+            // add_isaac_enemy_slime(0x15, 0x30);
+            // add_isaac_enemy_frippo(0x15, 0x30);
+            add_isaac_enemy_spider(0x15, 0x30);
 
             isaac_init(True, False);
 
