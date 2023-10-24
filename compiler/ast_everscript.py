@@ -64,7 +64,9 @@ class Deref(Function_Base, Calculatable, Memorable):
     def eval(self, params:list[Param]):
         self.update([])
 
-        return self.value.eval(params)
+        value = self.resolve(self.value, params)
+
+        return value.eval(params)
     
     def value_count(self):
         self.update([])
@@ -117,11 +119,11 @@ class Arg(Function_Base, Calculatable, Memorable):
 
         match [offset]:
             case [None]:
-                code = [Opcode("arg"), index]
+                code = [Operand("read signed word arg"), index]
                 if deref:
                     code += [Operand("deref")]
             case [_]:
-                code = [Opcode("deref arg"), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
+                code = [Operand("read signed word arg"), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
             case _:

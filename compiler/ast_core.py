@@ -77,6 +77,9 @@ class Memorable():
             self.memory |= memorable.memory
         else:
             pass
+    
+    def update(self, params=[]):
+        pass
             
 class Param(BaseBox):
     def __init__(self, name, value):
@@ -573,6 +576,9 @@ class BinaryOp(Operator):
         self.update(params)
 
         left = self.resolve(self.left, params)
+        if isinstance(left, Memorable) and left.offset != None and left.memory == False: # TODO: identifier should be detected once the params contain the value
+            left.update(params)
+            self.update(params)
         if isinstance(left, BinaryOp):
             new_left = left.calculate(params)
             if new_left == None:
@@ -634,8 +640,8 @@ class Operand():
 
         # _: 0x10, # signed byte script arg
         # _: 0x11, # unsigned byte script arg
-        # _: 0x12, # signed word script arg
-        # _: 0x13, # unsigned word script arg
+        "read signed word arg": 0x12, # signed word script arg
+        "read word arg": 0x13, # unsigned word script arg
 
         # _: 0x14, # boolean invert
         # _: 0x15, # bitwise invert
@@ -758,9 +764,6 @@ class Opcode():
 
         "if": 0x09,
         "if!": 0x08,
-
-        "deref arg": 0x12,
-        "arg": 0x13,
 
         "obj": 0x5d,
 
