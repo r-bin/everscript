@@ -14,6 +14,7 @@ class Scope(BaseBox):
     class Type(StrEnum):
         DEFAULT = "DEFAULT"
         MAP = "MAP"
+        AREA = "AREA"
         OBJECT = "OBJECT"
 
     type:Type = Type.DEFAULT

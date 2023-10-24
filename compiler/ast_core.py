@@ -225,7 +225,7 @@ class Function_Base(BaseBox):
         return merged_params
 
 
-class Word(Function_Base):
+class Word(Function_Base, Calculatable):
     def __init__(self, value, value_count = 2):
         self.value_original = value
         value = self.resolve(value, [])
@@ -295,7 +295,7 @@ class Word(Function_Base):
 
         return i
     
-class Memory(Function_Base, Memorable):
+class Memory(Function_Base, Calculatable, Memorable):
     """
     valid addresses:
         00…ff = special characters, like boy, dog, last entity, script owner (larger than required)
@@ -516,7 +516,7 @@ class UnaryOp(Operator):
 
         value = self.resolve(self.value, params)
 
-        if isinstance(value, Word) or isinstance(value, Memory):
+        if isinstance(value, Calculatable):
             value = value.calculate(params)
 
         return self._calculate(value, params)
