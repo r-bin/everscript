@@ -20,7 +20,7 @@ class Parser():
                 'ELSEIF!', 'ELSEIF', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                '@', 'FUN', 'NAME_IDENTIFIER', 'MAP',
+                '@', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'OBJECT', 'ARG', 'IDENTIFIER', # 'VAL'
             ],
@@ -89,6 +89,7 @@ class Parser():
             return [ p[0] ]
         @self.pg.production('program : enum')
         @self.pg.production('program : object_map')
+        @self.pg.production('program : area')
         @self.pg.production('program : function')
         def parse(p):
             return p[0]
@@ -100,12 +101,26 @@ class Parser():
 
         # maps
         @self.pg.production('scope : MAP')
+        @self.pg.production('scope : AREA')
         def parse(p):
             scope = Scope(self.generator, p[0])
 
             self.generator.push_scope(scope)
 
             return scope
+        
+        @self.pg.production('area : scope NAME_IDENTIFIER ( ) { program_list } ;')
+        def parse(p):
+            name = p[1]
+            code = p[5]
+
+            scope = self.generator.pop_scope()
+
+            scope.value = None
+
+            self.generator.set_identifier(name, None)
+            
+            return code
         
         @self.pg.production('object_map : scope NAME_IDENTIFIER ( param_list ) { program_list } ;')
         def parse(p):
