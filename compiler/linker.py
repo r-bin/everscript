@@ -383,7 +383,9 @@ unallocated RAM:
         for map_transition in map_transitions:
             self._link_map_transition(maps, map_transition)
     def _link_map_transition(self, maps:list[Map], map_transition:MapTransition):
-        map = next(map for map in maps if map.name == map_transition.map_name)
+        map = next((map for map in maps if map.name == map_transition.map_name), None)
+        if map == None:
+            raise Exception(f"entrance '{map_transition.entrance_name}' could not find '{map_transition.map_name}.{map_transition.entrance_name}'")
         entrance = [entrance for entrance in map.enum_entrance.values if entrance.name == map_transition.entrance_name]
         if len(entrance) != 1:
             raise Exception(f"entrance '{map_transition.entrance_name}' could not be found in map '{map.name}' ({[entrance.name for entrance in map.enum_entrance.values]})")
