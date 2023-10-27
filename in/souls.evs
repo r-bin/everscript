@@ -188,6 +188,18 @@ fun return_to_bonfire() {
     } else if(SOULS_MEMORY.BONFIRE_MAP == 0x1a) { // TODO: crossing map id
         set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
         map_transition(east_crossing, crash, DIRECTION.NONE); // TODO
+    } else if(SOULS_MEMORY.BONFIRE_MAP == 0xa8) { // TODO: crossing map id
+        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+        map_transition(well, crash, DIRECTION.NONE); // TODO
+    } else if(SOULS_MEMORY.BONFIRE_MAP != 0x00){
+        fade_in();
+        sleep(0x20);
+        
+        MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.BONFIRE_MAP;
+
+        subtext(string("Game could not find bonfire #[0xa1][END]"));
+        
+        sleep(0xa0);
     }
 
     map_transition(inbetwixx, start, DIRECTION.NONE);
@@ -364,7 +376,8 @@ fun hotkey_start_l() {
         // map_transition(sterling_test, right, DIRECTION.NONE);
         // map_transition(basement_0_start, center, DIRECTION.NONE);
         // map_transition(basement_1_4, south_1, DIRECTION.NONE);
-        map_transition(basement_3_start, center, DIRECTION.NONE);
+        // map_transition(basement_3_start, center, DIRECTION.NONE);
+        map_transition(well, crash, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -767,6 +780,40 @@ area inbetwixx_center() {
         }
 
         @install()
+        fun lift_off() {
+            <0x2834> = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X];
+            <0x2836> = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y];
+            // walk_relative(WALK_TYPE.ABSOLUTE, CHARACTER.BOY, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X], <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y], False);
+            // walk_relative(WALK_TYPE.ABSOLUTE, CHARACTER.BOY, <0x2834>, <0x2836>, False);
+            control(CHARACTER.NONE);
+            _walk(WALK_TYPE.UNKNOWN, CHARACTER.DOG, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] + 0x30, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y], CHARACTER.NONE);
+            _walk(WALK_TYPE.UNKNOWN, CHARACTER.BOY, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] + 0x30, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y], CHARACTER.BOTH);
+            _walk(WALK_TYPE.UNKNOWN, CHARACTER.DOG, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] + 0x00, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y] - 0x02, CHARACTER.NONE);
+            _walk(WALK_TYPE.UNKNOWN, CHARACTER.BOY, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] + 0x00, <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y] - 0x02, CHARACTER.BOTH);
+            
+            face(CHARACTER.BOY, DIRECTION.EAST);
+            face(CHARACTER.DOG, DIRECTION.EAST);
+
+            sleep(0x20);
+
+            while(arg[0x00] < 0xa0) {
+                arg[0x00] = arg[0x00] + 0x01;
+
+                control(CHARACTER.NONE);
+                face(CHARACTER.BOY, DIRECTION.EAST);
+                face(CHARACTER.DOG, DIRECTION.EAST);
+
+                <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y] - 0x01;
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x01;
+                <CHARACTER.DOG>[ATTRIBUTE.Y] = <CHARACTER.DOG>[ATTRIBUTE.Y] - 0x01;
+
+                yield();
+            }
+
+            map_transition(windwalker_sidescroller, west, DIRECTION.NONE);
+        }
+
+        @install()
         fun trigger_enter() {
             if(SOULS_MEMORY.DEMO_MODE) {
                 if!(FLAG.ENERGY_CORE) {
@@ -822,6 +869,9 @@ area inbetwixx_center() {
             bonfire(0x31, 0x35);
             // bomb_wall_trigger(0x01, 0x3f, 0x3c);
             // bomb_wall_trigger(0x00, 0x43, 0x60);
+
+            add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x38, 0x6c);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(lift_off));
         }
     };
 };
@@ -1080,6 +1130,9 @@ area west_inbetwixx() {
 
         enum ROOM {
             BRANCH_USED = flag(),
+
+            FAKE_SLASH_GRASS_X = memory_tmp(),
+            FAKE_SLASH_GRASS_Y = memory_tmp(),
         }
 
         enum BOSS {
@@ -1106,6 +1159,60 @@ area west_inbetwixx() {
             },
             exit_north = @install() fun test() {
                 map_transition(volcano, south, DIRECTION.NORTH);
+            }
+        }
+
+        @install()
+        fun fake_slash_grass() {
+            if(<0x22DA> == 0x02) {
+                // fade_out();
+                // sleep(0x20);
+
+                ROOM.FAKE_SLASH_GRASS_X = <CHARACTER.BOY>[ATTRIBUTE.X];
+                ROOM.FAKE_SLASH_GRASS_Y = <CHARACTER.BOY>[ATTRIBUTE.Y];
+
+                <CHARACTER.BOY>[ATTRIBUTE.X] = 0x010B;
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = 0x0187;
+                face(CHARACTER.BOY, DIRECTION.EAST);
+
+                MEMORY.GAIN_WEAPON = 0x18;
+                yield();
+                // <0x0ABA> = 0x0000;
+                if(False) {
+                    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVINCIBLE_2);
+
+                    add_enemy(ENEMY.BOY_DERPY, 0x21, 0x30);
+                    // animate(CHARACTER.LAST_ENTITY, ANIMATION_MODE.LOOP, ANIMATION_ALL.SLASH_1);
+                    attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.LOCK_IN_PLACE);
+                    // attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.INVISIBLE);
+                    attribute_bit(CHARACTER.LAST_ENTITY, ATTRIBUTE_BITS.MUTE);
+                    face(CHARACTER.LAST_ENTITY, DIRECTION.EAST);
+                    sleep(0x05);
+
+                    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VINCIBLE_2);
+                } else {
+                    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.INVISIBLE);
+                    // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.MUTE);
+                    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ALL.SLASH_1);
+                    yield();
+                    sound(0x01);
+                    // sound(0x0c);
+                    // sleep(0x05);
+                    animate(CHARACTER.BOY, ANIMATION_MODE.ONCE, ANIMATION_ALL.DEFAULT);
+                    sleep(0x10);
+                    // attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.UNMUTE);
+                    attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.VISIBLE);
+                }
+                MEMORY.GAIN_WEAPON = 0x02;
+                unset(<0x22DB, 0x10>);
+
+                <CHARACTER.BOY>[ATTRIBUTE.X] = ROOM.FAKE_SLASH_GRASS_X;
+                <CHARACTER.BOY>[ATTRIBUTE.Y] = ROOM.FAKE_SLASH_GRASS_Y;
+
+                // sound(0x01);
+
+                // sleep(0x20);
+                // fade_in();
             }
         }
 
@@ -1192,7 +1299,29 @@ area west_inbetwixx() {
             animate(CHARACTER.SCRIPT_OWNER, ANIMATION_MODE.ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
         }
 
+        @install()
+        fun quest() {
+            question(string("[0x96]Cut grass?[LF][0x8b]Yes[LF][0x8b]No[END]"));
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                // fake_slash_grass();
+
+                sleep(0x30);
+                <0x2834> = BOSS.ID_OWL_1;
+                _heel(<0x2834>, 0x00, 0x00);
+            }
+        }
+
+        fun fake_slash_grass_npc() {
+            add_enemy_with_flags(ENEMY.VILLAGER_1_1, 0x36, 0x49, FLAG_ENEMY.INACTIVE);
+            face(CHARACTER.LAST_ENTITY, DIRECTION.WEST);
+            attach_script(CHARACTER.LAST_ENTITY, SCRIPT_TRIGGER.TALK, reference(quest));
+        }
+
         fun trigger_enter() {
+            fake_slash_grass();
+            // fake_slash_grass_npc();
+            
             if!(ROOM.BRANCH_USED) {
                 branch_lady(0x58, 0x0f, reference(branch_triggered));
             }
@@ -1645,7 +1774,9 @@ area altus_plateau_entry() {
                 east = entrance(0x93, 0x42, DIRECTION.WEST),
                 west = entrance(0x01, 0x42, DIRECTION.EAST),
                 stairs_east = entrance(0x53, 0x4c, DIRECTION.WEST),
-                stairs_west = entrance(0x40, 0x40, DIRECTION.EAST) // 0x4c, 0x40
+                stairs_west = entrance(0x40, 0x40, DIRECTION.EAST), // 0x4c, 0x40
+
+                crash = entrance(0x54, 0x39, DIRECTION.NONE),
             }
 
             enum stepon_trigger {
@@ -1727,8 +1858,39 @@ area altus_plateau_entry() {
                 }
             }
 
+            enum ROOM {
+                STAIRS_WEST_REVEALED = flag(),
+            }
+
+            @install()
+            fun revealer_triggered() {
+                destroy(CHARACTER.SCRIPT_OWNER);
+
+                set(ROOM.STAIRS_WEST_REVEALED);
+
+                object[0x00] = 0x02;
+                sleep(0x10);
+                object[0x00] = 0x01;
+                sleep(0x10);
+                object[0x00] = 0x00;
+            }
+
             fun trigger_enter() {
-                fade_in();
+                object[0x00] = 0x7e; // close stairs_west
+                object[0x01] = 0x7e; // close stairs_east
+                // object[0x02] = 0x01; // close wall_2
+                // object[0x03] = 0x01; // close wall_1
+                // object[0x04] = 0x01; // remove bridge_east
+                // object[0x05] = 0x01; // remove bridge_west
+
+                if!(ROOM.STAIRS_WEST_REVEALED) {
+                    add_enemy(ENEMY.REVEALER_TARGET_ENTITY, 0x3e, 0x40);
+                    special_script(SPECIAL_SCRIPTS.REVEALER, reference(revealer_triggered));
+                } else {
+                    object[0x00] = 0x00;
+                }
+
+                default_init_room(False, False);
             }
         };
 
@@ -1762,7 +1924,9 @@ area altus_plateau_entry() {
 
         map well(0x6c) {
             enum entrance {
-                west = entrance(0x01, 0x1c, DIRECTION.EAST)
+                west = entrance(0x01, 0x1c, DIRECTION.EAST),
+
+                crash = entrance(0x38, 0x18, DIRECTION.NONE),
             }
 
             enum stepon_trigger {
@@ -1777,8 +1941,49 @@ area altus_plateau_entry() {
                 },
             }
 
+            @install()
+            @async()
+            fun crash_windwalker() {
+                // add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x5b, 0x39);
+                add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x2a, 0x0c);
+                attach_to_script(CHARACTER.LAST_ENTITY);
+                <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.FALLING_HEIGHT] = 0x1fff;
+                sleep(0x80);
+                <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.JUMP_HEIGHT] = 0x20;
+                
+                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
+                arg[0x00] = <CHARACTER.LAST_ENTITY>;
+
+                arg[0x00][ATTRIBUTE.X] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] + 0x10;
+                arg[0x00][ATTRIBUTE.Y] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y] + 0x10;
+
+                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
+                arg[0x02] = <CHARACTER.LAST_ENTITY>;
+
+                arg[0x02][ATTRIBUTE.X] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.X] - 0x10;
+                arg[0x02][ATTRIBUTE.Y] = <CHARACTER.SCRIPT_OWNER>[ATTRIBUTE.Y] - 0x10;
+
+                sleep(0x50);
+                _destroy(arg[0x02]);
+                sleep(0x10);
+                destroy(CHARACTER.SCRIPT_OWNER);
+                sleep(0x60);
+                _destroy(arg[0x00]);
+            }
+
             fun trigger_enter() {
-                fade_in();
+                if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+                    set(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED);
+
+                    if!(FLAG.IN_ANIMATION) {
+                        crash_both();
+                        crash_windwalker();
+                    }
+                }
+
+                bonfire(0x1e, 0x14);
+                
+                default_init_room(False, False);
             }
         };
 
@@ -12693,7 +12898,7 @@ area experimental_room() {
         }
     };
 
-    map projectile_test2(0x50) {
+    map windwalker_sidescroller(0x50) {
         enum entrance {
             west = entrance(0x06, 0x0f, DIRECTION.NONE),
             south = entrance(0x10, 0x19, DIRECTION.NONE),
@@ -13033,7 +13238,7 @@ area experimental_room() {
                 ROOM.SHIP_ID[ATTRIBUTE.JUMP_HEIGHT] = 0xff;
                 sleep(0x50);
 
-                map_transition(inbetwixx, start, DIRECTION.NONE);
+                map_transition(well, crash, DIRECTION.NONE);
             }
         }
     };

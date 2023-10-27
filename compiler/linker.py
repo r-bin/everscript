@@ -256,6 +256,7 @@ class MapDataHandler():
             self.MapData(0x4f, 0xa99f92, 0x19, 0x10, "Antiqua - East of Crustacia"),
             self.MapData(0x50, 0xa5fd60, 0x00, 0x00, "Prehistoria - Sky above Volcano"),
             # …
+            self.MapData(0x52, 0xacfa2d, 0x01, 0x00, "Prehistoria - Top of Volcano"),
             self.MapData(0x53, 0xabe2f9, 0x00, 0x00, "Antiqua - Act2 Start Cutscene"),
             # …
             self.MapData(0x57, 0xa7a7a2, 0x15, 0x0b, "Antiqua - 'mids basement level (Tiny)"),
