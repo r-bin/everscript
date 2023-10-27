@@ -480,7 +480,7 @@ class Parser():
                 case 'AND':
                     return And(left, right)
                 case 'OR':
-                    return BinaryOr(left, right)
+                    return Or(left, right)
                 case '==':
                     return Equals(left, right)
                 case '!=':
