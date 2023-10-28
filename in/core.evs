@@ -1407,11 +1407,12 @@ enum CURRENCY {
 }
 
 enum WALK_TYPE {
-    UNKNOWN_ABSOLUTE = 0x6c,
-    RELATIVE = 0x6d,
-    ABSOLUTE = 0x6e,
-    RELATIVE_DIRECT = 0x6f,
-    UNKNOWN = 0x73,
+    TILE_ABSOLUTE = 0x6c,
+    TILE_ABSOLUTE_DIRECT = 0x6e,
+
+    COORDINATE_ABSOLUTE = 0x73,
+    COORDINATE_RELATIVE = 0x6d,
+    COORDINATE_RELATIVE_DIRECT = 0x6f,
 }
 
 enum SFX_EFFECT {
@@ -1575,7 +1576,7 @@ fun wait(character) {
     code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
 }
 
-fun walk(walk_type, character, x, y, waiting) {
+fun walk(character, walk_type, x, y, waiting) {
     if(waiting == True) {
         code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
         wait(character);
@@ -1583,7 +1584,7 @@ fun walk(walk_type, character, x, y, waiting) {
         code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     }
 }
-fun _walk(walk_type, character, x, y, wait_for) {
+fun _walk(character, walk_type, x, y, wait_for) {
     code(walk_type, entity_t(character), calculate(x), calculate(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     
     if(wait_for == CHARACTER.BOY) {
@@ -1596,7 +1597,7 @@ fun _walk(walk_type, character, x, y, wait_for) {
     }
 }
 
-fun walk_relative(walk_type, character, x, y, waiting) {
+fun walk_relative(character, walk_type, x, y, waiting) {
     code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     
     if(waiting == True) {
@@ -1654,13 +1655,13 @@ fun transition(map, x, y, direction_in, direction_out, change_music) {
 
         if(direction_out != DIRECTION.NONE) {
             if(direction_in == DIRECTION.NORTH) {
-                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, 0x00, -0x02, False);
+                walk_relative(CHARACTER.SCRIPT_OWNER, WALK_TYPE.COORDINATE_RELATIVE, 0x00, -0x02, False);
             } else if(direction_in == DIRECTION.EAST) {
-                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, 0x02, 0x00, False);
+                walk_relative(CHARACTER.SCRIPT_OWNER, WALK_TYPE.COORDINATE_RELATIVE, 0x02, 0x00, False);
             } else if(direction_in == DIRECTION.SOUTH) {
-                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, 0x00, 0x02, False);
+                walk_relative(CHARACTER.SCRIPT_OWNER, WALK_TYPE.COORDINATE_RELATIVE, 0x00, 0x02, False);
             } else if(direction_in == DIRECTION.WEST) {
-                walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.SCRIPT_OWNER, -0x02, 0x00, False);
+                walk_relative(CHARACTER.SCRIPT_OWNER, WALK_TYPE.COORDINATE_RELATIVE, -0x02, 0x00, False);
             }
             sleep(0x15);
         }
@@ -2638,7 +2639,7 @@ fun pit_act3_sewers() {
 }
 
 fun door_act4_airlock(x, y, door) {
-    walk(WALK_TYPE.ABSOLUTE, CHARACTER.ACTIVE, x, y, True);
+    walk(CHARACTER.ACTIVE, WALK_TYPE.TILE_ABSOLUTE_DIRECT, x, y, True);
 
     face(CHARACTER.ACTIVE, DIRECTION.SOUTH);
     door = 0x7e;
@@ -2949,7 +2950,7 @@ fun mario_yump() {
     sleep(0x05);
 
     code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x00), param(0x20), param(0x20), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    subtext(string("bang[END]"));
+    // subtext(string("bang[END]"));
     sound(SOUND.HEAVY_IMPACT);
     // debug_memory(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION], <CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION]);
     
@@ -2957,16 +2958,16 @@ fun mario_yump() {
     <0x2836> = <CHARACTER.BOY>[ATTRIBUTE.Y];
 
     if(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x00) {
-        walk_relative(WALK_TYPE.RELATIVE, CHARACTER.BOY, 0x00, -0x01, False);
+        walk_relative(CHARACTER.BOY, WALK_TYPE.COORDINATE_RELATIVE, 0x00, -0x01, False);
         face(CHARACTER.BOY, DIRECTION.NORTH);
     } else if(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x04) {
-        walk_relative(WALK_TYPE.RELATIVE, CHARACTER.BOY, 0x01, 0x00, False);
+        walk_relative(CHARACTER.BOY, WALK_TYPE.COORDINATE_RELATIVE, 0x01, 0x00, False);
         face(CHARACTER.BOY, DIRECTION.EAST);
     } else if(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x08) {
-        walk_relative(WALK_TYPE.RELATIVE, CHARACTER.BOY, 0x00, 0x01, False);
+        walk_relative(CHARACTER.BOY, WALK_TYPE.COORDINATE_RELATIVE, 0x00, 0x01, False);
         face(CHARACTER.BOY, DIRECTION.SOUTH);
     } else {
-        walk_relative(WALK_TYPE.RELATIVE, CHARACTER.BOY, -0x01, 0x00, False);
+        walk_relative(CHARACTER.BOY, WALK_TYPE.COORDINATE_RELATIVE, -0x01, 0x00, False);
         face(CHARACTER.BOY, DIRECTION.WEST);
     }
     sleep(0x03);
@@ -2974,12 +2975,14 @@ fun mario_yump() {
     if((<0x2834> == <CHARACTER.BOY>[ATTRIBUTE.X]) && (<0x2836> == <CHARACTER.BOY>[ATTRIBUTE.Y])) {
         <CHARACTER.BOY>[ATTRIBUTE.X] = <0x2838>;
         <CHARACTER.BOY>[ATTRIBUTE.Y] = <0x283a>;
+
+        damage(CHARACTER.BOY, 0x01, True);
     }
 
     // animate(CHARACTER.BOY, ANIMATION_MODE.LOOP, ANIMATION_ALL.DEFAULT);
     attribute_bit(CHARACTER.BOY, ATTRIBUTE_BITS.CLIP);
     control(CHARACTER.BOTH);
-    // walk_relative(WALK_TYPE.RELATIVE_DIRECT, CHARACTER.BOY, 0x00, 0x00, False);
+    // walk_relative(CHARACTER.BOY, WALK_TYPE.COORDINATE_RELATIVE, 0x00, 0x00, False);
     // debug_memory(<0x2834>, <CHARACTER.BOY>[ATTRIBUTE.X]);
     // sleep(0x30);
     // debug_memory(<0x2836>, <CHARACTER.BOY>[ATTRIBUTE.Y]);
