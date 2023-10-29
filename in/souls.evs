@@ -383,7 +383,7 @@ fun hotkey_start_l() {
         // map_transition(basement_0_start, center, DIRECTION.NONE);
         // map_transition(basement_1_4, south_1, DIRECTION.NONE);
         // map_transition(basement_3_start, center, DIRECTION.NONE);
-        map_transition(well, crash, DIRECTION.NONE);
+        map_transition(flowers, west, DIRECTION.NONE);
 
         // MEMORY.MAP_PALETTE = MEMORY.MAP_PALETTE - 0x01;
     }
@@ -4839,6 +4839,8 @@ area southern_jungle() {
         enum entrance {
             north = entrance(0x62, 0x0b, DIRECTION.SOUTH),
             west = entrance(0x04, 0x1f, DIRECTION.EAST),
+
+            crash = entrance(0x64, 0x5b, DIRECTION.NONE),
         }
 
         enum stepon_trigger {
@@ -4948,9 +4950,115 @@ area southern_jungle() {
                 subtext(string("b? 30 [END]"));
             },
         }
+
+        enum ROOM {
+            DEBUG = False,
+
+            LIFT_TRIGGER = memory_tmp(),
+            LIFT_TRIGGER_RADIUS = 0x20,
+            LIFT_HEIGHT = 0x30,
+            LIFT_SPEED_INCREMEND = 0x01,
+            LIFT_SPEED_SLEEP = 0x04,
+        }
+
+
+        @install()
+        fun lift_triggered() {
+            control(CHARACTER.NONE);
+            ROOM.LIFT_TRIGGER[ATTRIBUTE.FALLING_HEIGHT] = 0x0fff;
+            yield();
+            animate(ROOM.LIFT_TRIGGER, ANIMATION_MODE.LOOP, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+            sleep(0x50);
+
+            _walk(CHARACTER.BOY, WALK_TYPE.COORDINATE_ABSOLUTE, ROOM.LIFT_TRIGGER[ATTRIBUTE.X], ROOM.LIFT_TRIGGER[ATTRIBUTE.Y], CHARACTER.BOY);
+
+            while(arg[0x00] < ROOM.LIFT_HEIGHT) {
+                ROOM.LIFT_TRIGGER[ATTRIBUTE.JUMP_HEIGHT] = arg[0x00];
+                <CHARACTER.BOY>[ATTRIBUTE.JUMP_HEIGHT] = arg[0x00];
+                <CHARACTER.DOG>[ATTRIBUTE.JUMP_HEIGHT] = arg[0x00];
+
+                arg[0x00] = arg[0x00] + ROOM.LIFT_SPEED_INCREMEND;
+                sleep(ROOM.LIFT_SPEED_SLEEP);
+            }
+
+            map_transition(tree_house, door, DIRECTION.NONE);
+        }
+        
+        @install()
+        @async()
+        fun hidden_lift_check() {
+            while(True) {
+                arg[0x00] = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
+                arg[0x02] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+                arg[0x04] = ROOM.LIFT_TRIGGER[ATTRIBUTE.X];
+                arg[0x06] = ROOM.LIFT_TRIGGER[ATTRIBUTE.Y];
+
+                if(arg[0x00] < arg[0x04]) {
+                    arg[0x08] = arg[0x04] - arg[0x00];
+                } else {
+                    arg[0x08] = arg[0x00] - arg[0x04];
+                }
+
+                if(arg[0x02] < arg[0x06]) {
+                    arg[0x0a] = arg[0x06] - arg[0x02];
+                } else {
+                    arg[0x0a] = arg[0x02] - arg[0x06];
+                }
+
+                if((arg[0x08] <= ROOM.LIFT_TRIGGER_RADIUS) && (arg[0x0a] <= ROOM.LIFT_TRIGGER_RADIUS)) {
+                    lift_triggered();
+                    end();
+                }
+                yield();
+
+                if(ROOM.DEBUG) {
+                    debug_memory(arg[0x08], arg[0x0a]);
+                    sleep(0x20);
+                }
+            }
+        }
         
         fun trigger_enter() {
+            if!(IN_ANIMATION) {
+                crash_both();
+            }
+
             fade_in();
+
+            add_enemy(ENEMY.PLACEHOLDER, 0x72, 0x75);
+            ROOM.LIFT_TRIGGER = <CHARACTER.LAST_ENTITY>;
+
+            hidden_lift_check();
+        }
+    };
+
+    map tree_house(0x34) {
+        enum entrance {
+            door = entrance(0x12, 0x23, DIRECTION.NORTH)
+        }
+
+        enum stepon_trigger {
+            door = @install() fun test() {
+                map_transition(flowers, crash, DIRECTION.NONE);
+            }
+        }
+
+        enum b_trigger {
+            gourd_1 = @install() fun test() {
+                subtext(string("b? 0 [END]"));
+            },
+            gourd_2 = @install() fun test() {
+                subtext(string("b? 1 [END]"));
+            },
+            gourd_3 = @install() fun test() {
+                subtext(string("b? 2 [END]"));
+            },
+        }
+
+
+        fun trigger_enter() {
+            default_init_room(True, False);
         }
     };
 
