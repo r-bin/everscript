@@ -503,6 +503,8 @@ class Call(Function_Base, Calculatable):
                 p.name = None
                 p.value = value.value
 
+                pass
+
         # TODO: should be done for all elements
         for param in self.params:
             param = self.resolve(param, params)
@@ -1302,7 +1304,7 @@ class MapEntrance(Function_Base):
 
 class Soundtrack(Function_Base):
     def __init__(self, generator, track, volume):
-        self.track = track
+        self.track = self.parse_argument_with_type(generator, track, "MUSIC")
         self.volume = volume
 
         self._generator = generator

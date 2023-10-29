@@ -1472,7 +1472,7 @@ fun param(value) {
         code(0x84, 0x0000 + value);
     }
 }
-fun entity(character) {
+fun entity(character:CHARACTER) {
     // sometimes writes arg0…arg20
 
     if(character == CHARACTER.BOY) {
@@ -1491,7 +1491,7 @@ fun entity(character) {
         code(0x08, character - 0x2258);
     }
 }
-fun entity_t(character) {
+fun entity_t(character:CHARACTER) {
     // sometimes writes arg0…arg20
 
     if(character == CHARACTER.BOY) {
@@ -1537,7 +1537,7 @@ fun call_async(script_address) {
 
 // MUSIC
 
-fun sound(sound_effect) {
+fun sound(sound_effect:SOUND) {
     code(0x30, sound_effect, "// (30) PLAY SOUND EFFECT 0x58 ??");
 }
 fun music(music:MUSIC) {
@@ -1573,7 +1573,14 @@ fun music_enter(music, volume) {
 // character manipulation
 
 fun wait(character:CHARACTER) {
-    code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
+    if(character == CHARACTER.NONE) {
+        nop();
+    } else if(character == CHARACTER.BOTH) {
+        code(0x2e, entity_t(BOY), "// (2e) Wait for boy (d0) to reach destination");
+        code(0x2e, entity_t(DOG), "// (2e) Wait for boy (d0) to reach destination");
+    } else {
+        code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
+    }
 }
 
 fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, waiting) {
@@ -1584,17 +1591,10 @@ fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, waiting) {
         code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     }
 }
-fun _walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for) {
+fun _walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER) {
     code(walk_type, entity_t(character), calculate(x), calculate(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
     
-    if(wait_for == CHARACTER.BOY) {
-        wait(wait_for);
-    } else if(wait_for == CHARACTER.DOG) {
-        wait(wait_for);
-    } else if(wait_for == CHARACTER.BOTH) {
-        wait(BOY);
-        wait(DOG);
-    }
+    wait(wait_for);
 }
 
 fun walk_relative(character:CHARACTER, walk_type:WALK_TYPE, x, y, waiting) {
@@ -1606,7 +1606,7 @@ fun walk_relative(character:CHARACTER, walk_type:WALK_TYPE, x, y, waiting) {
     }
 }
 
-fun entity_script_controlled(character) {
+fun entity_script_controlled(character:CHARACTER) {
     code(0x2a, entity_t(character), "// (2a) Make $283b script controlled");
 }
 
@@ -1717,13 +1717,13 @@ fun price(index, rate, drop, quantity) {
 
 // CURRENCY
 
-fun currency_get(type, amount) {
+fun currency_get(type:CURRENCY, amount) {
     code(0x7c, param(type), 0x000000 + amount, "// (7c) Give 50 Talons (moniez)");
 }
-fun currency_take(type, amount) {
+fun currency_take(type:CURRENCY, amount) {
     code(0x7c, param(type), 0x000000 + amount, "// (7d) Take 10 Talons (moniez)");
 }
-fun currency_convert(from_amount, from_type, to_amount, to_type) {
+fun currency_convert(from_amount, from_type:CURRENCY, to_amount, to_type:CURRENCY) {
     code(0x7e, param(from_amount), param(from_type), param(to_amount), param(to_type), "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
 }
 fun show_currency(show) {
@@ -1748,8 +1748,8 @@ fun add_enemy(enemy:ENEMY, x, y) {
     code(0xba, enemy, x, y, "// (ba) LOAD NPC 0b at 49 79");
 }
 
-fun add_placeholder(animation, x, y) {
-    add_enemy(ENEMY.PLACEHOLDER, x, y);
+fun add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y) {
+    add_enemy(PLACEHOLDER, x, y);
     animate(LAST_ENTITY, LOOP, animation);
 }
 
@@ -1789,11 +1789,11 @@ fun _control_enemy(character:CHARACTER, control) {
     }
 }
 
-fun available(character) {
+fun available(character:CHARACTER) {
     // TODO: parameter bug
     
     if(character == CHARACTER.BOY) {
-        // teleport(CHARACTER.DOG, 0x00, 0x00);
+        // teleport(DOG, 0x00, 0x00);
         
         unset(FLAG.BOY_UNAVAILABLE);
         set(FLAG.DOG_UNAVAILABLE);
@@ -1802,7 +1802,7 @@ fun available(character) {
         code(0x98, entity_t(character), "// (98) SWITCH CHAR TO boy");
         code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
     } else if(character == CHARACTER.DOG) {
-        // teleport(CHARACTER.BOY, 0x00, 0x00);
+        // teleport(BOY, 0x00, 0x00);
         
         set(FLAG.BOY_UNAVAILABLE);
         unset(FLAG.DOG_UNAVAILABLE);
@@ -2063,10 +2063,10 @@ fun unlock_ingredients(amount) {
     MEMORY.ACORN = amount;
 }
 fun unlock_money(amount) {
-    currency_get(CURRENCY.TALONS, amount);
-    currency_get(CURRENCY.JEWELES, amount);
-    currency_get(CURRENCY.GOLD_COINS, amount);
-    currency_get(CURRENCY.CREDITS, amount);
+    currency_get(TALONS, amount);
+    currency_get(JEWELES, amount);
+    currency_get(GOLD_COINS, amount);
+    currency_get(CREDITS, amount);
 }
 // ui breaks with 0xff and 0xffff
 fun unlock_trading_goods(amount) {
@@ -2100,7 +2100,7 @@ fun unlock_weapon_level(level) {
     MEMORY.LEVEL_4_SPEAR = level;
 }
 
-fun unlock(item) {
+fun unlock(item:ITEM) {
     if(item == ITEM.HARD_BALL) {
         set(<0x225a, 0x02>);
     } else if(item == ITEM.FLASH) {
@@ -2266,24 +2266,24 @@ fun sfx_effect(effect:SFX_EFFECT, on) {
     }
 }
 
-fun heal(character, amount, animation) {
+fun heal(character:CHARACTER, amount, animation) {
     if(animation == False) {
         if(character == CHARACTER.BOTH) {
-            code(0x95, entity_t(CHARACTER.BOY), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
-            code(0x95, entity_t(CHARACTER.DOG), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(BOY), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
+            code(0x95, entity_t(DOG), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
         } else {
             code(0x95, entity_t(character), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
         }
     } else {
         if(character == CHARACTER.BOTH) {
-            code(0x94, entity_t(CHARACTER.BOY), 0x08, 0x8d, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL boy FOR *($23e5 + 15) WITH ANIMATION = health");
-            code(0x94, entity_t(CHARACTER.DOG), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
+            code(0x94, entity_t(BOY), 0x08, 0x8d, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL boy FOR *($23e5 + 15) WITH ANIMATION = health");
+            code(0x94, entity_t(DOG), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
         } else {
             code(0x94, entity_t(character), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
         }
     }
 }
-fun full_heal(character, animation) {
+fun full_heal(character:CHARACTER, animation) {
     if(animation == False) {
         heal(character, 0x03e7, animation);
     } else {
@@ -2307,7 +2307,7 @@ fun select_alchemy_with_preselection(alchemy_index) {
     select_alchemy();
 }
 
-fun cast(character, target, spell, level) {
+fun cast(character:CHARACTER, target:CHARACTER, spell, level) {
     // spell = CAST
 
     code(0xac, entity_t(character), param(spell), param(level), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
@@ -2325,58 +2325,58 @@ fun face(character:CHARACTER, direction:DIRECTION) {
     }
 }
 
-fun attach_to_script(character) {
+fun attach_to_script(character:CHARACTER) {
     code(0x4e, entity_t(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
 }
 
 fun attach_script(character:CHARACTER, flag:SCRIPT_TRIGGER, id) {
     if(flag == SCRIPT_TRIGGER.TALK) {
         if(character == CHARACTER.BOTH) {
-            code(0x3d, entity_t(CHARACTER.BOY), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
-            code(0x3d, entity_t(CHARACTER.DOG), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3d, entity_t(BOY), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3d, entity_t(DOG), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         } else {
             code(0x3d, entity_t(character), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         }
     } else {
         if(character == CHARACTER.BOTH) {
-            code(0x3f, entity_t(CHARACTER.BOY), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
-            code(0x3f, entity_t(CHARACTER.DOG), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3f, entity_t(BOY), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            code(0x3f, entity_t(DOG), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         } else {
             code(0x3f, entity_t(character), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
         }
     }
 }
 
-fun destroy(character) {
+fun destroy(character:CHARACTER) {
     code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
 }
-fun _destroy(character) {
+fun _destroy(character:CHARACTER) {
     code(0x9b, calculate(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
 }
 
 fun damage(character:CHARACTER, value, animation) {
     if(animation) {
         if(character == CHARACTER.BOTH) {
-            code(0x92, entity_t(CHARACTER.BOY), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
-            code(0x92, entity_t(CHARACTER.DOG), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+            code(0x92, entity_t(BOY), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+            code(0x92, entity_t(DOG), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
         } else {
             code(0x92, entity_t(character), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
         }
     } else {
         if(character == CHARACTER.BOTH) {
-            code(0x93, entity_t(CHARACTER.BOY), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
-            code(0x93, entity_t(CHARACTER.DOG), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+            code(0x93, entity_t(BOY), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+            code(0x93, entity_t(DOG), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
         } else {
             code(0x93, entity_t(character), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
         }
     }
 }
 
-fun store_last_entity(character) {
-    code(0x19, address(character), entity_t(CHARACTER.LAST_ENTITY), "// (19) WRITE $283b = last entity ($0341)");
+fun store_last_entity(character:CHARACTER) {
+    code(0x19, address(character), entity_t(LAST_ENTITY), "// (19) WRITE $283b = last entity ($0341)");
 }
 
-fun attribute(character, attribute, value) {
+fun attribute(character:CHARACTER, attribute:ATTRIBUTE, value) {
     // value = 2 bytes
 
     // eval("7a (2d) 29 02 (2a) 9a 84 (01 00) // (7a) WRITE *(last entity ($0341) + 0x2a) = 0x03e8");
@@ -2478,15 +2478,15 @@ fun loot(flag, object_id, reward, amount, next) {
 }
 
 fun axe2_wall(flag, object) {
-    if(<CHARACTER.ACTIVE> == <CHARACTER.BOY>) {
+    if(<ACTIVE> == <BOY>) {
         animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
 
         if(<0x235f>&0xff >= 0x0c) {
             if(<0x2360>&0xff == 0x02) {
-                add_dynamic_enemy_with_flags(PLACEHOLDER, <CHARACTER.BOY>[ATTRIBUTE.X] - 0x10, <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x10, 0x00);
+                add_dynamic_enemy_with_flags(PLACEHOLDER, <BOY>[ATTRIBUTE.X] - 0x10, <BOY>[ATTRIBUTE.Y] - 0x10, 0x00);
                 animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                add_dynamic_enemy_with_flags(PLACEHOLDER, <CHARACTER.BOY>[ATTRIBUTE.X] + 0x20, <CHARACTER.BOY>[ATTRIBUTE.Y] - 0x20, 0x00);
+                add_dynamic_enemy_with_flags(PLACEHOLDER, <BOY>[ATTRIBUTE.X] + 0x20, <BOY>[ATTRIBUTE.Y] - 0x20, 0x00);
                 animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
                 sleep(0x04);
@@ -2521,8 +2521,8 @@ fun throw(throwable, source, source_x, source_y, x, y, arc) {
 
 @install()
 fun debug_boy() {
-    MEMORY.STRING_PARAMETER_1 = <CHARACTER.BOY>[ATTRIBUTE.X] / 0x08;
-    MEMORY.STRING_PARAMETER_2 = <CHARACTER.BOY>[ATTRIBUTE.Y] / 0x08;
+    MEMORY.STRING_PARAMETER_1 = <BOY>[ATTRIBUTE.X] / 0x08;
+    MEMORY.STRING_PARAMETER_2 = <BOY>[ATTRIBUTE.Y] / 0x08;
 
     subtext(string("boy = [0xa1]/[0xa2][END]"));
 }
@@ -2543,8 +2543,8 @@ fun pit_act2_between(height) {
     } else {
         control(NONE);
 
-        <0x24ab> = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
-        <0x24af> = <CHARACTER.ACTIVE>[ATTRIBUTE.Y];
+        <0x24ab> = <ACTIVE>[ATTRIBUTE.X];
+        <0x24af> = <ACTIVE>[ATTRIBUTE.Y];
 
         <0x249d> = 0x0128;
         <0x249f> = height;
@@ -2594,7 +2594,7 @@ fun pit_act3_sewers() {
         <0x24ab> = <0x2421> lshift 0x04;
         <0x24af> = <0x2423> lshift 0x04;
 
-        if(<CHARACTER.ACTIVE> == CHARACTER.BOY) {
+        if(<ACTIVE> == CHARACTER.BOY) {
             animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
         } else {
             animate(DOG, LOOP, ANIMATION_DOG.ACT3_FALL_2);
@@ -2612,7 +2612,7 @@ fun pit_act3_sewers() {
             <0x24a7> = <0x24a7> + 0x01;
         }
 
-        if(<CHARACTER.ACTIVE> == CHARACTER.BOY) {
+        if(<ACTIVE> == CHARACTER.BOY) {
             animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
         } else {
             animate(DOG, LOOP, ANIMATION_DOG.ACT3_SIT);
@@ -2630,7 +2630,7 @@ fun pit_act3_sewers() {
             <0x24a7> = <0x24a7> + 0x01;
         }
 
-        if(<CHARACTER.ACTIVE> == CHARACTER.BOY) {
+        if(<ACTIVE> == CHARACTER.BOY) {
             animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
         } else {
             animate(DOG, ONCE, ANIMATION_DOG.ACT3_SIT);
@@ -2645,10 +2645,10 @@ fun door_act4_airlock(x, y, door) {
     door = 0x7e;
     sleep(0x14);
 
-    <0x24a1> = <CHARACTER.ACTIVE>[ATTRIBUTE.X];
-    <0x24a3> = <CHARACTER.ACTIVE>[ATTRIBUTE.Y] + 0x30;
-    while(<CHARACTER.ACTIVE>[ATTRIBUTE.Y] < <0x24a3>) {
-        <CHARACTER.ACTIVE>[ATTRIBUTE.Y] = <CHARACTER.ACTIVE>[ATTRIBUTE.Y] + 0x02;
+    <0x24a1> = <ACTIVE>[ATTRIBUTE.X];
+    <0x24a3> = <ACTIVE>[ATTRIBUTE.Y] + 0x30;
+    while(<ACTIVE>[ATTRIBUTE.Y] < <0x24a3>) {
+        <ACTIVE>[ATTRIBUTE.Y] = <ACTIVE>[ATTRIBUTE.Y] + 0x02;
         yield();
     }
 
@@ -2735,36 +2735,36 @@ fun attach_sterling_script_to_last_entity() {
     call(0x9997a7); // (07) CALL 0x9997a7 Sterling battle over, Gomi introduction
 }
 
-fun crash_land(character) {
+fun crash_land(character:CHARACTER) {
     if(character == CHARACTER.BOY) {
-        <CHARACTER.BOY>[0x1e] = 0x1068;
+        <BOY>[FALLING_HEIGHT] = 0x1068;
         animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
         sleep(0x60);
-        <CHARACTER.BOY>[0x20] = 0x10;
+        <BOY>[JUMP_HEIGHT] = 0x10;
         animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
         sleep(0x10);
         animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
         sleep(0x10);
         animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
     } else if(character == CHARACTER.DOG) {
-        <CHARACTER.DOG>[0x1e] = 0x1068;
+        <DOG>[FALLING_HEIGHT] = 0x1068;
         animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
         sleep(0x60);
-        <CHARACTER.DOG>[0x20] = 0x10;
+        <DOG>[JUMP_HEIGHT] = 0x10;
         animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
         sleep(0x10);
         animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_FALL1);
         sleep(0x10);
         animate(DOG, ONCE, ANIMATION_DOG.ACT1_SIT);
     } else if(character == CHARACTER.BOTH) {
-        <CHARACTER.BOY>[0x1e] = 0x1068;
+        <BOY>[FALLING_HEIGHT] = 0x1068;
         animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-        <CHARACTER.DOG>[0x1e] = 0x1068;
+        <DOG>[FALLING_HEIGHT] = 0x1068;
         animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
         sleep(0x60);
-        <CHARACTER.BOY>[0x20] = 0x10;
+        <BOY>[JUMP_HEIGHT] = 0x10;
         animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
-        <CHARACTER.DOG>[0x20] = 0x10;
+        <DOG>[JUMP_HEIGHT] = 0x10;
         animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
         sleep(0x10);
         animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
@@ -2782,11 +2782,11 @@ fun sand_tunnel() {
 fun bonfire_activate(x, y, id) {
     // add_enemy_with_flags(LANTERN_LIGHT, x, y, INACTIVE_IMORTAL);
     // attach_script(LAST_ENTITY, TALK, 0x181e);
-    // entity_script_controlled(CHARACTER.LAST_ENTITY);
+    // entity_script_controlled(LAST_ENTITY);
 
     add_enemy_with_flags(LANTERN_LIGHT_RED, 0x00, 0x00, INACTIVE);
-    <CHARACTER.LAST_ENTITY>[0x1a] = x;
-    <CHARACTER.LAST_ENTITY>[0x1c] = y;
+    <LAST_ENTITY>[0x1a] = x;
+    <LAST_ENTITY>[0x1c] = y;
     attach_script(LAST_ENTITY, DAMAGE, id);
 }
 
@@ -2860,10 +2860,10 @@ fun _heel(character, x, y) {
 }
 
 fun test_stuff() {
-    unlock(ITEM.INGREDIENTS);
+    unlock(INGREDIENTS);
 
-    unlock(ITEM.REVEALER);
-    unlock(ITEM.LEVITATE);
+    unlock(REVEALER);
+    unlock(LEVITATE);
 
     select_alchemy();
 }
@@ -2896,8 +2896,8 @@ fun drop_bomb(costs_ingredients) {
 
     animate(BOY, ONCE, ANIMATION_BOY.LOOT);
 
-    add_dynamic_enemy_with_flags(BOMB, <CHARACTER.BOY>[0x1a], <CHARACTER.BOY>[0x1c], 0x0000);
-    attach_to_script(CHARACTER.LAST_ENTITY);
+    add_dynamic_enemy_with_flags(BOMB, <BOY>[0x1a], <BOY>[0x1c], 0x0000);
+    attach_to_script(LAST_ENTITY);
     attach_script(SCRIPT_OWNER, DEATH, ADDRESS_ID.BOMB_EXPLOSION);
 
     sleep(0x80);
@@ -2906,7 +2906,7 @@ fun drop_bomb(costs_ingredients) {
 
     sleep(0x40);
     
-    destroy(CHARACTER.SCRIPT_OWNER);
+    destroy(SCRIPT_OWNER);
 }
 
 fun isaac_tear(costs_ingredients) {
@@ -2925,14 +2925,14 @@ fun isaac_tear(costs_ingredients) {
         MEMORY.WATER & 0xff = MEMORY.WATER & 0xff - 0x04;
     }
     
-    if(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x00) {
-        code(0xb5, param(THROWABLE.ONION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] - 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    } else if(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x04) {
-        code(0xb5, param(THROWABLE.ONION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0x60), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    } else if(<CHARACTER.BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x08) {
-        code(0xb5, param(THROWABLE.ONION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] + 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    if(<BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x00) {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X]), calculate(<BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<BOY>[ATTRIBUTE.X]), calculate(<BOY>[ATTRIBUTE.Y] - 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    } else if(<BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x04) {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X]), calculate(<BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<BOY>[ATTRIBUTE.X] + 0x60), calculate(<BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    } else if(<BOY>[ATTRIBUTE.FACE_DIRECTION] == 0x08) {
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X]), calculate(<BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<BOY>[ATTRIBUTE.X]), calculate(<BOY>[ATTRIBUTE.Y] + 0x60), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
     } else {
-        code(0xb5, param(THROWABLE.ONION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X]), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] - 0x60), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        code(0xb5, param(THROWABLE.ONION), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X]), calculate(<BOY>[ATTRIBUTE.Y] - 0x15), param(0x0a), calculate(<BOY>[ATTRIBUTE.X] - 0x60), calculate(<BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
     }
 }
 
@@ -2943,9 +2943,9 @@ fun mario_yump() {
         end();
     }
 
-    <0x2838> = <CHARACTER.BOY>[X];
-    <0x283a> = <CHARACTER.BOY>[Y];
-    <CHARACTER.BOY>[JUMP_HEIGHT] = 0x20;
+    <0x2838> = <BOY>[X];
+    <0x283a> = <BOY>[Y];
+    <BOY>[JUMP_HEIGHT] = 0x20;
     attribute_bit(BOY, NO_CLIP);
     set(FLAG.IN_ANIMATION);
 
@@ -2954,21 +2954,21 @@ fun mario_yump() {
     control(NONE);
     sleep(0x05);
 
-    code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[X]), calculate(<CHARACTER.BOY>[Y]), param(0x00), param(0x20), param(0x20), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(BOY), calculate(<BOY>[X]), calculate(<BOY>[Y]), param(0x00), param(0x20), param(0x20), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
     // subtext(string("bang[END]"));
-    sound(SOUND.HEAVY_IMPACT);
-    // debug_memory(<CHARACTER.BOY>[FACE_DIRECTION], <CHARACTER.BOY>[FACE_DIRECTION]);
+    sound(HEAVY_IMPACT);
+    // debug_memory(<BOY>[FACE_DIRECTION], <BOY>[FACE_DIRECTION]);
     
-    <0x2834> = <CHARACTER.BOY>[X];
-    <0x2836> = <CHARACTER.BOY>[Y];
+    <0x2834> = <BOY>[X];
+    <0x2836> = <BOY>[Y];
 
-    if(<CHARACTER.BOY>[FACE_DIRECTION] == 0x00) {
+    if(<BOY>[FACE_DIRECTION] == 0x00) {
         walk_relative(BOY, COORDINATE_RELATIVE, 0x00, -0x01, False);
         face(BOY, DIRECTION.NORTH);
-    } else if(<CHARACTER.BOY>[FACE_DIRECTION] == 0x04) {
+    } else if(<BOY>[FACE_DIRECTION] == 0x04) {
         walk_relative(BOY, COORDINATE_RELATIVE, 0x01, 0x00, False);
         face(BOY, DIRECTION.EAST);
-    } else if(<CHARACTER.BOY>[FACE_DIRECTION] == 0x08) {
+    } else if(<BOY>[FACE_DIRECTION] == 0x08) {
         walk_relative(BOY, COORDINATE_RELATIVE, 0x00, 0x01, False);
         face(BOY, DIRECTION.SOUTH);
     } else {
@@ -2977,9 +2977,9 @@ fun mario_yump() {
     }
     sleep(0x03);
 
-    if((<0x2834> == <CHARACTER.BOY>[X]) && (<0x2836> == <CHARACTER.BOY>[Y])) {
-        <CHARACTER.BOY>[X] = <0x2838>;
-        <CHARACTER.BOY>[Y] = <0x283a>;
+    if((<0x2834> == <BOY>[X]) && (<0x2836> == <BOY>[Y])) {
+        <BOY>[X] = <0x2838>;
+        <BOY>[Y] = <0x283a>;
 
         damage(BOY, 0x01, True);
     }
@@ -2988,15 +2988,15 @@ fun mario_yump() {
     attribute_bit(BOY, CLIP);
     control(BOTH);
     // walk_relative(BOY, COORDINATE_RELATIVE, 0x00, 0x00, False);
-    // debug_memory(<0x2834>, <CHARACTER.BOY>[X]);
+    // debug_memory(<0x2834>, <BOY>[X]);
     // sleep(0x30);
-    // debug_memory(<0x2836>, <CHARACTER.BOY>[Y]);
+    // debug_memory(<0x2836>, <BOY>[Y]);
 }
 
 fun windwalker_rocket() {
-    // code(0xb5, param(THROWABLE.BEACH_BALL), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0x10), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0xff), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    code(0xb5, param(THROWABLE.ONION), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0x10), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0xff), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    // code(0xb5, param(THROWABLE.MISSILE), entity_t(CHARACTER.BOY), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0x10), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x0a), calculate(<CHARACTER.BOY>[ATTRIBUTE.X] + 0xff), calculate(<CHARACTER.BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    // code(0xb5, param(THROWABLE.BEACH_BALL), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X] + 0x10), calculate(<BOY>[ATTRIBUTE.Y]), param(0x0a), calculate(<BOY>[ATTRIBUTE.X] + 0xff), calculate(<BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    code(0xb5, param(THROWABLE.ONION), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X] + 0x10), calculate(<BOY>[ATTRIBUTE.Y]), param(0x0a), calculate(<BOY>[ATTRIBUTE.X] + 0xff), calculate(<BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+    // code(0xb5, param(THROWABLE.MISSILE), entity_t(BOY), calculate(<BOY>[ATTRIBUTE.X] + 0x10), calculate(<BOY>[ATTRIBUTE.Y]), param(0x0a), calculate(<BOY>[ATTRIBUTE.X] + 0xff), calculate(<BOY>[ATTRIBUTE.Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
 }
 
 fun test_map_palettes() {
