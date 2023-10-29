@@ -29,7 +29,9 @@ class RawAddress(Function_Base):
         return Word(self.value.address).calculate(params)
 
 class Deref(Function_Base, Calculatable, Memorable):
-    def __init__(self, value, offset):
+    def __init__(self, generator, value, offset):
+        self._generator = generator
+        
         match value:
             case Param()|Identifier():
                 self.value = value
@@ -40,7 +42,10 @@ class Deref(Function_Base, Calculatable, Memorable):
             case _:
                 TODO(f"value {value} cannot be deref'ed")
 
-        self.offset = offset
+        self.offset = self.parse_argument_with_type(self._generator, offset, "ATTRIBUTE")
+
+        if isinstance(self.offset, Word) and self.offset.value_count() != 2:
+            self.offset = Word(self.offset, 2)
 
         self.update([])
 
@@ -208,8 +213,6 @@ class Function(Function_Base):
         self.count_limit = None
         if annotations:
             self.set_annotations(annotations)
-
-        pass
 
     def set_annotations(self, annotations):
         for annotation in annotations:
@@ -402,8 +405,10 @@ class RawString(Function_Base):
         return code
         
 class FunctionArg(BaseBox):
-    def __init__(self, name):
+    def __init__(self, name, enum_base = None):
         self.name = name
+
+        self.enum_base = enum_base
 
     def eval(self):
         return self.name
@@ -426,7 +431,8 @@ class Label_Destination(BaseBox):
 class Call(Function_Base, Calculatable):
     async_call = False
     
-    def __init__(self, function, params=[]):
+    def __init__(self, generator, function, params=[]):
+        self.generator = generator
         self.params = self._paramify(params)
 
         if isinstance(function, Function):
@@ -480,6 +486,22 @@ class Call(Function_Base, Calculatable):
     
     def _code(self, params:list[Param]):
         #params = self.handle_params(params, self.params)
+
+        if self.params and self.function:
+            for p, a in zip(self.params, self.function.args):
+                if a.enum_base == None:
+                    continue
+
+                if p.name == None:
+                    continue
+                
+                value = Enum_Call(self.generator, f"{a.enum_base}.{p.name}", False)
+
+                if value.value == None:
+                    continue
+
+                p.name = None
+                p.value = value.value
 
         # TODO: should be done for all elements
         for param in self.params:
@@ -585,44 +607,6 @@ class Function_Goto(Function_Base):
         return f"""
 04 {distance}      // goto({self.label}/{distance})
         """
-
-class Enum(BaseBox):
-    def __init__(self, name, values):
-        self.name = name.value
-        self.values = values
-
-    def eval(self):
-        return 0
-class Enum_Entry(BaseBox):
-    def __init__(self, name, value):
-        self.name = name.value
-        self.value = value
-
-    def eval(self):
-        return self.value.value
-
-class Enum_Call(BaseBox):
-    def __init__(self, generator, identifier):
-        self.identifier = identifier.value
-
-        enum_identifier = re.sub("\..*", "",  self.identifier)
-        enum = generator.get_identifier(enum_identifier)
-
-        enum_value = re.sub(".*\.", "",  self.identifier)
-        value = None
-        for v in enum.values:
-            if v.name == enum_value:
-                value = v.value
-                break
-
-        if value == None:
-            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}' ({[entry.name for entry in enum.values]})"
-            raise Exception(error)
-        
-        self.value = value
-
-    def eval(self):
-        return self.value
 
 class If_list(Function_Base, Memorable):
     def __init__(self, if_list):
@@ -1311,10 +1295,10 @@ class Range(BaseBox):
             raise Exception("invalid parameter")
 
 class MapEntrance(Function_Base):
-    def __init__(self, x, y, direction):
+    def __init__(self, generator, x, y, direction):
         self.x = x.eval([])
         self.y = y.eval([])
-        self.direction = direction.eval([])
+        self.direction = self.parse_argument_with_type(generator, direction, "DIRECTION")
 
 class Soundtrack(Function_Base):
     def __init__(self, generator, track, volume):
@@ -1325,7 +1309,7 @@ class Soundtrack(Function_Base):
     
     def _code(self, params:list[Param]):
         function_transition = self._generator.get_function("music_enter")
-        function_transition = Call(function_transition, [self.track, self.volume])
+        function_transition = Call(self._generator, function_transition, [self.track, self.volume])
         function_transition = function_transition.code(params)
 
         return function_transition
@@ -1417,13 +1401,12 @@ class MapTransition(Function_Base):
     entrance: MapEntrance = None
 
     def __init__(self, generator, map_name, entrance_name, direction):
+        self._generator = generator
+
         self.map_name = map_name.name
         self.entrance_name = entrance_name.name
-        self.direction = direction.value
-        if isinstance(self.direction, Word):
-            self.direction = self.direction.eval([])
+        self.direction = self.parse_argument_with_type(self._generator, direction, "DIRECTION")
 
-        self._generator = generator
         generator.add_map_transition(self)
         self.scope = generator.current_scope()
 
@@ -1504,7 +1487,7 @@ yy // linking required
             call_params = [Param(None, Word(param, 1)) for param in call_params]
 
             function_transition = self._generator.get_function("transition")
-            function_transition = Call(function_transition, call_params)
+            function_transition = Call(self._generator, function_transition, call_params)
             function_transition = function_transition
 
             params = self.merge_params(params, call_params)
@@ -1564,7 +1547,7 @@ class Loot(Function_Base):
     def _code(self, params:list[Param]):
         call_params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
 
-        return Call(self.function, call_params).code(params)
+        return Call(self._generator, self.function, call_params).code(params)
     
 class Axe2Wall(Function_Base):
     def unwrap_param(self, param):
@@ -1585,7 +1568,7 @@ class Axe2Wall(Function_Base):
     def _code(self, params:list[Param]):
         call_params = [self.object.flag, self.object]
 
-        return Call(self.function, call_params).code(params)
+        return Call(self._generator, self.function, call_params).code(params)
     
 class Reference(Function_Base):
     def __init__(self, generator, name:any):
