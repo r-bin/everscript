@@ -448,14 +448,17 @@ class Parser():
 
             return Deref(self.generator, expression, offset)
 
-        @self.pg.production('memory : < WORD >')
+        @self.pg.production('memory : < expression >')
         def parse(p):
             address = Word(p[1], 2)
 
             return Memory(address)
-        @self.pg.production('memory : < expression >')
+        @self.pg.production('memory : < IDENTIFIER >')
         def parse(p):
-            address = p[1]
+            character = p[1]
+
+            address = Enum_Call(self.generator, f"CHARACTER.{character.value}")
+            address = address.value
 
             return Memory(address)
 

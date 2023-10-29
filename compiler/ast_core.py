@@ -123,13 +123,15 @@ class Enum_Entry(BaseBox):
         return self.value.value
 
 class Enum_Call(BaseBox):
-    def __init__(self, generator, identifier, with_exception=True):
+    def __init__(self, generator:any, identifier, with_exception=True):
+        self._generator = generator
+
         self.identifier = identifier
         if isinstance(self.identifier, Token):
             self.identifier = self.identifier.value
 
         enum_identifier = re.sub("\..*", "",  self.identifier)
-        enum = generator.get_identifier(enum_identifier)
+        enum = self._generator.get_identifier(enum_identifier)
 
         enum_value = re.sub(".*\.", "",  self.identifier)
         value = None
