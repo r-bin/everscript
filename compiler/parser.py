@@ -12,7 +12,7 @@ class Parser():
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 'AND', 'OR',
-                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=',
+                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
@@ -473,6 +473,8 @@ class Parser():
         @self.pg.production('expression : param OR= param')
         @self.pg.production('expression : param &= param')
         @self.pg.production('expression : param = param')
+        @self.pg.production('expression : param -= param')
+        @self.pg.production('expression : param += param')
         @self.pg.production('expression : param + param')
         @self.pg.production('expression : param - param')
         @self.pg.production('expression : param * param')
@@ -505,6 +507,10 @@ class Parser():
                     return Lower(left, right)
                 case '=':
                     return Asign(left, right)
+                case '-=':
+                    return Asign(left, Sub(left, right))
+                case '+=':
+                    return Asign(left, Add(left, right))
                 case 'OR=':
                     return OrAsign(left, right)
                 case '&=':
