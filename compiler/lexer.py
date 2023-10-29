@@ -68,6 +68,7 @@ class Lexer():
         self.lexer.add('WHILE', 'while(?=\()')
 
         self.lexer.add('@', '@')
+        self.lexer.add(':', ':')
 
         self.lexer.add('FUN_INCLUDE', '#include(?=\()')
         self.lexer.add('FUN_MEMORY', '#memory(?=\()')

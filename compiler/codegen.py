@@ -332,7 +332,7 @@ allocated RAM:
                         function = function_nop
 
                     if not isinstance(function, Call):
-                        function = Call(function)
+                        function = Call(self, function)
                     else:
                         pass
 
@@ -381,7 +381,7 @@ allocated RAM:
             soundtrack = map.soundtrack()
 
             function_enter = Function("_trigger_enter", 
-                [soundtrack] + objects + [Call(function)], [], [Annotation_Install()])
+                [soundtrack] + objects + [Call(self, function)], [], [Annotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):
@@ -410,7 +410,7 @@ allocated RAM:
                     code = _generate_trigger_enter(output, map, code)
                     test = If(
                             Equals(Param(None, Memory(0x23b9)), Param(None, Word(map.variant))),
-                            [Call(code)],
+                            [Call(self, code)],
                             False
                         )
                     code_enter.append(test)
@@ -561,7 +561,7 @@ allocated RAM:
             return []
         
         address = inject.eval([])
-        call = Call(function)
+        call = Call(self, function)
         count = call.count([])
         if function.terminate:
             count += 1 # TODO

@@ -106,12 +106,69 @@ class Identifier(BaseBox):
 
     def __repr__(self):
         return f"Identifier({self.name})"
-    
+
+class Enum(BaseBox):
+    def __init__(self, name, values):
+        self.name = name.value
+        self.values = values
+
+    def eval(self):
+        return 0
+class Enum_Entry(BaseBox):
+    def __init__(self, name, value):
+        self.name = name.value
+        self.value = value
+
+    def eval(self):
+        return self.value.value
+
+class Enum_Call(BaseBox):
+    def __init__(self, generator, identifier, with_exception=True):
+        self.identifier = identifier
+        if isinstance(self.identifier, Token):
+            self.identifier = self.identifier.value
+
+        enum_identifier = re.sub("\..*", "",  self.identifier)
+        enum = generator.get_identifier(enum_identifier)
+
+        enum_value = re.sub(".*\.", "",  self.identifier)
+        value = None
+        for v in enum.values:
+            if v.name == enum_value:
+                value = v.value
+                break
+
+        if with_exception and value == None:
+            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}' ({[entry.name for entry in enum.values]})"
+            raise Exception(error)
+        
+        self.value = value
+
+    def eval(self):
+        return self.value
+
 class Function_Base(BaseBox):
     _value_count:int = None
 
     #cache_code:str = None
     #cache_code_clean:str = None
+
+    def parse_argument_with_type(self, generator:any, argument:any, enum_base:str):
+        if isinstance(argument, Param) or isinstance(argument, Identifier):
+            if argument.name != None:
+                value = argument.name
+                value = Enum_Call(generator, f"{enum_base}.{value}")
+                value = value.value
+            else:
+                argument = argument.value
+                if isinstance(argument, Word):
+                    value = argument
+        elif isinstance(argument, Word):
+            value = argument
+        else:
+            TODO()
+
+        return value
 
     def code(self, params):
         if True: # self.cache_code == None:
@@ -311,6 +368,9 @@ class Memory(Function_Base, Calculatable, Memorable):
         self.address = address
         if isinstance(self.address, Word):
             self.address = self.address.eval([])
+        elif isinstance(self.address, Param) or isinstance(self.address, Identifier):
+            # self.address = self.parse_argument_with_type()
+            TODO()
         self.flag = flag
         if isinstance(self.flag, Word):
             self.flag = self.flag.eval([])

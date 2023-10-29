@@ -20,7 +20,7 @@ class Parser():
                 'ELSEIF!', 'ELSEIF', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                '@', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA',
+                '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'OBJECT', 'ARG', 'IDENTIFIER', # 'VAL'
             ],
@@ -51,7 +51,7 @@ class Parser():
             "unset": (lambda p: Unset(p[2][0])),
             "len": (lambda p: Len(p[2][0]).eval()),
             "rnd": (lambda p: Rnd(p[2][0], p[2][1]).eval()),
-            "call": (lambda p: Call(p[2][0], [])),
+            "call": (lambda p: Call(self.generator, p[2][0], [])),
             "string": (lambda p: String(self.generator, p[2][0], True)),
             "cstring": (lambda p: RawString(p[2][0])),
             "string_key": (lambda p: StringKey(p[2][0])),
@@ -60,7 +60,7 @@ class Parser():
             "memory_tmp": (lambda p: self.generator.current_scope().allocate_memory()),
             "flag": (lambda p: self.generator.get_flag()),
             "reference": (lambda p: Reference(self.generator, p[2][0])),
-            "deref": (lambda p: Deref(p[2][0], None)),
+            "deref": (lambda p: Deref(self.generator, p[2][0], None)),
             "_address": (lambda p: RawAddress(p[2][0])),
 
             # object
@@ -68,7 +68,7 @@ class Parser():
             "_axe2_wall": (lambda p: Axe2Wall(self.generator, p[2][0])),
 
             # late link
-            "entrance": (lambda p: MapEntrance(p[2][0], p[2][1], p[2][2])),
+            "entrance": (lambda p: MapEntrance(self.generator, p[2][0], p[2][1], p[2][2])),
             "soundtrack": (lambda p: Soundtrack(self.generator, p[2][0], p[2][1])),
             "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
 
@@ -368,13 +368,13 @@ class Parser():
             else:
                 function = self.generator.get_function(name)
             
-            return Call(function, params)
+            return Call(self.generator, function, params)
 
         @self.pg.production('expression : FUNCTION_CALL ( expression )')
         def parse(p):
             address = p[2]
 
-            return Call(address, [])
+            return Call(self.generator, address, [])
         @self.pg.production('expression : FUNCTION_STRING ( expression )')
         def parse(p):
             string = p[2]
@@ -390,6 +390,9 @@ class Parser():
         @self.pg.production('arg : IDENTIFIER')
         def parse(p):
             return FunctionArg(p[0].value)
+        @self.pg.production('arg : IDENTIFIER : IDENTIFIER')
+        def parse(p):
+            return FunctionArg(p[0].value, p[2].value)
 
         @self.pg.production('param_list : param')
         def parse(p):
@@ -439,16 +442,20 @@ class Parser():
         @self.pg.production('expression :  expression [ expression ]')
         def parse(p):
             expression = p[0]
-            offset = Word(p[2])
+            offset = p[2]
             if isinstance(offset, Token):
-                offset = Word(offset)
+                offset = Word(offset, 2)
 
-            return Deref(expression, offset)
+            return Deref(self.generator, expression, offset)
 
         @self.pg.production('memory : < WORD >')
+        def parse(p):
+            address = Word(p[1], 2)
+
+            return Memory(address)
         @self.pg.production('memory : < expression >')
         def parse(p):
-            address = Word(p[1])
+            address = p[1]
 
             return Memory(address)
 
