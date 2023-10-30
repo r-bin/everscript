@@ -821,8 +821,9 @@ class Operand():
 class Opcode():
     _opcodes = {
         "call": 0x29,
-        "call params": 0xb4,
+        "call params": 0xaf,
         "async call": 0x07,
+        "async call params": 0xb4,
 
         "if": 0x09,
         "if!": 0x08,

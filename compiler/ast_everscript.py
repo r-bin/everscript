@@ -480,7 +480,11 @@ class Call(Function_Base, Calculatable):
             for param in call_params:
                 code += self._terminate(param.value.calculate(params))
 
-            code = [Opcode("call params"), Word(len(call_params), 1).code(params)] + code + [address]
+            match self.async_call:
+                case True:
+                    code = [Opcode("async call params"), Word(len(call_params), 1).code(params)] + code + [address]
+                case False:
+                    code = [Opcode("call params"), Word(len(call_params), 1).code(params)] + code + [address]
 
         return code
     
