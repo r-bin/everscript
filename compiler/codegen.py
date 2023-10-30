@@ -20,7 +20,8 @@ class Scope(BaseBox):
     type:Type = Type.DEFAULT
     name:str = None
     value:any = None
-    temp_memory = None
+    temp_memory:list[Memory] = None
+    temp_flag:list[Memory] = None
 
     def __init__(self, generator, type:Type|BaseBox = Type.DEFAULT):
         self._generator = generator
@@ -40,6 +41,9 @@ class Scope(BaseBox):
             self.temp_memory = [m for m in self._generator.linker.memory_manager.memory["memory"]["28"]]
             self.temp_memory = list(reversed(self.temp_memory))
 
+        if not self.temp_flag:
+            self.temp_flag = []
+
     def allocate_memory(self) -> Memory:
         self._update_memory()
 
@@ -48,6 +52,26 @@ class Scope(BaseBox):
         memory = self.temp_memory.pop()
 
         return memory
+    
+    def allocate_flag(self) -> Memory:
+        self._update_memory()
+
+        if not self.temp_flag:
+            memory = self.allocate_memory()
+            flags = []
+
+            for offset in range(0, 8):
+                flags.append(Memory(memory.address, 1 << offset))
+            for offset in range(0, 8):
+                flags.append(Memory(memory.address + 1, 1 << offset))
+            
+            # flags = list(reversed(flags))
+
+            self.temp_flag = flags
+
+        flag = self.temp_flag.pop(0)
+
+        return flag
 
 class _Splice():
     def __init__(self, list, element=None):
