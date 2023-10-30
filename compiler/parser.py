@@ -59,6 +59,7 @@ class Parser():
             "memory": (lambda p: self.generator.get_memory()),
             "memory_tmp": (lambda p: self.generator.current_scope().allocate_memory()),
             "flag": (lambda p: self.generator.get_flag()),
+            "flag_tmp": (lambda p: self.generator.current_scope().allocate_flag()),
             "reference": (lambda p: Reference(self.generator, p[2][0])),
             "deref": (lambda p: Deref(self.generator, p[2][0], None)),
             "_address": (lambda p: RawAddress(p[2][0])),

@@ -459,6 +459,8 @@ class Memory(Function_Base, Calculatable, Memorable):
 
             case ["28", None, _, 1]:
                 code = [Operand("read temp byte"), self.code(params)]
+            case ["28", None, int(), _]:
+                code = [Operand("test temp"), self.code(params)]
             case ["28", None, _, _]:
                 code = [Operand("read temp word"), self.code(params)]
 
