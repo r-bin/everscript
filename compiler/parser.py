@@ -22,7 +22,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'OBJECT', 'ARG', 'IDENTIFIER', # 'VAL'
+                'OBJECT', 'ARG', 'IDENTIFIER', 'VAL', 'VAR',
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -139,6 +139,20 @@ class Parser():
             
             return map
         
+        @self.pg.production('expression : VAL IDENTIFIER')
+        @self.pg.production('expression : VAR IDENTIFIER')
+        def parse(p):
+            constant = p[0].gettokentype() == "VAL"
+            name = p[1].value
+
+            function_variable = FunctionVariable(name, constant)
+
+            scope = self.generator.current_scope()
+
+            self.generator.set_identifier(name, function_variable)
+
+            return function_variable
+        
         @self.pg.production('expression : OBJECT [ expression ]')
         def parse(p):
             index = p[2]
@@ -207,6 +221,10 @@ class Parser():
             function = p[1]
 
             function.set_annotations(args)
+
+            # TODO: var/val
+            # scope = self.generator.pop_scope()
+            # scope.value = function
             
             return function
 
@@ -224,6 +242,11 @@ class Parser():
             params = p[3]
             if not isinstance(params, list):
                 params = []
+
+            # TODO: var/val
+            # if name == "install":
+            #     scope = Scope(self.generator, "NATIVE_FUNCTION")
+            #     self.generator.push_scope(scope)
 
             match [name, len(params)]:
                 case ["install", 0]:

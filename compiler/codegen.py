@@ -16,6 +16,7 @@ class Scope(BaseBox):
         MAP = "MAP"
         AREA = "AREA"
         OBJECT = "OBJECT"
+        NATIVE_FUNCTION = "NATIVE_FUNCTION"
 
     type:Type = Type.DEFAULT
     name:str = None

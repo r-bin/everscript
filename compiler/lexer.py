@@ -5,6 +5,9 @@ class Lexer():
         self.lexer = LexerGenerator()
 
     def _add_tokens(self):
+        self.lexer.add('VAL', 'val(?=\ )')
+        self.lexer.add('VAR', 'var(?=\ )')
+        
         self.lexer.add('STRING', '\".*\"') # TODO non greedy
 
         self.lexer.add('\n', '\n')
@@ -84,7 +87,6 @@ class Lexer():
         self.lexer.add('OBJECT', 'object(?=\[)')
         self.lexer.add('ARG', 'arg(?=\[)')
         self.lexer.add('IDENTIFIER', '[a-zA-Z_][a-zA-Z0-9_]*(?![\(\{])')
-        self.lexer.add('VAL', 'val(?=\ )')
 
         # ignore whitespace 
         self.lexer.ignore('[ \t\r\f\v\n]+|\/\/.*\n')

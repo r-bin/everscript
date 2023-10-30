@@ -865,3 +865,8 @@ class Opcode():
 
     def __repr__(self):
         return f"Opcode({'{:02X}'.format(self.value, 'x')}/{self.name})"
+    
+class FunctionVariable():
+    def __init__(self, name, constant=False):
+        self.name = name
+        self.constant = constant
