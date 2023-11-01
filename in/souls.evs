@@ -192,6 +192,9 @@ fun return_to_bonfire() {
     } else if(SOULS_MEMORY.BONFIRE_MAP == 0xa8) { // TODO: crossing map id
         set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
         map_transition(well, crash, NONE); // TODO
+    } else if(SOULS_MEMORY.BONFIRE_MAP == 0x18) { // TODO: pipe entrance map id
+        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+        map_transition(pipe_entrance, pipe_east, NONE); // TODO
     } else if(SOULS_MEMORY.BONFIRE_MAP != 0x00){
         fade_in();
         sleep(0x20);
@@ -385,7 +388,8 @@ fun hotkey_start_l() {
         // map_transition(basement_3_start, center, NONE);
         // map_transition(pipe_maze, pipe_east, NONE);
         // map_transition(mario_prison_1, crash, NONE);
-        map_transition(mario_dungeon_boss, south, NONE);
+        // map_transition(mario_dungeon_boss, south, NONE);
+        map_transition(pipe_entrance, pipe_west, NONE);
 
         // MEMORY.MAP_PALETTE -= 0x01;
     }
@@ -4106,7 +4110,12 @@ area east_inbetwixx() {
 
     area pipes() {
         enum PIPE_MAZE {
+            MARIO_BOSS_ROOM_OPEND = flag(),
             HIDDEN_ROOM_OPEND = flag(),
+
+            ROOMS_CLEARED = memory(),
+
+            BIG_MUSHROOM_UNLOCKED = flag(),
         }
 
         map pipe_entrance(0x3e) {
@@ -4114,55 +4123,28 @@ area east_inbetwixx() {
                 pipe_east = entrance(0x2d, 0x17, NONE),
                 south = entrance(0x1a, 0x2f, NORTH),
                 pipe_west = entrance(0x07, 0x17, NONE),
-                
-                room_switch = entrance(0xbf, 0x23, NONE),
-                room_gate = entrance(0x87, 0x1f, NONE),
-                gate = entrance(0x98, 0x10, SOUTH),
-                room_empty = entrance(0x6f, 0x1b, NONE),
             }
 
             enum stepon_trigger {
-                switch_triggered = @install() fun test() {
-                    if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
-                        subtext(string("Somewhere a door has opened.[END]"));
-
-                        set(PIPE_MAZE.HIDDEN_ROOM_OPEND);
-                    }
-                },
-                exit_room_switch = @install() fun test() {
-                    map_transition(mosquito_arena, right, NORTH);
-                },
-                stepon_2 = @install() fun test() {
-                    subtext(string("step-on? 2 [END]"));
-                },
-                exit_room_empty = @install() fun test() {
-                    map_transition(mosquito_arena, right, NORTH); // TODO: placeholder
-                },
+                switch_triggered = nop(),
+                exit_room_switch = nop(),
+                exit_room_gate = nop(),
+                exit_room_empty = nop(),
                 exit_north_1 = @install() fun test() {
-                    map_transition(pipe_entrance, room_switch, NORTH);
+                    map_transition(pipe_entrance_left, pipe_switch, NORTH);
                 },
                 exit_north_2 = @install() fun test() {
                     map_transition(pipe_maze, pipe_east, NORTH);
                 },
-                jump_room_switch = @install() fun test() {
-                    call(0x94af0d);
-                },
-                stepon_7 = @install() fun test() {
-                    subtext(string("step-on? 7 [END]"));
-                },
+                jump_room_switch = nop(),
+                jump_room_gate = nop(),
                 exit_south = @install() fun test() {
                     map_transition(hidden_room, room_nss_north, SOUTH);
                 },
-                jump_empty_room = @install() fun test() {
-                    call(0x94af0d);
-                },
+                jump_empty_room = nop(),
 
-                stepon_10 = @install() fun test() {
-                    subtext(string("step-on? 10 [END]"));
-                },
-                stepon_11 = @install() fun test() {
-                    subtext(string("step-on? 11 [END]"));
-                },
+                exit_gate = nop(),
+                approach_gate = nop(),
             }
 
             enum b_trigger {
@@ -4262,7 +4244,15 @@ area east_inbetwixx() {
             }
             
             fun trigger_enter() {
+                // object[0x07] = 0x02; // loot gourd_entrance
+
+                bonfire(0x1e, 0x22);
+
                 default_init_room(True, False);
+
+                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                }
 
                 add_enemy(PLACEHOLDER, 0x2d, 0x16);
                 attach_script(LAST_ENTITY, TALK, reference(test_triggered));
@@ -4272,6 +4262,106 @@ area east_inbetwixx() {
 
                 sleep(0x10);
                 hidden_exit_check();
+            }
+        };
+
+        map pipe_entrance_left(0x3e) {
+            enum entrance {
+                pipe_switch = entrance(0xbf, 0x23, NONE),
+                pipe_gate = entrance(0x87, 0x1f, NONE),
+                gate = entrance(0x98, 0x10, SOUTH),
+            }
+
+            enum stepon_trigger {
+                switch_triggered = @install() fun test() {
+                    if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
+                        subtext(string("Somewhere a door has opened.[END]"));
+
+                        set(PIPE_MAZE.HIDDEN_ROOM_OPEND);
+                    }
+                },
+                exit_room_switch = @install() fun test() {
+                    map_transition(mosquito_arena, right, NORTH);
+                },
+                exit_room_gate = @install() fun test() {
+                    map_transition(pipe_maze, pipe_west, NONE);
+                },
+                exit_room_empty = nop(),
+                exit_north_1 = nop(),
+                exit_north_2 = nop(),
+                jump_room_switch = @install() fun test() {
+                    call(0x94af0d);
+                },
+                jump_room_gate = @install() fun test() {
+                    call(0x94af34);
+                },
+                exit_south = nop(),
+                jump_empty_room = nop(),
+
+                exit_gate = @install() fun test() {
+                    map_transition(mario_dungeon_boss, south, NORTH);
+                },
+                approach_gate = @install() fun test() {
+                    subtext(string("Locked by a mechanism.[END]"));
+                },
+            }
+
+            enum b_trigger {
+                b_trigger_0 = @install() fun test() {
+                    subtext(string("b? 0 [END]"));
+                },
+                b_trigger_1 = @install() fun test() {
+                    subtext(string("b? 1 [END]"));
+                },
+                b_trigger_2 = @install() fun test() {
+                    subtext(string("b? 2 [END]"));
+                },
+                b_trigger_3 = @install() fun test() {
+                    subtext(string("b? 3 [END]"));
+                },
+                b_trigger_4 = @install() fun test() {
+                    subtext(string("b? 4 [END]"));
+                },
+                b_trigger_5 = @install() fun test() {
+                    subtext(string("b? 5 [END]"));
+                },
+                b_trigger_6 = @install() fun test() {
+                    subtext(string("b? 6 [END]"));
+                },
+                b_trigger_7 = @install() fun test() {
+                    subtext(string("b? 7 [END]"));
+                },
+                b_trigger_8 = @install() fun test() {
+                    subtext(string("b? 8 [END]"));
+                },
+                b_trigger_9 = @install() fun test() {
+                    subtext(string("b? 9 [END]"));
+                },
+
+                b_trigger_10 = @install() fun test() {
+                    subtext(string("b? 10 [END]"));
+                },
+                b_trigger_11 = @install() fun test() {
+                    subtext(string("b? 11 [END]"));
+                },
+                b_trigger_12 = @install() fun test() {
+                    subtext(string("b? 12 [END]"));
+                },
+                b_trigger_13 = @install() fun test() {
+                    subtext(string("b? 13 [END]"));
+                },
+            }
+
+            fun trigger_enter() {
+                if(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND) {
+                    object[0x06] = 0x7e; // open gate
+                }
+
+                default_init_room(True, False);
+
+                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                }
             }
         };
 
@@ -4464,6 +4554,10 @@ area east_inbetwixx() {
             fun trigger_enter() {
                 default_init_room(False, False);
 
+                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                }
+
                 add_enemy(STONE_ROUND, 0xdd, 0x27);
             }
         };
@@ -4484,9 +4578,26 @@ area east_inbetwixx() {
                     map_transition(hidden_room, room_nss_south_2, WEST);
                 },
             }
+
+            @install()
+            fun big_mushroom_triggered() {
+                set(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED);
+                SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+
+                destroy(SCRIPT_OWNER);
+            }
             
             fun trigger_enter() {
+                if!(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    add_placeholder(SZEPTER, 0x0e, 0x20);
+                    attach_script(LAST_ENTITY, TALK, reference(big_mushroom_triggered));
+                }
+
                 default_init_room(True, True);
+
+                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                }
             }
         };
 
@@ -4497,19 +4608,19 @@ area east_inbetwixx() {
             }
 
             fun pit_west_1_triggered() {
-                map_transition(town_center, crash, NONE);
+                map_transition(mario_prison_1, crash, NONE);
             }
             fun pit_west_2_triggered() {
-                map_transition(town_market, crash, NONE);
+                map_transition(mario_prison_1, crash, NONE);
             }
             fun pit_west_3_triggered() {
-                map_transition(town_level_1, crash, NONE);
+                map_transition(mario_prison_1, crash, NONE);
             }
             fun pit_west_4_triggered() {
-                map_transition(town_level_2, crash, NONE);
+                map_transition(mario_prison_1, crash, NONE);
             }
             fun pit_west_5_triggered() {
-                map_transition(town_level_3, crash, NONE);
+                map_transition(mario_prison_1, crash, NONE);
             }
 
 
@@ -4724,7 +4835,7 @@ area east_inbetwixx() {
             fun trigger_enter() {
                 default_init_room(True, False);
 
-                if(True) {
+                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
 
