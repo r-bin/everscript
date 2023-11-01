@@ -23,6 +23,7 @@ class Scope(BaseBox):
     value:any = None
     temp_memory:list[Memory] = None
     temp_flag:list[Memory] = None
+    temp_vars = None
 
     def __init__(self, generator, type:Type|BaseBox = Type.DEFAULT):
         self._generator = generator
@@ -44,6 +45,15 @@ class Scope(BaseBox):
 
         if not self.temp_flag:
             self.temp_flag = []
+
+        if not self.temp_vars:
+            self.temp_vars = []
+
+            if self.type == self.Type.NATIVE_FUNCTION:
+                for index in range(00, 30, 2): #TODO: arg33 exists
+                    self.temp_vars.append(Arg(index))
+                    
+                # self.temp_vars = list(reversed(self.temp_vars))
 
     def allocate_memory(self) -> Memory:
         self._update_memory()
@@ -73,6 +83,18 @@ class Scope(BaseBox):
         flag = self.temp_flag.pop(0)
 
         return flag
+
+    def allocate_var(self, name, constant) -> FunctionVariable:
+        if self.type == self.Type.NATIVE_FUNCTION:
+            value = self.temp_vars.pop()
+
+            function_variable = FunctionVariable(self._generator, name, value, constant)
+
+            self._generator.set_identifier(function_variable.name, value)
+
+            return function_variable
+        else:
+            pass
 
 class _Splice():
     def __init__(self, list, element=None):
@@ -191,7 +213,7 @@ allocated RAM:
         
         self.code.append(function)
     
-    def get_function(self, name, scope=None): #TODO
+    def get_function(self, name, scope=None, with_exception=False): #TODO
         if isinstance(name, Token):
             name = name.value
         elif isinstance(name, Param):
@@ -215,7 +237,9 @@ allocated RAM:
             if f.name == name:
                 return f #TODO: returns the last method with the same name, not necessarily from the same scope
         
-        # raise Exception(f"function '{name}' is not defined: {self.code}")
+        if with_exception:
+            raise Exception(f"function '{name}' is not defined: {self.code}")
+        
         return None
 
     def add_map(self, map):

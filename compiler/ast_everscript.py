@@ -139,6 +139,9 @@ class Arg(Function_Base, Calculatable, Memorable):
     def _code(self, params:list[Param]):
         index = self.resolve(self.index, params)
         
+        if isinstance(index, int):
+            index = Word(index)
+
         code = index.code(params)
 
         return code
