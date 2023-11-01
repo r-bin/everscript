@@ -390,7 +390,7 @@ class Parser():
                 function = self.native_functions[name.value](p)
                 return function
             else:
-                function = self.generator.get_function(name)
+                function = self.generator.get_function(name, with_exception=True)
             
             return Call(self.generator, function, params)
 
