@@ -194,6 +194,7 @@ class MapDataHandler():
             self.MapData(0x0a, 0x9faaeb, 0x0b, 0x3a, "Antiqua - Nobilia, Market"),
             self.MapData(0x0b, 0xa6964a, 0x0a, 0x0c, "Antiqua - Nobilia, Palace grounds"),
             # …
+            self.MapData(0x12, 0xa58000, 0x02, 0x0d, "Gothica - Ebon Keep sewers"),
             self.MapData(0x13, 0xacb18d, 0x04, 0x01, "Gothica - Between Ebon Keep sewers, Dark Forest and Swamp"),
             # …
             self.MapData(0x15, 0xa0ff33, 0x00, 0x00, "Brian's Test Ground"),
@@ -291,6 +292,7 @@ class MapDataHandler():
             self.MapData(0x76, 0x9dea4e, 0x02, 0x14, "Gothica - South of Ivor Tower (Gate)"),
             self.MapData(0x77, 0xaba009, 0x03, 0x00, "Gothica - Ivor Tower Puppet Show / Mungola"),
             # …
+            self.MapData(0x79, 0xa5cdd9, 0x04, 0x08, "Gothica - Ivor Tower Sewers"),
             self.MapData(0x7a, 0xadc17d, 0x02, 0x00, "Gothica - Ivor Tower Sewers Exterior (landing spot)"),
             self.MapData(0x7b, 0xa59a21, 0x08, 0x07, "Gothica - Ebon Keep and Ivor Tower Exterior Bottom Half"),
             self.MapData(0x7c, 0xa2dfcb, 0x0b, 0x00, "Gothica - Ebon Keep and Ivor Tower Exterior Top Half"),
