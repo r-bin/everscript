@@ -963,7 +963,7 @@ class ShiftLeft(BinaryOp, BinaryDefaultCalculator):
 
         return self._default_calculate(operator, left, right, params)
     
-class BinaryAnd(BinaryOp):
+class BinaryAnd(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "&"
 
@@ -971,9 +971,10 @@ class BinaryAnd(BinaryOp):
         return left.eval(params) & right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("&")
         code = []
 
-        match left:
+        match left: # TODO: replace with "(byte)"
             case left if isinstance(left, Memory):
                 right = self.resolve(self.right, params)
                 right = right.eval(params)
@@ -985,11 +986,11 @@ class BinaryAnd(BinaryOp):
 
                 return left
             case _:
-                raise Exception(f"left parameter '${left}' not supported")
+                return self._default_calculate(operator, left, right, params)
 
         return code
     
-class BinaryOr(BinaryOp):
+class BinaryOr(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
         return "|"
 
@@ -997,9 +998,20 @@ class BinaryOr(BinaryOp):
         return left.eval(params) | right.eval(params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        code = []
+        operator = Operand("|")
 
-        TODO()
+        return self._default_calculate(operator, left, right, params)
+class BinaryXor(BinaryOp, BinaryDefaultCalculator):
+    def operator(self):
+        return "^"
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) | right.eval(params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        operator = Operand("^")
+
+        return self._default_calculate(operator, left, right, params)
 
 class Asign(BinaryOp):
     def operator(self):

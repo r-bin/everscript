@@ -13,7 +13,7 @@ class Parser():
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
-                '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR',
+                '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
@@ -507,6 +507,7 @@ class Parser():
         @self.pg.production('expression : param >> param')
         @self.pg.production('expression : param B_AND param')
         @self.pg.production('expression : param B_OR param')
+        @self.pg.production('expression : param B_XOR param')
         def parse(p):
             left = p[0]
             operator = p[1]
@@ -555,6 +556,8 @@ class Parser():
                     return BinaryAnd(left, right)
                 case 'B_OR':
                     return BinaryOr(left, right)
+                case 'B_XOR':
+                    return BinaryXor(left, right)
                 case _:
                     raise AssertionError('Oops, this should not be possible!')
 
