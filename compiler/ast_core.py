@@ -216,6 +216,9 @@ class Function_Base(BaseBox):
 
         return count
     
+    def force_value_count(self, value_count):
+        self._value_count = value_count
+
     def value_count(self):
         return self._value_count
     
@@ -651,6 +654,12 @@ class BinaryOp(Operator):
                 left = new_left
         
         right = self.resolve(self.right, params)
+
+        estimated_size = None
+        match [left, right]:
+            case [Memory()|Word(), Memory()|Word()]:
+                estimated_size = max(left.value_count(), right.value_count())
+
         if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
             new_right = right.calculate(params)
             if new_right == None:
@@ -659,7 +668,7 @@ class BinaryOp(Operator):
                 right = new_right
 
         if isinstance(self, Memorable) and not self.memory:
-            return Word(self.eval(params)).calculate(params)
+            return Word(self.eval(params), estimated_size).calculate(params)
         else:
             return self._calculate(left, right, params)
     

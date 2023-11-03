@@ -9,6 +9,7 @@ class Parser():
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
+                'VAL', 'VAR', 'BYTE', 'WORD',
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 'AND', 'OR',
@@ -22,7 +23,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'OBJECT', 'ARG', 'IDENTIFIER', 'VAL', 'VAR',
+                'OBJECT', 'ARG', 'IDENTIFIER',
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -471,6 +472,22 @@ class Parser():
                 offset = Word(offset, 2)
 
             return Deref(self.generator, expression, offset)
+
+        @self.pg.production('memory : ( BYTE ) memory')
+        @self.pg.production('memory : ( WORD ) memory')
+        def parse(p):
+            data_type = p[1]
+            memory = p[3]
+
+            match data_type.gettokentype():
+                case 'BYTE':
+                    memory.force_value_count(1)
+                case 'WORD':
+                    memory.force_value_count(1)
+                case _:
+                    TODO()
+
+            return memory
 
         @self.pg.production('memory : < expression >')
         def parse(p):
