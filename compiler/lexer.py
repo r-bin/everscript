@@ -5,6 +5,9 @@ class Lexer():
         self.lexer = LexerGenerator()
 
     def _add_tokens(self):
+        self.lexer.add('BYTE', 'Byte')
+        self.lexer.add('WORD', 'Word')
+
         self.lexer.add('VAL', 'val(?=\ )')
         self.lexer.add('VAR', 'var(?=\ )')
         
