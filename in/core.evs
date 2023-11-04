@@ -571,11 +571,11 @@ enum ATTRIBUTE_BITS {
     VINCIBLE = 0x10,
     INVINCIBLE = 0x12, // used for: outro, boss kills (doubles, drake, verminator)
 
-    INVINCIBLE_2 = 0x14,
-    VINCIBLE_2 = 0x16,
+    INVINCIBLE_TEMP = 0x14,
+    VINCIBLE_TEMP = 0x16,
 
-    UNLOCK = 0x18,
-    LOCK_IN_PLACE = 0x1a,
+    UNROOT = 0x18,
+    ROOT = 0x1a,
 
     UNKNOWN_1_1 = 0x1c,
     UNKNOWN_1_2 = 0x1e, // used for: dog enter/exit the upper level of act4
@@ -2488,41 +2488,69 @@ fun store_last_entity(character:CHARACTER) {
     code(0x19, address(character), entity_t(LAST_ENTITY), "// (19) WRITE $283b = last entity ($0341)");
 }
 
-fun attribute(character:CHARACTER, attribute:ATTRIBUTE, value) {
-    // value = 2 bytes
-
-    // eval("7a (2d) 29 02 (2a) 9a 84 (01 00) // (7a) WRITE *(last entity ($0341) + 0x2a) = 0x03e8");
-    // eval("7a (2d) 29 6e 9a 84 (80 0c) // (7a) WRITE *(last entity ($0341) + 30) = 0x0c80");
-
-    // eval("7a (50) 29 6e 9a 84 (68 10) // (7a) WRITE *(boy + 30) = 0x1068");
-    // eval("7a (50) 29 02 (20) 9a 81 (d8) // (7a) WRITE *(boy + 0x20) = 0xd8 signed");
-    // eval("7a (50) 29 02 (20) 9a (bf) // (7a) WRITE *(boy + 0x20) = 15");
-
-    // eval("7a (51) 29 6e 9a 84 (68 10) // (7a) WRITE *(dog + 30) = 0x1068");
-    // eval("7a (51) 29 02 (20) 9a 81 (d8) // (7a) WRITE *(dog + 0x20) = 0xd8 signed");
-
-    // eval("7a 08 (8d 01) 29 (3f) 9a 82 (70) // (7a) WRITE *($23e5 + 15) = 0x70");
-
-    // eval("7a 50 29 02 2a 9a 84 01 00 // (7a) WRITE *(last entity ($0341) + 0x2a) = 0x03e8");
-
-    if(character == CHARACTER.BOY) {
-        code(0x7a, 0x50, 0x29, 0x02, attribute, 0x9a, 0x84, 0x0000 + value, "// (7a) WRITE *(boy + 0x20) = 15");
-    } else if(character == CHARACTER.DOG) {
-        code(0x7a, 0x51, 0x29, 0x02, attribute, 0x9a, 0x84, 0x0000 + value, "// (7a) WRITE *(dog + 30) = 0x1068");
-    } else if(character == CHARACTER.LAST_ENTITY) {
-        code(0x7a, 0x2d, 0x29, 0x02, attribute, 0x9a, 0x84, 0x0000 + value, "// (7a) WRITE *(last entity ($0341) + 0x2a) = 0x03e8");
-    } else {
-        code(0x7a, 0x0d, character - 0x2834, 0x29, 0x02, attribute, 0x9a, 0x84, 0x0000 + value, "// (7a) WRITE *($23e5 + 15) = 0x70");
-    }
-
-    // TODO: code(0x7a, entity(character), 0x29, 0x02, attribute, 0x9a, param(value), "// (7a) WRITE *($23e5 + 15) = 0x70");
-}
-
 fun attribute_bit(character:CHARACTER, attribute:ATTRIBUTE_BITS) {
     code(0xa9, entity_t(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
 }
 fun _attribute_bit(character, attribute:ATTRIBUTE_BITS) {
     code(0xa9, calculate(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
+}
+
+fun attribute(character:CHARACTER, attribute:ATTRIBUTE_BITS, on) {
+    if(attribute == ATTRIBUTE_BITS.INVINCIBLE) {
+        if(on) {
+            attribute_bit(character, INVINCIBLE);
+        } else {
+            attribute_bit(character, VINCIBLE);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.INVINCIBLE_TEMP) {
+        if(on) {
+            attribute_bit(character, INVINCIBLE_TEMP);
+        } else {
+            attribute_bit(character, VINCIBLE_TEMP);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.ROOT) {
+        if(on) {
+            attribute_bit(character, ROOT);
+        } else {
+            attribute_bit(character, UNROOT);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.UNKNOWN_1_2) {
+        if(on) {
+            attribute_bit(character, UNKNOWN_1_2);
+        } else {
+            attribute_bit(character, UNKNOWN_1_1);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.NO_CLIP) {
+        if(on) {
+            attribute_bit(character, NO_CLIP);
+        } else {
+            attribute_bit(character, CLIP);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.UNKNOWN_2_1) {
+        if(on) {
+            attribute_bit(character, UNKNOWN_2_1);
+        } else {
+            attribute_bit(character, UNKNOWN_2_2);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.INVISIBLE) {
+        if(on) {
+            attribute_bit(character, INVISIBLE);
+        } else {
+            attribute_bit(character, VISIBLE);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.MUTE) {
+        if(on) {
+            attribute_bit(character, MUTE);
+        } else {
+            attribute_bit(character, UNMUTE);
+        }
+    } else if(attribute == ATTRIBUTE_BITS.AI_RUN) {
+        if(on) {
+            attribute_bit(character, AI_RUN);
+        } else {
+            attribute_bit(character, AI_WALK);
+        }
+    }
 }
 
 fun special_script(script:SPECIAL_SCRIPTS, id) {
@@ -2689,10 +2717,10 @@ fun pit_act2_between(height) {
 
         // animate(BOY, LOOP, ANIMATION_ALL.INVISIBLE);
         // animate(DOG, LOOP, ANIMATION_ALL.INVISIBLE);
-        attribute_bit(BOY, INVISIBLE);
-        attribute_bit(DOG, INVISIBLE);
-        attribute_bit(BOY, LOCK_IN_PLACE);
-        attribute_bit(DOG, LOCK_IN_PLACE);
+        attribute(BOY, INVISIBLE, True);
+        attribute(DOG, INVISIBLE, True);
+        attribute(BOY, ROOT, True);
+        attribute(DOG, ROOT, True);
         yield();
 
         set(<0x22ed, 0x80>);
@@ -3063,7 +3091,7 @@ fun mario_yump() {
     arg[0x00] = <BOY>[X];
     arg[0x02] = <BOY>[Y];
     <BOY>[JUMP_HEIGHT] = 0x20;
-    attribute_bit(BOY, NO_CLIP);
+    attribute(BOY, NO_CLIP, True);
     set(FLAG.IN_ANIMATION);
 
     sleep(0x35);
@@ -3102,7 +3130,7 @@ fun mario_yump() {
     }
 
     // animate(BOY, LOOP, ANIMATION_ALL.DEFAULT);
-    attribute_bit(BOY, CLIP);
+    attribute(BOY, NO_CLIP, False);
     control(BOTH);
     // walk_relative(BOY, COORDINATE_RELATIVE, 0x00, 0x00, False);
     // debug_memory(<0x2834>, <BOY>[X]);
