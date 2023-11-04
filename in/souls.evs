@@ -412,6 +412,16 @@ fun hotkey_start_r() {
     }
 }
 
+// NPCs
+
+enum NPC_MARIO {
+    PROGRESS = memory(),
+}
+
+enum NPC_ISAAC {
+    PROGRESS = memory(),
+}
+
 // MAPS
 
 fun init_hack() {
@@ -1749,10 +1759,10 @@ area altus_plateau_entry() {
             // walk_relative(BOY, TILE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], False);
             // walk_relative(BOY, TILE_ABSOLUTE_DIRECT, <0x2834>, <0x2836>, False);
             control(NONE);
-            _walk(DOG, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x30, <SCRIPT_OWNER>[Y], NONE);
-            _walk(BOY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x30, <SCRIPT_OWNER>[Y], BOTH);
-            _walk(DOG, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x00, <SCRIPT_OWNER>[Y] - 0x02, NONE);
-            _walk(BOY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x00, <SCRIPT_OWNER>[Y] - 0x02, BOTH);
+            _walk(DOG, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x30, <SCRIPT_OWNER>[Y] - 0x05, NONE);
+            _walk(BOY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x30, <SCRIPT_OWNER>[Y] - 0x05, BOTH);
+            _walk(DOG, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] - 0x20, <SCRIPT_OWNER>[Y] - 0x05, NONE);
+            _walk(BOY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] - 0x10, <SCRIPT_OWNER>[Y] - 0x05, BOTH);
             
             face(BOY, EAST);
             face(DOG, EAST);
@@ -1931,6 +1941,8 @@ area altus_plateau_entry() {
 
                 enum ROOM {
                     STAIRS_WEST_REVEALED = flag(),
+
+                    BLACK_SQUARE_PALETTE = 0x0000, // PALETTE.DOG_TOASTER,
                 }
 
                 @install()
@@ -2011,7 +2023,7 @@ area altus_plateau_entry() {
                         // parity_check_character(<BOY>, DOG);
                         if((((<BOY>[X]) / 0x50) & 0x01) ^ (((<BOY>[Y] - 0x1e) / 0x32) & 0x01)) {
                             // attribute(BOY, INVISIBLE, False);
-                            <BOY>[PALETTE] = 0x0000;
+                            <BOY>[PALETTE] = ROOM.BLACK_SQUARE_PALETTE;
                             <BOY>[GENERAL_PURPOSE] = 0x01;
                             nop();
                         } else {
@@ -2026,7 +2038,7 @@ area altus_plateau_entry() {
                         if((((<DOG>[X]) / 0x50) & 0x01) ^ (((<DOG>[Y] - 0x1e) / 0x32) & 0x01)) {
                             // attribute(DOG, INVISIBLE, False);
                             <DOG>[GENERAL_PURPOSE] = 0x01;
-                            <DOG>[PALETTE] = 0x0000;
+                            <DOG>[PALETTE] = ROOM.BLACK_SQUARE_PALETTE;
                             nop();
                         } else {
                             // attribute(DOG, INVISIBLE, True);
@@ -2039,7 +2051,7 @@ area altus_plateau_entry() {
                         // parity_check_character(BOSS.ID);
                         if((((BOSS.ID[X]) / 0x50) & 0x01) ^ (((BOSS.ID[Y] - 0x1e) / 0x32) & 0x01)) {
                             // attribute(BOSS.ID, INVISIBLE, False);
-                            BOSS.ID[PALETTE] = 0x0000;
+                            BOSS.ID[PALETTE] = ROOM.BLACK_SQUARE_PALETTE;
                             BOSS.ID[GENERAL_PURPOSE] = 0x01;
                             nop();
 
@@ -3038,7 +3050,7 @@ area east_inbetwixx() {
                 map_transition(east_inbetwixx, west_3, WEST);
             },
             exit_cave = @install() fun test() {
-                subtext(string("step-on? 25 [END]"));
+                map_transition(jaguar_cave, south, NORTH);
             },
             exit_south_1 = @install() fun test() {
                 map_transition(east_crossing, crash, SOUTH);
@@ -3304,6 +3316,25 @@ area east_inbetwixx() {
 
             init_room();
 
+        }
+    };
+
+    map jaguar_cave(0x64) {
+        enum entrance {
+            south = entrance(0x15, 0x23, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_south = @install() fun test() {
+                map_transition(east_inbetwixx, cave, SOUTH);
+            },
+            exit_teleporter = @install() fun test() {
+                subtext(string("exit? 1 [END]"));
+            },
+        }
+
+        fun trigger_enter() {
+            fade_in();
         }
     };
 
@@ -6477,7 +6508,6 @@ area east_inbetwixx() {
                     mario_init(False, False);
                 }
             };
-
         };
     };
 };
@@ -8480,7 +8510,7 @@ map bog_curve(0x20) {
     }
     
     fun spawn_young_naris() {
-        add_enemy(NARIS_YOUNG, 0x14, 0x14);
+        add_enemy(VILLAGER_3_2, 0x14, 0x14);
         BOSS.MOUNT_ID = <LAST_ENTITY>;
         attach_script(LAST_ENTITY, TALK, reference(naris_opening));
         <LAST_ENTITY>[HP] = BOSS.BOSS_HP;
