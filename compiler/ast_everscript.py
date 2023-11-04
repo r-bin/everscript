@@ -752,7 +752,7 @@ class If(Function_Base, Calculatable, Memorable):
         condition = condition.calculate(params)
 
         inverted = self.inverted
-        if isinstance(self.condition, UnaryOp):
+        if isinstance(self.condition, UnaryOp) and not isinstance(self.condition, Invert):
             inverted = not inverted
 
         if inverted:
@@ -972,23 +972,8 @@ class BinaryAnd(BinaryOp, BinaryDefaultCalculator):
     
     def _calculate(self, left:any, right:any, params:list[Param]):
         operator = Operand("&")
-        code = []
 
-        match left: # TODO: replace with "(byte)"
-            case left if isinstance(left, Memory):
-                right = self.resolve(self.right, params)
-                right = right.eval(params)
-
-                if right == 0xff:
-                    left._value_count = 1
-                else:
-                    raise Exception(f"right parameter '${right}' not supported")
-
-                return left
-            case _:
-                return self._default_calculate(operator, left, right, params)
-
-        return code
+        return self._default_calculate(operator, left, right, params)
     
 class BinaryOr(BinaryOp, BinaryDefaultCalculator):
     def operator(self):
@@ -1526,6 +1511,14 @@ class RandRange(UnaryOp):
         code = []
 
         code = value + [Operand("randrange")]
+
+        return code
+    
+class Invert(UnaryOp):
+    def _calculate(self, value:any, params:list[Param]):
+        code = []
+
+        code = value + [Operand("!")]
 
         return code
     

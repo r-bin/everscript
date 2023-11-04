@@ -228,7 +228,7 @@ fun boy_death() {
     SOULS_MEMORY.DUST_DROP_X = <SCRIPT_OWNER>[X];
     SOULS_MEMORY.DUST_DROP_Y = <SCRIPT_OWNER>[Y];
     // <0x2503> = MEMORY.MAP;
-    SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP & 0xff;
+    SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP;
     SOULS_MEMORY.DUST_DROP_VARIANT = SOULS_MEMORY.MAP_VARIANT;
 
     // sleep(0x20);
@@ -280,7 +280,7 @@ fun bonfire_lit() {
 
     SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
     SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
-    SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP & 0xff;
+    SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP;
     SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
 }
 
@@ -289,7 +289,7 @@ fun bonfire(x, y) {
     // attach_script(LAST_ENTITY, TALK, 0x181e);
     // entity_script_controlled(LAST_ENTITY);
 
-    if((SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) && (SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
+    if((SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) && (SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
         add_enemy_with_flags(LANTERN_LIGHT_RED, x, y, INACTIVE);
         attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_triggered));
     } else {
@@ -310,7 +310,7 @@ fun init_souls() {
         MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
     }
 
-    if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP&0xff) && (SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
+    if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
         add_dynamic_enemy_with_flags(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y, 0x00);
         SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
         attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
@@ -320,7 +320,7 @@ fun init_souls() {
     }
 
     if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
-        // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP&0xff) {
+        // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) {
         //     if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
         //         if(SOULS_MEMORY.BONFIRE_X != 0x00) {
         //             if(SOULS_MEMORY.BONFIRE_Y != 0x00) { // TODO
@@ -733,8 +733,10 @@ area inbetwixx_center() {
                 // unlock(SPEAR_1);
                 unlock(AXE_2);
 
-                MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX2.REVEALER;
-                MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX2.LEVITATE;
+                set(FLAG.REVEALER);
+                MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.REVEALER;
+                set(FLAG.LEVITATE);
+                MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX.LEVITATE;
 
                 set(SOULS_MEMORY.BOMB_ENABLED);
             } else if(MEMORY.QUESTION_ANSWER == 0x01) { // all
@@ -849,7 +851,11 @@ area inbetwixx_center() {
                 if!(SOULS_MEMORY.INTRO_WATCHED) {
                     set(SOULS_MEMORY.INTRO_WATCHED);
 
-                    intro();
+                    if!(FLAG.DEBUG) {
+                        intro();
+                    } else {
+                        destroy(DOG);
+                    }
 
                     subtext(string("v0.3.0 - debug - by r.bin[END]"));
                 }
@@ -1217,11 +1223,11 @@ area west_inbetwixx() {
 
         @install()
         fun branch_triggered() {
-            if(MEMORY.SPOON & 0xff > 0x00) {
+            if(MEMORY.SPOON > 0x00) {
                 question(string("[0x96]Use Spoon[LF][0x8b]Yes[LF][0x8b]No[END]"));
 
                 if(MEMORY.QUESTION_ANSWER == 0x00) {
-                    MEMORY.SPOON & 0xff -= 0x01;
+                    MEMORY.SPOON -= 0x01;
                     set(ROOM.BRANCH_USED);
 
                     <SCRIPT_OWNER>[PALETTE] = 0x0800;
@@ -2077,7 +2083,7 @@ area altus_plateau_entry() {
                 }
 
                 fun trigger_enter() {
-                    object[0x00] = 0x7e; // close stairs_west
+                    // object[0x00] = 0x7e; // close stairs_west
                     // object[0x01] = 0x7e; // close stairs_east
                     // object[0x02] = 0x01; // close wall_2
                     // object[0x03] = 0x01; // close wall_1
@@ -2496,7 +2502,22 @@ area altus_plateau_entry() {
                     }
                 }
 
+                @install()
+                fun scepter_triggered() {
+                    set(FLAG.REVEALER);
+                    subtext(string("Revealer learned.[END]"));
+                    sleep(0x20);
+                    select_alchemy_with_preselection(REVEALER);
+
+                    destroy(SCRIPT_OWNER);
+                }                
+
                 fun trigger_enter() {
+                    if!(FLAG.REVEALER) {
+                        add_placeholder(SCEPTER, 0x27, 0x15);
+                        attach_script(LAST_ENTITY, TALK, reference(scepter_triggered));
+                    }
+
                     fade_in();
 
                     add_enemy(PLACEHOLDER, 0x31, 0x21);
@@ -3243,11 +3264,11 @@ area east_inbetwixx() {
 
         @install()
         fun branch_triggered() {
-            if(MEMORY.SPOON & 0xff > 0x00) {
+            if(MEMORY.SPOON > 0x00) {
                 question(string("[0x96]Use Spoon[LF][0x8b]Yes[LF][0x8b]No[END]"));
 
                 if(MEMORY.QUESTION_ANSWER == 0x00) {
-                    MEMORY.SPOON & 0xff -= 0x01;
+                    MEMORY.SPOON -= 0x01;
                     set(ROOM.BRANCH_USED);
 
                     <SCRIPT_OWNER>[PALETTE] = 0x0800;
