@@ -716,7 +716,7 @@ class Operand():
         "read signed word arg": 0x12, # signed word script arg
         "read word arg": 0x13, # unsigned word script arg
 
-        # _: 0x14, # boolean invert
+        "!": 0x14, # boolean invert
         # _: 0x15, # bitwise invert
         # _: 0x16, # flip sign
         

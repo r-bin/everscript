@@ -12,7 +12,7 @@ class Parser():
                 'VAL', 'VAR', 'BYTE', 'WORD',
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
-                'AND', 'OR',
+                '!', 'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'TRUE', 'FALSE',
@@ -378,7 +378,7 @@ class Parser():
         @self.pg.production('else : ELSE { expression_list }')
         def parse(p):
             return If(None, p[2], False)
-
+        
         @self.pg.production('expression : NAME_IDENTIFIER ( param_list )')
         @self.pg.production('expression : NAME_IDENTIFIER ( )')
         def parse(p):
@@ -441,16 +441,6 @@ class Parser():
             else:
                 return Param(None, param)
 
-        @self.pg.production('expression : ! expression')
-        def parse(p):
-            expression = p[1]
-            
-            expression.inverted = True
-
-            TODO("invert was temporarily replaced with if!()")
-
-            return expression
-
         @self.pg.production('expression : memory')
         def parse(p):
             return p[0]
@@ -502,6 +492,10 @@ class Parser():
             address = address.value
 
             return Memory(address)
+
+        @self.pg.production('expression : ! expression')
+        def parse(p):
+            return Invert(p[1])
 
         @self.pg.production('expression : param AND param')
         @self.pg.production('expression : param OR param')
