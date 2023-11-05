@@ -356,7 +356,7 @@ fun hotkey_start() {
         subtext(string("Start[END]"));
     }
 
-    if(False) {
+    if(True) {
         mario_yump();
         end();
     }
@@ -416,6 +416,66 @@ fun hotkey_start_r() {
 
 enum NPC_MARIO {
     PROGRESS = memory(),
+    SUB_PROGRESS = memory(),
+
+    ID = memory(),
+    BODY = ENEMY.VILLAGER_2_1,
+}
+
+@install()
+fun npc_mario_dialog_0() {
+    if(NPC_MARIO.PROGRESS == 0x00) {
+        if(NPC_MARIO.SUB_PROGRESS == 0x00) {
+            NPC_MARIO.SUB_PROGRESS += 0x01;
+
+            add_enemy_with_flags(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+            face(LAST_ENTITY, WEST);
+            init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
+
+            subtext(string("is there somebody?[END]"));
+        } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
+            NPC_MARIO.SUB_PROGRESS += 0x01;
+
+            dialog(string("[0x96]test1[B][END]"));
+        } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
+            NPC_MARIO.PROGRESS += 0x01;
+            NPC_MARIO.SUB_PROGRESS = 0x00;
+
+            dialog(string("[0x96]test2[B][END]"));
+        }
+    } else {
+        dialog(string("[0x96]Please go now[B][END]"));
+    }
+}
+
+@install()
+fun npc_mario_dialog_1() {
+    control_enemy(NPC_MARIO.ID, True);
+    face_each(BOY, NPC_MARIO.ID);
+
+    if(NPC_MARIO.PROGRESS == 0x01) {
+        // NPC_MARIO.PROGRESS += 0x01;
+        // NPC_MARIO.SUB_PROGRESS = 0x00;
+
+        if(NPC_MARIO.SUB_PROGRESS == 0x00) {
+            NPC_MARIO.SUB_PROGRESS += 0x01;
+
+            dialog(string("[0x96]test1[B][END]"));
+        } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
+            NPC_MARIO.SUB_PROGRESS += 0x01;
+
+            dialog(string("[0x96]test2[B][END]"));
+        } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
+            NPC_MARIO.PROGRESS += 0x01;
+            NPC_MARIO.SUB_PROGRESS += 0x00;
+
+            dialog(string("[0x96]test3[B][END]"));
+        }
+    } else {
+        dialog(string("[0x96]Please go now[B][END]"));
+    }
+
+    control_enemy(NPC_MARIO.ID, False);
 }
 
 enum NPC_ISAAC {
@@ -1718,7 +1778,21 @@ area altus_plateau_entry() {
             },
         }
 
+        @install()
+        fun debug_triggered() {
+            set(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED);
+
+            destroy(SCRIPT_OWNER);
+        }
+
         fun trigger_enter() {
+            if(FLAG.DEBUG) {
+                if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+                    add_placeholder(DOVES_1, 0x06, 0x78);
+                    attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                }
+            }
+
             default_init_room(True, True);
         }
     };
@@ -2504,7 +2578,7 @@ area altus_plateau_entry() {
                 }
 
                 @install()
-                fun scepter_triggered() {
+                fun debug_triggered() {
                     set(FLAG.REVEALER);
                     subtext(string("Revealer learned.[END]"));
                     sleep(0x20);
@@ -2514,9 +2588,11 @@ area altus_plateau_entry() {
                 }                
 
                 fun trigger_enter() {
-                    if!(FLAG.REVEALER) {
-                        add_placeholder(SCEPTER, 0x27, 0x15);
-                        attach_script(LAST_ENTITY, TALK, reference(scepter_triggered));
+                    if(FLAG.DEBUG) {
+                        if!(FLAG.REVEALER) {
+                            add_placeholder(DOVES_1, 0x27, 0x15);
+                            attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                        }
                     }
 
                     fade_in();
@@ -3563,7 +3639,21 @@ area east_inbetwixx() {
             default_init_room(True, True);
         }
 
+        @install()
+        fun debug_triggered() {
+            stone_triggered();
+
+            destroy(SCRIPT_OWNER);
+        }
+
         fun trigger_enter() {
+            if(FLAG.DEBUG) {
+                if!(ROOM.STONE_TRIGGERED) {
+                    add_placeholder(DOVES_1, 0x24, 0x06);
+                    attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                }
+            }
+
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
@@ -4344,7 +4434,7 @@ area east_inbetwixx() {
         }
     };
 
-    area pipes() {
+    area pipe_maze() {
         enum PIPE_MAZE {
             MARIO_BOSS_ROOM_OPEND = flag(),
             HIDDEN_ROOM_OPEND = flag(),
@@ -4361,6 +4451,15 @@ area east_inbetwixx() {
                 pipe_west = entrance(0x07, 0x17, NONE),
             }
 
+            enum ROOM {
+                DEBUG = False,
+
+                SECRET_PASSAGE_TRIGGER = memory_tmp(),
+                SECRET_PASSAGE_DISTANCE = 0x20,
+
+                GOURD = flag(),
+            }
+
             enum stepon_trigger {
                 switch_triggered = nop(),
                 exit_room_switch = nop(),
@@ -4375,12 +4474,16 @@ area east_inbetwixx() {
                 jump_room_switch = nop(),
                 jump_room_gate = nop(),
                 exit_south = @install() fun test() {
-                    map_transition(hidden_room, room_nss_north, SOUTH);
+                    map_transition(pipe_caves_1, north, SOUTH);
                 },
                 jump_empty_room = nop(),
 
                 exit_gate = nop(),
                 approach_gate = nop(),
+            }
+
+            fun gourd_looted() {
+                bonfire(0x0e, 0x1f);
             }
 
             enum b_trigger {
@@ -4412,7 +4515,9 @@ area east_inbetwixx() {
                     subtext(string("b? 8 [END]"));
                 },
                 b_trigger_9 = @install() fun test() {
-                    subtext(string("b? 9 [END]"));
+                    set(ROOM.GOURD);
+                    object[0x07] = 0x02; // loot gourd_entrance
+                    gourd_looted();
                 },
 
                 b_trigger_10 = @install() fun test() {
@@ -4427,13 +4532,6 @@ area east_inbetwixx() {
                 b_trigger_13 = @install() fun test() {
                     subtext(string("b? 13 [END]"));
                 },
-            }
-
-            enum ROOM {
-                DEBUG = False,
-
-                SECRET_PASSAGE_TRIGGER = memory_tmp(),
-                SECRET_PASSAGE_DISTANCE = 0x20,
             }
 
             @install()
@@ -4473,16 +4571,34 @@ area east_inbetwixx() {
             @install()
             fun test_triggered() {
                 if(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
-                    map_transition(sewers, pipe, EAST);
+                    map_transition(pipe_caves_side, pipe, EAST);
                 } else {
                     subtext(string("Locked by some contraption.[END]"));
                 }
             }
             
-            fun trigger_enter() {
-                // object[0x07] = 0x02; // loot gourd_entrance
+            @install()
+            fun debug_triggered() {
+                set(PIPE_MAZE.HIDDEN_ROOM_OPEND);
 
-                bonfire(0x1e, 0x22);
+                destroy(SCRIPT_OWNER);
+            }
+
+            fun trigger_enter() {
+                if(FLAG.DEBUG) {
+                    if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
+                        add_placeholder(DOVES_1, 0x2F, 0x1b);
+                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                    }
+                }
+
+                if(ROOM.GOURD) {
+                    object[0x07] = 0x02; // loot gourd_entrance
+                    gourd_looted();
+                } else {
+                    object[0x07] = 0x01; // loot gourd_entrance
+                }
+                // bonfire(0x1e, 0x22);
 
                 default_init_room(True, False);
 
@@ -4538,7 +4654,9 @@ area east_inbetwixx() {
                     map_transition(mario_dungeon_boss, south, NORTH);
                 },
                 approach_gate = @install() fun test() {
-                    subtext(string("Locked by a mechanism.[END]"));
+                    if!(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND) {
+                        subtext(string("Locked by a mechanism.[END]"));
+                    }
                 },
             }
 
@@ -4588,9 +4706,28 @@ area east_inbetwixx() {
                 },
             }
 
+            fun open_gate() {
+                object[0x06] = 0x7e; // open gate
+            }
+
+            @install()
+            fun debug_triggered() {
+                set(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND);
+                open_gate();
+
+                destroy(SCRIPT_OWNER);
+            }
+
             fun trigger_enter() {
                 if(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND) {
-                    object[0x06] = 0x7e; // open gate
+                    open_gate();
+                }
+
+                if(FLAG.DEBUG) {
+                    if!(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND) {
+                        add_placeholder(DOVES_1, 0x9c, 0x17);
+                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                    }
                 }
 
                 default_init_room(True, False);
@@ -4601,110 +4738,47 @@ area east_inbetwixx() {
             }
         };
 
-        map hidden_room(0x3c) {
+        map pipe_caves_1(0x3c) { // variant: room_nss
             enum entrance {
-                main_north = entrance(0xd3, 0x3d, SOUTH),
-                main_east = entrance(0xf7, 0x5b, WEST),
-                main_south = entrance(0xd5, 0x95, NORTH),
-                main_west = entrance(0xbb, 0x5d, EAST),
-
-                cave_outside = entrance(0x54, 0xb1, NORTH),
-
-                room_nw_north = entrance(0x20, 0x85, SOUTH),
-                room_nw_west = entrance(0x01, 0xa3, EAST),
-
-                room_es_east = entrance(0x67, 0x1c, WEST),
-                room_es_south = entrance(0x4c, 0x39, NORTH),
-
-                room_nss_north = entrance(0x9e, 0x05, SOUTH),
-                room_nss_south_1 = entrance(0x9e, 0x37, NORTH),
-                room_nss_south_2 = entrance(0x84, 0x37, NORTH),
-
-                room_s_south = entrance(0x9e, 0x7b, NORTH),
-
-                room_alchemist = entrance(0xd0, 0x05, SOUTH),
-
-                room_ns_north = entrance(0x1c, 0x3d, SOUTH),
-                room_ns_south = entrance(0x22, 0x7b, NORTH),
-
-                room_nne_north_1 = entrance(0x4c, 0x36, SOUTH),
-                room_nne_north_2 = entrance(0x60, 0x39, SOUTH),
-                room_nne_east = entrance(0x7f, 0x60, WEST),
-
-                room_sw_south = entrance(0x1c, 0x3b, NORTH),
-                room_sw_west = entrance(0x01, 0x24, EAST),
+                north = entrance(0x9e, 0x05, DIRECTION.SOUTH),
+                south_1 = entrance(0x9e, 0x37, DIRECTION.NORTH),
+                south_2 = entrance(0x84, 0x37, DIRECTION.NORTH),
             }
 
             enum stepon_trigger {
-                stepon_0 = @install() fun test() {
-                    subtext(string("step-on? 0 [END]"));
-                },
-                stepon_1 = @install() fun test() {
-                    subtext(string("step-on? 1 [END]"));
-                },
-                stepon_2 = @install() fun test() {
-                    subtext(string("step-on? 2 [END]"));
-                },
-                stepon_3 = @install() fun test() {
-                    subtext(string("step-on? 3 [END]"));
-                },
-                stepon_4 = @install() fun test() {
-                    subtext(string("step-on? 4 [END]"));
-                },
-                stepon_5 = @install() fun test() {
-                    subtext(string("step-on? 5 [END]"));
-                },
-                stepon_6 = @install() fun test() {
-                    subtext(string("step-on? 6 [END]"));
-                },
-                stepon_7 = @install() fun test() {
-                    subtext(string("step-on? 7 [END]"));
-                },
-                stepon_8 = @install() fun test() {
-                    subtext(string("step-on? 8 [END]"));
-                },
-                stepon_9 = @install() fun test() {
-                    subtext(string("step-on? 9 [END]"));
-                },
+                exit_room_nw_north = nop(),
+                exit_room_nw_west = nop(),
+                exit_south = nop(),
+                exit_room_s_south = nop(),
+                exit_room_nne_east = nop(),
+                exit_room_ns_south = nop(),
+                exit_room_sw_west = nop(),
+                exit_room_ns_north = nop(),
+                exit_room_sw_south = nop(),
+                exit_room_nne_north_1 = nop(),
 
-                stepon_10 = @install() fun test() {
-                    subtext(string("step-on? 10 [END]"));
-                },
-                stepon_11 = @install() fun test() {
-                    subtext(string("step-on? 11 [END]"));
-                },
-                stepon_12 = @install() fun test() {
-                    subtext(string("step-on? 12 [END]"));
-                },
-                exit_room_nss_south_2 = @install() fun test() {
+                exit_room_es_south = nop(),
+                exit_room_es_east = nop(),
+                exit_room_nne_north_2 = nop(),
+                exit_south_2 = @install() fun test() {
                     if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
                         subtext(string("Does not open from this side.[END]"));
                     } else {
                         map_transition(mosquito_arena, north, SOUTH);
                     }
                 },
-                exit_room_nss_south_1 = @install() fun test() {
-                    map_transition(hidden_room, room_alchemist, SOUTH);
+                exit_south_1 = @install() fun test() {
+                    map_transition(pipe_caves_2, north, SOUTH);
                 },
-                exit_room_nss_north = @install() fun test() {
+                exit_north = @install() fun test() {
                     map_transition(pipe_entrance, south, NORTH);
                 },
-                stepon_16 = @install() fun test() {
-                    map_transition(hidden_room, room_nss_south_1, NORTH);
-                },
-                stepon_17 = @install() fun test() {
-                    subtext(string("step-on? 17 [END]"));
-                },
-                stepon_18 = @install() fun test() {
-                    subtext(string("step-on? 18 [END]"));
-                },
-                stepon_19 = @install() fun test() {
-                    subtext(string("step-on? 19 [END]"));
-                },
+                exit_room_alchemist_north = nop(),
+                exit_main_east = nop(),
+                exit_main_west = nop(),
+                exit_main_north = nop(),
 
-                stepon_20 = @install() fun test() {
-                    subtext(string("step-on? 20 [END]"));
-                },
+                exit_main_south = nop(),
             }
             
             enum b_trigger {
@@ -4786,19 +4860,212 @@ area east_inbetwixx() {
                     subtext(string("b? 24 [END]"));
                 },
             }
-            
+
+            fun init_room(index) {
+                if(index == 0x01) {
+                    init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                } else if(index == 0x02) {
+                    init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                } else if(index == 0x03) {
+                    init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                } else if(index == 0x04) {
+                    init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
+                } else if(index == 0x05) {
+                    init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                } else if(index == 0x06) {
+                    init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                } else if(index == 0x07) {
+                    init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                } else if(index == 0x08) {
+                    init_map(0xb4, 0x3c, 0xf8, 0x96); // room_entrance
+                } else if(index == 0x09) {
+                    init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                } else if(index == 0x0a) {
+                    init_map(0x3f, 0x89, 0x6c, 0xb2); // room_s
+                } else if(index == 0x0b) {
+                    init_map(0xba, 0x3c, 0xf8, 0x96); // room_shop
+                }
+            }
+
             fun trigger_enter() {
+                init_room(0x03);
+
                 default_init_room(False, False);
 
                 if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
+            }
+        };
+        map pipe_caves_2(0x3c) { // variant: room_alchemist
+            enum entrance {
+                north = entrance(0xd0, 0x05, DIRECTION.SOUTH),
+            }
 
-                add_enemy(STONE_ROUND, 0xdd, 0x27);
+            enum stepon_trigger {
+                exit_room_nw_north = nop(),
+                exit_room_nw_west = nop(),
+                exit_south = nop(),
+                exit_room_s_south = nop(),
+                exit_room_nne_east = nop(),
+                exit_room_ns_south = nop(),
+                exit_room_sw_west = nop(),
+                exit_room_ns_north = nop(),
+                exit_room_sw_south = nop(),
+                exit_room_nne_north_1 = nop(),
+
+                exit_room_es_south = nop(),
+                exit_room_es_east = nop(),
+                exit_room_nne_north_2 = nop(),
+                exit_room_nss_south_2 = nop(),
+                exit_room_nss_south_1 = nop(),
+                exit_room_nss_north = nop(),
+                exit_north = @install() fun test() {
+                    map_transition(pipe_caves_1, south_1, NORTH);
+                },
+                exit_main_east = nop(),
+                exit_main_west = nop(),
+                exit_main_north = nop(),
+
+                exit_main_south = nop(),
+            }
+            
+            enum b_trigger {
+                b_trigger_0 = @install() fun test() {
+                    subtext(string("b? 0 [END]"));
+                },
+                b_trigger_1 = @install() fun test() {
+                    subtext(string("b? 1 [END]"));
+                },
+                b_trigger_2 = @install() fun test() {
+                    subtext(string("b? 2 [END]"));
+                },
+                b_trigger_3 = @install() fun test() {
+                    subtext(string("b? 3 [END]"));
+                },
+                b_trigger_4 = @install() fun test() {
+                    subtext(string("b? 4 [END]"));
+                },
+                b_trigger_5 = @install() fun test() {
+                    subtext(string("b? 5 [END]"));
+                },
+                b_trigger_6 = @install() fun test() {
+                    subtext(string("b? 6 [END]"));
+                },
+                b_trigger_7 = @install() fun test() {
+                    subtext(string("b? 7 [END]"));
+                },
+                b_trigger_8 = @install() fun test() {
+                    subtext(string("b? 8 [END]"));
+                },
+                b_trigger_9 = @install() fun test() {
+                    subtext(string("b? 9 [END]"));
+                },
+
+                b_trigger_10 = @install() fun test() {
+                    subtext(string("b? 10 [END]"));
+                },
+                b_trigger_11 = @install() fun test() {
+                    subtext(string("b? 11 [END]"));
+                },
+                b_trigger_12 = @install() fun test() {
+                    subtext(string("b? 12 [END]"));
+                },
+                b_trigger_13 = @install() fun test() {
+                    subtext(string("b? 13 [END]"));
+                },
+                b_trigger_14 = @install() fun test() {
+                    subtext(string("b? 14 [END]"));
+                },
+                b_trigger_15 = @install() fun test() {
+                    subtext(string("b? 15 [END]"));
+                },
+                b_trigger_16 = @install() fun test() {
+                    subtext(string("b? 16 [END]"));
+                },
+                b_trigger_17 = @install() fun test() {
+                    subtext(string("b? 17 [END]"));
+                },
+                b_trigger_18 = @install() fun test() {
+                    subtext(string("b? 18 [END]"));
+                },
+                b_trigger_19 = @install() fun test() {
+                    subtext(string("b? 19 [END]"));
+                },
+
+                b_trigger_20 = @install() fun test() {
+                    subtext(string("b? 20 [END]"));
+                },
+                b_trigger_21 = @install() fun test() {
+                    subtext(string("b? 21 [END]"));
+                },
+                b_trigger_22 = @install() fun test() {
+                    subtext(string("b? 22 [END]"));
+                },
+                b_trigger_23 = @install() fun test() {
+                    subtext(string("b? 23 [END]"));
+                },
+                b_trigger_24 = @install() fun test() {
+                    subtext(string("b? 24 [END]"));
+                },
+            }
+
+            fun init_room(index) {
+                if(index == 0x01) {
+                    init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                } else if(index == 0x02) {
+                    init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                } else if(index == 0x03) {
+                    init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                } else if(index == 0x04) {
+                    init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
+                } else if(index == 0x05) {
+                    init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                } else if(index == 0x06) {
+                    init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                } else if(index == 0x07) {
+                    init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                } else if(index == 0x08) {
+                    init_map(0xb4, 0x3c, 0xf8, 0x96); // room_entrance
+                } else if(index == 0x09) {
+                    init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                } else if(index == 0x0a) {
+                    init_map(0x3f, 0x89, 0x6c, 0xb2); // room_s
+                } else if(index == 0x0b) {
+                    init_map(0xba, 0x3c, 0xf8, 0x96); // room_shop
+                }
+            }
+
+            fun trigger_enter() {
+                if(NPC_MARIO.PROGRESS == 0x00) {
+                    add_enemy(STONE_ROUND, 0xde, 0x27);
+                    attach_script(LAST_ENTITY, TALK, reference(npc_mario_dialog_0));
+
+                    if(NPC_MARIO.SUB_PROGRESS > 0x00) {
+                        add_enemy_with_flags(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+                        face(LAST_ENTITY, WEST);
+
+                        init_room(0x04);
+                    } else {
+                        init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
+                    }
+
+                } else {
+                    add_enemy(STONE_ROUND, 0xde, 0x27);
+                    // add_enemy(STONE_ROUND, 0xdc, 0x26);
+
+                    init_room(0x04);
+                }
+                
+                default_init_room(False, False);
+
+                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                }
             }
         };
 
-        map sewers(0x7a) {
+        map pipe_caves_side(0x7a) {
             enum entrance {
                 west = entrance(0x05, 0x0b, EAST),
                 pipe = entrance(0x05, 0x15, NONE),
@@ -4811,12 +5078,12 @@ area east_inbetwixx() {
                     pit_act3_sewers();
                 },
                 exit_west = @install() fun test() {
-                    map_transition(hidden_room, room_nss_south_2, WEST);
+                    map_transition(pipe_caves_1, south_2, WEST);
                 },
             }
 
             @install()
-            fun big_mushroom_triggered() {
+            fun debug_triggered() {
                 set(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED);
                 SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
 
@@ -4824,9 +5091,17 @@ area east_inbetwixx() {
             }
 
             fun trigger_enter() {
-                if!(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
-                    add_placeholder(SCEPTER, 0x0e, 0x20);
-                    attach_script(LAST_ENTITY, TALK, reference(big_mushroom_triggered));
+                if(FLAG.DEBUG) {
+                    if!(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                        add_placeholder(DOVES_1, 0x0c, 0x0e);
+                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                    }
+                }
+
+                if(NPC_MARIO.PROGRESS == 0x01) {
+                    add_enemy(NPC_MARIO.BODY, 0x0e, 0x20);
+                    NPC_MARIO.ID = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, TALK, reference(npc_mario_dialog_1));
                 }
 
                 default_init_room(True, True);
@@ -13395,7 +13670,7 @@ area experimental_room() {
 
         enum stepon_trigger {
             exit_north = @install() fun test() {
-                map_transition(hidden_room, room_nss_south_2, NORTH);
+                map_transition(pipe_caves_1, south_2, NORTH);
             },
             exit_south = nop(),
             center = nop(),
