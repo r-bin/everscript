@@ -382,6 +382,7 @@ class RawString(Function_Base):
         lexer = LexerGenerator()
         lexer.add('END', '\[END\]')
         lexer.add('LF', '\[LF\]')
+        lexer.add('B', '\[B\]')
         lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
         lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
         lexer.add('CHAR', '.')
@@ -395,6 +396,8 @@ class RawString(Function_Base):
                     return c.value.encode('ASCII').hex()
                 case _ if c.name == "LF":
                     return "0a"
+                case _ if c.name == "B":
+                    return "86"
                 case _ if c.name == "END":
                     return "00"
                 case _ if c.name == "HEX":
