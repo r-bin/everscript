@@ -380,9 +380,11 @@ class RawString(Function_Base):
         code = re.sub("\"", "", self.eval())
 
         lexer = LexerGenerator()
-        lexer.add('END', '\[END\]')
+        lexer.add('SLOW', '\[SLOW\]')
         lexer.add('LF', '\[LF\]')
         lexer.add('B', '\[B\]')
+        lexer.add('END', '\[END\]')
+        lexer.add('CHOICE', '\[CHOICE\]')
         lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
         lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
         lexer.add('CHAR', '.')
@@ -394,12 +396,16 @@ class RawString(Function_Base):
             match c:
                 case _ if c.name == "CHAR":
                     return c.value.encode('ASCII').hex()
+                case _ if c.name == "SLOW":
+                    return "96"
                 case _ if c.name == "LF":
                     return "0a"
                 case _ if c.name == "B":
                     return "86"
                 case _ if c.name == "END":
                     return "00"
+                case _ if c.name == "CHOICE":
+                    return "0a 8b"
                 case _ if c.name == "HEX":
                     return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
                 case _ if c.name == "PAUSE":
