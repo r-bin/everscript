@@ -193,6 +193,7 @@ class MapDataHandler():
             # …
             self.MapData(0x0a, 0x9faaeb, 0x0b, 0x3a, "Antiqua - Nobilia, Market"),
             self.MapData(0x0b, 0xa6964a, 0x0a, 0x0c, "Antiqua - Nobilia, Palace grounds"),
+            self.MapData(0x0c, 0xad9f83, 0x04, 0x02, "Antiqua - Nobilia, Inn"),
             # …
             self.MapData(0x12, 0xa58000, 0x02, 0x0d, "Gothica - Ebon Keep sewers"),
             self.MapData(0x13, 0xacb18d, 0x04, 0x01, "Gothica - Between Ebon Keep sewers, Dark Forest and Swamp"),
