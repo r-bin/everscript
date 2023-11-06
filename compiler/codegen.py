@@ -577,6 +577,11 @@ allocated RAM:
 
     def _generate_function_key(self, function:Function):
         code = function.address
+        if not code:
+            function.install = True
+            self._late_generate(function, True)
+            code = function.address
+            pass
         code = [Address(code)]
         address = function.key.address
         count = sum([e.count([]) for e in code])
