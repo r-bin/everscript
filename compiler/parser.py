@@ -18,7 +18,7 @@ class Parser():
                 'TRUE', 'FALSE',
                 'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
-                'ELSEIF!', 'ELSEIF', 'IF!', 'IF', 'ELSE',
+                'ELSEIF!', 'ELSEIF', 'IF_CURRENCY', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA',
@@ -325,47 +325,50 @@ class Parser():
 
         @self.pg.production('if : IF')
         def parse(p):
-            return False
+            return [False, False]
         @self.pg.production('if : IF!')
         def parse(p):
-            return True
+            return [True, False]
+        @self.pg.production('if : IF_CURRENCY')
+        def parse(p):
+            return [False, True]
         @self.pg.production('elseif : ELSEIF')
         def parse(p):
-            return False
+            return [False, False]
         @self.pg.production('elseif : ELSEIF!')
         def parse(p):
-            return True
+            return [True, False]
         
         @self.pg.production('expression_entry : if ( expression ) { expression_list }')
         def parse(p):
-            inverted = p[0]
+            if_properties = p[0]
             condition = p[2]
             script = p[5]
 
-            return If_list([If(condition, script, inverted)])
+            return If_list([If(condition, script, if_properties)])
         @self.pg.production('expression_entry : if ( expression ) { expression_list } else_list')
         def parse(p):
-            inverted = p[0]
+            if_properties = p[0]
             condition = p[2]
             script = p[5]
             list = p[7]
 
-            return If_list([If(condition, script, inverted)] + list)
+            return If_list([If(condition, script, if_properties)] + list)
         @self.pg.production('else_list : elseif ( expression ) { expression_list }')
         def parse(p):
-            inverted = p[0]
+            if_properties = p[0]
             condition = p[2]
             script = p[5]
 
-            return [ If(condition, script, inverted) ]
+            return [ If(condition, script, if_properties) ]
         @self.pg.production('else_list : elseif ( expression ) { expression_list } else_list')
         def parse(p):
-            inverted = p[0]
+            if_properties = p[0]
             condition = p[2]
             script = p[5]
             list = p[7]
 
-            return [ If(condition, script, inverted) ] + list
+            return [ If(condition, script, if_properties) ] + list
         @self.pg.production('else_list : else')
         def parse(p):
             return [ p[0] ]
@@ -377,7 +380,7 @@ class Parser():
             return p[0] + p[1]
         @self.pg.production('else : ELSE { expression_list }')
         def parse(p):
-            return If(None, p[2], False)
+            return If(None, p[2], [False, False])
         
         @self.pg.production('expression : NAME_IDENTIFIER ( param_list )')
         @self.pg.production('expression : NAME_IDENTIFIER ( )')

@@ -694,10 +694,10 @@ class If_list(Function_Base, Memorable):
         return Function_Code(if_list, '\n').code(params)
 
 class If(Function_Base, Calculatable, Memorable):
-    def __init__(self, condition, script, inverted):
+    def __init__(self, condition, script, if_properties):
         self.condition = condition
         self.script = script
-        self.inverted = inverted
+        self.if_properties = if_properties
 
         self.distance = None
 
@@ -760,16 +760,41 @@ class If(Function_Base, Calculatable, Memorable):
         condition = self.resolve(self.condition, params)
         condition = condition.calculate(params)
 
-        inverted = self.inverted
+        inverted = self.if_properties[0]
         if isinstance(self.condition, UnaryOp) and not isinstance(self.condition, Invert):
             inverted = not inverted
 
-        if inverted:
-            opcode = Opcode("if!")
-        else:
-            opcode = Opcode("if")
+        currency_if = False
+        if self.condition and isinstance(self.condition, BinaryOp) and self.condition.left:
+            condition_left = self.resolve(self.condition.left, params)
+            if condition_left and isinstance(condition_left, Memory) and condition_left.address == 0x2348:
+                currency_if = True
 
-        code = [opcode] + self._terminate(condition) + [destination]
+        match [inverted, self.if_properties[1]]:
+            case [_, True]:
+                opcode = None
+                match self.condition:
+                    case GreaterEquals():
+                        opcode = Opcode("if_currency<") # TODO: inverted, should be Opcode("if_currency>=")
+                    case Lower():
+                        opcode = Opcode("if_currency>=") # TODO: inverted, should be Opcode("if_currency<")
+                    case _:
+                        TODO()
+
+                left = self.resolve(self.condition.left, params)
+                if not isinstance(left, Memory): # or left.address != 0x2348:
+                    TODO()
+                left = left.calculate(params)
+                right = self.resolve(self.condition.right, params)
+                right = right.calculate(params)
+                
+                code = [opcode] + self._terminate(left) + self._terminate(right) + [destination]
+            case [True, _]:
+                opcode = Opcode("if!")
+                code = [opcode] + self._terminate(condition) + [destination]
+            case [False, _]:
+                opcode = Opcode("if")
+                code = [opcode] + self._terminate(condition) + [destination]
 
         return code
     
@@ -1205,7 +1230,7 @@ class While(Function_Base):
 
         self.while_goto_end = Function_Goto()
 
-        self.while_if = If(condition, [], inverted)
+        self.while_if = If(condition, [], [inverted, False])
         self.memory = self.while_if.memory
 
         self.list = [self.while_if] + script + [self.while_goto_end]

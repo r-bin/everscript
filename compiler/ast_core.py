@@ -838,6 +838,8 @@ class Opcode():
 
         "if": 0x09,
         "if!": 0x08,
+        "if_currency>=": 0x8e,
+        "if_currency<": 0x8f,
 
         "obj": 0x5d,
 

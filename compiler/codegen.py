@@ -388,7 +388,7 @@ allocated RAM:
                     test = If(
                             Equals(Param(None, Memory(0x23b9)), Param(None, Word(map.variant))),
                             [function],
-                            False
+                            [False, False]
                         )
                     code_triggers.append(test)
                     
@@ -460,7 +460,7 @@ allocated RAM:
                     test = If(
                             Equals(Param(None, Memory(0x23b9)), Param(None, Word(map.variant))),
                             [Call(self, code)],
-                            False
+                            [False, False]
                         )
                     code_enter.append(test)
 

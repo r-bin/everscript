@@ -388,7 +388,7 @@ fun hotkey_start_l() {
         // return_to_bonfire();
         
         // map_transition(gladiator_arena, south, NONE);
-        map_transition(town_center, crash, NONE);
+        map_transition(town_arena_entry, south_2, NONE);
 
         // MEMORY.MAP_PALETTE -= 0x01;
     }
@@ -7939,7 +7939,7 @@ area town() {
                 // object[0x0d] = 0x02; // show statue, crater, statue_reparing
                 // object[0x0e] = 0x01; // show guard_statue
 
-                bonfire(0x2c, 0x3a);
+                bonfire(0x2c, 0x3a); // TODO: same map id as inbetwixx
 
                 default_init_room(False, False);
             }
@@ -8498,19 +8498,54 @@ area town() {
                     subtext(string("exit? 2 [END]"));
                 },
                 exit_south_1 = @install() fun test() {
-                    // subtext(string("exit? 3 [END]"));
+                    if(MEMORY.TICKET_FOR_EXHIBITION < 0x01) {
+                        dialog(string("[SLOW]Hey, you have to buy a ticket first![B][END]"));
+                    } else {
+                        question(string("[SLOW]Please enter a ticket[CHOICE]Yes.[CHOICE]No.[END]"));
 
-                    map_transition(gladiator_arena, south, SOUTH);
+                        if(MEMORY.QUESTION_ANSWER == 0x00) {
+                            MEMORY.TICKET_FOR_EXHIBITION -= 0x01;
+
+                            map_transition(gladiator_arena, south, SOUTH);
+                        }
+                    }
                 },
+            }
+
+            enum ROOM {
+                TICKET_PRICE = 0x05,
             }
 
             enum b_trigger {
                 b_trigger_0 = @install() fun test() {
-                    subtext(string("b? 0 [END]"));
+                    show_currency(True);
+
+                    if_currency(MEMORY.CURRENCY_CURRENT < ROOM.TICKET_PRICE) {
+                        dialog(string("[SLOW]Welcome to the one and only...[B]Oh please come back if you have money.[B][END]"));
+                    } else {
+                        if(MEMORY.TICKET_FOR_EXHIBITION == 0x01) {
+                            dialog(string("[SLOW]Feel free to enter the arena directly.[B][END]"));
+                        } else if(MEMORY.TICKET_FOR_EXHIBITION > 0x01) {
+                            MEMORY.STRING_PARAMETER_1 = MEMORY.TICKET_FOR_EXHIBITION;
+                            dialog(string("[SLOW]Feel free to enter the arena directly.[B][END]"));
+                        }
+
+                        MEMORY.STRING_PARAMETER_1 = ROOM.TICKET_PRICE;
+                        question(string("[SLOW]Welcome to the bomb arena.[B]Tickets cost [0xa1] Souls[CHOICE]Yes.[CHOICE]No.[END]"));
+
+                        if(MEMORY.QUESTION_ANSWER == 0x00) {
+                            currency_take(TALONS, ROOM.TICKET_PRICE);
+                            show_currency(True);
+
+                            sound(0x40);
+                            MEMORY.TICKET_FOR_EXHIBITION += 0x01;
+                        }
+                    }
+
+                    sleep(0x30);
+                    show_currency(False);
                 },
-                b_trigger_1 = @install() fun test() {
-                    subtext(string("b? 1 [END]"));
-                },
+                b_trigger_1 = nop(),
             }
 
             fun init_room(index) {
@@ -8551,6 +8586,9 @@ area town() {
                 PROGRESS = memory(),
 
                 FIGHT_IN_PROGRESS = flag_tmp(),
+
+                PILLAR_OPENED = flag_tmp(),
+                SCEPTER_LOOTED = flag(),
             }
 
             @install()
@@ -8615,6 +8653,28 @@ area town() {
             }
 
             @install()
+            fun scepter_triggered() {
+                set(ROOM.SCEPTER_LOOTED);
+
+                destroy(SCRIPT_OWNER);
+            }
+
+            @install()
+            fun pillar_triggered() {
+                set(ROOM.PILLAR_OPENED);
+
+                object[0x01] = 0x01;
+
+                animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
+
+                add_placeholder(SCEPTER, 0x36, 0x48);
+                attach_script(LAST_ENTITY, TALK, reference(scepter_triggered));
+
+                sleep(0x20);
+                destroy(SCRIPT_OWNER);
+            }
+
+            @install()
             fun debug_triggered() {
                 set(FLAG.LEVITATE);
                 subtext(string("Levitate learned.[END]"));
@@ -8625,6 +8685,8 @@ area town() {
             }
 
             fun trigger_enter() {
+                init_map(0x00, 0x30, 0x40, 0x70);
+
                 if(FLAG.DEBUG) {
                     if!(FLAG.LEVITATE) {
                         add_placeholder(DOVES_1, 0x24, 0x47);
@@ -8645,6 +8707,14 @@ area town() {
 
                 sleep(0x10);
                 show_bridge(False);
+
+                if!(ROOM.SCEPTER_LOOTED) {
+                    // add_enemy(PLACEHOLDER, 0x36, 0x49);
+                    add_enemy_with_flags(FACE_ENTITY, 0x35, 0x4a, 0x0004);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(pillar_triggered));
+                } else {
+                    object[0x01] = 0x01;
+                }
             }
         };
     };
