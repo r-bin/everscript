@@ -69,6 +69,7 @@ class Lexer():
         self.lexer.add('ENUM', 'enum(?!\()')
         self.lexer.add('ELSEIF!', 'else if!(?=\()')
         self.lexer.add('ELSEIF', 'else if(?=\()')
+        self.lexer.add('IF_CURRENCY', 'if_currency(?=\()')
         self.lexer.add('IF!', 'if!(?=\()')
         self.lexer.add('IF', 'if(?=\()')
         self.lexer.add('ELSE', 'else(?=\s*\{)')
