@@ -112,8 +112,9 @@ enum SOULS_MEMORY {
     BOMB_ENABLED = flag(),
 
     // bosses
-    BOSSES_DEFEATED_COUNTER = memory(),
     PROGRESS_COUNTER = memory(),
+    BOSSES_DEFEATED_COUNTER = memory(),
+    COLLECTIBLE_COUNTER = memory(),
 
     // east
     DEAD_VOLCANO_HYDRA = flag(),
@@ -347,6 +348,29 @@ fun init_souls() {
     MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
 
     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+}
+
+fun collectible_collected() {
+    SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+    SOULS_MEMORY.COLLECTIBLE_COUNTER += 0x01;
+
+    destroy(SCRIPT_OWNER);
+
+    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.COLLECTIBLE_COUNTER;
+    subtext(string("Collectibles: [0xa1][END]"));
+}
+fun add_collectible(type, x, y, collected_trigger) {
+    if(type == 0x00) {
+        add_placeholder(SCEPTER, x, y);
+    } else if(type == 0x01) {
+        add_placeholder(0x100, x, y);
+    }
+    attach_script(LAST_ENTITY, TALK, collected_trigger);
+}
+
+fun add_debug_entity(x, y, debug_triggered) {
+    add_placeholder(DOVES_1, x, y);
+    attach_script(LAST_ENTITY, TALK, debug_triggered);
 }
 
 // HOTKEYS
@@ -1792,8 +1816,7 @@ area altus_plateau_entry() {
         fun trigger_enter() {
             if(FLAG.DEBUG) {
                 if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
-                    add_placeholder(DOVES_1, 0x06, 0x78);
-                    attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                    add_debug_entity(0x06, 0x78, reference(debug_triggered));
                 }
             }
 
@@ -2173,8 +2196,7 @@ area altus_plateau_entry() {
 
                 fun trigger_enter() {
                     if(FLAG.DEBUG) {
-                        add_placeholder(DOVES_1, 0x59, 0x49);
-                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                        add_debug_entity(0x59, 0x49, reference(debug_triggered));
                     }
 
                     object[0x00] = 0x7e; // close stairs_west
@@ -2609,8 +2631,7 @@ area altus_plateau_entry() {
                 fun trigger_enter() {
                     if(FLAG.DEBUG) {
                         if!(FLAG.REVEALER) {
-                            add_placeholder(DOVES_1, 0x27, 0x15);
-                            attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                            add_debug_entity(0x27, 0x15, reference(debug_triggered));
                         }
                     }
 
@@ -3668,8 +3689,7 @@ area east_inbetwixx() {
         fun trigger_enter() {
             if(FLAG.DEBUG) {
                 if!(ROOM.STONE_TRIGGERED) {
-                    add_placeholder(DOVES_1, 0x24, 0x06);
-                    attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                    add_debug_entity(0x24, 0x06, reference(debug_triggered));
                 }
             }
 
@@ -4052,6 +4072,13 @@ area east_inbetwixx() {
             set(ROOM.WATER_REMOVED);
         }
 
+        @install()
+        fun debug_triggered() {
+            revealer_triggered();
+
+            destroy(SCRIPT_OWNER);
+        }
+
         fun trigger_enter() {
             // object[0x00] = 0x01;
             // object[0x01] = 0x01;
@@ -4059,6 +4086,8 @@ area east_inbetwixx() {
             if!(ROOM.WATER_REMOVED) {
                 add_enemy(REVEALER_TARGET_ENTITY, 0x52, 0x26);
                 special_script(REVEALER, reference(revealer_triggered));
+
+                add_debug_entity(0x5b, 0x23, reference(debug_triggered));
             } else {
                 remove_water(True);
             }
@@ -4606,8 +4635,7 @@ area east_inbetwixx() {
             fun trigger_enter() {
                 if(FLAG.DEBUG) {
                     if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
-                        add_placeholder(DOVES_1, 0x2F, 0x1b);
-                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                        add_debug_entity(0x2F, 0x1b, reference(debug_triggered));
                     }
                 }
 
@@ -4744,8 +4772,7 @@ area east_inbetwixx() {
 
                 if(FLAG.DEBUG) {
                     if!(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND) {
-                        add_placeholder(DOVES_1, 0x9c, 0x17);
-                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                        add_debug_entity(0x9c, 0x17, reference(debug_triggered));
                     }
                 }
 
@@ -5112,8 +5139,7 @@ area east_inbetwixx() {
             fun trigger_enter() {
                 if(FLAG.DEBUG) {
                     if!(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
-                        add_placeholder(DOVES_1, 0x0c, 0x0e);
-                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                        add_debug_entity(0x0c, 0x0e, reference(debug_triggered));
                     }
                 }
 
@@ -8542,7 +8568,7 @@ area town() {
                         }
                     }
 
-                    sleep(0x30);
+                    sleep(0x10);
                     show_currency(False);
                 },
                 b_trigger_1 = nop(),
@@ -8588,7 +8614,7 @@ area town() {
                 FIGHT_IN_PROGRESS = flag_tmp(),
 
                 PILLAR_OPENED = flag_tmp(),
-                SCEPTER_LOOTED = flag(),
+                COLLECTIBLE_LOOTED = flag(),
             }
 
             @install()
@@ -8641,6 +8667,8 @@ area town() {
 
                 if(MEMORY.QUESTION_ANSWER == 0x00) {
                     spawn_next_gladiator();
+                } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                    map_transition(town_arena_entry, south_1, NONE);
                 }
             }
 
@@ -8653,10 +8681,10 @@ area town() {
             }
 
             @install()
-            fun scepter_triggered() {
-                set(ROOM.SCEPTER_LOOTED);
+            fun collectible_triggered() {
+                set(ROOM.COLLECTIBLE_LOOTED);
 
-                destroy(SCRIPT_OWNER);
+                collectible_collected();
             }
 
             @install()
@@ -8667,8 +8695,7 @@ area town() {
 
                 animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
 
-                add_placeholder(SCEPTER, 0x36, 0x48);
-                attach_script(LAST_ENTITY, TALK, reference(scepter_triggered));
+                add_collectible(0x00, 0x36, 0x48, reference(collectible_triggered));
 
                 sleep(0x20);
                 destroy(SCRIPT_OWNER);
@@ -8689,8 +8716,7 @@ area town() {
 
                 if(FLAG.DEBUG) {
                     if!(FLAG.LEVITATE) {
-                        add_placeholder(DOVES_1, 0x24, 0x47);
-                        attach_script(LAST_ENTITY, TALK, reference(debug_triggered));
+                        add_debug_entity(0x24, 0x47, reference(debug_triggered));
                     }
                 }
 
@@ -8708,7 +8734,7 @@ area town() {
                 sleep(0x10);
                 show_bridge(False);
 
-                if!(ROOM.SCEPTER_LOOTED) {
+                if!(ROOM.COLLECTIBLE_LOOTED) {
                     // add_enemy(PLACEHOLDER, 0x36, 0x49);
                     add_enemy_with_flags(FACE_ENTITY, 0x35, 0x4a, 0x0004);
                     attach_script(LAST_ENTITY, DAMAGE, reference(pillar_triggered));
@@ -9424,7 +9450,9 @@ map bog_crossing(0x05) {
     }
 
     enum ROOM {
-        FAKE_EXIT_ID = memory_tmp()
+        FAKE_EXIT_ID = memory_tmp(),
+
+        COLLECTIBLE_LOOTED = flag(),
     }
 
     enum stepon_trigger {
@@ -9590,8 +9618,20 @@ map bog_crossing(0x05) {
             yield();
         }
     }
+
+    @install()
+    fun collectible_triggered() {
+        set(ROOM.COLLECTIBLE_LOOTED);
+
+        collectible_collected();
+    }
+
     
     fun trigger_enter() {
+        if!(ROOM.COLLECTIBLE_LOOTED) {
+            add_collectible(0x01, 0x5e, 0x4d, reference(collectible_triggered));
+        }
+
         init_map(0x00, 0x1e, 0xff, 0xff);
 
         object[0x03] = 0x01;
