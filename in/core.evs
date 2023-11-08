@@ -872,6 +872,8 @@ enum FLAG_ENEMY {
 }
 
 enum LOOT_REWARD {
+    NOTHING = 0x0000,
+
     // currency
     MONEY = 0x0001,
 
@@ -953,6 +955,9 @@ enum LOOT_REWARD {
     HERBAL_ESSENCE = 0x0805,
     PIXIE_DUST = 0x0806,
     CALL_BEADS = 0x0807,
+
+    // custom
+    SPOON = 0x1000,
 }
 
 enum ITEM {
@@ -2394,6 +2399,10 @@ fun sfx_effect(effect:SFX_EFFECT, on) {
     }
 }
 
+fun cure() {
+    code(0xaa, "// (aa) Clear boy and dog statuses");
+}
+
 fun heal(character:CHARACTER, amount, animation) {
     if(animation == False) {
         if(character == CHARACTER.BOTH) {
@@ -2435,7 +2444,7 @@ fun select_alchemy_with_preselection(alchemy_index:ALCHEMY_PRESELECT_INDEX) {
     select_alchemy();
 }
 
-fun cast(character:CHARACTER, target:CHARACTER, spell, level) {
+fun cast(character:CHARACTER, target:CHARACTER, spell:CAST, level) {
     // spell = CAST
 
     code(0xac, entity_t(character), param(spell), param(level), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
@@ -2623,30 +2632,41 @@ fun save(slot, location) { // buggy
 
 // complex scripts
 
-fun loot(flag, object_id, reward, amount, next) {
+fun loot(animation, flag, object_id, reward, amount, next) {
     if!(flag) {
-        <0x2391> = reward;
+        if(reward < 0x1000) {
+            <0x2391> = reward;
 
-        <0x2395> = object_id;
+            <0x2395> = object_id;
 
-        if(reward < 0x0100) { 
-            if(amount > 0x00) {
-                <0x2393> = amount;
+            if(reward < 0x0100) { 
+                if(amount > 0x00) {
+                    <0x2393> = amount;
+                }
+            } else {
+                if(amount > 0x01) {
+                    <0x2461> = amount - 0x01;
+                }    
+            }
+
+            call_id(animation);
+            
+            if(next > 0x00) {
+                <0x2461> = next - 0x01;
+            }
+
+            if(<0x22ea, 0x01>) {
+                set(flag);
             }
         } else {
-            if(amount > 0x01) {
-                <0x2461> = amount - 0x01;
-            }    
-        }
+            if(reward == 0x1000) {
+                MEMORY.SPOON += 0x01;
+                call_id(0x3a);
+                object[object_id] = 0x01;
+                set(flag);
 
-        call_id(0x39);
-        
-        if(next > 0x00) {
-            <0x2461> = next - 0x01;
-        }
-
-        if(<0x22ea, 0x01>) {
-            set(flag);
+                subtext(string("Found a spoon[END]"));
+            }
         }
     }
 }

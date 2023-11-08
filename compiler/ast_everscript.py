@@ -149,7 +149,7 @@ class Arg(Function_Base, Calculatable, Memorable):
 class Object(Function_Base, Calculatable, Memorable):
     def __init__(self, index, flag=None):
         self.index = index
-        self.index = self.resolve(self.index, [])
+        # self.index = self.resolve(self.index, [])
         self.flag = flag
 
         self.memory = True
@@ -1561,8 +1561,12 @@ class Loot(Function_Base):
         if isinstance(param, Param):
             param = param.value
 
-    def __init__(self, generator, object, reward, amount, next):
+    def __init__(self, generator, with_kneel_animation:bool, object, reward, amount, next):
         self._generator = generator
+        if with_kneel_animation:
+            self.animation = Word(0x39)
+        else:
+            self.animation = Word(0x3a)
         self.object = object
         self.reward = reward
         self.amount = amount
@@ -1576,7 +1580,7 @@ class Loot(Function_Base):
         self.function = generator.get_function("loot")
 
     def _code(self, params:list[Param]):
-        call_params = [self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
+        call_params = [self.animation, self.object.flag, Word(self.object.index), self.reward, self.amount, self.next]
 
         return Call(self._generator, self.function, call_params).code(params)
     

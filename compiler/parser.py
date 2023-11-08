@@ -9,14 +9,14 @@ class Parser():
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
-                'VAL', 'VAR', 'BYTE', 'WORD',
+                'VAL', 'VAR', 'T_BYTE', 'T_WORD',
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '!', 'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'TRUE', 'FALSE',
-                'WORD', 'ENUM', 'ENUM_CALL', 'STRING',
+                'WORD', 'WORD_DECIMAL', 'ENUM', 'ENUM_CALL', 'STRING',
                 'LABEL_DESTINATION', # 'END',
                 'ELSEIF!', 'ELSEIF', 'IF_CURRENCY', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
@@ -66,7 +66,8 @@ class Parser():
             "_address": (lambda p: RawAddress(p[2][0])),
 
             # object
-            "_loot": (lambda p: Loot(self.generator, p[2][0], p[2][1], p[2][2], p[2][3])),
+            "_loot": (lambda p: Loot(self.generator, True, p[2][0], p[2][1], p[2][2], p[2][3])),
+            "_loot_chest": (lambda p: Loot(self.generator, False, p[2][0], p[2][1], p[2][2], p[2][3])),
             "_axe2_wall": (lambda p: Axe2Wall(self.generator, p[2][0])),
 
             # late link
@@ -304,6 +305,10 @@ class Parser():
         @self.pg.production('expression : WORD')
         def parse(p):
             return Word(p[0])
+        
+        @self.pg.production('expression : WORD_DECIMAL')
+        def parse(p):
+            return Word(p[0], is_decimal=True)
 
         @self.pg.production('expression : ENUM_CALL')
         def parse(p):
@@ -450,7 +455,7 @@ class Parser():
         @self.pg.production('memory : memory_flag')
         def parse(p):
             return p[0]
-        @self.pg.production('memory_flag : < WORD , WORD >')
+        @self.pg.production('memory_flag : < expression , expression >')
         def parse(p):
             address = Word(p[1])
             flag = Word(p[3])
@@ -466,16 +471,16 @@ class Parser():
 
             return Deref(self.generator, expression, offset)
 
-        @self.pg.production('memory : ( BYTE ) memory')
-        @self.pg.production('memory : ( WORD ) memory')
+        @self.pg.production('memory : ( T_BYTE ) memory')
+        @self.pg.production('memory : ( T_WORD ) memory')
         def parse(p):
             data_type = p[1]
             memory = p[3]
 
             match data_type.gettokentype():
-                case 'BYTE':
+                case 'T_BYTE':
                     memory.force_value_count(1)
-                case 'WORD':
+                case 'T_WORD':
                     memory.force_value_count(1)
                 case _:
                     TODO()
