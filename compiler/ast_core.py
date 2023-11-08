@@ -291,7 +291,7 @@ class Function_Base(BaseBox):
 
 
 class Word(Function_Base, Calculatable):
-    def __init__(self, value, value_count = 2):
+    def __init__(self, value, value_count=2, is_decimal=False):
         self.value_original = value
         value = self.resolve(value, [])
 
@@ -305,12 +305,21 @@ class Word(Function_Base, Calculatable):
         #    self.value = value.eval([])
         #    self._value_count = 1
         else:
-            self.value = int(value.value, 16)
+            if is_decimal:
+                value = re.sub("0[dD]", "", value.value)
+                self.value = int(value)
+                
+                if self.value > 0x255:
+                    self._value_count = 2
+                else:
+                    self._value_count = 1
+            else:
+                self.value = int(value.value, 16)
 
-            count = re.sub("[+-]{0,1}0x", "", value.value)
-            count = wrap(count, 2)
-            count = len(count)
-            self._value_count = count
+                count = re.sub("[+-]{0,1}0x", "", value.value)
+                count = wrap(count, 2)
+                count = len(count)
+                self._value_count = count
 
     def __repr__(self):
         return f"Word({self.value_original})"

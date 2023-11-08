@@ -30,6 +30,18 @@ fun string_revealer_entity_name() {
     cstring("SECRET[END]");
 }
 
+// ENEMY PROPERTIES
+
+@install(0x8ed62a)
+fun flower_purple_proc() {
+    code(0x0c, "// flower purple proc value");
+}
+
+// @install(0x8ec7b6)
+// fun tumblingweed_proc() {
+//     code(0x0c, "// flower purple proc value");
+// }
+
 // HELPER
 
 @install()
@@ -85,9 +97,9 @@ enum SOULS_MEMORY {
     INIT = flag(),
     INTRO_WATCHED = flag(),
 
-    DEMO_MODE = True,
-    WITH_WEATHER = False,
-    WITH_TRASH_ENEMIES = False,
+    DEMO_MODE = False,
+    WITH_WEATHER = True,
+    WITH_TRASH_ENEMIES = True,
 
     MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -340,6 +352,9 @@ fun init_souls() {
         unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
     }
 
+    cure();
+    // cast(BOY, BOTH, CURE, 0x01);
+
     attach_script(BOY, DEATH, reference(boy_death));
 
     special_script(WINGS, reference(return_to_bonfire));
@@ -383,7 +398,7 @@ fun hotkey_start() {
         subtext(string("Start[END]"));
     }
 
-    if(False) {
+    if(True) {
         mario_yump();
         end();
     }
@@ -412,7 +427,7 @@ fun hotkey_start_l() {
         // return_to_bonfire();
         
         // map_transition(gladiator_arena, south, NONE);
-        map_transition(town_arena_entry, south_2, NONE);
+        map_transition(windwalker_sidescroller, west, NONE);
 
         // MEMORY.MAP_PALETTE -= 0x01;
     }
@@ -592,6 +607,8 @@ area inbetwixx_center() {
             
             BRIDGE_REVEALED = flag(),
             BRIDGE_REVEALER_ENTITY = memory_tmp(),
+
+            FLOWER_GATE = memory_tmp(),
         }
 
         @install()
@@ -615,8 +632,9 @@ area inbetwixx_center() {
             stepon_4 = ravine_triggered(),
             stepon_5 = ravine_triggered(),
             stepon_6 = ravine_triggered(),
-            stepon_7 = @install() fun test() {
-                subtext(string("step-on? 7 [END]"));
+            diamon_eyes = @install() fun test() {
+                face(ROOM.FLOWER_GATE, SOUTH);
+                animate(ROOM.FLOWER_GATE, ONCE, ANIMATION_ALL.SLASH_1);
             },
             exit_east = @install() fun test() {
                 map_transition(east_inbetwixx, west_2, EAST);
@@ -898,6 +916,26 @@ area inbetwixx_center() {
         }
 
         @install()
+        fun debug_triggered() {
+            unlock(WEAPONS);
+            unlock(JAGUAR_RING);
+            unlock(CONSUMABLES);
+            unlock(INGREDIENTS);
+            
+            // unlock(SPEAR_1);
+            unlock(AXE_2);
+
+            set(FLAG.REVEALER);
+            MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.REVEALER;
+            set(FLAG.LEVITATE);
+            MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX.LEVITATE;
+
+            set(SOULS_MEMORY.BOMB_ENABLED);
+            
+            destroy(SCRIPT_OWNER);
+        }
+
+        @install()
         fun trigger_enter() {
             if(SOULS_MEMORY.DEMO_MODE) {
                 if!(FLAG.ENERGY_CORE) {
@@ -918,8 +956,26 @@ area inbetwixx_center() {
                 attribute(LAST_ENTITY, INVINCIBLE_TEMP, False);
             }
 
+            add_debug_entity(0d16, 0d63, reference(debug_triggered));
+
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
-                add_enemy(FLOWER_PURPLE, 0x59, 0x4f);
+                // center
+                add_enemy(FLOWER_PURPLE, 0d52, 0d79);
+
+                // north
+                add_enemy(BUZZARD_1, 0d29, 0d35);
+
+                // east
+                // add_enemy(FLOWER_PURPLE, 0x59, 0x4f);
+                add_enemy(FLOWER_PURPLE, 0x4d, 0x4a);
+                ROOM.FLOWER_GATE = <LAST_ENTITY>;
+
+                // south
+                add_enemy(FLOWER_PURPLE, 0d28, 0d109);
+
+                add_enemy(FLOWER_PURPLE, 0d36, 0d96);
+
+                add_enemy(FLOWER_PURPLE, 0x2a, 0x56);
             }
 
             if!(ROOM.BRIDGE_REVEALED) {
@@ -938,11 +994,7 @@ area inbetwixx_center() {
                 if!(SOULS_MEMORY.INTRO_WATCHED) {
                     set(SOULS_MEMORY.INTRO_WATCHED);
 
-                    if!(FLAG.DEBUG) {
-                        intro();
-                    } else {
-                        destroy(DOG);
-                    }
+                    intro();
 
                     subtext(string("v0.3.0 - debug - by r.bin[END]"));
                 }
@@ -1420,7 +1472,16 @@ area west_inbetwixx() {
             }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
-                add_enemy(RAPTOR_GREEN, 0x5c, 0x26);
+                // inside
+                add_enemy(FLOWER_PURPLE, 0x1e, 0x2c);
+
+                // add_enemy(RAT, 0d51, 0d43); // backup
+
+                // east
+                add_enemy(TUMBLING_WEED, 0d77, 0d36);
+
+                // west
+                add_enemy(FLOWER_PURPLE, 0d13, 0d52);
             }
 
             add_enemy(OWL_BLACK, 0x2d, 0x21);
@@ -1598,6 +1659,10 @@ area altus_plateau_entry() {
             default = soundtrack(JUNGLE_AMBIENT_BIRDS, 0xff)
         }
 
+        enum ROOM {
+            STONE_MOVED = flag(),
+        }
+
         enum stepon_trigger {
             tunnel_gauge = @install() fun test() {
                 map_transition(cave_gauge, south, NORTH);
@@ -1647,7 +1712,7 @@ area altus_plateau_entry() {
                 }
             },
             cave_center = @install() fun test() {
-                map_transition(volcano_firepit, south, NORTH);
+                map_transition(volcano_tower, south, NORTH);
             },
             exit_east = @install() fun test() {
                 map_transition(northwest_inbetwixx, west, EAST);
@@ -1668,11 +1733,15 @@ area altus_plateau_entry() {
             stepon_20 = @install() fun test() {
                 subtext(string("step-on? 20 [END]"));
             },
-            stepon_21 = @install() fun test() {
-                subtext(string("step-on? 21 [END]"));
+            plate_0_2_1 = @install() fun test() {
+                if(ROOM.STONE_MOVED) {
+                    subtext(string("step-on? 21 [END]"));
+                }
             },
-            stepon_22 = @install() fun test() {
-                subtext(string("step-on? 22 [END]"));
+            plate_0_2_2 = @install() fun test() {
+                if(ROOM.STONE_MOVED) {
+                    subtext(string("step-on? 22 [END]"));
+                }
             },
             stepon_23 = @install() fun test() {
                 subtext(string("step-on? 23 [END]"));
@@ -1801,7 +1870,7 @@ area altus_plateau_entry() {
             b_trigger_31 = @install() fun test() {
                 subtext(string("b? 31 [END]"));
             },
-            b_trigger_32 = @install() fun test() {
+            plate_0_1 = @install() fun test() {
                 subtext(string("b? 32 [END]"));
             },
         }
@@ -1820,22 +1889,70 @@ area altus_plateau_entry() {
                 }
             }
 
+            add_enemy(STONE, 0d68, 0d65);
+
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // path
+                add_enemy(FLOWER_PURPLE, 0d31, 0d103);
+
+                add_enemy(MONK, 0d79, 0d84);
+
+                add_enemy(HEDGEHOG, 0d58, 0d67);
+
+                // east
+                add_enemy(FLOWER_PURPLE, 0d85, 0d115);
+
+                // west
+                add_enemy(HEDGEHOG, 0d19, 0d125);
+                add_enemy(FLOWER_PURPLE, 0d17, 0d126);
+            }
+
             default_init_room(True, True);
         }
     };
 
-    map volcano_firepit(0x36) {
+    map volcano_tower(0x37) {
         enum entrance {
-            south = entrance(0x17, 0x2c, NORTH),
+            south = entrance(0x55, 0xf9, DIRECTION.NORTH),
+            platform = entrance(0x51, 0x2f, DIRECTION.NORTH)
         }
 
         enum stepon_trigger {
+            elevator_bottom = @install() fun test() {
+                subtext(string("exit? 0 [END]"));
+            },
+            elevator_top = @install() fun test() {
+                subtext(string("exit? 1 [END]"));
+            },
+            spawn_boss = @install() fun test() {
+                subtext(string("exit? 2 [END]"));
+            },
+            trapdoor_4 = @install() fun test() {
+                subtext(string("exit? 3 [END]"));
+            },
             exit_south = @install() fun test() {
                 map_transition(volcano, cave_center, SOUTH);
             },
-            windwalker = @install() fun test() {
-                subtext(string("exit? 1 [END]"));
+            trapdoor_1 = nop(),
+            stepon_6 = @install() fun test() {
+                subtext(string("exit? 6 [END]"));
             },
+            stepon_7 = @install() fun test() {
+                subtext(string("exit? 7 [END]"));
+            },
+            trapdoor_2 = @install() fun test() {
+                object[0x06] = 0x03; // activate trapdoor_2
+            },
+            stepon_9 = @install() fun test() {
+                subtext(string("exit? 9 [END]"));
+            },
+
+            trapdoor_3 = @install() fun test() {
+                subtext(string("exit? 10 [END]"));
+            },
+            stepon_11 = @install() fun test() {
+                subtext(string("exit? 11 [END]"));
+            }
         }
 
         enum b_trigger {
@@ -1851,6 +1968,62 @@ area altus_plateau_entry() {
             b_trigger_3 = @install() fun test() {
                 subtext(string("b? 3 [END]"));
             },
+            b_trigger_4 = @install() fun test() {
+                subtext(string("b? 4 [END]"));
+            },
+            b_trigger_5 = @install() fun test() {
+                subtext(string("b? 5 [END]"));
+            },
+            b_trigger_6 = @install() fun test() {
+                subtext(string("b? 6 [END]"));
+            },
+            b_trigger_7 = @install() fun test() {
+                subtext(string("b? 7 [END]"));
+            },
+            b_trigger_8 = @install() fun test() {
+                subtext(string("b? 8 [END]"));
+            },
+            b_trigger_9 = @install() fun test() {
+                subtext(string("b? 9 [END]"));
+            },
+
+            b_trigger_10 = @install() fun test() {
+                subtext(string("b? 10 [END]"));
+            },
+            b_trigger_11 = @install() fun test() {
+                subtext(string("b? 11 [END]"));
+            },
+            b_trigger_12 = @install() fun test() {
+                subtext(string("b? 12 [END]"));
+            },
+            b_trigger_13 = @install() fun test() {
+                subtext(string("b? 13 [END]"));
+            },
+            b_trigger_14 = @install() fun test() {
+                subtext(string("b? 14 [END]"));
+            },
+            b_trigger_15 = @install() fun test() {
+                subtext(string("b? 15 [END]"));
+            },
+            b_trigger_16 = @install() fun test() {
+                subtext(string("b? 16 [END]"));
+            },
+            b_trigger_17 = @install() fun test() {
+                subtext(string("b? 17 [END]"));
+            },
+            b_trigger_18 = @install() fun test() {
+                subtext(string("b? 18 [END]"));
+            },
+            b_trigger_19 = @install() fun test() {
+                subtext(string("b? 19 [END]"));
+            },
+
+            b_trigger_20 = @install() fun test() {
+                _loot_chest(0x02, LOOT_REWARD.SPOON, 0x01, 0x00);
+            },
+            b_trigger_21 = @install() fun test() {
+                subtext(string("b? 21 [END]"));
+            }
         }
 
         @install()
@@ -1867,16 +2040,13 @@ area altus_plateau_entry() {
             
             face(BOY, EAST);
             face(DOG, EAST);
-
             sleep(0x20);
 
             while(arg[0x00] < 0xa0) {
                 arg[0x00] += 0x01;
-
                 control(NONE);
                 face(BOY, EAST);
                 face(DOG, EAST);
-
                 <SCRIPT_OWNER>[Y] -= 0x01;
                 <BOY>[Y] -= 0x01;
                 <DOG>[Y] -= 0x01;
@@ -1887,11 +2057,59 @@ area altus_plateau_entry() {
             map_transition(windwalker_sidescroller, west, NONE);
         }
 
+        enum ROOM {
+            COLLECTIBLE_LOOTED = flag(),
+        }
+
+        @install()
+        fun collectible_triggered() {
+            collectible_collected();
+
+            set(ROOM.COLLECTIBLE_LOOTED);
+            destroy(SCRIPT_OWNER);
+        }
+
         fun trigger_enter() {
-            add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x12, 0x1f);
+            // object[0x00] = 0x01; // open chest_2
+            // object[0x01] = 0x01; // open elevator_bottom
+            // object[0x02] = 0x01; // open chest_3
+            object[0x03] = 0x01; // activate trapdoor_4
+            // object[0x04] = 0x01; // open elevator_top
+            object[0x05] = 0x03; // activate trapdoor_3
+            // object[0x06] = 0x03; // activate trapdoor_2
+            // object[0x07] = 0x03; // activate trapdoor_1
+            // object[0x08] = 0x01; // open chest_1
+            // object[0x09] = 0x01; // open chest_4
+            // object[0x0a] = 0x01; // block elevator_top
+
+            if!(ROOM.COLLECTIBLE_LOOTED) {
+                add_collectible(0x00, 0d43, 0d10, reference(collectible_triggered));
+            }
+
+            add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0d24, 0d109);
             attach_script(LAST_ENTITY, TALK, reference(lift_off));
 
-            fade_in();
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // level 0
+                add_enemy(FLOWER_PURPLE, 0d81, 0d239);
+
+                // level 1
+                add_enemy(MONK, 0d93, 0d209);
+                add_enemy(HEDGEHOG, 0d54, 0d186);
+
+                // level 2
+                add_enemy(MONK, 0d25, 0d175);
+
+                // level 3
+                add_enemy(HEDGEHOG, 0d41, 0d160);
+
+                // level 5
+                // add_enemy(BUZZARD_1, 0d29, 0d123);
+                add_enemy(RAT, 0d29, 0d123);
+                add_enemy(RAT, 0d29, 0d123);
+            }
+
+            default_init_room(True, True);
         }
     };
 
@@ -1915,12 +2133,20 @@ area altus_plateau_entry() {
     };
 
     area altus_plateau_entry() {
+        enum ALTUS {
+            MUSIC = 0x60
+        }
+
         area chessboard_caves() {
             map stairs(0x1a) {
                 enum entrance {
                     stairs_east_top = entrance(0x43, 0x03, SOUTH),
                     stairs_west_top = entrance(0x15, 0x05, SOUTH),
                     stairs_west_bottom = entrance(0x5f, 0xa1, NORTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(0x26, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -1959,6 +2185,10 @@ area altus_plateau_entry() {
                     stairs_west = entrance(0x40, 0x40, EAST), // 0x4c, 0x40
 
                     crash = entrance(0x54, 0x39, NONE),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(ALTUS.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -2310,6 +2540,10 @@ area altus_plateau_entry() {
                 crash = entrance(0x38, 0x18, NONE),
             }
 
+            enum soundtrack {
+                default = soundtrack(ALTUS.MUSIC, 0xff)
+            }
+
             enum stepon_trigger {
                 exit_west = @install() fun test() {
                     map_transition(chessboard, east, WEST);
@@ -2372,6 +2606,10 @@ area altus_plateau_entry() {
             enum entrance {
                 north = entrance(0x2c, 0x09, SOUTH),
                 east = entrance(0x67, 0x71, WEST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(ALTUS.MUSIC, 0xff)
             }
 
             enum stepon_trigger {
@@ -2453,12 +2691,20 @@ area altus_plateau_entry() {
         };
 
         area castle() {
+            enum CASTLE {
+                MUSIC = 0x62,
+            }
+
             map castle_center(0x1c) {
                 enum entrance {
                     north = entrance(0x40, 0x04, SOUTH),
                     south_1 = entrance(0x72, 0x38, NORTH),
                     south_2 = entrance(0x4c, 0x38, NORTH),
                     south_3 = entrance(0x08, 0x38, NORTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(CASTLE.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -2557,6 +2803,10 @@ area altus_plateau_entry() {
                     east = entrance(0x39, 0xc3, WEST),
                 }
 
+                enum soundtrack {
+                    default = soundtrack(CASTLE.MUSIC, 0xff)
+                }
+
                 enum stepon_trigger {
                     exit_north = @install() fun test() {
                         map_transition(castle_center, south_3, NORTH);
@@ -2576,6 +2826,10 @@ area altus_plateau_entry() {
                     south = entrance(0x31, 0x21, NORTH),
 
                     cinematic_enter = entrance(0x37, 0x01, NORTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(CASTLE.MUSIC, 0xff)
                 }
 
                 enum ROOM {
@@ -2651,6 +2905,10 @@ area altus_plateau_entry() {
                     cutscene_landing = entrance(0x0b, 0x1b, NONE),
                 }
 
+                enum soundtrack {
+                    default = soundtrack(CASTLE.MUSIC, 0xff)
+                }
+
                 enum stepon_trigger {
                     b_trigger_0 = @install() fun test() {
                         subtext(string("exit? 0 [END]"));
@@ -2680,6 +2938,10 @@ area altus_plateau_entry() {
                     balcony_west_1 = entrance(0x3f, 0x23, WEST),
                     balcony_west_2 = entrance(0x3f, 0x19, WEST),
                     balcony_west_3 = entrance(0x3f, 0x0f, WEST),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(CASTLE.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -2741,6 +3003,10 @@ area altus_plateau_entry() {
                     vent_west_1 = entrance(0x13, 0x67, NONE),
                     vent_west_2 = entrance(0x13, 0x45, NONE),
                     vent_west_3 = entrance(0x13, 0x23, NONE),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(CASTLE.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -3006,6 +3272,15 @@ area northwest_inbetwixx() {
         }
         
         fun trigger_enter() {
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // east
+                add_enemy(BUZZARD_1, 0d50, 0d26);
+
+                // west
+                add_enemy(BUZZARD_1, 0d15, 0d14);
+                add_enemy(FLOWER_PURPLE, 0d12, 0d38);
+            }
+
             default_init_room(True, True);
 
             subtext(string("North West Inbetwixx[END]"));
@@ -3423,6 +3698,29 @@ area east_inbetwixx() {
         fun trigger_enter() {
             open_sandpits();
 
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // north
+                add_enemy(TUMBLING_WEED, 0d42, 0d42);
+
+                // center
+                add_enemy(TUMBLING_WEED, 0d18, 0d90);
+
+                // center
+                add_enemy(BUZZARD_1, 0d68, 0d147);
+
+                // upstairs east
+                add_enemy(SLIME, 0d11, 0d109);
+                
+                add_enemy(SLIME, 0d11, 0d65);
+
+                // upstairs north
+                add_enemy(SLIME, 0d57, 0d34);
+
+                // upstairs east
+                add_enemy(BUZZARD_1, 0d57, 0d89);
+                add_enemy(SLIME, 0d76, 0d114);
+            }
+
             if!(ROOM.BRANCH_USED) {
                 branch_lady(0x4e, 0x2c, reference(branch_triggered));
             }
@@ -3465,6 +3763,10 @@ area east_inbetwixx() {
 
             elevator_top = entrance(0x0d, 0x2b, SOUTH),
             elevator_bottom = entrance(0x1b, 0x47, SOUTH),
+        }
+
+        enum soundtrack {
+            default = soundtrack(0x72, 0xff)
         }
 
         enum ROOM {
@@ -3693,6 +3995,16 @@ area east_inbetwixx() {
                 }
             }
 
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // upstairs
+                add_enemy(RAPTOR_GREEN, 0d26, 0d48);
+                add_enemy(RAPTOR_PURPLE, 0d28, 0d25);
+
+                // downstairs
+                add_enemy(RAPTOR_GREEN, 0d39, 0d80);
+                add_enemy(RAPTOR_PURPLE, 0d17, 0d71);
+            }
+
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
@@ -3727,7 +4039,7 @@ area east_inbetwixx() {
                 tiny_bridge(True);
             }
 
-            init_room();
+            default_init_room(True, False);
         }
     };
 
@@ -3953,6 +4265,14 @@ area east_inbetwixx() {
         }
 
         fun trigger_enter() {
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // downstairs
+                add_enemy(FLOWER_PURPLE, 0d18, 0d28);
+
+                // upstairs
+                add_enemy(FLOWER_PURPLE, 0d30, 0d11);
+            }
+
             default_init_room(True, True);
         }
     };
@@ -4490,6 +4810,9 @@ area east_inbetwixx() {
             ROOMS_CLEARED = memory(),
 
             BIG_MUSHROOM_UNLOCKED = flag(),
+
+            MUSIC_ENTRANCE = 0x72,
+            MUSIC_MAZE = 0x72,
         }
 
         map pipe_entrance(0x3e) {
@@ -4497,6 +4820,10 @@ area east_inbetwixx() {
                 pipe_east = entrance(0x2d, 0x17, NONE),
                 south = entrance(0x1a, 0x2f, NORTH),
                 pipe_west = entrance(0x07, 0x17, NONE),
+            }
+            
+            enum soundtrack {
+                default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff)
             }
 
             enum ROOM {
@@ -4639,6 +4966,10 @@ area east_inbetwixx() {
                     }
                 }
 
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    add_enemy(RAT, 0d38, 0d33);
+                }
+
                 if(ROOM.GOURD) {
                     object[0x07] = 0x02; // loot gourd_entrance
                     gourd_looted();
@@ -4669,6 +5000,10 @@ area east_inbetwixx() {
                 pipe_switch = entrance(0xbf, 0x23, NONE),
                 pipe_gate = entrance(0x87, 0x1f, NONE),
                 gate = entrance(0x98, 0x10, SOUTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff)
             }
 
             enum stepon_trigger {
@@ -4789,6 +5124,10 @@ area east_inbetwixx() {
                 north = entrance(0x9e, 0x05, DIRECTION.SOUTH),
                 south_1 = entrance(0x9e, 0x37, DIRECTION.NORTH),
                 south_2 = entrance(0x84, 0x37, DIRECTION.NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff)
             }
 
             enum stepon_trigger {
@@ -4946,6 +5285,10 @@ area east_inbetwixx() {
         map pipe_caves_2(0x3c) { // variant: room_alchemist
             enum entrance {
                 north = entrance(0xd0, 0x05, DIRECTION.SOUTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff)
             }
 
             enum stepon_trigger {
@@ -5119,6 +5462,10 @@ area east_inbetwixx() {
                 cinematic_east = entrance(0x2d, 0x7, NONE),
             }
 
+            enum soundtrack {
+                default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff)
+            }
+
             enum stepon_trigger {
                 pipe = @install() fun test() {
                     pit_act3_sewers();
@@ -5161,6 +5508,10 @@ area east_inbetwixx() {
             enum entrance {
                 pipe_east = entrance(0x67, 0x94, NONE),
                 pipe_west = entrance(0x5b, 0x94, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(PIPE_MAZE.MUSIC_MAZE, 0xff)
             }
 
             fun pit_west_1_triggered() {
@@ -7451,12 +7802,18 @@ area southern_jungle() {
 area town() {
     enum AREA_TOWN_TEMPLE {
         SECRET_PASSAGE_OPENED = flag(),
+
+        MUSIC_TOWN = 0x42,
     }
 
     map town_market_alley(0x4e) {
         enum entrance {
             north = entrance(0x2a, 0x01, SOUTH),
             east = entrance(0x39, 0xc3, WEST),
+        }
+
+        enum soundtrack {
+            default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
         }
 
         enum stepon_trigger {
@@ -7893,6 +8250,10 @@ area town() {
                 crash = entrance(0x2c, 0x39, NONE),
             }
 
+            enum soundtrack {
+                default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+            }
+
             fun open_door(open) {
                 if(open) {
                     tile_animate(0x20, 0xff, 0x02);
@@ -7978,6 +8339,10 @@ area town() {
                 ship_small = entrance(0x47, 0x51, NORTH),
                 ship_tavern = entrance(0x6f, 0x51, NORTH),
                 cave_monk = entrance(0x4f, 0x23, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
             }
 
             enum stepon_trigger {
@@ -8216,6 +8581,10 @@ area town() {
                 door_2 = entrance(0x5a, 0x72, SOUTH),
 
                 crash = entrance(0x45, 0x7b, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
             }
 
             fun open_doors(open) {
@@ -8515,6 +8884,10 @@ area town() {
                 crash = entrance(0x0d, 0x15, DIRECTION.NONE),
             }
 
+            enum soundtrack {
+                default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+            }
+
             enum stepon_trigger {
                 exit_south_2 = @install() fun test() {
                     map_transition(town_market, door_1, SOUTH);
@@ -8761,6 +9134,10 @@ area town() {
             crash = entrance(0x5d, 0x5d, NONE),
         }
 
+        enum soundtrack {
+            default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+        }
+
         enum stepon_trigger {
             gate = @install() fun test() {
                 subtext(string("exit? 0 [END]"));
@@ -8824,6 +9201,10 @@ area town() {
             door_5 = entrance(0x2a, 0x01, SOUTH),
 
             crash = entrance(0x6d, 0x41, NONE),
+        }
+
+        enum soundtrack {
+            default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
         }
 
         enum stepon_trigger {
@@ -8906,6 +9287,10 @@ area town() {
             south = entrance(0x56, 0x45, NORTH),
 
             crash = entrance(0x98, 0x15, NONE),
+        }
+
+        enum soundtrack {
+            default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
         }
 
         enum stepon_trigger {
@@ -14231,6 +14616,10 @@ area experimental_room() {
             right = entrance(0x2a, 0x23, NONE)
         }
 
+        enum soundtrack {
+            default = soundtrack(0x32, 0xff)
+        }
+
         enum stepon_trigger {
             exit_north = @install() fun test() {
                 map_transition(pipe_caves_1, south_2, NORTH);
@@ -15837,6 +16226,10 @@ area experimental_room() {
         enum entrance {
             west = entrance(0x06, 0x0f, NONE),
             south = entrance(0x10, 0x19, NONE),
+        }
+
+        enum soundtrack {
+            default = soundtrack(0x84, 0xff)
         }
 
         enum ROOM {

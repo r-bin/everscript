@@ -5,8 +5,8 @@ class Lexer():
         self.lexer = LexerGenerator()
 
     def _add_tokens(self):
-        self.lexer.add('BYTE', 'Byte')
-        self.lexer.add('WORD', 'Word')
+        self.lexer.add('T_BYTE', 'Byte')
+        self.lexer.add('T_WORD', 'Word')
 
         self.lexer.add('VAL', 'val(?=\ )')
         self.lexer.add('VAR', 'var(?=\ )')
@@ -58,6 +58,7 @@ class Lexer():
         self.lexer.add('FALSE', 'False(?![a-zA-Z_])')
         #self.lexer.add('ADDRESS', '0[xX][0-9a-fA-F]{6}')
         self.lexer.add('WORD', '[\+\-]{0,1}0[xX][0-9a-fA-F]+')
+        self.lexer.add('WORD_DECIMAL', '[\+\-]{0,1}0[dD][0-9]+')
         #self.lexer.add('word', '[0-9]+')
         self.lexer.add('ENUM_CALL', '[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*')
         #self.lexer.add('ENUM_IDENTIFIER', '[a-zA-Z][a-zA-Z0-9]+')
