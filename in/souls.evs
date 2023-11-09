@@ -115,13 +115,20 @@ group non_maps() {
             BONFIRE_VARIANT = memory(), // <0x250d>,
             BONFIRE_TELEPORT_REQUIRED = flag(),
             
+            // items
             ESTUS_CHARGES = memory(), // <0x250f>,
             ESTUS_SHARDS = memory(), // <0x2512>,
             ESTUS_CHARGES_INIT = 0x01,
+
+            ORB_SWORD =  memory(),
+            ORB_AXE =  memory(),
+            ORB_SPEAR =  memory(),
             
             // button map
             BUTTON_MAP = memory(), // TODO: should be memory_tmp()
             BOMB_ENABLED = flag(),
+
+            BONFIRE_INBETWIXX = flag(),
 
             // bosses
             PROGRESS_COUNTER = memory(),
@@ -298,6 +305,10 @@ group non_maps() {
             SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
             SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP;
             SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
+
+            if(MEMORY.MAP == 0x26) { // map inbetwixx
+                set(SOULS_MEMORY.BONFIRE_INBETWIXX);
+            }
         }
 
         fun bonfire(x, y) {
@@ -485,7 +496,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(gladiator_arena, south, NONE);
-                map_transition(eastern_river, east, NONE);
+                map_transition(shrine, east, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
             }
@@ -515,6 +526,14 @@ group non_maps() {
     };
 
     group souls_npcs() {
+        enum NPC_SHRINE_MAIDEN {
+            PROGRESS = memory(),
+            SUB_PROGRESS = memory(),
+
+            ID = memory(),
+            BODY = ENEMY.FIRE_EYES,
+        }
+
         enum NPC_MARIO {
             PROGRESS = memory(),
             SUB_PROGRESS = memory(),
@@ -1006,7 +1025,7 @@ area inbetwixx_center() {
                 // load_map(0x05, 0x0f, 0x47);
             }
 
-            bonfire(0x31, 0x35);
+            bonfire(0x31, 0x35, SOULS_MEMORY.BONFIRE_INBETWIXX);
             // bomb_wall_trigger(0x01, 0x3f, 0x3c);
             // bomb_wall_trigger(0x00, 0x43, 0x60);
         }
@@ -14185,6 +14204,310 @@ area experimental_area() {
         }
         
         fun trigger_enter() {
+            fade_in();
+        }
+    };
+
+    map shrine(0x25) {
+        enum entrance {
+            north = entrance(0x59, 0x0d, SOUTH),
+            east = entrance(0x7d, 0x65, WEST),
+            south = entrance(0x59, 0x73, NORTH),
+            west = entrance(0x01, 0x2f, EAST),
+
+            hut_1 = entrance(0x0f, 0x1b, SOUTH),
+            hut_2 = entrance(0x33, 0x2d, SOUTH),
+            hut_3 = entrance(0x53, 0x2f, SOUTH),
+            hut_4 = entrance(0x65, 0x36, SOUTH),
+            hut_5 = entrance(0x6f, 0x49, SOUTH),
+            hut_6 = entrance(0x45, 0x53, SOUTH),
+            hut_7 = entrance(0x25, 0x5b, SOUTH),
+            hut_8 = entrance(0x21, 0x3b, SOUTH),
+        }
+
+        enum ROOM {
+            SHRINE_BONFIRE_LIT = flag(),
+        }
+
+        @install()
+        fun bonfire_triggered_inbetwixx() {
+            if(<SCRIPT_OWNER>[DAMAGE_TYPE] != DAMAGE_TYPE.DOG_ATTACK) {
+                question(string("[SLOW]Return to Inbetwixx?[CHOICE]Yes.[CHOICE]No.[END]"));
+
+                if(MEMORY.QUESTION_ANSWER == 0x00) {
+                    map_transition(inbetwixx, start, NONE);
+                }
+            }
+        }
+
+        fun bonfire_portal(x, y, flag, trigger) {
+            if(flag) {
+                add_enemy_with_flags(LANTERN_LIGHT, x, y, INACTIVE);
+                attach_script(LAST_ENTITY, DAMAGE, trigger);
+                attribute(LAST_ENTITY, ROOT);
+                // <LAST_ENTITY>[PALETTE] = 0x0000;
+            }
+        }
+
+        @install()
+        fun add_bonfire() {
+            bonfire_portal(0d77, 0d92, SOULS_MEMORY.BONFIRE_INBETWIXX, reference(bonfire_triggered_inbetwixx)); // inbetwixx
+
+            // bonfire_portal(0d77, 0d100, …); // east inbetwixx
+
+            // bonfire_portal(0d69, 0d104, …); // town?
+
+            // bonfire_portal(0d60, 0d104, …); // west inbetwixx
+
+            // bonfire_portal(0d52, 0d100, …); // altus plateau
+
+            // bonfire_portal(0d51, 0d92, …); // southern jungle
+
+            // bonfire_portal(0d59, 0d88, …); // omnitopia
+        }
+
+        enum stepon_trigger {
+            exit_hut_1 = @install() fun test() {
+                subtext(string("exit? 0 [END]"));
+            },
+            exit_hut_2 = @install() fun test() {
+                subtext(string("exit? 1 [END]"));
+            },
+            exit_hut_3 = @install() fun test() {
+                subtext(string("exit? 2 [END]"));
+            },
+            exit_hut_4 = @install() fun test() {
+                subtext(string("exit? 3 [END]"));
+            },
+            exit_hut_5 = @install() fun test() {
+                subtext(string("exit? 4 [END]"));
+            },
+            exit_hut_6 = @install() fun test() {
+                subtext(string("exit? 5 [END]"));
+            },
+            exit_hut_7 = @install() fun test() {
+                subtext(string("exit? 6 [END]"));
+            },
+            exit_hut8 = @install() fun test() {
+                subtext(string("exit? 7 [END]"));
+            },
+            guard_east = @install() fun test() {
+                subtext(string("exit? 8 [END]"));
+            },
+            exit_north = @install() fun test() {
+                map_transition(shrine, south, NORTH);
+            },
+
+            exit_south = @install() fun test() {
+                map_transition(shrine, north, SOUTH);
+            },
+            exit_east = @install() fun test() {
+                map_transition(shrine, west, EAST);
+            },
+            exit_west = @install() fun test() {
+                map_transition(shrine, east, WEST);
+            },
+        }
+
+        enum b_trigger {
+            b_trigger_0 = @install() fun test() {
+                subtext(string("b? 0 [END]"));
+            },
+            b_trigger_1 = @install() fun test() {
+                subtext(string("b? 1 [END]"));
+            },
+            b_trigger_2 = @install() fun test() {
+                if(
+                    (NPC_SHRINE_MAIDEN.PROGRESS == 0x00) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x03) &&
+                    !(ROOM.SHRINE_BONFIRE_LIT)
+                ) {
+                    NPC_SHRINE_MAIDEN.PROGRESS += 0x01;
+                    NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0x00;
+
+                    set(ROOM.SHRINE_BONFIRE_LIT);
+                    object[0x11] = 0x1; // ignite fire
+
+                    add_bonfire();
+                }
+            },
+            b_trigger_3 = @install() fun test() {
+                subtext(string("b? 3 [END]"));
+            },
+            b_trigger_4 = @install() fun test() {
+                subtext(string("b? 4 [END]"));
+            },
+            b_trigger_5 = @install() fun test() {
+                subtext(string("b? 5 [END]"));
+            },
+            b_trigger_6 = @install() fun test() {
+                subtext(string("b? 6 [END]"));
+            },
+            b_trigger_7 = @install() fun test() {
+                subtext(string("b? 7 [END]"));
+            },
+            b_trigger_8 = @install() fun test() {
+                subtext(string("b? 8 [END]"));
+            },
+            b_trigger_9 = @install() fun test() {
+                subtext(string("b? 9 [END]"));
+            },
+
+            b_trigger_10 = @install() fun test() {
+                subtext(string("b? 10 [END]"));
+            },
+            b_trigger_11 = @install() fun test() {
+                subtext(string("b? 11 [END]"));
+            },
+            b_trigger_12 = @install() fun test() {
+                subtext(string("b? 12 [END]"));
+            },
+            b_trigger_13 = @install() fun test() {
+                subtext(string("b? 13 [END]"));
+            },
+            b_trigger_14 = @install() fun test() {
+                subtext(string("b? 14 [END]"));
+            },
+            b_trigger_15 = @install() fun test() {
+                subtext(string("b? 15 [END]"));
+            },
+            b_trigger_16 = @install() fun test() {
+                subtext(string("b? 16 [END]"));
+            },
+            b_trigger_17 = @install() fun test() {
+                subtext(string("b? 17 [END]"));
+            },
+            b_trigger_18 = @install() fun test() {
+                subtext(string("b? 18 [END]"));
+            },
+            b_trigger_19 = @install() fun test() {
+                subtext(string("b? 19 [END]"));
+            },
+        }
+
+        @install()
+        fun smith_triggered() {
+            if(
+                ((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) ||
+                ((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) ||
+                ((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4))
+            ) {
+                if((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) {
+                    question(string("[SLOW]Do you want me to upgrade your sword?[CHOICE]Yes.[CHOICE]No.[END]"));
+
+                    if(MEMORY.QUESTION_ANSWER == 0x00) {
+                        if!(FLAG.SWORD_1) {
+                            unlock(SWORD_1);
+                        } else if!(FLAG.SWORD_2) {
+                            unlock(SWORD_2);
+                        } else if!(FLAG.SWORD_3) {
+                            unlock(SWORD_3);
+                        } else if!(FLAG.SWORD_4) {
+                            unlock(SWORD_4);
+                        }
+
+                        end();
+                    }
+                }
+
+                if((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) {
+                    question(string("[SLOW]Do you want me to upgrade your axe?[CHOICE]Yes.[CHOICE]No.[END]"));
+
+                    if(MEMORY.QUESTION_ANSWER == 0x00) {
+                        if!(FLAG.AXE_1) {
+                            unlock(AXE_1);
+                        } else if!(FLAG.AXE_2) {
+                            unlock(AXE_2);
+                        } else if!(FLAG.AXE_3) {
+                            unlock(AXE_3);
+                        } else if!(FLAG.AXE_4) {
+                            unlock(AXE_4);
+                        }
+                        
+                        end();
+                    }
+                }
+
+                if((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4)) {
+                    question(string("[SLOW]Do you want me to upgrade your spear?[CHOICE]Yes.[CHOICE]No.[END]"));
+
+                    if(MEMORY.QUESTION_ANSWER == 0x00) {
+                        if!(FLAG.SPEAR_1) {
+                            unlock(SPEAR_1);
+                        } else if!(FLAG.SPEAR_2) {
+                            unlock(SPEAR_2);
+                        } else if!(FLAG.SPEAR_3) {
+                            unlock(SPEAR_3);
+                        } else if!(FLAG.SPEAR_4) {
+                            unlock(SPEAR_4);
+                        }
+                        
+                        end();
+                    }
+                }
+
+                dialog(string("[SLOW]Stop wasting my time.[B][END]"));
+            } else {
+                dialog(string("[SLOW]Bring me a weapon orb, and I'll forge you a better weapon.[B][END]"));
+            }
+        }
+        fun add_smith(x, y) {
+            add_enemy_with_flags(TINY, x, y, INACTIVE);
+            attach_script(LAST_ENTITY, TALK, reference(smith_triggered));
+        }
+
+        @install()
+        fun shrine_maiden_triggered() {
+            if(NPC_SHRINE_MAIDEN.PROGRESS == 0x00) {
+                if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x00) {
+                    NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                
+                    dialog(string("[SLOW]test 1.[B][END]"));
+                } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x01) {
+                    NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                
+                    dialog(string("[SLOW]test 2.[B][END]"));
+                } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x02) {
+                    NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                
+                    dialog(string("[SLOW]test 3.[B][END]"));
+                } else {
+                    dialog(string("[SLOW]Ignite the first bonfire.[B][END]"));
+                }
+            } else if(NPC_SHRINE_MAIDEN.PROGRESS == 0x01) {
+                dialog(string("[SLOW]test 4.[B][END]"));
+            }
+        }
+        fun add_shrine_maiden(x, y) {
+            add_enemy_with_flags(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
+            attach_script(LAST_ENTITY, TALK, reference(shrine_maiden_triggered));
+        }
+
+        @install()
+        fun debug_triggered() {
+            SOULS_MEMORY.ORB_SWORD = 0d99;
+            SOULS_MEMORY.ORB_AXE = 0d99;
+            SOULS_MEMORY.ORB_SPEAR = 0d99;
+
+            destroy(SCRIPT_OWNER);
+        }
+
+        fun trigger_enter() {
+            add_debug_entity(0d54, 0d84, reference(debug_triggered));
+
+            if(ROOM.SHRINE_BONFIRE_LIT) {
+                object[0x11] = 0x01; // ignite fire
+
+                add_bonfire();
+            }
+
+            add_shrine_maiden(0d71, 0d88);
+            add_smith(0d42, 0d93);
+
+            // object[0x00] = 0x01; // open gourd
+            // … sniff spots?
+            // object[0x11] = 0x01; // ignite fire
+
+
             fade_in();
         }
     };
