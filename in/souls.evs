@@ -23,567 +23,567 @@
     // "_hook_trigger",
 )
 
-// STRINGS
-
-@install(0x4713f)
-fun string_revealer_entity_name() {
-    cstring("SECRET[END]");
-}
-
-// ENEMY PROPERTIES
-
-@install(0x8ed62a)
-fun flower_purple_proc() {
-    code(0x0c, "// flower purple proc value");
-}
-
-// @install(0x8ec7b6)
-// fun tumblingweed_proc() {
-//     code(0x0c, "// flower purple proc value");
-// }
-
-// HELPER
-
-@install()
-@async()
-fun crash_both() {
-    <DOG>[X] -= 0x20;
-    <DOG>[Y] -= 0x20;
-
-    crash_land(BOTH);
-}
-
-@install()
-fun contraption_trigger() {
-    subtext(string("Locked by some contraption.[END]"));
-}
-
-fun branch_lady(x, y, id) {
-    add_enemy(VILLAGER_2_4, x, y);
-    entity_script_controlled(LAST_ENTITY);
-    face(LAST_ENTITY, WEST);
-    attach_script(LAST_ENTITY, TALK, id);
-    <LAST_ENTITY>[PALETTE] = 0x50;
-}
-
-@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
-fun jump_to_inbetwixx() {
-    set(FLAG.DEBUG);
-    map_transition(inbetwixx, start, NONE);
-}
-
-@install()
-fun bomb_wall_triggered() {
-    animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-    object[<0x2838>] = <0x283a>;
-
-    sleep(0x50);
-
-    destroy(SCRIPT_OWNER);
-}
-
-// souls
-
-enum BUTTON_MAP {
-    NORMAL = 0x00,
-
-    BOMBS = 0x01,
-    AIRSHIP = 0x02,
-    ISAAC = 0x03,
-    MARIO = 0x04,
-}
-
-enum SOULS_MEMORY {
-    INIT = flag(),
-    INTRO_WATCHED = flag(),
-
-    DEMO_MODE = False,
-    WITH_WEATHER = True,
-    WITH_TRASH_ENEMIES = True,
-
-    MAP_VARIANT = <0x23b9>, // TODO: hardcoded
-
-    DUST_ENTITY = memory(), // <0x24fd>,
-    DUST_DROP_X = memory(), // <0x24ff>,
-    DUST_DROP_Y = memory(), // <0x2501>,
-    DUST_DROP_MAP = memory(), // <0x2503>,
-    DUST_DROP_VARIANT = memory(), // <0x2505>,
-
-    BONFIRE_X = memory(), // <0x2507>,
-    BONFIRE_Y = memory(), // <0x2509>,
-    BONFIRE_MAP = memory(), // <0x250b>,
-    BONFIRE_VARIANT = memory(), // <0x250d>,
-    BONFIRE_TELEPORT_REQUIRED = flag(),
-    
-    ESTUS_CHARGES = memory(), // <0x250f>,
-    ESTUS_SHARDS = memory(), // <0x2512>,
-    ESTUS_CHARGES_INIT = 0x01,
-    
-    // button map
-    BUTTON_MAP = memory(), // TODO: should be memory_tmp()
-    BOMB_ENABLED = flag(),
-
-    // bosses
-    PROGRESS_COUNTER = memory(),
-    BOSSES_DEFEATED_COUNTER = memory(),
-    COLLECTIBLE_COUNTER = memory(),
-
-    // east
-    DEAD_VOLCANO_HYDRA = flag(),
-    DEAD_ARENA_RADAHN = flag(),
-    DEAD_STOMPY_RADAHN = flag(),
-    
-    DEAD_ARENA_MOSQUITO = flag(),
-
-    DEAD_TEMPLE_MINITAUR = flag(),
-    DEAD_TAVERN_BOXERS = flag(),
-
-    DEAD_NARIS = flag(),
-}
-
-@install()
-fun upgrade_estus() { // TODO: test
-    dialog(string("hi[END]"));
-    
-    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
-        dialog(string("estus upgrade?[CHOICE]yes[CHOICE]no[END]"));
-
-        if(MEMORY.QUESTION_ANSWER == 0x00) {
-            SOULS_MEMORY.ESTUS_SHARDS -= 0x01;
-
-            SOULS_MEMORY.ESTUS_CHARGES += 0x01;
+group non_maps() {
+    group strings() {
+        @install(0x4713f)
+        fun string_revealer_entity_name() {
+            cstring("SECRET[END]");
         }
-    }
-}
+    };
 
-@install()
-fun dust_loot() {
-    SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
-    SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
+    group enemy_properties() {
+        @install(0x8ed62a)
+        fun flower_purple_proc() {
+            code(0x0c, "// flower purple proc value");
+        }
 
-    // attach_script(SCRIPT_OWNER, LOOT, 0x172b);
-
-    // subtext(string("Reclaimed souls"));
-
-    currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.TALONS);
-
-    // <0x2391> = 0x0000;
-    // <0x2395> = 0x0000;
-    // call_id(0x3d);
-    animate(BOY, ONCE, ANIMATION_BOY.LOOT);
-
-    destroy(SOULS_MEMORY.DUST_ENTITY);
-
-    // sleep(0x80);
-
-    show_currency(True);
-    sleep(0x40);
-    show_currency(False);
-}
-
-@install()
-fun dust_drop() {
-    // subtext(string("Souls in reach...[END]"));
-
-    attach_script(SCRIPT_OWNER, LOOT, reference(dust_loot));
-
-    <0x23d9> = 0x0001;
-    animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.DUST);
-    sleep(0x3c);
-    <0x23d9> = 0x0001;
-    animate(SCRIPT_OWNER, FREEZE, ANIMATION_ENEMY.DUST);
-}
-
-@install()
-fun return_to_bonfire() {
-    if(SOULS_MEMORY.BONFIRE_MAP == 0x26) {
-        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-        map_transition(inbetwixx, start, NONE); // TODO
-    } else if(SOULS_MEMORY.BONFIRE_MAP == 0x1a) {
-        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-        map_transition(east_crossing, crash, NONE); // TODO
-    } else if(SOULS_MEMORY.BONFIRE_MAP == 0xa8) {
-        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-        map_transition(well, crash, NONE); // TODO
-    } else if(SOULS_MEMORY.BONFIRE_MAP == 0x18) {
-        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-        map_transition(pipe_entrance, pipe_east, NONE); // TODO
-    } else if(SOULS_MEMORY.BONFIRE_MAP == 0x0b) {
-        set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-        map_transition(town_arena_entry, crash, NONE); // TODO
-    } else if(SOULS_MEMORY.BONFIRE_MAP != 0x00){
-        fade_in();
-        sleep(0x20);
-        
-        MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.BONFIRE_MAP;
-
-        subtext(string("Game could not find bonfire #[0xa1][END]"));
-        
-        sleep(0xa0);
-    }
-
-    map_transition(inbetwixx, start, NONE);
-}
-
-@install()
-fun boy_death() {
-    control(NONE);
-
-    currency_get(CURRENCY.CREDITS, 0x01);
-
-    show_currency(True);
-    yield();
-
-    // subtext(string("Souls lost"));
-
-    // damage(DOG, 0x03e8);
-
-    currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
-    currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
-
-    SOULS_MEMORY.DUST_DROP_X = <SCRIPT_OWNER>[X];
-    SOULS_MEMORY.DUST_DROP_Y = <SCRIPT_OWNER>[Y];
-    // <0x2503> = MEMORY.MAP;
-    SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP;
-    SOULS_MEMORY.DUST_DROP_VARIANT = SOULS_MEMORY.MAP_VARIANT;
-
-    // sleep(0x20);
-
-    // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
-    destroy(SOULS_MEMORY.DUST_ENTITY);
-
-    animate(BOY, ONCE, ANIMATION_ENEMY.DUST);
-    animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
-
-    sleep(0xa0);
-
-    fade_out();
-
-    show_currency(False);
-    yield();
-
-    sleep(0x50);
-
-    full_heal(BOTH, False);
-
-    return_to_bonfire();
-
-    control(BOTH);
-}
-
-@install()
-fun bonfire_triggered() {
-    // test_owner2();
-    // end();
-    
-    // subtext(string("Bonfire Lit[END]"));
-
-    // bonfire_activate(<SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], reference(bonfire_triggered));
-
-    MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
-}
-
-@install()
-fun bonfire_lit() {    
-    subtext(string("Bonfire Lit[END]"));
-
-    add_enemy_with_flags(LANTERN_LIGHT_RED, 0x00, 0x00, INACTIVE);
-    attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_triggered));
-    <LAST_ENTITY>[X] = <SCRIPT_OWNER>[X];
-    <LAST_ENTITY>[Y] = <SCRIPT_OWNER>[Y];
-
-    destroy(SCRIPT_OWNER);
-
-    SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
-    SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
-    SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP;
-    SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
-}
-
-fun bonfire(x, y) {
-    // add_enemy_with_flags(LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE_IMORTAL);
-    // attach_script(LAST_ENTITY, TALK, 0x181e);
-    // entity_script_controlled(LAST_ENTITY);
-
-    if((SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) && (SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
-        add_enemy_with_flags(LANTERN_LIGHT_RED, x, y, INACTIVE);
-        attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_triggered));
-    } else {
-        add_enemy_with_flags(LANTERN_LIGHT, x, y, INACTIVE);
-        attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_lit));
-    }
-    
-    attribute(LAST_ENTITY, ROOT, True);
-    <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-}
-
-@install()
-fun init_souls() {
-    if!(SOULS_MEMORY.INIT) {
-        set(SOULS_MEMORY.INIT);
-
-        SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
-        MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
-    }
-
-    if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
-        add_dynamic_enemy_with_flags(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y, 0x00);
-        SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
-        attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
-        
-        attribute(LAST_ENTITY, MUTE, True);
-        damage(LAST_ENTITY, 0x03e8, False);
-    }
-
-    if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
-        // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) {
-        //     if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
-        //         if(SOULS_MEMORY.BONFIRE_X != 0x00) {
-        //             if(SOULS_MEMORY.BONFIRE_Y != 0x00) { // TODO
-                        <BOY>[X] = SOULS_MEMORY.BONFIRE_X;
-                        <BOY>[Y] = SOULS_MEMORY.BONFIRE_Y;
-
-                        <DOG>[X] = SOULS_MEMORY.BONFIRE_X;
-                        <DOG>[Y] = SOULS_MEMORY.BONFIRE_Y;
-        //             }
-        //         }
-        //     }
+        // @install(0x8ec7b6)
+        // fun tumblingweed_proc() {
+        //     code(0x0c, "// flower purple proc value");
         // }
-        unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-    }
+    };
 
-    cure();
-    // cast(BOY, BOTH, CURE, 0x01);
+    group helper() {
+        @install()
+        @async()
+        fun crash_both() {
+            <DOG>[X] -= 0x20;
+            <DOG>[Y] -= 0x20;
 
-    attach_script(BOY, DEATH, reference(boy_death));
-
-    special_script(WINGS, reference(return_to_bonfire));
-
-    MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
-    MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
-
-    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
-}
-
-fun collectible_collected() {
-    SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
-    SOULS_MEMORY.COLLECTIBLE_COUNTER += 0x01;
-
-    destroy(SCRIPT_OWNER);
-
-    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.COLLECTIBLE_COUNTER;
-    subtext(string("Collectibles: [0xa1][END]"));
-}
-fun add_collectible(type, x, y, collected_trigger) {
-    if(type == 0x00) {
-        add_placeholder(SCEPTER, x, y);
-    } else if(type == 0x01) {
-        add_placeholder(0x100, x, y);
-    }
-    attach_script(LAST_ENTITY, TALK, collected_trigger);
-}
-
-fun add_debug_entity(x, y, debug_triggered) {
-    add_placeholder(DOVES_1, x, y);
-    attach_script(LAST_ENTITY, TALK, debug_triggered);
-}
-
-// HOTKEYS
-
-@install()
-@inject(ADDRESS.HOTKEY_START)
-@count_limit(0x20)
-fun hotkey_start() {
-    if(FLAG.DEBUG) {
-        subtext(string("Start[END]"));
-    }
-
-    if(True) {
-        mario_yump();
-        end();
-    }
-
-    if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
-        windwalker_rocket();
-    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
-        isaac_tear(False);
-    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.BOMBS) {
-        drop_bomb(False);
-    } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.MARIO) {
-        mario_yump();
-    } else {
-        if((SOULS_MEMORY.BOMB_ENABLED) && (FLAG.ENERGY_CORE)) {
-            drop_bomb(True);
+            crash_land(BOTH);
         }
-    }
-}
-@install()
-@inject(ADDRESS.HOTKEY_START_L)
-@count_limit(0x20)
-fun hotkey_start_l() {
-    if(FLAG.DEBUG) {
-        subtext(string("Start+L[END]"));
 
-        // return_to_bonfire();
-        
-        // map_transition(gladiator_arena, south, NONE);
-        map_transition(windwalker_sidescroller, west, NONE);
+        @install()
+        fun contraption_trigger() {
+            subtext(string("Locked by some contraption.[END]"));
+        }
 
-        // MEMORY.MAP_PALETTE -= 0x01;
-    }
-}
-@install()
-@inject(ADDRESS.HOTKEY_START_R)
-@count_limit(0x20)
-fun hotkey_start_r() {
-    if(FLAG.DEBUG) {
-        subtext(string("Start+R[END]"));
-        
-        attribute(BOY, NO_CLIP, True);
-        // attribute(BOY, INVINCIBLE_TEMP, True);
-        // <BOY>[HP] = SYSTEM.HP_MAX;
-        
-        debug_boy();
-        // debug_memory(<0x2834>[0x15], <0x2836>[HP]);
-        // debug_memory(<0x2834>[HP], <0x2836>[HP]);
-        
-        // map_transition(toaster_arena, center, NONE);
-
-        // MEMORY.MAP_PALETTE += 0x01;
-
-        // debug_memory(<0x2849>, <0x2849>);
-    }
-}
-
-// NPCs
-
-enum NPC_MARIO {
-    PROGRESS = memory(),
-    SUB_PROGRESS = memory(),
-
-    ID = memory(),
-    BODY = ENEMY.VILLAGER_2_1,
-}
-
-@install()
-fun npc_mario_dialog_0() {
-    if(NPC_MARIO.PROGRESS == 0x00) {
-        if(NPC_MARIO.SUB_PROGRESS == 0x00) {
-            NPC_MARIO.SUB_PROGRESS += 0x01;
-
-            add_enemy_with_flags(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+        fun branch_lady(x, y, id) {
+            add_enemy(VILLAGER_2_4, x, y);
+            entity_script_controlled(LAST_ENTITY);
             face(LAST_ENTITY, WEST);
-            init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
-
-            subtext(string("is there somebody?[END]"));
-        } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
-            NPC_MARIO.SUB_PROGRESS += 0x01;
-
-            dialog(string("[SLOW]test1[B][END]"));
-        } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
-            NPC_MARIO.PROGRESS += 0x01;
-            NPC_MARIO.SUB_PROGRESS = 0x00;
-
-            dialog(string("[SLOW]test2[B][END]"));
+            attach_script(LAST_ENTITY, TALK, id);
+            <LAST_ENTITY>[PALETTE] = 0x50;
         }
-    } else {
-        dialog(string("[SLOW]Please go now[B][END]"));
-    }
-}
 
-@install()
-fun npc_mario_dialog_1() {
-    control_enemy(NPC_MARIO.ID, True);
-    face_each(BOY, NPC_MARIO.ID);
-
-    if(NPC_MARIO.PROGRESS == 0x01) {
-        // NPC_MARIO.PROGRESS += 0x01;
-        // NPC_MARIO.SUB_PROGRESS = 0x00;
-
-        if(NPC_MARIO.SUB_PROGRESS == 0x00) {
-            NPC_MARIO.SUB_PROGRESS += 0x01;
-
-            dialog(string("[SLOW]test1[B][END]"));
-        } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
-            NPC_MARIO.SUB_PROGRESS += 0x01;
-
-            dialog(string("[SLOW]test2[B][END]"));
-        } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
-            NPC_MARIO.PROGRESS += 0x01;
-            NPC_MARIO.SUB_PROGRESS += 0x00;
-
-            dialog(string("[SLOW]test3[B][END]"));
+        @install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+        fun jump_to_inbetwixx() {
+            set(FLAG.DEBUG);
+            map_transition(inbetwixx, start, NONE);
         }
-    } else {
-        dialog(string("[SLOW]Please go now[B][END]"));
-    }
 
-    control_enemy(NPC_MARIO.ID, False);
-}
+        @install()
+        fun bomb_wall_triggered() {
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+            object[<0x2838>] = <0x283a>;
 
-enum NPC_ISAAC {
-    PROGRESS = memory(),
-}
+            sleep(0x50);
 
-// MAPS
-
-fun init_hack() {
-    init_souls();
-
-    MEMORY.DOG = DOG.WOLF;
-    available(BOTH);
-}
-
-fun default_init_room(night, rain) {
-    init_hack();
-    
-    if(SOULS_MEMORY.WITH_WEATHER) {
-        if(rain) {
-            sfx_effect(RAIN, True);
+            destroy(SCRIPT_OWNER);
         }
-        if(night) {
-            sfx_effect(NIGHT, True);
+    };
+
+    group souls_helper() {     
+        enum BUTTON_MAP {
+            NORMAL = 0x00,
+
+            BOMBS = 0x01,
+            AIRSHIP = 0x02,
+            ISAAC = 0x03,
+            MARIO = 0x04,
         }
-    }
 
-    fade_in();
-}
+        enum SOULS_MEMORY {
+            INIT = flag(),
+            INTRO_WATCHED = flag(),
 
-fun isaac_mode() {
-    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
-    MEMORY.PACIFIED = 0x01;
-}
+            DEMO_MODE = False,
+            WITH_WEATHER = True,
+            WITH_TRASH_ENEMIES = True,
 
-fun isaac_init(night, rain) {
-    // TODO: dog should stay unavailable
-    available(BOY);
-    teleport(DOG, 0xff, 0xff);
+            MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
-    default_init_room(night, rain);
+            DUST_ENTITY = memory(), // <0x24fd>,
+            DUST_DROP_X = memory(), // <0x24ff>,
+            DUST_DROP_Y = memory(), // <0x2501>,
+            DUST_DROP_MAP = memory(), // <0x2503>,
+            DUST_DROP_VARIANT = memory(), // <0x2505>,
 
-    available(BOY);
-    teleport(DOG, 0xff, 0xff);
+            BONFIRE_X = memory(), // <0x2507>,
+            BONFIRE_Y = memory(), // <0x2509>,
+            BONFIRE_MAP = memory(), // <0x250b>,
+            BONFIRE_VARIANT = memory(), // <0x250d>,
+            BONFIRE_TELEPORT_REQUIRED = flag(),
+            
+            ESTUS_CHARGES = memory(), // <0x250f>,
+            ESTUS_SHARDS = memory(), // <0x2512>,
+            ESTUS_CHARGES_INIT = 0x01,
+            
+            // button map
+            BUTTON_MAP = memory(), // TODO: should be memory_tmp()
+            BOMB_ENABLED = flag(),
 
-    isaac_mode();
-}
+            // bosses
+            PROGRESS_COUNTER = memory(),
+            BOSSES_DEFEATED_COUNTER = memory(),
+            COLLECTIBLE_COUNTER = memory(),
 
-fun mario_mode() {
-    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
-    MEMORY.PACIFIED = 0x01;
-}
+            // east
+            DEAD_VOLCANO_HYDRA = flag(),
+            DEAD_ARENA_RADAHN = flag(),
+            DEAD_STOMPY_RADAHN = flag(),
+            
+            DEAD_ARENA_MOSQUITO = flag(),
 
-fun mario_init(night, rain) {
-    // TODO: dog should stay unavailable
-    available(BOY);
-    teleport(DOG, 0xff, 0xff);
+            DEAD_TEMPLE_MINITAUR = flag(),
+            DEAD_TAVERN_BOXERS = flag(),
 
-    default_init_room(night, rain);
+            DEAD_NARIS = flag(),
+        }
 
-    available(BOY);
-    teleport(DOG, 0xff, 0xff);
+        @install()
+        fun upgrade_estus() { // TODO: test
+            dialog(string("hi[END]"));
+            
+            if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
+                dialog(string("estus upgrade?[CHOICE]yes[CHOICE]no[END]"));
 
-    mario_mode();
-}
+                if(MEMORY.QUESTION_ANSWER == 0x00) {
+                    SOULS_MEMORY.ESTUS_SHARDS -= 0x01;
+
+                    SOULS_MEMORY.ESTUS_CHARGES += 0x01;
+                }
+            }
+        }
+
+        @install()
+        fun dust_loot() {
+            SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
+            SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
+
+            // attach_script(SCRIPT_OWNER, LOOT, 0x172b);
+
+            // subtext(string("Reclaimed souls"));
+
+            currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.TALONS);
+
+            // <0x2391> = 0x0000;
+            // <0x2395> = 0x0000;
+            // call_id(0x3d);
+            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+
+            destroy(SOULS_MEMORY.DUST_ENTITY);
+
+            // sleep(0x80);
+
+            show_currency(True);
+            sleep(0x40);
+            show_currency(False);
+        }
+
+        @install()
+        fun dust_drop() {
+            // subtext(string("Souls in reach...[END]"));
+
+            attach_script(SCRIPT_OWNER, LOOT, reference(dust_loot));
+
+            <0x23d9> = 0x0001;
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.DUST);
+            sleep(0x3c);
+            <0x23d9> = 0x0001;
+            animate(SCRIPT_OWNER, FREEZE, ANIMATION_ENEMY.DUST);
+        }
+
+        @install()
+        fun return_to_bonfire() {
+            if(SOULS_MEMORY.BONFIRE_MAP == 0x26) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+                map_transition(inbetwixx, start, NONE); // TODO
+            } else if(SOULS_MEMORY.BONFIRE_MAP == 0x1a) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+                map_transition(east_crossing, crash, NONE); // TODO
+            } else if(SOULS_MEMORY.BONFIRE_MAP == 0xa8) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+                map_transition(well, crash, NONE); // TODO
+            } else if(SOULS_MEMORY.BONFIRE_MAP == 0x18) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+                map_transition(pipe_entrance, pipe_east, NONE); // TODO
+            } else if(SOULS_MEMORY.BONFIRE_MAP == 0x0b) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+                map_transition(town_arena_entry, crash, NONE); // TODO
+            } else if(SOULS_MEMORY.BONFIRE_MAP != 0x00){
+                fade_in();
+                sleep(0x20);
+                
+                MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.BONFIRE_MAP;
+
+                subtext(string("Game could not find bonfire #[0xa1][END]"));
+                
+                sleep(0xa0);
+            }
+
+            map_transition(inbetwixx, start, NONE);
+        }
+
+        @install()
+        fun boy_death() {
+            control(NONE);
+
+            currency_get(CURRENCY.CREDITS, 0x01);
+
+            show_currency(True);
+            yield();
+
+            // subtext(string("Souls lost"));
+
+            // damage(DOG, 0x03e8);
+
+            currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
+            currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
+
+            SOULS_MEMORY.DUST_DROP_X = <SCRIPT_OWNER>[X];
+            SOULS_MEMORY.DUST_DROP_Y = <SCRIPT_OWNER>[Y];
+            // <0x2503> = MEMORY.MAP;
+            SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP;
+            SOULS_MEMORY.DUST_DROP_VARIANT = SOULS_MEMORY.MAP_VARIANT;
+
+            // sleep(0x20);
+
+            // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
+            destroy(SOULS_MEMORY.DUST_ENTITY);
+
+            animate(BOY, ONCE, ANIMATION_ENEMY.DUST);
+            animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
+
+            sleep(0xa0);
+
+            fade_out();
+
+            show_currency(False);
+            yield();
+
+            sleep(0x50);
+
+            full_heal(BOTH, False);
+
+            return_to_bonfire();
+
+            control(BOTH);
+        }
+
+        @install()
+        fun bonfire_triggered() {
+            // test_owner2();
+            // end();
+            
+            // subtext(string("Bonfire Lit[END]"));
+
+            // bonfire_activate(<SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], reference(bonfire_triggered));
+
+            MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+        }
+
+        @install()
+        fun bonfire_lit() {    
+            subtext(string("Bonfire Lit[END]"));
+
+            add_enemy_with_flags(LANTERN_LIGHT_RED, 0x00, 0x00, INACTIVE);
+            attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_triggered));
+            <LAST_ENTITY>[X] = <SCRIPT_OWNER>[X];
+            <LAST_ENTITY>[Y] = <SCRIPT_OWNER>[Y];
+
+            destroy(SCRIPT_OWNER);
+
+            SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
+            SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
+            SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP;
+            SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
+        }
+
+        fun bonfire(x, y) {
+            // add_enemy_with_flags(LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE_IMORTAL);
+            // attach_script(LAST_ENTITY, TALK, 0x181e);
+            // entity_script_controlled(LAST_ENTITY);
+
+            if((SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) && (SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
+                add_enemy_with_flags(LANTERN_LIGHT_RED, x, y, INACTIVE);
+                attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_triggered));
+            } else {
+                add_enemy_with_flags(LANTERN_LIGHT, x, y, INACTIVE);
+                attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_lit));
+            }
+            
+            attribute(LAST_ENTITY, ROOT, True);
+            <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+        }
+
+        @install()
+        fun init_souls() {
+            if!(SOULS_MEMORY.INIT) {
+                set(SOULS_MEMORY.INIT);
+
+                SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
+                MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+            }
+
+            if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
+                add_dynamic_enemy_with_flags(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y, 0x00);
+                SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
+                
+                attribute(LAST_ENTITY, MUTE, True);
+                damage(LAST_ENTITY, 0x03e8, False);
+            }
+
+            if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
+                // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) {
+                //     if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
+                //         if(SOULS_MEMORY.BONFIRE_X != 0x00) {
+                //             if(SOULS_MEMORY.BONFIRE_Y != 0x00) { // TODO
+                                <BOY>[X] = SOULS_MEMORY.BONFIRE_X;
+                                <BOY>[Y] = SOULS_MEMORY.BONFIRE_Y;
+
+                                <DOG>[X] = SOULS_MEMORY.BONFIRE_X;
+                                <DOG>[Y] = SOULS_MEMORY.BONFIRE_Y;
+                //             }
+                //         }
+                //     }
+                // }
+                unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+            }
+
+            cure();
+            // cast(BOY, BOTH, CURE, 0x01);
+
+            attach_script(BOY, DEATH, reference(boy_death));
+
+            special_script(WINGS, reference(return_to_bonfire));
+
+            MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+            MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
+
+            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+        }
+
+        fun collectible_collected() {
+            SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+            SOULS_MEMORY.COLLECTIBLE_COUNTER += 0x01;
+
+            destroy(SCRIPT_OWNER);
+
+            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.COLLECTIBLE_COUNTER;
+            subtext(string("Collectibles: [0xa1][END]"));
+        }
+        fun add_collectible(type, x, y, collected_trigger) {
+            if(type == 0x00) {
+                add_placeholder(SCEPTER, x, y);
+            } else if(type == 0x01) {
+                add_placeholder(0x100, x, y);
+            }
+            attach_script(LAST_ENTITY, TALK, collected_trigger);
+        }
+
+        fun add_debug_entity(x, y, debug_triggered) {
+            add_placeholder(DOVES_1, x, y);
+            attach_script(LAST_ENTITY, TALK, debug_triggered);
+        }
+
+        fun init_hack() {
+            init_souls();
+
+            MEMORY.DOG = DOG.WOLF;
+            available(BOTH);
+        }
+
+        fun default_init_room(night, rain) {
+            init_hack();
+            
+            if(SOULS_MEMORY.WITH_WEATHER) {
+                if(rain) {
+                    sfx_effect(RAIN, True);
+                }
+                if(night) {
+                    sfx_effect(NIGHT, True);
+                }
+            }
+
+            fade_in();
+        }
+
+        fun isaac_mode() {
+            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+            MEMORY.PACIFIED = 0x01;
+        }
+
+        fun isaac_init(night, rain) {
+            // TODO: dog should stay unavailable
+            available(BOY);
+            teleport(DOG, 0xff, 0xff);
+
+            default_init_room(night, rain);
+
+            available(BOY);
+            teleport(DOG, 0xff, 0xff);
+
+            isaac_mode();
+        }
+
+        fun mario_mode() {
+            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+            MEMORY.PACIFIED = 0x01;
+        }
+
+        fun mario_init(night, rain) {
+            // TODO: dog should stay unavailable
+            available(BOY);
+            teleport(DOG, 0xff, 0xff);
+
+            default_init_room(night, rain);
+
+            available(BOY);
+            teleport(DOG, 0xff, 0xff);
+
+            mario_mode();
+        }
+    };
+
+    group hotkeys() {
+        @install()
+        @inject(ADDRESS.HOTKEY_START)
+        @count_limit(0x20)
+        fun hotkey_start() {
+            if(FLAG.DEBUG) {
+                subtext(string("Start[END]"));
+            }
+
+            if(True) {
+                mario_yump();
+                end();
+            }
+
+            if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
+                windwalker_rocket();
+            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
+                isaac_tear(False);
+            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.BOMBS) {
+                drop_bomb(False);
+            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.MARIO) {
+                mario_yump();
+            } else {
+                if((SOULS_MEMORY.BOMB_ENABLED) && (FLAG.ENERGY_CORE)) {
+                    drop_bomb(True);
+                }
+            }
+        }
+        @install()
+        @inject(ADDRESS.HOTKEY_START_L)
+        @count_limit(0x20)
+        fun hotkey_start_l() {
+            if(FLAG.DEBUG) {
+                subtext(string("Start+L[END]"));
+
+                // return_to_bonfire();
+                
+                // map_transition(gladiator_arena, south, NONE);
+                map_transition(eastern_river, east, NONE);
+
+                // MEMORY.MAP_PALETTE -= 0x01;
+            }
+        }
+        @install()
+        @inject(ADDRESS.HOTKEY_START_R)
+        @count_limit(0x20)
+        fun hotkey_start_r() {
+            if(FLAG.DEBUG) {
+                subtext(string("Start+R[END]"));
+                
+                attribute(BOY, NO_CLIP, True);
+                // attribute(BOY, INVINCIBLE_TEMP, True);
+                // <BOY>[HP] = SYSTEM.HP_MAX;
+                
+                debug_boy();
+                // debug_memory(<0x2834>[0x15], <0x2836>[HP]);
+                // debug_memory(<0x2834>[HP], <0x2836>[HP]);
+                
+                // map_transition(toaster_arena, center, NONE);
+
+                // MEMORY.MAP_PALETTE += 0x01;
+
+                // debug_memory(<0x2849>, <0x2849>);
+            }
+        }
+    };
+
+    group souls_npcs() {
+        enum NPC_MARIO {
+            PROGRESS = memory(),
+            SUB_PROGRESS = memory(),
+
+            ID = memory(),
+            BODY = ENEMY.VILLAGER_2_1,
+        }
+
+        @install()
+        fun npc_mario_dialog_0() {
+            if(NPC_MARIO.PROGRESS == 0x00) {
+                if(NPC_MARIO.SUB_PROGRESS == 0x00) {
+                    NPC_MARIO.SUB_PROGRESS += 0x01;
+
+                    add_enemy_with_flags(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+                    face(LAST_ENTITY, WEST);
+                    init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
+
+                    subtext(string("is there somebody?[END]"));
+                } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
+                    NPC_MARIO.SUB_PROGRESS += 0x01;
+
+                    dialog(string("[SLOW]test1[B][END]"));
+                } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
+                    NPC_MARIO.PROGRESS += 0x01;
+                    NPC_MARIO.SUB_PROGRESS = 0x00;
+
+                    dialog(string("[SLOW]test2[B][END]"));
+                }
+            } else {
+                dialog(string("[SLOW]Please go now[B][END]"));
+            }
+        }
+
+        @install()
+        fun npc_mario_dialog_1() {
+            control_enemy(NPC_MARIO.ID, True);
+            face_each(BOY, NPC_MARIO.ID);
+
+            if(NPC_MARIO.PROGRESS == 0x01) {
+                // NPC_MARIO.PROGRESS += 0x01;
+                // NPC_MARIO.SUB_PROGRESS = 0x00;
+
+                if(NPC_MARIO.SUB_PROGRESS == 0x00) {
+                    NPC_MARIO.SUB_PROGRESS += 0x01;
+
+                    dialog(string("[SLOW]test1[B][END]"));
+                } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
+                    NPC_MARIO.SUB_PROGRESS += 0x01;
+
+                    dialog(string("[SLOW]test2[B][END]"));
+                } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
+                    NPC_MARIO.PROGRESS += 0x01;
+                    NPC_MARIO.SUB_PROGRESS += 0x00;
+
+                    dialog(string("[SLOW]test3[B][END]"));
+                }
+            } else {
+                dialog(string("[SLOW]Please go now[B][END]"));
+            }
+
+            control_enemy(NPC_MARIO.ID, False);
+        }
+
+        enum NPC_ISAAC {
+            PROGRESS = memory(),
+        }
+    };
+};
 
 // MAPS
 
@@ -3297,6 +3297,10 @@ area northwest_inbetwixx() {
             south = entrance(0x11, 0x3f, NORTH)
         }
 
+        enum soundtrack {
+            default = soundtrack(0x46, 0xff)
+        }
+
         @install()
         fun yeet() {
             control(NONE);
@@ -4284,6 +4288,10 @@ area east_inbetwixx() {
             south = entrance(0x55, 0x6e, NORTH),
         }
 
+        enum soundtrack {
+            default = soundtrack(0x72, 0xff)
+        }
+
         enum ROOM {
             WATER_REMOVED = flag()
         } 
@@ -4402,7 +4410,7 @@ area east_inbetwixx() {
         fun trigger_enter() {
             // object[0x00] = 0x01;
             // object[0x01] = 0x01;
-            
+
             if!(ROOM.WATER_REMOVED) {
                 add_enemy(REVEALER_TARGET_ENTITY, 0x52, 0x26);
                 special_script(REVEALER, reference(revealer_triggered));
@@ -4410,6 +4418,23 @@ area east_inbetwixx() {
                 add_debug_entity(0x5b, 0x23, reference(debug_triggered));
             } else {
                 remove_water(True);
+            }
+
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // east
+                add_enemy(RAPTOR_PURPLE, 0d95, 0d30);
+
+                add_enemy(RAPTOR_PURPLE, 0d99, 0d63);
+
+                // west
+                add_enemy(RAPTOR_GREEN, 0d40, 0d47);
+
+                add_enemy(RAPTOR_GREEN, 0d61, 0d81);
+
+                // river
+                if(ROOM.WATER_REMOVED) {
+                    add_enemy(RAPTOR_PURPLE, 0d82, 0d38);
+                }
             }
 
             default_init_room(True, True);
@@ -5275,7 +5300,7 @@ area east_inbetwixx() {
             fun trigger_enter() {
                 init_room(0x03);
 
-                default_init_room(False, False);
+                default_init_room(True, False);
 
                 if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
@@ -5446,7 +5471,7 @@ area east_inbetwixx() {
                     init_room(0x04);
                 }
                 
-                default_init_room(False, False);
+                default_init_room(True, False);
 
                 if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
@@ -7189,6 +7214,10 @@ area southern_jungle() {
             south = entrance(0x11, 0x3f, NORTH)
         }
 
+        enum soundtrack {
+            default = soundtrack(0x46, 0xff)
+        }
+
         @install()
         fun yeet() {
             control(NONE);
@@ -7615,7 +7644,7 @@ area southern_jungle() {
         }
         
         fun trigger_enter() {
-            if!(IN_ANIMATION) {
+            if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
 
@@ -9544,6 +9573,10 @@ map town_bridge(0x1f) {
         west = entrance(0x01, 0x21, EAST)
     }
 
+    enum soundtrack {
+        default = soundtrack(0x68, 0xff)
+    }
+
     enum stepon_trigger {
         exit_east = @install() fun test() {
             map_transition(town_center, west_1, EAST);
@@ -9589,6 +9622,10 @@ map bog_curve(0x20) {
     enum entrance {
         east = entrance(0x2b, 0x15, WEST),
         south = entrance(0x1b, 0x29, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x68, 0xff)
     }
 
     enum stepon_trigger {
@@ -9810,6 +9847,10 @@ map bog_bridges(0x40) {
         south = entrance(0x1b, 0x53, NORTH)
     }
 
+    enum soundtrack {
+        default = soundtrack(0x68, 0xff)
+    }
+
     enum stepon_trigger {
         exit_north = @install() fun test() {
             map_transition(bog_curve, south, NORTH);
@@ -9832,6 +9873,10 @@ map bog_crossing(0x05) {
         west_2 = entrance(0x04, 0x2f, EAST),
 
         north_short = entrance(0x24, 0x1f, SOUTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x3a, 0xff)
     }
 
     enum ROOM {
@@ -10032,7 +10077,7 @@ map bog_crossing(0x05) {
     }
 };
 
-map bog_crossing_firepit(0x04) {
+map bog_crossing_firepit(0x04) { // unused
     enum entrance {
         west = entrance(0x03, 0x1f, EAST),
     }
@@ -10054,6 +10099,10 @@ map bog_crossing_firepit(0x04) {
 map bog_crossing_gourds(0x26) {
     enum entrance {
         east = entrance(0x26, 0x13, WEST),
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x68, 0xff)
     }
 
     enum stepon_trigger {
@@ -10089,6 +10138,10 @@ map ship(0x68) {
         door_2_2 = entrance(0x32, 0x40, SOUTH),
         door_3_1 = entrance(0x13, 0x0d, SOUTH),
         door_3_2 = entrance(0x4b, 0x0d, SOUTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(0x3a, 0xff)
     }
 
     enum stepon_trigger {
@@ -10153,222 +10206,224 @@ area dungeon_isaac() {
         ENEMY_COUNT = memory_tmp(),
     }
 
-    fun prepare_room(index) {
-        if(index == 0x01) {
-            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
-        } else if(index == 0x02) {
-            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
-        } else if(index == 0x03) {
-            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
-        } else if(index == 0x04) {
-            init_map(0x26, 0x24, 0x48, 0x54); // room_4
-        } else if(index == 0x05) {
-            init_map(0x00, 0x24, 0x22, 0x54); // room_5
-        }
-    }
-
-    @install()
-    fun enemies_alive() {
-        MEMORY.STRING_PARAMETER_1 = AREA_BASEMENT.ENEMY_COUNT;
-        MEMORY.STRING_PARAMETER_2 = AREA_BASEMENT.ENEMY_COUNT_TOTAL;
-
-        subtext(string("[0xa1]/[0xa2] enemies alive.[END]"));
-    }
-
-    fun check_exits(clear_flag) {
-        if(AREA_BASEMENT.ENEMY_COUNT > 0x00) {
-            enemies_alive();
-
-            end();
-        } else {
-            set(clear_flag);
-        }
-    }
-
-    @install()
-    fun shoot(entity) {
-        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(<BOY>[X]), calculate(<BOY>[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    }
-    @install()
-    fun shoot_plus(entity) {
-        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X]), calculate(entity[Y] - 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X] + 0x80), calculate(entity[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X]), calculate(entity[Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X] - 0x80), calculate(entity[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-    }
-    @install()
-    fun shoot_bomb(entity) {
-        code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0x1a), calculate(<BOY>[X]), calculate(<BOY>[Y]), param(0x2a), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        arg[0x02] = <BOY>[X];
-        arg[0x04] = <BOY>[Y];
-
-        sleep(0x50);
-        code(0xb5, param(THROWABLE.BOMB_EXPLOSION), calculate(entity), calculate(arg[0x02]), calculate(arg[0x04]), param(0x00), param(0x60), param(0x60), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, 0x00, 0x00);
-        arg[0x06] = <LAST_ENTITY>;
-
-        arg[0x06][X] = arg[0x02];
-        arg[0x06][Y] = arg[0x04];
-        sleep(0x20);
-        _destroy(arg[0x06]);
-    }
-    @install()
-    fun explode(entity) {
-        code(0xb5, param(THROWABLE.BOMB_EXPLOSION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0x00), param(0x70), param(0x70), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, 0x00, 0x00);
-        arg[0x02] = <LAST_ENTITY>;
-
-        arg[0x02][X] = entity[X];
-        arg[0x02][Y] = entity[Y];
-        sleep(0x20);
-        _destroy(arg[0x02]);
-    }
-
-    @install()
-    fun jump(entity) {
-        entity[JUMP_HEIGHT] = 0x30;
-        
-        while(arg[0x02] <= 0x30) {
-            arg[0x02] += 0x01;
-
-            if(entity[X] > <BOY>[X]) {
-                entity[X] -= 0x01;
-            } else if(entity[X] < <BOY>[X]) {
-                entity[X] += 0x01;
+    group isaac_helper() {
+        fun prepare_room(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+            } else if(index == 0x02) {
+                init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+            } else if(index == 0x03) {
+                init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+            } else if(index == 0x04) {
+                init_map(0x26, 0x24, 0x48, 0x54); // room_4
+            } else if(index == 0x05) {
+                init_map(0x00, 0x24, 0x22, 0x54); // room_5
             }
-
-            if(entity[Y] > <BOY>[Y]) {
-                entity[Y] -= 0x01;
-            } else if(entity[Y] < <BOY>[Y]) {
-                entity[Y] += 0x01;
-            }
-
-            sleep(0x02);
         }
-    }
 
-    @install()
-    @async()
-    fun isaac_ai_shooting(enemy) {
-        sleep(0x60);
-
-        while!(dead(enemy)) {
-            shoot(enemy);
-            // shoot_plus(enemy);
-            // shoot_bomb(enemy);
-
-            sleep(0xa0);
-        }
-    }
-    @install()
-    @async()
-    fun isaac_ai_shooting_plus(enemy) {
-        sleep(0x60);
-
-        while!(dead(enemy)) {
-            // shoot(enemy);
-            shoot_plus(enemy);
-            // shoot_bomb(enemy);
-
-            sleep(0xf0);
-        }
-    }
-    @install()
-    @async()
-    fun isaac_ai_jumping(enemy) {
-        sleep(0x60);
-
-        while!(dead(enemy)) {
-            // _control_enemy(enemy, False);
-            jump(enemy);
-            // _control_enemy(enemy, True);
-
-            sleep(0xf0);
-        }
-    }
-
-    @install()
-    fun isaac_enemy_death() {
-        AREA_BASEMENT.ENEMY_COUNT -= 0x01;
-
-        // if(AREA_BASEMENT.ENEMY_COUNT == 0x00) {
-        //     AREA_BASEMENT.ENABLE_DOORS = 0x01;
-        // }
-
-        if(AREA_BASEMENT.DEBUG) {
+        @install()
+        fun enemies_alive() {
             MEMORY.STRING_PARAMETER_1 = AREA_BASEMENT.ENEMY_COUNT;
             MEMORY.STRING_PARAMETER_2 = AREA_BASEMENT.ENEMY_COUNT_TOTAL;
 
-            subtext(string("[0xa1] / [0xa2][END]"));
+            subtext(string("[0xa1]/[0xa2] enemies alive.[END]"));
         }
-    }
-    @install()
-    fun isaac_enemy_death_shoot_plus() {
-        isaac_enemy_death();
 
-        shoot_plus(<SCRIPT_OWNER>);
-    }
-    @install()
-    fun isaac_enemy_death_shoot_bomb() {
-        isaac_enemy_death();
+        fun check_exits(clear_flag) {
+            if(AREA_BASEMENT.ENEMY_COUNT > 0x00) {
+                enemies_alive();
 
-        shoot_bomb(<SCRIPT_OWNER>);
-    }
-    @install()
-    fun isaac_enemy_death_explode() {
-        isaac_enemy_death();
+                end();
+            } else {
+                set(clear_flag);
+            }
+        }
 
-        explode(<SCRIPT_OWNER>);
-    }
+        @install()
+        fun shoot(entity) {
+            code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(<BOY>[X]), calculate(<BOY>[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        }
+        @install()
+        fun shoot_plus(entity) {
+            code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X]), calculate(entity[Y] - 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X] + 0x80), calculate(entity[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X]), calculate(entity[Y] + 0x80), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0xff), calculate(entity[X] - 0x80), calculate(entity[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+        }
+        @install()
+        fun shoot_bomb(entity) {
+            code(0xb5, param(THROWABLE.ONION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0x1a), calculate(<BOY>[X]), calculate(<BOY>[Y]), param(0x2a), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            arg[0x02] = <BOY>[X];
+            arg[0x04] = <BOY>[Y];
 
-    fun add_isaac_enemy() {
-        AREA_BASEMENT.ENEMY_COUNT_TOTAL += 0x01;
-        AREA_BASEMENT.ENEMY_COUNT += 0x01;
-    }
-    fun add_isaac_enemy_fly_shooting(x, y) {
-        add_isaac_enemy();
+            sleep(0x50);
+            code(0xb5, param(THROWABLE.BOMB_EXPLOSION), calculate(entity), calculate(arg[0x02]), calculate(arg[0x04]), param(0x00), param(0x60), param(0x60), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, 0x00, 0x00);
+            arg[0x06] = <LAST_ENTITY>;
 
-        add_enemy(MOSQUITO, x, y);
-        attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
-        isaac_ai_shooting(<LAST_ENTITY>);
-    }
-    fun add_isaac_enemy_fly_exploding(x, y) {
-        add_isaac_enemy();
+            arg[0x06][X] = arg[0x02];
+            arg[0x06][Y] = arg[0x04];
+            sleep(0x20);
+            _destroy(arg[0x06]);
+        }
+        @install()
+        fun explode(entity) {
+            code(0xb5, param(THROWABLE.BOMB_EXPLOSION), calculate(entity), calculate(entity[X]), calculate(entity[Y]), param(0x00), param(0x70), param(0x70), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, 0x00, 0x00);
+            arg[0x02] = <LAST_ENTITY>;
 
-        add_enemy(MOSQUITO, x, y);
-        attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death_shoot_bomb));
-    }
-    fun add_isaac_enemy_maggot(x, y) {
-        add_isaac_enemy();
+            arg[0x02][X] = entity[X];
+            arg[0x02][Y] = entity[Y];
+            sleep(0x20);
+            _destroy(arg[0x02]);
+        }
 
-        add_enemy(MAGGOT, x, y);
-        attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
-    }
-    fun add_isaac_enemy_slime(x, y) {
-        add_isaac_enemy();
+        @install()
+        fun jump(entity) {
+            entity[JUMP_HEIGHT] = 0x30;
+            
+            while(arg[0x02] <= 0x30) {
+                arg[0x02] += 0x01;
 
-        add_enemy(SLIME_GREEN, x, y);
-        attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
-        isaac_ai_shooting_plus(<LAST_ENTITY>);
-    }
-    fun add_isaac_enemy_frippo(x, y) {
-        add_isaac_enemy();
+                if(entity[X] > <BOY>[X]) {
+                    entity[X] -= 0x01;
+                } else if(entity[X] < <BOY>[X]) {
+                    entity[X] += 0x01;
+                }
 
-        // add_enemy(DANCING_DEVIL_1, x, y);
-        // add_enemy(MUMMY, x, y);
-        add_enemy(FRIPPO, x, y);
-        attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
-        // attribute(LAST_ENTITY, ROOT, True);
-        isaac_ai_jumping(<LAST_ENTITY>);
-    }
-    fun add_isaac_enemy_spider(x, y) {
-        add_isaac_enemy();
+                if(entity[Y] > <BOY>[Y]) {
+                    entity[Y] -= 0x01;
+                } else if(entity[Y] < <BOY>[Y]) {
+                    entity[Y] += 0x01;
+                }
 
-        add_enemy(SPIDER, x, y);
-        <LAST_ENTITY>[HP] = 0x01;
-        attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death_explode));
-        // isaac_ai_jumping(<LAST_ENTITY>);
-    }
+                sleep(0x02);
+            }
+        }
+
+        @install()
+        @async()
+        fun isaac_ai_shooting(enemy) {
+            sleep(0x60);
+
+            while!(dead(enemy)) {
+                shoot(enemy);
+                // shoot_plus(enemy);
+                // shoot_bomb(enemy);
+
+                sleep(0xa0);
+            }
+        }
+        @install()
+        @async()
+        fun isaac_ai_shooting_plus(enemy) {
+            sleep(0x60);
+
+            while!(dead(enemy)) {
+                // shoot(enemy);
+                shoot_plus(enemy);
+                // shoot_bomb(enemy);
+
+                sleep(0xf0);
+            }
+        }
+        @install()
+        @async()
+        fun isaac_ai_jumping(enemy) {
+            sleep(0x60);
+
+            while!(dead(enemy)) {
+                // _control_enemy(enemy, False);
+                jump(enemy);
+                // _control_enemy(enemy, True);
+
+                sleep(0xf0);
+            }
+        }
+
+        @install()
+        fun isaac_enemy_death() {
+            AREA_BASEMENT.ENEMY_COUNT -= 0x01;
+
+            // if(AREA_BASEMENT.ENEMY_COUNT == 0x00) {
+            //     AREA_BASEMENT.ENABLE_DOORS = 0x01;
+            // }
+
+            if(AREA_BASEMENT.DEBUG) {
+                MEMORY.STRING_PARAMETER_1 = AREA_BASEMENT.ENEMY_COUNT;
+                MEMORY.STRING_PARAMETER_2 = AREA_BASEMENT.ENEMY_COUNT_TOTAL;
+
+                subtext(string("[0xa1] / [0xa2][END]"));
+            }
+        }
+        @install()
+        fun isaac_enemy_death_shoot_plus() {
+            isaac_enemy_death();
+
+            shoot_plus(<SCRIPT_OWNER>);
+        }
+        @install()
+        fun isaac_enemy_death_shoot_bomb() {
+            isaac_enemy_death();
+
+            shoot_bomb(<SCRIPT_OWNER>);
+        }
+        @install()
+        fun isaac_enemy_death_explode() {
+            isaac_enemy_death();
+
+            explode(<SCRIPT_OWNER>);
+        }
+
+        fun add_isaac_enemy() {
+            AREA_BASEMENT.ENEMY_COUNT_TOTAL += 0x01;
+            AREA_BASEMENT.ENEMY_COUNT += 0x01;
+        }
+        fun add_isaac_enemy_fly_shooting(x, y) {
+            add_isaac_enemy();
+
+            add_enemy(MOSQUITO, x, y);
+            attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
+            isaac_ai_shooting(<LAST_ENTITY>);
+        }
+        fun add_isaac_enemy_fly_exploding(x, y) {
+            add_isaac_enemy();
+
+            add_enemy(MOSQUITO, x, y);
+            attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death_shoot_bomb));
+        }
+        fun add_isaac_enemy_maggot(x, y) {
+            add_isaac_enemy();
+
+            add_enemy(MAGGOT, x, y);
+            attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
+        }
+        fun add_isaac_enemy_slime(x, y) {
+            add_isaac_enemy();
+
+            add_enemy(SLIME_GREEN, x, y);
+            attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
+            isaac_ai_shooting_plus(<LAST_ENTITY>);
+        }
+        fun add_isaac_enemy_frippo(x, y) {
+            add_isaac_enemy();
+
+            // add_enemy(DANCING_DEVIL_1, x, y);
+            // add_enemy(MUMMY, x, y);
+            add_enemy(FRIPPO, x, y);
+            attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
+            // attribute(LAST_ENTITY, ROOT, True);
+            isaac_ai_jumping(<LAST_ENTITY>);
+        }
+        fun add_isaac_enemy_spider(x, y) {
+            add_isaac_enemy();
+
+            add_enemy(SPIDER, x, y);
+            <LAST_ENTITY>[HP] = 0x01;
+            attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death_explode));
+            // isaac_ai_jumping(<LAST_ENTITY>);
+        }
+    };
 
     area level_0() {
         map basement_0_start(0x22) { // center "+"
