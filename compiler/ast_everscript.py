@@ -710,7 +710,7 @@ class If(Function_Base, Calculatable, Memorable):
         if condition:
             if isinstance(condition, UnaryOp):
                 self.memory = condition.memory
-            if isinstance(condition, Memory):
+            elif isinstance(condition, Memory):
                 self.memory = True
             elif isinstance(condition, BinaryOp):
                 self.memory = condition.memory
@@ -797,244 +797,129 @@ class If(Function_Base, Calculatable, Memorable):
                 code = [opcode] + self._terminate(condition) + [destination]
 
         return code
-    
-class BinaryDefaultCalculator():
-    def _default_calculate(self, operator:int, left:any, right:any, params:list[Param]):
-        code = []
-        if not isinstance(right, list):
-            right = right.calculate(params)
-
-        match left:
-            case Memory():
-                match [left.type, left.value_count()]:
-                    case ["char", _]:
-                        code = left.calculate(params) + [Operand("push")] + right + [operator]
-                    case ["28", _]:
-                        code = [Operand("read temp word"), left.code(params), Operand("push")] + right + [operator]
-                    case ["22" | "xx", 1]:
-                        code = [Operand("read byte"), left.code(params), Operand("push")] + right + [operator]
-                    case ["22" | "xx", _]:
-                        code = [Operand("read word"), left.code(params), Operand("push")] + right + [operator]
-                    case _:
-                        TODO()
-            case Deref():
-                code = left.calculate(params) + [Operand("push")] + right + [operator]
-            case Object():
-                TODO()
-            case Arg():
-                code = left.calculate(params) + [Operand("push")] + right + [operator]
-            case list():
-                code = left + [Operand("push")] + right + [operator]
-            case _:
-                TODO()
-
-        return code
         
-class And(BinaryOp, BinaryDefaultCalculator):
+class And(BinaryOp):
     def operator(self):
-        return "&&"
+        return Operand("&&")
+
+    def _eval(self, left, right, params:list[Param]):
+        return left.eval(params) and right.eval(params)
+    
+class Or(BinaryOp):
+    def operator(self):
+        return Operand("||")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) == right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("&&")
-
-        return self._default_calculate(operator, left, right, params)
-class Or(BinaryOp, BinaryDefaultCalculator):
+class Equals(BinaryOp):
     def operator(self):
-        return "||"
+        return Operand("==")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) == right.eval(params)
-    
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("||")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class Equals(BinaryOp, BinaryDefaultCalculator):
-    def operator(self):
-        return "=="
-
-    def _eval(self, left, right, params:list[Param]):
-        return left.eval(params) == right.eval(params)
-    
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("==")
-
-        return self._default_calculate(operator, left, right, params)
         
-class NotEquals(BinaryOp, BinaryDefaultCalculator):
+class NotEquals(BinaryOp):
     def operator(self):
-        return "!="
+        return Operand("!=")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) != right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("!=")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class GreaterEquals(BinaryOp, BinaryDefaultCalculator):
+class GreaterEquals(BinaryOp):
     def operator(self):
-        return ">="
+        return Operand(">=")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) >= right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand(">=")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class Greater(BinaryOp, BinaryDefaultCalculator):
+class Greater(BinaryOp):
     def operator(self):
-        return ">"
+        return Operand(">")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) > right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand(">")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class LowerEquals(BinaryOp, BinaryDefaultCalculator):
+class LowerEquals(BinaryOp):
     def operator(self):
-        return "<="
+        return Operand("<=")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) <= right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("<=")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class Lower(BinaryOp, BinaryDefaultCalculator):
+class Lower(BinaryOp):
     def operator(self):
-        return "<"
+        return Operand("<")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) < right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("<")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class Add(BinaryOp, BinaryDefaultCalculator):
+class Add(BinaryOp):
     def operator(self):
-        return "+"
+        return Operand("+")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) + right.eval(params)
-
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("+")
-
-        return self._default_calculate(operator, left, right, params)
     
-class Sub(BinaryOp, BinaryDefaultCalculator):
+class Sub(BinaryOp):
     def operator(self):
-        return "-"
+        return Operand("-")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) - right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("-")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class Mul(BinaryOp, BinaryDefaultCalculator):
+class Mul(BinaryOp):
     def operator(self):
-        return "*"
+        return Operand("*")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) * right.eval(params)
-    
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("*")
 
-        return self._default_calculate(operator, left, right, params)
-
-class Div(BinaryOp, BinaryDefaultCalculator):
+class Div(BinaryOp):
     def operator(self):
-        return "/"
+        return Operand("/")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) // right.eval(params)
-    
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("/")
 
-        return self._default_calculate(operator, left, right, params)
-
-class ShiftRight(BinaryOp, BinaryDefaultCalculator):
+class ShiftRight(BinaryOp):
     def operator(self):
-        return ">>"
+        return Operand(">>")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) >> right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand(">>")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class ShiftLeft(BinaryOp, BinaryDefaultCalculator):
+class ShiftLeft(BinaryOp):
     def operator(self):
-        return "<<"
+        return Operand("<<")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) << right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("<<")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class BinaryAnd(BinaryOp, BinaryDefaultCalculator):
+class BinaryAnd(BinaryOp):
     def operator(self):
-        return "&"
+        return Operand("&")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) & right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("&")
-
-        return self._default_calculate(operator, left, right, params)
-    
-class BinaryOr(BinaryOp, BinaryDefaultCalculator):
+class BinaryOr(BinaryOp):
     def operator(self):
-        return "|"
+        return Operand("|")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) | right.eval(params)
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("|")
-
-        return self._default_calculate(operator, left, right, params)
-class BinaryXor(BinaryOp, BinaryDefaultCalculator):
+class BinaryXor(BinaryOp):
     def operator(self):
-        return "^"
+        return Operand("^")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) | right.eval(params)
-    
-    def _calculate(self, left:any, right:any, params:list[Param]):
-        operator = Operand("^")
-
-        return self._default_calculate(operator, left, right, params)
 
 class Asign(BinaryOp):
     def operator(self):
-        return "="
+        return "=" # Opcode("=")
 
     def _code(self, params:list[Param]):
         code = self.calculate(params)

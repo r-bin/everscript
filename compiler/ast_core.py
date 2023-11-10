@@ -624,7 +624,11 @@ class BinaryOp(Operator):
 
     def eval(self, params:list[Param]):
         left = self.resolve(self.left, params)
+        if not left:
+            raise Exception(f"in {self}.{self.left} does not exist")
         right = self.resolve(self.right, params)
+        if not right:
+            raise Exception(f"in {self}.{self.right} does not exist")
 
         return self._eval(left, right, params)
 
@@ -649,37 +653,32 @@ class BinaryOp(Operator):
         return ' '.join(reversed(value))
     
     def calculate(self, params):
-        self.update(params)
-
         left = self.resolve(self.left, params)
-        if isinstance(left, Memorable) and left.offset != None and left.memory == False: # TODO: identifier should be detected once the params contain the value
+        if isinstance(left, Memorable):
             left.update(params)
-            self.update(params)
-        if isinstance(left, BinaryOp):
-            new_left = left.calculate(params)
-            if new_left == None:
-                TODO()
-            else:
-                left = new_left
         
         right = self.resolve(self.right, params)
+        if isinstance(right, Memorable):
+            right.update(params)
+
+        self.update(params)
 
         estimated_size = None
         match [left, right]:
             case [Memory()|Word(), Memory()|Word()]:
                 estimated_size = max(left.value_count(), right.value_count())
-
-        if isinstance(right, BinaryOp) or isinstance(right, UnaryOp) or isinstance(right, Word) or isinstance(right, Memory):
-            new_right = right.calculate(params)
-            if new_right == None:
-                TODO()
-            else:
-                right = new_right
+            case [Memory()|Word(), _]:
+                estimated_size = left.value_count()
+            case [_, Memory()|Word()]:
+                estimated_size = right.value_count()
 
         if isinstance(self, Memorable) and not self.memory:
             return Word(self.eval(params), estimated_size).calculate(params)
         else:
             return self._calculate(left, right, params)
+    
+    def _calculate(self, left:any, right:any, params:list[Param]):
+        return left.calculate(params) + [Operand("push")] + right.calculate(params) + [self.operator()]
     
     def flatten(self, x, params:list[Param]):
         if isinstance(x, BinaryOp):
@@ -694,7 +693,7 @@ class BinaryOp(Operator):
             return [x]
 
     def operator(self):
-        return ""
+        TODO()
 
 class Operand():
     _operands = {
