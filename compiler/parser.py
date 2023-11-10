@@ -237,6 +237,26 @@ class Parser():
             # scope.value = function
             
             return function
+        @self.pg.production('function : { expression_list }')
+        def parse(p):
+            name = "anonymous"
+            args = []
+            code = p[1]
+
+            function = Function(name, code, args)
+            self.generator.add_function(function)
+
+            return function
+        @self.pg.production('function : { expression_list }')
+        def parse(p):
+            name = "anonymous"
+            args = []
+            code = p[1]
+
+            function = Function(name, code, args)
+            self.generator.add_function(function)
+            
+            return function
 
         @self.pg.production('annotation_list : annotation')
         def parse(p):
