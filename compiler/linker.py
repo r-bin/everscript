@@ -97,8 +97,8 @@ class MemoryManager():
 
         raise Exception("no memory defined/available")
         
-    def allocate_text(self, string:String, text:RawString):
-        count = text.count([])
+    def allocate_text(self, string:String):
+        count = string.count([])
         text_key = self.memory["text_key"].pop(0)
         memory = self.memory["text"]
         
@@ -345,8 +345,8 @@ unallocated RAM:
     def link_flag(self) -> Memory:
         return self.memory_manager.allocate_flag()
 
-    def link_string(self, string:String, text:RawString):
-        self.memory_manager.allocate_text(string, text)
+    def link_string(self, string:String):
+        self.memory_manager.allocate_text(string)
 
     def add_memory(self, memory):
         self.memory_manager.add(memory)

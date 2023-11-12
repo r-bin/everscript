@@ -158,7 +158,7 @@ class CodeGen():
         strings = []
         for s in self.strings:
             strings.append(f"   - [{'{:06X}'.format(s.text_key.address, 'x')}, {'{:04X}'.format(s.text_key.count([]), 'x')}] {s.text_key}")
-            strings.append(f"   - [{'{:06X}'.format(s.address, 'x')}, {'{:04X}'.format(s.value.count([]), 'x')}] {s}")
+            strings.append(f"   - [{'{:06X}'.format(s.address, 'x')}, {'{:04X}'.format(s.count([]), 'x')}] {s}")
         strings = '\n'.join(strings)
         memory = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory])
         flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.flags])
@@ -197,10 +197,16 @@ allocated RAM:
     def add_patch(self, patch_name):
         self.patches.append(patch_name)
 
-    def add_string(self, string:String, text:RawString):
-        self.linker.link_string(string, text)
+    def add_string(self, string:String):
+        for s in self.strings:
+            if s.value == string.value:
+                return s
+
+        self.linker.link_string(string)
 
         self.strings.append(string)
+
+        return string
 
     def add_map_transition(self, map_transition:MapTransition):
         self.map_transitions.append(map_transition)
@@ -479,12 +485,7 @@ allocated RAM:
 
             code = Address(code).code([])
 
-            if address >= 0xC00000: # TODO
-                address -= 0xC00000
-            elif address >= 0x800000: # TODO
-                address -= 0x800000
-            elif address >= 0x400000: # TODO
-                address -= 0x400000
+            address = self.correct_address(address)
 
             header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{name}'"]
             footer = []
@@ -505,6 +506,18 @@ allocated RAM:
 
         return '\n'.join(output)
         
+    def correct_address(self, address:int)->int:
+        if address >= 0xC00000: # TODO
+            address -= 0xC00000
+        elif address >= 0x800000: # TODO
+            address -= 0x800000
+        elif address >= 0x400000: # TODO
+            address -= 0x400000
+            
+        if address > (4 * 1024 * 1024):
+            TODO()
+
+        return address
 
     def _generate_string(self, string):
         list = []
@@ -518,12 +531,7 @@ allocated RAM:
         code._value_count = 3
         code = code.code([])
 
-        if address >= 0xC00000: # TODO
-            address -= 0xC00000
-        elif address >= 0x800000: # TODO
-            address -= 0x800000
-        elif address >= 0x400000: # TODO
-            address -= 0x400000
+        address = self.correct_address(address)
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{name}'"]
         footer = []
@@ -532,15 +540,11 @@ allocated RAM:
 
         name = string.value
         address = string.address
-        count = string.value.count([])
-        code = string.value.code([])
+        code = RawString(string.value)
+        count = code.count([])
+        code = code.code([])
 
-        if address >= 0xC00000: # TODO
-            address -= 0xC00000
-        elif address >= 0x800000: # TODO
-            address -= 0x800000
-        elif address >= 0x400000: # TODO
-            address -= 0x400000
+        address = self.correct_address(address)
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={name}"]
         footer = []
@@ -561,12 +565,7 @@ allocated RAM:
         list += self._inject(function)
         self.linker.link_goto(function)
 
-        if address >= 0xC00000: # TODO
-            address -= 0xC00000
-        elif address >= 0x800000: # TODO
-            address -= 0x800000
-        elif address >= 0x400000: # TODO
-            address -= 0x400000
+        address = self.correct_address(address)
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{function.name}()'"]
         footer = []
@@ -588,12 +587,7 @@ allocated RAM:
 
         list = []
 
-        if address >= 0xC00000: # TODO
-            address -= 0xC00000
-        elif address >= 0x800000: # TODO
-            address -= 0x800000
-        elif address >= 0x400000: # TODO
-            address -= 0x400000
+        address = self.correct_address(address)
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{function.key}->{function.name}()'"]
         footer = []
@@ -628,12 +622,7 @@ allocated RAM:
 
         code = Function_Code(script).script
 
-        if address >= 0xC00000: # TODO
-            address -= 0xC00000
-        elif address >= 0x800000: # TODO
-            address -= 0x800000
-        elif address >= 0x400000: # TODO
-            address -= 0x400000
+        address = self.correct_address(address)
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
         footer = []
