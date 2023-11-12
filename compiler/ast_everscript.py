@@ -331,6 +331,8 @@ class _Address(BaseBox):
     
 class String(Function_Base):
     def __init__(self, generator, value, install = False):
+        self._generator = generator
+
         self.value = value
         if isinstance(self.value, Token):
             self.value = self.value.value
@@ -339,26 +341,45 @@ class String(Function_Base):
         self.text_key = None
         self.address = None
 
-        if self.install:
-            self.value = RawString(value.value.eval())
-            self.value.install = True
-            generator.add_string(self, self.value)
-            pass
-
     def __repr__(self):
         return f"String('{self.value}')"
         
     def eval(self):
         return self.value
+
+    def count(self, params:list[Param]):
+        return RawString(self.value).count(params)
         
     def _code(self, params:list[Param]):
-        if not self.install:
+        if not self.text_key:
             code = re.sub("\"", "", self.value)
         else:
             code = Word(self.text_key.index)
             code = code.code([])
+
         return code
-        
+    
+class InstalledString(Function_Base):
+    def __init__(self, generator, value):
+        self._generator = generator
+        self.value = value
+
+        self.string_key = None
+
+        self.installed = False
+
+    def _code(self, params:list[Param]):
+        value = self.resolve(self.value, params)
+
+        if not value.value.endswith("[END]"):
+            value.value += "[END]"
+
+        value = self._generator.add_string(value)
+
+        value = value.code(params)
+
+        return value
+
 class RawString(Function_Base):
     def __init__(self, value):
         self.value = value
@@ -369,7 +390,7 @@ class RawString(Function_Base):
             self.value = self.value.value.value
 
     def __str__(self):
-        return f"String('{self.eval()}')"
+        return f"RawString('{self.eval()}')"
 
     def eval(self):
         value = self.value
@@ -385,6 +406,8 @@ class RawString(Function_Base):
         lexer.add('B', '\[B\]')
         lexer.add('END', '\[END\]')
         lexer.add('CHOICE', '\[CHOICE\]')
+        lexer.add('MEM1', '\[MEM1\]')
+        lexer.add('MEM2', '\[MEM2\]')
         lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
         lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
         lexer.add('CHAR', '.')
@@ -406,6 +429,10 @@ class RawString(Function_Base):
                     return "00"
                 case _ if c.name == "CHOICE":
                     return "0a 8b"
+                case _ if c.name == "MEM1":
+                    return "a1"
+                case _ if c.name == "MEM2":
+                    return "a2"
                 case _ if c.name == "HEX":
                     return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
                 case _ if c.name == "PAUSE":

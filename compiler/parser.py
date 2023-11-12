@@ -16,7 +16,7 @@ class Parser():
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'TRUE', 'FALSE',
-                'WORD', 'WORD_DECIMAL', 'ENUM', 'ENUM_CALL', 'STRING',
+                'WORD', 'WORD_DECIMAL', 'ENUM', 'ENUM_CALL', 'STRING', 'STRING_RAW',
                 'LABEL_DESTINATION', # 'END',
                 'ELSEIF!', 'ELSEIF', 'IF_CURRENCY', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
@@ -53,8 +53,7 @@ class Parser():
             "len": (lambda p: Len(p[2][0]).eval()),
             "rnd": (lambda p: Rnd(p[2][0], p[2][1]).eval()),
             "call": (lambda p: Call(self.generator, p[2][0], [])),
-            "string": (lambda p: String(self.generator, p[2][0], True)),
-            "cstring": (lambda p: RawString(p[2][0])),
+            "install_string": (lambda p: InstalledString(self.generator, p[2][0])),
             "string_key": (lambda p: StringKey(p[2][0])),
             "function_key": (lambda p: FunctionKey(p[2][0])),
             "memory": (lambda p: self.generator.get_memory()),
@@ -347,6 +346,9 @@ class Parser():
         @self.pg.production('expression : STRING')
         def parse(p):
             return String(self.generator, p[0])
+        @self.pg.production('expression : STRING_RAW')
+        def parse(p):
+            return RawString(p[0])
 
         @self.pg.production('expression : IDENTIFIER')
         def parse(p):
