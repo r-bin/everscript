@@ -837,7 +837,7 @@ class Or(BinaryOp):
         return Operand("||")
 
     def _eval(self, left, right, params:list[Param]):
-        return left.eval(params) == right.eval(params)
+        return left.eval(params) or right.eval(params)
     
 class Equals(BinaryOp):
     def operator(self):
