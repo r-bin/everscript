@@ -179,7 +179,6 @@ enum MEMORY {
     FAKE_HOUSE_ID = <0x234b>,
 
     DOG = <0x2443>,
-    GAIN_WEAPON = <0x2441>,
     QUESTION_ANSWER = <0x289d>,
     STRING_PARAMETER_1 = <0x2537>,
     STRING_PARAMETER_2 = <0x2539>,
@@ -202,6 +201,10 @@ enum MEMORY {
     ENEMY_SPAWNER_QUANTITY = <0x2433>,
 
     WINDWALKER_TYPE = <0x2355>,
+
+    // weapons
+    GAIN_WEAPON = <0x2441>,
+    CURRENT_WEAPON = (Byte) <0x235F>,
 
     // map
 
@@ -1589,6 +1592,25 @@ enum WALK_TYPE {
     COORDINATE_RELATIVE_DIRECT = 0x6f,
 }
 
+enum WEAPON_INDEX {
+    SWORD_1 = 0x02, // "Bone Crusher"
+    SWORD_2 = 0x04, // "Gladiator Sword"
+    SWORD_3 = 0x06, // "Crusader Sword"
+    SWORD_4 = 0x08, // "Neutron Blade"
+
+    AXE_1 = 0x0a, // "Spider's Claw"
+    AXE_2 = 0x0c, // "Bronze Axe"
+    AXE_3 = 0x0e, // "Knight Basher"
+    AXE_4 = 0x10, // "Atom Smasher"
+
+    SPEAR_1 = 0x12, // "Horn Spear"
+    SPEAR_2 = 0x14, // "Bronze Spear"
+    SPEAR_3 = 0x16, // "Lance"
+    SPEAR_4 = 0x18, // "Laser Lance"
+
+    BAZOOKA = 0x1a, // "Bazooka"
+}
+
 enum SFX_EFFECT {
     // permanent effects
     RAIN = 0x0001,
@@ -1746,6 +1768,28 @@ fun music_enter(music, volume) {
 
 // character manipulation
 
+fun control(character:CHARACTER) {
+    if(character == CHARACTER.NONE) {
+        code(0xc0, "// (c0) BOY+DOG = STOPPED");
+    } else if(character == CHARACTER.BOTH) {
+        code(0xc1, "// (c1) BOY+DOG = Player controlled");
+    }
+}
+fun control_enemy(character:CHARACTER, control) {
+    if(control == True) {
+        code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+    } else {
+        code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+    }
+}
+fun _control_enemy(character:CHARACTER, control) {
+    if(control == True) {
+        code(0x2a, calculate(character), "// (2a) Make $2841 script controlled");
+    } else {
+        code(0x2b, calculate(character), "// (2b) Make $2835 player/AI controlled");
+    }
+}
+
 fun wait(character:CHARACTER) {
     if(character == CHARACTER.NONE) {
         nop();
@@ -1758,11 +1802,28 @@ fun wait(character:CHARACTER) {
 }
 
 fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, waiting) {
-    if(waiting == True) {
-        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
-        wait(character);
+    if((walk_type == WALK_TYPE.TILE_ABSOLUTE) || (walk_type == WALK_TYPE.TILE_ABSOLUTE_DIRECT)) {
+        if(waiting == True) {
+            code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            wait(character);
+            control(BOTH);
+            nop();
+        } else {
+            code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            nop();
+        }
     } else {
-        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        if(waiting == True) {
+            code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            wait(character);
+            control(BOTH);
+            nop();
+            nop();
+        } else {
+            code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            nop();
+            nop();
+        }
     }
 }
 fun _walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER) {
@@ -1939,28 +2000,6 @@ fun add_enemy_spawner(enemy, x, y, quantity) {
     MEMORY.ENEMY_SPAWNER_QUANTITY = quantity;
 
     code(0xc2, enemy, x, y, "// (c2) Add NPC 0x71 spawner at 0x13,0x09");
-}
-
-fun control(character:CHARACTER) {
-    if(character == CHARACTER.NONE) {
-        code(0xc0, "// (c0) BOY+DOG = STOPPED");
-    } else if(character == CHARACTER.BOTH) {
-        code(0xc1, "// (c1) BOY+DOG = Player controlled");
-    }
-}
-fun control_enemy(character:CHARACTER, control) {
-    if(control == True) {
-        code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
-    } else {
-        code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
-    }
-}
-fun _control_enemy(character:CHARACTER, control) {
-    if(control == True) {
-        code(0x2a, calculate(character), "// (2a) Make $2841 script controlled");
-    } else {
-        code(0x2b, calculate(character), "// (2b) Make $2835 player/AI controlled");
-    }
 }
 
 fun available(character:CHARACTER) {
@@ -2359,14 +2398,14 @@ fun unlock(item:ITEM) {
     }
 }
 
-fun reward(item) {
+fun reward(item:ITEM) {
     if(item == ITEM.JAGUAR_RING) {
         fanfare_item();
 
         unlock(item);
 
         sleep(0x20);
-        subtext(0x066f);
+        // subtext(0x066f);
         
         fanfare_weapon();
     } else if(item == ITEM.AXE_1) {
@@ -2543,6 +2582,9 @@ fun face_each(character:CHARACTER, character2:CHARACTER) {
 
 fun attach_to_script(character:CHARACTER) {
     code(0x4e, entity_t(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
+}
+fun _attach_to_script(character) {
+    code(0x4e, calculate(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
 }
 
 fun attach_script(character:CHARACTER, flag:SCRIPT_TRIGGER, id) {
