@@ -69,13 +69,26 @@ group non_maps() {
 
         @install()
         fun bomb_wall_triggered() {
+            heal(SCRIPT_OWNER, 0x00, False);
+
             animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-            object[<0x2838>] = <0x283a>;
+            object[<SCRIPT_OWNER>[GENERAL_PURPOSE] rshift 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
 
             sleep(0x50);
 
             destroy(SCRIPT_OWNER);
         }
+        fun bomb_wall_trigger(object, value, x, y) {
+            // add_enemy_with_flags(THRAXX_HEART, x, y, 0x0000);
+            add_enemy_with_flags(FACE_ENTITY, x, y, 0x0004);
+            // <LAST_ENTITY>[HP] = object;
+            // <LAST_ENTITY>[0x15] = 0x01;
+            
+            attach_script(LAST_ENTITY, DAMAGE, reference(bomb_wall_triggered));
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object lshift 0x8) + value);
+            // store_last_entity(0x2834);
+        }
+
         
         fun error_walk_back(exit_direction:DIRECTION) {
             if(exit_direction == DIRECTION.NORTH) {
@@ -262,6 +275,9 @@ group non_maps() {
         @install()
         fun boy_death() {
             control(NONE);
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            attribute(DOG, INVINCIBLE_TEMP, True);
+            yield();
 
             currency_get(CURRENCY.CREDITS, 0x01);
 
@@ -523,7 +539,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(gladiator_arena, south, NONE);
-                map_transition(chessboard, east, NONE);
+                map_transition(bog_curve, east, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
             }
@@ -724,23 +740,23 @@ area inbetwixx_center() {
         }
 
         enum b_trigger {
-            b_trigger_0 = @install() {
+            wall_2 = @install() {
                 _axe2_wall(0x00);
             },
-            b_trigger_1 = @install() {
+            wall_1 = @install() {
                 _axe2_wall(0x01);
             },
-            b_trigger_2 = @install() {
-                subtext("B=2");
+            gourd_2_1 = {
+                _loot_chest(0x06, OIL, 0x01);
             },
-            b_trigger_3 = @install() {
-                subtext("B=3");
+            gourd_1_1 = {
+                _loot_chest(0x05, WATER, 0x01);
             },
-            b_trigger_4 = @install() {
-                subtext("B=4");
+            gourd_1_2 = {
+                _loot_chest(0x07, WATER, 0x02);
             },
-            b_trigger_5 = @install() {
-                subtext("B=5");
+            gourd_1_3 = {
+                _loot_chest(0x08, WATER, 0x03);
             },
             b_trigger_6 = @install() {
                 subtext("B=6");
@@ -814,19 +830,6 @@ area inbetwixx_center() {
 
             sleep(0x20);
             animate(DOG, ONCE, ANIMATION_ALL.DEFAULT);
-        }
-
-        fun bomb_wall_trigger(object, x, y) {
-            // add_enemy_with_flags(THRAXX_HEART, x, y, 0x0000);
-            add_enemy_with_flags(FACE_ENTITY, x, y, 0x0004);
-            // <LAST_ENTITY>[HP] = object;
-            // <LAST_ENTITY>[0x15] = 0x01;
-            
-            attach_script(LAST_ENTITY, DAMAGE, reference(bomb_wall_triggered));
-            // store_last_entity(0x2834);
-
-            <0x2838> = object;
-            <0x283a> = 0x01;
         }
 
         @install()
@@ -1059,8 +1062,19 @@ area inbetwixx_center() {
             }
 
             bonfire(0x31, 0x35, SOULS_MEMORY.BONFIRE_INBETWIXX);
-            // bomb_wall_trigger(0x01, 0x3f, 0x3c);
-            // bomb_wall_trigger(0x00, 0x43, 0x60);
+            bomb_wall_trigger(0x01, 0x01, 0x3f, 0x3c);
+            bomb_wall_trigger(0x00, 0x10, 0x43, 0x60);
+
+            // object[0x02] = 0x01; // show bridge
+            // object[0x01] = 0x01; // open wall_1
+            // object[0x00] = 0x01; // open wall_2
+            // object[0x04] = 0x01; // block exit_east_left
+            // object[0x03] = 0x01; // block exit_east_right
+            // object[0x05] = 0x01; // block gourd_1_1
+            // object[0x07] = 0x01; // block gourd_1_2
+            // object[0x08] = 0x01; // block gourd_1_3
+            // object[0x06] = 0x01; // block gourd_2_1
+            // sniff spots
         }
     };
 };
@@ -4352,7 +4366,7 @@ area east_inbetwixx() {
 
     map eastern_barrier(0x13) {
         enum entrance {
-            north = entrance(0x17, 0x01, SOUTH),
+            north = entrance(0x14, 0x05, SOUTH), // entrance(0x17, 0x01, SOUTH),
             east = entrance(0x2b, 0x11, WEST),
             west = entrance(0x06, 0x18, EAST),
         }
@@ -4392,6 +4406,8 @@ area east_inbetwixx() {
             }
 
             default_init_room(True, True);
+
+            bomb_wall_trigger(0x00, 0x01, 0d20, 0x8);
         }
     };
 
