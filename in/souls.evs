@@ -53,6 +53,18 @@ group non_maps() {
             crash_land(BOTH);
         }
 
+        fun character_selection(character:CHARACTER) {
+            if(character == CHARACTER.BOY) {
+                available(BOY);
+                teleport(DOG, 0x00, 0x00);
+            } if(character == CHARACTER.DOG) {
+                available(DOG);
+                teleport(BOY, 0x00, 0x00);
+
+                attach_script(DOG, DEATH, reference(boy_death));
+            }
+        }
+
         fun branch_lady(x, y, id) {
             add_enemy(VILLAGER_2_4, x, y);
             entity_script_controlled(LAST_ENTITY);
@@ -539,7 +551,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(gladiator_arena, south, NONE);
-                map_transition(bog_curve, east, NONE);
+                map_transition(mario_prison_3, crash, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
             }
@@ -553,7 +565,7 @@ group non_maps() {
                 
                 attribute(BOY, NO_CLIP, True);
                 // attribute(BOY, INVINCIBLE_TEMP, True);
-                // <BOY>[HP] = SYSTEM.HP_MAX;
+                <BOY>[HP] = SYSTEM.HP_MAX;
                 
                 debug_boy();
                 // debug_memory(<0x2834>[0x15], <0x2836>[HP]);
@@ -565,7 +577,7 @@ group non_maps() {
 
                 // debug_memory(<0x2849>, <0x2849>);
 
-                <0x2834> += 0x01;
+                // <0x2834> += 0x01;
             }
         }
     };
@@ -4176,6 +4188,219 @@ area east_inbetwixx() {
     };
 
     area arena_ravine() {
+        map radahn_arena(0x5c) {
+            enum entrance {
+                north = entrance(0x1b, 0x03, SOUTH),
+                south = entrance(0x1d, 0x33, NORTH),
+
+                left = entrance(0x15, 0x1c, NONE),
+                center = entrance(0x1e, 0x21, NONE),
+                right = entrance(0x2a, 0x23, NONE)
+            }
+
+            enum soundtrack {
+                default = soundtrack(0x32, 0xff)
+            }
+
+            enum stepon_trigger {
+                exit_north = nop(),
+                exit_south = @install() {
+                    map_transition(radahn_exit, room_nw_north, SOUTH);
+                },
+                center = nop(),
+            }
+
+            fun close_exits(close) {
+                if(close) {
+                    object[0x04] = 0x04;
+                } else {
+                    object[0x05] = 0x04;
+                }
+            }
+
+            enum BOSS {
+                DEBUG = False,
+
+                RIDER_ID = memory_tmp(),
+                MOUNT_ID = memory_tmp(),
+
+                PHASE = memory_tmp(),
+                TIMER = memory_tmp(),
+
+                HP = 0x03e8, // 1000
+
+                COUNTDOWN = 0x03,
+
+                // p1
+
+                P1_THRESHOLD = 0x320, // 800
+                P1_TIME_BEFORE_SALVAGE = 0x200,
+
+                // p2
+
+                P2_THRESHOLD = 0x1f4, // 500
+                P2_TIME_BEFORE_SALVAGE = 0x300,
+
+                RANDOM_SPELL = memory_tmp(),
+                TIME_BEFORE_RANDOM_SPELL = 0x300,
+            }
+
+            fun boss_killed() {
+                set(SOULS_MEMORY.DEAD_ARENA_RADAHN);
+                SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
+                SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+
+                fanfare();
+
+                object[0x04] = 0x00;
+            }
+
+            @install()
+            @async()
+            fun stack_t01_offset() {
+                while!(dead(BOSS.MOUNT_ID)) {
+                    BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                    BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
+                    yield();
+                }
+            }
+
+            fun cast_salvage(target:CHARACTER, level) {
+                animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+                cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+                cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+                cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+                cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
+            }
+
+            @install()
+            fun boss_damage() {
+                // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+                if(BOSS.PHASE == 0x00) {
+                    BOSS.TIMER = 0x00;
+
+                    if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
+                        BOSS.PHASE = 0x01;
+                    }
+                } else if(BOSS.PHASE == 0x01) {
+                    if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
+                        BOSS.PHASE = 0x02;
+                    }
+                } else if(BOSS.PHASE == 0x02) {
+                    BOSS.TIMER -= 0x60;
+                }
+
+                if(BOSS.DEBUG) {
+                    MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
+                    MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+                    subtext("Rider = [MEM1]/[MEM2]");
+                }
+            }
+
+            @install()
+            @async()
+            fun boss_watcher() {
+                if(BOSS.DEBUG) {
+                    subtext("phase 0");
+                }
+
+                while(BOSS.PHASE == 0x00) {
+                    if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                        cast_salvage(ACTIVE, 0x00);
+
+                        BOSS.TIMER = 0x00;
+                    }
+                
+                    if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                        BOSS.TIMER += 0x01;
+                    }
+                    yield();
+                }
+
+                if(BOSS.DEBUG) {
+                    subtext("phase 1");
+                }
+
+                BOSS.TIMER = 0x0000;
+                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                cast(BOSS.RIDER_ID, ACTIVE, CAST.CONFOUND, 0x05);
+
+                while(BOSS.PHASE == 0x01) {
+                    if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                        cast_salvage(ACTIVE, 0x00);
+
+                        BOSS.TIMER = 0x00;
+                    }
+                
+                    if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                        BOSS.TIMER += 0x01;
+                    }
+                    yield();
+                }
+
+                BOSS.TIMER = 0x0000;
+                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                cast(BOSS.RIDER_ID, ACTIVE, CAST.CONFOUND, 0x05);
+
+                while(BOSS.PHASE == 0x01) {
+                    BOSS.TIMER += 0x01;
+
+                    if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                        BOSS.TIMER = 0x0000;
+
+                        BOSS.RANDOM_SPELL = randrange(0x03);
+
+                        if(BOSS.RANDOM_SPELL == 0x00) {
+                            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
+                            cast(BOSS.RIDER_ID, ACTIVE, CAST.CONFOUND, 0x05);
+                        } else if(BOSS.RANDOM_SPELL == 0x01) {
+                            cast(BOSS.RIDER_ID, ACTIVE, CAST.DRAIN, 0x30);
+                        } else if(BOSS.RANDOM_SPELL == 0x02) {
+                            cast(BOSS.RIDER_ID, ACTIVE, CAST.PLAGUE, 0x01);
+                        } 
+                    }
+                    yield();
+                }
+
+                if(BOSS.DEBUG) {
+                    subtext("phase 2");
+                }
+
+                boss_killed();
+            }
+
+            fun spawn_boss(x, y) {
+                add_enemy(VERMINATOR, x, y);
+                <LAST_ENTITY>[HP] = BOSS.HP;
+                store_last_entity(BOSS.RIDER_ID);
+                attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+                attribute(LAST_ENTITY, ROOT, True);
+
+                add_enemy(RAPTOR_BLACK, x, y);
+                store_last_entity(BOSS.MOUNT_ID);
+                // attribute(LAST_ENTITY, ROOT, True);
+            }
+
+            fun trigger_enter() {
+                if!(FLAG.IN_ANIMATION) {
+                    crash_both();
+                }
+
+                default_init_room(True, False);
+                character_selection(BOY);
+
+                if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+                    close_exits(True);
+
+                    spawn_boss(0x10, 0x13);
+                    stack_t01_offset();
+                    boss_watcher();
+                }
+            }
+        };
+
         map radahn_exit(0x3c) {
             enum entrance {
                 main_north = entrance(0xd3, 0x3d, SOUTH),
@@ -5277,6 +5502,163 @@ area east_inbetwixx() {
             }
         };
 
+        map mosquito_arena(0x5c) {
+            enum entrance {
+                north = entrance(0x1b, 0x03, SOUTH),
+                south = entrance(0x1d, 0x33, NORTH),
+
+                left = entrance(0x15, 0x1c, NONE),
+                center = entrance(0x1e, 0x21, NONE),
+                right = entrance(0x2a, 0x23, NONE)
+            }
+
+            enum soundtrack {
+                default = soundtrack(0x32, 0xff)
+            }
+
+            enum stepon_trigger {
+                exit_north = @install() {
+                    map_transition(pipe_caves_1, south_2, NORTH);
+                },
+                exit_south = nop(),
+                center = nop(),
+            }
+
+            enum BOSS {
+                BOSS_ID = memory_tmp(),
+
+                BOSS_START_X = memory_tmp(),
+                BOSS_START_Y = memory_tmp(),
+                BOSS_START_TIMER = memory_tmp(),
+
+                MOSQUITO_1_ID = memory_tmp(),
+                MOSQUITO_1_X = 0x13,
+                MOSQUITO_1_Y = 0x19,
+                MOSQUITO_2_ID = memory_tmp(),
+                MOSQUITO_2_X = 0x29,
+                MOSQUITO_2_Y = 0x1b,
+                MOSQUITO_3_ID = memory_tmp(),
+                MOSQUITO_3_X = 0x13,
+                MOSQUITO_3_Y = 0x29,
+                MOSQUITO_4_ID = memory_tmp(),
+                MOSQUITO_4_X = 0x29,
+                MOSQUITO_4_Y = 0x2b,
+            }
+
+            fun close_exits(close) {
+                if(close) {
+                    object[0x04] = 0x04;
+                } else {
+                    object[0x05] = 0x04;
+                }
+            }
+
+            @install()
+            fun boss_defeated() {
+                souls_boss_defeated();
+                set(SOULS_MEMORY.DEAD_ARENA_MOSQUITO);
+
+                close_exits(False);
+
+                attach_script(BOSS.MOSQUITO_1_ID, DEATH, reference(nop));
+                attach_script(BOSS.MOSQUITO_2_ID, DEATH, reference(nop));
+                attach_script(BOSS.MOSQUITO_3_ID, DEATH, reference(nop));
+                attach_script(BOSS.MOSQUITO_4_ID, DEATH, reference(nop));
+
+                damage(BOSS.MOSQUITO_1_ID, 0xff, True);
+                damage(BOSS.MOSQUITO_2_ID, 0xff, True);
+                damage(BOSS.MOSQUITO_3_ID, 0xff, True);
+                damage(BOSS.MOSQUITO_4_ID, 0xff, True);
+            }
+
+            fun mosquito_dead(id, x, y) {
+                // yield();
+                animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GORE);
+                attribute(SCRIPT_OWNER, INVINCIBLE, True);
+
+                cast(id, BOSS.BOSS_ID, CAST.FIREBALL, 0xff);
+
+                sleep(0x20);
+                animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+                teleport(id, x, y);
+                sleep(0x60);
+
+                // full_heal(SCRIPT_OWNER, 0x10, False);
+                animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+                <SCRIPT_OWNER>[PALETTE] = 0x0a00;
+                attribute(SCRIPT_OWNER, INVINCIBLE, False);
+            }
+
+            @install()
+            fun mosquito_1_dead() {
+                mosquito_dead(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y);
+            }
+            @install()
+            fun mosquito_2_dead() {
+                mosquito_dead(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y);
+            }
+            @install()
+            fun mosquito_3_dead() {
+                mosquito_dead(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y);
+            }
+            @install()
+            fun mosquito_4_dead() {
+                mosquito_dead(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y);
+            }
+
+            fun spawn_mosquito(id, x, y, script_id) {
+                add_enemy(MOSQUITO, x, y);
+                store_last_entity(id);
+                attach_script(LAST_ENTITY, DAMAGE, script_id);
+            }
+
+            @install()
+            @async()
+            fun lock_temporary() {
+                BOSS.BOSS_START_X = BOSS.BOSS_ID[X];
+                BOSS.BOSS_START_Y = BOSS.BOSS_ID[Y];
+
+                while(BOSS.BOSS_START_TIMER < 0x78) {
+                    BOSS.BOSS_START_TIMER += 0x01;
+
+                    BOSS.BOSS_ID[X] = BOSS.BOSS_START_X;
+                    BOSS.BOSS_ID[Y] = BOSS.BOSS_START_Y;
+
+                    yield();
+                }
+            }
+
+            fun trigger_enter() {
+                if!(FLAG.IN_ANIMATION) {
+                    crash_both();
+                }
+
+                default_init_room(True, False);
+                character_selection(BOY);
+                
+                if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
+                    close_exits(True);
+
+                    add_enemy(MAGMAR, 0x1e, 0x21);
+                    animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+                    store_last_entity(BOSS.BOSS_ID);
+                    attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+                    lock_temporary();
+
+                    spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
+                    sleep(0x40);
+                    spawn_mosquito(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y, reference(mosquito_2_dead));
+                    sleep(0x20);
+                    spawn_mosquito(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y, reference(mosquito_3_dead));
+                    sleep(0x20);
+                    spawn_mosquito(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y, reference(mosquito_4_dead));
+                } else {
+                    object[0x04] = 0x04;
+                    object[0x05] = 0x04;
+                }
+            }
+        };
+
         map pipe_caves_1(0x3c) { // variant: room_nss
             enum entrance {
                 north = entrance(0x9e, 0x05, SOUTH),
@@ -5911,12 +6293,21 @@ area east_inbetwixx() {
         area mario_dungeon() {
             enum MARIO {
                 DEFAULT_MUSIC = 0x0c,
+
+                ROOMS_CLEARED = memory(),
             }
             fun exit_mario_prison() {
                 map_transition(pipe_entrance, pipe_east, NORTH);
             }
+            fun room_cleared(flag) {
+                if!(flag) {
+                    set(flag);
 
-            map mario_prison_1(0x74) {
+                    MARIO.ROOMS_CLEARED += 0x01;
+                }
+            }
+
+            map mario_prison_1(0x74) { // goombas
                 enum entrance {
                     door = entrance(0x2e, 0x11, SOUTH),
                     cave_1 = entrance(0x18, 0x1d, SOUTH),
@@ -5962,7 +6353,7 @@ area east_inbetwixx() {
                             debug_memory(ROOM.GATE_COUNT, ROOM.ENEMY_COUNT);
                         }
 
-                        set(ROOM.ROOM_CLEARED);
+                        room_cleared(ROOM.ROOM_CLEARED);
                     }
                 }
 
@@ -6099,41 +6490,35 @@ area east_inbetwixx() {
                     }
                 }
 
+                fun switch_triggered(index, flag, x, y) {
+                        if!(ROOM.ROOM_CLEARED) {
+                            open_gate(index, flag);
+
+                            add_mario_frippo(x, y);
+                        }
+                }
+
                 enum stepon_trigger {
                     switch_6 = @install() {
-                        open_gate(0x06, ROOM.CELL_6_CLEARED);
-
-                        add_mario_frippo(0x20, 0x3b);
+                        switch_triggered(0x06, ROOM.CELL_6_CLEARED, 0x20, 0x3b);
                     },
                     switch_5 = @install() {
-                        open_gate(0x05, ROOM.CELL_5_CLEARED);
-
-                        add_mario_frippo(0x47, 0x3f);
+                        switch_triggered(0x05, ROOM.CELL_5_CLEARED, 0x47, 0x3f);
                     },
                     switch_4 = @install() {
-                        open_gate(0x04, ROOM.CELL_4_CLEARED);
-
-                        add_mario_frippo(0x54, 0x3b);
+                        switch_triggered(0x04, ROOM.CELL_4_CLEARED, 0x54, 0x3b);
                     },
                     switch_3 = @install() {
-                        open_gate(0x03, ROOM.CELL_3_CLEARED);
-
-                        add_mario_frippo(0x53, 0x1d);
+                        switch_triggered(0x03, ROOM.CELL_3_CLEARED, 0x53, 0x1d);
                     },
                     switch_2 = @install() {
-                        open_gate(0x02, ROOM.CELL_2_CLEARED);
-
-                        add_mario_frippo(0x47, 0x13);
+                        switch_triggered(0x02, ROOM.CELL_2_CLEARED, 0x47, 0x13);
                     },
                     switch_7 = @install() {
-                        open_gate(0x07, ROOM.CELL_7_CLEARED);
-
-                        add_mario_frippo(0x0d, 0x31);
+                        switch_triggered(0x07, ROOM.CELL_7_CLEARED, 0x0d, 0x31);
                     },
                     switch_1 = @install() {
-                        open_gate(0x01, ROOM.CELL_1_CLEARED);
-
-                        add_mario_frippo(0x18, 0x1e);
+                        switch_triggered(0x01, ROOM.CELL_1_CLEARED, 0x18, 0x1e);
                     },
                     exit_door = @install() {
                         door_triggered();
@@ -6222,14 +6607,28 @@ area east_inbetwixx() {
                 }
 
                 fun trigger_enter() {
-                    if(False) {
-                        init_gate(0x01, ROOM.CELL_1_CLEARED);
-                        init_gate(0x02, ROOM.CELL_2_CLEARED);
-                        init_gate(0x03, ROOM.CELL_3_CLEARED);
-                        init_gate(0x04, ROOM.CELL_4_CLEARED);
-                        init_gate(0x05, ROOM.CELL_5_CLEARED);
-                        init_gate(0x06, ROOM.CELL_6_CLEARED);
-                        init_gate(0x07, ROOM.CELL_7_CLEARED);
+                    if(ROOM.ROOM_CLEARED) {
+                        set(ROOM.CELL_1_CLEARED);
+                        object[0x00] = 0x01; // press switch_1
+                        object[0x01] = 0x7e; // opens gate_1
+                        set(ROOM.CELL_2_CLEARED);
+                        object[0x08] = 0x01; // press switch_2
+                        object[0x07] = 0x7e; // opens gate_2
+                        set(ROOM.CELL_3_CLEARED);
+                        object[0x0a] = 0x01; // press switch_3
+                        object[0x09] = 0x7e; // opens gate_3
+                        set(ROOM.CELL_4_CLEARED);
+                        object[0x0e] = 0x01; // press switch_4
+                        object[0x0c] = 0x7e; // opens gate_4
+                        set(ROOM.CELL_5_CLEARED);
+                        object[0x0d] = 0x01; // press switch_5
+                        object[0x0b] = 0x7e; // opens gate_5
+                        set(ROOM.CELL_6_CLEARED);
+                        object[0x05] = 0x01; // press switch_6
+                        object[0x04] = 0x7e; // opens gate_6
+                        set(ROOM.CELL_7_CLEARED);
+                        object[0x03] = 0x01; // press switch_7
+                        object[0x02] = 0x7e; // opens gate_7
                     }
 
                     if!(FLAG.IN_ANIMATION) {
@@ -6248,13 +6647,11 @@ area east_inbetwixx() {
                     // object[0x04] = 0x7e; // opens gate_6
                     // object[0x02] = 0x7e; // opens gate_7
 
-                    default_init_room(False, False);
-
-                    attribute(BOY, INVINCIBLE, True);
+                    mario_init(False, False);
                 }
             };
 
-            map mario_prison_2(0x74) {
+            map mario_prison_2(0x74) { // bowser gate
                 enum entrance {
                     door = entrance(0x2e, 0x11, SOUTH),
                     cave_1 = entrance(0x18, 0x1d, SOUTH),
@@ -6269,7 +6666,7 @@ area east_inbetwixx() {
                 }
 
                 enum soundtrack {
-                    default = soundtrack(MARIO.DEFAULT_MUSIC, 0xff)
+                    default = soundtrack(0x5a, 0xff)
                 }
 
                 enum ROOM {
@@ -6319,6 +6716,8 @@ area east_inbetwixx() {
                     switch_7 = nop(),
                     switch_1 = nop(),
                     exit_door = @install() {
+                        room_cleared(ROOM.ROOM_CLEARED);
+
                         door_triggered();
                     },
                     stepon_8 = @install() {
@@ -6554,18 +6953,22 @@ area east_inbetwixx() {
                         crash_both();
                     }
 
-                    add_bowser(0x2e, 0x19);
+                    if!(ROOM.ROOM_CLEARED) {
+                        add_bowser(0x2e, 0x19);
+                    }
                     add_bowser_blocker(0x2e + 0x03, 0x19 - 0x01);
                     add_bowser_blocker(0x2e - 0x03, 0x19 - 0x01);
 
                     mario_init(False, False);
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
+                    if!(ROOM.ROOM_CLEARED) {
+                        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
+                    }
 
                     // attribute(BOY, INVINCIBLE, True);
                 }
             };
 
-            map mario_prison_3(0x74) {
+            map mario_prison_3(0x74) { // yoshi (sorry)
                 enum entrance {
                     door = entrance(0x2e, 0x11, SOUTH),
                     cave_1 = entrance(0x18, 0x1d, SOUTH),
@@ -6599,25 +7002,11 @@ area east_inbetwixx() {
                     CELL_6_CLEARED = flag_tmp(),
                     CELL_7_CLEARED = flag_tmp(),
 
-                    ROOMS_TO_CLEAR = 0x07,
-                }
-
-                @install()
-                fun mario_enemy_killed() {
-                    ROOM.ENEMY_COUNT -= 0x01;
-
-                    if((ROOM.ENEMY_COUNT <= 0x00) && (ROOM.GATE_COUNT == ROOM.ROOMS_TO_CLEAR)) {
-                        if(ROOM.DEBUG) {
-                            debug_memory(ROOM.GATE_COUNT, ROOM.ENEMY_COUNT);
-                        }
-
-                        set(ROOM.ROOM_CLEARED);
-                    }
+                    ROOMS_TO_CLEAR = 0x06, // 0x07,
                 }
 
                 fun add_mario_frippo(x, y) {
                     add_enemy(FRIPPO, x, y);
-                    attach_script(LAST_ENTITY, DEATH, reference(mario_enemy_killed));
 
                     ROOM.ENEMY_COUNT += 0x01;
                 }
@@ -6916,14 +7305,28 @@ area east_inbetwixx() {
                 }
 
                 fun trigger_enter() {
-                    if(False) {
-                        init_gate(0x01, ROOM.CELL_1_CLEARED);
-                        init_gate(0x02, ROOM.CELL_2_CLEARED);
-                        init_gate(0x03, ROOM.CELL_3_CLEARED);
-                        init_gate(0x04, ROOM.CELL_4_CLEARED);
-                        init_gate(0x05, ROOM.CELL_5_CLEARED);
-                        init_gate(0x06, ROOM.CELL_6_CLEARED);
-                        init_gate(0x07, ROOM.CELL_7_CLEARED);
+                    if(ROOM.ROOM_CLEARED) {
+                        set(ROOM.CELL_1_CLEARED);
+                        object[0x00] = 0x01; // press switch_1
+                        object[0x01] = 0x7e; // opens gate_1
+                        set(ROOM.CELL_2_CLEARED);
+                        object[0x08] = 0x01; // press switch_2
+                        object[0x07] = 0x7e; // opens gate_2
+                        set(ROOM.CELL_3_CLEARED);
+                        object[0x0a] = 0x01; // press switch_3
+                        object[0x09] = 0x7e; // opens gate_3
+                        set(ROOM.CELL_4_CLEARED);
+                        object[0x0e] = 0x01; // press switch_4
+                        object[0x0c] = 0x7e; // opens gate_4
+                        set(ROOM.CELL_5_CLEARED);
+                        object[0x0d] = 0x01; // press switch_5
+                        object[0x0b] = 0x7e; // opens gate_5
+                        set(ROOM.CELL_6_CLEARED);
+                        object[0x05] = 0x01; // press switch_6
+                        object[0x04] = 0x7e; // opens gate_6
+                        set(ROOM.CELL_7_CLEARED);
+                        object[0x03] = 0x01; // press switch_7
+                        object[0x02] = 0x7e; // opens gate_7
                     }
 
                     if!(FLAG.IN_ANIMATION) {
@@ -6947,6 +7350,7 @@ area east_inbetwixx() {
                     add_enemy(RAPTOR_GREEN, 0x36, 0x30);
                     // add_enemy_with_flags(RAPTOR_GREEN, 0x36, 0x30, INACTIVE);
                     control_enemy(LAST_ENTITY, True);
+                    attribute(LAST_ENTITY, INVINCIBLE, True);
                     MOUNT.ID = <LAST_ENTITY>;
 
 
@@ -6955,8 +7359,6 @@ area east_inbetwixx() {
 
 
                     stack_t01_offset();
-
-                    attribute(BOY, INVINCIBLE, True);
                 }
             };
 
@@ -15213,222 +15615,6 @@ area experimental_room() {
         }
     };
 
-    map radahn_arena(0x5c) {
-        enum entrance {
-            north = entrance(0x1b, 0x03, SOUTH),
-            south = entrance(0x1d, 0x33, NORTH),
-
-            left = entrance(0x15, 0x1c, NONE),
-            center = entrance(0x1e, 0x21, NONE),
-            right = entrance(0x2a, 0x23, NONE)
-        }
-
-        enum soundtrack {
-            default = soundtrack(0x32, 0xff)
-        }
-
-        enum stepon_trigger {
-            exit_north = nop(),
-            exit_south = @install() {
-                map_transition(radahn_exit, room_nw_north, SOUTH);
-            },
-            center = nop(),
-        }
-
-        fun close_exits(close) {
-            if(close) {
-                object[0x04] = 0x04;
-            } else {
-                object[0x05] = 0x04;
-            }
-        }
-
-        enum BOSS {
-            DEBUG = False,
-
-            RIDER_ID = memory_tmp(),
-            MOUNT_ID = memory_tmp(),
-
-            PHASE = memory_tmp(),
-            TIMER = memory_tmp(),
-
-            HP = 0x03e8, // 1000
-
-            COUNTDOWN = 0x03,
-
-            // p1
-
-            P1_THRESHOLD = 0x320, // 800
-            P1_TIME_BEFORE_SALVAGE = 0x200,
-
-            // p2
-
-            P2_THRESHOLD = 0x1f4, // 500
-            P2_TIME_BEFORE_SALVAGE = 0x300,
-
-            RANDOM_SPELL = memory_tmp(),
-            TIME_BEFORE_RANDOM_SPELL = 0x300,
-        }
-
-        fun boss_killed() {
-            set(SOULS_MEMORY.DEAD_ARENA_RADAHN);
-            SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
-            SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
-
-            fanfare();
-
-            object[0x04] = 0x00;
-        }
-
-        @install()
-        @async()
-        fun stack_t01_offset() {
-            while!(dead(BOSS.MOUNT_ID)) {
-                BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
-                yield();
-            }
-        }
-
-        fun cast_salvage(target:CHARACTER, level) {
-            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
-            cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
-            cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
-            cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
-            cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
-        }
-
-        @install()
-        fun boss_damage() {
-            // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
-
-            if(BOSS.PHASE == 0x00) {
-                BOSS.TIMER = 0x00;
-
-                if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
-                    BOSS.PHASE = 0x01;
-                }
-            } else if(BOSS.PHASE == 0x01) {
-                if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
-                    BOSS.PHASE = 0x02;
-                }
-            } else if(BOSS.PHASE == 0x02) {
-                BOSS.TIMER -= 0x60;
-            }
-
-            if(BOSS.DEBUG) {
-                MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
-                MEMORY.STRING_PARAMETER_2 = BOSS.HP;
-
-                subtext("Rider = [MEM1]/[MEM2]");
-            }
-        }
-
-        @install()
-        @async()
-        fun boss_watcher() {
-            if(BOSS.DEBUG) {
-                subtext("phase 0");
-            }
-
-            while(BOSS.PHASE == 0x00) {
-                if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, 0x00);
-
-                    BOSS.TIMER = 0x00;
-                }
-            
-                if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER += 0x01;
-                }
-                yield();
-            }
-
-            if(BOSS.DEBUG) {
-                subtext("phase 1");
-            }
-
-            BOSS.TIMER = 0x0000;
-            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
-            cast(BOSS.RIDER_ID, ACTIVE, CAST.CONFOUND, 0x05);
-
-            while(BOSS.PHASE == 0x01) {
-                if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, 0x00);
-
-                    BOSS.TIMER = 0x00;
-                }
-            
-                if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER += 0x01;
-                }
-                yield();
-            }
-
-            BOSS.TIMER = 0x0000;
-            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
-            cast(BOSS.RIDER_ID, ACTIVE, CAST.CONFOUND, 0x05);
-
-            while(BOSS.PHASE == 0x01) {
-                BOSS.TIMER += 0x01;
-
-                if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
-                    BOSS.TIMER = 0x0000;
-
-                    BOSS.RANDOM_SPELL = randrange(0x03);
-
-                    if(BOSS.RANDOM_SPELL == 0x00) {
-                        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, CAST.FORCEFIELD, 0x05);
-                        cast(BOSS.RIDER_ID, ACTIVE, CAST.CONFOUND, 0x05);
-                    } else if(BOSS.RANDOM_SPELL == 0x01) {
-                        cast(BOSS.RIDER_ID, ACTIVE, CAST.DRAIN, 0x30);
-                    } else if(BOSS.RANDOM_SPELL == 0x02) {
-                        cast(BOSS.RIDER_ID, ACTIVE, CAST.PLAGUE, 0x01);
-                    } 
-                }
-                yield();
-            }
-
-            if(BOSS.DEBUG) {
-                subtext("phase 2");
-            }
-
-            boss_killed();
-        }
-
-        fun spawn_boss(x, y) {
-            add_enemy(VERMINATOR, x, y);
-            <LAST_ENTITY>[HP] = BOSS.HP;
-            store_last_entity(BOSS.RIDER_ID);
-            attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
-            attribute(LAST_ENTITY, ROOT, True);
-
-            add_enemy(RAPTOR_BLACK, x, y);
-            store_last_entity(BOSS.MOUNT_ID);
-            // attribute(LAST_ENTITY, ROOT, True);
-        }
-
-        fun trigger_enter() {
-            if!(FLAG.IN_ANIMATION) {
-                crash_both();
-            }
-
-            default_init_room(True, False);
-
-            if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
-                close_exits(True);
-
-                spawn_boss(0x10, 0x13);
-                stack_t01_offset();
-                boss_watcher();
-
-                character_selection(BOY);
-                countdown(BOSS.COUNTDOWN);
-                attribute(BOY, INVINCIBLE, False);
-            }
-        }
-    };
-
     map toaster_arena(0x5c) {
         enum entrance {
             left = entrance(0x15, 0x1c, NONE),
@@ -15593,159 +15779,6 @@ area experimental_room() {
             subtext("Start = Bomb");
 
             sleep(0x50);
-        }
-    };
-
-    map mosquito_arena(0x5c) {
-        enum entrance {
-            north = entrance(0x1b, 0x03, SOUTH),
-            south = entrance(0x1d, 0x33, NORTH),
-
-            left = entrance(0x15, 0x1c, NONE),
-            center = entrance(0x1e, 0x21, NONE),
-            right = entrance(0x2a, 0x23, NONE)
-        }
-
-        enum soundtrack {
-            default = soundtrack(0x32, 0xff)
-        }
-
-        enum stepon_trigger {
-            exit_north = @install() {
-                map_transition(pipe_caves_1, south_2, NORTH);
-            },
-            exit_south = nop(),
-            center = nop(),
-        }
-
-        enum BOSS {
-            BOSS_ID = memory_tmp(),
-
-            BOSS_START_X = memory_tmp(),
-            BOSS_START_Y = memory_tmp(),
-            BOSS_START_TIMER = memory_tmp(),
-
-            MOSQUITO_1_ID = memory_tmp(),
-            MOSQUITO_1_X = 0x13,
-            MOSQUITO_1_Y = 0x19,
-            MOSQUITO_2_ID = memory_tmp(),
-            MOSQUITO_2_X = 0x29,
-            MOSQUITO_2_Y = 0x1b,
-            MOSQUITO_3_ID = memory_tmp(),
-            MOSQUITO_3_X = 0x13,
-            MOSQUITO_3_Y = 0x29,
-            MOSQUITO_4_ID = memory_tmp(),
-            MOSQUITO_4_X = 0x29,
-            MOSQUITO_4_Y = 0x2b,
-        }
-
-        @install()
-        fun boss_defeated() {
-            general_boss_defeated();
-
-            souls_boss_defeated();
-            set(SOULS_MEMORY.DEAD_ARENA_MOSQUITO);
-
-            close_exits(False);
-        }
-
-        fun close_exits(close) {
-            if(close) {
-                object[0x04] = 0x04;
-            } else {
-                object[0x05] = 0x04;
-            }
-        }
-
-        fun mosquito_dead(id, x, y) {
-            // yield();
-            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GORE);
-            attribute(SCRIPT_OWNER, INVINCIBLE, True);
-
-            cast(id, BOSS.BOSS_ID, CAST.FIREBALL, 0xff);
-
-            sleep(0x20);
-            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
-            teleport(id, x, y);
-            sleep(0x60);
-
-            // full_heal(SCRIPT_OWNER, 0x10, False);
-            animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
-            <SCRIPT_OWNER>[PALETTE] = 0x0a00;
-            attribute(SCRIPT_OWNER, INVINCIBLE, False);
-        }
-
-        @install()
-        fun mosquito_1_dead() {
-            mosquito_dead(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y);
-        }
-        @install()
-        fun mosquito_2_dead() {
-            mosquito_dead(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y);
-        }
-        @install()
-        fun mosquito_3_dead() {
-            mosquito_dead(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y);
-        }
-        @install()
-        fun mosquito_4_dead() {
-            mosquito_dead(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y);
-        }
-
-        fun spawn_mosquito(id, x, y, script_id) {
-            add_enemy(MOSQUITO, x, y);
-            store_last_entity(id);
-            attach_script(LAST_ENTITY, DAMAGE, script_id);
-        }
-
-        @install()
-        @async()
-        fun lock_temporary() {
-            BOSS.BOSS_START_X = BOSS.BOSS_ID[X];
-            BOSS.BOSS_START_Y = BOSS.BOSS_ID[Y];
-
-            while(BOSS.BOSS_START_TIMER < 0x78) {
-                BOSS.BOSS_START_TIMER += 0x01;
-
-                BOSS.BOSS_ID[X] = BOSS.BOSS_START_X;
-                BOSS.BOSS_ID[Y] = BOSS.BOSS_START_Y;
-
-                yield();
-            }
-        }
-
-        fun trigger_enter() {
-            if!(FLAG.IN_ANIMATION) {
-                crash_both();
-            }
-
-            default_init_room(True, False);
-            
-            if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
-                close_exits(True);
-
-                add_enemy(MAGMAR, 0x1e, 0x21);
-                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
-                store_last_entity(BOSS.BOSS_ID);
-                attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
-                lock_temporary();
-
-                character_selection(BOY);
-
-                countdown(0x03);
-                attribute(BOY, INVINCIBLE, False);
-
-                spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
-                sleep(0x40);
-                spawn_mosquito(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y, reference(mosquito_2_dead));
-                sleep(0x20);
-                spawn_mosquito(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y, reference(mosquito_3_dead));
-                sleep(0x20);
-                spawn_mosquito(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y, reference(mosquito_4_dead));
-            } else {
-                object[0x04] = 0x04;
-                object[0x05] = 0x04;
-            }
         }
     };
 
