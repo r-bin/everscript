@@ -1480,7 +1480,7 @@ class Loot(Function_Base):
         else:
             self.animation = Word(0x3a)
         self.object = object
-        self.reward = reward
+        self.reward = self.parse_argument_with_type(self._generator, reward, "LOOT_REWARD")
         self.amount = amount
         self.next = next
     

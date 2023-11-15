@@ -381,10 +381,17 @@ allocated RAM:
 
                 for map in maps:
                     function = enum_triggers(map)[index]
-                    if isinstance(function, Enum_Entry):
-                        function = function.value
-                    if function == None:
-                        function = function_nop
+                    match function:
+                        case Function():
+                            pass
+                        case Enum_Entry():
+                            function = function.value
+                        # case Loot():
+                        #     function = function.value
+                        case None:
+                            function = function_nop
+                        case _:
+                            TODO()
 
                     if not isinstance(function, Call):
                         function = Call(self, function)

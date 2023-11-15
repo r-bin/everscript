@@ -66,7 +66,7 @@ class Parser():
 
             # object
             "_loot": (lambda p: Loot(self.generator, True, p[2][0], p[2][1], p[2][2], p[2][3])),
-            "_loot_chest": (lambda p: Loot(self.generator, False, p[2][0], p[2][1], p[2][2], p[2][3])),
+            "_loot_chest": (lambda p: Loot(self.generator, False, p[2][0], p[2][1], p[2][2], Word(0x00))),
             "_axe2_wall": (lambda p: Axe2Wall(self.generator, p[2][0])),
 
             # late link
