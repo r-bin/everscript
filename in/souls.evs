@@ -556,8 +556,8 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                // map_transition(gladiator_arena, south, NONE);
-                map_transition(town_room, south, NONE);
+                map_transition(gladiator_arena, south, NONE);
+                // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
             }
@@ -1380,7 +1380,7 @@ area west_inbetwixx() {
         }
 
         @install()
-        fun fake_slash_grass() {
+        fun fake_slash_grass() { // unused
             if(<0x22DA> == 0x02) {
                 // fade_out();
                 // sleep(0x20);
@@ -1525,7 +1525,7 @@ area west_inbetwixx() {
         }
 
         @install()
-        fun quest() {
+        fun quest() { // unused
             question("[SLOW]Cut grass?[CHOICE]Yes[CHOICE]No");
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
@@ -1537,14 +1537,14 @@ area west_inbetwixx() {
             }
         }
 
-        fun fake_slash_grass_npc() {
+        fun fake_slash_grass_npc() { // unused
             add_enemy_with_flags(VILLAGER_1_1, 0x36, 0x49, INACTIVE);
             face(LAST_ENTITY, WEST);
             attach_script(LAST_ENTITY, TALK, reference(quest));
         }
 
         fun trigger_enter() {
-            fake_slash_grass();
+            // fake_slash_grass();
             // fake_slash_grass_npc();
             
             if!(ROOM.BRANCH_USED) {
@@ -9798,7 +9798,24 @@ area town() {
                 attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
             }
 
+            fun init_room(index) {
+                if(index == 0x00) {
+                    init_map(0x00, 0x00, 0x2e, 0x2a); // hammock
+                } else if(index == 0x01) {
+                    init_map(0x00, 0x38, 0x26, 0x5c); // crates
+                } else if(index == 0x02) {
+                    init_map(0x32, 0x36, 0x56, 0x52); // ship
+                } else if(index == 0x03) {
+                    // init_map(0x58, 0x30, 0x86, 0x4e); // tavern
+                    init_map(0x58, 0x30, 0x86, 0x50); // tavern
+                } else if(index == 0x04) {
+                    init_map(0x40, 0x00, 0x66, 0x24); // monk
+                }
+            }
+
             fun trigger_enter() {
+                init_room(0x03);
+
                 if!(SOULS_MEMORY.DEAD_TAVERN_BOXERS) {
                     add_boxer(ROOM.RIDER_1_ID, ROOM.MOUNT_1_ID, BOXER_1, 0x5c, 0x49, reference(boxer1dead));
                     add_boxer(ROOM.RIDER_2_ID, ROOM.MOUNT_2_ID, BOXER_2, 0x80, 0x3d, reference(boxer2dead));
@@ -10245,6 +10262,15 @@ area town() {
 
                 PILLAR_OPENED = flag_tmp(),
                 COLLECTIBLE_LOOTED = flag(),
+
+                REWARD_1_KILLS = 0x02,
+                REWARD_1_CLAIMED = flag(),
+                REWARD_2_KILLS = 0x04,
+                REWARD_2_CLAIMED = flag(),
+                REWARD_3_KILLS = 0x06,
+                REWARD_3_CLAIMED = flag(),
+                REWARD_4_KILLS = 0x08,
+                REWARD_4_CLAIMED = flag(),
             }
 
             @install()
@@ -10286,12 +10312,53 @@ area town() {
 
             }
 
+            fun learn_levitate() {
+                set(FLAG.LEVITATE);
+                subtext("Levitate learned.");
+                sleep(0x20);
+                select_alchemy_with_preselection(LEVITATE);
+            }
+
+            fun claim_reward() {
+                if((ROOM.PROGRESS >= ROOM.REWARD_1_KILLS) && !ROOM.REWARD_1_CLAIMED) {
+                    set(ROOM.REWARD_1_CLAIMED);
+                    
+                    subtext("todo");
+
+                    end();
+                } else if((ROOM.PROGRESS >= ROOM.REWARD_2_KILLS) && !ROOM.REWARD_2_CLAIMED) {
+                    set(ROOM.REWARD_2_CLAIMED);
+                    
+                    dialog("[SLOW]Let me teach you my secret formula.[B]");
+
+                    learn_levitate();
+
+                    dialog("[SLOW]This technique has been passed down for generations.[B]");
+
+                    end();
+                } else if((ROOM.PROGRESS >= ROOM.REWARD_3_KILLS) && !ROOM.REWARD_3_CLAIMED) {
+                    set(ROOM.REWARD_3_CLAIMED);
+                    
+                    subtext("todo");
+
+                    end();
+                } else if((ROOM.PROGRESS >= ROOM.REWARD_4_KILLS) && !ROOM.REWARD_4_CLAIMED) {
+                    set(ROOM.REWARD_4_CLAIMED);
+                    
+                    subtext("todo");
+
+                    end();
+                }
+            }
+
             @install()
             fun manager_triggered() {
                 if(ROOM.FIGHT_IN_PROGRESS) {
-                    dialog("You should focus on your enemy.[B]");
+                    dialog("[SLOW]You should focus on your enemy.[B]");
                     end();
                 }
+
+                claim_reward();
 
                 question("[SLOW]Ready for the next oponent?[CHOICE]Yes[CHOICE]No");
 
@@ -10333,10 +10400,7 @@ area town() {
 
             @install()
             fun debug_triggered() {
-                set(FLAG.LEVITATE);
-                subtext("Levitate learned.");
-                sleep(0x20);
-                select_alchemy_with_preselection(LEVITATE);
+                learn_levitate();
 
                 destroy(SCRIPT_OWNER);
             }
@@ -10358,6 +10422,7 @@ area town() {
 
                 show_bridge(True);
                 default_init_room(False, False);
+                character_selection(BOY);
 
                 SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
 
