@@ -244,7 +244,8 @@ allocated RAM:
                 return f #TODO: returns the last method with the same name, not necessarily from the same scope
         
         if with_exception:
-            raise Exception(f"function '{name}' is not defined: {self.code}")
+            filterd_functions = [f.name for f in self.code if f.name != "anonymous"]
+            raise Exception(f"function '{name}' is not defined: {filterd_functions}")
         
         return None
 

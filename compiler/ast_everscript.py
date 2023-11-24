@@ -98,6 +98,8 @@ class Deref(Function_Base, Calculatable, Memorable):
                 code = code + [Operand("push")] + self.offset.calculate(params) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
+            case Word():
+                code = [self.value.code(params)]
             case _:
                 TODO()
 
