@@ -51,6 +51,8 @@ class Lexer():
         self.lexer.add('B_AND', '\&(?![\&\=])')
         self.lexer.add('B_OR', '\|(?![\|\=])')
         self.lexer.add('B_XOR', '\^')
+
+        self.lexer.add('INVERT_WORD', '\-(?=\()')
         
         self.lexer.add('>', '\>')
         self.lexer.add('<', '\<')

@@ -99,7 +99,8 @@ class Deref(Function_Base, Calculatable, Memorable):
                 if deref:
                     code += [Operand("deref")]
             case Word():
-                code = [self.value.code(params)]
+                # code = [self.value.code(params)]
+                code = Memory(self.value).calculate(params, offset=self.offset, deref=deref)
             case _:
                 TODO()
 
@@ -828,126 +829,132 @@ class If(Function_Base, Calculatable, Memorable):
         return code
         
 class And(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("&&")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) and right.eval(params)
     
 class Or(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("||")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) or right.eval(params)
     
 class Equals(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("==")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) == right.eval(params)
         
 class NotEquals(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("!=")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) != right.eval(params)
     
 class GreaterEquals(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand(">=")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) >= right.eval(params)
     
 class Greater(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand(">")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) > right.eval(params)
     
 class LowerEquals(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("<=")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) <= right.eval(params)
     
 class Lower(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("<")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) < right.eval(params)
     
 class Add(BinaryOp):
-    def operator(self):
-        return Operand("+")
+    def operator(self, inverted=False):
+        if not inverted:
+            return Operand("+")
+        else:
+            return Operand("-")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) + right.eval(params)
     
 class Sub(BinaryOp):
-    def operator(self):
-        return Operand("-")
+    def operator(self, inverted=False):
+        if not inverted:
+            return Operand("-")
+        else:
+            return Operand("+")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) - right.eval(params)
     
 class Mul(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("*")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) * right.eval(params)
 
 class Div(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("/")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) // right.eval(params)
 
 class ShiftRight(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand(">>")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) >> right.eval(params)
     
 class ShiftLeft(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("<<")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) << right.eval(params)
     
 class BinaryAnd(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("&")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) & right.eval(params)
     
 class BinaryOr(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("|")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) | right.eval(params)
     
 class BinaryXor(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return Operand("^")
 
     def _eval(self, left, right, params:list[Param]):
         return left.eval(params) | right.eval(params)
 
 class Asign(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return "=" # Opcode("=")
 
     def _code(self, params:list[Param]):
@@ -988,14 +995,14 @@ class Asign(BinaryOp):
         return code
 
 class OrAsign(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return "|="
 
     def _code(self, params:list[Param]):
         raise Exception("not implemented")
 
 class AndAsign(BinaryOp):
-    def operator(self):
+    def operator(self, inverted=False):
         return "&="
 
     def _code(self, params:list[Param]):
