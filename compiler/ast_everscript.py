@@ -15,6 +15,31 @@ import random
 import uuid
 from enum import StrEnum
 
+class Is(Function_Base):
+    def __init__(self, value, type, inverted=False):
+        self.value = value
+        self.type = type
+        self.inverted = inverted
+
+    def eval(self, params:list[Param]):
+        value = self.resolve(self.value, params)
+        is_type_of = False
+        
+        match self.type:
+            case "Word":
+                is_type_of = isinstance(value, Word)
+            case "Memory":
+                is_type_of = isinstance(value, Memory)
+            case "Arg":
+                is_type_of = isinstance(value, Arg)
+            case _:
+                TODO()
+
+        return is_type_of
+
+    def _code(self, params:list[Param]):
+        pass
+
 class RawAddress(Function_Base):
     def __init__(self, value):
         match value:
@@ -31,11 +56,13 @@ class RawAddress(Function_Base):
 class Deref(Function_Base, Calculatable, Memorable):
     def __init__(self, generator, value, offset):
         self._generator = generator
+
+        self.memory = True
         
         match value:
             case Param()|Identifier():
                 self.value = value
-            case Memory() | Arg():
+            case Memory()|Arg():
                 self.value = value
             case Deref():
                 self.value = value
@@ -55,8 +82,11 @@ class Deref(Function_Base, Calculatable, Memorable):
     def update(self, params:list[Param]):
         if isinstance(self.value, Param) or isinstance(self.value, Identifier):
             value = self.resolve(self.value, params)
-            if value:
-                self.value = value
+            match value:
+                case Word():
+                    self.value = Memory(value)
+                case _ if value != None:
+                    self.value = value
 
         if not self.value:
             pass
@@ -99,8 +129,7 @@ class Deref(Function_Base, Calculatable, Memorable):
                 if deref:
                     code += [Operand("deref")]
             case Word():
-                # code = [self.value.code(params)]
-                code = Memory(self.value).calculate(params, offset=self.offset, deref=deref)
+                code = [self.value.code(params)]
             case _:
                 TODO()
 
@@ -689,7 +718,6 @@ class If_list(Function_Base, Memorable):
             if_count.reverse()
             if_count.pop()
 
-
             for element in self.if_list:
                 count = sum(if_count)
                 if count > 0:
@@ -752,7 +780,7 @@ class If(Function_Base, Calculatable, Memorable):
         match condition:
             case Word():
                 condition = condition.eval(params) > 0
-            case BinaryOp() | Identifier():
+            case BinaryOp()|Identifier()|Is():
                 condition = condition.eval(params)
             case None:
                 condition = True

@@ -1817,39 +1817,31 @@ group functions() {
         fun entity(character:CHARACTER) {
             // sometimes writes arg0…arg20
 
-            if(character == CHARACTER.BOY) {
-                code(character);
-            } else if(character == CHARACTER.DOG) {
-                code(character);
-            } else if(character == CHARACTER.ACTIVE) {
-                code(character);
-            } else if(character == CHARACTER.LAST_ENTITY) {
-                code(character);
-            } else if(character == CHARACTER.SCRIPT_OWNER) {
-                code(character);
-            } else if(character >= 0x2834) {
-                code(0x0d, character - 0x2834);
-            } else if(character >= 0x2258) {
-                code(0x08, character - 0x2258);
+            if(character is Arg) {
+                code(0x12, character);
+            } else if(character is Word) {
+                code(0x80 + character);
+            } else if(character is Memory) {
+                if(character >= 0x2834) {
+                    code(0x80 + 0x0d, character - 0x2834);
+                } else if(character >= 0x2258) {
+                    code(0x80 + 0x08, character - 0x2258);
+                }
             }
         }
         fun entity_t(character:CHARACTER) {
             // sometimes writes arg0…arg20
 
-            if(character == CHARACTER.BOY) {
+            if(character is Arg) {
+                code(0x80 + 0x12, character);
+            } else if(character is Word) {
                 code(0x80 + character);
-            } else if(character == CHARACTER.DOG) {
-                code(0x80 + character);
-            } else if(character == CHARACTER.ACTIVE) {
-                code(0x80 + character);
-            } else if(character == CHARACTER.LAST_ENTITY) {
-                code(0x80 + character);
-            } else if(character == CHARACTER.SCRIPT_OWNER) {
-                code(0x80 + character);
-            } else if(character >= 0x2834) {
-                code(0x80 + 0x0d, character - 0x2834);
-            } else if(character >= 0x2258) {
-                code(0x80 + 0x08, character - 0x2258);
+            } else if(character is Memory) {
+                if(character >= 0x2834) {
+                    code(0x80 + 0x0d, character - 0x2834);
+                } else if(character >= 0x2258) {
+                    code(0x80 + 0x08, character - 0x2258);
+                }
             }
         }
     };
@@ -2478,6 +2470,25 @@ group functions() {
 
                 code(0xaf, 0x04, entity_t(enemy), entity_t(0x23b9), entity_t(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
             }
+        };
+
+        group projectile() {
+            fun projectile(source, throwable, source_x, source_y, target_x, target_y, z, overshoot) {
+                // (b5) REVEAL ENTITY?? args 26 $2869 $24ab + 20 $24af - 0x30 0 signed arg0 signed arg2 0x3c // thraxx eye
+                // (b5) REVEAL ENTITY?? args 26 boy $2890 $2894 0 $2898 $289a 30 // aegis
+                // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
+                // (b5) REVEAL ENTITY?? args 26 boy $2839 $283b 0 $283d - 8 $283f 1 // professor
+                // (b5) REVEAL ENTITY?? args 26 boy $24ab $24af - 0x28 0 $2861 $2863 - 16 0x78 // boss rush
+
+                // (b5) REVEAL ENTITY?? args 28 boy signed arg0 signed arg2 0 0x32 0x32 0 // bomb 1
+                // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg0 signed arg2 0 0x32 0x28 0 // bomb 2
+
+                // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
+                // (b5) REVEAL ENTITY?? args 30 entity attached to script? signed arg0 signed arg2 0x0140 signed arg0 signed arg2 + 0x20 0 // carltron missile
+                // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg10 signed arg12 0 0x46 0x32 0 // carltron stomp
+
+                code(0xb5, entity_t(throwable), entity_t(source), entity_t(source_x), entity_t(source_y), param(overshoot), x, y, param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
 
             fun shoot_entity_absolute(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot) {
                 code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(x), calculate(y), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
@@ -2487,6 +2498,10 @@ group functions() {
             }
             fun shoot_entity_entity(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot) { // TODO: target=BOY crashes
                 code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X]), calculate(target[Y]), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+
+            fun shoot_entity_offset_relative(entity:CHARACTER, projectile:THROWABLE, offset_x, offset_y, x, y, z, overshoot) {
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X] + offset_x), calculate(entity[Y] + offset_y), param(overshoot), calculate(entity[X] + (offset_x + x)), calculate(entity[Y] + (offset_y + y)), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
         };
 
@@ -2977,23 +2992,6 @@ group functions() {
                 }
             }
         }
-
-        fun throw(throwable, source, source_x, source_y, x, y, arc) {
-            // (b5) REVEAL ENTITY?? args 26 $2869 $24ab + 20 $24af - 0x30 0 signed arg0 signed arg2 0x3c // thraxx eye
-            // (b5) REVEAL ENTITY?? args 26 boy $2890 $2894 0 $2898 $289a 30 // aegis
-            // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
-            // (b5) REVEAL ENTITY?? args 26 boy $2839 $283b 0 $283d - 8 $283f 1 // professor
-            // (b5) REVEAL ENTITY?? args 26 boy $24ab $24af - 0x28 0 $2861 $2863 - 16 0x78 // boss rush
-
-            // (b5) REVEAL ENTITY?? args 28 boy signed arg0 signed arg2 0 0x32 0x32 0 // bomb 1
-            // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg0 signed arg2 0 0x32 0x28 0 // bomb 2
-
-            // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
-            // (b5) REVEAL ENTITY?? args 30 entity attached to script? signed arg0 signed arg2 0x0140 signed arg0 signed arg2 + 0x20 0 // carltron missile
-            // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg10 signed arg12 0 0x46 0x32 0 // carltron stomp
-
-            code(0xb5, entity_t(throwable), entity_t(source), entity_t(source_x), entity_t(source_y), param(0x0a), x, y, param(arc), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-        }
     };
 
     group cutscenes() {
@@ -3366,9 +3364,7 @@ group functions() {
         }
 
         fun windwalker_rocket() {
-            // code(0xb5, param(THROWABLE.BEACH_BALL), entity_t(BOY), calculate(<BOY>[X] + 0x10), calculate(<BOY>[Y]), param(0x0a), calculate(<BOY>[X] + 0xff), calculate(<BOY>[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            // code(0xb5, param(THROWABLE.MISSILE), entity_t(BOY), calculate(<BOY>[X] + 0x10), calculate(<BOY>[Y]), param(0x0a), calculate(<BOY>[X] + 0xff), calculate(<BOY>[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-
+            // shoot_entity_offset_relative(BOY, ONION, 0x10, 0x00, 0xff, 0x00, 0x10, 0x0a);
             code(0xb5, param(THROWABLE.ONION), entity_t(BOY), calculate(<BOY>[X] + 0x10), calculate(<BOY>[Y]), param(0x0a), calculate(<BOY>[X] + 0xff), calculate(<BOY>[Y]), param(0x10), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
 
             sound(PROJECTILE_SHOOTING);
