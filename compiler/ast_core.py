@@ -8,6 +8,10 @@ from textwrap import wrap
 def TODO(message = ""):
     raise Exception(message)
 
+class Inverted():
+    def __init__(self, value):
+        self.value = value
+
 class Calculatable():
     """
     00…2f = opcodes
@@ -678,7 +682,25 @@ class BinaryOp(Operator):
             return self._calculate(left, right, params)
     
     def _calculate(self, left:any, right:any, params:list[Param]):
-        return left.calculate(params) + [Operand("push")] + right.calculate(params) + [self.operator()]
+        operator = self.operator()
+        invert = False
+
+        match [left, right]:
+            case [Inverted(), Inverted()]:
+                invert = False
+                left = left.value
+                right = right.value
+            case [_, Inverted()]:
+                invert = True
+                right = right.value
+            case [Inverted(), _]:
+                invert = True
+                left = left.value
+
+        if invert:
+            operator = self.operator(True)
+
+        return left.calculate(params) + [Operand("push")] + right.calculate(params) + [operator]
     
     def flatten(self, x, params:list[Param]):
         if isinstance(x, BinaryOp):
@@ -692,7 +714,7 @@ class BinaryOp(Operator):
         else:
             return [x]
 
-    def operator(self):
+    def operator(self, inverted=False):
         TODO()
 
 class Operand():

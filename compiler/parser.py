@@ -15,6 +15,7 @@ class Parser():
                 '!', 'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
+                'INVERT_WORD',
                 'TRUE', 'FALSE',
                 'WORD', 'WORD_DECIMAL', 'ENUM', 'ENUM_CALL', 'STRING', 'STRING_RAW',
                 'LABEL_DESTINATION', # 'END',
@@ -162,6 +163,18 @@ class Parser():
 
             return function_variable
         
+        @self.pg.production('expression : INVERT_WORD ( expression )')
+        def parse(p):
+            value = p[2]
+
+            match value:
+                case Word():
+                    value = Word(-value.value)
+                case _:
+                    value = Inverted(value)
+
+            return value
+
         @self.pg.production('expression : OBJECT [ expression ]')
         def parse(p):
             index = p[2]
