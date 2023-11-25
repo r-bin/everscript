@@ -10,7 +10,6 @@ from compiler.linker import Linker
 import time
 import re
 
-
 lexer = Lexer().get_lexer()
 linker = Linker()
 generator = CodeGen(linker)

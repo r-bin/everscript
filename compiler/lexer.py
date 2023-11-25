@@ -7,6 +7,10 @@ class Lexer():
     def _add_tokens(self):
         self.lexer.add('T_BYTE', 'Byte')
         self.lexer.add('T_WORD', 'Word')
+        self.lexer.add('T_MEMORY', 'Memory')
+        self.lexer.add('T_ARG', 'Arg')
+        self.lexer.add('IS', 'is(?=\ )')
+        self.lexer.add('!IS', '!is(?=\ )')
 
         self.lexer.add('VAL', 'val(?=\ )')
         self.lexer.add('VAR', 'var(?=\ )')

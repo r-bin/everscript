@@ -9,7 +9,9 @@ class Parser():
         self.pg = ParserGenerator(
             # A list of all token names accepted by the parser.
             [
-                'VAL', 'VAR', 'T_BYTE', 'T_WORD',
+                'VAL', 'VAR',
+                'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_ARG',
+                'IS', '!IS',
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '!', 'AND', 'OR',
@@ -174,6 +176,23 @@ class Parser():
                     value = Inverted(value)
 
             return value
+        
+        @self.pg.production('expression : expression IS type')
+        @self.pg.production('expression : expression !IS type')
+        def parse(p):
+            value = p[0]
+            type = p[2].value
+            inverted = p[1]
+
+            match inverted.gettokentype():
+                case 'IS':
+                    inverted = False
+                case '!IS':
+                    inverted = True
+                case _:
+                    TODO()
+
+            return Is(value, type, inverted)
 
         @self.pg.production('expression : OBJECT [ expression ]')
         def parse(p):
@@ -514,8 +533,14 @@ class Parser():
 
             return Deref(self.generator, expression, offset)
 
-        @self.pg.production('memory : ( T_BYTE ) memory')
-        @self.pg.production('memory : ( T_WORD ) memory')
+        @self.pg.production('type : T_BYTE')
+        @self.pg.production('type : T_WORD')
+        @self.pg.production('type : T_MEMORY')
+        @self.pg.production('type : T_ARG')
+        def parse(p):
+            return p[0]
+
+        @self.pg.production('memory : ( type ) memory')
         def parse(p):
             data_type = p[1]
             memory = p[3]
