@@ -74,62 +74,45 @@ class Deref(Function_Base, Calculatable, Memorable):
         if isinstance(self.offset, Word) and self.offset.value_count() != 2:
             self.offset = Word(self.offset, 2)
 
-        self.update([])
 
         if not self.value:
             pass
-
-    def update(self, params:list[Param]):
-        if isinstance(self.value, Param) or isinstance(self.value, Identifier):
-            value = self.resolve(self.value, params)
-            match value:
-                case Word():
-                    self.value = Memory(value)
-                case _ if value != None:
-                    self.value = value
-
-        if not self.value:
-            pass
-        
-        self.inherit_memory(self.value)
 
     def __repr__(self):
         return f"Deref(value={self.value}, offset={self.offset})"
 
     def eval(self, params:list[Param]):
-        self.update([])
-
         value = self.resolve(self.value, params)
 
         return value.eval(params)
     
     def value_count(self):
-        self.update([])
-
-        return self.value.value_count()
+        TODO()
     
     def calculate(self, params:list[Param], deref=True):
         code = None
 
-        self.update(params)
+        value = self.resolve(self.value, params)
 
         #if isinstance(self.value, Param):
         #    self.value = self.resolve(self.value, params)
 
-        match self.value:
+        match value:
             case Memory():
-                code = self.value.calculate(params, offset=self.offset, deref=deref)
+                code = value.calculate(params, offset=self.offset, deref=deref)
             case Arg():
-                code = self.value.calculate(params, offset=self.offset, deref=deref)
+                code = value.calculate(params, offset=self.offset, deref=deref)
             case Deref():
-                code = self.value.value
+                code = value.value
                 code = self.resolve(code, params)
                 code = code.calculate(params, deref=True)
                 code = code + [Operand("push")] + self.offset.calculate(params) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
             case Word():
-                code = [self.value.code(params)]
+                code = Memory(value)
+                code = code.calculate(params, offset=self.offset, deref=deref)
+                # code = [self.value.code(params)]
             case _:
                 TODO()
 
