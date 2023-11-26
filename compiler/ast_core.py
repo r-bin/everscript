@@ -363,11 +363,15 @@ class Word(Function_Base, Calculatable):
         #    i = (i - 0xfff0) & 0x0f
         #    i = [[Operand("int fff0-ffff"), i]]
         else:
-            match self.value_count():
-                case 1:
-                    i = [Operand("unsigned byte"), self.code([])]
-                case 2:
+            match [self.value_count(), self.value >= 0x00]:
+                case [1, True]:
+                    i = [Operand("byte"), self.code([])]
+                case [2, True]:
                     i = [Operand("word"), self.code([])]
+                case [1, False]:
+                    i = [Operand("signed byte"), self.code([])]
+                case [2, False]:
+                    i = [Operand("signed word"), self.code([])]
                 case _:
                     raise Exception("not supported")
 
@@ -721,10 +725,10 @@ class Operand():
     _operands = {
         "nop": 0x00, # noop?
 
-        # _: 0x01, # signed const byte
-        "unsigned byte": 0x02, # unsigned const byte
+        "signed byte": 0x01, # signed const byte
+        "byte": 0x02, # unsigned const byte
 
-        # _: 0x03, # signed const word
+        "signed word": 0x03, # signed const word
         "word": 0x04, # unsigned const word
 
         "test": 0x05, # test bit
