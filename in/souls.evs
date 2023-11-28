@@ -211,6 +211,8 @@ group non_maps() {
             COLLECTIBLE_COUNTER = memory(),
 
             // east
+            DEAD_PIT_EGG = flag(),
+
             DEAD_VOLCANO_HYDRA = flag(),
             DEAD_ARENA_RADAHN = flag(),
             DEAD_STOMPY_RADAHN = flag(),
@@ -606,7 +608,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(mosquito_arena, right, NONE);
+                map_transition(pipe_entrance, pipe_west, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1621,6 +1623,9 @@ area west_inbetwixx() {
 
                 // west
                 add_enemy(FLOWER_PURPLE, 0d13, 0d52);
+
+                // cliff
+                // add_enemy_with_flags(OWL_BLACK, 0d97, 0d55, INACTIVE);
             }
 
             add_enemy(OWL_BLACK, 0x2d, 0x21);
@@ -4279,6 +4284,121 @@ area east_inbetwixx() {
             default_init_room(True, True);
         }
 
+        enum BOSS {
+            DEBUG = False,
+
+            ID = memory_tmp(),
+
+            PIT_THRESHOLD = 0d03,
+
+            PIT_1_TIMER = memory_tmp(),
+            PIT_2_TIMER = memory_tmp(),
+            PIT_3_TIMER = memory_tmp(),
+            PIT_4_TIMER = memory_tmp(),
+        }
+
+        fun pit_triggered(entity, index) {
+            if(entity[GENERAL_PURPOSE] != index) {
+                entity[GENERAL_PURPOSE] = index;
+            } else {
+                damage(entity, 0x100, True);
+            }
+        }
+        fun pit_triggered_boy(index) {
+            if(<BOY>[GENERAL_PURPOSE] != index) {
+                <BOY>[GENERAL_PURPOSE] = index;
+            } else {
+                damage(BOY, 0x10, True);
+            }
+        }
+
+        @install()
+        @async()
+        fun pit_scanner() {
+            // 0d127, 0d303
+            // 0d239, 0d448
+            // 0d368, 0d528-9
+            // 0d383, 0d592-3
+
+            // BOSS.ID = <BOY>;
+
+            while(True) {
+                // if((BOSS.ID[X] == 0d127) && ((BOSS.ID[Y] == 0d303) || (BOSS.ID[Y] == 0d303))) {
+                if((BOSS.ID[X] >= 0d112) && (BOSS.ID[X] <= 0d127)) {
+                    if((BOSS.ID[Y] >= 0d302) && (BOSS.ID[Y] <= 0d305)) {
+                        pit_triggered(BOSS.ID, 0x01);
+                    }
+                } else if((BOSS.ID[X] >= 0d224) && (BOSS.ID[X] <= 0d239)) {
+                    if((BOSS.ID[Y] >= 0d446) && (BOSS.ID[Y] <= 0d449)) {
+                        pit_triggered(BOSS.ID, 0x02);
+                    }
+                } else if((BOSS.ID[X] >= 0d368) && (BOSS.ID[X] <= 0d383)) {
+                    if((BOSS.ID[Y] >= 0d526) && (BOSS.ID[Y] <= 0d529)) {
+                        pit_triggered(BOSS.ID, 0x03);
+                    }
+                // } else if((BOSS.ID[X] >= 0d368) && (BOSS.ID[X] <= 0d383)) {
+                    if((BOSS.ID[Y] >= 0d590) && (BOSS.ID[Y] <= 0d593)) {
+                        pit_triggered(BOSS.ID, 0x04);
+                    }
+                } else {
+                    BOSS.ID[GENERAL_PURPOSE] = 0x00;
+                }
+
+                sleep(0x0a);
+            }
+        }
+        @install()
+        @async()
+        fun pit_scanner_boy() { // TODO: remove
+            while(True) {
+                // if((<BOY>[X] == 0d127) && ((<BOY>[Y] == 0d303) || (<BOY>[Y] == 0d303))) {
+                if((<BOY>[X] >= 0d112) && (<BOY>[X] <= 0d127)) {
+                    if((<BOY>[Y] >= 0d302) && (<BOY>[Y] <= 0d305)) {
+                        pit_triggered_boy(0x01);
+                    }
+                } else if((<BOY>[X] >= 0d224) && (<BOY>[X] <= 0d239)) {
+                    if((<BOY>[Y] >= 0d446) && (<BOY>[Y] <= 0d449)) {
+                        pit_triggered_boy(0x02);
+                    }
+                } else if((<BOY>[X] >= 0d368) && (<BOY>[X] <= 0d383)) {
+                    if((<BOY>[Y] >= 0d526) && (<BOY>[Y] <= 0d529)) {
+                        pit_triggered_boy(0x03);
+                    }
+                // } else if((<BOY>[X] >= 0d368) && (<BOY>[X] <= 0d383)) {
+                    if((<BOY>[Y] >= 0d590) && (<BOY>[Y] <= 0d593)) {
+                        pit_triggered_boy(0x04);
+                    }
+                } else {
+                    <BOY>[GENERAL_PURPOSE] = 0x00;
+                }
+
+                sleep(0x0a);
+            }
+        }
+
+        @install()
+        fun boss_triggered() {
+            if(DEBUG) {
+                subtext("boss triggered");
+            }
+
+            fade_to_music(BOSS);
+
+            attach_script(BOSS.ID, DEATH, reference(boss_defeated));
+        }
+        @install()
+        fun boss_defeated() {
+            if(DEBUG) {
+                subtext("boss defeated");
+            }
+            
+            set(SOULS_MEMORY.DEAD_PIT_EGG);
+
+            souls_boss_defeated();
+
+            music(BUGMUCK_AMBIENT_MELODY, 0xff); // TODO
+        }
+
         fun trigger_enter() {
             open_sandpits();
 
@@ -4309,11 +4429,19 @@ area east_inbetwixx() {
                 branch_lady(0x4e, 0x2c, reference(branch_triggered));
             }
 
-            add_enemy(MEGATAUR, 0x38, 0x44);
-            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+            if!(SOULS_MEMORY.DEAD_PIT_EGG) {
+                add_enemy(MEGATAUR, 0x38, 0x44);
+                attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
+                <LAST_ENTITY>[HP] = 0d600;
+                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+                BOSS.ID = <LAST_ENTITY>;
+
+                pit_scanner();
+            }
 
             init_room();
 
+            pit_scanner_boy();
         }
     };
 
@@ -5715,6 +5843,7 @@ area east_inbetwixx() {
                     subtext("B=8");
                 },
                 b_trigger_9 = @install() {
+                    sound(WEIRD_SOUND);
                     set(ROOM.GOURD);
                     object[0x07] = 0x02; // loot gourd_entrance
                     gourd_looted();
