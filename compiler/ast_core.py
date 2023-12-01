@@ -8,10 +8,6 @@ from textwrap import wrap
 def TODO(message = ""):
     raise Exception(message)
 
-class Inverted():
-    def __init__(self, value):
-        self.value = value
-
 class Calculatable():
     """
     00…2f = opcodes
@@ -76,6 +72,9 @@ class Memorable():
     offset = None
     requires_deref = False
 
+    def is_memory(self, params:list[Param]):
+        return False
+
     def inherit_memory(self, memorable):
         if isinstance(memorable, Memorable):
             self.memory |= memorable.memory
@@ -84,8 +83,64 @@ class Memorable():
     
     def update(self, params=[]):
         pass
+      
+class Resolvable():
+    def resolve(self, params:list[Param]):
+        value = None
+
+        match self:
+            case Identifier():
+                value = self.resolve_identifier(self, params)
+
+
+            case Param():
+                value = self.resolve_param(self, params)
+            case _:
+                return self
             
-class Param(BaseBox):
+        if value:
+            return value.resolve(params)
+        else:
+            return None
+
+    def resolve_identifier(self, identifier:Identifier, params:list[Param]):
+        if not isinstance(identifier, Identifier):
+            raise Exception(f"identifier '{identifier}' cannot be resolved")
+        
+        out = None
+
+        for p in params:
+            if p.name == identifier.name:
+                out = p.value
+                break
+            
+        return out
+
+    def resolve_param(self, param:Param, params:list[Param]):
+        if not isinstance(param, Param):
+            raise Exception(f"param '{param}' cannot be resolved")
+        
+        if param.value != None:
+            return param.value
+        elif param.name != None:
+            for p in params:
+                if p.name == param.name:
+                    return p.value
+
+        return None
+     
+class Inverted(Resolvable):
+    def __init__(self, value):
+        self.value = value
+        
+    def is_memory(self, params:list[Param]):
+        is_memory = self.value.resolve(params)
+
+        is_memory = is_memory.is_memory(params)
+
+        return is_memory
+
+class Param(BaseBox, Resolvable):
     def __init__(self, name, value):
         self.name = None
         if isinstance(name, str):
@@ -104,7 +159,7 @@ class Param(BaseBox):
         else:
             return self.value.eval(params)
 
-class Identifier(BaseBox):
+class Identifier(BaseBox, Resolvable):
     def __init__(self, name):
         self.name = name.value
 
@@ -153,7 +208,7 @@ class Enum_Call(BaseBox):
     def eval(self):
         return self.value
 
-class Function_Base(BaseBox):
+class Function_Base(BaseBox, Resolvable):
     _value_count:int = None
 
     #cache_code:str = None
@@ -226,41 +281,6 @@ class Function_Base(BaseBox):
     def value_count(self):
         return self._value_count
     
-    def resolve(self, value:any, params:list[Param]):
-        match value:
-            case Identifier():
-                return self.resolve_identifier(value, params)
-            case Param():
-                return self.resolve_param(value, params)
-            case _:
-                return value
-
-    def resolve_identifier(self, identifier:Identifier, params:list[Param]):
-        if not isinstance(identifier, Identifier):
-            raise Exception(f"identifier '{identifier}' cannot be resolved")
-        
-        out = None
-
-        for p in params:
-            if p.name == identifier.name:
-                out = p.value
-                break
-            
-        return out
-
-    def resolve_param(self, param:Param, params:list[Param]):
-        if not isinstance(param, Param):
-            raise Exception(f"param '{param}' cannot be resolved")
-        
-        if param.value != None:
-            return param.value
-        elif param.name != None:
-            for p in params:
-                if p.name == param.name:
-                    return p.value
-
-        return None
-    
     def handle_params(self, params:list[Param], function_params:list[Param]):
         if function_params:
             sp = {x.name : x for x in function_params}
@@ -297,7 +317,11 @@ class Function_Base(BaseBox):
 class Word(Function_Base, Calculatable):
     def __init__(self, value, value_count=2, is_decimal=False):
         self.value_original = value
-        value = self.resolve(value, [])
+        match value:
+            case Token()|int():
+                value = value
+            case _:
+                value = value.resolve([])
 
         if isinstance(value, int):
             self.value = value
@@ -328,6 +352,9 @@ class Word(Function_Base, Calculatable):
     def __repr__(self):
         return f"Word({self.value_original})"
 
+    def is_memory(self, params:list[Param]):
+        return False
+    
     def eval(self, params:list[Param]):
         return self.value
         
@@ -418,6 +445,9 @@ class Memory(Function_Base, Calculatable, Memorable):
 
     def __repr__(self):
         return f"Memory(address={'{:02X}'.format(self.address, 'x')}/{self.type}, flag={self.flag}, offset={self.offset})"
+    
+    def is_memory(self, params:list[Param]):
+        return True
     
     def eval(self, params:list[Param]):
         return self.address
@@ -533,7 +563,7 @@ class Function_Code(Function_Base):
                 case Function_Base():
                     list.append(a.code(params))
                 case Param():
-                    code = self.resolve(a, params)
+                    code = a.resolve(params)
                     code = code.code(params)
                     list.append(code)
                 case str():
@@ -559,12 +589,11 @@ class Function_Calculate(Function_Base, Calculatable):
         list = []
 
         for a in self.script:
-            if isinstance(a, Param):
-                a = self.resolve(a, params)
+            a = a.resolve(params)
             
             match a:
                 case Word():
-                    list.append(a.code(params))
+                    list += a.calculate(params)
                 case int():
                     list.append('{:02X}'.format(a, 'x')) # TODO
                 case Function_Base():
@@ -598,10 +627,12 @@ class UnaryOp(Operator):
 
         self.memory = True
 
+    def is_memory(self, params:list[Param]):
+        return True
     def calculate(self, params:list[Param]):
         #self.handle_params(params)
 
-        value = self.resolve(self.value, params)
+        value = self.value.resolve(params)
 
         if isinstance(value, Calculatable):
             value = value.calculate(params)
@@ -617,24 +648,32 @@ class BinaryOp(Operator):
 
         self._value_count = 2
 
-        self.update()
 
         pass
 
+    def is_memory(self, params:list[Param]):
+        left = self.left.resolve(params)
+        left = left.is_memory(params)
+
+        right = self.right.resolve(params)
+        right = right.is_memory(params)
+
+        return left or right
+    
     def update(self, params=[]):
         #self.handle_params(params)
     
-        left = self.resolve(self.left, params)
-        right = self.resolve(self.right, params)
+        left = self.left.resolve(params)
+        right = self.right.resolve(params)
 
         self.inherit_memory(left)
         self.inherit_memory(right)
 
     def eval(self, params:list[Param]):
-        left = self.resolve(self.left, params)
+        left = self.left.resolve(params)
         if not left:
             raise Exception(f"in {self}.{self.left} does not exist")
-        right = self.resolve(self.right, params)
+        right = self.right.resolve(params)
         if not right:
             raise Exception(f"in {self}.{self.right} does not exist")
 
@@ -643,8 +682,8 @@ class BinaryOp(Operator):
     def _code(self, params:list[Param]):
         value = self.eval(params)
 
-        left = self.resolve(self.left, params)
-        right = self.resolve(self.right, params)
+        left = self.left.resolve(params)
+        right = self.right.resolve(params)
         
         self._value_count = max(left.value_count(), right.value_count())
         
@@ -661,11 +700,11 @@ class BinaryOp(Operator):
         return ' '.join(reversed(value))
     
     def calculate(self, params):
-        left = self.resolve(self.left, params)
+        left = self.left.resolve(params)
         if isinstance(left, Memorable):
             left.update(params)
         
-        right = self.resolve(self.right, params)
+        right = self.right.resolve(params)
         if isinstance(right, Memorable):
             right.update(params)
 
@@ -680,7 +719,7 @@ class BinaryOp(Operator):
             case [_, Memory()|Word()]:
                 estimated_size = right.value_count()
 
-        if isinstance(self, Memorable) and not self.memory:
+        if isinstance(self, Memorable) and not self.is_memory(params):
             return Word(self.eval(params), estimated_size).calculate(params)
         else:
             return self._calculate(left, right, params)
@@ -713,7 +752,7 @@ class BinaryOp(Operator):
             #if not x.value:
             #    sp = {x.name : x for x in params}
             #    x.value = sp[x.name].value
-            x = self.resolve(x, params)
+            x = x.resolve(params)
             return self.flatten(x, params)
         else:
             return [x]

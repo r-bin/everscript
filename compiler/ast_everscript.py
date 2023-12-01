@@ -21,8 +21,11 @@ class Is(Function_Base):
         self.type = type
         self.inverted = inverted
 
+    def is_memory(self, params:list[Param]):
+        return False
+    
     def eval(self, params:list[Param]):
-        value = self.resolve(self.value, params)
+        value = self.value.resolve(params)
         is_type_of = False
         
         match self.type:
@@ -44,7 +47,7 @@ class RawAddress(Function_Base):
     def __init__(self, value):
         match value:
             case Param():
-                self.value = self.resolve(value, [])
+                self.value = value.resolve([])
             case Memory():
                 self.value = value
             case _:
@@ -66,6 +69,8 @@ class Deref(Function_Base, Calculatable, Memorable):
                 self.value = value
             case Deref():
                 self.value = value
+            case Word():
+                self.value = Memory(value)
             case _:
                 TODO(f"value {value} cannot be deref'ed")
 
@@ -81,8 +86,11 @@ class Deref(Function_Base, Calculatable, Memorable):
     def __repr__(self):
         return f"Deref(value={self.value}, offset={self.offset})"
 
+    def is_memory(self, params:list[Param]):
+        return True
+    
     def eval(self, params:list[Param]):
-        value = self.resolve(self.value, params)
+        value = self.value.resolve(params)
 
         return value.eval(params)
     
@@ -92,10 +100,10 @@ class Deref(Function_Base, Calculatable, Memorable):
     def calculate(self, params:list[Param], deref=True):
         code = None
 
-        value = self.resolve(self.value, params)
+        value = self.value.resolve(params)
 
         #if isinstance(self.value, Param):
-        #    self.value = self.resolve(self.value, params)
+        #    self.value = self.value.resolve(params)
 
         match value:
             case Memory():
@@ -104,7 +112,7 @@ class Deref(Function_Base, Calculatable, Memorable):
                 code = value.calculate(params, offset=self.offset, deref=deref)
             case Deref():
                 code = value.value
-                code = self.resolve(code, params)
+                code = code.resolve(params)
                 code = code.calculate(params, deref=True)
                 code = code + [Operand("push")] + self.offset.calculate(params) + [Operand("+")]
                 if deref:
@@ -120,10 +128,23 @@ class Deref(Function_Base, Calculatable, Memorable):
 
     def _code(self, params:list[Param]):
         pass
+
+    def resolve(self, params:list[Param]):
+        match [self.value, self.offset]:
+            case [Identifier(), _]|[_, Identifier()]:
+                value = self.value.resolve(params)
+                offset = self.offset.resolve(params)
+
+                deref = Deref(self._generator, value, offset)
+            case _:
+                deref = self
+        
+        return deref
+
 class Arg(Function_Base, Calculatable, Memorable):
     def __init__(self, index):
         self.index = index
-        self.index = self.resolve(self.index, [])
+        self.index = self.index.resolve([])
         self.offset = None
 
         self.memory = True
@@ -131,8 +152,11 @@ class Arg(Function_Base, Calculatable, Memorable):
     def __repr__(self):
         return f"Arg(index={self.index})"
         
+    def is_memory(self, params:list[Param]):
+        return True
+    
     def calculate(self, params:list[Param], offset=None, deref=False):
-        index = self.resolve(self.index, params)
+        index = self.index.resolve(params)
         index = index.code(params)
 
         deref |= self.requires_deref
@@ -152,7 +176,7 @@ class Arg(Function_Base, Calculatable, Memorable):
         return code
 
     def _code(self, params:list[Param]):
-        index = self.resolve(self.index, params)
+        index = self.index.resolve(params)
         
         if isinstance(index, int):
             index = Word(index)
@@ -164,23 +188,26 @@ class Arg(Function_Base, Calculatable, Memorable):
 class Object(Function_Base, Calculatable, Memorable):
     def __init__(self, index, flag=None):
         self.index = index
-        # self.index = self.resolve(self.index, [])
+        # self.index = self.index.resolve([])
         self.flag = flag
 
         self.memory = True
 
+    def is_memory(self, params:list[Param]):
+        return True
+    
     def __repr__(self):
         return f"Object(index={self.index}, flag={self.flag})"
         
     def calculate(self, params:list[Param]):
-        index = self.resolve(self.index, params)
+        index = self.index.resolve(params)
         code = index.calculate(params)
 
         return code
     
     def _code(self, params:list[Param]):
-        index = self.resolve(self.index, params)
-        flag = self.resolve(self.flag, params)
+        index = self.index.resolve(params)
+        flag = self.flag.resolve(params)
         
         code = [Opcode("obj")] + self._terminate(index.calculate(params) + [flag.code(params)])
         code = self._clean_calucatable(code, params)
@@ -384,7 +411,7 @@ class InstalledString(Function_Base):
         self.installed = False
 
     def _code(self, params:list[Param]):
-        value = self.resolve(self.value, params)
+        value = self.value.resolve(params)
 
         if not value.value.endswith("[END]"):
             value.value += "[END]"
@@ -565,14 +592,14 @@ class Call(Function_Base, Calculatable):
 
         # TODO: should be done for all elements
         for param in self.params:
-            param = self.resolve(param, params)
+            param = param.resolve(params)
             
             if isinstance(param, Deref):
                 param.update(params)
         
         out_params = []
         if self.function:
-            out_params = [Param(param.name, param.value) for param in self.params]
+            out_params = [Param(param.name, param.value.resolve(params) if param.value else None) for param in self.params]
 
             for param in out_params:
                 if param.value == None:
@@ -672,15 +699,23 @@ class If_list(Function_Base, Memorable):
     def __init__(self, if_list):
         self.if_list = if_list
 
-        self.update_memory([])
+
+    def is_memory(self, params:list[Param]):
+        is_memory = False
+
+        for element in self.if_list:
+            is_memory = is_memory or element.is_memory(params)
+
+        return is_memory
 
     def update_memory(self, params:list[Param]):
-        for element in self.if_list:
-            element.update_memory(params)
-            self.inherit_memory(element)
+        is_memory = False
 
         for element in self.if_list:
-            element.memory = self.memory
+            is_memory = is_memory or element.is_memory(params)
+
+        for element in self.if_list:
+            element.forced_memory = is_memory
 
 
     def _code(self, params:list[Param]):
@@ -689,7 +724,9 @@ class If_list(Function_Base, Memorable):
         if_list = []
         if_depleted = False
 
-        if self.memory:
+        is_memory = self.is_memory(params)
+
+        if is_memory:
             def pad_all_but_last(element:If, is_last:bool):
                 script = [element] + element.script
                 if not is_last:
@@ -713,19 +750,16 @@ class If_list(Function_Base, Memorable):
                 if if_count:
                     if_count.pop()
 
-                if self.memory: #TODO: should be redundant
-                    if_list.append(element)
-                    if_list += script_with_jump
-                    element.distance = Function_Code(script_with_jump, '\n').count(params)
-                elif element.condition == None:
-                    if_list += script_with_jump
-                else:
-                    raise Exception("non memory in memory if")
+                if_list.append(element)
+                if_list += script_with_jump
+                element.distance = Function_Code(script_with_jump, '\n').count(params)
         else:
             for element in self.if_list:
-                condition = self.resolve(element.condition, params)
+                condition = None
+                if element.condition:
+                    condition = element.condition.resolve(params)
 
-                if isinstance(condition, Memory):
+                if condition != None and condition.is_memory(params):
                     self.update_memory(params)
                     raise Exception("memory in non-memory if")
                 elif not if_depleted and (condition == None or element.eval(params)):
@@ -736,19 +770,31 @@ class If_list(Function_Base, Memorable):
 
 class If(Function_Base, Calculatable, Memorable):
     def __init__(self, condition, script, if_properties):
+        self.forced_memory = False
+        
         self.condition = condition
         self.script = script
         self.if_properties = if_properties
 
         self.distance = None
 
-        self.update_memory([])
+
+    def is_memory(self, params:list[Param]):
+        condition = False
+
+        if self.condition:
+            condition = self.condition.resolve(params)
+
+            condition = condition.is_memory(params)
+
+        return condition
 
     def update_memory(self, params):
         #self.handle_params(params)
-        condition = self.resolve(self.condition, params)
 
-        if condition:
+        if self.condition:
+            condition = self.condition.resolve(params)
+
             if isinstance(condition, UnaryOp):
                 self.memory = condition.memory
             elif isinstance(condition, Memory):
@@ -758,7 +804,7 @@ class If(Function_Base, Calculatable, Memorable):
 
     def eval(self, params:list[Param]):
         self.update_memory(params)
-        condition = self.resolve(self.condition, params)
+        condition = self.condition.resolve(params)
 
         match condition:
             case Word():
@@ -778,8 +824,11 @@ class If(Function_Base, Calculatable, Memorable):
             destination = Word(self.distance)
             destination = destination.code(params)
 
-        condition = self.resolve(self.condition, params)
-        if self.memory:
+        condition = None
+        if self.condition:
+            condition = self.condition.resolve(params)
+
+        if self.forced_memory or self.is_memory(params):
             if condition:
                 code = self.calculate(params)
                 code = self._clean_calucatable(code, params)
@@ -798,7 +847,7 @@ class If(Function_Base, Calculatable, Memorable):
 
         code = []
 
-        condition = self.resolve(self.condition, params)
+        condition = self.condition.resolve(params)
         condition = condition.calculate(params)
 
         inverted = self.if_properties[0]
@@ -807,7 +856,7 @@ class If(Function_Base, Calculatable, Memorable):
 
         currency_if = False
         if self.condition and isinstance(self.condition, BinaryOp) and self.condition.left:
-            condition_left = self.resolve(self.condition.left, params)
+            condition_left = self.condition.left.resolve(params)
             if condition_left and isinstance(condition_left, Memory) and condition_left.address == 0x2348:
                 currency_if = True
 
@@ -822,11 +871,11 @@ class If(Function_Base, Calculatable, Memorable):
                     case _:
                         TODO()
 
-                left = self.resolve(self.condition.left, params)
+                left = self.condition.left.resolve(params)
                 if not isinstance(left, Memory): # or left.address != 0x2348:
                     TODO()
                 left = left.calculate(params)
-                right = self.resolve(self.condition.right, params)
+                right = self.condition.right.resolve(params)
                 right = right.calculate(params)
                 
                 code = [opcode] + self._terminate(left) + self._terminate(right) + [destination]
@@ -967,7 +1016,7 @@ class BinaryXor(BinaryOp):
 class Asign(BinaryOp):
     def operator(self, inverted=False):
         return "=" # Opcode("=")
-
+    
     def _code(self, params:list[Param]):
         code = self.calculate(params)
         code = self._clean_calucatable(code, params)
@@ -1054,7 +1103,7 @@ class Set(Function_Base):
     def _code(self, params:list[Param]):
         combined = "xx xx"
 
-        memory = self.resolve(self.memory, params)
+        memory = self.memory.resolve(params)
         if memory:
             address = memory.address
             address -= 0x2258
