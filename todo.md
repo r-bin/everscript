@@ -1,5 +1,14 @@
 # Scripts
 
+- Content
+  - Town content
+  - Town boss
+  - Mario dungeon
+  - Isaac dungeon
+  - Castle
+  - Ship cave
+  - Volcano dungeon
+
 - Currency convertion
   - ``"Unnamed Global script 0x55" = (id:55 => addr:0x92cac4)``
     - ``"Unnamed Global script 0x43" = (id:43 => addr:0x92bf96)``

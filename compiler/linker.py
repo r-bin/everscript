@@ -230,7 +230,7 @@ class MapDataHandler():
             # …
             self.MapData(0x33, 0xadb50c, 0x02, 0x01, "Strong Heart's Exterior"),
             self.MapData(0x34, 0xadbd79, 0x01, 0x03, "Prehistoria - Strong Heart's Hut"),
-            # …
+            self.MapData(0x35, 0xaad4ab, 0x05, 0x0a, "Act1 Quicksand, Bugmuck and Volcano caves + Act2 West Alchemy Cave"),
             self.MapData(0x36, 0xa3f774, 0x02, 0x04, "Prehistoria - Both fire pits (one room)"),
             self.MapData(0x37, 0x9dbcf3, 0x0c, 0x16, "Gothica - Gomi's Tower"),
             self.MapData(0x38, 0x9e8000, 0x02, 0x1f, "Prehistoria - South jungle / Start"),
