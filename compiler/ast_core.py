@@ -91,8 +91,6 @@ class Resolvable():
         match self:
             case Identifier():
                 value = self.resolve_identifier(self, params)
-
-
             case Param():
                 value = self.resolve_param(self, params)
             case _:

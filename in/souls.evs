@@ -5,7 +5,7 @@
     0x300000..0x3fffff, // extension
 
     // reserved: <0x23b9>
-    <0x2272>..<0x22ff>,
+    <0x2272>..<0x2558>,
 
     <0x2834>..<0x28ff>
 )
@@ -17,7 +17,7 @@
     "no_alchemy_xp",
 
     // asm
-    // "debug_menu", // uses 0x3f0000…???
+    "debug_menu__generic", // uses 0x3f0000…???
     "_hook_input", // 0x3f0000…0x310000
         "hotkeys", // uses 0x3f00000…???
         // "room_timer", // uses 0x300000…???
@@ -151,7 +151,7 @@ group non_maps() {
         }
     };
 
-    group souls_helper() {     
+    group souls_helper() {
         enum BUTTON_MAP {
             NORMAL = 0x00,
 
@@ -161,6 +161,12 @@ group non_maps() {
             MARIO = 0x04,
             PUPPER = 0x05,
         }
+        enum DEBUG_MENU_ENTRY {
+            BOMBS = 0x01,
+            ISAAC = 0x02,
+            MARIO = 0x03,
+            PUPPER = 0x04,
+        }
 
         enum SOULS_MEMORY {
             INIT = flag(),
@@ -169,6 +175,7 @@ group non_maps() {
             DEMO_MODE = False,
             WITH_WEATHER = True,
             WITH_TRASH_ENEMIES = True,
+            WITH_SOULS_ON_DEATH = True,
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -195,7 +202,15 @@ group non_maps() {
             
             // button map
             BUTTON_MAP = memory(), // TODO: should be memory_tmp()
+            MENU_CHOICE = memory(),
             BOMB_ENABLED = flag(),
+            MARIO_YUMP_ENABLED = flag(),
+            PUPPER_ENABLED = flag(),
+            ISAAC_TEARS_ENABLED = flag(),
+            DEBUG_MENU_BUTTON_1 = memory(),
+            DEBUG_MENU_BUTTON_2 = memory(),
+            DEBUG_MENU_BUTTON_3 = memory(),
+            DEBUG_MENU_BUTTON_4 = memory(),
 
             BONFIRE_INBETWIXX = flag(),
 
@@ -219,14 +234,63 @@ group non_maps() {
             DEAD_NARIS = flag(),
         }
 
+        fun asign_debug_button_function(flag, feature) {
+            if(flag) {
+                arg[0x00] += 0x01;
+
+                if(
+                    (SOULS_MEMORY.DEBUG_MENU_BUTTON_1 != feature)
+                    && (SOULS_MEMORY.DEBUG_MENU_BUTTON_2 != feature)
+                    && (SOULS_MEMORY.DEBUG_MENU_BUTTON_3 != feature)
+                    && (SOULS_MEMORY.DEBUG_MENU_BUTTON_4 != feature)
+                ) {
+                    if(SOULS_MEMORY.DEBUG_MENU_BUTTON_1 == 0x0000) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_1 = feature;
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_2 == 0x0000) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_2 = feature;
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_3 == 0x0000) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_3 = feature;
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_4 == 0x0000) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_4 = feature;
+                    }
+                }
+            }
+        }
+
+        @install()
+        fun update_debug_menu() {
+            if(False) {
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_1 = 0x0000;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_2 = 0x0000;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_3 = 0x0000;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_4 = 0x0000;
+            }
+
+            asign_debug_button_function(SOULS_MEMORY.BOMB_ENABLED, DEBUG_MENU_ENTRY.BOMBS);
+            asign_debug_button_function(SOULS_MEMORY.ISAAC_TEARS_ENABLED, DEBUG_MENU_ENTRY.ISAAC);
+            asign_debug_button_function(SOULS_MEMORY.MARIO_YUMP_ENABLED, DEBUG_MENU_ENTRY.MARIO);
+            asign_debug_button_function(SOULS_MEMORY.PUPPER_ENABLED, DEBUG_MENU_ENTRY.PUPPER);
+
+            MEMORY.DEBUG_MENU_COUNT = arg[0x00];
+        }
+        @install()
+        fun debug_menu_select(index) {
+            nop();
+        }
+
         @install()
         fun souls_boss_defeated() {
             SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
             SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
 
             fanfare_boss();
-            
+
+            // sleep(0x50);
+            subtext("Enemy Felled");
+            // TODO: overwritten by "received xxx talons" subtext
+
             if!(FLAG.JAGUAR_RING) {
+                subtext("Jaguar Ring");
                 reward(JAGUAR_RING);
             }
         }
@@ -335,17 +399,6 @@ group non_maps() {
                 <0x4Ee3> = 0x0708;
             }
 
-            yield();
-
-            currency_get(CURRENCY.CREDITS, 0x01);
-
-            show_currency(True);
-            yield();
-
-            // subtext("Souls lost");
-
-            // damage(DOG, 0x03e8);
-
             currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
             currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
 
@@ -358,10 +411,23 @@ group non_maps() {
             // sleep(0x20);
 
             // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
-            destroy(SOULS_MEMORY.DUST_ENTITY);
 
+            if(SOULS_MEMORY.DUST_ENTITY > 0x00) {
+                destroy(SOULS_MEMORY.DUST_ENTITY);
+            }
             animate(BOY, ONCE, ANIMATION_ENEMY.DUST);
             animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
+
+            if(SOULS_MEMORY.WITH_SOULS_ON_DEATH) {
+                // subtext("Souls lost");
+
+                sleep(0x20);
+
+                currency_get(CURRENCY.CREDITS, 0x01);
+
+                show_currency(True);
+                yield();
+            }
 
             sleep(0xa0);
 
@@ -440,6 +506,8 @@ group non_maps() {
 
                 MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
                 MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
+
+                SOULS_MEMORY.MENU_CHOICE = 0xffff;
             }
 
             if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
@@ -478,7 +546,15 @@ group non_maps() {
             MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
             MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
 
-            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+            // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+
+            if(FLAG.DEBUG) {
+                SOULS_MEMORY.MENU_CHOICE = 0x01;
+                
+                set(SOULS_MEMORY.MARIO_YUMP_ENABLED);
+
+                update_debug_menu();
+            }
         }
 
         fun collectible_collected() {
@@ -561,6 +637,19 @@ group non_maps() {
 
             mario_mode();
         }
+
+        @install()
+        fun start_feature_selected(index) {
+            if((index == 0x01) && (FLAG.ENERGY_CORE)) {
+                drop_bomb(True);
+            } else if(index == 0x02) {
+                isaac_tear(True);
+            } else if(index == 0x03) {
+                mario_yump();
+            } else if(index == 0x04) {
+                MEMORY.DOG = DOG.PUPPER; // TODO
+            }
+        }
     };
 
     group hotkeys() {
@@ -575,14 +664,9 @@ group non_maps() {
         @inject(ADDRESS.HOTKEY_START)
         @count_limit(0x20)
         fun hotkey_start() {
-            if(FLAG.DEBUG) {
-                subtext("Start");
-            }
-
-            if(True) {
-                mario_yump();
-                end();
-            }
+            // if(FLAG.DEBUG) {
+            //     subtext("Start");
+            // }
 
             if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
                 windwalker_rocket();
@@ -595,8 +679,16 @@ group non_maps() {
             } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.PUPPER) {
                 MEMORY.DOG = DOG.PUPPER; // TODO
             } else {
-                if((SOULS_MEMORY.BOMB_ENABLED) && (FLAG.ENERGY_CORE)) {
-                    drop_bomb(True);
+                // debug_memory(SOULS_MEMORY.MENU_CHOICE, SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
+
+                if(SOULS_MEMORY.MENU_CHOICE == 0x01) {
+                    start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0x02) {
+                    start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_2);
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0x03) {
+                    start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_3);
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0x04) {
+                    start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_4);
                 }
             }
         }
@@ -609,7 +701,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(pipe_entrance, pipe_west, NONE);
+                map_transition(mosquito_arena, right, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -634,6 +726,94 @@ group non_maps() {
                     <0x2834> += 0x01;
                 }
             }
+        }
+
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_1)
+        fun menu_presets() {
+            if(FLAG.DEBUG) {
+                subtext("m=1");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x01;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_2)
+        fun menu_dog() {
+            if(FLAG.DEBUG) {
+                subtext("m=2");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x02;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_3)
+        fun menu_atlas() {
+            if(FLAG.DEBUG) {
+                subtext("m=3");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x03;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_4)
+        fun menu_noclip() {
+            if(FLAG.DEBUG) {
+                subtext("m=4");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x04;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_5)
+        fun menu_available() {
+            if(FLAG.DEBUG) {
+                subtext("m=5");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x05;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_6)
+        fun menu_memory_flags() {
+            if(FLAG.DEBUG) {
+                subtext("m=6");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x06;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_7)
+        fun menu_enemy() {
+            if(FLAG.DEBUG) {
+                subtext("m=7");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x07;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_8)
+        fun menu_unlock() {
+            if(FLAG.DEBUG) {
+                subtext("m=8");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x08;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_9)
+        fun menu_windwalker() {
+            if(FLAG.DEBUG) {
+                subtext("m=9");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x09;
+        }
+        @install(ADDRESS.DEBUG_MENU_BUTTON_10)
+        fun debug_menu_10_alchemy() {
+            if(FLAG.DEBUG) {
+                subtext("m=10");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x0a;
+        }
+        @install()
+        @inject(ADDRESS.DEBUG_MENU_BUTTON_11)
+        fun menu_brians_room() {
+            if(FLAG.DEBUG) {
+                subtext("m=11");
+            }
+            SOULS_MEMORY.MENU_CHOICE = 0x0b;
         }
     };
 
@@ -1042,6 +1222,7 @@ area inbetwixx_center() {
             } else {
                 unlock(WEAPONS);
                 unlock(JAGUAR_RING);
+                unlock(CHARMS);
                 unlock(CONSUMABLES);
                 unlock(INGREDIENTS);
                 
@@ -1055,13 +1236,23 @@ area inbetwixx_center() {
                 set(FLAG.HARD_BALL);
                 MEMORY.SELECTED_ALCHEMY_2 = ALCHEMY_INDEX.HARD_BALL;
 
+                set(FLAG.ATLAS);
+                MEMORY.SELECTED_ALCHEMY_3 = ALCHEMY_INDEX.ATLAS;
+                set(FLAG.DEFEND);
+                MEMORY.SELECTED_ALCHEMY_4 = ALCHEMY_INDEX.DEFEND;
+
                 set(SOULS_MEMORY.BOMB_ENABLED);
+                set(SOULS_MEMORY.MARIO_YUMP_ENABLED);
+                set(SOULS_MEMORY.ISAAC_TEARS_ENABLED);
+                set(SOULS_MEMORY.PUPPER_ENABLED);
             }
 
             if(False) {
                 unlock(ALCHEMY);
                 select_alchemy();
             }
+
+            update_debug_menu();
             
             destroy(SCRIPT_OWNER);
         }
@@ -3953,74 +4144,32 @@ area east_inbetwixx() {
         }
 
         enum stepon_trigger {
-            stepon_0 = @install() {
-                subtext("S=0");
-            },
+            center_bottleneck = nop(),
             stepon_1 = @install() {
                 subtext("S=1");
             },
-            stepon_2 = @install() {
-                subtext("S=2");
-            },
-            stepon_3 = @install() {
-                subtext("S=3");
-            },
-            stepon_4 = @install() {
-                subtext("S=4");
-            },
-            stepon_5 = @install() {
-                subtext("S=5");
-            },
-            stepon_6 = @install() {
-                subtext("S=6");
-            },
-            stepon_7 = @install() {
-                subtext("S=7");
-            },
-            stepon_8 = @install() {
-                subtext("S=8");
-            },
-            stepon_9 = @install() {
-                subtext("S=9");
-            },
+            sandpit_5_2_west = nop(),
+            sandpit_5_2_north = nop(),
+            sandpit_4_1_east = nop(),
+            sandpit_4_1_south = nop(),
+            sandpit_4_1 = nop(),
+            sandpit_2_north = nop(),
+            sandpit_2 = nop(),
+            sandpit_8_east = nop(),
 
-            stepon_10 = @install() {
-                subtext("S=10");
-            },
-            stepon_11 = @install() {
-                subtext("S=11");
-            },
-            stepon_12 = @install() {
-                subtext("S=12");
-            },
-            stepon_13 = @install() {
-                subtext("S=13");
-            },
-            stepon_14 = @install() {
-                subtext("S=14");
-            },
-            stepon_15 = @install() {
-                subtext("S=15");
-            },
-            stepon_16 = @install() {
-                subtext("S=16");
-            },
-            stepon_17 = @install() {
-                subtext("S=17");
-            },
-            stepon_18 = @install() {
-                subtext("S=18");
-            },
-            stepon_19 = @install() {
-                subtext("S=19");
-            },
+            sandpit_6_north = nop(),
+            sandpit_6_west = nop(),
+            sandpit_6 = nop(),
+            sandpit_9 = nop(),
+            sandpit_10_3 = nop(),
+            sandpit_10_2 = nop(),
+            sandpit_10_1 = nop(),
+            sandpit_8 = nop(),
+            sandpit_7 = nop(),
+            sandpit_5_1 = nop(),
 
-            stepon_20 = @install() {
-                subtext("S=20");
-            },
-            stepon_21 = @install() {
-                subtext("S=21");
-            },
+            sandpit_4_2 = nop(),
+            sandpit_3_2 = nop(),
             stepon_22 = @install() {
                 subtext("S=22");
             },
@@ -4046,111 +4195,43 @@ area east_inbetwixx() {
                 map_transition(east_inbetwixx, west_1, WEST);
             },
 
-            stepon_30 = @install() {
-                subtext("S=30");
-            },
-            stepon_31 = @install() {
-                subtext("S=31");
-            },
-            stepon_32 = @install() {
-                subtext("S=32");
-            },
-            stepon_33 = @install() {
-                subtext("S=33");
-            },
-            stepon_34 = @install() {
-                subtext("S=34");
-            },
-            stepon_35 = @install() {
-                subtext("S=35");
-            },
-            stepon_36 = @install() {
-                subtext("S=36");
-            },
-            stepon_37 = @install() {
-                subtext("S=37");
-            },
-            stepon_38 = @install() {
-                subtext("S=38");
-            },
-            stepon_39 = @install() {
-                subtext("S=39");
-            },
+            sandpit_1_1 = nop(),
+            sandpit_1_1_west = nop(),
+            sandpit_3_2_west = nop(),
+            sandpit_4_2_south = nop(),
+            sandpit_5_1_south = nop(),
+            sandpit_7_north = nop(),
+            sandpit_9_north = nop(),
+            sandpit_10_2_north = nop(),
+            sandpit_10_3_north = nop(),
+            sandpit_cave_north = nop(),
 
-            stepon_40 = @install() {
-                subtext("S=40");
-            },
-            stepon_41 = @install() {
-                subtext("S=41");
-            },
-            stepon_42 = @install() {
-                subtext("S=42");
-            },
-            stepon_43 = @install() {
-                subtext("S=43");
-            },
-            stepon_44 = @install() {
-                subtext("S=44");
-            },
-            stepon_45 = @install() {
-                subtext("S=45");
-            },
-            stepon_46 = @install() {
-                subtext("S=46");
-            },
-            stepon_47 = @install() {
-                subtext("S=47");
-            },
-            stepon_48 = @install() {
-                subtext("S=48");
-            },
-            stepon_49 = @install() {
-                subtext("S=49");
-            },
+            sandpit_cave = nop(),
+            sandpit_5_1_north = nop(),
+            sandpit_1_2_west = nop(),
+            sandpit_1_2_east = nop(),
+            sandpit_3_1_north = nop(),
+            sandpit_2_east = nop(),
+            sandpit_3_1_south = nop(),
+            sandpit_4_3_west = nop(),
+            sandpit_4_3_north = nop(),
+            sandpit_4_3 = nop(),
 
-            stepon_50 = @install() {
-                subtext("S=50");
-            },
-            stepon_51 = @install() {
-                subtext("S=51");
-            },
-            stepon_52 = @install() {
-                subtext("S=52");
-            },
-            stepon_53 = @install() {
-                subtext("S=53");
-            },
-            stepon_54 = @install() {
-                subtext("S=54");
-            },
-            stepon_55 = @install() {
-                subtext("S=55");
-            },
-            stepon_56 = @install() {
-                subtext("S=56");
-            },
-            stepon_57 = @install() {
-                subtext("S=57");
-            },
-            stepon_58 = @install() {
-                subtext("S=58");
-            },
-            stepon_59 = @install() {
-                subtext("S=59");
-            },
+            sandpit_5_2 = nop(),
+            sandpit_1_2 = nop(),
+            sandpit_3_1 = nop(),
+            sandpit_4_1 = nop(),
+            sandpit_8_west = nop(),
+            sandpit_8_north = nop(),
+            sandpit_10_3_east = nop(),
+            sanpit_7_south = nop(),
+            sanpit_7_east = nop(),
+            sandpit_3_2_east = nop(),
 
-            stepon_60 = @install() {
-                subtext("S=60");
-            },
-            stepon_61 = @install() {
-                subtext("S=61");
-            },
-            stepon_62 = @install() {
-                subtext("S=62");
-            },
-            stepon_63 = @install() {
-                subtext("S=63");
-            },
+            sandpit_4_2_north = nop(),
+            sandpit_4_2_east = nop(),
+            sandpit_10_1_north = nop(),
+            sandpit_10_1_west = nop(),
             exit_east = @install() {
                 map_transition(eastern_barrier, west, EAST);
             }
@@ -4169,8 +4250,8 @@ area east_inbetwixx() {
             b_trigger_3 = @install() {
                 subtext("B=3");
             },
-            b_trigger_4 = @install() {
-                subtext("B=4");
+            gourd_south = @install() {
+                _loot_chest(0x02, WATER, 0x01);
             },
             b_trigger_5 = @install() {
                 subtext("B=5");
@@ -4224,23 +4305,23 @@ area east_inbetwixx() {
             b_trigger_21 = @install() {
                 subtext("B=21");
             },
-            b_trigger_22 = @install() {
-                subtext("B=22");
+            gourd_hidden_west = @install() {
+                _loot_chest(0x29, OIL, 0x01);
             },
-            b_trigger_23 = @install() {
-                subtext("B=23");
+            gourd_hidden_north_3 = @install() {
+                _loot_chest(0x2a, WATER, 0x03);
             },
-            b_trigger_24 = @install() {
-                subtext("B=24");
+            gourd_hidden_north_2 = @install() {
+                _loot_chest(0x28, WATER, 0x02);
             },
-            b_trigger_25 = @install() {
-                subtext("B=25");
+            gourd_hidden_north_1 = @install() {
+                _loot_chest(0x27, WATER, 0x01);
             },
-            b_trigger_26 = @install() {
-                subtext("B=26");
+            gourd_east = @install() {
+                _loot_chest(0x00, CRYSTAL, 0x01);
             },
-            b_trigger_27 = @install() {
-                subtext("B=27");
+            gourd_north = @install() {
+                _loot_chest(0x01, OIL, 0x02);
             }
         }
 
@@ -4261,26 +4342,28 @@ area east_inbetwixx() {
             }
         }
 
-        fun open_sandpits() {
-            object[0x03] = 0x04; // 9
-            object[0x04] = 0x04; // 10
-
-            object[0x05] = 0x04; // 8
-            object[0x06] = 0x04; // 7
-            
-            object[0x07] = 0x04; // 6
-
-            object[0x08] = 0x04; // 5
-            object[0x09] = 0x04; // 4
-
-            object[0x0a] = 0x04; // 3 <- bottleneck
-            object[0x0b] = 0x04; // 2
-
-            object[0x0c] = 0x04; // 1_1
-            object[0x0d] = 0x04; // 1_2
-            object[0x0e] = 0x04; // 1_3
+    fun open_sandpits(open) {
+        if(open) {
+            object[0x03] = 0x04; // open sandpit_2
+            object[0x04] = 0x04; // open sandpit_1
+            object[0x05] = 0x04; // open sandpit_4
+            object[0x06] = 0x04; // open sandpit_5
+            object[0x07] = 0x04; // open sandpit_6
+            object[0x08] = 0x04; // open sandpit_7
+            object[0x09] = 0x04; // open sandpit_8
+            object[0x0a] = 0x04; // open sandpit_9
+            object[0x0b] = 0x04; // open sandpit_10
+            object[0x0c] = 0x04; // open sandpit_12_1
+            object[0x0d] = 0x04; // open sandpit_12_2
+            object[0x0e] = 0x04; // open sandpit_12_3
+            object[0x0f] = 0x04; // open sandpit_cave
+            object[0x10] = 0x04; // open sandpit_5
+            object[0x11] = 0x04; // open sandpit_6
+            object[0x12] = 0x04; // open sandpit_2
+            object[0x13] = 0x04; // open sandpit_3
+            object[0x14] = 0x04; // open sandpit_4
         }
-
+    }
         fun init_room() {
             default_init_room(True, True);
         }
@@ -4386,6 +4469,8 @@ area east_inbetwixx() {
             fade_to_music(BOSS);
 
             attach_script(BOSS.ID, DEATH, reference(boss_defeated));
+
+            control_enemy(BOSS.ID, False);
         }
         @install()
         fun boss_defeated() {
@@ -4401,7 +4486,17 @@ area east_inbetwixx() {
         }
 
         fun trigger_enter() {
-            open_sandpits();
+            open_sandpits(True);
+
+            if!(SOULS_MEMORY.DEAD_PIT_EGG) {
+                add_enemy_with_flags(MEGATAUR, 0x38, 0x44, INACTIVE);
+                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+                attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
+                <LAST_ENTITY>[HP] = 0d600;
+                BOSS.ID = <LAST_ENTITY>;
+
+                pit_scanner();
+            }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // north
@@ -4426,21 +4521,11 @@ area east_inbetwixx() {
                 add_enemy(SLIME, 0d76, 0d114);
             }
 
+            init_room();
+
             if!(ROOM.BRANCH_USED) {
                 branch_lady(0x4e, 0x2c, reference(branch_triggered));
             }
-
-            if!(SOULS_MEMORY.DEAD_PIT_EGG) {
-                add_enemy(MEGATAUR, 0x38, 0x44);
-                attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
-                <LAST_ENTITY>[HP] = 0d600;
-                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
-                BOSS.ID = <LAST_ENTITY>;
-
-                pit_scanner();
-            }
-
-            init_room();
 
             pit_scanner_boy();
         }
