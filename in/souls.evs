@@ -508,6 +508,16 @@ group non_maps() {
                 MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
 
                 SOULS_MEMORY.MENU_CHOICE = 0xffff;
+
+                // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+
+                if(FLAG.DEBUG) {
+                    SOULS_MEMORY.MENU_CHOICE = 0x01;
+                    
+                    set(SOULS_MEMORY.MARIO_YUMP_ENABLED);
+
+                    update_debug_menu();
+                }
             }
 
             if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == SOULS_MEMORY.MAP_VARIANT)) {
@@ -545,16 +555,6 @@ group non_maps() {
 
             MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
             MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
-
-            // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
-
-            if(FLAG.DEBUG) {
-                SOULS_MEMORY.MENU_CHOICE = 0x01;
-                
-                set(SOULS_MEMORY.MARIO_YUMP_ENABLED);
-
-                update_debug_menu();
-            }
         }
 
         fun collectible_collected() {
@@ -701,7 +701,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(mosquito_arena, right, NONE);
+                map_transition(cave_shop, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -2038,7 +2038,7 @@ area altus_plateau_entry() {
                 map_transition(west_inbetwixx, north, SOUTH);
             },
             cave_east = @install() {
-                subtext("S=12");
+                map_transition(cave_shop, south, NORTH);
             },
             cave_west = @install() {
                 if(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
@@ -2849,6 +2849,87 @@ area altus_plateau_entry() {
         }
     };
 
+    map cave_shop(0x35) {
+        enum entrance {
+            south = entrance(0x40, 0x2d, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_south_drain = nop(),
+            exit_south = @install() {
+                map_transition(volcano, cave_east, SOUTH);
+            },
+            exit_south_jaguar_ring = nop(),
+            exit_south_hard_ball = nop(),
+            exit_south_inn = nop(),
+        }
+
+        enum b_trigger {
+            gourd_drain_2 = nop(),
+            gourd_drain_1 = nop(),
+            gourd_inn_2 = nop(),
+            gourd_inn_1 = nop(),
+            gourd_jaguar_ring_1 = nop(),
+            gourd_jaguar_ring_2 = nop(),
+            gourd_jaguar_ring_3 = nop(),
+            gourd_hard_ball_1 = nop(),
+            gourd_hard_ball_2 = nop(),
+            gourd_hard_ball_3 = nop(),
+        }
+
+        fun show_furniture(show) {
+            if(show) {
+                object[0x08] = 0x00; // hide raptors_stoble
+                object[0x09] = 0x00; // hide raptors_fire
+                object[0x0a] = 0x00; // hide raptors_rug
+            } else {
+                object[0x08] = 0x01; // hide raptors_stoble
+                object[0x09] = 0x01; // hide raptors_fire
+                object[0x0a] = 0x01; // hide raptors_rug
+            }
+        }
+
+        enum ROOM {
+            FURNITURE_REVEALED = flag(),
+        }
+
+        @install()
+        fun alchemist_triggered() {
+            dialog("[SLOW]Huh, how did you find me?[B]");
+        }
+
+        fun reveal_furniture() {
+            show_furniture(True);
+
+            sfx_effect(NIGHT, False);
+
+            add_enemy(VILLAGER_1_6, 0d70, 0d18);
+            attach_script(LAST_ENTITY, TALK, reference(alchemist_triggered));
+        }
+
+        @install()
+        fun revealer_triggered() {
+            set(ROOM.FURNITURE_REVEALED);
+
+            reveal_furniture();
+        }
+
+        fun trigger_enter() {
+            if!(ROOM.FURNITURE_REVEALED) { // TODO: soft lock while standing in fire
+                show_furniture(False);
+
+                add_enemy(REVEALER_TARGET_ENTITY, 0d70, 0d23);
+                special_script(REVEALER, reference(revealer_triggered));
+
+                default_init_room(True, False);
+            } else {
+                reveal_furniture(True);
+
+                default_init_room(False, False);
+            }
+        }
+    };
+    
     area altus_plateau_entry() {
         enum ALTUS {
             MUSIC = 0x60
