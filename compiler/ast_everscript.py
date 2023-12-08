@@ -452,6 +452,11 @@ class RawString(Function_Base):
         lexer.add('MEM2', '\[MEM2\]')
         lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
         lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
+
+        lexer.add('…', '\…')
+        lexer.add('`', '\`')
+        lexer.add('´', '\´')
+
         lexer.add('CHAR', '.')
         lexer = lexer.build()
 
@@ -461,6 +466,12 @@ class RawString(Function_Base):
             match c:
                 case _ if c.name == "CHAR":
                     return c.value.encode('ASCII').hex()
+                case _ if c.name == "…":
+                    return '_'.encode('ASCII').hex()
+                case _ if c.name == "`":
+                    return '{'.encode('ASCII').hex()
+                case _ if c.name == "´":
+                    return '}'.encode('ASCII').hex()
                 case _ if c.name == "SLOW":
                     return "96"
                 case _ if c.name == "LF":
