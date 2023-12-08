@@ -201,6 +201,8 @@ group non_maps() {
             ESTUS_SHARDS = memory(), // <0x2512>,
             ESTUS_CHARGES_INIT = 0x01,
 
+            RING_CAT = flag(),
+
             ORB_SWORD =  memory(),
             ORB_AXE =  memory(),
             ORB_SPEAR =  memory(),
@@ -753,7 +755,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(cave_shop, south, NONE);
+                map_transition(hut_cat, door, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1043,7 +1045,7 @@ area shrine_area() {
                 locked_door();
             },
             exit_hut8 = @install() {
-                locked_door();
+                map_transition(hut_cat, door, NORTH);
             },
             guard_east = @install() {
                 subtext("S=8");
@@ -1264,6 +1266,186 @@ area shrine_area() {
             // … sniff spots?
             // object[0x11] = 0x01; // ignite fire
 
+
+            fade_in();
+        }
+    };
+
+    map hut_cat(0x51) {
+        enum entrance {
+            door = entrance(0x54, 0x6f, NORTH),
+        }
+
+        enum soundtrack {
+            default = soundtrack(0x42, 0xff)
+        }
+
+        enum stepon_trigger {
+            exit_door = @install() {
+                map_transition(shrine, hut_8, SOUTH);
+            },
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door_1_2 = nop(),
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3 = @install() {
+                subtext("B=0");
+            },
+            gourd_2 = @install() {
+                subtext("B=1");
+            },
+            gourd_1 = @install() {
+                subtext("B=2");
+            },
+            gourd_3_2_4 = nop(),
+            gourd_3_2_3 = nop(),
+            gourd_3_2_1 = nop(),
+            gourd_3_2_2 = nop(),
+            gourd_3_1_2 = nop(),
+            gourd_3_1_1 = nop(),
+            gourd_2_3_2 = nop(),
+
+            gourd_2_3_1 = nop(),
+            gourd_2_2_3 = nop(),
+            gourd_2_2_2 = nop(),
+            gourd_2_2_1 = nop(),
+            gourd_2_1_3 = nop(),
+            gourd_2_1_2 = nop(),
+            gourd_2_1_1 = nop(),
+            gourd_1_3_3 = nop(),
+            gourd_1_3_2 = nop(),
+            gourd_1_3_1 = nop(),
+
+            gourd_1_2_3 = nop(),
+            gourd_1_2_2 = nop(),
+            gourd_1_2_1 = nop(),
+            gourd_1_1_2 = nop(),
+            gourd_1_1_1 = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        enum ROOM {
+            CAT_ID = memory_tmp(),
+            CAT_RNG = memory_tmp(),
+
+            PRICE_RING_CAT = 0d100,
+        }
+
+        group cat_ai() {
+            fun response_positive() {
+                if(randrange(0x02) == 0x00) {
+                    dialog("[SLOW]Satisfied?[B]");
+                } else {
+                    dialog("[SLOW]I'll be around if you ever come back.[B]");
+                }
+            }
+            fun response_negative() {
+                if(randrange(0x02) == 0x00) {
+                    dialog("[SLOW]Nothing suited you, I presume?[B]");
+                } else {
+                    dialog("[SLOW]Well, that's dismaying. Hee hee hee_[B]");
+                }
+            }
+            fun response_cancel() {
+                dialog("[SLOW]Oh my, haste makes waste. Hee hee hee_[B]");
+            }
+
+            fun purchase_ring(price) {
+                MEMORY.STRING_PARAMETER_1 = price;
+
+                show_currency(True);
+                question("[SLOW]Silvercat Ring?[B]`Silver ring depicting a leaping feline. Reduces damage from falling. Legend has it that when cats grow old, a force brews within them, and they are reborn as something new.´[B]Are you interested?[CHOICE][MEM1] Souls[CHOICE]no.");
+
+                sleep(0x10);
+                
+                if(MEMORY.QUESTION_ANSWER == 0x00) { // yes
+                    if_currency(MEMORY.CURRENCY_CURRENT < price) {
+                        dialog("[SLOW]…[B]");
+                    } else {
+                        sound(PURCHASE);
+                        currency_take(TALONS, price);
+                        show_currency(True);
+
+                        set(SOULS_MEMORY.RING_CAT);
+
+                        response_positive();
+                    }
+                } else { // no
+                    response_negative();
+                }
+
+                show_currency(False);
+            }
+
+            @install()
+            fun cat_triggered() {
+                dialog("[SLOW]Oh, yes. You can call me Shalquoir. Enchante.[B]");
+
+                if!(SOULS_MEMORY.RING_CAT) {
+                    question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]buy…");
+                } else {
+                    question("[SLOW]How can I help you?[CHOICE]talk…");
+                }
+
+                if(MEMORY.QUESTION_ANSWER == 0x00) {
+                    subtext("todo");
+                } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                    purchase_ring(ROOM.PRICE_RING_CAT);
+                } else {
+                    response_negative();
+                }
+            }
+        };
+
+        fun trigger_enter() {
+            init_map(0x09);
+
+            // object[0x16] = 0x01; // open gourd_3_3_1
+            // object[0x17] = 0x01; // open gourd_3_3_2
+            // object[0x18] = 0x01; // open gourd_3_3_3
+
+            ROOM.CAT_RNG = randrange(0x05);
+
+            if(ROOM.CAT_RNG == 0x00) {
+                add_placeholder(CAT_CLEANING_1, 0d89, 0d103); // fish cleaning
+            } else if(ROOM.CAT_RNG == 0x01) {
+                add_placeholder(CAT_LOOKING, 0d78, 0d100); // desk looking
+            } else if(ROOM.CAT_RNG == 0x02) {
+                add_placeholder(CAT_CLEANING_1, 0d76, 0d92); // food cleaning
+            } else {
+                add_placeholder(CAT_CLEANING_1, 0d78, 0d100); // desk cleaning
+            }
+
+            attach_script(LAST_ENTITY, TALK, reference(cat_triggered));
+            ROOM.CAT_ID = <LAST_ENTITY>;
 
             fade_in();
         }
@@ -1520,6 +1702,7 @@ area inbetwixx_center() {
                 unlock(JAGUAR_RING);
                 unlock(CONSUMABLES);
                 unlock(INGREDIENTS);
+                unlock(MONEY);
                 
                 // unlock(SPEAR_1);
                 unlock(AXE_2);
@@ -1613,6 +1796,7 @@ area inbetwixx_center() {
                 unlock(CHARMS);
                 unlock(CONSUMABLES);
                 unlock(INGREDIENTS);
+                unlock(MONEY);
                 
                 // unlock(SPEAR_1);
                 unlock(AXE_2);
@@ -11022,7 +11206,7 @@ area town() {
                             currency_take(TALONS, ROOM.TICKET_PRICE);
                             show_currency(True);
 
-                            sound(0x40);
+                            sound(PURCHASE);
                             MEMORY.TICKET_FOR_EXHIBITION += 0x01;
                         }
                     }
