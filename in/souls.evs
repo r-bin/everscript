@@ -173,6 +173,8 @@ group non_maps() {
             INTRO_WATCHED = flag(),
 
             DEMO_MODE = False,
+            WITH_INTRO = False,
+            WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
             WITH_TRASH_ENEMIES = True,
             WITH_SOULS_ON_DEATH = True,
@@ -385,12 +387,7 @@ group non_maps() {
             map_transition(inbetwixx, start, NONE);
         }
 
-        @install()
-        fun boy_death() {
-            control(NONE);
-            attribute(BOY, INVINCIBLE_TEMP, True);
-            attribute(DOG, INVINCIBLE_TEMP, True);
-
+        fun heal_both(with_animation) {
             // TODO: set confound timer to 30s to avaid perma confound
             if((Byte) <0x4ECF> == 0x60) {
                 <0x4ED1> = 0x0708;
@@ -401,6 +398,18 @@ group non_maps() {
             } else if((Byte) <0x4EE1> == 0x60) {
                 <0x4Ee3> = 0x0708;
             }
+
+            yield();
+
+            cure();
+            full_heal(BOTH, with_animation);
+        }
+
+        @install()
+        fun boy_death() {
+            control(NONE);
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            attribute(DOG, INVINCIBLE_TEMP, True);
 
             currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
             currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
@@ -441,8 +450,7 @@ group non_maps() {
 
             sleep(0x50);
 
-            cure();
-            full_heal(BOTH, False);
+            heal_both(False);
 
             return_to_bonfire();
 
@@ -456,6 +464,7 @@ group non_maps() {
             }
 
             MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+            heal_both(True);
 
             question("[SLOW]Bonfire:[CHOICE]Return to shrine.");
 
@@ -510,6 +519,33 @@ group non_maps() {
             
             attribute(LAST_ENTITY, ROOT, True);
             <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+        }
+
+        fun choose_starting_class() {
+            question_max("Starting Class:[CHOICE]Warrior[CHOICE]Explorer[CHOICE]Alchemist[CHOICE]Cleric", 0x05 + 0x03);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // warrior
+                subtext("todo");
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // explorer
+                subtext("todo");
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // alchemist
+                subtext("todo");
+            } else if(MEMORY.QUESTION_ANSWER == 0x03) { // cleric
+                subtext("todo");
+            }
+        }
+        fun choose_starting_item() {
+            question_max("Starting Item:[CHOICE]Chocobo Egg[CHOICE]Nectar[CHOICE]Wings[CHOICE]Queen's Key", 0x05 + 0x03);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // chocobo egg
+                set(FLAG.CHOCOBO_EGG);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // nectar
+                MEMORY.NECTAR += 0x01;
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // wings
+                MEMORY.WINGS += 0x01;
+            } else if(MEMORY.QUESTION_ANSWER == 0x03) {// queens key
+                set(FLAG.QUEENS_KEY);
+            }
         }
 
         @install()
@@ -1396,23 +1432,39 @@ area inbetwixx_center() {
 
         fun intro() {
             teleport(DOG, 0x13, 0x49);
-            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
 
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+            if(SOULS_MEMORY.WITH_INTRO) {
+                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
 
-            sleep(0x50);
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
-            sleep(0x30);
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
-            sleep(0x40);
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
-            sleep(0x15);
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
 
-            animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+                sleep(0x50);
+            }
 
-            sleep(0x20);
-            animate(DOG, ONCE, ANIMATION_ALL.DEFAULT);
+            if(SOULS_MEMORY.WITH_STARTING_CLASS) {
+                choose_starting_class();
+
+                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+
+                choose_starting_item();
+            }
+
+            if(SOULS_MEMORY.WITH_INTRO) {
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+                sleep(0x30);
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+                sleep(0x40);
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+                sleep(0x15);
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+
+                animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+
+                sleep(0x20);
+                animate(DOG, ONCE, ANIMATION_ALL.DEFAULT);
+            }
         }
 
         @install()
