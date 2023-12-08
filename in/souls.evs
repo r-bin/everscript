@@ -179,12 +179,15 @@ group non_maps() {
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
+            // boy dust
             DUST_ENTITY = memory(), // <0x24fd>,
             DUST_DROP_X = memory(), // <0x24ff>,
             DUST_DROP_Y = memory(), // <0x2501>,
             DUST_DROP_MAP = memory(), // <0x2503>,
             DUST_DROP_VARIANT = memory(), // <0x2505>,
 
+            // bonfire
+            BONFIRE_FIRST_TRIGGER = flag(),
             BONFIRE_X = memory(), // <0x2507>,
             BONFIRE_Y = memory(), // <0x2509>,
             BONFIRE_MAP = memory(), // <0x250b>,
@@ -448,19 +451,28 @@ group non_maps() {
 
         @install()
         fun bonfire_triggered() {
-            // test_owner2();
-            // end();
-            
-            // subtext("Bonfire Lit");
-
-            // bonfire_activate(<SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], reference(bonfire_triggered));
+            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
+                end();
+            }
 
             MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+
+            question("[SLOW]Bonfire:[CHOICE]Return to shrine.");
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                map_transition(shrine, crash, NONE);
+            }
         }
 
         @install()
-        fun bonfire_lit() {    
-            subtext("Bonfire Lit");
+        fun bonfire_lit() {
+            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
+                end();
+            }
+
+            if(MEMORY.MAP == 0x26) { // map inbetwixx
+                set(SOULS_MEMORY.BONFIRE_INBETWIXX);
+            }
 
             add_enemy_with_flags(LANTERN_LIGHT_RED, 0x00, 0x00, INACTIVE);
             attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_triggered));
@@ -474,8 +486,12 @@ group non_maps() {
             SOULS_MEMORY.BONFIRE_MAP = MEMORY.MAP;
             SOULS_MEMORY.BONFIRE_VARIANT = SOULS_MEMORY.MAP_VARIANT;
 
-            if(MEMORY.MAP == 0x26) { // map inbetwixx
-                set(SOULS_MEMORY.BONFIRE_INBETWIXX);
+            subtext("Bonfire Lit");
+
+            if!(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
+                set(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER);
+
+                map_transition(shrine, crash, NONE);
             }
         }
 
@@ -1632,6 +1648,43 @@ area west_inbetwixx() {
             }
         }
 
+        enum b_trigger {
+            b_trigger_0 = @install() {
+                subtext("B=0");
+            },
+            b_trigger_1 = @install() {
+                subtext("B=1");
+            },
+            b_trigger_2 = @install() {
+                subtext("B=2");
+            },
+            b_trigger_3 = @install() {
+                subtext("B=3");
+            },
+            b_trigger_4 = @install() {
+                subtext("B=4");
+            },
+            b_trigger_5 = @install() {
+                subtext("B=5");
+            },
+            b_trigger_6 = @install() {
+                subtext("B=6");
+            },
+            b_trigger_7 = @install() {
+                subtext("B=7");
+            },
+            b_trigger_8 = @install() {
+                subtext("B=8");
+            },
+            b_trigger_9 = @install() {
+                subtext("B=9");
+            },
+
+            b_trigger_10 = @install() {
+                subtext("B=10");
+            },
+        }
+        
         @install()
         fun fake_slash_grass() { // unused
             if(<0x22DA> == 0x02) {
@@ -15932,6 +15985,12 @@ area experimental_area() {
             hut_6 = entrance(0x45, 0x53, SOUTH),
             hut_7 = entrance(0x25, 0x5b, SOUTH),
             hut_8 = entrance(0x21, 0x3b, SOUTH),
+
+            crash = entrance(0d75, 0d95, NONE), // entrance(0d67, 0d72, NONE),
+        }
+
+        enum soundtrack {
+            default = soundtrack(0x4a, 0xff)
         }
 
         enum ROOM {
@@ -16205,6 +16264,10 @@ area experimental_area() {
         }
 
         fun trigger_enter() {
+            if!(FLAG.IN_ANIMATION) {
+                crash_both();
+            }
+
             add_debug_entity(0d54, 0d84, reference(debug_triggered));
 
             if(ROOM.SHRINE_BONFIRE_LIT) {
