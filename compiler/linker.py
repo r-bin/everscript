@@ -294,6 +294,8 @@ class MapDataHandler():
             self.MapData(0x7a, 0xadc17d, 0x02, 0x00, "Gothica - Ivor Tower Sewers Exterior (landing spot)"),
             self.MapData(0x7b, 0xa59a21, 0x08, 0x07, "Gothica - Ebon Keep and Ivor Tower Exterior Bottom Half"),
             self.MapData(0x7c, 0xa2dfcb, 0x0b, 0x00, "Gothica - Ebon Keep and Ivor Tower Exterior Top Half"),
+            self.MapData(0x7d, 0xa1e7e2, 0x0c, 0x15, "Gothica - Ebon Keep and Ivor Tower Interior"),
+            # …
         ]
 
         maps = dict([(map.index, map) for map in maps])
