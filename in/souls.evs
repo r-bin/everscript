@@ -182,23 +182,24 @@ group non_maps() {
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
             // boy dust
-            DUST_ENTITY = memory(), // <0x24fd>,
-            DUST_DROP_X = memory(), // <0x24ff>,
-            DUST_DROP_Y = memory(), // <0x2501>,
-            DUST_DROP_MAP = memory(), // <0x2503>,
-            DUST_DROP_VARIANT = memory(), // <0x2505>,
+            DUST_ENTITY = memory(),
+            DUST_DROP_X = memory(),
+            DUST_DROP_Y = memory(),
+            DUST_DROP_MAP = memory(),
+            DUST_DROP_VARIANT = memory(),
+            DUST_UNREACHABLE = flag(),
 
             // bonfire
             BONFIRE_FIRST_TRIGGER = flag(),
-            BONFIRE_X = memory(), // <0x2507>,
-            BONFIRE_Y = memory(), // <0x2509>,
-            BONFIRE_MAP = memory(), // <0x250b>,
-            BONFIRE_VARIANT = memory(), // <0x250d>,
+            BONFIRE_X = memory(),
+            BONFIRE_Y = memory(),
+            BONFIRE_MAP = memory(),
+            BONFIRE_VARIANT = memory(),
             BONFIRE_TELEPORT_REQUIRED = flag(),
             
             // items
-            ESTUS_CHARGES = memory(), // <0x250f>,
-            ESTUS_SHARDS = memory(), // <0x2512>,
+            ESTUS_CHARGES = memory(),
+            ESTUS_SHARDS = memory(),
             ESTUS_CHARGES_INIT = 0x01,
 
             RING_CAT = flag(),
@@ -319,6 +320,7 @@ group non_maps() {
 
         @install()
         fun dust_loot() {
+            unset(SOULS_MEMORY.DUST_UNREACHABLE);
             SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
             SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
 
@@ -581,6 +583,10 @@ group non_maps() {
                 
                 attribute(LAST_ENTITY, MUTE, True);
                 damage(LAST_ENTITY, 0x03e8, False);
+
+                if(SOULS_MEMORY.DUST_UNREACHABLE) {
+                    _teleport(LAST_ENTITY, <ACTIVE>[X], <ACTIVE>[Y]);
+                }
             }
 
             if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
@@ -1296,13 +1302,13 @@ area shrine_area() {
 
         enum b_trigger {
             gourd_3 = @install() {
-                subtext("B=0");
+                _loot_chest(0x18, WATER, 0x03);
             },
             gourd_2 = @install() {
-                subtext("B=1");
+                _loot_chest(0x17, WATER, 0x02);
             },
             gourd_1 = @install() {
-                subtext("B=2");
+                _loot_chest(0x16, WATER, 0x01);
             },
             gourd_3_2_4 = nop(),
             gourd_3_2_3 = nop(),
@@ -1378,6 +1384,10 @@ area shrine_area() {
                 dialog("[SLOW]Oh my, haste makes waste. Hee hee hee_[B]");
             }
 
+            fun story_radahn_arena() {
+                dialog("[SLOW]You've seen that gaping hole here?[B]Well, there's nasty little vermin down there.[B]Although who you seek is even further below.[B]And has been down there for a very, very long time.[B]He's plumb Rotten by now, I'm sure! Hee hee hee…[B]");
+            }
+
             fun purchase_ring(price) {
                 MEMORY.STRING_PARAMETER_1 = price;
 
@@ -1415,9 +1425,9 @@ area shrine_area() {
                     question("[SLOW]How can I help you?[CHOICE]talk…");
                 }
 
-                if(MEMORY.QUESTION_ANSWER == 0x00) {
-                    subtext("todo");
-                } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                if(MEMORY.QUESTION_ANSWER == 0x00) { // talk
+                    story_radahn_arena();
+                } else if(MEMORY.QUESTION_ANSWER == 0x01) { // purchase
                     purchase_ring(ROOM.PRICE_RING_CAT);
                 } else {
                     response_negative();
@@ -1478,13 +1488,10 @@ area inbetwixx_center() {
 
         @install()
         fun ravine_triggered() {
-            pit_act2_between(0x0140);
+            set(SOULS_MEMORY.DUST_UNREACHABLE);
+            generic_fall(0d80);
 
-            sleep(0xd0);
-
-            damage(BOTH, 0x00ff, True);
-            sleep(0x60);
-            yield();
+            damage(BOTH, 0d999, True);
         }
 
         enum stepon_trigger {
@@ -2490,20 +2497,20 @@ area west_inbetwixx() {
         }
 
         enum stepon_trigger {
-            stepon_0 = @install() {
+            exit_stairs = @install() {
                 map_transition(west_hut_outside, backdoor, EAST);
             },
         }
 
         enum b_trigger {
-            b_trigger_0 = @install() {
-                subtext("B=0");
+            gourd_1 = @install() {
+                _loot_chest(0x00, WATER, 0x01);
             },
-            b_trigger_1 = @install() {
-                subtext("B=1");
+            gourd_2 = @install() {
+                _loot_chest(0x01, WATER, 0x02);
             },
-            b_trigger_2 = @install() {
-                subtext("B=2");
+            gourd_3 = @install() {
+                _loot_chest(0x02, WATER, 0x03);
             },
         }
 
@@ -5032,28 +5039,29 @@ area east_inbetwixx() {
             }
         }
 
-    fun open_sandpits(open) {
-        if(open) {
-            object[0x03] = 0x04; // open sandpit_2
-            object[0x04] = 0x04; // open sandpit_1
-            object[0x05] = 0x04; // open sandpit_4
-            object[0x06] = 0x04; // open sandpit_5
-            object[0x07] = 0x04; // open sandpit_6
-            object[0x08] = 0x04; // open sandpit_7
-            object[0x09] = 0x04; // open sandpit_8
-            object[0x0a] = 0x04; // open sandpit_9
-            object[0x0b] = 0x04; // open sandpit_10
-            object[0x0c] = 0x04; // open sandpit_12_1
-            object[0x0d] = 0x04; // open sandpit_12_2
-            object[0x0e] = 0x04; // open sandpit_12_3
-            object[0x0f] = 0x04; // open sandpit_cave
-            object[0x10] = 0x04; // open sandpit_5
-            object[0x11] = 0x04; // open sandpit_6
-            object[0x12] = 0x04; // open sandpit_2
-            object[0x13] = 0x04; // open sandpit_3
-            object[0x14] = 0x04; // open sandpit_4
+        fun open_sandpits(open) {
+            if(open) {
+                object[0x03] = 0x04; // open sandpit_2
+                object[0x04] = 0x04; // open sandpit_1
+                object[0x05] = 0x04; // open sandpit_4
+                object[0x06] = 0x04; // open sandpit_5
+                object[0x07] = 0x04; // open sandpit_6
+                object[0x08] = 0x04; // open sandpit_7
+                object[0x09] = 0x04; // open sandpit_8
+                object[0x0a] = 0x04; // open sandpit_9
+                object[0x0b] = 0x04; // open sandpit_10
+                object[0x0c] = 0x04; // open sandpit_12_1
+                object[0x0d] = 0x04; // open sandpit_12_2
+                object[0x0e] = 0x04; // open sandpit_12_3
+                object[0x0f] = 0x04; // open sandpit_cave
+                object[0x10] = 0x04; // open sandpit_5
+                object[0x11] = 0x04; // open sandpit_6
+                object[0x12] = 0x04; // open sandpit_2
+                object[0x13] = 0x04; // open sandpit_3
+                object[0x14] = 0x04; // open sandpit_4
+            }
         }
-    }
+
         fun init_room() {
             default_init_room(True, True);
         }
@@ -5270,13 +5278,16 @@ area east_inbetwixx() {
 
         @install()
         fun ravine_triggered() {
-            pit_act2_between(0x00d0);
+            set(SOULS_MEMORY.DUST_UNREACHABLE);
+            generic_fall(0d100);
 
-            sleep(0xd0);
+            if(SOULS_MEMORY.RING_CAT) {
+                damage(BOTH, 0d20, True);
+            } else {
+                damage(BOTH, 0d80, True);
+            }
 
-            damage(BOTH, 0x50, True);
-            sleep(0x60);
-            yield();
+            sleep(0d60);
 
             if(<BOY>[HP] > 0x00) {
                 map_transition(radahn_arena, center, NONE);
