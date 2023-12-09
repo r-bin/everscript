@@ -173,6 +173,7 @@ group non_maps() {
             INTRO_WATCHED = flag(),
 
             DEMO_MODE = False,
+            WITH_DEBUG_ENTITIES = True,
             WITH_INTRO = False,
             WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
@@ -318,9 +319,17 @@ group non_maps() {
             }
         }
 
+        fun dust_unreachable(x, y) {
+            set(SOULS_MEMORY.DUST_UNREACHABLE);
+
+            SOULS_MEMORY.DUST_DROP_X = x * 0x0008;
+            SOULS_MEMORY.DUST_DROP_Y = y * 0x0008;
+        }
+
         @install()
         fun dust_loot() {
             unset(SOULS_MEMORY.DUST_UNREACHABLE);
+
             SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
             SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
 
@@ -346,6 +355,8 @@ group non_maps() {
 
         @install()
         fun dust_drop() {
+            unset(SOULS_MEMORY.DUST_UNREACHABLE);
+
             // subtext("Souls in reach...");
 
             attach_script(SCRIPT_OWNER, LOOT, reference(dust_loot));
@@ -418,8 +429,10 @@ group non_maps() {
             currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
             currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
 
-            SOULS_MEMORY.DUST_DROP_X = <SCRIPT_OWNER>[X];
-            SOULS_MEMORY.DUST_DROP_Y = <SCRIPT_OWNER>[Y];
+            if!(SOULS_MEMORY.DUST_UNREACHABLE) {
+                SOULS_MEMORY.DUST_DROP_X = <SCRIPT_OWNER>[X];
+                SOULS_MEMORY.DUST_DROP_Y = <SCRIPT_OWNER>[Y];
+            }
             // <0x2503> = MEMORY.MAP;
             SOULS_MEMORY.DUST_DROP_MAP = MEMORY.MAP;
             SOULS_MEMORY.DUST_DROP_VARIANT = SOULS_MEMORY.MAP_VARIANT;
@@ -583,10 +596,6 @@ group non_maps() {
                 
                 attribute(LAST_ENTITY, MUTE, True);
                 damage(LAST_ENTITY, 0x03e8, False);
-
-                if(SOULS_MEMORY.DUST_UNREACHABLE) {
-                    _teleport(LAST_ENTITY, <ACTIVE>[X], <ACTIVE>[Y]);
-                }
             }
 
             if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
@@ -635,9 +644,27 @@ group non_maps() {
             attach_script(LAST_ENTITY, TALK, collected_trigger);
         }
 
+        fun player_message(x, y, trigger) {
+            add_enemy(PLACEHOLDER, x, y);
+            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_PLACEHOLDER.LEAVES_FALLING_2);
+
+            attach_script(LAST_ENTITY, TALK, trigger);
+        }
+
+        group player_messages() {
+            @install()
+            fun message_try_rolling() {
+                // destroy(SCRIPT_OWNER);
+
+                subtext("try rolling.");
+            }
+        };
+
         fun add_debug_entity(x, y, debug_triggered) {
-            add_placeholder(DOVES_1, x, y);
-            attach_script(LAST_ENTITY, TALK, debug_triggered);
+            if(SOULS_MEMORY.WITH_DEBUG_ENTITIES) {
+                add_placeholder(DOVES_1, x, y);
+                attach_script(LAST_ENTITY, TALK, debug_triggered);
+            }
         }
 
         fun init_hack() {
@@ -761,7 +788,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(hut_cat, door, NONE);
+                map_transition(pyramid, east, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1488,9 +1515,9 @@ area inbetwixx_center() {
 
         @install()
         fun ravine_triggered() {
-            set(SOULS_MEMORY.DUST_UNREACHABLE);
             generic_fall(0d80);
 
+            dust_unreachable(0d45, 0d35);
             damage(BOTH, 0d999, True);
         }
 
@@ -1837,6 +1864,13 @@ area inbetwixx_center() {
         }
 
         @install()
+        fun message_triggered() {
+            // destroy(SCRIPT_OWNER);
+
+            subtext("try rolling.");
+        }
+        
+        @install()
         fun trigger_enter() {
             if(SOULS_MEMORY.DEMO_MODE) {
                 if!(FLAG.ENERGY_CORE) {
@@ -1921,6 +1955,8 @@ area inbetwixx_center() {
             // object[0x08] = 0x01; // block gourd_1_3
             // object[0x06] = 0x01; // block gourd_2_1
             // sniff spots
+
+            player_message(0d30, 0d75, reference(message_triggered));
         }
     };
 };
@@ -2412,6 +2448,11 @@ area west_inbetwixx() {
             attach_script(LAST_ENTITY, TALK, reference(quest));
         }
 
+        @install()
+        fun message_triggered() {
+            subtext("prisoner ahead and then bonfire!");
+        }
+
         fun trigger_enter() {
             // fake_slash_grass();
             // fake_slash_grass_npc();
@@ -2452,6 +2493,8 @@ area west_inbetwixx() {
             init_room();
             
             grabby_owls();
+
+            player_message(0d23, 0d66, reference(message_triggered));
         }
     };
 
@@ -5278,7 +5321,6 @@ area east_inbetwixx() {
 
         @install()
         fun ravine_triggered() {
-            set(SOULS_MEMORY.DUST_UNREACHABLE);
             generic_fall(0d100);
 
             if(SOULS_MEMORY.RING_CAT) {
@@ -5287,10 +5329,14 @@ area east_inbetwixx() {
                 damage(BOTH, 0d80, True);
             }
 
-            sleep(0d60);
+            yield();
 
             if(<BOY>[HP] > 0x00) {
+                sleep(0d60);
+
                 map_transition(radahn_arena, center, NONE);
+            } else {
+                dust_unreachable(0d47, 0d6);
             }
         }
 
@@ -9215,6 +9261,14 @@ area southern_jungle() {
             wings = entrance(0x3d, 0x71, NONE),
         }
 
+        @install()
+        fun pit_triggered() {
+            generic_fall(0d80);
+
+            dust_unreachable(0d143, 0d108);
+            damage(BOTH, 0d999, True);
+        }
+
         enum stepon_trigger {
             stepon_0 = @install() {
                 subtext("S=0");
@@ -9222,15 +9276,9 @@ area southern_jungle() {
             door_tiny = @install() {
                 subtext("S=1");
             },
-            pit_1 = @install() {
-                subtext("S=2");
-            },
-            pit_2 = @install() {
-                subtext("S=3");
-            },
-            pit_3 = @install() {
-                subtext("S=4");
-            },
+            pit_1 = pit_triggered(),
+            pit_2 = pit_triggered(),
+            pit_3 = pit_triggered(),
             stairs_bottom = @install() {
                 subtext("S=5");
             },
@@ -9247,21 +9295,11 @@ area southern_jungle() {
                 subtext("S=9");
             },
 
-            pit_4 = @install() {
-                subtext("S=10");
-            },
-            pit_5 = @install() {
-                subtext("S=11");
-            },
-            pit_6 = @install() {
-                subtext("S=12");
-            },
-            pit_7 = @install() {
-                subtext("S=13");
-            },
-            pit_8 = @install() {
-                subtext("S=14");
-            },
+            pit_4 = pit_triggered(),
+            pit_5 = pit_triggered(),
+            pit_6 = pit_triggered(),
+            pit_7 = pit_triggered(),
+            pit_8 = pit_triggered(),
             exit_east = @install() {
                 map_transition(flowers, west, EAST);
             },
@@ -9365,6 +9403,64 @@ area southern_jungle() {
             },
         }
 
+        enum ROOM {
+            DEBUG = False,
+
+            BRIDGE_SIZE = 0d45,
+            BRIDGE_REVEALED = flag(),
+            BRIDGE_REVEALER_ENTITY = memory_tmp(),
+        }
+
+        @install()
+        fun message_triggered() {
+            subtext("shortcut ahead, therefore try jumping"); // https://soapstone.retzudo.com/04j243v
+        }
+
+        @install()
+        @async()
+        fun revealer_approached() {
+            attach_to_script(ROOM.BRIDGE_REVEALER_ENTITY);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                arg[0x00] = <ACTIVE>[X];
+                arg[0x02] = <ACTIVE>[Y];
+                arg[0x04] = <SCRIPT_OWNER>[X];
+                arg[0x06] = <SCRIPT_OWNER>[Y];
+
+                if(arg[0x00] < arg[0x04]) {
+                    arg[0x08] = arg[0x04] - arg[0x00];
+                } else {
+                    arg[0x08] = arg[0x00] - arg[0x04];
+                }
+
+                if(arg[0x02] < arg[0x06]) {
+                    arg[0x0a] = arg[0x06] - arg[0x02];
+                } else {
+                    arg[0x0a] = arg[0x02] - arg[0x06];
+                }
+
+                if((arg[0x08] <= ROOM.BRIDGE_SIZE) && (arg[0x0a] <= ROOM.BRIDGE_SIZE)) {
+                    pit_triggered();
+                    end();
+                }
+
+                if(ROOM.DEBUG) {
+                    debug_memory(arg[0x08], arg[0x0a]);
+                    sleep(0x20);
+                }
+
+                yield();
+            }
+        }
+
+        @install()
+        fun revealer_triggered() {
+            set(ROOM.BRIDGE_REVEALED);
+            object[0x0b] = 0x7e;
+            sleep(0x29);
+            destroy(ROOM.BRIDGE_REVEALER_ENTITY);
+        }
+
         fun trigger_enter() {
             object[0x04] = 0x01;
             object[0x05] = 0x01;
@@ -9374,7 +9470,19 @@ area southern_jungle() {
             object[0x09] = 0x01;
             object[0x0a] = 0x01;
 
-            fade_in();
+            if!(ROOM.BRIDGE_REVEALED) {
+                add_enemy(REVEALER_TARGET_ENTITY, 0d148, 0d119);
+                ROOM.BRIDGE_REVEALER_ENTITY = <LAST_ENTITY>;
+
+                special_script(REVEALER, reference(revealer_triggered));
+                revealer_approached();
+            } else {
+                revealer_triggered();
+            }
+
+            default_init_room(True, True);
+
+            player_message(0d134, 0d122, reference(message_triggered));
         }
     };
 
