@@ -75,6 +75,21 @@ group non_maps() {
     // };
 
     group helper() {
+        fun fake_loot() {
+            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+            sleep(0d15);
+            sound(CLICK_3);
+            sleep(0d15);
+        }
+
+        fun fake_loot_gourd() {
+            sound(CLICK_3);
+        }
+
+        fun fake_b() {
+            animate(ACTIVE, ONCE, ANIMATION_ALL.SLASH_1);
+        }
+
         @install()
         @async()
         fun crash_both() {
@@ -426,6 +441,8 @@ group non_maps() {
             attribute(BOY, INVINCIBLE_TEMP, True);
             attribute(DOG, INVINCIBLE_TEMP, True);
 
+            yield();
+            
             currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
             currency_convert(0x01, CURRENCY.TALONS, 0x01, CURRENCY.JEWELES);
 
@@ -441,9 +458,8 @@ group non_maps() {
 
             // currency_convert(0x01, CURRENCY.JEWELES, 0x01, CURRENCY.GOLD_COINS);
 
-            if(SOULS_MEMORY.DUST_ENTITY > 0x00) {
-                destroy(SOULS_MEMORY.DUST_ENTITY);
-            }
+            destroy(SOULS_MEMORY.DUST_ENTITY);
+
             animate(BOY, ONCE, ANIMATION_ENEMY.DUST);
             animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
 
@@ -627,6 +643,8 @@ group non_maps() {
         }
 
         fun collectible_collected() {
+            fake_loot();
+
             SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
             SOULS_MEMORY.COLLECTIBLE_COUNTER += 0x01;
 
@@ -651,12 +669,18 @@ group non_maps() {
             attach_script(LAST_ENTITY, TALK, trigger);
         }
 
+        fun player_message_triggered() {
+            fake_loot();
+
+            // destroy(SCRIPT_OWNER);
+        }
+
         group player_messages() {
             @install()
             fun message_try_rolling() {
-                // destroy(SCRIPT_OWNER);
+                player_message_triggered();
 
-                subtext("try rolling.");
+                subtext("try rolling");
             }
         };
 
@@ -737,6 +761,13 @@ group non_maps() {
                 MEMORY.DOG = DOG.PUPPER; // TODO
             }
         }
+
+        fun exit_boss_progress_check(flag) {
+            if(flag) {
+                // subtext("Boss in progress");
+                end();
+            }
+        }
     };
 
     group hotkeys() {
@@ -788,7 +819,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(pyramid, east, NONE);
+                map_transition(town_arena_entry, south_2, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -920,7 +951,6 @@ group non_maps() {
             ID = memory(),
             BODY = ENEMY.VILLAGER_2_1,
         }
-
         @install()
         fun npc_mario_dialog_0() {
             if(NPC_MARIO.PROGRESS == 0x00) {
@@ -946,7 +976,6 @@ group non_maps() {
                 dialog("[SLOW]Please go now[B]");
             }
         }
-
         @install()
         fun npc_mario_dialog_1() {
             control_enemy(NPC_MARIO.ID, True);
@@ -980,6 +1009,219 @@ group non_maps() {
         enum NPC_ISAAC {
             PROGRESS = memory(),
         }
+
+        group npc_cat() {
+            enum NPC_CAT {
+                PRICE_RING_CAT = 0d100,
+            }
+
+            group cat_ai() {
+                fun response_positive() {
+                    if(randrange(0x02) == 0x00) {
+                        dialog("[SLOW]Satisfied?[B]");
+                    } else {
+                        dialog("[SLOW]I'll be around if you ever come back.[B]");
+                    }
+                }
+                fun response_negative() {
+                    if(randrange(0x02) == 0x00) {
+                        dialog("[SLOW]Nothing suited you, I presume?[B]");
+                    } else {
+                        dialog("[SLOW]Well, that's dismaying. Hee hee hee_[B]");
+                    }
+                }
+                fun response_cancel() {
+                    dialog("[SLOW]Oh my, haste makes waste. Hee hee hee_[B]");
+                }
+
+                fun story_radahn_arena() {
+                    dialog("[SLOW]You've seen that gaping hole here?[B]Well, there's nasty little vermin down there.[B]Although who you seek is even further below.[B]And has been down there for a very, very long time.[B]He's plumb Rotten by now, I'm sure! Hee hee hee…[B]");
+                }
+
+                fun purchase_ring(price) {
+                    MEMORY.STRING_PARAMETER_1 = price;
+
+                    show_currency(True);
+                    question("[SLOW]Silvercat Ring?[B]`Silver ring depicting a leaping feline. Reduces damage from falling. Legend has it that when cats grow old, a force brews within them, and they are reborn as something new.´[B]Are you interested?[CHOICE][MEM1] Souls[CHOICE]no.");
+
+                    sleep(0x10);
+                    
+                    if(MEMORY.QUESTION_ANSWER == 0x00) { // yes
+                        if_currency(MEMORY.CURRENCY_CURRENT < price) {
+                            dialog("[SLOW]…[B]");
+                        } else {
+                            sound(PURCHASE);
+                            currency_take(TALONS, price);
+                            show_currency(True);
+
+                            set(SOULS_MEMORY.RING_CAT);
+
+                            response_positive();
+                        }
+                    } else { // no
+                        response_negative();
+                    }
+
+                    show_currency(False);
+                }
+
+                @install()
+                fun cat_triggered() {
+                    dialog("[SLOW]Oh, yes. You can call me Shalquoir. Enchante.[B]");
+
+                    if!(SOULS_MEMORY.RING_CAT) {
+                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]buy…");
+                    } else {
+                        question("[SLOW]How can I help you?[CHOICE]talk…");
+                    }
+
+                    if(MEMORY.QUESTION_ANSWER == 0x00) { // talk
+                        story_radahn_arena();
+                    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // purchase
+                        purchase_ring(NPC_CAT.PRICE_RING_CAT);
+                    } else {
+                        response_negative();
+                    }
+                }
+            };
+
+            enum CAT_VARIANT {
+                LOOKING = 0x00,
+                CLEANING = 0x01,
+            }
+
+            fun add_souls_npc_cat(variant:CAT_VARIANT, x, y) {
+                if(variant == CAT_VARIANT.LOOKING) {
+                    add_placeholder(CAT_LOOKING, x, y);
+                } else {
+                    add_placeholder(CAT_CLEANING_1, x, y);
+                }
+
+                attach_script(LAST_ENTITY, TALK, reference(cat_triggered));
+            }
+        };
+
+        group npc_smith() {
+            group smith_ai() {
+                fun response_greeting() {
+                    arg[0x00] = randrange(0x04);
+
+                    if(arg[0x00] == 0x00) {
+                        dialog("[SLOW]What? You again?[B]");
+                    } else if(arg[0x00] == 0x01) {
+                        dialog("[SLOW]You again? Can't you see that I'm busy?[B]");
+                    } else if(arg[0x00] == 0x02) {
+                        dialog("[SLOW]Hmph, I'd given you up for dead. Almost had me worried, really…[B]");
+                    } else {
+                        dialog("[SLOW]I knew you'd be around soon. Go on, show me what you've got.[B]");
+                    }
+                }
+
+                fun response_positive() {
+                    arg[0x00] = randrange(0x03);
+
+                    if(arg[0x00] == 0x00) {
+                        dialog("[SLOW]I'll be around, if you make it back.[B]");
+                    } else if(arg[0x00] == 0x01) {
+                        dialog("[SLOW]How goes your journey?[B]");
+                    } else {
+                        dialog("[SLOW]Take these. They should help a bit.[B]");
+                    }
+                }
+                fun response_negative() {
+                    dialog("[SLOW]Hmph. Don't waste my time.[B]");
+                }
+
+                fun response_upgrade_weapon() {
+                    if(
+                        ((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) ||
+                        ((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) ||
+                        ((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4))
+                    ) {
+                        if((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) {
+                            question("[SLOW]Do you want me to upgrade your sword?[CHOICE]Yes.[CHOICE]No.");
+
+                            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                                if!(FLAG.SWORD_1) {
+                                    unlock(SWORD_1);
+                                } else if!(FLAG.SWORD_2) {
+                                    unlock(SWORD_2);
+                                } else if!(FLAG.SWORD_3) {
+                                    unlock(SWORD_3);
+                                } else if!(FLAG.SWORD_4) {
+                                    unlock(SWORD_4);
+                                }
+
+                                response_positive();
+                                end();
+                            }
+                        }
+
+                        if((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) {
+                            question("[SLOW]Do you want me to upgrade your axe?[CHOICE]Yes.[CHOICE]No.");
+
+                            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                                if!(FLAG.AXE_1) {
+                                    unlock(AXE_1);
+                                } else if!(FLAG.AXE_2) {
+                                    unlock(AXE_2);
+                                } else if!(FLAG.AXE_3) {
+                                    unlock(AXE_3);
+                                } else if!(FLAG.AXE_4) {
+                                    unlock(AXE_4);
+                                }
+                                
+                                response_positive();
+                                end();
+                            }
+                        }
+
+                        if((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4)) {
+                            question("[SLOW]Do you want me to upgrade your spear?[CHOICE]Yes.[CHOICE]No.");
+
+                            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                                if!(FLAG.SPEAR_1) {
+                                    unlock(SPEAR_1);
+                                } else if!(FLAG.SPEAR_2) {
+                                    unlock(SPEAR_2);
+                                } else if!(FLAG.SPEAR_3) {
+                                    unlock(SPEAR_3);
+                                } else if!(FLAG.SPEAR_4) {
+                                    unlock(SPEAR_4);
+                                }
+                                
+                                response_positive();
+                                end();
+                            }
+                        }
+
+                        response_negative();
+                    } else {
+                        dialog("[SLOW]Bring me a weapon orb, and I'll forge you a better weapon.[B]");
+                    }
+                }
+
+                @install()
+                fun smith_triggered() {
+                    response_greeting();
+
+                    question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0x00) { // talk
+                        subtext("todo");
+                    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // purchase
+                        response_upgrade_weapon();
+                    } else {
+                        response_negative();
+                    }
+                }
+            };
+            
+            fun add_souls_npc_smith(x, y) {
+                add_enemy_with_flags(TINY, x, y, INACTIVE);
+                attach_script(LAST_ENTITY, TALK, reference(smith_triggered));
+            }
+        };
     };
 };
 
@@ -1173,77 +1415,6 @@ area shrine_area() {
         }
 
         @install()
-        fun smith_triggered() {
-            if(
-                ((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) ||
-                ((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) ||
-                ((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4))
-            ) {
-                if((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) {
-                    question("[SLOW]Do you want me to upgrade your sword?[CHOICE]Yes.[CHOICE]No.");
-
-                    if(MEMORY.QUESTION_ANSWER == 0x00) {
-                        if!(FLAG.SWORD_1) {
-                            unlock(SWORD_1);
-                        } else if!(FLAG.SWORD_2) {
-                            unlock(SWORD_2);
-                        } else if!(FLAG.SWORD_3) {
-                            unlock(SWORD_3);
-                        } else if!(FLAG.SWORD_4) {
-                            unlock(SWORD_4);
-                        }
-
-                        end();
-                    }
-                }
-
-                if((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) {
-                    question("[SLOW]Do you want me to upgrade your axe?[CHOICE]Yes.[CHOICE]No.");
-
-                    if(MEMORY.QUESTION_ANSWER == 0x00) {
-                        if!(FLAG.AXE_1) {
-                            unlock(AXE_1);
-                        } else if!(FLAG.AXE_2) {
-                            unlock(AXE_2);
-                        } else if!(FLAG.AXE_3) {
-                            unlock(AXE_3);
-                        } else if!(FLAG.AXE_4) {
-                            unlock(AXE_4);
-                        }
-                        
-                        end();
-                    }
-                }
-
-                if((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4)) {
-                    question("[SLOW]Do you want me to upgrade your spear?[CHOICE]Yes.[CHOICE]No.");
-
-                    if(MEMORY.QUESTION_ANSWER == 0x00) {
-                        if!(FLAG.SPEAR_1) {
-                            unlock(SPEAR_1);
-                        } else if!(FLAG.SPEAR_2) {
-                            unlock(SPEAR_2);
-                        } else if!(FLAG.SPEAR_3) {
-                            unlock(SPEAR_3);
-                        } else if!(FLAG.SPEAR_4) {
-                            unlock(SPEAR_4);
-                        }
-                        
-                        end();
-                    }
-                }
-
-                dialog("[SLOW]Stop wasting my time.[B]");
-            } else {
-                dialog("[SLOW]Bring me a weapon orb, and I'll forge you a better weapon.[B]");
-            }
-        }
-        fun add_smith(x, y) {
-            add_enemy_with_flags(TINY, x, y, INACTIVE);
-            attach_script(LAST_ENTITY, TALK, reference(smith_triggered));
-        }
-
-        @install()
         fun shrine_maiden_triggered() {
             if(NPC_SHRINE_MAIDEN.PROGRESS == 0x00) {
                 if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x00) {
@@ -1293,12 +1464,11 @@ area shrine_area() {
             }
 
             add_shrine_maiden(0d71, 0d88);
-            add_smith(0d42, 0d93);
+            add_souls_npc_smith(0d42, 0d93);
 
             // object[0x00] = 0x01; // open gourd
             // … sniff spots?
             // object[0x11] = 0x01; // ignite fire
-
 
             fade_in();
         }
@@ -1385,83 +1555,6 @@ area shrine_area() {
             }
         }
 
-        enum ROOM {
-            CAT_ID = memory_tmp(),
-            CAT_RNG = memory_tmp(),
-
-            PRICE_RING_CAT = 0d100,
-        }
-
-        group cat_ai() {
-            fun response_positive() {
-                if(randrange(0x02) == 0x00) {
-                    dialog("[SLOW]Satisfied?[B]");
-                } else {
-                    dialog("[SLOW]I'll be around if you ever come back.[B]");
-                }
-            }
-            fun response_negative() {
-                if(randrange(0x02) == 0x00) {
-                    dialog("[SLOW]Nothing suited you, I presume?[B]");
-                } else {
-                    dialog("[SLOW]Well, that's dismaying. Hee hee hee_[B]");
-                }
-            }
-            fun response_cancel() {
-                dialog("[SLOW]Oh my, haste makes waste. Hee hee hee_[B]");
-            }
-
-            fun story_radahn_arena() {
-                dialog("[SLOW]You've seen that gaping hole here?[B]Well, there's nasty little vermin down there.[B]Although who you seek is even further below.[B]And has been down there for a very, very long time.[B]He's plumb Rotten by now, I'm sure! Hee hee hee…[B]");
-            }
-
-            fun purchase_ring(price) {
-                MEMORY.STRING_PARAMETER_1 = price;
-
-                show_currency(True);
-                question("[SLOW]Silvercat Ring?[B]`Silver ring depicting a leaping feline. Reduces damage from falling. Legend has it that when cats grow old, a force brews within them, and they are reborn as something new.´[B]Are you interested?[CHOICE][MEM1] Souls[CHOICE]no.");
-
-                sleep(0x10);
-                
-                if(MEMORY.QUESTION_ANSWER == 0x00) { // yes
-                    if_currency(MEMORY.CURRENCY_CURRENT < price) {
-                        dialog("[SLOW]…[B]");
-                    } else {
-                        sound(PURCHASE);
-                        currency_take(TALONS, price);
-                        show_currency(True);
-
-                        set(SOULS_MEMORY.RING_CAT);
-
-                        response_positive();
-                    }
-                } else { // no
-                    response_negative();
-                }
-
-                show_currency(False);
-            }
-
-            @install()
-            fun cat_triggered() {
-                dialog("[SLOW]Oh, yes. You can call me Shalquoir. Enchante.[B]");
-
-                if!(SOULS_MEMORY.RING_CAT) {
-                    question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]buy…");
-                } else {
-                    question("[SLOW]How can I help you?[CHOICE]talk…");
-                }
-
-                if(MEMORY.QUESTION_ANSWER == 0x00) { // talk
-                    story_radahn_arena();
-                } else if(MEMORY.QUESTION_ANSWER == 0x01) { // purchase
-                    purchase_ring(ROOM.PRICE_RING_CAT);
-                } else {
-                    response_negative();
-                }
-            }
-        };
-
         fun trigger_enter() {
             init_map(0x09);
 
@@ -1469,20 +1562,17 @@ area shrine_area() {
             // object[0x17] = 0x01; // open gourd_3_3_2
             // object[0x18] = 0x01; // open gourd_3_3_3
 
-            ROOM.CAT_RNG = randrange(0x05);
+            arg[0x00] = randrange(0x05);
 
-            if(ROOM.CAT_RNG == 0x00) {
-                add_placeholder(CAT_CLEANING_1, 0d89, 0d103); // fish cleaning
-            } else if(ROOM.CAT_RNG == 0x01) {
-                add_placeholder(CAT_LOOKING, 0d78, 0d100); // desk looking
-            } else if(ROOM.CAT_RNG == 0x02) {
-                add_placeholder(CAT_CLEANING_1, 0d76, 0d92); // food cleaning
+            if(arg[0x00] == 0x00) {
+                add_souls_npc_cat(CLEANING, 0d89, 0d103); // fish cleaning
+            } else if(arg[0x00] == 0x01) {
+                add_souls_npc_cat(LOOKING, 0d78, 0d100); // desk looking
+            } else if(arg[0x00] == 0x02) {
+                add_souls_npc_cat(CLEANING, 0d76, 0d92); // food cleaning
             } else {
-                add_placeholder(CAT_CLEANING_1, 0d78, 0d100); // desk cleaning
+                add_souls_npc_cat(CLEANING, 0d78, 0d100); // desk cleaning
             }
-
-            attach_script(LAST_ENTITY, TALK, reference(cat_triggered));
-            ROOM.CAT_ID = <LAST_ENTITY>;
 
             fade_in();
         }
@@ -1865,9 +1955,9 @@ area inbetwixx_center() {
 
         @install()
         fun message_triggered() {
-            // destroy(SCRIPT_OWNER);
+            player_message_triggered();
 
-            subtext("try rolling.");
+            subtext("try rolling");
         }
         
         @install()
@@ -2450,6 +2540,8 @@ area west_inbetwixx() {
 
         @install()
         fun message_triggered() {
+            player_message_triggered();
+
             subtext("prisoner ahead and then bonfire!");
         }
 
@@ -2587,11 +2679,15 @@ area west_inbetwixx() {
                 nop();
             },
             gourd_2 = @install() {
+                fake_loot_gourd();
+
                 object[0x02] = 0x01; // unload gourd_2
                 subtext("Locked away childrens toys.");
                 set(ROOM.CLUE_1);
             },
             gourd_3 = @install() {
+                fake_loot_gourd();
+
                 object[0x01] = 0x01; // unload gourd_3
                 subtext("Cheap religious artifacts.");
                 set(ROOM.CLUE_2);
@@ -2601,9 +2697,11 @@ area west_inbetwixx() {
         @install()
         fun trap_door() {
             if!(ROOM.CLUE_1) {
+                fake_b();
                 end();
             }
             if!(ROOM.CLUE_2) {
+                fake_b();
                 end();
             }
             
@@ -4883,6 +4981,24 @@ area east_inbetwixx() {
             BRANCH_USED = flag(),
         }
 
+        enum BOSS {
+            DEBUG = False,
+            PROGRESS = flag_tmp(),
+
+            ID = memory_tmp(),
+
+            PIT_THRESHOLD = 0d03,
+
+            PIT_1_TIMER = memory_tmp(),
+            PIT_2_TIMER = memory_tmp(),
+            PIT_3_TIMER = memory_tmp(),
+            PIT_4_TIMER = memory_tmp(),
+        }
+
+        fun exit_triggered() {
+            exit_boss_progress_check(BOSS.PROGRESS);
+        }
+
         enum stepon_trigger {
             center_bottleneck = nop(),
             stepon_1 = @install() {
@@ -4917,21 +5033,27 @@ area east_inbetwixx() {
                 subtext("S=23");
             },
             exit_west_1 = @install() {
+                exit_triggered();
                 map_transition(east_inbetwixx, west_3, WEST);
             },
             exit_cave = @install() {
+                exit_triggered();
                 map_transition(jaguar_cave, south, NORTH);
             },
             exit_south_1 = @install() {
+                exit_triggered();
                 map_transition(east_crossing, crash, SOUTH);
             },
             exit_south_2 = @install() {
+                exit_triggered();
                 map_transition(east_crossing, north, SOUTH);
             },
             exit_west_2 = @install() {
+                exit_triggered();
                 map_transition(inbetwixx, east, WEST);
             },
             exit_west_3 = @install() {
+                exit_triggered();
                 map_transition(east_inbetwixx, west_1, WEST);
             },
 
@@ -5109,19 +5231,6 @@ area east_inbetwixx() {
             default_init_room(True, True);
         }
 
-        enum BOSS {
-            DEBUG = False,
-
-            ID = memory_tmp(),
-
-            PIT_THRESHOLD = 0d03,
-
-            PIT_1_TIMER = memory_tmp(),
-            PIT_2_TIMER = memory_tmp(),
-            PIT_3_TIMER = memory_tmp(),
-            PIT_4_TIMER = memory_tmp(),
-        }
-
         fun pit_triggered(entity, index) {
             if(entity[GENERAL_PURPOSE] != index) {
                 entity[GENERAL_PURPOSE] = index;
@@ -5207,6 +5316,8 @@ area east_inbetwixx() {
                 subtext("boss triggered");
             }
 
+            set(BOSS.PROGRESS);
+
             fade_to_music(BOSS);
 
             attach_script(BOSS.ID, DEATH, reference(boss_defeated));
@@ -5219,6 +5330,7 @@ area east_inbetwixx() {
                 subtext("boss defeated");
             }
             
+            unset(BOSS.PROGRESS);
             set(SOULS_MEMORY.DEAD_PIT_EGG);
 
             souls_boss_defeated();
