@@ -427,7 +427,7 @@ class RawString(Function_Base):
         self.value = value
         self.install = False
         if isinstance(self.value, Token):
-            self.value = self.value.value
+            self.value = self.value.value[1:-1]
         elif isinstance(self.value, Param):
             self.value = self.value.value.value
 
@@ -436,11 +436,11 @@ class RawString(Function_Base):
 
     def eval(self):
         value = self.value
-        value = re.sub("\"", "", value)
+        # value = re.sub("\'", "", value)
         return value
         
     def _code(self, params:list[Param]):
-        code = re.sub("\"", "", self.eval())
+        code = self.eval()
 
         lexer = LexerGenerator()
         lexer.add('SLOW', '\[SLOW\]')
