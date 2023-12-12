@@ -443,8 +443,27 @@ allocated RAM:
             objects = [object for object in map.objects]
             soundtrack = map.soundtrack()
 
+            entrances = [e.value for e in map.enum_entrance.values]
+            code_transition_in = []
+            for entrance in entrances:
+                entrance_index = [e.value for e in map.enum_entrance.values]
+                entrance_index = entrance_index.index(entrance)
+
+                entrance_code = entrance.enter_code
+
+                if entrance_code:
+                    code = If(
+                        Equals(Param(None, Memory(0x23b7)), Param(None, Word(entrance_index))),
+                        [entrance_code],
+                        [False, False]
+                    )
+
+                    code_transition_in.append(code)
+
+            code_transition_in = If_list(code_transition_in)
+
             function_enter = Function("_trigger_enter", 
-                [soundtrack] + objects + [Call(self, function)], [], [Annotation_Install()])
+                [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):
