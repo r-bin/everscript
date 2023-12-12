@@ -527,24 +527,27 @@ class Call(Function_Base, Calculatable):
         self.generator = generator
         self.params = self._paramify(params)
 
-        if isinstance(function, Function):
-            if not function.install:
+        match function:
+            case Function():
+                if not function.install:
+                    self.function = function
+                    self.address = function.address
+                    self.async_call = function.async_call
+                    #for p, a in zip(self.params, function.args):
+                    #    if p.name == None:
+                    #        p.name = a.name
+                else:
+                    self.function = function
+                    self.address = function.address
+                    self.async_call = function.async_call
+            case Param():
+                self.function = None
+                self.address = function.eval([])
+            case Identifier():
                 self.function = function
-                self.address = function.address
-                self.async_call = function.async_call
-                #for p, a in zip(self.params, function.args):
-                #    if p.name == None:
-                #        p.name = a.name
-            else:
-                self.function = function
-                self.address = function.address
-                self.async_call = function.async_call
-        elif isinstance(function, Param):
-            self.function = None
-            self.address = function.eval([])
-        else:
-            TODO()
-        pass
+                self.address = None
+            case _:
+                TODO()
 
         if self.address == None:
             pass
@@ -608,8 +611,13 @@ class Call(Function_Base, Calculatable):
             if isinstance(param, Deref):
                 param.update(params)
         
-        out_params = []
         if self.function:
+            function = self.function.resolve(params)
+        else:
+            function = None
+            
+        out_params = []
+        if function:
             out_params = [Param(param.name, param.value.resolve(params) if param.value else None) for param in self.params]
 
             for param in out_params:
@@ -620,15 +628,15 @@ class Call(Function_Base, Calculatable):
 
             #params = self.handle_params(params, self.params)
 
-            for p, a in zip(out_params, self.function.args):
+            for p, a in zip(out_params, function.args):
                 if p.name != a.name:
                     pass
                 p.name = a.name
 
-        if self.function == None or self.function.install:
+        if function == None or function.install:
             address = "xx xx xx"
-            if self.address == None and self.function != None: #TODO: should be done by the linker
-                self.address = self.function.address
+            if self.address == None and function != None: #TODO: should be done by the linker
+                self.address = function.address
             if self.address != None:
                 address = Address(self.address)
                 address = address.code([])
@@ -641,7 +649,7 @@ class Call(Function_Base, Calculatable):
             return code
         
         else:
-            return Function_Code(self.function.script, '\n').code(out_params)
+            return Function_Code(function.script, '\n').code(out_params)
 
 class End(Function_Base):
     def eval(self):
@@ -1310,10 +1318,13 @@ class Range(BaseBox):
             raise Exception("invalid parameter")
 
 class MapEntrance(Function_Base):
-    def __init__(self, generator, x, y, direction):
+    def __init__(self, generator, x, y, direction, enter_code):
         self.x = x.eval([])
         self.y = y.eval([])
         self.direction = self.parse_argument_with_type(generator, direction, "DIRECTION")
+        self.enter_code = enter_code
+        if isinstance(self.enter_code, Param):
+            self.enter_code = self.enter_code.value
 
 class Soundtrack(Function_Base):
     def __init__(self, generator, track, volume):
@@ -1425,8 +1436,6 @@ class MapTransition(Function_Base):
         generator.add_map_transition(self)
         self.scope = generator.current_scope()
 
-        pass
-
     def link(self, map: Map, entrance: MapEntrance):
         self.map = map
         self.entrance = entrance
@@ -1439,6 +1448,9 @@ class MapTransition(Function_Base):
 yy // linking required
             """
         else:
+            entrance_index = [e.value for e in self.map.enum_entrance.values]
+            entrance_index = entrance_index.index(self.entrance)
+
             track_in = self.scope.value
             if track_in:
                 track_in = track_in.soundtrack()
@@ -1508,12 +1520,13 @@ yy // linking required
             params = self.merge_params(params, call_params)
 
             code = Function_Code([
+                Asign(Memory(0x23b7), Word(entrance_index)),
                 Asign(Memory(0x23b9), Word(self.map.variant)),
                 function_transition
             ], '\n').code(params)
 
             return code
-        
+
 # unary operators
 
 class Dead(UnaryOp):

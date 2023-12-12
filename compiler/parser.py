@@ -73,7 +73,7 @@ class Parser():
             "_axe2_wall": (lambda p: Axe2Wall(self.generator, p[2][0])),
 
             # late link
-            "entrance": (lambda p: MapEntrance(self.generator, p[2][0], p[2][1], p[2][2])),
+            "entrance": (lambda p: MapEntrance(self.generator, p[2][0], p[2][1], p[2][2], p[2][3] if len(p[2])>=4 else None)),
             "soundtrack": (lambda p: Soundtrack(self.generator, p[2][0], p[2][1])),
             "map_transition": (lambda p: MapTransition(self.generator, p[2][0], p[2][1], p[2][2])),
 
@@ -385,6 +385,12 @@ class Parser():
         @self.pg.production('expression : IDENTIFIER')
         def parse(p):
             return Identifier(p[0])
+        
+        @self.pg.production('expression : function')
+        def parse(p):
+            function = p[0]
+
+            return function
 
         @self.pg.production('label : LABEL_DESTINATION')
         def parse(p):
@@ -461,9 +467,12 @@ class Parser():
                 function = self.native_functions[name.value](p)
                 return function
             else:
-                function = self.generator.get_function(name, with_exception=True)
+                function = self.generator.get_function(name)
             
-            return Call(self.generator, function, params)
+            if function:
+                return Call(self.generator, function, params)
+            else:
+                return Call(self.generator, Identifier(name), params)
 
         @self.pg.production('expression : FUNCTION_CALL ( expression )')
         def parse(p):

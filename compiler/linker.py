@@ -414,7 +414,7 @@ unallocated RAM:
     def link_call_in_code(self, code:list, all_code=[]):
         for function in code:
             for expression in function.script:
-                if isinstance(expression, Call):
+                if isinstance(expression, Call) and not isinstance(expression.function, Identifier):
                     self.link_call(expression, all_code)
                     if expression.function != None:
                         self.link_call_in_code([expression.function], all_code)
