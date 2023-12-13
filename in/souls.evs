@@ -221,6 +221,9 @@ group non_maps() {
             BONFIRE_MAP = memory(),
             BONFIRE_VARIANT = memory(),
             BONFIRE_TELEPORT_REQUIRED = flag(),
+
+            // wings
+            WINGS_BLOCKED = flag(),
             
             // items
             ESTUS_CHARGES = memory(),
@@ -430,6 +433,11 @@ group non_maps() {
             map_transition(inbetwixx, start, NONE);
         }
 
+        @install()
+        fun wings_used() {
+            return_to_bonfire();
+        }
+
         fun heal_both(with_animation) {
             // TODO: set confound timer to 30s to avaid perma confound
             if((Byte) <0x4ECF> == 0x60) {
@@ -515,6 +523,11 @@ group non_maps() {
                 end();
             }
 
+            if(SOULS_MEMORY.WINGS_BLOCKED) {
+                unset(SOULS_MEMORY.WINGS_BLOCKED);
+                special_script(WINGS, reference(wings_used));
+            }
+            
             MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
             heal_both(True);
 
@@ -655,7 +668,9 @@ group non_maps() {
 
             attach_script(BOY, DEATH, reference(boy_death));
 
-            special_script(WINGS, reference(return_to_bonfire));
+            if!(SOULS_MEMORY.WINGS_BLOCKED) {
+                special_script(WINGS, reference(wings_used));
+            }
 
             MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
             MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
@@ -842,7 +857,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(basement_2_start, center, NONE);
+                map_transition(hut_cat, door, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1534,9 +1549,94 @@ area shrine_area() {
             exit_door_1_1 = nop(),
         }
 
+        @install()
+        @async()
+        fun gourd_trap(object_id, entity, x, y) {
+            object[object_id] = 0x01;
+
+            // add_placeholder(SANDPIT_OUT, 0d96, 0d95);
+            // add_placeholder(0x7e, 0d96, 0d95);
+
+            x = x * 0x08;
+            y = y * 0x08;
+
+            sleep(0x10);
+
+            while(True) {
+                arg[0x10] = entity[X];
+                arg[0x12] = entity[Y];
+                arg[0x14] = x;
+                arg[0x16] = y;
+
+                if(arg[0x10] < arg[0x14]) {
+                    arg[0x18] = arg[0x14] - arg[0x10];
+                } else {
+                    arg[0x18] = arg[0x10] - arg[0x14];
+                }
+
+                if(arg[0x12] < arg[0x16]) {
+                    arg[0x1a] = arg[0x16] - arg[0x12];
+                } else {
+                    arg[0x1a] = arg[0x12] - arg[0x16];
+                }
+
+                if(arg[0x18] < arg[0x1a]) {
+                    arg[0x1c] = arg[0x1a] - arg[0x18];
+                } else {
+                    arg[0x1c] = arg[0x18] - arg[0x1a];
+                }
+
+                if((arg[0x18] > 0d70) || (arg[0x1a] > 0d70)) {
+                    object[object_id] = 0x00;
+                    end();
+                } else if((arg[0x18] < 0d5) && (arg[0x1a] < 0d5)) {
+                    control(NONE);
+                    unset(SOULS_MEMORY.WINGS_BLOCKED);
+
+                    if(entity == <BOY>) {
+                        animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+                    } else {
+                        animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SWIRL_ENTER);
+                    }
+
+                    subtext("todo");
+                    end();
+                }
+
+                if(arg[0x1c] <= 0d5) {
+                    if((arg[0x18] > 0x02) && (entity[X] > x)) {
+                        entity[X] -= 0x02;
+                    } else if((arg[0x18] > 0x02) && (entity[X] < x)) {
+                        entity[X] += 0x02;
+                    }
+
+                    if((arg[0x1a] > 0x02) && (entity[Y] < y)) {
+                        entity[Y] += 0x02;
+                    } else if((arg[0x1a] > 0x02) && (entity[Y] > y)) {
+                        entity[Y] -= 0x02;
+                    }
+                } else if(arg[0x18] > arg[0x1a]) {
+                    if((arg[0x18] > 0x02) && (entity[X] > x)) {
+                        entity[X] -= 0x02;
+                    } else if((arg[0x18] > 0x02) && (entity[X] < x)) {
+                        entity[X] += 0x02;
+                    }
+                } else {
+                    if((arg[0x1a] > 0x02) && (entity[Y] < y)) {
+                        entity[Y] += 0x02;
+                    } else if((arg[0x1a] > 0x02) && (entity[Y] > y)) {
+                        entity[Y] -= 0x02;
+                    }
+                }
+
+                yield();
+            }
+        }
+
         enum b_trigger {
             gourd_3 = @install() {
-                _loot_chest(0x18, WATER, 0x03);
+                gourd_trap(0x18, <ACTIVE>, 0d96, 0d95);
+                // _loot_chest(0x18, WATER, 0x03);
             },
             gourd_2 = @install() {
                 _loot_chest(0x17, WATER, 0x02);
