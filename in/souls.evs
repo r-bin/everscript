@@ -252,6 +252,10 @@ group non_maps() {
             BOSSES_DEFEATED_COUNTER = memory(),
             COLLECTIBLE_COUNTER = memory(),
 
+            // west
+            DEAD_MONSTRO = flag(),
+            DEAD_DARK_ONE = flag(),
+
             // east
             DEAD_PIT_EGG = flag(),
 
@@ -708,22 +712,28 @@ group non_maps() {
 
         fun init_hack() {
             init_souls();
+        }
 
-            MEMORY.DOG = DOG.WOLF;
-            available(BOTH);
+        fun init_weather(night, rain) {
+            if(SOULS_MEMORY.WITH_WEATHER) {
+                if(night) {
+                    sfx_effect(NIGHT, True);
+                }
+                if(rain) {
+                    sfx_effect(RAIN, True);
+                }
+            }
         }
 
         fun default_init_room(night, rain) {
             init_hack();
             
-            if(SOULS_MEMORY.WITH_WEATHER) {
-                if(rain) {
-                    sfx_effect(RAIN, True);
-                }
-                if(night) {
-                    sfx_effect(NIGHT, True);
-                }
-            }
+            MEMORY.DOG = DOG.WOLF;
+            available(BOTH);
+            init_weather(night, rain);
+
+            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
+            MEMORY.PACIFIED = 0x00;
 
             fade_in();
         }
@@ -734,16 +744,15 @@ group non_maps() {
         }
 
         fun isaac_init(night, rain) {
-            // TODO: dog should stay unavailable
-            available(BOY);
-            teleport(DOG, 0xff, 0xff);
-
-            default_init_room(night, rain);
+            init_hack();
 
             available(BOY);
             teleport(DOG, 0xff, 0xff);
+            init_weather(night, rain);
 
             isaac_mode();
+
+            fade_in();
         }
 
         fun mario_mode() {
@@ -752,16 +761,15 @@ group non_maps() {
         }
 
         fun mario_init(night, rain) {
-            // TODO: dog should stay unavailable
-            available(BOY);
-            teleport(DOG, 0xff, 0xff);
-
-            default_init_room(night, rain);
+            init_hack();
 
             available(BOY);
             teleport(DOG, 0xff, 0xff);
+            init_weather(night, rain);
 
             mario_mode();
+
+            fade_in();
         }
 
         @install()
@@ -834,7 +842,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_market, east_2, NONE);
+                map_transition(basement_2_start, center, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -13573,6 +13581,8 @@ area dungeon_isaac() {
 
         ENEMY_COUNT_TOTAL = memory_tmp(),
         ENEMY_COUNT = memory_tmp(),
+
+        MUSIC_DEFAULT = 0x58,
     }
 
     group isaac_helper() {
@@ -13775,12 +13785,12 @@ area dungeon_isaac() {
             attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
             isaac_ai_shooting_plus(<LAST_ENTITY>);
         }
-        fun add_isaac_enemy_frippo(x, y) {
+        fun add_isaac_enemy_jumper(x, y) {
             add_isaac_enemy();
 
             // add_enemy(DANCING_DEVIL_1, x, y);
-            // add_enemy(MUMMY, x, y);
-            add_enemy(FRIPPO, x, y);
+            add_enemy(MUMMY, x, y);
+            // add_enemy(FRIPPO, x, y);
             attach_script(LAST_ENTITY, DEATH, reference(isaac_enemy_death));
             // attribute(LAST_ENTITY, ROOT, True);
             isaac_ai_jumping(<LAST_ENTITY>);
@@ -13796,6 +13806,11 @@ area dungeon_isaac() {
     };
 
     area level_0() {
+        enum BASEMENT_LEVEL {
+            NIGHT = False,
+            RAIN = False,
+        }
+
         map basement_0_start(0x22) { // center "+"
             enum entrance {
                 north = entrance(0x11, 0x25, SOUTH),
@@ -13804,6 +13819,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum stepon_trigger {
@@ -13873,7 +13892,10 @@ area dungeon_isaac() {
                 // add_isaac_enemy_frippo(0x15, 0x30);
                 // add_isaac_enemy_spider(0x15, 0x30);
 
-                isaac_init(True, False);
+
+                bonfire(0d23, 0d51);
+
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
 
                 if!(FLAG.IN_ANIMATION) {
                     // teleport(DOG, 0x19, 0x1d);
@@ -13891,6 +13913,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -13958,12 +13984,14 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x5b, 0x2d);
-                    add_isaac_enemy_maggot(0x5d, 0x2f);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x5b, 0x2d);
+                        add_isaac_enemy_maggot(0x5d, 0x2f);
+                    }
                 }
 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -13972,6 +14000,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14039,12 +14071,14 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 // object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x59, 0x47);
-                    add_isaac_enemy_maggot(0x5b, 0x49);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x59, 0x47);
+                        add_isaac_enemy_maggot(0x5b, 0x49);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14054,6 +14088,10 @@ area dungeon_isaac() {
                 south_1 = entrance(0x65, 0x1f, NORTH),
                 south_2 = entrance(0x46, 0x1f, NORTH),
                 west = entrance(0x38, 0x18, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14122,12 +14160,14 @@ area dungeon_isaac() {
                 // object[0x03] = 0x01; // opens room_2_south_1
                 // object[0x0a] = 0x01; // shows room_2_decoration (stone -> tree)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x51, 0x12);
-                    add_isaac_enemy_maggot(0x53, 0x15);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x51, 0x12);
+                        add_isaac_enemy_maggot(0x53, 0x15);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14136,6 +14176,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14203,12 +14247,14 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 // object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x5d, 0x2d);
-                    add_isaac_enemy_maggot(0x5f, 0x2e);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x5d, 0x2d);
+                        add_isaac_enemy_maggot(0x5f, 0x2e);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14218,17 +14264,27 @@ area dungeon_isaac() {
                 south = entrance(0x1b, 0x29, NORTH)
             }
 
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
+            }
+
+            enum ROOM {
+                CLEAR_FLAG = flag(),
+            }
+
             enum stepon_trigger {
                 exit_east = @install() {
                     subtext("S=0");
                 },
                 exit_south = @install() {
+                    check_exits(ROOM.CLEAR_FLAG);
                     map_transition(basement_0_1, north, SOUTH);
                 }
             }
 
             @install()
             fun trap_door_interacted() {
+                check_exits(ROOM.CLEAR_FLAG);
                 map_transition(basement_1_start, center, NONE);
             }
 
@@ -14236,7 +14292,15 @@ area dungeon_isaac() {
                 add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
                 attach_script(LAST_ENTITY, TALK, reference(trap_door_interacted));
 
-                isaac_init(True, False);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_spider(0d32, 0d22);
+                        add_isaac_enemy_spider(0d17, 0d28);
+                        add_isaac_enemy_spider(0d36, 0d32);
+                    }
+                }
+
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
 
                 // object[0x00] = 0x01; // close south
                 // object[0x01] = 0x01; // open east
@@ -14245,6 +14309,11 @@ area dungeon_isaac() {
     };
 
     area level_1() {
+        enum BASEMENT_LEVEL {
+            NIGHT = False,
+            RAIN = False,
+        }
+
         map basement_1_start(0x22) { // center "+"
             enum entrance {
                 north = entrance(0x11, 0x25, SOUTH),
@@ -14253,6 +14322,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum stepon_trigger {
@@ -14315,7 +14388,7 @@ area dungeon_isaac() {
                 // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
 
                 if!(FLAG.IN_ANIMATION) {
                     // teleport(DOG, 0x19, 0x1d);
@@ -14333,6 +14406,10 @@ area dungeon_isaac() {
                 east = entrance(0x35, 0x16, WEST),
                 north = entrance(0x18, 0x1f, NORTH),
                 west = entrance(0x00, 0x15, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14402,11 +14479,14 @@ area dungeon_isaac() {
                 // object[0x12] = 0x01; // hides room_1_sign
                 // object[0x09] = 0x01; // shows room_1_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x24, 0x12);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x24, 0x12);
+                        add_isaac_enemy_spider(0d36, 0d18);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14415,6 +14495,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14482,11 +14566,15 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x5d, 0x31);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_fly_exploding(0d93, 0d50);
+                        add_isaac_enemy_fly_exploding(0d95, 0d58);
+                        add_isaac_enemy_maggot(0x5d, 0x31);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14496,6 +14584,10 @@ area dungeon_isaac() {
                 south_1 = entrance(0x65, 0x1f, NORTH),
                 south_2 = entrance(0x46, 0x1f, NORTH),
                 west = entrance(0x38, 0x18, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14566,11 +14658,14 @@ area dungeon_isaac() {
                 object[0x03] = 0x01; // opens room_2_south_1
                 // object[0x0a] = 0x01; // shows room_2_decoration (stone -> tree)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x53, 0x13);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x53, 0x13);
+                        add_isaac_enemy_spider(0d78, 0d16);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14579,6 +14674,10 @@ area dungeon_isaac() {
                 north = entrance(0x39, 0x24, SOUTH),
                 east = entrance(0x48, 0x4b, WEST),
                 west = entrance(0x26, 0x4e, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14643,11 +14742,14 @@ area dungeon_isaac() {
                 // object[0x07] = 0x01; // opens room_4_west
                 // object[0x0e] = 0x01; // shows room_4_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x37, 0x37);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x37, 0x37);
+                        add_isaac_enemy_spider(0d53, 0d66);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14656,6 +14758,10 @@ area dungeon_isaac() {
                 north = entrance(0x39, 0x24, SOUTH),
                 east = entrance(0x48, 0x4b, WEST),
                 west = entrance(0x26, 0x4e, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14722,12 +14828,18 @@ area dungeon_isaac() {
                 object[0x07] = 0x01; // opens room_4_west
                 // object[0x0e] = 0x01; // shows room_4_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x37, 0x3b);
-                    add_isaac_enemy_maggot(0x3d, 0x4a);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        // north
+                        add_isaac_enemy_slime(0d62, 0d52);
+
+                        // south
+                        add_isaac_enemy_maggot(0x37, 0x3b);
+                        add_isaac_enemy_maggot(0x3d, 0x4a);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -14737,13 +14849,20 @@ area dungeon_isaac() {
                 west = entrance(0x01, 0x21, EAST)
             }
 
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
+            }
+
+            enum ROOM {
+                CLEAR_FLAG = flag(),
+            }
+
             enum stepon_trigger {
                 exit_east = @install() {
+                    check_exits(ROOM.CLEAR_FLAG);
                     map_transition(basement_1_6, west, EAST);
                 },
-                exit_west = @install() {
-                    map_transition(basement_1_9, east, WEST);
-                }
+                exit_west = nop(),
             }
 
             fun open_east_exit(open) {
@@ -14763,12 +14882,23 @@ area dungeon_isaac() {
 
             @install()
             fun trap_door_interacted() {
+                check_exits(ROOM.CLEAR_FLAG);
                 map_transition(basement_2_start, center, NONE);
             }
 
             fun trigger_enter() {
                 add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x59, 0x1d);
                 attach_script(LAST_ENTITY, TALK, reference(trap_door_interacted));
+
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        // west
+                        add_isaac_enemy_fly_exploding(0d74, 0d30);
+
+                        // north
+                        add_isaac_enemy_spider(0d93, 0d17);
+                    }
+                }
 
                 fade_in();
             }
@@ -14779,6 +14909,10 @@ area dungeon_isaac() {
                 east = entrance(0x35, 0x16, WEST),
                 north = entrance(0x18, 0x1f, NORTH),
                 west = entrance(0x00, 0x15, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -14860,16 +14994,30 @@ area dungeon_isaac() {
                 // object[0x12] = 0x01; // hides room_1_sign
                 // object[0x09] = 0x01; // shows room_1_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x20, 0x15);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        // west
+                        add_isaac_enemy_spider(0d15, 0d19);
+
+                        // center
+                        add_isaac_enemy_maggot(0x20, 0x15);
+
+                        // east
+                        add_isaac_enemy_fly_exploding(0d34, 0d21);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
     };
 
     area level_2() {
+        enum BASEMENT_LEVEL {
+            NIGHT = True,
+            RAIN = False,
+        }
+
         map basement_2_start(0x22) { // center "+"
             enum entrance {
                 north = entrance(0x11, 0x25, SOUTH),
@@ -14878,6 +15026,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum stepon_trigger {
@@ -14940,7 +15092,7 @@ area dungeon_isaac() {
                 // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
 
                 if!(FLAG.IN_ANIMATION) {
                     // teleport(DOG, 0x19, 0x1d);
@@ -14958,6 +15110,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15025,11 +15181,17 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x5b, 0x32);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x5b, 0x32);
+
+                        add_isaac_enemy_fly_exploding(0d89, 0d58);
+
+                        add_isaac_enemy_fly_shooting(0d100, 0d66);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15038,6 +15200,10 @@ area dungeon_isaac() {
                 north = entrance(0x39, 0x24, SOUTH),
                 east = entrance(0x48, 0x4b, WEST),
                 west = entrance(0x26, 0x4e, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15102,11 +15268,17 @@ area dungeon_isaac() {
                 // object[0x07] = 0x01; // opens room_4_west
                 // object[0x0e] = 0x01; // shows room_4_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x3c, 0x3c);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_fly_exploding(0d62, 0d48);
+
+                        add_isaac_enemy_slime(0d52, 0d62);
+
+                        add_isaac_enemy_maggot(0x3c, 0x3c);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15115,6 +15287,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15184,11 +15360,17 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 // object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x5d, 0x3b);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0d98, 0d51);
+                        add_isaac_enemy_maggot(0x5d, 0x3b);
+
+                        add_isaac_enemy_spider(0d90, 0d59);
+                        add_isaac_enemy_spider(0d101, 0d67);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15197,6 +15379,10 @@ area dungeon_isaac() {
                 east = entrance(0x35, 0x16, WEST),
                 south = entrance(0x18, 0x1f, NORTH),
                 west = entrance(0x00, 0x15, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15268,11 +15454,17 @@ area dungeon_isaac() {
                 // object[0x12] = 0x01; // hides room_1_sign
                 // object[0x09] = 0x01; // shows room_1_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x26, 0x15);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_spider(0d15, 0d17);
+
+                        add_isaac_enemy_maggot(0x26, 0x15);
+                        
+                        add_isaac_enemy_slime(0d38, 0d17);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15284,6 +15476,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15356,11 +15552,18 @@ area dungeon_isaac() {
                 // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x10, 0x38);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_spider(0d17, 0d45);
+                        add_isaac_enemy_maggot(0x10, 0x38);
+
+                        add_isaac_enemy_slime(0d22, 0d55);
+
+                        add_isaac_enemy_spider(0d17, 0d74);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15369,6 +15572,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15441,7 +15648,7 @@ area dungeon_isaac() {
                     add_isaac_enemy_maggot(0x5b, 0x49);
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15451,16 +15658,12 @@ area dungeon_isaac() {
                 south = entrance(0x1b, 0x29, NORTH)
             }
 
-            enum stepon_trigger {
-                exit_east = @install() {
-                    subtext("S=0");
-                },
-                exit_south = @install() {
-                    map_transition(basement_2_5, north, SOUTH);
-                }
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum BOSS {
+                PROGRESS = flag_tmp(),
                 ID = memory_tmp(),
 
                 FOLLOWING = memory_tmp(),
@@ -15474,131 +15677,167 @@ area dungeon_isaac() {
                 CANNONBALL_COUNT = memory_tmp(),
             }
 
-            @install()
-            fun flop() {
-                shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-
-                shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-
-                shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-
-                shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-            }
-
-            @install()
-            fun puke() {
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X], <BOY>[Y], 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                sleep(0x02);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                sleep(0x02);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-                sleep(0x05);
-                shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
-            }
-
-            @async()
-            @install()
-            fun following() {
-                while(True) {
-                    if(BOSS.FOLLOWING > 0x00) {
-                        if(BOSS.ID[X] > <BOY>[X]) {
-                            BOSS.ID[X] -= BOSS.FOLLOWING;
-                        } else if(BOSS.ID[X] < <BOY>[X]) {
-                            BOSS.ID[X] += BOSS.FOLLOWING;
-                        }
-
-                        if(BOSS.ID[Y] > <BOY>[Y]) {
-                            BOSS.ID[Y] -= BOSS.FOLLOWING;
-                        } else if(BOSS.ID[Y] < <BOY>[Y]) {
-                            BOSS.ID[Y] += BOSS.FOLLOWING;
-                        }
+            enum stepon_trigger {
+                exit_east = @install() {
+                    subtext("S=0");
+                },
+                exit_south = @install() {
+                    if!(BOSS.PROGRESS) {
+                        map_transition(basement_2_5, north, SOUTH);
                     }
-
-                    yield();
                 }
             }
 
             @install()
-            fun yeet() {
-                BOSS.ID[JUMP_HEIGHT] = 0x55;
-                
-                BOSS.FOLLOWING = 0x01;
-                sleep(0xa0);
-                BOSS.FOLLOWING = 0x00;
-
-                flop();
-            }
-
-            @install()
-            fun hop() {
-                BOSS.ID[JUMP_HEIGHT] = 0x20;
-
-                BOSS.FOLLOWING = 0x01;
-                sleep(0x40);
-                BOSS.FOLLOWING = 0x00;
-            }
-
-            fun move() {
-                BOSS.MOVE_RNG = randrange(0x05);
-
-                if(BOSS.MOVE_RNG == 0x00) {
-                    puke();
-                    sleep(0x50);
-                } else if(BOSS.MOVE_RNG == 0x01) {
-                    yeet();
-                    sleep(0x60);
-                } else {
-                    hop();
-                    sleep(0x20);
-                }
-            }
-
             @async()
-            @install()
-            fun move_logic() {
-                sleep(0x80);
-                
-                while(True) {
-                    move();
+            fun boss_defeated() {
+                set(SOULS_MEMORY.DEAD_MONSTRO);
+                unset(BOSS.PROGRESS);
+                souls_boss_defeated();
+
+                music(AREA_BASEMENT.MUSIC_DEFAULT);
+            }
+
+            group monstro_ai() {
+                @install()
+                fun flop() {
+                    shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+
+                    shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), 0x20 + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+
+                    shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_relative(BOSS.ID, ONION, -0x20 - randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+
+                    shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_relative(BOSS.ID, ONION, 0x20 + randrange(0x20), -0x20 - randrange(0x20), 0x20 + randrange(0x10), 0x0a);
                 }
-            }
 
-            @install()
-            fun monstro_damage() {
-                yield();
-                animate(BOSS.ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
-            }
+                @install()
+                fun puke() {
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X], <BOY>[Y], 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    sleep(0x02);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    sleep(0x02);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                    sleep(0x05);
+                    shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+                }
 
-            fun spawn_boss(x, y) {
-                add_enemy(MAGMAR, x, y);
-                BOSS.ID = <LAST_ENTITY>;
-                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
-                attach_script(LAST_ENTITY, DAMAGE, reference(monstro_damage));
-                attribute(LAST_ENTITY, ROOT, True);
+                @async()
+                @install()
+                fun following() {
+                    while!(dead(BOSS.ID)) {
+                        if(BOSS.FOLLOWING > 0x00) {
+                            if(BOSS.ID[X] > <BOY>[X]) {
+                                BOSS.ID[X] -= BOSS.FOLLOWING;
+                            } else if(BOSS.ID[X] < <BOY>[X]) {
+                                BOSS.ID[X] += BOSS.FOLLOWING;
+                            }
 
-                following();
-                move_logic();
-            }
+                            if(BOSS.ID[Y] > <BOY>[Y]) {
+                                BOSS.ID[Y] -= BOSS.FOLLOWING;
+                            } else if(BOSS.ID[Y] < <BOY>[Y]) {
+                                BOSS.ID[Y] += BOSS.FOLLOWING;
+                            }
+                        }
 
-            fun intro() {
-                subtext("Isaac vs. Monstro");
-            }
+                        yield();
+                    }
+                }
+
+                @install()
+                fun yeet() {
+                    BOSS.ID[JUMP_HEIGHT] = 0x55;
+                    
+                    BOSS.FOLLOWING = 0x01;
+                    sleep(0xa0);
+                    BOSS.FOLLOWING = 0x00;
+
+                    flop();
+                }
+
+                @install()
+                fun hop() {
+                    BOSS.ID[JUMP_HEIGHT] = 0x20;
+
+                    BOSS.FOLLOWING = 0x01;
+                    sleep(0x40);
+                    BOSS.FOLLOWING = 0x00;
+                }
+
+                fun move() {
+                    animate(BOSS.ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+
+                    BOSS.MOVE_RNG = randrange(0x05);
+
+                    if(BOSS.MOVE_RNG == 0x00) {
+                        puke();
+                        sleep(0x50);
+                    } else if(BOSS.MOVE_RNG == 0x01) {
+                        yeet();
+                        sleep(0x60);
+                    } else {
+                        hop();
+                        sleep(0x20);
+                    }
+                }
+
+                @async()
+                @install()
+                fun move_logic() {
+                    sleep(0x80);
+                    
+                    while!(dead(BOSS.ID)) {
+                        move();
+                    }
+                }
+
+                @install()
+                fun monstro_damage() {
+                    attribute(BOSS.ID, INVISIBLE, True);
+                    yield();
+                    attribute(BOSS.ID, INVISIBLE, False);
+                    animate(BOSS.ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+
+                    if(dead(BOSS.ID)) {
+                        boss_defeated();
+                    }
+                }
+
+                fun spawn_boss(x, y) {
+                    add_enemy(MAGMAR, x, y);
+                    BOSS.ID = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(monstro_damage));
+                    attribute(LAST_ENTITY, ROOT, True);
+
+                    following();
+                    move_logic();
+
+                    set(BOSS.PROGRESS);
+                    fade_to_music(BOSS);
+                }
+            };
 
             @install()
             fun trap_door_interacted() {
-                map_transition(basement_3_start, center, NONE);
+                if!(BOSS.PROGRESS) {
+                    map_transition(basement_3_start, center, NONE);
+                }
             }
 
             fun trigger_enter() {
-                spawn_boss(0x10, 0x13);
+                if!(SOULS_MEMORY.DEAD_MONSTRO) {
+                    spawn_boss(0x10, 0x13);
+
+                    subtext("Isaac vs. Monstro");
+                }
 
                 // available(BOY);
                 // destroy(DOG); // teleport(BOY, 0x00, 0x00);
@@ -15606,14 +15845,17 @@ area dungeon_isaac() {
                 add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
                 attach_script(LAST_ENTITY, TALK, reference(trap_door_interacted));
 
-                isaac_init(True, False);
-
-                intro();
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
     };
 
     area level_3() {
+        enum BASEMENT_LEVEL {
+            NIGHT = True,
+            RAIN = False,
+        }
+
         map basement_3_start(0x22) { // start "-|"
             enum entrance {
                 north = entrance(0x11, 0x25, SOUTH),
@@ -15622,6 +15864,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum stepon_trigger {
@@ -15683,7 +15929,7 @@ area dungeon_isaac() {
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
                 prepare_room(0x05);
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
 
                 if!(FLAG.IN_ANIMATION) {
                     // teleport(DOG, 0x19, 0x1d);
@@ -15702,6 +15948,10 @@ area dungeon_isaac() {
                 south_1 = entrance(0x65, 0x1f, NORTH),
                 south_2 = entrance(0x46, 0x1f, NORTH),
                 west = entrance(0x38, 0x18, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15773,11 +16023,17 @@ area dungeon_isaac() {
                 // object[0x03] = 0x01; // opens room_2_south_1
                 // object[0x0a] = 0x01; // shows room_2_decoration (stone -> tree)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x57, 0x16);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_fly_exploding(0d79, 0d17);
+
+                        add_isaac_enemy_spider(0x57, 0x16);
+
+                        add_isaac_enemy_fly_exploding(0d92, 0d26);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15786,6 +16042,10 @@ area dungeon_isaac() {
                 north = entrance(0x39, 0x24, SOUTH),
                 east = entrance(0x48, 0x4b, WEST),
                 west = entrance(0x26, 0x4e, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15850,11 +16110,15 @@ area dungeon_isaac() {
                 // object[0x07] = 0x01; // opens room_4_west
                 // object[0x0e] = 0x01; // shows room_4_decoration (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x3c, 0x3c);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_slime(0d57, 0d61);
+
+                        add_isaac_enemy_maggot(0x3c, 0x3c);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15863,6 +16127,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -15932,12 +16200,16 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 // object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x59, 0x47);
-                    add_isaac_enemy_maggot(0x5b, 0x49);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_spider(0d97, 0d55);
+                        
+                        add_isaac_enemy_maggot(0x59, 0x47);
+                        add_isaac_enemy_maggot(0x5b, 0x49);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -15947,6 +16219,10 @@ area dungeon_isaac() {
                 south_1 = entrance(0x65, 0x1f, NORTH),
                 south_2 = entrance(0x46, 0x1f, NORTH),
                 west = entrance(0x38, 0x18, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -16017,11 +16293,15 @@ area dungeon_isaac() {
                 object[0x03] = 0x01; // opens room_2_south_1
                 // object[0x0a] = 0x01; // shows room_2_decoration (stone -> tree)
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x53, 0x13);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x53, 0x13);
+
+                        add_isaac_enemy_fly_shooting(0d92, 0d17);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -16033,6 +16313,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -16104,13 +16388,19 @@ area dungeon_isaac() {
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
                 prepare_room(0x05);
-                isaac_init(True, False);
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x12, 0x36);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x12, 0x36);
+
+                        add_isaac_enemy_fly_exploding(0d27, 0d56);
+
+                        add_isaac_enemy_spider(0d15, 0d69);
+                        add_isaac_enemy_spider(0d22, 0d67);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -16119,6 +16409,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -16186,11 +16480,15 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x5d, 0x31);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_maggot(0x5d, 0x31);
+
+                        add_isaac_enemy_slime(0d97, 0d68);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -16202,6 +16500,10 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -16271,13 +16573,17 @@ area dungeon_isaac() {
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
                 prepare_room(0x05);
-                isaac_init(True, False);
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x12, 0x36);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_fly_exploding(0d24, 0d56);
+                        add_isaac_enemy_fly_shooting(0d11, 0d56);
+
+                        add_isaac_enemy_maggot(0x12, 0x36);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -16286,6 +16592,10 @@ area dungeon_isaac() {
                 north = entrance(0x5f, 0x25, SOUTH),
                 west = entrance(0x4b, 0x4c, EAST),
                 south = entrance(0x5a, 0x55, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -16355,12 +16665,16 @@ area dungeon_isaac() {
                 // object[0x11] = 0x01; // shows room_3_decoration_3 (tree)
                 // object[0x13] = 0x01; // closes room_3_north
 
-                if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x59, 0x47);
-                    add_isaac_enemy_maggot(0x5b, 0x49);
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
+                        add_isaac_enemy_slime(0d96, 0d54);
+
+                        add_isaac_enemy_maggot(0x59, 0x47);
+                        add_isaac_enemy_maggot(0x5b, 0x49);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -16369,6 +16683,10 @@ area dungeon_isaac() {
                 east = entrance(0x35, 0x16, WEST),
                 north = entrance(0x18, 0x1f, NORTH),
                 west = entrance(0x00, 0x15, EAST),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -16439,11 +16757,16 @@ area dungeon_isaac() {
                 // object[0x0c] = 0x01; // shows room_5_decoration_2 (tree)
                 // object[0x0d] = 0x01; // shows room_5_decoration_3 (stone)
 
-                if!(ROOM.CLEAR_FLAG) {
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    if!(ROOM.CLEAR_FLAG) {
                     add_isaac_enemy_maggot(0x23, 0x15);
+
+                    add_isaac_enemy_spider(0d13, 0d18);
+                    add_isaac_enemy_spider(0d23, 0d25);
+                    }
                 }
                 
-                isaac_init(True, False);
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
 
@@ -16453,22 +16776,15 @@ area dungeon_isaac() {
                 south = entrance(0x1b, 0x29, NORTH)
             }
 
-            enum stepon_trigger {
-                exit_east = @install() {
-                    map_transition(basement_3_9, west, EAST);
-                },
-                exit_south = @install() {
-                    subtext("S=1");
-                }
+            enum soundtrack {
+                default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
             enum BOSS {
+                PROGRESS = flag_tmp(),
+
                 MOUNT_ID = memory_tmp(),
                 RIDER_ID = memory_tmp(),
-
-                FOLLOWING = memory_tmp(),
-
-                PUKE_HELPER = memory_tmp(),
 
                 MOVE_RNG = memory_tmp(),
 
@@ -16477,172 +16793,195 @@ area dungeon_isaac() {
                 CANNONBALL_COUNT = memory_tmp(),
             }
 
-            @install()
-            fun shoot_x() {
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x80, -0x80, 0x10, 0xff); // north east
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x80, -0x80, 0x10, 0xff); // north west
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x80, 0x80, 0x10, 0xff); // south east
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x80, 0x80, 0x10, 0xff); // south west
+            enum stepon_trigger {
+                exit_east = @install() {
+                    if!(BOSS.PROGRESS) {
+                        map_transition(basement_3_9, west, EAST);
+                    }
+                },
+                exit_south = @install() {
+                    subtext("S=1");
+                }
             }
 
             @install()
-            fun shoot_plus() {
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, -0x80, 0x10, 0xff); // north
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x80, 0x00, 0x10, 0xff); // east
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff); // south
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x80, 0x00, 0x10, 0xff); // west
+            fun boss_defeated() {
+                set(SOULS_MEMORY.DEAD_DARK_ONE);
+                unset(BOSS.PROGRESS);
+
+                souls_boss_defeated();
+
+                music(AREA_BASEMENT.MUSIC_DEFAULT);
             }
 
-            @install()
-            fun shoot_star() {
-                // shoot_x();
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x60, -0x60, 0x10, 0xff); // north east
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x60, -0x60, 0x10, 0xff); // north west
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x60, 0x60, 0x10, 0xff); // south east
-                shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x60, 0x60, 0x10, 0xff); // south west
+            group boss_ai() {
+                @install()
+                fun shoot_x() {
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x80, -0x80, 0x10, 0xff); // north east
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x80, -0x80, 0x10, 0xff); // north west
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x80, 0x80, 0x10, 0xff); // south east
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x80, 0x80, 0x10, 0xff); // south west
+                }
 
-                shoot_plus();
-            }
+                @install()
+                fun shoot_plus() {
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, -0x80, 0x10, 0xff); // north
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x80, 0x00, 0x10, 0xff); // east
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff); // south
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x80, 0x00, 0x10, 0xff); // west
+                }
 
-            @install()
-            fun charge_right() {
-                face(BOSS.MOUNT_ID, EAST);
-                animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+                @install()
+                fun shoot_star() {
+                    // shoot_x();
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x60, -0x60, 0x10, 0xff); // north east
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x60, -0x60, 0x10, 0xff); // north west
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x60, 0x60, 0x10, 0xff); // south east
+                    shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x60, 0x60, 0x10, 0xff); // south west
 
-                BOSS.CANNONBALL_COUNT = 0x0000;
+                    shoot_plus();
+                }
 
-                while(BOSS.CANNONBALL_COUNT <= 0x02) {
-                    if(BOSS.MOUNT_ID[X] > 0x200) {
-                        BOSS.CANNONBALL_COUNT += 0x01;
+                @install()
+                fun charge_right() {
+                    face(BOSS.MOUNT_ID, EAST);
+                    animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
 
-                        BOSS.MOUNT_ID[X] = 0x00;
-                        BOSS.MOUNT_ID[Y] = <BOY>[Y];
+                    BOSS.CANNONBALL_COUNT = 0x0000;
+
+                    while(BOSS.CANNONBALL_COUNT <= 0x02) {
+                        if(BOSS.MOUNT_ID[X] > 0x200) {
+                            BOSS.CANNONBALL_COUNT += 0x01;
+
+                            BOSS.MOUNT_ID[X] = 0x00;
+                            BOSS.MOUNT_ID[Y] = <BOY>[Y];
+
+                            animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+                        }
+
+                        BOSS.MOUNT_ID[X] += 0x08;
+                        bomb_entity(BOSS.MOUNT_ID, 0x10);
+
+                        yield();
                     }
 
-                    BOSS.MOUNT_ID[X] += 0x08;
-                    bomb_entity(BOSS.MOUNT_ID, 0x10);
+                    BOSS.CANNONBALL_X = <BOY>[X];
+                    BOSS.CANNONBALL_Y = <BOY>[Y];
 
-                    yield();
+                    BOSS.MOUNT_ID[X] = 0x00;
+                    BOSS.MOUNT_ID[Y] = BOSS.CANNONBALL_Y;
+
+                    while(BOSS.MOUNT_ID[X] < BOSS.CANNONBALL_X) {
+                        BOSS.MOUNT_ID[X] += 0x08;
+                        bomb_entity(BOSS.MOUNT_ID, 0x10);
+
+                        yield();
+                    }
+
+                    animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+
+                    BOSS.CANNONBALL_X = BOSS.MOUNT_ID[X] - 0x10;
+
+                    while(BOSS.MOUNT_ID[X] > BOSS.CANNONBALL_X) {
+                        BOSS.MOUNT_ID[X] -= 0x01;
+
+                        sleep(0x02);
+                    }
+
+                    animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
                 }
 
-                BOSS.CANNONBALL_X = <BOY>[X];
-                BOSS.CANNONBALL_Y = <BOY>[Y];
+                @install()
+                @async()
+                fun stack_t01() {
+                    while!(dead(<BOY>)) {
+                        BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                        BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y];
+                        yield();
 
-                BOSS.MOUNT_ID[X] = 0x00;
-                BOSS.MOUNT_ID[Y] = BOSS.CANNONBALL_Y;
-
-                while(BOSS.MOUNT_ID[X] < BOSS.CANNONBALL_X) {
-                    BOSS.MOUNT_ID[X] += 0x08;
-                    bomb_entity(BOSS.MOUNT_ID, 0x10);
-
-                    yield();
+                        // <DOG>[X] = <BOY>[X] - 0x05;
+                        // <DOG>[Y] = <BOY>[Y];
+                        // yield();
+                    }
                 }
 
-                animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+                fun move() {
+                    attribute(BOSS.MOUNT_ID, ROOT, True);
+                    animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+                    control(BOSS.MOUNT_ID, True);
+                    animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.LIZARD_DUCK_1);
+                    sleep(0x20);
 
-                BOSS.CANNONBALL_X = BOSS.MOUNT_ID[X] - 0x10;
+                    BOSS.MOVE_RNG = randrange(0x03);
 
-                while(BOSS.MOUNT_ID[X] > BOSS.CANNONBALL_X) {
-                    BOSS.MOUNT_ID[X] -= 0x01;
+                    if(BOSS.MOVE_RNG == 0x00) {
+                        shoot_x();
+                        sleep(0x50);
+                        shoot_plus();
+                    } else if(BOSS.MOVE_RNG == 0x01) {
+                        shoot_star();
+                    } else {
+                        charge_right();
+                    }
 
-                    sleep(0x02);
+                    animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+                    sleep(0x20);
+                    animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
+                    attribute(BOSS.MOUNT_ID, ROOT, False);
+                    control(BOSS.MOUNT_ID, False);
                 }
 
-                animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
-            }
-
-            @install()
-            fun monstro_damage() {
-                yield();
-                // animate(BOSS.MOUNT_ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
-
-                // animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ALL.DEFAULT);
-            }
-
-            @install()
-            @async()
-            fun stack_t01() {
-                while!(dead(<BOY>)) {
-                    BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-                    BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y];
-                    yield();
-
-                    // <DOG>[X] = <BOY>[X] - 0x05;
-                    // <DOG>[Y] = <BOY>[Y];
-                    // yield();
-                }
-            }
-
-            fun move() {
-                attribute(BOSS.MOUNT_ID, ROOT, True);
-                animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
-                control(BOSS.MOUNT_ID, True);
-                animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.LIZARD_DUCK_1);
-                sleep(0x20);
-
-                BOSS.MOVE_RNG = randrange(0x03);
-
-                if(BOSS.MOVE_RNG == 0x00) {
-                    shoot_x();
-                    sleep(0x50);
-                    shoot_plus();
-                } else if(BOSS.MOVE_RNG == 0x01) {
-                    shoot_star();
-                } else {
-                    charge_right();
-                }
-
-                animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
-                sleep(0x20);
-                animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
-                attribute(BOSS.MOUNT_ID, ROOT, False);
-                control(BOSS.MOUNT_ID, False);
-            }
-
-            @async()
-            @install()
-            fun move_logic() {
-                sleep(0x80);
-                
-                while(True) {
-                    move();
+                @async()
+                @install()
+                fun move_logic() {
+                    sleep(0x80);
                     
-                    sleep(0x60);
+                    while!(dead(BOSS.MOUNT_ID)) {
+                        move();
+                        
+                        sleep(0x60);
+                    }
                 }
-            }
 
-            fun spawn_boss(x, y) {
-                add_enemy(MAGMAR, x, y);
-                BOSS.RIDER_ID = <LAST_ENTITY>;
-                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
-                attach_script(LAST_ENTITY, DAMAGE, reference(monstro_damage));
-                attribute(LAST_ENTITY, ROOT, True);
-                attribute(LAST_ENTITY, INVISIBLE, True);
-                attribute(LAST_ENTITY, INVINCIBLE, True);
+                fun spawn_boss(x, y) {
+                    add_enemy(MAGMAR, x, y);
+                    BOSS.RIDER_ID = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+                    attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+                    attribute(LAST_ENTITY, ROOT, True);
+                    attribute(LAST_ENTITY, INVISIBLE, True);
+                    attribute(LAST_ENTITY, INVINCIBLE, True);
 
-                // add_enemy_with_flags(DRAKE, x, y, INACTIVE);
-                // add_enemy_with_flags(FOOTKNIGHT, x, y, INACTIVE);
-                add_enemy_with_flags(LIZARD_BLACK, x, y, 0x00);
-                BOSS.MOUNT_ID = <LAST_ENTITY>;
+                    // add_enemy_with_flags(DRAKE, x, y, INACTIVE);
+                    // add_enemy_with_flags(FOOTKNIGHT, x, y, INACTIVE);
+                    add_enemy_with_flags(LIZARD_BLACK, x, y, 0x00);
+                    attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+                    BOSS.MOUNT_ID = <LAST_ENTITY>;
 
-                move_logic();
-                stack_t01();
-            }
+                    move_logic();
+                    stack_t01();
 
-            fun intro() {
-                subtext("Isaac vs. Dark One");
-            }
+                    set(BOSS.PROGRESS);
+                    fade_to_music(BOSS);
+                }
+            };
 
             @install()
             fun trap_door_interacted() {
-                map_transition(west_hut_outside, hut, NONE);
+                if!(BOSS.PROGRESS) {
+                    map_transition(west_hut_outside, hut, NONE);
+                }
             }
 
             fun trigger_enter() {
                 object[0x00] = 0x01; // close south
                 object[0x01] = 0x7e; // open east
 
-                spawn_boss(0x10, 0x13);
+                if!(SOULS_MEMORY.DEAD_DARK_ONE) {
+                    spawn_boss(0x10, 0x13);
+
+                    subtext("Isaac vs. Dark One");
+                }
 
                 // available(BOY);
                 // destroy(DOG); // teleport(BOY, 0x00, 0x00);
@@ -16650,9 +16989,7 @@ area dungeon_isaac() {
                 add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
                 attach_script(LAST_ENTITY, TALK, reference(trap_door_interacted));
 
-                isaac_init(True, False);
-
-                intro();
+                isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
         };
     };
