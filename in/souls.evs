@@ -857,7 +857,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(hut_cat, door, NONE);
+                map_transition(podunk_old, north, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -2028,7 +2028,8 @@ area inbetwixx_center() {
             } else if(MEMORY.QUESTION_ANSWER == 0x04) { // invisible arena
                 map_transition(invisible_arena, right, NONE);
             } else if(MEMORY.QUESTION_ANSWER == 0x05) { // abomination arena
-                map_transition(abomination_arena, right, NONE);
+                // map_transition(abomination_arena, right, NONE);
+                nop();
             } else if(MEMORY.QUESTION_ANSWER == 0x06) { // radahn arena
                 map_transition(radahn_arena, right, NONE);
             } else if(MEMORY.QUESTION_ANSWER == 0x07) { // drone arena
@@ -17788,224 +17789,6 @@ area experimental_room() {
         }
     };
 
-    map abomination_arena(0x5c) {
-        enum entrance {
-            left = entrance(0x15, 0x1c, NONE),
-            center = entrance(0x1e, 0x21, NONE),
-            right = entrance(0x2a, 0x23, NONE)
-        }
-
-        enum soundtrack {
-            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
-        }
-
-        enum stepon_trigger {
-            exit_north = nop(),
-            exit_south = nop(),
-            center = nop(),
-        }
-
-        fun close_exits(close) {
-            if(close) {
-                object[0x04] = 0x04;
-            } else {
-                object[0x05] = 0x04;
-            }
-        }
-
-        enum BOSS {
-            ID_CARLTRON = memory_tmp(),
-            ID_LEFT = memory_tmp(),
-            ID_RIGHT = memory_tmp(),
-            ID_BACK = memory_tmp(),
-
-            PHASE = memory_tmp(),
-
-            COUNTDOWN = 0x03,
-        }
-
-        @install()
-        fun abomination_triggered() {
-            if(<SCRIPT_OWNER> == BOSS.ID_CARLTRON) {
-                // subtext("c");
-
-                
-                attribute(BOSS.ID_CARLTRON, NO_CLIP, True);
-                control(NONE);
-                face(ACTIVE, NORTH);
-                animate(ACTIVE, ONCE, ANIMATION_ALL.KNOCKBACK);
-                damage(BOY, 0x05, True);
-                sleep(0x01);
-                attribute(BOSS.ID_CARLTRON, NO_CLIP, False);
-
-                animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.CARLTRON_TALK);
-                sleep(0x50);
-                animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
-
-                control(BOTH);
-
-                if(BOSS.PHASE == 0x00) {
-                    BOSS.PHASE = 0x01;
-                }
-            } else if(<SCRIPT_OWNER> == BOSS.ID_LEFT) {
-                // subtext("l");
-
-                if(BOSS.PHASE == 0x01) {
-                    if(dead(<SCRIPT_OWNER>)) {
-                        BOSS.PHASE = 0x02;
-                    }
-                }
-            } else if(<SCRIPT_OWNER> == BOSS.ID_RIGHT) {
-                if(BOSS.PHASE >= 0x02) {
-                    if(dead(<SCRIPT_OWNER>)) {
-                        BOSS.PHASE += 0x01;
-                    }
-                }
-            } else if(<SCRIPT_OWNER> == BOSS.ID_BACK) {
-                if(BOSS.PHASE >= 0x02) {
-                    if(dead(<SCRIPT_OWNER>)) {
-                        BOSS.PHASE += 0x01;
-                    }
-                }
-            }
-        }
-
-        @install()
-        @async()
-        fun abomination_watcher() {
-            subtext("phase 0");
-
-            while(BOSS.PHASE == 0x00) {
-                yield();
-            }
-
-            subtext("phase 1");
-
-            animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
-
-            add_enemy(THRAXX_LEFT_ARM, 0x00, 0x00);
-            BOSS.ID_LEFT = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
-
-            sleep(0x50);
-
-            while(BOSS.PHASE == 0x01) {
-                yield();
-            }
-
-            subtext("phase 2");
-
-            animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
-
-            add_enemy(THRAXX2_LEFT_ARM, 0x00, 0x00);
-            BOSS.ID_LEFT = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
-
-            sleep(0x50);
-
-            add_enemy(THRAXX_RIGHT_ARM, 0x00, 0x00);
-            BOSS.ID_RIGHT = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
-
-            sleep(0x50);
-
-            add_enemy(BONE_SNAKE, 0x00, 0x00);
-            BOSS.ID_BACK = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
-
-            sleep(0x50);
-
-            while(BOSS.PHASE == 0x02) {
-                yield();
-            }
-
-            subtext("phase 3");
-
-            while(BOSS.PHASE == 0x03) {
-                yield();
-            }
-
-            subtext("phase 4");
-
-            while(BOSS.PHASE == 0x04) {
-                yield();
-            }
-
-            subtext("phase 5");
-
-            add_enemy(SALABOG, 0x00, 0x00);
-            BOSS.ID_BACK = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
-
-            while(BOSS.PHASE == 0x05) {
-                yield();
-            }
-
-            control_enemy(BOSS.ID_CARLTRON, True);
-            attribute(BOSS.ID_CARLTRON, INVINCIBLE, True);
-            face(BOSS.ID_CARLTRON, SOUTH);
-            animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_DROPPING);
-            sleep(0x80);
-
-            animate(BOSS.ID_CARLTRON, LOOP, ANIMATION_ENEMY.CARLTRON_LYING);
-            destroy(BOSS.ID_LEFT);
-            destroy(BOSS.ID_RIGHT);
-            destroy(BOSS.ID_BACK);
-            sleep(0xff);
-
-            // destroy(BOSS.ID_CARLTRON);
-
-            subtext("yatta!");
-        }
-
-        @install()
-        @async()
-        fun stack_t0123() {
-            while!(dead(BOSS.ID_CARLTRON)) {
-                BOSS.ID_LEFT[X] = BOSS.ID_CARLTRON[X] - 0x05;
-                BOSS.ID_LEFT[Y] = BOSS.ID_CARLTRON[Y] - 0x1a;
-
-                // sleep(0x02);
-                yield();
-
-                BOSS.ID_RIGHT[X] = BOSS.ID_CARLTRON[X] + 0x05;
-                BOSS.ID_RIGHT[Y] = BOSS.ID_CARLTRON[Y] - 0x1a;
-
-                // sleep(0x0);
-                yield();
-
-                BOSS.ID_BACK[X] = BOSS.ID_CARLTRON[X];
-                BOSS.ID_BACK[Y] = BOSS.ID_CARLTRON[Y] - 0x20;
-
-                // sleep(0x02);
-                yield();
-            }
-        }
-
-        fun abomination() {
-            add_enemy(CARLTRON, 0x10, 0x13);
-            BOSS.ID_CARLTRON = <LAST_ENTITY>;
-            <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-            attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
-
-            abomination_watcher();
-        }
-
-        fun trigger_enter() {
-            default_init_room(True, False);
-
-            close_exits(True);
-
-            character_selection(BOY);
-            
-            abomination();
-            stack_t0123();
-
-            countdown(BOSS.COUNTDOWN);
-            attribute(BOY, INVINCIBLE, False);
-        }
-    };
-
     map drone_arena(0x5c) {
         enum entrance {
             left = entrance(0x15, 0x1c, NONE),
@@ -19171,5 +18954,384 @@ area experimental_room() {
             // add_enemy(TENTACLE_SPIKE, 0x1e, 0x0b);
             add_enemy(TENTACLE_SPIKE, 0x1b, 0x0e);
         }
+    };
+
+    group podunk() {
+        map podunk_old(0x31) {
+            enum entrance {
+                north = entrance(0d09, 0d00, SOUTH),
+                west = entrance(0d00, 0d19, EAST),
+
+                cinema_left = entrance(0d64, 0d15, SOUTH),
+                cinema_right = entrance(0d75, 0d15, SOUTH),
+            }
+
+            enum ROOM {
+                COMMENT_SOUTH = flag_tmp(),
+
+                COMMENT_BUILDING = flag_tmp(),
+                COMMENT_CINEMA = flag_tmp(),
+            }
+
+            fun bug_discovered_1() {
+                add_dynamic_enemy_with_flags(MAGGOT, <ACTIVE>[X] - 0x50, <ACTIVE>[Y] + 0x50, 0x0000);
+                <LAST_ENTITY>[FALLING_HEIGHT] = 0x1000;
+                add_dynamic_enemy_with_flags(MAGGOT, <ACTIVE>[X] + 0x50, <ACTIVE>[Y] + 0x50, 0x0000);
+                <LAST_ENTITY>[FALLING_HEIGHT] = 0x1000;
+            }
+            fun bug_discovered_2() {
+                add_dynamic_enemy_with_flags(MAGGOT_RED, <ACTIVE>[X] - 0x50, <ACTIVE>[Y] - 0x50, 0x0000);
+                <LAST_ENTITY>[FALLING_HEIGHT] = 0x1000;
+                add_dynamic_enemy_with_flags(MAGGOT_RED, <ACTIVE>[X] + 0x50, <ACTIVE>[Y] - 0x50, 0x0000);
+                <LAST_ENTITY>[FALLING_HEIGHT] = 0x1000;
+            }
+
+            @install()
+            @async()
+            fun fake_exit_check() {
+                while(True) {
+                    if!(ROOM.COMMENT_CINEMA) {
+                        if(<ACTIVE>[X] > (0d70 * 0x0008)) { // cinema
+                            set(ROOM.COMMENT_CINEMA);
+
+                            subtext("comment 1");
+                        }
+                    } else if(<ACTIVE>[X] > (0d135 * 0x0008)) { // end of street
+                        map_transition(mansion_old, west, EAST);
+                        end();
+                    }
+
+                    if((<ACTIVE>[Y] < (0d19 * 0x0008)) && (<ACTIVE>[X] > (0d19 * 0x0008)) && (<ACTIVE>[X] < (0d120 * 0x0008))) { // cinema
+                        if!(ROOM.COMMENT_BUILDING) {
+                            set(ROOM.COMMENT_BUILDING);
+
+                            subtext("comment building");
+                            bug_discovered_1();
+
+                            sleep(0d120);
+                        } else {
+                            if(<ACTIVE>[X] < (0d20 * 0x0008)) { // push left
+                                <ACTIVE>[X] = 0d19 * 0x0008;
+
+                                // subtext("left");
+                            } else if(<ACTIVE>[X] > (0d119 * 0x0008)) { // right
+                                <ACTIVE>[X] = 0d120 * 0x0008;
+
+                                // subtext("left");
+                            } else {
+                                <ACTIVE>[Y] = 0d19 * 0x0008;
+                            }
+                        }
+                        
+                        // sleep(0x10);
+                        yield();
+                    } else if(<ACTIVE>[Y] > (0d33 * 0x0008)) {
+                        if!(ROOM.COMMENT_SOUTH) {
+                            set(ROOM.COMMENT_SOUTH);
+
+                            subtext("comment south 1");
+                            sleep(0d120);
+                            subtext("comment south 2");
+                            sleep(0d120);
+
+                            bug_discovered_2();
+
+                            init_map(0x00, 0x00, 0d145, 0d33);
+                        } else {
+                            <ACTIVE>[Y] = 0d33 * 0x0008;
+                        }
+                    }
+
+                    yield();
+                }
+            }
+
+            @install()
+            fun cat_triggered() {
+                destroy(SCRIPT_OWNER);
+
+                subtext("todo");
+
+                bug_discovered_1();
+                bug_discovered_2();
+            }
+
+            fun trigger_enter() {
+                add_placeholder(CAT_CLEANING_2, 0d122, 0d17);
+                add_placeholder(CAT_CLEANING_2, 0d123, 0d17);
+                attach_script(LAST_ENTITY, TALK, reference(cat_triggered));
+                
+                fade_in();
+
+                fake_exit_check();
+            }
+        };
+
+        map mansion_old(0x02) {
+            enum entrance {
+                west = entrance(0d00, 0d106, EAST),
+                south = entrance(0d35, 0d113, NORTH),
+            }
+
+            @install()
+            @async()
+            fun fake_exit_check() {
+                while(True) {
+                    if(<ACTIVE>[Y] < (0d22 * 0x0008)) {
+                        map_transition(podunk_new, cinema_left, NORTH);
+                    }
+
+                    yield();
+                }
+            }
+
+            fun trigger_enter() {
+                add_enemy(CARLTRON, 0d35, 0d71);
+                control_enemy(LAST_ENTITY, True);
+
+                fade_in();
+
+                fake_exit_check();
+            }
+        };
+
+
+        map podunk_new(0x32) {
+            enum entrance {
+                north = entrance(0d09, 0d00, SOUTH),
+                west = entrance(0d00, 0d19, EAST),
+
+                cinema_left = entrance(0d12, 0d13, SOUTH),
+                cinema_right = entrance(0d23, 0d13, SOUTH),
+            }
+
+            @install()
+            @async()
+            fun fake_exit_check() {
+                while(True) {
+                    if((<ACTIVE>[Y] < (0d17 * 0x0008)) && (<ACTIVE>[X] < (0d69 * 0x0008))) { // cinema
+                        if(<ACTIVE>[X] > (0d68 * 0x0008)) { // right
+                            <ACTIVE>[X] = 0d69 * 0x0008;
+
+                            // subtext("left");
+                        } else {
+                            <ACTIVE>[Y] = 0d17 * 0x0008;
+                        }
+                        
+                        // sleep(0x10);
+                        yield();
+                    } else if(<ACTIVE>[X] > (0d84 * 0x0008)) { // right
+                        map_transition(mansion_modern, west, EAST);
+                        end();
+                    }
+
+                    yield();
+                }
+            }
+
+            fun trigger_enter() {
+                fade_in();
+
+                sleep(0d60);
+                fake_exit_check();
+            }
+        };
+
+        map mansion_modern(0x03) {
+            enum entrance {
+                west = entrance(0d00, 0d106, EAST),
+                south = entrance(0d19, 0d111, NORTH),
+            }
+
+            enum BOSS {
+                ID_CARLTRON = memory_tmp(),
+                ID_LEFT = memory_tmp(),
+                ID_RIGHT = memory_tmp(),
+                ID_BACK = memory_tmp(),
+
+                PHASE = memory_tmp(),
+
+                COUNTDOWN = 0x03,
+            }
+
+            group boss_ai() {
+                @install()
+                fun abomination_triggered() {
+                    if(<SCRIPT_OWNER> == BOSS.ID_CARLTRON) {
+                        heal(SCRIPT_OWNER, 0x00, False);
+
+                        // subtext("c");
+
+                        
+                        attribute(BOSS.ID_CARLTRON, NO_CLIP, True);
+                        control(NONE);
+                        face(ACTIVE, NORTH);
+                        animate(ACTIVE, ONCE, ANIMATION_ALL.KNOCKBACK);
+                        damage(BOY, 0x05, True);
+                        sleep(0x01);
+                        attribute(BOSS.ID_CARLTRON, NO_CLIP, False);
+
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.CARLTRON_TALK);
+                        sleep(0x50);
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+
+                        control(BOTH);
+
+                        if(BOSS.PHASE == 0x00) {
+                            BOSS.PHASE = 0x01;
+                        }
+                    } else if(<SCRIPT_OWNER> == BOSS.ID_LEFT) {
+                        // subtext("l");
+
+                        if(BOSS.PHASE == 0x01) {
+                            if(dead(<SCRIPT_OWNER>)) {
+                                BOSS.PHASE = 0x02;
+                            }
+                        }
+                    } else if(<SCRIPT_OWNER> == BOSS.ID_RIGHT) {
+                        if(BOSS.PHASE >= 0x02) {
+                            if(dead(<SCRIPT_OWNER>)) {
+                                BOSS.PHASE += 0x01;
+                            }
+                        }
+                    } else if(<SCRIPT_OWNER> == BOSS.ID_BACK) {
+                        if(BOSS.PHASE >= 0x02) {
+                            if(dead(<SCRIPT_OWNER>)) {
+                                BOSS.PHASE += 0x01;
+                            }
+                        }
+                    }
+                }
+
+                @install()
+                @async()
+                fun abomination_watcher() {
+                    subtext("phase 0");
+
+                    while(BOSS.PHASE == 0x00) {
+                        yield();
+                    }
+
+                    subtext("phase 1");
+
+                    animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
+
+                    add_enemy(THRAXX_LEFT_ARM, 0x00, 0x00);
+                    BOSS.ID_LEFT = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
+
+                    sleep(0x50);
+
+                    while(BOSS.PHASE == 0x01) {
+                        yield();
+                    }
+
+                    subtext("phase 2");
+
+                    animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
+
+                    add_enemy(THRAXX2_LEFT_ARM, 0x00, 0x00);
+                    BOSS.ID_LEFT = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
+
+                    sleep(0x50);
+
+                    add_enemy(THRAXX_RIGHT_ARM, 0x00, 0x00);
+                    BOSS.ID_RIGHT = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
+
+                    sleep(0x50);
+
+                    add_enemy(BONE_SNAKE, 0x00, 0x00);
+                    BOSS.ID_BACK = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
+
+                    sleep(0x50);
+
+                    while(BOSS.PHASE == 0x02) {
+                        yield();
+                    }
+
+                    subtext("phase 3");
+
+                    while(BOSS.PHASE == 0x03) {
+                        yield();
+                    }
+
+                    subtext("phase 4");
+
+                    while(BOSS.PHASE == 0x04) {
+                        yield();
+                    }
+
+                    subtext("phase 5");
+
+                    add_enemy(SALABOG, 0x00, 0x00);
+                    BOSS.ID_BACK = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
+
+                    while(BOSS.PHASE == 0x05) {
+                        yield();
+                    }
+
+                    control_enemy(BOSS.ID_CARLTRON, True);
+                    attribute(BOSS.ID_CARLTRON, INVINCIBLE, True);
+                    face(BOSS.ID_CARLTRON, SOUTH);
+                    animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_DROPPING);
+                    sleep(0x80);
+
+                    animate(BOSS.ID_CARLTRON, LOOP, ANIMATION_ENEMY.CARLTRON_LYING);
+                    destroy(BOSS.ID_LEFT);
+                    destroy(BOSS.ID_RIGHT);
+                    destroy(BOSS.ID_BACK);
+                    sleep(0xff);
+
+                    // destroy(BOSS.ID_CARLTRON);
+
+                    subtext("yatta!");
+                }
+
+                @install()
+                @async()
+                fun stack_t0123() {
+                    while!(dead(BOSS.ID_CARLTRON)) {
+                        BOSS.ID_LEFT[X] = BOSS.ID_CARLTRON[X] - 0x05;
+                        BOSS.ID_LEFT[Y] = BOSS.ID_CARLTRON[Y] - 0x1a;
+
+                        // sleep(0x02);
+                        yield();
+
+                        BOSS.ID_RIGHT[X] = BOSS.ID_CARLTRON[X] + 0x05;
+                        BOSS.ID_RIGHT[Y] = BOSS.ID_CARLTRON[Y] - 0x1a;
+
+                        // sleep(0x0);
+                        yield();
+
+                        BOSS.ID_BACK[X] = BOSS.ID_CARLTRON[X];
+                        BOSS.ID_BACK[Y] = BOSS.ID_CARLTRON[Y] - 0x20;
+
+                        // sleep(0x02);
+                        yield();
+                    }
+                }
+
+                fun add_boss(x, y) {
+                    add_enemy(CARLTRON, x, y);
+                    BOSS.ID_CARLTRON = <LAST_ENTITY>;
+                    <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
+
+                    abomination_watcher();
+                    stack_t0123();
+                }
+
+            };
+
+            fun trigger_enter() {
+                add_boss(0d20, 0d81);
+
+                fade_in();
+            }
+        };
     };
 };
