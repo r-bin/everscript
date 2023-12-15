@@ -203,6 +203,7 @@ group non_maps() {
             WITH_WEATHER = True,
             WITH_TRASH_ENEMIES = True,
             WITH_SOULS_ON_DEATH = True,
+            WITH_BONFIRE_SAVE = False,
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -274,6 +275,8 @@ group non_maps() {
             DEAD_STOMPY_RADAHN = flag(),
             
             DEAD_ARENA_MOSQUITO = flag(),
+
+            DEAD_BOWSER = flag(),
 
             DEAD_TEMPLE_MINITAUR = flag(),
             DEAD_TAVERN_BOXERS = flag(),
@@ -538,10 +541,19 @@ group non_maps() {
             MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
             heal_both(True);
 
-            question("[SLOW]Bonfire:[CHOICE]Return to shrine.");
+            subtext("test");
+            sleep(0x60);
+
+            // if!(SOULS_MEMORY.WITH_BONFIRE_SAVE) { // TODO: if and !if do the same?
+                question("[SLOW]Bonfire:[CHOICE]Return to shrine.");
+            // } else {
+            //     question("[SLOW]Bonfire:[CHOICE]Return to shrine.[CHOICE]Save.");
+            // }
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 map_transition(shrine, crash, NONE);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                save_dialog(0x0867);
             }
         }
 
@@ -864,7 +876,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(lab_cutscene, north, NONE);
+                map_transition(mario_dungeon_boss, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1834,6 +1846,8 @@ area inbetwixx_center() {
             BRIDGE_REVEALER_ENTITY = memory_tmp(),
 
             FLOWER_GATE = memory_tmp(),
+
+            WITH_FLOWER_TRIGGER = False,
         }
 
         @install()
@@ -1855,8 +1869,10 @@ area inbetwixx_center() {
             stepon_5 = ravine_triggered(),
             stepon_6 = ravine_triggered(),
             diamon_eyes = @install() {
-                face(ROOM.FLOWER_GATE, SOUTH);
-                animate(ROOM.FLOWER_GATE, ONCE, ANIMATION_ALL.SLASH_1);
+                if(ROOM.WITH_FLOWER_TRIGGER) {
+                    face(ROOM.FLOWER_GATE, SOUTH);
+                    animate(ROOM.FLOWER_GATE, ONCE, ANIMATION_ALL.SLASH_1);
+                }
             },
             exit_east = @install() {
                 map_transition(east_inbetwixx, west_2, EAST);
@@ -9288,14 +9304,13 @@ area east_inbetwixx() {
                     south = entrance(0x18, 0x47, NORTH)
                 }
 
-                enum stepon_trigger {
-                    exit_south = @install() {
-                        subtext("S=0");
-                    }
+                enum soundtrack {
+                    default = soundtrack(PIPE_MAZE.MUSIC_MAZE, 0xff)
                 }
 
                 enum BOSS {
                     DEBUG = False,
+                    PROGRESS = flag_tmp(),
 
                     ID = memory_tmp(),
 
@@ -9306,232 +9321,267 @@ area east_inbetwixx() {
                     SHELL_DAMAGE = 0x30,
                 }
 
-                @install()
-                fun boss_hit() {
-                    // subtext("bang");
-                    damage(BOSS.ID, BOSS.SHELL_DAMAGE, True);
+                enum stepon_trigger {
+                    exit_south = @install() {
+                        if!(BOSS.PROGRESS) {
+                            map_transition(pipe_entrance_left, gate, SOUTH);
+                        }
+                    }
                 }
 
-                @install()
-                @async()
-                fun koopa_rolling(enemy) {
-                    // sleep(0xa0);
-
-                    // if(<BOY>[X] < arg[0x00][X]) {
-                    //     arg[0x08] = arg[0x00][X] - <BOY>[X];
-                    // } else {
-                    //     arg[0x08] = <BOY>[X] - arg[0x00][X];
-                    // }
-                    if(<BOY>[Y] < arg[0x00][Y]) {
-                        arg[0x0a] = arg[0x00][Y] - <BOY>[Y];
-                    } else {
-                        arg[0x0a] = <BOY>[Y] - arg[0x00][Y];
+                group koopa_ai() {
+                    @install()
+                    fun boss_hit() {
+                        // subtext("bang");
+                        damage(BOSS.ID, BOSS.SHELL_DAMAGE, True);
                     }
 
-                    // debug_memory(arg[0x08], arg[0x0a]);
-                    // sleep(0xa0);
+                    @install()
+                    @async()
+                    fun koopa_rolling(enemy) {
+                        // sleep(0xa0);
 
-                    if(arg[0x0a] <= 0x05) {
-                        if(<BOY>[X] > enemy[X]) {
-                            // subtext("roll west");
-                            
-                            _face(enemy, WEST);
-                        } else if(<BOY>[X] < enemy[X]) {
-                            // subtext("roll east");
-
-                            _face(enemy, EAST);
+                        // if(<BOY>[X] < arg[0x00][X]) {
+                        //     arg[0x08] = arg[0x00][X] - <BOY>[X];
+                        // } else {
+                        //     arg[0x08] = <BOY>[X] - arg[0x00][X];
+                        // }
+                        if(<BOY>[Y] < arg[0x00][Y]) {
+                            arg[0x0a] = arg[0x00][Y] - <BOY>[Y];
+                        } else {
+                            arg[0x0a] = <BOY>[Y] - arg[0x00][Y];
                         }
-                    } else {
-                        if(<BOY>[Y] > enemy[Y]) {
-                            // subtext("roll north");
-                            
-                            _face(enemy, NORTH);
-                        } else if(<BOY>[Y] < enemy[Y]) {
-                            // subtext("roll south");
 
-                            _face(enemy, SOUTH);
-                        }
-                    }
+                        // debug_memory(arg[0x08], arg[0x0a]);
+                        // sleep(0xa0);
 
-                    // sleep(0xa0);
-
-                    while(arg[0x00][0x30] > 0x00) {
-                        subtext("wait roll");
-                        sleep(0x50);
-                    }
-
-                    while!(dead(enemy)) {
-                        if(arg[0x00][0x30] > 0x00) {
-                            subtext("cancel roll");
-                            enemy[0x30] = 0x00;
-                            end();
-                        }
-                        // debug_memory(enemy[X], enemy[Y]);
-                        // debug_memory(enemy[0x30], enemy[0x30]);
-
-                        if((enemy[X] == arg[0x02]) && (enemy[Y] == arg[0x04])) {
-                            // subtext("turn");
-
-                            // if(enemy[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                            if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                                _face(enemy, SOUTH);
-                            } else if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                        if(arg[0x0a] <= 0x05) {
+                            if(<BOY>[X] > enemy[X]) {
+                                // subtext("roll west");
+                                
                                 _face(enemy, WEST);
-                            } else if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
-                                _face(enemy, NORTH);
-                            } else if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                            } else if(<BOY>[X] < enemy[X]) {
+                                // subtext("roll east");
+
                                 _face(enemy, EAST);
                             }
+                        } else {
+                            if(<BOY>[Y] > enemy[Y]) {
+                                // subtext("roll north");
+                                
+                                _face(enemy, NORTH);
+                            } else if(<BOY>[Y] < enemy[Y]) {
+                                // subtext("roll south");
+
+                                _face(enemy, SOUTH);
+                            }
                         }
 
-                        arg[0x02] = enemy[X];
-                        arg[0x04] = enemy[Y];
+                        // sleep(0xa0);
+
+                        while(arg[0x00][0x30] > 0x00) {
+                            subtext("wait roll");
+                            sleep(0x50);
+                        }
+
+                        while!(dead(enemy)) {
+                            if(arg[0x00][0x30] > 0x00) {
+                                subtext("cancel roll");
+                                enemy[0x30] = 0x00;
+                                end();
+                            }
+                            // debug_memory(enemy[X], enemy[Y]);
+                            // debug_memory(enemy[0x30], enemy[0x30]);
+
+                            if((enemy[X] == arg[0x02]) && (enemy[Y] == arg[0x04])) {
+                                // subtext("turn");
+
+                                // if(enemy[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                                if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                                    _face(enemy, SOUTH);
+                                } else if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                                    _face(enemy, WEST);
+                                } else if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                                    _face(enemy, NORTH);
+                                } else if(arg[0x00][FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                                    _face(enemy, EAST);
+                                }
+                            }
+
+                            arg[0x02] = enemy[X];
+                            arg[0x04] = enemy[Y];
+                            sleep(0x05);
+
+
+                            if(BOSS.ID[X] < arg[0x00][X]) {
+                                arg[0x08] = arg[0x00][X] - BOSS.ID[X];
+                            } else {
+                                arg[0x08] = BOSS.ID[X] - arg[0x00][X];
+                            }
+                            if(BOSS.ID[Y] < arg[0x00][Y]) {
+                                arg[0x0a] = arg[0x00][Y] - BOSS.ID[Y];
+                            } else {
+                                arg[0x0a] = BOSS.ID[Y] - arg[0x00][Y];
+                            }
+
+                            if((arg[0x08] < 0x0f) && (arg[0x0a] < 0x0f)) {
+                                boss_hit();
+                                BOSS.ENEMY_COUNT -= 0x01;
+                                _destroy(enemy);
+                            }
+                        }
+                    }
+
+                    @install()
+                    fun koopa_stomped_2() {
+                        heal(SCRIPT_OWNER, 0x00, False);
+                        yield();
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+                        attach_script(SCRIPT_OWNER, DAMAGE, reference(koopa_stomped_1));
+
+                        <SCRIPT_OWNER>[0x30] = 0x00;
+                        koopa_rolling(<SCRIPT_OWNER>);
+                    }
+
+                    @install()
+                    fun koopa_stomped_1() {
+                        yield();
+                        animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+                        attach_script(SCRIPT_OWNER, DAMAGE, reference(koopa_stomped_2));
+
+                        <SCRIPT_OWNER>[0x30] = 0x01;
+                    }
+                    
+                    @install()
+                    fun add_mario_koopa() {
+                        BOSS.ENEMY_COUNT += 0x01;
+
+                        add_dynamic_enemy_with_flags(LIZARD, BOSS.ID[X], BOSS.ID[Y], 0x00);
+                        attach_to_script(LAST_ENTITY);
+                        attach_script(SCRIPT_OWNER, DAMAGE, reference(koopa_stomped_1));
+                        
+                        <SCRIPT_OWNER>[FALLING_HEIGHT] = 0x0fff;
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+                        attribute(SCRIPT_OWNER, ROOT, True);
+                        sleep(0x55);
+
+                        <SCRIPT_OWNER>[JUMP_HEIGHT] = 0x20;
+                        sleep(0x30);
+
+                        attribute(SCRIPT_OWNER, ROOT, False);
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+                    }
+                };
+
+                group boss_ai() {
+                    fun boss_defeated() {
+                        souls_boss_defeated();
+
+                        set(SOULS_MEMORY.DEAD_BOWSER);
+                        unset(BOSS.PROGRESS);
+
+                        music(PIPE_MAZE.MUSIC_MAZE);
+                    }
+
+                    fun shoot_boss(x, y) {
+                        shoot_entity_absolute(BOSS.ID, SPEAR, x, y, 0x30, 0x00);
+                    }
+
+                    @install()
+                    fun toss_hammers() {
+                        animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+                        face(BOSS.ID, SOUTH);
+
+                        shoot_boss(<BOY>[X] , <BOY>[Y] );
                         sleep(0x05);
-
-
-                        if(BOSS.ID[X] < arg[0x00][X]) {
-                            arg[0x08] = arg[0x00][X] - BOSS.ID[X];
-                        } else {
-                            arg[0x08] = BOSS.ID[X] - arg[0x00][X];
-                        }
-                        if(BOSS.ID[Y] < arg[0x00][Y]) {
-                            arg[0x0a] = arg[0x00][Y] - BOSS.ID[Y];
-                        } else {
-                            arg[0x0a] = BOSS.ID[Y] - arg[0x00][Y];
-                        }
-
-                        if((arg[0x08] < 0x0f) && (arg[0x0a] < 0x0f)) {
-                            boss_hit();
-                            BOSS.ENEMY_COUNT -= 0x01;
-                            _destroy(enemy);
-                        }
+                        shoot_boss(<BOY>[X] + randrange(0x05), <BOY>[Y] - randrange(0x05));
+                        sleep(0x05);
+                        shoot_boss(<BOY>[X] - randrange(0x0a), <BOY>[Y] + randrange(0x0a));
+                        sleep(0x0a);
+                        shoot_boss(<BOY>[X] + randrange(0x0a), <BOY>[Y] - randrange(0x0a));
+                        sleep(0x05);
+                        shoot_boss(<BOY>[X] + randrange(0x1a), <BOY>[Y] + randrange(0x1a));
+                        sleep(0x0a);
+                        shoot_boss(<BOY>[X] + randrange(0x1a), <BOY>[Y] - randrange(0x1a));
+                        sleep(0x01);
+                        shoot_boss(<BOY>[X] - randrange(0x1a), <BOY>[Y] - randrange(0x1a));
+                        sleep(0x0a);
+                        shoot_boss(<BOY>[X] + randrange(0x1a), <BOY>[Y] + randrange(0x1a));
                     }
-                }
 
-                @install()
-                fun koopa_stomped_2() {
-                    heal(SCRIPT_OWNER, 0x00, False);
-                    yield();
-                    animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
-                    attach_script(SCRIPT_OWNER, DAMAGE, reference(koopa_stomped_1));
+                    @install()
+                    fun fireball() {
+                        animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+                        face(BOSS.ID, SOUTH);
 
-                    <SCRIPT_OWNER>[0x30] = 0x00;
-                    koopa_rolling(<SCRIPT_OWNER>);
-                }
-
-                @install()
-                fun koopa_stomped_1() {
-                    yield();
-                    animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.LIZARD_DUCK_1);
-                    attach_script(SCRIPT_OWNER, DAMAGE, reference(koopa_stomped_2));
-
-                    <SCRIPT_OWNER>[0x30] = 0x01;
-                }
-                
-                @install()
-                fun add_mario_koopa() {
-                    BOSS.ENEMY_COUNT += 0x01;
-
-                    add_dynamic_enemy_with_flags(LIZARD, BOSS.ID[X], BOSS.ID[Y], 0x00);
-                    attach_to_script(LAST_ENTITY);
-                    attach_script(SCRIPT_OWNER, DAMAGE, reference(koopa_stomped_1));
-                    
-                    <SCRIPT_OWNER>[FALLING_HEIGHT] = 0x0fff;
-                    animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
-                    attribute(SCRIPT_OWNER, ROOT, True);
-                    sleep(0x55);
-
-                    <SCRIPT_OWNER>[JUMP_HEIGHT] = 0x20;
-                    sleep(0x30);
-
-                    attribute(SCRIPT_OWNER, ROOT, False);
-                    animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
-                }
-
-                fun shoot_boss(x, y) {
-                    shoot_entity_absolute(BOSS.ID, SPEAR, x, y, 0x30, 0x00);
-                }
-
-                @install()
-                fun toss_hammers() {
-                    animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
-                    face(BOSS.ID, SOUTH);
-
-                    shoot_boss(<BOY>[X] , <BOY>[Y] );
-                    sleep(0x05);
-                    shoot_boss(<BOY>[X] + randrange(0x05), <BOY>[Y] - randrange(0x05));
-                    sleep(0x05);
-                    shoot_boss(<BOY>[X] - randrange(0x0a), <BOY>[Y] + randrange(0x0a));
-                    sleep(0x0a);
-                    shoot_boss(<BOY>[X] + randrange(0x0a), <BOY>[Y] - randrange(0x0a));
-                    sleep(0x05);
-                    shoot_boss(<BOY>[X] + randrange(0x1a), <BOY>[Y] + randrange(0x1a));
-                    sleep(0x0a);
-                    shoot_boss(<BOY>[X] + randrange(0x1a), <BOY>[Y] - randrange(0x1a));
-                    sleep(0x01);
-                    shoot_boss(<BOY>[X] - randrange(0x1a), <BOY>[Y] - randrange(0x1a));
-                    sleep(0x0a);
-                    shoot_boss(<BOY>[X] + randrange(0x1a), <BOY>[Y] + randrange(0x1a));
-                }
-
-                @install()
-                fun fireball() {
-                    animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
-                    face(BOSS.ID, SOUTH);
-
-                    shoot_entity_entity(BOSS.ID, ONION, BOY, 0x10, 0xff);
-                }
-
-                @install()
-                @async()
-                fun boss_ai() {
-                    if(BOSS.DEBUG) {
-                        subtext("phase 0");
+                        shoot_entity_entity(BOSS.ID, ONION, BOY, 0x10, 0xff);
                     }
-                    
-                    while(BOSS.PHASE == 0x00) {
-                        BOSS.RNG = randrange(0x04);
+
+                    @install()
+                    @async()
+                    fun boss_ai() {
                         if(BOSS.DEBUG) {
-                            subtext("rng");
+                            subtext("phase 0");
                         }
                         
-                        if(BOSS.RNG == 0x00) {
-                            if(BOSS.ENEMY_COUNT <= 0x00) {
-                                add_mario_koopa();
+                        while(BOSS.PHASE == 0x00) {
+                            BOSS.RNG = randrange(0x04);
+                            if(BOSS.DEBUG) {
+                                subtext("rng");
                             }
-                        } else if(BOSS.RNG == 0x01) {
-                            toss_hammers();
-                        } else if(BOSS.RNG == 0x02) {
-                            fireball();
-                        } else if(BOSS.RNG == 0x03) {
-                            nop();
+                            
+                            if(BOSS.RNG == 0x00) {
+                                if(BOSS.ENEMY_COUNT <= 0x00) {
+                                    add_mario_koopa();
+                                }
+                            } else if(BOSS.RNG == 0x01) {
+                                toss_hammers();
+                            } else if(BOSS.RNG == 0x02) {
+                                fireball();
+                            } else if(BOSS.RNG == 0x03) {
+                                nop();
+                            }
+
+                            sleep(0xa0);
                         }
 
-                        sleep(0xa0);
+                        if(BOSS.DEBUG) {
+                            subtext("phase 1");
+                        }
+                        
+                        while(BOSS.PHASE == 0x01) {
+                            yield();
+                        }
+
+                        if(BOSS.DEBUG) {
+                            subtext("yatta");
+                        }
+
+                        boss_defeated();
                     }
 
-                    if(BOSS.DEBUG) {
-                        subtext("phase 1");
-                    }
-                    
-                    while(BOSS.PHASE == 0x01) {
-                        yield();
+                    @install()
+                    fun boss_damage() {
+                        if(dead(BOSS.ID)) {
+                            BOSS.PHASE = 0xff;
+                        }
                     }
 
-                    if(BOSS.DEBUG) {
-                        subtext("yatta");
+                    fun add_mario_enemy_bowser(x, y) {
+                        add_enemy(LIZARD_BLACK, x, y);
+                        BOSS.ID = <LAST_ENTITY>;
+                        attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+
+                        boss_ai();
                     }
-                }
-
-                fun add_mario_enemy_bowser(x, y) {
-                    add_enemy(LIZARD_BLACK, x, y);
-                    BOSS.ID = <LAST_ENTITY>;
-
-                    boss_ai();
-                }
+                };
 
                 fun trigger_enter() {
-                    add_mario_enemy_bowser(0x18, 0x23);
+                    if!(SOULS_MEMORY.DEAD_BOWSER) {
+                        add_mario_enemy_bowser(0x18, 0x23);
+                        music(BOSS);
+                        set(BOSS.PROGRESS);
+                    }
 
                     mario_init(False, False);
                 }
