@@ -1155,11 +1155,13 @@ class Unset(Function_Base):
         self.memory = memory
 
     def _code(self, params:list[Param]):
-        address = self.memory.value.address
+        memory = self.memory.resolve(params)
+
+        address = memory.address
         address -= 0x2258
         address <<=  3
 
-        flag = self.memory.value.flag
+        flag = memory.flag
         f = 0
         while  flag > 1:
             flag >>= 1

@@ -214,14 +214,6 @@ group non_maps() {
             DUST_DROP_VARIANT = memory(),
             DUST_UNREACHABLE = flag(),
 
-            // bonfire
-            BONFIRE_FIRST_TRIGGER = flag(),
-            BONFIRE_X = memory(),
-            BONFIRE_Y = memory(),
-            BONFIRE_MAP = memory(),
-            BONFIRE_VARIANT = memory(),
-            BONFIRE_TELEPORT_REQUIRED = flag(),
-
             // wings
             WINGS_BLOCKED = flag(),
             
@@ -248,9 +240,24 @@ group non_maps() {
             DEBUG_MENU_BUTTON_3 = memory(),
             DEBUG_MENU_BUTTON_4 = memory(),
 
+            ///////////////////////////////////////////////////////
+            // bonfire
+            ///////////////////////////////////////////////////////
+
+            BONFIRE_FIRST_TRIGGER = flag(),
+            BONFIRE_X = memory(),
+            BONFIRE_Y = memory(),
+            BONFIRE_MAP = memory(),
+            BONFIRE_VARIANT = memory(),
+            BONFIRE_TELEPORT_REQUIRED = flag(),
+
+            // center
             BONFIRE_INBETWIXX = flag(),
 
+            ///////////////////////////////////////////////////////
             // bosses
+            ///////////////////////////////////////////////////////
+
             PROGRESS_COUNTER = memory(),
             BOSSES_DEFEATED_COUNTER = memory(),
             COLLECTIBLE_COUNTER = memory(),
@@ -857,7 +864,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(podunk_old, north, NONE);
+                map_transition(lab_cutscene, north, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -18971,6 +18978,18 @@ area experimental_room() {
 
                 COMMENT_BUILDING = flag_tmp(),
                 COMMENT_CINEMA = flag_tmp(),
+                
+                COORDINATE_BUILDING_BOTTOM = 0d19 * 0x0008,
+                COORDINATE_BUILDING_LEFT = 0d19 * 0x0008,
+                COORDINATE_BUILDING_LEFT_THRESHOLD = 0d20 * 0x0008,
+                COORDINATE_BUILDING_RIGHT = 0d121 * 0x0008,
+                COORDINATE_BUILDING_RIGHT_THRESHOLD = 0d120 * 0x0008,
+
+                COORDINATE_SOUTH_BORDER = 0d33 * 0x0008,
+
+                COORDINATE_EAST_BORDER = 0d135 * 0x0008,
+
+                COORDINATE_CINEMA_REACHED = 0d70 * 0x0008,
             }
 
             fun bug_discovered_1() {
@@ -18991,17 +19010,17 @@ area experimental_room() {
             fun fake_exit_check() {
                 while(True) {
                     if!(ROOM.COMMENT_CINEMA) {
-                        if(<ACTIVE>[X] > (0d70 * 0x0008)) { // cinema
+                        if(<ACTIVE>[X] > ROOM.COORDINATE_CINEMA_REACHED) {
                             set(ROOM.COMMENT_CINEMA);
 
                             subtext("comment 1");
                         }
-                    } else if(<ACTIVE>[X] > (0d135 * 0x0008)) { // end of street
+                    } else if(<ACTIVE>[X] > ROOM.COORDINATE_EAST_BORDER) {
                         map_transition(mansion_old, west, EAST);
                         end();
                     }
 
-                    if((<ACTIVE>[Y] < (0d19 * 0x0008)) && (<ACTIVE>[X] > (0d19 * 0x0008)) && (<ACTIVE>[X] < (0d120 * 0x0008))) { // cinema
+                    if((<ACTIVE>[Y] < ROOM.COORDINATE_BUILDING_BOTTOM) && (<ACTIVE>[X] > ROOM.COORDINATE_BUILDING_LEFT) && (<ACTIVE>[X] < ROOM.COORDINATE_BUILDING_RIGHT)) { // cinema
                         if!(ROOM.COMMENT_BUILDING) {
                             set(ROOM.COMMENT_BUILDING);
 
@@ -19010,22 +19029,22 @@ area experimental_room() {
 
                             sleep(0d120);
                         } else {
-                            if(<ACTIVE>[X] < (0d20 * 0x0008)) { // push left
-                                <ACTIVE>[X] = 0d19 * 0x0008;
+                            if(<ACTIVE>[X] < ROOM.COORDINATE_BUILDING_LEFT_THRESHOLD) { // push left
+                                <ACTIVE>[X] = ROOM.COORDINATE_BUILDING_LEFT;
 
                                 // subtext("left");
-                            } else if(<ACTIVE>[X] > (0d119 * 0x0008)) { // right
-                                <ACTIVE>[X] = 0d120 * 0x0008;
+                            } else if(<ACTIVE>[X] > ROOM.COORDINATE_BUILDING_RIGHT_THRESHOLD) { // push right
+                                <ACTIVE>[X] = ROOM.COORDINATE_BUILDING_RIGHT;
 
                                 // subtext("left");
-                            } else {
-                                <ACTIVE>[Y] = 0d19 * 0x0008;
+                            } else { // push bottom
+                                <ACTIVE>[Y] = ROOM.COORDINATE_BUILDING_BOTTOM;
                             }
                         }
                         
                         // sleep(0x10);
                         yield();
-                    } else if(<ACTIVE>[Y] > (0d33 * 0x0008)) {
+                    } else if(<ACTIVE>[Y] > ROOM.COORDINATE_SOUTH_BORDER) {
                         if!(ROOM.COMMENT_SOUTH) {
                             set(ROOM.COMMENT_SOUTH);
 
@@ -19038,7 +19057,7 @@ area experimental_room() {
 
                             init_map(0x00, 0x00, 0d145, 0d33);
                         } else {
-                            <ACTIVE>[Y] = 0d33 * 0x0008;
+                            <ACTIVE>[Y] = ROOM.COORDINATE_SOUTH_BORDER;
                         }
                     }
 
@@ -19073,21 +19092,47 @@ area experimental_room() {
                 south = entrance(0d35, 0d113, NORTH),
             }
 
+            enum ROOM {
+                PROFESSOR = memory_tmp(),
+
+                COORDINATE_NORTH_BORDER = 0d22 * 0x0008,
+            }
+
             @install()
             @async()
             fun fake_exit_check() {
                 while(True) {
-                    if(<ACTIVE>[Y] < (0d22 * 0x0008)) {
-                        map_transition(podunk_new, cinema_left, NORTH);
+                    if(<ACTIVE>[Y] < ROOM.COORDINATE_NORTH_BORDER) {
+                        map_transition(lab_cutscene, north, NORTH);
                     }
 
                     yield();
                 }
             }
 
+            @install()
+            @async()
+            fun professor_glitch() {
+                while(True) {
+                    ROOM.PROFESSOR[X] += 0x10;
+                    ROOM.PROFESSOR[Y] -= 0x05;
+                    sleep(0x05);
+                    ROOM.PROFESSOR[X] -= 0x20;
+                    sleep(0x03);
+                    ROOM.PROFESSOR[X] += 0x10;
+                    ROOM.PROFESSOR[Y] += 0x05;
+                    sleep(0x30);
+                    if(randrange(0x02)) {
+                        sleep(0x50);
+                    }
+                }
+            }
+
             fun trigger_enter() {
-                add_enemy(CARLTRON, 0d35, 0d71);
+                add_enemy(PROFESSOR, 0d35, 0d71);
                 control_enemy(LAST_ENTITY, True);
+                ROOM.PROFESSOR = <LAST_ENTITY>;
+                professor_glitch();
 
                 fade_in();
 
@@ -19095,6 +19140,69 @@ area experimental_room() {
             }
         };
 
+        map lab_cutscene(0x46) {
+            enum entrance {
+                north = entrance(0x3e, 0x14, NONE, { door_act4_airlock_reverse(0x3e, 0x14, 0d26); }),
+                east = entrance(0x58, 0x57, NONE),
+                west = entrance(0x1a, 0x5b, NONE),
+                
+                cutscene_1 = entrance(0x34, 0x59, NONE), // in front of computer
+                cutscene_2 = entrance(0x3e, 0x25, NONE), // intro fight
+            }
+
+            fun open_door(object_id, flag) {
+                if!(flag) {
+                    set(flag);
+                    
+                    sound(0xb0);
+                    object[object_id] = 0x7e;
+                // } else {
+                //     unset(flag);
+                //     
+                //     sound(0xb0);
+                //     object[object_id] = 0x00;
+                }
+            }
+
+            enum ROOM {
+                DOOR_1_OPEN = flag_tmp(),
+                DOOR_2_OPEN = flag_tmp(),
+            }
+
+            enum stepon_trigger {
+                door_2_north = @install() {
+                    open_door(0x04, ROOM.DOOR_2_OPEN);
+                },
+                door_2_south = @install() {
+                    open_door(0x04, ROOM.DOOR_2_OPEN);
+                },
+                door_1_north = @install() {
+                    open_door(0x00, ROOM.DOOR_1_OPEN);
+                },
+                door_1_south = @install() {
+                    open_door(0x00, ROOM.DOOR_1_OPEN);
+                },
+                exit_east = @install() {
+                    subtext("S=4");
+                },
+            }
+
+            enum b_trigger {
+                gourd = @install() {
+                    subtext("B=0");
+                },
+                door_north = @install() {
+                    door_act4_airlock(0x3e, 0x14, object[0d26]);
+                },
+                lever = @install() {
+                    map_transition(podunk_new, cinema_left, NONE);
+                },
+            }
+
+            fun trigger_enter() {
+                fade_in();
+            }
+        };
 
         map podunk_new(0x32) {
             enum entrance {
@@ -19105,22 +19213,27 @@ area experimental_room() {
                 cinema_right = entrance(0d23, 0d13, SOUTH),
             }
 
+            enum ROOM {
+                COORDINATE_BUILDING_BOTTOM = 0d17 * 0x0008,
+                COORDINATE_BUILDING_RIGHT = 0d69 * 0x0008,
+                COORDINATE_BUILDING_RIGHT_THRESHOLD = 0d68 * 0x0008,
+
+                COORDINATE_EAST_BORDER = 0d84 * 0x0008,
+            }
+
             @install()
             @async()
             fun fake_exit_check() {
                 while(True) {
-                    if((<ACTIVE>[Y] < (0d17 * 0x0008)) && (<ACTIVE>[X] < (0d69 * 0x0008))) { // cinema
-                        if(<ACTIVE>[X] > (0d68 * 0x0008)) { // right
-                            <ACTIVE>[X] = 0d69 * 0x0008;
-
-                            // subtext("left");
-                        } else {
-                            <ACTIVE>[Y] = 0d17 * 0x0008;
+                    if((<ACTIVE>[Y] < ROOM.COORDINATE_BUILDING_BOTTOM) && (<ACTIVE>[X] < ROOM.COORDINATE_BUILDING_RIGHT)) { // inside building
+                        if(<ACTIVE>[X] > ROOM.COORDINATE_BUILDING_RIGHT_THRESHOLD) { // push right
+                            <ACTIVE>[X] = ROOM.COORDINATE_BUILDING_RIGHT;
+                        } else { // bush bottom
+                            <ACTIVE>[Y] = ROOM.COORDINATE_BUILDING_BOTTOM;
                         }
                         
-                        // sleep(0x10);
                         yield();
-                    } else if(<ACTIVE>[X] > (0d84 * 0x0008)) { // right
+                    } else if(<ACTIVE>[X] > ROOM.COORDINATE_EAST_BORDER) { // right
                         map_transition(mansion_modern, west, EAST);
                         end();
                     }
