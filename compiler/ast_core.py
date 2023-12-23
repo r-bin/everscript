@@ -85,7 +85,7 @@ class Memorable():
         pass
       
 class Resolvable():
-    def resolve(self, params:list[Param]):
+    def resolve(self, params:list[Param], with_exception:bool=True):
         value = None
 
         match self:
@@ -98,6 +98,8 @@ class Resolvable():
             
         if value:
             return value.resolve(params)
+        elif with_exception:
+            raise Exception(f"{self} could not be resolved with params: {params}")
         else:
             return None
 

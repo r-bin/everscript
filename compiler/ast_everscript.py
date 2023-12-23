@@ -186,12 +186,14 @@ class Arg(Function_Base, Calculatable, Memorable):
         return code
 
 class Object(Function_Base, Calculatable, Memorable):
-    def __init__(self, index, flag=None):
+    def __init__(self, generator, index, flag=None):
         self.index = index
         # self.index = self.index.resolve([])
         self.flag = flag
 
         self.memory = True
+
+        self.default_enum = None
 
     def is_memory(self, params:list[Param]):
         return True
@@ -1581,7 +1583,7 @@ class Loot(Function_Base):
     
         flag = self._generator.get_flag()
 
-        self.object = Object(object, flag)
+        self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)
 
         self.function = generator.get_function("loot")
@@ -1602,7 +1604,7 @@ class Axe2Wall(Function_Base):
     
         flag = self._generator.get_flag()
 
-        self.object = Object(object, flag)
+        self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)
 
         self.function = generator.get_function("axe2_wall")

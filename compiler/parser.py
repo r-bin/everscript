@@ -151,6 +151,19 @@ class Parser():
             
             return map
         
+        @self.pg.production('expression : expression : IDENTIFIER')
+        def parse(p):
+            expression = p[0]
+            default_enum = p[2]
+
+            match expression:
+                case Object():
+                    expression.default_enum = default_enum
+                case _:
+                    TODO()
+
+            return expression
+
         @self.pg.production('expression : VAL IDENTIFIER')
         @self.pg.production('expression : VAR IDENTIFIER')
         def parse(p):
@@ -200,7 +213,7 @@ class Parser():
             if isinstance(index, Token):
                 index = Word(index)
 
-            return Object(index)
+            return Object(self.generator, index)
         
         @self.pg.production('expression : ARG [ expression ]')
         def parse(p):

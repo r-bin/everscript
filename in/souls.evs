@@ -345,21 +345,6 @@ group non_maps() {
             }
         }
 
-        @install()
-        fun upgrade_estus() { // TODO: test
-            dialog("hi");
-            
-            if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
-                dialog("estus upgrade?[CHOICE]yes[CHOICE]no");
-
-                if(MEMORY.QUESTION_ANSWER == 0x00) {
-                    SOULS_MEMORY.ESTUS_SHARDS -= 0x01;
-
-                    SOULS_MEMORY.ESTUS_CHARGES += 0x01;
-                }
-            }
-        }
-
         fun dust_unreachable(x, y) {
             set(SOULS_MEMORY.DUST_UNREACHABLE);
 
@@ -540,9 +525,6 @@ group non_maps() {
             
             MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
             heal_both(True);
-
-            subtext("test");
-            sleep(0x60);
 
             // if!(SOULS_MEMORY.WITH_BONFIRE_SAVE) { // TODO: if and !if do the same?
                 question("[SLOW]Bonfire:[CHOICE]Return to shrine.");
@@ -993,13 +975,108 @@ group non_maps() {
     };
 
     group souls_npcs() {
-        enum NPC_SHRINE_MAIDEN {
-            PROGRESS = memory(),
-            SUB_PROGRESS = memory(),
+        group npc_shrine_maiden() {
+            enum NPC_SHRINE_MAIDEN {
+                PROGRESS = memory(),
+                SUB_PROGRESS = memory(),
 
-            ID = memory(),
-            BODY = ENEMY.FIRE_EYES,
-        }
+                ID = memory(),
+                BODY = ENEMY.FIRE_EYES,
+            }
+
+            group talk_ai() {
+                fun greeting_default() {
+                    dialog("[SLOW]Bearer of the curse…[LF]Seek souls. Larger, more powerful souls.[LF]Seek the King, that is the only way.[LF]Lest this land swallow you whole… As it has so many others.[B]");
+                }
+
+                fun greeting_estus_shard() {
+                    dialog("[SLOW]Is that a shard you've found?[LF]Here, let me see it. So that I may help you.[LF]To see light, to see hope…[LF]However faint it might be…[B]");
+                }
+
+                fun story_estus_shard() {
+                    dialog("[SLOW]If you find an Estus Shard, bring it to me.[LF]So that I may ease your burden.[B]");
+                }
+
+                fun upgrade_estus() {
+                    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
+                        question("[SLOW]estus upgrade?[CHOICE]yes[CHOICE]no");
+
+                        if(MEMORY.QUESTION_ANSWER == 0x00) {
+                            SOULS_MEMORY.ESTUS_SHARDS -= 0x01;
+
+                            SOULS_MEMORY.ESTUS_CHARGES += 0x01;
+
+                            debug_memory(SOULS_MEMORY.ESTUS_CHARGES, 0x00);
+                        }
+                    }
+                }
+
+                @install()
+                fun shrine_maiden_triggered() {
+                    if(SOULS_MEMORY.ESTUS_SHARDS > 0d00) {
+                        greeting_estus_shard();
+                    } else {
+                        greeting_default();
+                    }
+
+                    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
+                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade…");
+                    } else {
+                        question("[SLOW]How can I help you?[CHOICE]talk…");
+                    }
+
+                    if(MEMORY.QUESTION_ANSWER == 0x00) { // talk
+                        story_estus_shard();
+                    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // upgrade
+                        upgrade_estus();
+                    }
+                }
+                @install()
+                fun shrine_maiden_triggered__first_bonfire() {
+                    if(NPC_SHRINE_MAIDEN.PROGRESS == 0x00) {
+                        if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x00) {
+                            NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                        
+                            dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
+                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x01) {
+                            NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                        
+                            dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
+                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x02) {
+                            NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                        
+                            dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
+                        } else {
+                            dialog("[SLOW]Ignite the first bonfire.[B]");
+                        }
+                    } else if(NPC_SHRINE_MAIDEN.PROGRESS == 0x01) {
+                        dialog("[SLOW]Bearer of the curse, seek misery.[LF]For misery will lead you to greater, stronger souls.[LF]You will never meet the King with a soul so frail and pallid.[B]");
+                    }
+                }
+            };
+
+            enum SHRINE_MAIDEN_VARIANT {
+                AUTO = 0x00,
+
+                FIRST_BONFIRE = 0x01,
+                DEFAULT = 0x02,
+            }
+
+            fun add_souls_npc_shrine_maiden(variant:SHRINE_MAIDEN_VARIANT, x, y) {
+                add_enemy_with_flags(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
+
+                if(variant == SHRINE_MAIDEN_VARIANT.AUTO) {
+                    if(NPC_SHRINE_MAIDEN.PROGRESS < 0d01) {
+                        attach_script(LAST_ENTITY, TALK, reference(shrine_maiden_triggered__first_bonfire));
+                    } else {
+                        attach_script(LAST_ENTITY, TALK, reference(shrine_maiden_triggered));
+                    }
+                } else {
+                    nop();
+                }
+            }
+        };
+
 
         enum NPC_MARIO {
             PROGRESS = memory(),
@@ -1084,11 +1161,11 @@ group non_maps() {
                     if(randrange(0x02) == 0x00) {
                         dialog("[SLOW]Nothing suited you, I presume?[B]");
                     } else {
-                        dialog("[SLOW]Well, that's dismaying. Hee hee hee_[B]");
+                        dialog("[SLOW]Well, that's dismaying. Hee hee hee…[B]");
                     }
                 }
                 fun response_cancel() {
-                    dialog("[SLOW]Oh my, haste makes waste. Hee hee hee_[B]");
+                    dialog("[SLOW]Oh my, haste makes waste. Hee hee hee…[B]");
                 }
 
                 fun story_radahn_arena() {
@@ -1486,37 +1563,12 @@ area shrine_area() {
         }
 
         @install()
-        fun shrine_maiden_triggered() {
-            if(NPC_SHRINE_MAIDEN.PROGRESS == 0x00) {
-                if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x00) {
-                    NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
-                
-                    dialog("[SLOW]test 1.[B]");
-                } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x01) {
-                    NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
-                
-                    dialog("[SLOW]test 2.[B]");
-                } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x02) {
-                    NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
-                
-                    dialog("[SLOW]test 3.[B]");
-                } else {
-                    dialog("[SLOW]Ignite the first bonfire.[B]");
-                }
-            } else if(NPC_SHRINE_MAIDEN.PROGRESS == 0x01) {
-                dialog("[SLOW]test 4.[B]");
-            }
-        }
-        fun add_shrine_maiden(x, y) {
-            add_enemy_with_flags(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
-            attach_script(LAST_ENTITY, TALK, reference(shrine_maiden_triggered));
-        }
-
-        @install()
         fun debug_triggered() {
             SOULS_MEMORY.ORB_SWORD = 0d99;
             SOULS_MEMORY.ORB_AXE = 0d99;
             SOULS_MEMORY.ORB_SPEAR = 0d99;
+
+            SOULS_MEMORY.ESTUS_SHARDS = 0d99;
 
             destroy(SCRIPT_OWNER);
         }
@@ -1534,7 +1586,7 @@ area shrine_area() {
                 add_bonfire();
             }
 
-            add_shrine_maiden(0d71, 0d88);
+            add_souls_npc_shrine_maiden(AUTO, 0d71, 0d88);
             add_souls_npc_smith(0d42, 0d93);
 
             // object[0x00] = 0x01; // open gourd
