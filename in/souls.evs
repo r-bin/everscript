@@ -151,7 +151,6 @@ group non_maps() {
             // <0x2834> = <LAST_ENTITY>;
         }
 
-        
         fun error_walk_back(exit_direction:DIRECTION) {
             if(exit_direction == DIRECTION.NORTH) {
                 walk(ACTIVE, COORDINATE_RELATIVE, 0x00, -0x02, ACTIVE);
@@ -172,6 +171,18 @@ group non_maps() {
             subtext("Does not open from this side.");
 
             error_walk_back(exit_direction);
+        }
+
+        @install()
+        fun enemy_triggered_invincible() {
+            heal(SCRIPT_OWNER, 0x00, False);
+        }
+
+        @install()
+        fun enemy_triggered_invincible_with_knockback() {
+            heal(SCRIPT_OWNER, 0x00, False);
+            yield();
+            damage(SCRIPT_OWNER, 0x00, True);
         }
     };
 
@@ -264,24 +275,42 @@ group non_maps() {
             COLLECTIBLE_COUNTER = memory(),
 
             // west
+            DEAD_OWL_BOY = flag(),
+            REWARD_OWL_BOY = ITEM.NECTAR,
+
             DEAD_MONSTRO = flag(),
+            REWARD_MONSTRO = ITEM.NECTAR,
             DEAD_DARK_ONE = flag(),
+            REWARD_DARK_ONE = ITEM.NECTAR,
+
+            // altus
+            DEAD_CHESS = flag(),
+            REWARD_CHESS = ITEM.NECTAR,
 
             // east
             DEAD_PIT_EGG = flag(),
+            REWARD_PIT_EGG = ITEM.NECTAR,
 
             DEAD_VOLCANO_HYDRA = flag(),
+            REWARD_VOLCANO_HYDRA = ITEM.NECTAR,
             DEAD_ARENA_RADAHN = flag(),
+            REWARD_ARENA_RADAHN = ITEM.NECTAR,
             DEAD_STOMPY_RADAHN = flag(),
+            REWARD_STOMPY_RADAHN = ITEM.NECTAR,
             
             DEAD_ARENA_MOSQUITO = flag(),
+            REWARD_ARENA_MOSQUITO = ITEM.NECTAR,
 
             DEAD_BOWSER = flag(),
+            REWARD_BOWSER = ITEM.NECTAR,
 
             DEAD_TEMPLE_MINITAUR = flag(),
+            REWARD_TEMPLE_MINITAUR = ITEM.NECTAR,
             DEAD_TAVERN_BOXERS = flag(),
+            REWARD_TAVERN_BOXERS = ITEM.NECTAR,
 
             DEAD_NARIS = flag(),
+            REWARD_NARIS = ITEM.NECTAR,
         }
 
         fun asign_debug_button_function(flag, feature) {
@@ -329,20 +358,34 @@ group non_maps() {
         }
 
         @install()
-        fun souls_boss_defeated() {
+        fun _souls_boss_defeated(reward_item:SOULS_MEMORY) {
+            if!(ITEM.NO_ITEM) {
+                reward(reward_item);
+            }
+
             SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
             SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
 
+            subtext("Enemy Felled");
+
             fanfare_boss();
 
-            // sleep(0x50);
-            subtext("Enemy Felled");
-            // TODO: overwritten by "received xxx talons" subtext
-
             if!(FLAG.JAGUAR_RING) {
-                subtext("Jaguar Ring");
                 reward(JAGUAR_RING);
             }
+        }
+        fun souls_boss_defeated(flag:SOULS_MEMORY, reward_item:SOULS_MEMORY) {
+            if(flag is Memory) {
+                set(flag);
+            }
+
+            _souls_boss_defeated();
+
+            if(reward_item != ITEM.NO_ITEM) {
+                reward(reward_item);
+            }
+
+            // subtext("Enemy Felled");
         }
 
         fun dust_unreachable(x, y) {
@@ -350,6 +393,10 @@ group non_maps() {
 
             SOULS_MEMORY.DUST_DROP_X = x * 0x0008;
             SOULS_MEMORY.DUST_DROP_Y = y * 0x0008;
+        }
+
+        fun refresh_flask() {
+            MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
         }
 
         @install()
@@ -396,6 +443,8 @@ group non_maps() {
 
         @install()
         fun return_to_bonfire() {
+            refresh_flask();
+
             if(SOULS_MEMORY.BONFIRE_MAP == 0x26) {
                 set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
                 map_transition(inbetwixx, start, NONE); // TODO
@@ -523,7 +572,7 @@ group non_maps() {
                 special_script(WINGS, reference(wings_used));
             }
             
-            MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+            refresh_flask();
             heal_both(True);
 
             // if!(SOULS_MEMORY.WITH_BONFIRE_SAVE) { // TODO: if and !if do the same?
@@ -620,7 +669,7 @@ group non_maps() {
                 set(SOULS_MEMORY.INIT);
 
                 SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
-                MEMORY.PETAL = SOULS_MEMORY.ESTUS_CHARGES;
+                refresh_flask();
 
                 MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
                 MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
@@ -675,6 +724,9 @@ group non_maps() {
 
             MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
             MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
+
+            attribute(BOY, NO_CLIP, False);
+            attribute(DOG, NO_CLIP, False);
         }
 
         fun collectible_collected() {
@@ -858,7 +910,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(gladiator_arena, south, NONE);
+                map_transition(graveyard, north, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1005,8 +1057,6 @@ group non_maps() {
                             SOULS_MEMORY.ESTUS_SHARDS -= 0x01;
 
                             SOULS_MEMORY.ESTUS_CHARGES += 0x01;
-
-                            debug_memory(SOULS_MEMORY.ESTUS_CHARGES, 0x00);
                         }
                     }
                 }
@@ -2755,6 +2805,12 @@ area west_inbetwixx() {
         }
 
         @install()
+        fun boss_defeated() {
+            souls_boss_defeated(DEAD_OWL_BOY, REWARD_OWL_BOY);
+            music(BUGMUCK_AMBIENT_MELODY);
+        }
+
+        @install()
         fun transform() {
             control_enemy(BOSS.ID_OWL_1, True);
             control_enemy(BOSS.ID_OWL_2, True);
@@ -2768,6 +2824,7 @@ area west_inbetwixx() {
             sleep(0x30);
 
             add_enemy(BOY_BLACK, 0x00, 0x00);
+            attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
             <LAST_ENTITY>[X] = BOSS.ID_OWL_2[X];
             <LAST_ENTITY>[Y] = BOSS.ID_OWL_2[Y];
             destroy(BOSS.ID_OWL_2);
@@ -4253,8 +4310,33 @@ area altus_plateau_entry() {
                     }
                 }
 
+                fun boss_defeated() {
+                    souls_boss_defeated(DEAD_CHESS, REWARD_CHESS);
+
+                    music(ALTUS.MUSIC);
+                }
+
                 @install()
                 fun boss_triggered() {
+                    // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_TYPE]);
+
+                    // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
+                    //     heal(SCRIPT_OWNER, 0x30, True);
+                    //     end();
+                    // }
+                    
+                    if((<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
+                        heal(SCRIPT_OWNER, 0x30, True);
+                    } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00){
+                        heal(SCRIPT_OWNER, 0x30, True);
+                    }
+
+                    if(<SCRIPT_OWNER>[HP] <= 0x00) {
+                        boss_defeated();
+                    }
+                }
+                @install()
+                fun enemy_triggered() {
                     // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_TYPE]);
 
                     // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
@@ -4308,7 +4390,7 @@ area altus_plateau_entry() {
                 fun add_chess_enemy(x, y) {
                     add_enemy(OGLIN, x, y);
                     <LAST_ENTITY>[HP] = 0x01;
-                    attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
+                    attach_script(LAST_ENTITY, DAMAGE, reference(enemy_triggered));
 
                     oglin_parity_check(<LAST_ENTITY>);
                 }
@@ -4345,9 +4427,11 @@ area altus_plateau_entry() {
 
                     default_init_room(True, True);
 
-                    add_enemy(MAGMAR, 0x54, 0x39);
-                    attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
-                    BOSS.ID = <LAST_ENTITY>;
+                    if!(SOULS_MEMORY.DEAD_CHESS) {
+                        add_enemy(MAGMAR, 0x54, 0x39);
+                        attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
+                        BOSS.ID = <LAST_ENTITY>;
+                    }
 
                     attribute(BOY, INVINCIBLE, True);
                     attribute(DOG, INVINCIBLE, True);
@@ -5632,10 +5716,9 @@ area east_inbetwixx() {
                 subtext("boss defeated");
             }
             
-            unset(BOSS.PROGRESS);
-            set(SOULS_MEMORY.DEAD_PIT_EGG);
+            souls_boss_defeated(DEAD_PIT_EGG, REWARD_PIT_EGG);
 
-            souls_boss_defeated();
+            unset(BOSS.PROGRESS);
 
             music(BUGMUCK_AMBIENT_MELODY, 0xff); // TODO
         }
@@ -5985,6 +6068,7 @@ area east_inbetwixx() {
                 ROOM.ID_STONE = <LAST_ENTITY>;
 
                 add_enemy(BOMB, 0x15, 0x22);
+                attach_script(LAST_ENTITY, DAMAGE, reference(enemy_triggered_invincible_with_knockback));
                 ROOM.ID_STONE_BOMB = <LAST_ENTITY>;
                 attribute(LAST_ENTITY, INVISIBLE, True);
 
@@ -6061,11 +6145,8 @@ area east_inbetwixx() {
             }
 
             fun boss_killed() {
-                set(SOULS_MEMORY.DEAD_ARENA_RADAHN);
-                SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
-                SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
-
-                fanfare_boss();
+                souls_boss_defeated(DEAD_ARENA_RADAHN, REWARD_ARENA_RADAHN);
+                music(0x32);
 
                 object[0x04] = 0x00;
             }
@@ -6661,7 +6742,14 @@ area east_inbetwixx() {
         }
 
         fun boss_killed() {
-            set(SOULS_MEMORY.DEAD_STOMPY_RADAHN);
+            walk(BOSS.MOUNT_ID, COORDINATE_ABSOLUTE_DIRECT, 0x00, 0x00, False);
+
+            souls_boss_defeated(DEAD_STOMPY_RADAHN, REWARD_STOMPY_RADAHN);
+            music(BUGMUCK_AMBIENT_MELODY);
+
+            BOSS.IN_PROGRESS = 0x00;
+
+            object[0x1f] = 0x00;
         }
 
         @install()
@@ -6775,11 +6863,13 @@ area east_inbetwixx() {
                 if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
                     BOSS.PHASE = 0x01;
                 }
-            } else if(BOSS.PHASE == 0x01) {
+            }
+            if(BOSS.PHASE == 0x01) {
                 if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
                     BOSS.PHASE = 0x02;
                 }
-            } else if(BOSS.PHASE == 0x02) {
+            }
+            if(BOSS.PHASE == 0x02) {
                 BOSS.TIMER -= 0x60;
             }
 
@@ -6890,15 +6980,19 @@ area east_inbetwixx() {
                 if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
                     if(BOSS.IN_PROGRESS == 0x00) {
                         fade_to_music(BOSS);
+                        spawn_boss(0x39, 0x23);
+                        control_enemy(BOSS.MOUNT_ID, True);
+                        stack_t01_offset();
 
+                        set_camera(0x0108, 0xa0, 0x18);
                         walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
                         walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH);
+                        free_camera();
 
                         BOSS.IN_PROGRESS = 0x01;
                         object[0x1f] = 0x7e;
                         
-                        spawn_boss(0x39, 0x23);
-                        stack_t01_offset();
+                        control_enemy(BOSS.MOUNT_ID, False);
                         boss_watcher();
                     }
                 }
@@ -7379,8 +7473,7 @@ area east_inbetwixx() {
 
             @install()
             fun boss_defeated() {
-                souls_boss_defeated();
-                set(SOULS_MEMORY.DEAD_ARENA_MOSQUITO);
+                souls_boss_defeated(DEAD_ARENA_MOSQUITO, REWARD_ARENA_MOSQUITO);
 
                 close_exits(False);
 
@@ -9527,9 +9620,8 @@ area east_inbetwixx() {
 
                 group boss_ai() {
                     fun boss_defeated() {
-                        souls_boss_defeated();
+                        souls_boss_defeated(DEAD_BOWSER, REWARD_BOWSER);
 
-                        set(SOULS_MEMORY.DEAD_BOWSER);
                         unset(BOSS.PROGRESS);
 
                         music(PIPE_MAZE.MUSIC_MAZE);
@@ -11294,9 +11386,8 @@ area town() {
                 ROOM.BOXERS_BEATEN += 0x01;
 
                 if(ROOM.BOXERS_BEATEN >= ROOM.BOXERS_BEATEN_THRESHOLD) {
-                    souls_boss_defeated();
-
-                    set(SOULS_MEMORY.DEAD_TAVERN_BOXERS);
+                    souls_boss_defeated(DEAD_TAVERN_BOXERS, REWARD_TAVERN_BOXERS);
+                    music(AREA_TOWN_TEMPLE.MUSIC_TOWN);
                 }
             }
 
@@ -11892,7 +11983,6 @@ area town() {
                 sleep(0xa0);
                 animate(ROOM.MANAGER_ID, ONCE, ANIMATION_ALL.DEFAULT);
 
-                // destroy(SCRIPT_OWNER);
             }
 
             fun learn_levitate() {
@@ -15902,9 +15992,9 @@ area dungeon_isaac() {
             @install()
             @async()
             fun boss_defeated() {
-                set(SOULS_MEMORY.DEAD_MONSTRO);
+                souls_boss_defeated(DEAD_MONSTRO, REWARD_MONSTRO);
+
                 unset(BOSS.PROGRESS);
-                souls_boss_defeated();
 
                 music(AREA_BASEMENT.MUSIC_DEFAULT);
             }
@@ -17017,10 +17107,9 @@ area dungeon_isaac() {
 
             @install()
             fun boss_defeated() {
-                set(SOULS_MEMORY.DEAD_DARK_ONE);
-                unset(BOSS.PROGRESS);
+                souls_boss_defeated(DEAD_DARK_ONE, REWARD_DARK_ONE);
 
-                souls_boss_defeated();
+                unset(BOSS.PROGRESS);
 
                 music(AREA_BASEMENT.MUSIC_DEFAULT);
             }

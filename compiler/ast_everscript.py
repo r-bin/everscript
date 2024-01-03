@@ -415,12 +415,18 @@ class InstalledString(Function_Base):
     def _code(self, params:list[Param]):
         value = self.value.resolve(params)
 
-        if not value.value.endswith("[END]"):
-            value.value += "[END]"
+        match value:
+            case String():
+                if not value.value.endswith("[END]"):
+                    value.value += "[END]"
 
-        value = self._generator.add_string(value)
+                value = self._generator.add_string(value)
 
-        value = value.code(params)
+                value = value.code(params)
+            #case int():
+            #    pass
+            case _:
+                TODO();
 
         return value
 
