@@ -162,6 +162,11 @@ group non_maps() {
                 walk(ACTIVE, COORDINATE_RELATIVE, -0x02, 0x00, ACTIVE);
             }
         }
+        fun error_dead_end(exit_direction:DIRECTION) {
+            subtext("Does not open.");
+
+            error_walk_back(exit_direction);
+        }
         fun error_contraption(exit_direction:DIRECTION) {
             subtext("Locked by some contraption.");
 
@@ -169,6 +174,11 @@ group non_maps() {
         }
         fun error_wrong_side(exit_direction:DIRECTION) {
             subtext("Does not open from this side.");
+
+            error_walk_back(exit_direction);
+        }
+        fun error_locked(exit_direction:DIRECTION) {
+            subtext("Locked.");
 
             error_walk_back(exit_direction);
         }
@@ -184,6 +194,7 @@ group non_maps() {
             yield();
             damage(SCRIPT_OWNER, 0x00, True);
         }
+
     };
 
     group souls_helper() {
@@ -1043,7 +1054,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(graveyard, north, NONE);
+                map_transition(town_temple_underground_castle, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -10573,10 +10584,6 @@ area town() {
         MUSIC_TOWN = 0x42,
     }
 
-    enum TEMPLE {
-        MUSIC = 0x1e,
-    }
-
     map town_market_alley(0x4e) {
         enum entrance {
             north = entrance(0x2a, 0x01, SOUTH),
@@ -10613,6 +10620,60 @@ area town() {
     };
 
     area temple() {
+        enum AREA_TEMPLE {
+            MUSIC = 0x1e,
+
+            UNLOCKED_LEVEL_1 = flag(),
+            UNLOCKED_LEVEL_2 = flag(),
+
+            BOSS_KEY = flag(),
+        }
+
+        fun fake_northern_wall() {
+            init_map(0x00, 0x30, 0x50, 0x8a);
+        }
+
+        fun elevator_triggered() {
+            if!(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
+                error_contraption(SOUTH);
+
+                end();
+            }
+
+            control(NONE);
+
+            object[0x05] = 0x7e; // open elevator
+            sleep(0x50);
+
+            walk(BOY, TILE_ABSOLUTE, 0d43, 0d73, NONE);
+            walk(DOG, TILE_ABSOLUTE, 0d41, 0d73, BOTH);
+
+            face(BOY, SOUTH);
+            face(DOG, SOUTH);
+            
+            object[0x05] = 0x00; // open elevator
+
+            sleep(0x50);
+
+            // map_transition(town_temple_underground, elevator, NONE);
+
+            if(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
+                question("[SLOW]Press a button:[CHOICE]1[CHOICE]2[CHOICE]3");
+            } else if(AREA_TEMPLE.UNLOCKED_LEVEL_1) {
+                question("[SLOW]Press a button:[CHOICE]1[CHOICE]2");
+            }
+
+            if(MEMORY.QUESTION_ANSWER == 0d00) {
+                map_transition(town_temple, elevator, NONE);
+            } else if(MEMORY.QUESTION_ANSWER == 0d01) {
+                map_transition(town_temple_underground, elevator, NONE);
+            } else if(MEMORY.QUESTION_ANSWER == 0d02) {
+                map_transition(town_temple_underground_castle, elevator, NONE);
+            } else {
+                map_transition(town_temple, elevator, NONE); // TODO: walk out again
+            }
+        }
+
         area level_0() {
             map town_temple(0x29) {
                 enum entrance {
@@ -10628,7 +10689,7 @@ area town() {
                 }
 
                 enum soundtrack {
-                    default = soundtrack(TEMPLE.MUSIC, 0xff)
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -10733,22 +10794,7 @@ area town() {
                         subtext("S=30");
                     },
                     elevator = @install() {
-                        control(NONE);
-
-                        object[0x05] = 0x7e; // open elevator
-                        sleep(0x50);
-
-                        walk(BOY, TILE_ABSOLUTE, 0d43, 0d73, NONE);
-                        walk(DOG, TILE_ABSOLUTE, 0d41, 0d73, BOTH);
-
-                        face(BOY, SOUTH);
-                        face(DOG, SOUTH);
-                        
-                        object[0x05] = 0x00; // open elevator
-
-                        sleep(0x50);
-
-                        map_transition(town_temple_underground, elevator, NONE);
+                        elevator_triggered();
                     },
                 }
 
@@ -10806,7 +10852,7 @@ area town() {
                     open_doors(True);
                     object[0x07] = 0x00; // SW
 
-                    init_map(0x00, 0x30, 0x50, 0x8a);
+                    fake_northern_wall();
 
                     default_init_room(False, False);
 
@@ -10830,7 +10876,7 @@ area town() {
                 }
 
                 enum soundtrack {
-                    default = soundtrack(TEMPLE.MUSIC, 0xff)
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
                 enum ROOM {
@@ -10934,7 +10980,7 @@ area town() {
                 }
 
                 enum soundtrack {
-                    default = soundtrack(TEMPLE.MUSIC, 0xff)
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -10971,7 +11017,7 @@ area town() {
                 }
 
                 enum soundtrack {
-                    default = soundtrack(TEMPLE.MUSIC, 0xff)
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
                 enum BOSS {
@@ -11170,7 +11216,7 @@ area town() {
                 }
 
                 enum soundtrack {
-                    default = soundtrack(TEMPLE.MUSIC, 0xff)
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
                 enum stepon_trigger {
@@ -11193,13 +11239,17 @@ area town() {
                         subtext("S=5");
                     },
                     exit_south = @install() {
-                        subtext("S=6");
+                        if(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
+                            map_transition(town_temple_underground_castle_stairs, north_2, SOUTH);
+                        } else {
+                            error_wrong_side(NORTH);
+                        }
                     },
                     door_west_2 = @install() {
                         subtext("S=7");
                     },
                     door_west_1 = @install() {
-                        subtext("S=8");
+                        map_transition(town_temple_underground_castle_south_west, east_1, WEST);
                     },
                     door_east_2 = @install() {
                         subtext("S=9");
@@ -11271,7 +11321,7 @@ area town() {
                         subtext("S=30");
                     },
                     elevator = @install() {
-                        map_transition(town_temple, elevator, NONE);
+                        elevator_triggered();
                     },
                 }
 
@@ -11302,20 +11352,313 @@ area town() {
                     }
                 }
 
+                fun trigger_enter() {
+                    set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
+
+                    // fake_northern_wall();
+
+                    open_doors(True);
+
+                    default_init_room(True, False);
+                }
+            };
+        };
+
+        area level_2() {
+            map town_temple_underground_castle(0x29) {
+                enum entrance {
+                    north = entrance(0x29, 0x03, SOUTH),
+                    east_1 = entrance(0x4b, 0x3f, WEST),
+                    east_2 = entrance(0x49, 0x5d, WEST),
+                    south = entrance(0x29, 0x8b, NORTH),
+                    west_1 = entrance(0x09, 0x5d, EAST),
+                    west_2 = entrance(0x09, 0x3f, EAST),
+
+                    // elevator = entrance(0x29, 0x49, NONE),
+                    elevator = entrance(0x29, 0x4c, SOUTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+                }
+
+                enum stepon_trigger {
+                    stepon_0 = @install() {
+                        subtext("S=0");
+                    },
+                    stepon_1 = @install() {
+                        subtext("S=1");
+                    },
+                    stepon_2 = @install() {
+                        subtext("S=2");
+                    },
+                    stepon_3 = @install() {
+                        subtext("S=3");
+                    },
+                    stepon_4 = @install() {
+                        subtext("S=4");
+                    },
+                    stepon_5 = @install() {
+                        subtext("S=5");
+                    },
+                    exit_south = @install() {
+                        map_transition(town_temple_underground_castle_stairs, north_1, SOUTH);
+                    },
+                    door_west_2 = @install() {
+                        subtext("S=7");
+                    },
+                    door_west_1 = @install() {
+                        map_transition(town_temple_underground_castle_south_west, east_2, WEST);
+                    },
+                    door_east_2 = @install() {
+                        map_transition(town_temple_underground_castle_south_east, west, EAST);
+                    },
+
+                    door_east_1 = @install() {
+                        subtext("S=10");
+                    },
+                    stepon_11 = @install() {
+                        subtext("S=11");
+                    },
+                    switch_triggered = @install() {
+                        subtext("S=12");
+                    },
+                    stepon_13 = @install() {
+                        subtext("S=13");
+                    },
+                    stepon_14 = @install() {
+                        subtext("S=14");
+                    },
+                    stepon_15 = @install() {
+                        subtext("S=15");
+                    },
+                    stepon_16 = @install() {
+                        subtext("S=16");
+                    },
+                    stepon_17 = @install() {
+                        subtext("S=17");
+                    },
+                    stepon_18 = @install() {
+                        subtext("S=18");
+                    },
+                    stepon_19 = @install() {
+                        subtext("S=19");
+                    },
+
+                    stepon_20 = @install() {
+                        subtext("S=20");
+                    },
+                    stepon_21 = @install() {
+                        subtext("S=21");
+                    },
+                    stepon_22 = @install() {
+                        subtext("S=22");
+                    },
+                    stepon_23 = @install() {
+                        subtext("S=23");
+                    },
+                    stepon_24 = @install() {
+                        subtext("S=24");
+                    },
+                    stepon_25 = @install() {
+                        subtext("S=25");
+                    },
+                    stepon_26 = @install() {
+                        subtext("S=26");
+                    },
+                    stepon_27 = @install() {
+                        subtext("S=27");
+                    },
+                    stepon_28 = @install() {
+                        subtext("S=28");
+                    },
+                    stepon_29 = @install() {
+                        subtext("S=29");
+                    },
+
+                    stepon_30 = @install() {
+                        subtext("S=30");
+                    },
+                    elevator = @install() {
+                        elevator_triggered();
+                    },
+                }
+
+                enum b_trigger {
+                    b_trigger_0 = @install() {
+                        subtext("B=0");
+                    },
+                    b_trigger_1 = @install() {
+                        subtext("B=1");
+                    },
+                }
+
+                fun open_doors(open) {
+                    if(open) {
+                        object[0x03] = 0x01; // NE
+
+                        object[0x07] = 0x01; // SW
+                        object[0x08] = 0x01; // SE
+
+                        object[0x09] = 0x01; // NW
+                    } else {
+                        object[0x03] = 0x00; // NE
+
+                        object[0x07] = 0x00; // SW
+                        object[0x08] = 0x00; // SE
+
+                        object[0x09] = 0x00; // NW
+                    }
+                }
+
+                fun trigger_enter() {
+                    set(AREA_TEMPLE.UNLOCKED_LEVEL_2);
+
+                    fake_northern_wall();
+
+                    open_doors(True);
+
+                    default_init_room(True, False);
+                }
+            };
+
+            map town_temple_underground_castle_stairs(0x0d) {
+                enum entrance {
+                    test = entrance(0x10, 0x10, NONE),
+
+                    north_1 = entrance(0x14, 0x4b, SOUTH),
+                    north_2 = entrance(0x40, 0x11, SOUTH),
+                    south = entrance(0x25, 0x75, NORTH),
+                    west = entrance(0x07, 0x53, EAST),
+                }
+
+                enum stepon_trigger {
+                    exit_west = @install() {
+                        subtext("S=0");
+                    },
+                    exit_north_1 = @install() {
+                        map_transition(town_temple_underground_castle, south, NORTH);
+                    },
+                    exit_south = @install() {
+                        subtext("S=2");
+                    },
+                    exit_north_2 = @install() {
+                        map_transition(town_temple_underground, south, NORTH);
+                    },
+                    stairs_helper_1 = @install() {
+                        subtext("S=4");
+                    },
+                    stepon_5 = @install() {
+                        subtext("S=5");
+                    },
+                    stairs_helper_2 = @install() {
+                        subtext("S=6");
+                    },
+                    stepon_7 = @install() {
+                        subtext("S=7");
+                    },
+                }
+
+                fun trigger_enter() {
+                    // object[0x00] = 0x01; // hide statue
+                    // object[0x01] = 0x01; // hide rubble
+                    // 2-4 ?
+                    // object[0x05] = 0x01; // open door
+                    // >5 ?
+
+                    default_init_room(True, False);
+                }
+            };
+            
+            map town_temple_underground_castle_south_east(0x0f) {
+                enum entrance {
+                    east = entrance(0x77, 0x29, WEST),
+                    west = entrance(0x07, 0x28, EAST),
+                }
+
+                enum stepon_trigger {
+                    exit_west = @install() {
+                        map_transition(town_temple_underground_castle, east_2, WEST);
+                    },
+                    exit_east = @install() {
+                        error_dead_end(WEST);
+                    },
+                }
+
+                enum b_trigger {
+                    gourd_north = @install() {
+                        subtext("B=0");
+                    },
+                    gourd_south = @install() {
+                        subtext("B=1");
+                    },
+                }
+
+                fun open_boss_door(open) {
+                    if(open) {
+                        object[0x01] = 0x00;
+                    } else {
+                        object[0x01] = 0x01;
+                    }
+                }
+
                 @install()
                 fun debug_triggered() {
-                    nop();
+                    set(AREA_TEMPLE.BOSS_KEY);
 
                     destroy(SCRIPT_OWNER);
                 }
 
-                fun trigger_enter() {
-                    if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
-                        add_debug_entity(0d69, 0d87, reference(debug_triggered));
+                @install()
+                fun door_triggered() {
+                    if(AREA_TEMPLE.BOSS_KEY) {
+                        open_boss_door(True);
+                    } else {
+                        error_locked(NORTH);
                     }
+                }
 
-                    open_doors(True);
+                fun trigger_enter() {
+                    // object[0x03] = 0x01; // open gourd_south
+                    object[0x02] = 0x01; // close door_south_1
+                    object[0x01] = 0x01; // close door_south_2
+                    object[0x00] = 0x01; // close door_south_3
 
+                    // object[0x07] = 0x01; // open gourd_north
+                    object[0x04] = 0x01; // close door_north_1
+                    object[0x05] = 0x01; // close door_north_2
+                    object[0x06] = 0x01; // close door_north_3
+
+                    default_init_room(True, False);
+
+                    add_enemy(PLACEHOLDER, 0d64, 0d60);
+                    attach_script(LAST_ENTITY, TALK, reference(door_triggered));
+
+                    if!(AREA_TEMPLE.BOSS_KEY) {
+                        add_debug_entity(0d69, 0d47, reference(debug_triggered));
+                    }
+                }
+            };
+
+            map town_temple_underground_castle_south_west(0x77) {
+                enum entrance {
+                    east_1 = entrance(0x39, 0x15, WEST),
+                    east_2 = entrance(0x39, 0x24, WEST)
+                }
+
+                enum stepon_trigger {
+                    stairs = @install() {
+                        subtext("S=0");
+                    },
+                    exit_east_1 = @install() {
+                        map_transition(town_temple_underground, west_1, EAST);
+                    },
+                    exit_east_2 = @install() {
+                        map_transition(town_temple_underground_castle, west_1, EAST);
+                    }
+                }
+
+                fun trigger_enter() {
                     default_init_room(True, False);
                 }
             };
