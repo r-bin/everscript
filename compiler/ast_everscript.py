@@ -1626,13 +1626,23 @@ class Reference(Function_Base):
         self._scope = generator.current_scope()
 
         self.name = name
+        self.value = None
 
-        if isinstance(name, Param):
-            name = name.name
+        match name:
+            case Param():
+                if name.value:
+                    self.value = name.value
+                    name = name.value.name
+
+                    self._generator.add_function(self.value, self._generator.current_scope(), reference=True)
+                else:
+                    name = name.name
+            case _:
+                pass
+
         if isinstance(name, Identifier):
             name = name.name
 
-        self.value = None
         self._value_count = None
 
         self.update_reference(name)
@@ -1653,8 +1663,10 @@ class Reference(Function_Base):
             case Function():
                 self._value_count = 2
 
-                index = self.value.key
-                index = index.index
+                index = 0xffff
+                if self.value.key:
+                    index = self.value.key
+                    index = index.index
                 return index
             case None:
                 self._value_count = 2

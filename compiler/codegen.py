@@ -211,13 +211,16 @@ allocated RAM:
     def add_map_transition(self, map_transition:MapTransition):
         self.map_transitions.append(map_transition)
 
-    def add_function(self, function:Function, scope:Scope=None):
+    def add_function(self, function:Function, scope:Scope=None, reference:bool=False):
         if not scope:
             scope = self.current_scope()
 
         scope.functions[function.name] = function
         
         self.code.append(function)
+
+        if reference:
+            self.reference_function(function)
     
     def get_function(self, name, scope=None, with_exception=False): #TODO
         if isinstance(name, Token):

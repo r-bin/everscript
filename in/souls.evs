@@ -33,11 +33,11 @@ group non_maps() {
 
         @install(0x46852)
         fun string_enemy_spell_name_fireball() {
-            '[END]'; // Fireball
+            '[END]'; // Fireball - TODO: also used in alchemy selection
         }
         @install(0x46866)
         fun string_enemy_spell_name_flash() {
-            '[END]'; // Flash
+            '[END]'; // Flash - TODO: also used in alchemy selection
         }
     };
 
@@ -1058,7 +1058,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(east_crossing, north, NONE);
+                map_transition(jungle_firepit, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1554,6 +1554,50 @@ group non_maps() {
                 attach_script(LAST_ENTITY, TALK, reference(smith_triggered));
             }
         };
+    };
+
+    group statue_riddle() {
+        enum STATUE_RIDDLE {
+            PROGRESS = memory(),
+        }
+
+        enum STATUE_RIDDLE_STATUES { // order = actual activation order
+            DOG = 0x00,
+            HORACE = 0x01,
+            VIGOR = 0x02,
+        }
+
+        fun place_statue(index:STATUE_RIDDLE_STATUES, x, y) {
+            if(index == STATUE_RIDDLE_STATUES.DOG) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.DOG) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    // <LAST_ENTITY>[GENERAL_PURPOSE] = STATUE_RIDDLE_STATUES.DOG;
+                    attach_script(LAST_ENTITY, TALK, reference(@install() {
+                        STATUE_RIDDLE.PROGRESS += 0x01;
+
+                        dialog("[SLOW]He was the first to wittness a dog walking on water.[B]");
+                    }));
+                }
+            } else if(index == STATUE_RIDDLE_STATUES.HORACE) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.HORACE) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    attach_script(LAST_ENTITY, TALK, reference(@install() {
+                        STATUE_RIDDLE.PROGRESS += 0x01;
+
+                        dialog("[SLOW]He once wittnessed a street boy outsmarting a strong man, twice.[B]");
+                    }));
+                }
+            } else if(index == STATUE_RIDDLE_STATUES.VIGOR) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.HORACE) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    attach_script(LAST_ENTITY, TALK, reference(@install() {
+                        STATUE_RIDDLE.PROGRESS += 0x01;
+
+                        dialog("todo[B]");
+                    }));
+                }
+            }
+        }
     };
 };
 
@@ -2120,6 +2164,8 @@ area inbetwixx_center() {
 
             dust_unreachable(0d45, 0d35);
             damage(BOTH, 0d999, True);
+            sleep(0d30);
+            damage(BOTH, SYSTEM.HP_MAX, False);
         }
 
         enum stepon_trigger {
@@ -2299,87 +2345,6 @@ area inbetwixx_center() {
         }
 
         @install()
-        fun test_room_portal() {
-            attach_to_script(BOY);
-
-            question_max("[SLOW]Dog Test Rooms:[CHOICE]Gate Bots (90%)[CHOICE]Rats (80%)[LF]Boy Test Rooms:[CHOICE]Bomb (50%)[CHOICE]Mosquito (80%)[CHOICE]Invisible (100%)[CHOICE]Abomination (80%)[CHOICE]Radahn (90%)[CHOICE]Drone (80%)", 0x09 + 0x07);
-
-            if(MEMORY.QUESTION_ANSWER == 0x00) { // toaster arena
-                map_transition(toaster_arena, center, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // rats arena
-                map_transition(rats_arena, right, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // bomb arena
-                map_transition(bomb_arena, right, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x03) { // mosquito arena
-                map_transition(mosquito_arena, right, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x04) { // invisible arena
-                map_transition(invisible_arena, right, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x05) { // abomination arena
-                // map_transition(abomination_arena, right, NONE);
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x06) { // radahn arena
-                map_transition(radahn_arena, right, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x07) { // drone arena
-                map_transition(drone_arena, right, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0x08) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x09) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // nop
-                nop();
-            }
-        }
-        @install()
-        fun cheat_selection() {
-            attach_to_script(BOY);
-
-            question_max("[SLOW]Cheats:[CHOICE]Basics[CHOICE]All[CHOICE]Alchemy[CHOICE]Money", 0x08);
-
-            if(MEMORY.QUESTION_ANSWER == 0x00) { // basics
-                unlock(WEAPONS);
-                unlock(JAGUAR_RING);
-                // unlock(CONSUMABLES);
-                unlock(INGREDIENTS);
-                unlock(MONEY);
-                
-                // unlock(SPEAR_1);
-                unlock(AXE_2);
-
-                set(FLAG.REVEALER);
-                MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.REVEALER;
-                set(FLAG.LEVITATE);
-                MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX.LEVITATE;
-                set(FLAG.HARD_BALL);
-                MEMORY.SELECTED_ALCHEMY_2 = ALCHEMY_INDEX.HARD_BALL;
-
-                set(SOULS_MEMORY.BOMB_ENABLED);
-            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // all
-                unlock(ALL);
-            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // alchemy
-                unlock(ALCHEMY);
-                unlock(INGREDIENTS);
-
-                select_alchemy();
-            } else if(MEMORY.QUESTION_ANSWER == 0x03) { // money
-                currency_get(CURRENCY.TALONS, 0x29a);
-            } else if(MEMORY.QUESTION_ANSWER == 0x04) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x05) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x06) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x07) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x08) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x09) { // nop
-                nop();
-            } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // nop
-                nop();
-            }
-        }
-
-        @install()
         @async()
         fun revealer_approached() {
             attach_to_script(ROOM.BRIDGE_REVEALER_ENTITY);
@@ -2432,7 +2397,7 @@ area inbetwixx_center() {
                 unlock(WEAPONS);
                 unlock(JAGUAR_RING);
                 unlock(CHARMS);
-                // unlock(CONSUMABLES);
+                unlock(CONSUMABLES);
                 unlock(INGREDIENTS);
                 unlock(MONEY);
                 
@@ -3074,18 +3039,20 @@ area west_inbetwixx() {
                 branch_lady(0x58, 0x0f, reference(branch_triggered));
             }
 
-            add_enemy(OWL_BLACK, 0x2d, 0x21);
-            // <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-            attach_script(LAST_ENTITY, DAMAGE, reference(owl_triggered));
-            BOSS.ID_OWL_1 = <LAST_ENTITY>;
+            if!(SOULS_MEMORY.DEAD_OWL_BOY) {
+                add_enemy(OWL_BLACK, 0x2d, 0x21);
+                // <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+                attach_script(LAST_ENTITY, DAMAGE, reference(owl_triggered));
+                BOSS.ID_OWL_1 = <LAST_ENTITY>;
 
-            add_enemy_with_flags(OWL_BLACK, 0x47, 0x42, INACTIVE);
-            // <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-            attach_script(LAST_ENTITY, DAMAGE, reference(owl_triggered));
-            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x01;
-            BOSS.ID_OWL_2 = <LAST_ENTITY>;
-            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
-            face(LAST_ENTITY, SOUTH);
+                add_enemy_with_flags(OWL_BLACK, 0x47, 0x42, INACTIVE);
+                // <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+                attach_script(LAST_ENTITY, DAMAGE, reference(owl_triggered));
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0x01;
+                BOSS.ID_OWL_2 = <LAST_ENTITY>;
+                animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
+                face(LAST_ENTITY, SOUTH);
+            }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // inside
@@ -4614,14 +4581,14 @@ area altus_plateau_entry() {
                 }
 
                 enum b_trigger {
-                    b_trigger_0 = @install() {
-                        subtext("B=0");
+                    chest_1 = @install() {
+                        _loot_chest(0x00, FEATHER, 0d01);
                     },
-                    b_trigger_1 = @install() {
-                        subtext("B=1");
+                    chest_2 = @install() {
+                        _loot_chest(0x01, BRIMSTONE, 0d01);
                     },
-                    b_trigger_2 = @install() {
-                        subtext("B=2");
+                    chest_3 = @install() {
+                        _loot_chest(0x02, ACORNS, 0d01);
                     },
                 }
 
@@ -4952,9 +4919,11 @@ area altus_plateau_entry() {
                         subtext("B=19");
                     },
                 }
-                
+
                 fun trigger_enter() {
-                    fade_in();
+                    default_init_room(False, False);
+
+                    place_statue(VIGOR, 0d64, 0d32);
                 }
             };
 
@@ -5079,8 +5048,49 @@ area altus_plateau_entry() {
                     },
                 }
 
+                enum ROOM {
+                    DEBUG = False,
+
+                    PIT_IGNITED = flag(),
+                    FIRE_ORB_TRIGGER_COUNTER = memory_tmp(),
+                }
+
+                fun ignite_pit() {
+                    object[0x00] = 0x01; // ignite firepit
+                }
+
+                @install()
+                fun firepit_damage() {
+                    check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
+
+                    if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
+                        ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
+                        set(ROOM.PIT_IGNITED);
+                        ignite_pit();
+                        destroy(SCRIPT_OWNER);
+                    } else {
+                        heal(SCRIPT_OWNER, 0x00, False);
+                        // damage(SCRIPT_OWNER, 0x00, True);
+                    }
+
+                    // reset_alchemy_types();
+                }
+
                 fun trigger_enter() {
-                    fade_in();
+                    // object[0x00] = 0x01; // ignite fire
+                    // object[0x01] = 0x02; // show windwalker_collision
+
+                    if!(ROOM.PIT_IGNITED) {
+                        add_enemy(FACE_ENTITY, 0d45, 0d17);
+                        attribute(LAST_ENTITY, INVISIBLE, True);
+                        attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
+
+                        reset_alchemy_types();
+                    } else {
+                        ignite_pit();
+                    }
+
+                    default_init_room(False, False);
                 }
             };
 
@@ -6089,11 +6099,11 @@ area east_inbetwixx() {
             b_trigger_13 = @install() {
                 subtext("B=13");
             },
-            b_trigger_14 = @install() {
-                subtext("B=14");
+            gourd_1 = @install() {
+                _loot_chest(0x0f, WATER, 0d01);
             },
-            b_trigger_15 = @install() {
-                subtext("B=15");
+            gourd_2 = @install() {
+                _loot_chest(0x10, WATER, 0d02);
             }
         }
 
@@ -6854,6 +6864,8 @@ area east_inbetwixx() {
             }
 
             default_init_room(True, True);
+
+            place_statue(HORACE, 0d90, 0d75);
         }
     };
 
@@ -9969,10 +9981,12 @@ area southern_jungle() {
 
         @install()
         fun pit_triggered() {
-            generic_fall(0d80);
+            generic_fall(0d100, 0d1030);
 
             dust_unreachable(0d143, 0d108);
             damage(BOTH, 0d999, True);
+            sleep(0d30);
+            damage(BOTH, SYSTEM.HP_MAX, False);
         }
 
         enum stepon_trigger {
@@ -10115,6 +10129,8 @@ area southern_jungle() {
             BRIDGE_SIZE = 0d45,
             BRIDGE_REVEALED = flag(),
             BRIDGE_REVEALER_ENTITY = memory_tmp(),
+
+            TRI_STONE_LOOTED = flag(),
         }
 
         @install()
@@ -10169,6 +10185,16 @@ area southern_jungle() {
             destroy(ROOM.BRIDGE_REVEALER_ENTITY);
         }
 
+        @install()
+        fun tri_stones_triggered() {
+            if!(ROOM.TRI_STONE_LOOTED) {
+                set(ROOM.TRI_STONE_LOOTED);
+
+                fake_loot();
+                subtext("todo");
+            }
+        }
+
         fun trigger_enter() {
             object[0x04] = 0x01;
             object[0x05] = 0x01;
@@ -10191,6 +10217,11 @@ area southern_jungle() {
             default_init_room(True, True);
 
             player_message(0d134, 0d122, reference(message_triggered));
+
+            if!(ROOM.TRI_STONE_LOOTED) {
+                add_enemy(PLACEHOLDER, 0d23, 0d134);
+                attach_script(LAST_ENTITY, TALK, reference(tri_stones_triggered));
+            }
         }
     };
 
@@ -10212,17 +10243,17 @@ area southern_jungle() {
         }
 
         enum b_trigger {
-            b_trigger_0 = @install() {
-                subtext("B=0");
+            gourd_x = @install() {
+                _loot_chest(0x05, MONEY, 0d15);
             },
-            b_trigger_1 = @install() {
-                subtext("B=1");
+            gourd_x = @install() {
+                _loot_chest(0x00, PETAL, 0x01);
             },
-            b_trigger_2 = @install() {
-                subtext("B=2");
+            gourd_x = @install() {
+                _loot_chest(0x02, PETAL, 0x01);
             },
-            b_trigger_3 = @install() {
-                subtext("B=3");
+            gourd_x = @install() {
+                _loot_chest(0x04, NECTAR, 0x01);
             },
             b_trigger_4 = @install() {
                 subtext("B=4");
@@ -10283,11 +10314,13 @@ area southern_jungle() {
             b_trigger_22 = @install() {
                 subtext("B=22");
             },
-            b_trigger_23 = @install() {
+            gourd_x = @install() {
                 subtext("B=23");
+                _loot_chest(0x01, OIL, 0x01);
             },
-            b_trigger_24 = @install() {
+            gourd_x = @install() {
                 subtext("B=24");
+                _loot_chest(0x03, HELM_1_2, 0x01);
             },
             b_trigger_25 = @install() {
                 subtext("B=25");
@@ -10397,6 +10430,8 @@ area southern_jungle() {
         }
         
         fun trigger_enter() {
+            init_map(0x00, 0x02, 0x80, 0x96);
+
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
@@ -10531,18 +10566,18 @@ area southern_jungle() {
             b_trigger_20 = @install() {
                 subtext("B=20");
             },
-            b_trigger_21 = @install() {
-                subtext("B=21");
+            gourd_south = @install() {
+                _loot_chest(0x00, CLAY, 0x01);
             },
-            b_trigger_22 = @install() {
-                subtext("B=22");
+            gourd_north = @install() {
+                _loot_chest(0x01, NECTAR, 0x01);
             },
         }
         
         fun trigger_enter() {
             init_map(0x00, 0x00, 0x63, 0x4f);
 
-            fade_in();
+            default_init_room(True, True);
         }
     };
 
@@ -10575,8 +10610,77 @@ area southern_jungle() {
             },
         }
 
+        enum ROOM {
+            DEBUG = False,
+
+            STATUE_REVEALED = flag(),
+
+            PIT_IGNITED = flag(),
+            FIRE_ORB_TRIGGER_COUNTER = memory_tmp(),
+        }
+
+        fun ignite_pit() {
+            object[0x01] = 0x01; // ignite firepit
+        }
+
+        @install()
+        fun firepit_damage() {
+            check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
+
+            if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
+                ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
+                set(ROOM.PIT_IGNITED);
+                ignite_pit();
+                destroy(SCRIPT_OWNER);
+            } else {
+                heal(SCRIPT_OWNER, 0x00, False);
+                // damage(SCRIPT_OWNER, 0x00, True);
+            }
+
+            // reset_alchemy_types();
+        }
+
+        fun show_statue(show) {
+            if(show) {
+                object[0x02] = 0x01; // show dog_statue
+
+                place_statue(DOG, 0d26, 0d19);
+            } else {
+                object[0x02] = 0x00; // show dog_statue
+            }
+        }
+
+        @install()
+        fun revealer_triggered() {
+            show_statue(True);
+
+            destroy(SCRIPT_OWNER);
+        }
+
         fun trigger_enter() {
-            fade_in();
+            // object[0x00] = 0x02; // add windwalker_hitbox
+            // object[0x01] = 0x01; // ignite firepit
+            // object[0x02] = 0x01; // show dog_statue
+
+            if!(ROOM.PIT_IGNITED) {
+                add_enemy(FACE_ENTITY, 0d14, 0d22);
+                attribute(LAST_ENTITY, INVISIBLE, True);
+                attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
+
+                reset_alchemy_types();
+            } else {
+                ignite_pit();
+            }
+
+            if!(ROOM.STATUE_REVEALED) {
+                add_enemy(REVEALER_TARGET_ENTITY, 0d26, 0d16);
+
+                special_script(REVEALER, reference(revealer_triggered));
+            } else {
+                show_statue(True);
+            }
+
+            default_init_room(True, True);
         }
     };
 };
@@ -11239,6 +11343,8 @@ area town() {
 
                     dust_unreachable(0d38, 0d36);
                     damage(BOTH, 0d999, True);
+                    sleep(0d30);
+                    damage(BOTH, SYSTEM.HP_MAX, False);
                 }
 
                 enum stepon_trigger {
