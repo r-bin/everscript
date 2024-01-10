@@ -272,7 +272,7 @@ class MapDataHandler():
             self.MapData(0x58, 0xad8cbb, 0x05, 0x00, "Antiqua - 'mids boss room (Rimsala)"),
             self.MapData(0x59, 0xa08000, 0x41, 0x1c, "Prehistoria - Quick sand desert"),
             self.MapData(0x5a, 0xad9309, 0x01, 0x02, "Prehistoria - Acid rain guy"),
-            self.MapData(0x5b, 0xa78000, 0x05, 0x0b, "Prehistoria - East jungle"),
+            self.MapData(0x5b, 0xa78000, 0x05, 0x11, "Prehistoria - East jungle"),
             self.MapData(0x5c, 0xa8f590, 0x03, 0x04, "Prehistoria - Raptors"),
             self.MapData(0x5d, 0xabd9ce, 0x07, 0x00, "Gothica - Ebon Keep Courtyard (South of Verm)"),
             self.MapData(0x5e, 0xacec95, 0x0a, 0x00, "Gothica - Ebon Keep Front Room (Verm)"),
