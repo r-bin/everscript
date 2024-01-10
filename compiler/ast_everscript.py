@@ -1579,13 +1579,13 @@ class Loot(Function_Base):
     def __init__(self, generator, with_kneel_animation:bool, object, reward, amount, next):
         self._generator = generator
         if with_kneel_animation:
-            self.animation = Word(0x39)
+            self.animation = Word(0x39, 1)
         else:
-            self.animation = Word(0x3a)
+            self.animation = Word(0x3a, 1)
         self.object = object
         self.reward = self.parse_argument_with_type(self._generator, reward, "LOOT_REWARD")
         self.amount = amount
-        self.next = next
+        self.next = Word(next)
     
         flag = self._generator.get_flag()
 
