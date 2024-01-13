@@ -143,7 +143,7 @@ class Parser():
 
             scope = self.generator.pop_scope()
 
-            map = Map(name, params, code, scope.objects)
+            map = Map(self.generator, name, params, code, scope.objects)
             scope.value = map
 
             self.generator.set_identifier(name, map)

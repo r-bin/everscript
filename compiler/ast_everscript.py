@@ -1371,7 +1371,9 @@ class Map(Function_Base):
     functions:dict[str, Function] = {}
     trigger_enter:Function = None
 
-    def __init__(self, name, params, code, objects):
+    def __init__(self, generator, name, params, code, objects):
+        self._generator = generator
+        
         if isinstance(name, Token):
             name = name.value
         self.name = name
@@ -1379,7 +1381,13 @@ class Map(Function_Base):
 
         if isinstance(params, Token):
             params = params.value
-        self.map_index = params[0]
+
+        if isinstance(params[0], Param):
+            self.map_index = self.parse_argument_with_type(generator, params[0], "MAP")
+            self.map_index.value
+        else:
+            self.map_index = params[0]
+
         if isinstance(self.map_index, Param):
             self.map_index = self.map_index.value
         if isinstance(self.map_index, Word):
