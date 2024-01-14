@@ -1,0 +1,109 @@
+#memory(
+    // <0x2266>,
+
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    // string_key(0x0000)..string_key(0x232b), // all string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x350000..0x3fffff, // extension
+
+    <0x2834>..<0x28ff>
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "camera_hack",
+    // "free_graveyard_ids",
+
+    // asm
+    "_hook_input", // 0x3f0000…0x310000
+    "debug_menu", // uses 0x3f0000…???
+    "hotkeys", // uses 0x3f00000…???
+    // "room_timer" // uses 0x300000…???
+)
+
+// hotkeys
+
+@install()
+@inject(ADDRESS.HOTKEY_START)
+@count_limit(0x20)
+fun hotkey_start() {
+    subtext("Start");
+
+    // drop_bomb();
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
+@count_limit(0x20)
+fun hotkey_start_l() {
+    subtext("Start+L");
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
+@count_limit(0x20)
+fun hotkey_start_r() {
+    subtext("Start+R");
+}
+
+// maps
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(brians_room, center, NONE, True);
+}
+
+map brians_room(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x17, 0x19, NONE)
+    }
+
+    enum USB_BRIDGE {
+        MEMORY_1 = <0x2834>,
+        MEMORY_2 = <0x2564>,
+    }
+
+    fun server_watcher(memory1, memory2) {
+        while(True) {
+            if(memory1 > 0x0000) {
+                debug_memory(memory1, memory2);
+                memory1 = 0x0000;
+
+                sleep(0d60);
+            }
+            if(memory2 > 0x0000) {
+                debug_memory(memory1, memory2);
+                memory2 = 0x0000;
+
+                sleep(0d60);
+            }
+
+            yield();
+        }
+    }
+
+    fun trigger_enter() {
+        set(FLAG.FLOWERS_CUTSCENE_WATCHED);
+
+        teleport(BOY, 0x17, 0x19);
+        face(BOY, NORTH);
+
+        teleport(DOG, 0x1a, 0x19);
+        
+        add_enemy(ENEMY.PLACEHOLDER, 0x17, 0x1a);
+        animate(LAST_ENTITY, ONCE, ANIMATION_BOY.TELEPORT_IN);
+
+        add_enemy(ENEMY.PLACEHOLDER, 0x1a, 0x1a);
+        animate(LAST_ENTITY, ONCE, ANIMATION_BOY.TELEPORT_IN);
+
+        MEMORY.PACIFIED = 0x0001;
+        show_status_bar(False);
+        music_volume(0x62, 0x64);
+        fade_in();
+
+        subtext("Crowd Control PoC (0x2834, 0x2564)");
+
+        server_watcher(USB_BRIDGE.MEMORY_1, USB_BRIDGE.MEMORY_2);
+    }
+};
