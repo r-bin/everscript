@@ -1147,7 +1147,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(basement_0_start, center, NONE);
+                map_transition(double_thraxx, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1171,8 +1171,6 @@ group non_maps() {
                 if(False) {
                     <0x2834> += 0x01;
                 }
-
-                debug_memory(<BOY>[PALETTE], 0x00);
             }
         }
         @install()
@@ -5034,7 +5032,6 @@ area altus_plateau_entry() {
                     fade_in();
                 }
             };
-
         };
 
         map well(WELL) {
@@ -21108,4 +21105,161 @@ area experimental_room() {
             }
         };
     };
+
+
+    map double_thraxx(THRAXX) {
+        enum entrance {
+            north = entrance(0x18, 0x10, SOUTH),
+            south = entrance(0x17, 0x3f, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_north = @install() {
+                subtext("S=0");
+
+                // map_transition(thraxx, south, NORTH);
+            },
+            trigger_boss = @install() {
+                subtext("S=1");
+            },
+            exit_south = @install() {
+                subtext("S=2");
+                // map_transition(thraxx, north, SOUTH);
+            }
+        }
+
+        enum b_trigger {
+            cocoon = @install() {
+                subtext("B=0");
+            },
+            rip_cage = @install() {
+                subtext("B=1");
+            }
+        }
+
+        fun show_thraxx(show) {
+            if(show) {
+                object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+                object[0x01] = 0x00; // change body (0=present, 1=cocoon, 2=gone)
+                object[0x02] = 0x00; // change rip_entrance_right (0=present, 1=gone)
+                object[0x03] = 0x00; // change rip_entrance_left (0=present, 1=gone)
+            } else {
+                object[0x00] = 0x02; // change rip_entrance (0=open, 1=closed, 2=gone)
+                object[0x01] = 0x02; // change body (0=present, 1=cocoon, 2=gone)
+                object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
+                object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
+            }
+        }
+
+        fun show_cocoon(show) {
+            if(show) {
+                object[0x01] = 0x01;
+            } else {
+                object[0x01] = 0x00;
+            }
+        }
+
+        enum BOSS {
+            DEBUG = False,
+
+            ARM_LEFT_X = 0d152,
+            ARM_LEFT_Y = 0d112,
+
+            ARM_RIGHT_X = 0d232,
+            ARM_RIGHT_Y = 0d104,
+
+            HEART_ID = memory_tmp(),
+            HEART_2_ID = memory_tmp(),
+
+            ARM_LEFT_ID = memory_tmp(),
+            ARM_LEFT_2_ID = memory_tmp(),
+
+            ARM_RIGHT_ID = memory_tmp(),
+            ARM_RIGHT_2_ID = memory_tmp(),
+        }
+
+        @install()
+        @async()
+        fun double_hit_check() {
+            while!(dead(BOSS.HEART_ID)) {
+                if((BOSS.HEART_ID[GENERAL_PURPOSE] > 0x00) && (BOSS.HEART_2_ID[GENERAL_PURPOSE] > 0x00)) {
+                    if(BOSS.DEBUG) {
+                        subtext("double hit");
+                    }
+
+                    MEMORY.MAP_PALETTE = 0x03;
+                }
+
+                BOSS.HEART_ID[GENERAL_PURPOSE] = 0d00;
+                BOSS.HEART_2_ID[GENERAL_PURPOSE] = 0d00;
+
+                sleep(0d01);
+            }
+        }
+
+        @install()
+        fun thraxx_trigger() {
+            MEMORY.MAP_PALETTE = 0x00;
+
+            <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+
+            BOSS.ARM_LEFT_2_ID[X] = 0d00;
+            BOSS.ARM_LEFT_2_ID[Y] = 0d00;
+
+            BOSS.ARM_LEFT_ID[X] = BOSS.ARM_LEFT_X;
+            BOSS.ARM_LEFT_ID[Y] = BOSS.ARM_LEFT_Y;
+
+            BOSS.ARM_RIGHT_2_ID[X] = 0d00;
+            BOSS.ARM_RIGHT_2_ID[Y] = 0d00;
+
+            BOSS.ARM_RIGHT_ID[X] = BOSS.ARM_RIGHT_X;
+            BOSS.ARM_RIGHT_ID[Y] = BOSS.ARM_RIGHT_Y;
+        }
+        @install()
+        fun thraxx2_trigger() {
+            MEMORY.MAP_PALETTE = 0x07;
+
+            <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+            
+            BOSS.ARM_LEFT_ID[X] = 0d00;
+            BOSS.ARM_LEFT_ID[Y] = 0d00;
+
+            BOSS.ARM_LEFT_2_ID[X] = BOSS.ARM_LEFT_X;
+            BOSS.ARM_LEFT_2_ID[Y] = BOSS.ARM_LEFT_Y;
+            
+            BOSS.ARM_RIGHT_ID[X] = 0d00;
+            BOSS.ARM_RIGHT_ID[Y] = 0d00;
+
+            BOSS.ARM_RIGHT_2_ID[X] = BOSS.ARM_RIGHT_X;
+            BOSS.ARM_RIGHT_2_ID[Y] = BOSS.ARM_RIGHT_Y;
+        }
+
+        fun trigger_enter() {
+            show_thraxx(True);
+            // show_cocoon();
+
+            // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
+            add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
+            attach_script(LAST_ENTITY, DAMAGE, reference(thraxx2_trigger));
+            BOSS.HEART_ID = <LAST_ENTITY>;
+            add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
+            attach_script(LAST_ENTITY, DAMAGE, reference(thraxx_trigger));
+            BOSS.HEART_2_ID = <LAST_ENTITY>;
+
+            add_enemy(ENEMY.THRAXX_LEFT_ARM, 0x13, 0x0e);
+            BOSS.ARM_LEFT_ID = <LAST_ENTITY>;
+            add_enemy(ENEMY.THRAXX_RIGHT_ARM, 0x1d, 0x0d);
+            BOSS.ARM_RIGHT_ID = <LAST_ENTITY>;
+
+            add_enemy(ENEMY.THRAXX2_LEFT_ARM, 0x00, 0x00);
+            BOSS.ARM_LEFT_2_ID = <LAST_ENTITY>;
+            add_enemy(ENEMY.THRAXX2_RIGHT_ARM, 0x00, 0x00);
+            BOSS.ARM_RIGHT_2_ID = <LAST_ENTITY>;
+
+            fade_in();
+
+            double_hit_check();
+        }
+    };
+
 };
