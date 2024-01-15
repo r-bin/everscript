@@ -476,7 +476,7 @@ group non_maps() {
             <0x23d9> = 0x0001;
             animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.DUST);
             sleep(0x3c);
-            <0x23d9> = 0x0001;
+            MEMORY.UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = 0x0001;
             animate(SCRIPT_OWNER, FREEZE, ANIMATION_ENEMY.DUST);
         }
 
@@ -21113,6 +21113,10 @@ area experimental_room() {
             south = entrance(0x17, 0x3f, NORTH),
         }
 
+        enum soundtrack {
+            default = soundtrack(0x04, 0xff),
+        }
+
         enum stepon_trigger {
             exit_north = @install() {
                 subtext("S=0");
@@ -21176,6 +21180,8 @@ area experimental_room() {
 
             ARM_RIGHT_ID = memory_tmp(),
             ARM_RIGHT_2_ID = memory_tmp(),
+
+            KNOCKBACK_DAMAGE = 0d05,
         }
 
         @install()
@@ -21197,11 +21203,48 @@ area experimental_room() {
             }
         }
 
+        fun open_thraxx_mouth(open) {
+            if(open) {
+                tile_animate(0x02, 0xff, 0x01);
+            } else {
+                tile_animate(0x02, 0xff, 0x00);
+            }
+        }
+
+        @install()
+        @async()
+        fun knockback(entity:CHARACTER) {
+            open_thraxx_mouth(True);
+
+            control(NONE);
+            subtext("-");
+            face(ACTIVE, NORTH);
+            // animate(ACTIVE, FREEZE, ANIMATION_ALL.KNOCKBACK);
+            animate(ACTIVE, ONCE, ANIMATION_ALL.KNOCKBACK);
+
+            sound(0x22);
+            // tile_animate(0x03, 0xff, 0x05);
+
+            // attribute(ACTIVE, VINCIBLE_TEMP, True);
+            // attribute(ACTIVE, UNKNOWN_2_1, True);
+
+            // TODO
+
+            damage(ACTIVE, BOSS.KNOCKBACK_DAMAGE, True);
+            sleep(0d29);
+            sleep(0d29);
+
+            subtext("+");
+            control(BOTH);
+
+            open_thraxx_mouth(False);
+        }
+
         @install()
         fun thraxx_trigger() {
-            MEMORY.MAP_PALETTE = 0x00;
-
             <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+
+            MEMORY.MAP_PALETTE = 0x00;
 
             BOSS.ARM_LEFT_2_ID[X] = 0d00;
             BOSS.ARM_LEFT_2_ID[Y] = 0d00;
@@ -21214,12 +21257,14 @@ area experimental_room() {
 
             BOSS.ARM_RIGHT_ID[X] = BOSS.ARM_RIGHT_X;
             BOSS.ARM_RIGHT_ID[Y] = BOSS.ARM_RIGHT_Y;
+
+            knockback(<ACTIVE>);
         }
         @install()
         fun thraxx2_trigger() {
-            MEMORY.MAP_PALETTE = 0x07;
-
             <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+
+            MEMORY.MAP_PALETTE = 0x07;
             
             BOSS.ARM_LEFT_ID[X] = 0d00;
             BOSS.ARM_LEFT_ID[Y] = 0d00;
@@ -21232,6 +21277,8 @@ area experimental_room() {
 
             BOSS.ARM_RIGHT_2_ID[X] = BOSS.ARM_RIGHT_X;
             BOSS.ARM_RIGHT_2_ID[Y] = BOSS.ARM_RIGHT_Y;
+
+            knockback(<ACTIVE>);
         }
 
         fun trigger_enter() {
@@ -21241,10 +21288,10 @@ area experimental_room() {
             // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
             add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
             attach_script(LAST_ENTITY, DAMAGE, reference(thraxx2_trigger));
-            BOSS.HEART_ID = <LAST_ENTITY>;
+            BOSS.HEART_2_ID = <LAST_ENTITY>;
             add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
             attach_script(LAST_ENTITY, DAMAGE, reference(thraxx_trigger));
-            BOSS.HEART_2_ID = <LAST_ENTITY>;
+            BOSS.HEART_ID = <LAST_ENTITY>;
 
             add_enemy(ENEMY.THRAXX_LEFT_ARM, 0x13, 0x0e);
             BOSS.ARM_LEFT_ID = <LAST_ENTITY>;
@@ -21258,8 +21305,10 @@ area experimental_room() {
 
             fade_in();
 
-            double_hit_check();
+            // double_hit_check();
+
+            sleep(0d30);
+            debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
         }
     };
-
 };
