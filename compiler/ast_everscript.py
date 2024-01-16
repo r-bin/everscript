@@ -423,6 +423,8 @@ class InstalledString(Function_Base):
                 value = self._generator.add_string(value)
 
                 value = value.code(params)
+            case Word():
+                value = value.code(params)
             #case int():
             #    pass
             case _:
@@ -788,10 +790,12 @@ class If_list(Function_Base, Memorable):
                 if element.condition:
                     condition = element.condition.resolve(params)
 
+                inverted = element.if_properties[0]
+
                 if condition != None and condition.is_memory(params):
                     self.update_memory(params)
                     raise Exception("memory in non-memory if")
-                elif not if_depleted and (condition == None or element.eval(params)):
+                elif not if_depleted and (condition == None or (inverted ^ element.eval(params))):
                     if_list.append(element)
                     if_depleted = True
                 
