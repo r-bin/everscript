@@ -15,8 +15,8 @@ class Lexer():
         self.lexer.add('VAL', 'val(?=\ )')
         self.lexer.add('VAR', 'var(?=\ )')
         
-        self.lexer.add('STRING', '\".*\"') # TODO non greedy
-        self.lexer.add('STRING_RAW', '\'.*\'') # TODO non greedy
+        self.lexer.add('STRING', '\".*?\"')
+        self.lexer.add('STRING_RAW', '\'.*?\'')
 
         self.lexer.add('\n', '\n')
         self.lexer.add(';', ';')
