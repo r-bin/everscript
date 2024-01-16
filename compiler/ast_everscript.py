@@ -465,6 +465,8 @@ class RawString(Function_Base):
         lexer.add('`', '\`')
         lexer.add('´', '\´')
 
+        # TODO: 97, 92
+
         lexer.add('CHAR', '.')
         lexer = lexer.build()
 
