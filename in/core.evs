@@ -103,7 +103,7 @@ group general_enums() {
         enum ADDRESS_ID {
             // map
 
-            FADE_IN = 0x36,
+            FADE_IN = 0x36, // reads: BOY_UNAVAILABLE+DOG_UNAVAILABLE, TRANSITION_ENTER_DIRECTION, DOG_READ, writes: JUMP_HEIGHT+FALLING_HEIGHT, TRANSITION_ENTER_DIRECTION
 
             FADE_OUT_CREDITS = 0x57,
 
@@ -2448,14 +2448,18 @@ group functions() {
 
                     if(wait_for != CHARACTER.NONE) {
                         wait(wait_for);
-                        control(BOTH);
+                        if!(wait_for is Memory) {
+                            control(BOTH);
+                        }
                     }
                 } else {
                     code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
 
                     if(wait_for != CHARACTER.NONE) {
                         wait(wait_for);
-                        control(BOTH);
+                        if!(wait_for is Memory) {
+                            control(BOTH);
+                        }
                     }
                 }
             }
@@ -2605,7 +2609,7 @@ group functions() {
             }
 
             fun brightness(brightness) {
-                code(0x91, brightness, "// (91) Sets brightness to 0");
+                code(0x91, param(brightness), "// (91) Sets brightness to 0");
             }
 
             fun sfx_effect(effect:SFX_EFFECT, on) {
@@ -2663,15 +2667,26 @@ group functions() {
                 }
             }
 
+            fun _fade_in() {
+                code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
+            }
             fun fade_in() {
+                // handles default loot script
+                // handles transition animation (walk x/y into direction z)
+                // fades in bridghtness
+
                 if(False) {
                     call(ADDRESS.FADE_IN_AND_DEFAULT_LOOT_DUST_REWARD);
-                } else if(False) {
-                    special_script(LOOT, ADDRESS_ID.LOOT_DUST_REWARD);
+                } else if(True) {
+                    special_script(LOOTING, ADDRESS_ID.LOOT_DUST_REWARD);
                     call_id(FADE_IN);
+                } else if(False) {
+                    _fade_in();
                 } else {
                     call_id(FADE_IN);
                 }
+
+                // unset(FLAG.IN_ANIMATION); // neccessary?
             }
 
             fun show_hud(show) {
@@ -3084,15 +3099,13 @@ group functions() {
             }
             fun text_end() {
                 code(0x55, "// (55) CLEAR TEXT");
-                
-                control(BOTH);
             }
 
             fun subtext(id) {
                 code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
             }
 
-            fun question(id) {
+            fun _question(id) {
                 text_start();
 
                 text(id);
@@ -3101,8 +3114,13 @@ group functions() {
                 
                 text_end();
             }
+            fun question(id) {
+                _question(id);
+                
+                control(BOTH);
+            }
 
-            fun question_max(id, h) {
+            fun _question_max(id, h) {
                 control(NONE);
                 
                 open_message_box(DEFAULT, 0x0a, 0x02, 0x14, h);
@@ -3113,13 +3131,23 @@ group functions() {
                 
                 text_end();
             }
+            fun question_max(id, h) {
+                _question_max(id, h);
+                
+                control(BOTH);
+            }
 
-            fun dialog(id) {
+            fun _dialog(id, retain_control) {
                 text_start();
 
                 text(id);
 
                 text_end();
+            }
+            fun dialog(id) {
+                _dialog(id);
+
+                control(BOTH);
             }
 
             fun outro_text_box(text_header, text_content) {
@@ -4436,6 +4464,10 @@ group functions() {
 
         @install()
         fun mario_yump() {
+            if(FLAG.IN_ANIMATION) {
+                end();
+            }
+
             if!(FLAG.DEBUG) {
                 if(MEMORY.WINGS <= 0x00) {
                     subtext("Cannot be used without wings");
@@ -4496,6 +4528,8 @@ group functions() {
             // debug_memory(<0x2834>, <BOY>[X]);
             // sleep(0x30);
             // debug_memory(<0x2836>, <BOY>[Y]);
+
+            unset(FLAG.IN_ANIMATION);
         }
 
         fun windwalker_rocket() {
