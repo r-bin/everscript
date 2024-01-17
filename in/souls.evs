@@ -1142,7 +1142,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(double_thraxx, south, NONE);
+                map_transition(rpg_arena, left, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1714,7 +1714,7 @@ area intro_screens() {
         map_transition(inbetwixx, start, NONE);
     }
 
-    map intro(OPENING) {
+    map intro_1(OPENING) {
         enum entrance {
             test = entrance(0x10, 0x10, NONE),
         }
@@ -1751,7 +1751,7 @@ area intro_screens() {
             }
         }
     };
-    map podunk_old(PODUNK_65) {
+    map intro_2(PODUNK_65) {
         enum entrance {
             north = entrance(0d09, 0d00, SOUTH),
             west = entrance(0d00, 0d19, EAST),
@@ -21354,6 +21354,277 @@ area experimental_room() {
 
             sleep(0d30);
             debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
+        }
+    };
+
+    map rpg_arena(RAPTORS) {
+        enum entrance {
+            left = entrance(0x15, 0x1c, NONE),
+            center = entrance(0x1e, 0x21, NONE),
+            right = entrance(0x2a, 0x23, NONE),
+
+            pokemon_left = entrance(0d26, 0d31, NONE),
+            pokemon_right = entrance(0d31, 0d31, NONE),
+        }
+
+        enum stepon_trigger {
+            exit_north = @install() {
+                debug_subtext("S=0");
+            },
+            exit_south = @install() {
+                debug_subtext("S=1");
+            },
+            center = @install() {
+                debug_subtext("S=2");
+            }
+        }
+
+        fun close_exits(close) {
+            if(close) {
+                object[0x04] = 0x04;
+            } else {
+                object[0x05] = 0x04;
+            }
+        }
+
+        enum BOSS {
+            ID = memory_tmp(),
+
+            POKEMON = memory_tmp(),
+
+            BEE_HP = 0d20,
+            BEE_TAKLE_DAMAGE = 0d05,
+            BEE_STING_DAMAGE = 0d15,
+
+            CHAMELEON_HP = 0d40,
+            CHAMELEON_TAKLE_DAMAGE = 0d07,
+        }
+
+        fun prepare_dog() {
+            control_enemy(DOG, True);
+
+            walk(DOG, TILE_ABSOLUTE, 0d26, 0d31, DOG);
+            face(DOG, EAST);
+            sleep(0d30);
+        }
+        fun prepare_boss_pokemon() {
+            walk(BOSS.POKEMON, TILE_ABSOLUTE, 0d31, 0d31, BOSS.POKEMON);
+            sleep(0d30);
+        }
+
+        fun move_attack() {
+            MEMORY.STRING_PARAMETER_1 = 0d10;
+            MEMORY.STRING_PARAMETER_2 = 0d01;
+            question("[SLOW]Choose your move[CHOICE][MEM1]/10 Tackle[CHOICE][MEM2]/5 Tackle");
+
+            attribute(DOG, ROOT, True);
+
+            if(MEMORY.QUESTION_ANSWER == 0d00) {
+                animate(DOG, ONCE, ANIMATION_ALL.SLASH_1);
+                sleep(0d40);
+
+                damage(BOSS.POKEMON, 0d05, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0d01) {
+                animate(DOG, ONCE, ANIMATION_DOG.ACT1_ANGRY);
+                sleep(0d20);
+
+                damage(BOSS.POKEMON, 0d15, True);
+            }
+
+            attribute(DOG, ROOT, False);
+        }
+        fun move_item() {
+            MEMORY.STRING_PARAMETER_1 = MEMORY.PETAL;
+            MEMORY.STRING_PARAMETER_2 = MEMORY.WINGS;
+            question("[SLOW]Choose item:[CHOICE][MEM1] Potion[CHOICE][MEM2] Pokedoll");
+
+            if(MEMORY.QUESTION_ANSWER == 0d00) {
+                MEMORY.PETAL -= 0d01;
+
+                heal(DOG, 0d20, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0d01) {
+                MEMORY.WINGS -= 0d01;
+
+                subtext("You escaped safely.");
+                sleep(0d200);
+                
+                return_to_bonfire();
+                end();
+            }
+        }
+
+        fun move() {
+            question("[SLOW]Choose your action[CHOICE]Move[CHOICE]Item");
+
+            if(MEMORY.QUESTION_ANSWER == 0d00) {
+                move_attack();
+            } else if(MEMORY.QUESTION_ANSWER == 0d01) {
+                move_item();
+            }
+        }
+
+        fun move_enemy_bee() {
+            arg[0x10] = randrange(0d05);
+
+            if(arg[0x10] <= 0d00) {
+                subtext("Bee uses tackle");
+                damage(DOG, 0d05, True);
+
+                BOSS.POKEMON[X] -= 0d10;
+                sleep(0d10);
+                BOSS.POKEMON[X] += 0d10;
+            } else {
+                subtext("Bee uses…");
+
+                if(False) {
+                    BOSS.POKEMON[JUMP_HEIGHT] = 0d100;
+                } else {
+                    BOSS.POKEMON[JUMP_HEIGHT] = 0d20;
+                }
+                cast(BOSS.POKEMON, DOG, STING, 0d20);
+                sleep(0d200);
+            }
+        }
+        fun move_enemy_chameleon() {
+            arg[0x10] = randrange(0d05);
+
+            if(arg[0x10] <= 0d03) {
+                subtext("Chameleon uses tackle");
+                damage(DOG, 0d10, True);
+
+                BOSS.POKEMON[X] -= 0d10;
+                sleep(0d10);
+                BOSS.POKEMON[X] += 0d10;
+            } else {
+                subtext("Chameleon uses…");
+
+                BOSS.POKEMON[JUMP_HEIGHT] = 0d20;
+                cast(BOSS.POKEMON, DOG, FLASH, 0d30);
+                sleep(0d200);
+            }
+        }
+
+        fun boy_pokeball() {
+            shoot_entity_absolute(BOY, BEACH_BALL, 0d26 * 0x08, 0d31 * 0x08, 0d50, 0d00);
+        }
+        fun boss_pokeball(pokemon) {
+            subtext(pokemon);
+
+            shoot_entity_absolute(BOSS.ID, BEACH_BALL, 0d31 * 0x08, 0d31 * 0x08, 0d50, 0d00);
+        }
+
+        fun boss_pokemon(enemy:ENEMY, hp) {
+            add_enemy_with_flags(enemy, 0d31, 0d31, INACTIVE);
+            BOSS.POKEMON = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = hp;
+
+            face(LAST_ENTITY, WEST);
+        }
+
+        fun fainted_check() {
+            if(<DOG>[HP] <= 0d00) {
+                subtext("You fainted.");
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+                sleep(0d200);
+
+                return_to_bonfire();
+                end();
+            }
+        }
+
+        fun trigger_enter() {
+            default_init_room(True, False);
+
+            close_exits(True);
+
+            // character_selection(BOY);
+
+            _teleport(DOG, 0x00, 0x00);
+
+            if!(FLAG.IN_ANIMATION) {
+
+                // teleport(DOG, 0x19, 0x1d);
+                // <DOG>[X] += 0x20;
+                // <DOG>[Y] += 0x20;
+                crash_land(BOTH);
+            }
+
+            add_enemy(VILLAGER_1_2, 0x2a, 0x23);
+            BOSS.ID = <LAST_ENTITY>;
+            control_enemy(LAST_ENTITY, True);
+            face(LAST_ENTITY, WEST);
+
+
+
+            sleep(0d60);
+
+            control_enemy(DOG, True);
+            face(DOG, EAST);
+
+            control_enemy(BOY, True);
+            face(BOY, EAST);
+
+            fainted_check();
+
+            MEMORY.QUESTION_ANSWER = 0xffff;
+            while(MEMORY.QUESTION_ANSWER != 0d00) {
+                question("[SLOW]Choose your Pokemon:[CHOICE]Dog");
+            }
+
+            subtext("I choose you, dog!");
+
+            set_camera(0d110, 0d120, 0d10);
+
+            boy_pokeball();
+            boss_pokeball("I choose you, bee!");
+            sleep(0d100);
+
+            _teleport(DOG, 0d26 * 0x08, 0d31 * 0x08);
+            prepare_dog();
+
+            boss_pokemon(BEE, BOSS.BEE_HP);
+            sleep(0d60);
+
+            while((<DOG>[HP] > 0d00) && (BOSS.POKEMON[HP] > 0d00)) {
+                move();
+                sleep(0d30);
+
+                if(BOSS.POKEMON[HP] > 0d00) {
+                    prepare_boss_pokemon();
+
+                    move_enemy_bee();
+                    sleep(0d30);
+
+                    prepare_dog();
+                }
+            }
+
+            fainted_check();
+
+            boss_pokeball("I choose you, chameleon!");
+            sleep(0d100);
+
+            boss_pokemon(CHAMELEON, BOSS.CHAMELEON_HP);
+            sleep(0d60);
+
+            while((<DOG>[HP] > 0d00) && (BOSS.POKEMON[HP] > 0d00)) {
+                move();
+                sleep(0d30);
+
+                if(BOSS.POKEMON[HP] > 0d00) {
+                    prepare_boss_pokemon();
+
+                    move_enemy_chameleon();
+                    sleep(0d30);
+                    
+                    prepare_dog();
+                }
+            }
+
+            fainted_check();
+
+
+            debug_subtext("yatta?");
         }
     };
 };
