@@ -227,17 +227,18 @@ group non_maps() {
 
             DEMO_MODE = False,
             WITH_OPENING = False,
-            WITH_SAVESTATE_LOAD = False,
-            WITH_SAVESTATE_SAVE = True,
+            WITH_SAVESTATE_LOAD = False, // after splash screen
+            WITH_SAVESTATE_SAVE = True, // bonfire menu
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
-            WITH_DEBUG_ENTITIES = True,
+            WITH_DEBUG_ENTITIES = False,
             WITH_INTRO = False,
             WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
+            WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             WITH_TRASH_ENEMIES = True,
             WITH_SOULS_ON_DEATH = True,
             WITH_BONFIRE_INDEX = True,
-            WITH_CHEATS = True,
+            WITH_CHEATS = True, // fixes no clip after screen transitions
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -516,8 +517,7 @@ group non_maps() {
                     MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.BONFIRE_MAP;
 
                     subtext("Game could not find bonfire #[MEM1]");
-                    
-                    sleep(0xa0);
+                    sleep(0d200);
                 }
             } else {
                 if(SOULS_MEMORY.BONFIRE_MAP == 0x26) {
@@ -544,9 +544,8 @@ group non_maps() {
                     
                     MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.BONFIRE_MAP;
 
-                    subtext("Game could not find bonfire #[MEM1]");
-                    
-                    sleep(0xa0);
+                    debug_subtext("Game could not find bonfire #[MEM1]");
+                    sleep(0d200);
                 }
             }
 
@@ -848,20 +847,31 @@ group non_maps() {
                 damage(LAST_ENTITY, 0x03e8, False);
             }
 
-            if((SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) || (<ACTIVE>[X] == 0x00 && <ACTIVE>[Y] == 0x00)) {
-                // if(SOULS_MEMORY.BONFIRE_MAP == MEMORY.MAP) {
-                //     if(SOULS_MEMORY.BONFIRE_VARIANT == SOULS_MEMORY.MAP_VARIANT) {
-                //         if(SOULS_MEMORY.BONFIRE_X != 0x00) {
-                //             if(SOULS_MEMORY.BONFIRE_Y != 0x00) { // TODO
-                                <BOY>[X] = SOULS_MEMORY.BONFIRE_X;
-                                <BOY>[Y] = SOULS_MEMORY.BONFIRE_Y;
+            if((<ACTIVE>[X] == 0x00) && (<ACTIVE>[Y] == 0x00)) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED); // TODO
+            }
 
-                                <DOG>[X] = SOULS_MEMORY.BONFIRE_X;
-                                <DOG>[Y] = SOULS_MEMORY.BONFIRE_Y;
-                //             }
-                //         }
-                //     }
-                // }
+            if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
+                if(
+                    // (SOULS_MEMORY.BONFIRE_MAP == 0x00) ||
+                    // (SOULS_MEMORY.BONFIRE_VARIANT == 0x00) ||
+                    (SOULS_MEMORY.BONFIRE_X == 0x00) ||
+                    (SOULS_MEMORY.BONFIRE_Y == 0x00)
+                ) {
+                    if(False) {
+                        _fade_in();
+                        debug_subtext("Failed to teleport player to bonfire");
+                        sleep(0d200);
+                    }
+                } else {
+                    <BOY>[X] = SOULS_MEMORY.BONFIRE_X;
+                    <BOY>[Y] = SOULS_MEMORY.BONFIRE_Y;
+
+                    <DOG>[X] = SOULS_MEMORY.BONFIRE_X;
+                    <DOG>[Y] = SOULS_MEMORY.BONFIRE_Y;
+                }
+                
+
                 unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
             }
 
@@ -940,8 +950,10 @@ group non_maps() {
 
         fun init_weather(night, rain) {
             if(SOULS_MEMORY.WITH_WEATHER) {
-                if(night) {
-                    sfx_effect(NIGHT, True);
+                if(SOULS_MEMORY.WITH_COLOR_FILTER) {
+                    if(night) {
+                        sfx_effect(NIGHT, True);
+                    }
                 }
                 if(rain) {
                     sfx_effect(RAIN, True);
@@ -1176,9 +1188,10 @@ group non_maps() {
         @install()
         @inject(ADDRESS.HOOK_MENU_CLOSE)
         @count_limit(0x20)
-        fun hotkey_start_r() {
-            // subtext("test");
-            sfx_effect(NIGHT, True);
+        fun hook_menu_close() {
+            if(False) {
+                sfx_effect(NIGHT, True);
+            }
         }
 
         @install()
@@ -3885,6 +3898,11 @@ area altus_plateau_entry() {
             }
 
             default_init_room(True, True);
+
+            if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+                add_enemy(STONE_ROUND, 0d11, 0d114);
+                attach_script(LAST_ENTITY, TALK, reference(@install() { error_wrong_side(SOUTH); }));
+            }
         }
     };
 
