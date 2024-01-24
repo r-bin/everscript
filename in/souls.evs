@@ -227,6 +227,7 @@ group non_maps() {
 
             DEMO_MODE = False,
             WITH_OPENING = False,
+            WITH_SHRINE_INTRO = False,
             WITH_SAVESTATE_LOAD = False, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
@@ -742,10 +743,12 @@ group non_maps() {
 
             subtext("Bonfire Lit");
 
-            if!(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
-                set(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER);
+            if(SOULS_MEMORY.WITH_SHRINE_INTRO) {
+                if!(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
+                    set(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER);
 
-                map_transition(shrine, crash, NONE);
+                    map_transition(shrine, crash, NONE);
+                }
             }
         }
 
@@ -753,7 +756,6 @@ group non_maps() {
             // add_enemy_with_flags(LANTERN_LIGHT, x, y, FLAG_ENEMY.INACTIVE_IMORTAL);
             // attach_script(LAST_ENTITY, TALK, 0x181e);
             // entity_script_controlled(LAST_ENTITY);
-
 
             if(SOULS_MEMORY.WITH_BONFIRE_INDEX) {
                 SOULS_MEMORY.BONFIRE_INDEX_TMP = index;
@@ -1841,10 +1843,21 @@ area shrine_area() {
                 end();
             }
             
-            question("[SLOW]Return to Inbetwixx?[CHOICE]Yes.[CHOICE]No.");
+            text_start();
+            text("[SLOW]Return to Inbetwixx?");
+            if(SOULS_MEMORY.BONFIRE_INBETWIXX) {
+                text("[CHOICE]Inbetwixx…");
+            } else {
+                text("[CHOICE]…");
+            }
+            await_answer();
+            text_end();
+            control(BOTH);
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
-                map_transition(inbetwixx, start, NONE);
+                if(SOULS_MEMORY.BONFIRE_INBETWIXX) {
+                    map_transition(inbetwixx, start, NONE); // TODO
+                }
             }
         }
         @install()
@@ -1853,31 +1866,88 @@ area shrine_area() {
                 end();
             }
 
-            question("[SLOW]Return to East Inbetwixx?[CHOICE]Yes.[CHOICE]No.");
+            text_start();
+            text("[SLOW]Return to East Inbetwixx?");
+            if(SOULS_MEMORY.BONFIRE_EAST_CROSSING) {
+                text("[CHOICE]Eastern Cave");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(SOULS_MEMORY.BONFIRE_PIPES) {
+                text("[CHOICE]Pipe maze");
+            } else {
+                text("[CHOICE]…");
+            }
+            await_answer();
+            text_end();
+            control(BOTH);
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
-                map_transition(pipe_entrance, pipe_west, NONE);
+                if(SOULS_MEMORY.BONFIRE_EAST_CROSSING) {
+                    map_transition(east_crossing, north, NORTH); // TODO
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                if(SOULS_MEMORY.BONFIRE_PIPES) {
+                    map_transition(pipe_entrance, pipe_west, NONE); // TODO
+                }
+            }
+        }
+        @install()
+        fun bonfire_triggered_west() {
+            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
+                end();
+            }
+
+            text_start();
+            text("[SLOW]Return to West Inbetwixx?");
+            if(SOULS_MEMORY.BONFIRE_VOLCANO_TOWER) {
+                text("[CHOICE]Volcano Tower…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON) {
+                text("[CHOICE]Basement Lvl1…");
+            } else {
+                text("[CHOICE]…");
+            }
+            await_answer();
+            text_end();
+            control(BOTH);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) {
+                if(SOULS_MEMORY.BONFIRE_VOLCANO_TOWER) {
+                    map_transition(volcano_tower, south, NONE); // TODO
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                if(SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON) {
+                    map_transition(basement_0_start, center, NONE); // TODO
+                }
             }
         }
 
-        fun bonfire_portal(x, y, flag, trigger) {
+        fun bonfire_portal(x, y, flag, active, trigger) {
             if(flag) {
-                add_enemy_with_flags(LANTERN_LIGHT, x, y, INACTIVE);
+                if!(active) {
+                    add_enemy_with_flags(LANTERN_LIGHT, x, y, INACTIVE);
+                } else {
+                    add_enemy_with_flags(LANTERN_LIGHT_RED, x, y, INACTIVE);
+                }
                 attach_script(LAST_ENTITY, DAMAGE, trigger);
                 attribute(LAST_ENTITY, ROOT, True);
+                <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
                 // <LAST_ENTITY>[PALETTE] = 0x0000;
             }
         }
 
         @install()
         fun add_bonfire() {
-            bonfire_portal(0d77, 0d92, SOULS_MEMORY.BONFIRE_INBETWIXX, reference(bonfire_triggered_inbetwixx)); // inbetwixx
+            bonfire_portal(0d77, 0d92, SOULS_MEMORY.BONFIRE_INBETWIXX, (SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_INBETWIXX), reference(bonfire_triggered_inbetwixx)); // inbetwixx
 
-            bonfire_portal(0d77, 0d100, SOULS_MEMORY.BONFIRE_PIPES, reference(bonfire_triggered_east)); // east inbetwixx
+            bonfire_portal(0d77, 0d100, (SOULS_MEMORY.BONFIRE_EAST_CROSSING || SOULS_MEMORY.BONFIRE_PIPES), ((SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_EAST_CROSSING) || (SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_PIPES)), reference(bonfire_triggered_east)); // east inbetwixx
 
             // bonfire_portal(0d69, 0d104, …); // town?
 
-            // bonfire_portal(0d60, 0d104, …); // west inbetwixx
+            bonfire_portal(0d60, 0d104, (SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON || SOULS_MEMORY.BONFIRE_VOLCANO_TOWER), ((SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_ISAAC_DUNGEON) || (SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_VOLCANO_TOWER)), reference(bonfire_triggered_west)); // west inbetwixx
 
             // bonfire_portal(0d52, 0d100, …); // altus plateau
 
@@ -1937,18 +2007,22 @@ area shrine_area() {
 
         @install()
         fun first_bonfire_triggered() {
-            if(
-                (NPC_SHRINE_MAIDEN.PROGRESS == 0x00) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x03) &&
-                !(ROOM.SHRINE_BONFIRE_LIT)
-            ) {
-                NPC_SHRINE_MAIDEN.PROGRESS += 0x01;
-                NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0x00;
+            if(SOULS_MEMORY.WITH_SHRINE_INTRO) {
+                if(
+                    (NPC_SHRINE_MAIDEN.PROGRESS == 0x00) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x03) &&
+                    !(ROOM.SHRINE_BONFIRE_LIT)
+                ) {
+                    NPC_SHRINE_MAIDEN.PROGRESS += 0x01;
+                    NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0x00;
 
-                set(ROOM.SHRINE_BONFIRE_LIT);
-                object[0x11] = 0x1; // ignite fire
+                    set(ROOM.SHRINE_BONFIRE_LIT);
+                    object[0x11] = 0x1; // ignite fire
 
-                add_bonfire();
-            } else if(ROOM.SHRINE_BONFIRE_LIT) {
+                    add_bonfire();
+                } else if(ROOM.SHRINE_BONFIRE_LIT) {
+                    bonfire_triggered_first_bonfire();
+                }
+            } else {
                 bonfire_triggered_first_bonfire();
             }
         }
@@ -2039,6 +2113,12 @@ area shrine_area() {
             destroy(SCRIPT_OWNER);
         }
 
+        fun show_bonfires() {
+            object[0x11] = 0x01; // ignite fire
+
+            add_bonfire();
+        }
+
         fun trigger_enter() {
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
@@ -2047,9 +2127,9 @@ area shrine_area() {
             add_debug_entity(0d54, 0d84, reference(debug_triggered));
 
             if(ROOM.SHRINE_BONFIRE_LIT) {
-                object[0x11] = 0x01; // ignite fire
-
-                add_bonfire();
+                show_bonfires();
+            } else if!(SOULS_MEMORY.WITH_SHRINE_INTRO) {
+                show_bonfires();
             }
 
             add_souls_npc_shrine_maiden(AUTO, 0d71, 0d88);
@@ -4136,7 +4216,7 @@ area altus_plateau_entry() {
                     add_enemy(RAT, 0d29, 0d123);
                 }
 
-                bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
+                bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER, SOULS_MEMORY.BONFIRE_INDEX_VOLCANO_TOWER);
 
                 default_init_room(True, True);
 
