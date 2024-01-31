@@ -165,14 +165,6 @@ group non_maps() {
                 walk(ACTIVE, COORDINATE_RELATIVE_DIRECT, -0x02, 0x00, ACTIVE);
             }
         }
-        fun fog_wall(exit_direction:DIRECTION) {
-            question("[SLOW]Fog wall:[CHOICE]touch…[CHOICE]leave…");
-
-            if(MEMORY.QUESTION_ANSWER != 0d00) {
-                error_walk_back(exit_direction);
-                end();
-            }
-        }
         fun error_dead_end(exit_direction:DIRECTION) {
             subtext("Does not open.");
 
@@ -196,6 +188,24 @@ group non_maps() {
             subtext("Locked.");
 
             error_walk_back(exit_direction);
+        }
+
+        fun fog_wall_outside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
+            if!(condition) {
+                question("[SLOW]A wall of white light[CHOICE]traverse…[CHOICE]leave…");
+
+                if(MEMORY.QUESTION_ANSWER != 0d00) {
+                    error_walk_back(exit_direction);
+                    end();
+                }
+            }
+        }
+        fun fog_wall_inside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
+            if!(condition) {
+                subtext("Fog wall active…");
+                error_walk_back(exit_direction);
+                end();
+            }
         }
 
         @install()
@@ -239,7 +249,7 @@ group non_maps() {
             WITH_SAVESTATE_LOAD = False, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
-            WITH_DEBUG_ENTITIES = False,
+            WITH_DEBUG_ENTITIES = True,
             WITH_INTRO = False,
             WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
@@ -1031,13 +1041,6 @@ group non_maps() {
             }
         }
 
-        fun exit_boss_progress_check(flag) {
-            if(flag) {
-                // subtext("Boss in progress");
-                end();
-            }
-        }
-
         @install()
         @async()
         fun gourd_trap(object_id, entity, x, y) {
@@ -1131,7 +1134,7 @@ group non_maps() {
         @count_limit(0x20)
         fun hotkey_start() {
             // if(FLAG.DEBUG) {
-            //     subtext("Start");
+            //     debug_subtext("Start");
             // }
 
             if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
@@ -1163,11 +1166,11 @@ group non_maps() {
         @count_limit(0x20)
         fun hotkey_start_l() {
             if(FLAG.DEBUG) {
-                subtext("Start+L");
+                debug_subtext("Start+L");
 
                 // return_to_bonfire();
                 
-                map_transition(basement_0_start, center, NONE);
+                map_transition(town_temple, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1178,7 +1181,7 @@ group non_maps() {
         @count_limit(0x20)
         fun hotkey_start_r() {
             if(FLAG.DEBUG) {
-                subtext("Start+R");
+                debug_subtext("Start+R");
                 
                 if(SOULS_MEMORY.WITH_CHEATS) {
                     attribute(BOY, NO_CLIP, True);
@@ -1393,7 +1396,6 @@ group non_maps() {
                 }
             }
         };
-
 
         enum NPC_MARIO {
             PROGRESS = memory(),
@@ -2585,6 +2587,8 @@ area inbetwixx_center() {
                 map_transition(east_inbetwixx, west_2, EAST);
             },
             exit_north = @install() {
+                fog_wall_outside(False, SOUTH);
+
                 map_transition(north_inbetwixx, south, NORTH);
             },
             exit_west_2_east = @install() {
@@ -2940,8 +2944,16 @@ area north_inbetwixx() {
             south = entrance(0x45, 0x41, NORTH),
         }
 
+        enum soundtrack {
+            default = soundtrack(BOSS, 0xff),
+        }
+
         enum stepon_trigger {
             exit_south = @install() {
+                debug_subtext("S=0");
+
+                fog_wall_inside(False, NORTH);
+
                 map_transition(inbetwixx, north, SOUTH);
             },
             exit_north = @install() {
@@ -3183,7 +3195,7 @@ area north_inbetwixx() {
             // add_enemy(STERLING, 0x4b, 0x1d);
             // attribute(LAST_ENTITY, NO_CLIP, True);
 
-            fade_in();
+            default_init_room(True, True);
         }
     };
 };
@@ -3214,26 +3226,45 @@ area west_inbetwixx() {
         enum BOSS {
             DEBUG = False,
 
+            PROGRESS = flag_tmp(),
+
             ID_OWL_1 = memory_tmp(),
             ID_OWL_2 = memory_tmp(),
 
             TRANSFORM_DISTANCE = 0x10
         }
 
+        fun fog_wall(exit_direction:DIRECTION) {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(SOULS_MEMORY.DEAD_OWL_BOY, exit_direction);
+            }
+        }
+
+
         enum stepon_trigger {
             exit_east_1 = @install() {
+                fog_wall(NONE); // WEST
+
                 map_transition(west_inbetwixx, east_3, EAST);
             },
             exit_east_3 = @install() {
+                fog_wall(NONE); // WEST
+
                 map_transition(west_inbetwixx, east_1, EAST);
             },
             exit_east_2 = @install() {
+                fog_wall(NONE); // WEST
+
                 map_transition(inbetwixx, west_1, EAST);
             },
             exit_west = @install() {
+                fog_wall(NONE); // EAST
+
                 map_transition(west_hut_outside, east, WEST);
             },
             exit_north = @install() {
+                fog_wall(SOUTH);
+
                 map_transition(volcano, south, NORTH);
             }
         }
@@ -3396,6 +3427,8 @@ area west_inbetwixx() {
 
         @install()
         fun transform() {
+            set(BOSS.PROGRESS);
+            
             control_enemy(BOSS.ID_OWL_1, True);
             control_enemy(BOSS.ID_OWL_2, True);
 
@@ -3412,6 +3445,8 @@ area west_inbetwixx() {
             <LAST_ENTITY>[X] = BOSS.ID_OWL_2[X];
             <LAST_ENTITY>[Y] = BOSS.ID_OWL_2[Y];
             destroy(BOSS.ID_OWL_2);
+
+            fade_to_music(BOSS);
         }
 
         @install()
@@ -3509,6 +3544,8 @@ area west_inbetwixx() {
                 BOSS.ID_OWL_2 = <LAST_ENTITY>;
                 animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ALL.SLASH_2);
                 face(LAST_ENTITY, SOUTH);
+
+                grabby_owls();
             }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
@@ -3528,8 +3565,6 @@ area west_inbetwixx() {
             }
 
             init_room();
-            
-            grabby_owls();
 
             player_message(0d23, 0d66, reference(message_triggered));
         }
@@ -4593,7 +4628,6 @@ area altus_plateau_entry() {
                         subtext("boss end");
                     }
 
-
                     sleep(0xff);
                 }
 
@@ -4941,7 +4975,6 @@ area altus_plateau_entry() {
                     // arg[0x06] = 0x08cd;
 
                     // debug_memory(arg[0x00], arg[0x02]);
-
 
                     while(True) {
                         // parity_check_character(<BOY>, DOG);
@@ -6164,8 +6197,10 @@ area east_inbetwixx() {
             PIT_4_TIMER = memory_tmp(),
         }
 
-        fun exit_triggered() {
-            exit_boss_progress_check(BOSS.PROGRESS);
+        fun fog_wall(exit_direction:DIRECTION) {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(DEAD_PIT_EGG, exit_direction);
+            }
         }
 
         enum stepon_trigger {
@@ -6202,27 +6237,33 @@ area east_inbetwixx() {
                 debug_subtext("S=23");
             },
             exit_west_1 = @install() {
-                exit_triggered();
+                fog_wall(NONE); // EAST
+
                 map_transition(east_inbetwixx, west_3, WEST);
             },
             exit_cave = @install() {
-                exit_triggered();
+                fog_wall(SOUTH);
+                
                 map_transition(jaguar_cave, south, NORTH);
             },
             exit_south_1 = @install() {
-                exit_triggered();
+                fog_wall(NONE); // NORTH
+                
                 map_transition(east_crossing, crash, SOUTH);
             },
             exit_south_2 = @install() {
-                exit_triggered();
+                fog_wall(NONE); // NORTH
+                
                 map_transition(east_crossing, north, SOUTH);
             },
             exit_west_2 = @install() {
-                exit_triggered();
+                fog_wall(NONE); // EAST
+                
                 map_transition(inbetwixx, east, WEST);
             },
             exit_west_3 = @install() {
-                exit_triggered();
+                fog_wall(NONE); // EAST
+                
                 map_transition(east_inbetwixx, west_1, WEST);
             },
 
@@ -6264,6 +6305,8 @@ area east_inbetwixx() {
             sandpit_10_1_north = nop(),
             sandpit_10_1_west = nop(),
             exit_east = @install() {
+                fog_wall(NONE); // WEST
+                
                 map_transition(eastern_barrier, west, EAST);
             }
         }
@@ -6936,6 +6979,7 @@ area east_inbetwixx() {
             enum stepon_trigger {
                 exit_north = nop(),
                 exit_south = @install() {
+                    fog_wall_inside(DEAD_ARENA_RADAHN, NORTH);
                     map_transition(radahn_exit, room_nw_north, SOUTH);
                 },
                 center = nop(),
@@ -7357,7 +7401,7 @@ area east_inbetwixx() {
                 debug_subtext("S=1");
             },
             exit_north = @install() {
-                fog_wall(SOUTH);
+                fog_wall_outside(False, SOUTH);
                 map_transition(graveyard, south, NORTH);
             },
             exit_east = @install() {
@@ -7855,6 +7899,8 @@ area east_inbetwixx() {
                 debug_subtext("S=0");
             },
             exit_south = @install() {
+                fog_wall_inside(DEAD_STOMPY_RADAHN, NORTH);
+                
                 map_transition(eastern_barrier, north, SOUTH);
             },
             spawn_boss = @install() {
@@ -8353,6 +8399,8 @@ area east_inbetwixx() {
 
             enum stepon_trigger {
                 exit_north = @install() {
+                    fog_wall_inside(DEAD_ARENA_MOSQUITO, SOUTH);
+
                     map_transition(pipe_caves_1, south_2, NORTH);
                 },
                 exit_south = nop(),
@@ -8927,7 +8975,6 @@ area east_inbetwixx() {
             fun pit_west_5_triggered() {
                 map_transition(mario_prison_3, crash, NONE);
             }
-
 
             fun pit_east_1_triggered() {
                 map_transition(town_center, crash, NONE);
@@ -10215,10 +10262,8 @@ area east_inbetwixx() {
                     attribute(LAST_ENTITY, INVINCIBLE, True);
                     MOUNT.ID = <LAST_ENTITY>;
 
-
                     // sleep(0xa0);
                     // _walk(MOUNT.ID, COORDINATE_ABSOLUTE, MOUNT.ID[X], MOUNT.ID[Y] + 0x10, NONE);
-
 
                     stack_t01_offset();
                 }
@@ -10487,7 +10532,6 @@ area east_inbetwixx() {
                             arg[0x02] = enemy[X];
                             arg[0x04] = enemy[Y];
                             sleep(0x05);
-
 
                             if(BOSS.ID[X] < arg[0x00][X]) {
                                 arg[0x08] = arg[0x00][X] - BOSS.ID[X];
@@ -11165,7 +11209,6 @@ area southern_jungle() {
             LIFT_SPEED_SLEEP = 0x05,
         }
 
-
         @install()
         fun lift_triggered() {
             control(NONE);
@@ -11283,143 +11326,352 @@ area southern_jungle() {
             },
         }
 
-
         fun trigger_enter() {
             default_init_room(True, False);
         }
     };
 
-    map northern_jungle(NORTH_JUNGLE) {
-        // chest=vanilla
-        // sniff=vanilla
+    area northern_jungle() {
+        map northern_jungle(NORTH_JUNGLE) {
+            // chest=vanilla
+            // sniff=vanilla
 
-        enum entrance {
-            north = entrance(0x56, 0x05, SOUTH),
-            south = entrance(0x07, 0x4d, NORTH),
+            enum entrance {
+                north = entrance(0x56, 0x05, SOUTH),
+                south = entrance(0x07, 0x4d, NORTH),
 
-            cave_1 = entrance(0x08, 0x0f, SOUTH),
-            cave_2 = entrance(0x48, 0x13, SOUTH),
+                cave_1 = entrance(0x08, 0x0f, SOUTH),
+                cave_2 = entrance(0x48, 0x13, SOUTH),
 
-            wings = entrance(0x0f, 0x3f, NONE),
-        }
+                wings = entrance(0x0f, 0x3f, NONE),
+            }
 
-        enum stepon_trigger {
-            exit_north = @install() {
-                map_transition(jungle_firepit, south, NORTH);
-            },
-            cave_2 = @install() {
-                debug_subtext("S=1");
-            },
-            cave_1 = @install() {
-                debug_subtext("S=2");
-            },
-            exit_south = @install() {
-                map_transition(flowers, north, SOUTH);
-            },
-        }
-        
-        enum b_trigger {
-            sniff__1_water = @install() {
-                debug_subtext("B=0");
-                _loot(0x02, WATER, 0d01, 0d00);
-            },
-            sniff__1_water = @install() {
-                debug_subtext("B=1");
-                _loot(0x03, WATER, 0d01, 0d00);
-            },
-            sniff__1_water = @install() {
-                debug_subtext("B=2");
-                _loot(0x04, WATER, 0d01, 0d00);
-            },
-            sniff__1_water = @install() {
-                debug_subtext("B=3");
-                _loot(0x05, WATER, 0d01, 0d00);
-            },
-            sniff__1_water = @install() {
-                debug_subtext("B=4");
-                _loot(0x06, WATER, 0d01, 0d00);
-            },
-            sniff__1_water = @install() {
-                debug_subtext("B=5");
-                _loot(0x07, WATER, 0d01, 0d00);
-            },
-            sniff__1_oil = @install() {
-                debug_subtext("B=6");
-                _loot(0x08, OIL, 0d01, 0d00);
-            },
-            sniff__1_oil = @install() {
-                debug_subtext("B=7");
-                _loot(0x09, OIL, 0d01, 0d00);
-            },
-            sniff__1_roots = @install() {
-                debug_subtext("B=8");
-                _loot(0x0a, ROOTS, 0d01, 0d00);
-            },
-            sniff__1_roots = @install() {
-                debug_subtext("B=9");
-                _loot(0x0b, ROOTS, 0d01, 0d00);
-            },
+            enum stepon_trigger {
+                exit_north = @install() {
+                    map_transition(jungle_firepit, south, NORTH);
+                },
+                cave_2 = @install() {
+                    debug_subtext("S=1");
+                },
+                cave_1 = @install() {
+                    debug_subtext("S=2");
 
-            sniff__1_roots = @install() {
-                debug_subtext("B=10");
-                _loot(0x0c, ROOTS, 0d01, 0d00);
-            },
-            sniff__1_roots = @install() {
-                debug_subtext("B=11");
-                _loot(0x0d, ROOTS, 0d01, 0d00);
-            },
-            sniff__1_roots = @install() {
-                debug_subtext("B=12");
-                _loot(0x0e, ROOTS, 0d01, 0d00);
-            },
-            sniff__1_clay = @install() {
-                debug_subtext("B=13");
-                _loot(0x0f, CLAY, 0d01, 0d00);
-            },
-            sniff__1_clay = @install() {
-                debug_subtext("B=14");
-                _loot(0x10, CLAY, 0d01, 0d00);
-            },
-            sniff__1_clay = @install() {
-                debug_subtext("B=15");
-                _loot(0x11, CLAY, 0d01, 0d00);
-            },
-            sniff__1_ash = @install() {
-                debug_subtext("B=16");
-                _loot(0x12, ASH, 0d01, 0d00);
-            },
-            sniff__1_ash = @install() {
-                debug_subtext("B=17");
-                _loot(0x13, ASH, 0d01, 0d00);
-            },
-            sniff__1_ash = @install() {
-                debug_subtext("B=18");
-                _loot(0x14, ASH, 0d01, 0d00);
-            },
-            sniff__1_wax = @install() {
-                debug_subtext("B=19");
-                _loot(0x15, WAX, 0d01, 0d00);
-            },
+                    fog_wall_outside(False, SOUTH);
+                    map_transition(double_thraxx, south, NORTH);
+                },
+                exit_south = @install() {
+                    map_transition(flowers, north, SOUTH);
+                },
+            }
+            
+            enum b_trigger {
+                sniff__1_water = @install() {
+                    debug_subtext("B=0");
+                    _loot(0x02, WATER, 0d01, 0d00);
+                },
+                sniff__1_water = @install() {
+                    debug_subtext("B=1");
+                    _loot(0x03, WATER, 0d01, 0d00);
+                },
+                sniff__1_water = @install() {
+                    debug_subtext("B=2");
+                    _loot(0x04, WATER, 0d01, 0d00);
+                },
+                sniff__1_water = @install() {
+                    debug_subtext("B=3");
+                    _loot(0x05, WATER, 0d01, 0d00);
+                },
+                sniff__1_water = @install() {
+                    debug_subtext("B=4");
+                    _loot(0x06, WATER, 0d01, 0d00);
+                },
+                sniff__1_water = @install() {
+                    debug_subtext("B=5");
+                    _loot(0x07, WATER, 0d01, 0d00);
+                },
+                sniff__1_oil = @install() {
+                    debug_subtext("B=6");
+                    _loot(0x08, OIL, 0d01, 0d00);
+                },
+                sniff__1_oil = @install() {
+                    debug_subtext("B=7");
+                    _loot(0x09, OIL, 0d01, 0d00);
+                },
+                sniff__1_roots = @install() {
+                    debug_subtext("B=8");
+                    _loot(0x0a, ROOTS, 0d01, 0d00);
+                },
+                sniff__1_roots = @install() {
+                    debug_subtext("B=9");
+                    _loot(0x0b, ROOTS, 0d01, 0d00);
+                },
 
-            sniff__1_wax = @install() {
-                debug_subtext("B=20");
-                _loot(0x16, WAX, 0d01, 0d00);
-            },
-            sniff__1_clay = @install() {
-                debug_subtext("B=21");
-                _loot_chest(0x00, CLAY, 0d01);
-            },
-            sniff__1_clay = @install() {
-                debug_subtext("B=22");
-                _loot_chest(0x01, NECTAR, 0d01);
-            },
-        }
-        
-        fun trigger_enter() {
-            init_map(0x00, 0x00, 0x63, 0x4f);
+                sniff__1_roots = @install() {
+                    debug_subtext("B=10");
+                    _loot(0x0c, ROOTS, 0d01, 0d00);
+                },
+                sniff__1_roots = @install() {
+                    debug_subtext("B=11");
+                    _loot(0x0d, ROOTS, 0d01, 0d00);
+                },
+                sniff__1_roots = @install() {
+                    debug_subtext("B=12");
+                    _loot(0x0e, ROOTS, 0d01, 0d00);
+                },
+                sniff__1_clay = @install() {
+                    debug_subtext("B=13");
+                    _loot(0x0f, CLAY, 0d01, 0d00);
+                },
+                sniff__1_clay = @install() {
+                    debug_subtext("B=14");
+                    _loot(0x10, CLAY, 0d01, 0d00);
+                },
+                sniff__1_clay = @install() {
+                    debug_subtext("B=15");
+                    _loot(0x11, CLAY, 0d01, 0d00);
+                },
+                sniff__1_ash = @install() {
+                    debug_subtext("B=16");
+                    _loot(0x12, ASH, 0d01, 0d00);
+                },
+                sniff__1_ash = @install() {
+                    debug_subtext("B=17");
+                    _loot(0x13, ASH, 0d01, 0d00);
+                },
+                sniff__1_ash = @install() {
+                    debug_subtext("B=18");
+                    _loot(0x14, ASH, 0d01, 0d00);
+                },
+                sniff__1_wax = @install() {
+                    debug_subtext("B=19");
+                    _loot(0x15, WAX, 0d01, 0d00);
+                },
 
-            default_init_room(True, True);
-        }
+                sniff__1_wax = @install() {
+                    debug_subtext("B=20");
+                    _loot(0x16, WAX, 0d01, 0d00);
+                },
+                sniff__1_clay = @install() {
+                    debug_subtext("B=21");
+                    _loot_chest(0x00, CLAY, 0d01);
+                },
+                sniff__1_clay = @install() {
+                    debug_subtext("B=22");
+                    _loot_chest(0x01, NECTAR, 0d01);
+                },
+            }
+            
+            fun trigger_enter() {
+                init_map(0x00, 0x00, 0x63, 0x4f);
+
+                default_init_room(True, True);
+            }
+        };
+
+        map double_thraxx(THRAXX) {
+            enum entrance {
+                north = entrance(0x18, 0x10, SOUTH),
+                south = entrance(0x17, 0x3f, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(0x04, 0xff),
+            }
+
+            enum stepon_trigger {
+                exit_north = @install() {
+                    debug_subtext("S=0");
+                },
+                trigger_boss = @install() {
+                    debug_subtext("S=1");
+                },
+                exit_south = @install() {
+                    debug_subtext("S=2");
+
+                    fog_wall_inside(False, NORTH);
+                    map_transition(northern_jungle, cave_1, SOUTH);
+                }
+            }
+
+            enum b_trigger {
+                cocoon = @install() {
+                    debug_subtext("B=0");
+                },
+                rip_cage = @install() {
+                    debug_subtext("B=1");
+                }
+            }
+
+            fun show_thraxx(show) {
+                if(show) {
+                    object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+                    object[0x01] = 0x00; // change body (0=present, 1=cocoon, 2=gone)
+                    object[0x02] = 0x00; // change rip_entrance_right (0=present, 1=gone)
+                    object[0x03] = 0x00; // change rip_entrance_left (0=present, 1=gone)
+                } else {
+                    object[0x00] = 0x02; // change rip_entrance (0=open, 1=closed, 2=gone)
+                    object[0x01] = 0x02; // change body (0=present, 1=cocoon, 2=gone)
+                    object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
+                    object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
+                }
+            }
+
+            fun show_cocoon(show) {
+                if(show) {
+                    object[0x01] = 0x01;
+                } else {
+                    object[0x01] = 0x00;
+                }
+            }
+
+            enum BOSS {
+                DEBUG = False,
+
+                ARM_LEFT_X = 0d152,
+                ARM_LEFT_Y = 0d112,
+
+                ARM_RIGHT_X = 0d232,
+                ARM_RIGHT_Y = 0d104,
+
+                HEART_ID = memory_tmp(),
+                HEART_2_ID = memory_tmp(),
+
+                ARM_LEFT_ID = memory_tmp(),
+                ARM_LEFT_2_ID = memory_tmp(),
+
+                ARM_RIGHT_ID = memory_tmp(),
+                ARM_RIGHT_2_ID = memory_tmp(),
+
+                KNOCKBACK_DAMAGE = 0d05,
+            }
+
+            @install()
+            @async()
+            fun double_hit_check() {
+                while!(dead(BOSS.HEART_ID)) {
+                    if((BOSS.HEART_ID[GENERAL_PURPOSE] > 0x00) && (BOSS.HEART_2_ID[GENERAL_PURPOSE] > 0x00)) {
+                        if(BOSS.DEBUG) {
+                            subtext("double hit");
+                        }
+
+                        MEMORY.MAP_PALETTE = 0x03;
+                    }
+
+                    BOSS.HEART_ID[GENERAL_PURPOSE] = 0d00;
+                    BOSS.HEART_2_ID[GENERAL_PURPOSE] = 0d00;
+
+                    sleep(0d01);
+                }
+            }
+
+            fun open_thraxx_mouth(open) {
+                if(open) {
+                    tile_animate(0x02, 0xff, 0x01);
+                } else {
+                    tile_animate(0x02, 0xff, 0x00);
+                }
+            }
+
+            @install()
+            @async()
+            fun knockback(entity:CHARACTER) {
+                open_thraxx_mouth(True);
+
+                control(NONE);
+                subtext("-");
+                face(ACTIVE, NORTH);
+                // animate(ACTIVE, FREEZE, ANIMATION_ALL.KNOCKBACK);
+                animate(ACTIVE, ONCE, ANIMATION_ALL.KNOCKBACK);
+
+                sound(0x22);
+                // tile_animate(0x03, 0xff, 0x05);
+
+                // attribute(ACTIVE, VINCIBLE_TEMP, True);
+                // attribute(ACTIVE, UNKNOWN_2_1, True);
+
+                // TODO
+
+                damage(ACTIVE, BOSS.KNOCKBACK_DAMAGE, True);
+                sleep(0d29);
+                sleep(0d29);
+
+                subtext("+");
+                control(BOTH);
+
+                open_thraxx_mouth(False);
+            }
+
+            @install()
+            fun thraxx_trigger() {
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+
+                MEMORY.MAP_PALETTE = 0x00;
+
+                BOSS.ARM_LEFT_2_ID[X] = 0d00;
+                BOSS.ARM_LEFT_2_ID[Y] = 0d00;
+
+                BOSS.ARM_LEFT_ID[X] = BOSS.ARM_LEFT_X;
+                BOSS.ARM_LEFT_ID[Y] = BOSS.ARM_LEFT_Y;
+
+                BOSS.ARM_RIGHT_2_ID[X] = 0d00;
+                BOSS.ARM_RIGHT_2_ID[Y] = 0d00;
+
+                BOSS.ARM_RIGHT_ID[X] = BOSS.ARM_RIGHT_X;
+                BOSS.ARM_RIGHT_ID[Y] = BOSS.ARM_RIGHT_Y;
+
+                knockback(<ACTIVE>);
+            }
+            @install()
+            fun thraxx2_trigger() {
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+
+                MEMORY.MAP_PALETTE = 0x07;
+                
+                BOSS.ARM_LEFT_ID[X] = 0d00;
+                BOSS.ARM_LEFT_ID[Y] = 0d00;
+
+                BOSS.ARM_LEFT_2_ID[X] = BOSS.ARM_LEFT_X;
+                BOSS.ARM_LEFT_2_ID[Y] = BOSS.ARM_LEFT_Y;
+                
+                BOSS.ARM_RIGHT_ID[X] = 0d00;
+                BOSS.ARM_RIGHT_ID[Y] = 0d00;
+
+                BOSS.ARM_RIGHT_2_ID[X] = BOSS.ARM_RIGHT_X;
+                BOSS.ARM_RIGHT_2_ID[Y] = BOSS.ARM_RIGHT_Y;
+
+                knockback(<ACTIVE>);
+            }
+
+            fun trigger_enter() {
+                show_thraxx(True);
+                // show_cocoon();
+
+                // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
+                add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
+                attach_script(LAST_ENTITY, DAMAGE, reference(thraxx2_trigger));
+                BOSS.HEART_2_ID = <LAST_ENTITY>;
+                add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
+                attach_script(LAST_ENTITY, DAMAGE, reference(thraxx_trigger));
+                BOSS.HEART_ID = <LAST_ENTITY>;
+
+                add_enemy(ENEMY.THRAXX_LEFT_ARM, 0x13, 0x0e);
+                BOSS.ARM_LEFT_ID = <LAST_ENTITY>;
+                add_enemy(ENEMY.THRAXX_RIGHT_ARM, 0x1d, 0x0d);
+                BOSS.ARM_RIGHT_ID = <LAST_ENTITY>;
+
+                add_enemy(ENEMY.THRAXX2_LEFT_ARM, 0x00, 0x00);
+                BOSS.ARM_LEFT_2_ID = <LAST_ENTITY>;
+                add_enemy(ENEMY.THRAXX2_RIGHT_ARM, 0x00, 0x00);
+                BOSS.ARM_RIGHT_2_ID = <LAST_ENTITY>;
+
+                fade_in();
+
+                // double_hit_check();
+
+                sleep(0d30);
+                debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
+            }
+        };
     };
 
     map jungle_firepit(FIREPIT_JUNGLE) {
@@ -11687,6 +11939,8 @@ area town() {
                     },
 
                     door_east_1 = @install() {
+                        fog_wall_outside(DEAD_TEMPLE_MINITAUR, WEST);
+
                         map_transition(town_temple_switch, west, EAST);
                     },
                     stepon_11 = @install() {
@@ -11930,7 +12184,6 @@ area town() {
                         object[0x02] = 0x7e; // activate switch_3
                     }
 
-
                     fade_in();
                 }
             };
@@ -12023,6 +12276,8 @@ area town() {
 
                 enum stepon_trigger {
                     exit_west = @install() {
+                        fog_wall_inside(DEAD_TEMPLE_MINITAUR, EAST);
+
                         map_transition(town_temple, east_1, WEST);
                     },
                     switch = @install() {
@@ -12157,7 +12412,7 @@ area town() {
                         }
                     }
 
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
         };
@@ -12864,6 +13119,8 @@ area town() {
                 monk_trigger_south = nop(),
                 exit_cave_hammock = nop(),
                 exit_south = @install() {
+                    fog_wall_inside(DEAD_TAVERN_BOXERS, NORTH);
+
                     map_transition(town_center, door, SOUTH);
                 },
                 exit_ship_small = nop(),
@@ -14105,7 +14362,6 @@ area town() {
             // puppet_1(0x40, 0x29);
             // puppet_1(0x6c, 0x29);
             // puppet_2(0x56, 0x30);
-
 
             puppet_1(0x4b, 0x29);
             attach_script(LAST_ENTITY, DAMAGE, reference(damage_1));
@@ -15840,7 +16096,6 @@ area dungeon_isaac() {
                 // add_isaac_enemy_frippo(0x15, 0x30);
                 // add_isaac_enemy_spider(0x15, 0x30);
 
-
                 bonfire(0d23, 0d51, SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON, SOULS_MEMORY.BONFIRE_INDEX_ISAAC_DUNGEON);
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
@@ -17443,6 +17698,8 @@ area dungeon_isaac() {
                 exit_north = @install() {
                     check_exits(ROOM.CLEAR_FLAG);
 
+                    fog_wall_outside(DEAD_MONSTRO, SOUTH);
+
                     map_transition(basement_2_boss, south, NORTH);
                 },
                 exit_south = @install() {
@@ -17616,9 +17873,9 @@ area dungeon_isaac() {
                     debug_subtext("S=0");
                 },
                 exit_south = @install() {
-                    if!(BOSS.PROGRESS) {
-                        map_transition(basement_2_5, north, SOUTH);
-                    }
+                    fog_wall_inside(DEAD_MONSTRO, NORTH);
+
+                    map_transition(basement_2_5, north, SOUTH);
                 }
             }
 
@@ -17946,7 +18203,6 @@ area dungeon_isaac() {
                     debug_subtext("B=8");
                 },
             }
-
 
             fun trigger_enter() {
                 prepare_room(0x02);
@@ -18633,6 +18889,8 @@ area dungeon_isaac() {
                 exit_west = @install() {
                     check_exits(ROOM.CLEAR_FLAG);
 
+                    fog_wall_outside(DEAD_DARK_ONE, EAST);
+
                     map_transition(basement_3_boss, east, WEST);
                 },
                 exit_east = @install() {
@@ -18729,9 +18987,9 @@ area dungeon_isaac() {
 
             enum stepon_trigger {
                 exit_east = @install() {
-                    if!(BOSS.PROGRESS) {
-                        map_transition(basement_3_9, west, EAST);
-                    }
+                    fog_wall_inside(DEAD_DARK_ONE, WEST);
+
+                    map_transition(basement_3_9, west, EAST);
                 },
                 exit_south = @install() {
                     debug_subtext("S=1");
@@ -21273,212 +21531,6 @@ area experimental_room() {
         };
     };
 
-
-    map double_thraxx(THRAXX) {
-        enum entrance {
-            north = entrance(0x18, 0x10, SOUTH),
-            south = entrance(0x17, 0x3f, NORTH),
-        }
-
-        enum soundtrack {
-            default = soundtrack(0x04, 0xff),
-        }
-
-        enum stepon_trigger {
-            exit_north = @install() {
-                debug_subtext("S=0");
-
-                // map_transition(thraxx, south, NORTH);
-            },
-            trigger_boss = @install() {
-                debug_subtext("S=1");
-            },
-            exit_south = @install() {
-                debug_subtext("S=2");
-                // map_transition(thraxx, north, SOUTH);
-            }
-        }
-
-        enum b_trigger {
-            cocoon = @install() {
-                debug_subtext("B=0");
-            },
-            rip_cage = @install() {
-                debug_subtext("B=1");
-            }
-        }
-
-        fun show_thraxx(show) {
-            if(show) {
-                object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
-                object[0x01] = 0x00; // change body (0=present, 1=cocoon, 2=gone)
-                object[0x02] = 0x00; // change rip_entrance_right (0=present, 1=gone)
-                object[0x03] = 0x00; // change rip_entrance_left (0=present, 1=gone)
-            } else {
-                object[0x00] = 0x02; // change rip_entrance (0=open, 1=closed, 2=gone)
-                object[0x01] = 0x02; // change body (0=present, 1=cocoon, 2=gone)
-                object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
-                object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
-            }
-        }
-
-        fun show_cocoon(show) {
-            if(show) {
-                object[0x01] = 0x01;
-            } else {
-                object[0x01] = 0x00;
-            }
-        }
-
-        enum BOSS {
-            DEBUG = False,
-
-            ARM_LEFT_X = 0d152,
-            ARM_LEFT_Y = 0d112,
-
-            ARM_RIGHT_X = 0d232,
-            ARM_RIGHT_Y = 0d104,
-
-            HEART_ID = memory_tmp(),
-            HEART_2_ID = memory_tmp(),
-
-            ARM_LEFT_ID = memory_tmp(),
-            ARM_LEFT_2_ID = memory_tmp(),
-
-            ARM_RIGHT_ID = memory_tmp(),
-            ARM_RIGHT_2_ID = memory_tmp(),
-
-            KNOCKBACK_DAMAGE = 0d05,
-        }
-
-        @install()
-        @async()
-        fun double_hit_check() {
-            while!(dead(BOSS.HEART_ID)) {
-                if((BOSS.HEART_ID[GENERAL_PURPOSE] > 0x00) && (BOSS.HEART_2_ID[GENERAL_PURPOSE] > 0x00)) {
-                    if(BOSS.DEBUG) {
-                        subtext("double hit");
-                    }
-
-                    MEMORY.MAP_PALETTE = 0x03;
-                }
-
-                BOSS.HEART_ID[GENERAL_PURPOSE] = 0d00;
-                BOSS.HEART_2_ID[GENERAL_PURPOSE] = 0d00;
-
-                sleep(0d01);
-            }
-        }
-
-        fun open_thraxx_mouth(open) {
-            if(open) {
-                tile_animate(0x02, 0xff, 0x01);
-            } else {
-                tile_animate(0x02, 0xff, 0x00);
-            }
-        }
-
-        @install()
-        @async()
-        fun knockback(entity:CHARACTER) {
-            open_thraxx_mouth(True);
-
-            control(NONE);
-            subtext("-");
-            face(ACTIVE, NORTH);
-            // animate(ACTIVE, FREEZE, ANIMATION_ALL.KNOCKBACK);
-            animate(ACTIVE, ONCE, ANIMATION_ALL.KNOCKBACK);
-
-            sound(0x22);
-            // tile_animate(0x03, 0xff, 0x05);
-
-            // attribute(ACTIVE, VINCIBLE_TEMP, True);
-            // attribute(ACTIVE, UNKNOWN_2_1, True);
-
-            // TODO
-
-            damage(ACTIVE, BOSS.KNOCKBACK_DAMAGE, True);
-            sleep(0d29);
-            sleep(0d29);
-
-            subtext("+");
-            control(BOTH);
-
-            open_thraxx_mouth(False);
-        }
-
-        @install()
-        fun thraxx_trigger() {
-            <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
-
-            MEMORY.MAP_PALETTE = 0x00;
-
-            BOSS.ARM_LEFT_2_ID[X] = 0d00;
-            BOSS.ARM_LEFT_2_ID[Y] = 0d00;
-
-            BOSS.ARM_LEFT_ID[X] = BOSS.ARM_LEFT_X;
-            BOSS.ARM_LEFT_ID[Y] = BOSS.ARM_LEFT_Y;
-
-            BOSS.ARM_RIGHT_2_ID[X] = 0d00;
-            BOSS.ARM_RIGHT_2_ID[Y] = 0d00;
-
-            BOSS.ARM_RIGHT_ID[X] = BOSS.ARM_RIGHT_X;
-            BOSS.ARM_RIGHT_ID[Y] = BOSS.ARM_RIGHT_Y;
-
-            knockback(<ACTIVE>);
-        }
-        @install()
-        fun thraxx2_trigger() {
-            <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
-
-            MEMORY.MAP_PALETTE = 0x07;
-            
-            BOSS.ARM_LEFT_ID[X] = 0d00;
-            BOSS.ARM_LEFT_ID[Y] = 0d00;
-
-            BOSS.ARM_LEFT_2_ID[X] = BOSS.ARM_LEFT_X;
-            BOSS.ARM_LEFT_2_ID[Y] = BOSS.ARM_LEFT_Y;
-            
-            BOSS.ARM_RIGHT_ID[X] = 0d00;
-            BOSS.ARM_RIGHT_ID[Y] = 0d00;
-
-            BOSS.ARM_RIGHT_2_ID[X] = BOSS.ARM_RIGHT_X;
-            BOSS.ARM_RIGHT_2_ID[Y] = BOSS.ARM_RIGHT_Y;
-
-            knockback(<ACTIVE>);
-        }
-
-        fun trigger_enter() {
-            show_thraxx(True);
-            // show_cocoon();
-
-            // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
-            add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
-            attach_script(LAST_ENTITY, DAMAGE, reference(thraxx2_trigger));
-            BOSS.HEART_2_ID = <LAST_ENTITY>;
-            add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
-            attach_script(LAST_ENTITY, DAMAGE, reference(thraxx_trigger));
-            BOSS.HEART_ID = <LAST_ENTITY>;
-
-            add_enemy(ENEMY.THRAXX_LEFT_ARM, 0x13, 0x0e);
-            BOSS.ARM_LEFT_ID = <LAST_ENTITY>;
-            add_enemy(ENEMY.THRAXX_RIGHT_ARM, 0x1d, 0x0d);
-            BOSS.ARM_RIGHT_ID = <LAST_ENTITY>;
-
-            add_enemy(ENEMY.THRAXX2_LEFT_ARM, 0x00, 0x00);
-            BOSS.ARM_LEFT_2_ID = <LAST_ENTITY>;
-            add_enemy(ENEMY.THRAXX2_RIGHT_ARM, 0x00, 0x00);
-            BOSS.ARM_RIGHT_2_ID = <LAST_ENTITY>;
-
-            fade_in();
-
-            // double_hit_check();
-
-            sleep(0d30);
-            debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
-        }
-    };
-
     map rpg_arena(RAPTORS) {
         enum entrance {
             left = entrance(0x15, 0x1c, NONE),
@@ -21678,8 +21730,6 @@ area experimental_room() {
             control_enemy(LAST_ENTITY, True);
             face(LAST_ENTITY, WEST);
 
-
-
             sleep(0d60);
 
             control_enemy(DOG, True);
@@ -21746,7 +21796,6 @@ area experimental_room() {
             }
 
             fainted_check();
-
 
             debug_subtext("yatta?");
         }
