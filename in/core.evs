@@ -71,7 +71,7 @@ group general_enums() {
             MODE7_SPACESHIP = 0x92dc1b,
             MODE7_SPACESHIP_ACT4 = 0x92dc51,
 
-            STERLING_ROAR = 0x99988a,
+            STERLING_ROAR = 0x99988a, // { sound(DRAGON_ROAR); sfx_effect(SHAKING, True); sleep(0d29); sfx_effect(SHAKING, False); }
             METAL_MAGMAR_HEAL = 0x9ba56b,
 
             TURN_OFF_RAIN = 0x92d939,
@@ -520,6 +520,7 @@ group general_enums() {
             UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = <0x23d9>, // used in: boss rush (1=for eternal dust drops)
 
             UNKNOWN_1 = <0x23c1>, // used in: sandpits, bugmuck, bbm_2, swamp, pipemaze_rooms, waterfall, swamp_bridge, greenhouse (1=?)
+            UNKNOWN_2 = <0x23d7>, // used in: sterling grab, reactor room (1=?)
         }
 
         enum FLAG {
@@ -948,9 +949,10 @@ group general_enums() {
                 UNKNOWN_ALCHEMY_9 = 0x9e, // not alchemy?
 
                 // inaudible: 0c, 0e, 16, 18, 26, 28, 62
-                // glitchy: 12, 14, 1e, 42, 46, 48, 4a, 60, 64, 6a, 6c, 6e, 70, 72, 76, 78, 7a, 7c?, 80?, 84, 94, 9a
+                // glitchy: 12, 14, 1e, 42, 46, 48, 4a, 60, 64, 6c, 6e, 70, 72, 76, 78, 7a, 7c?, 80?, 84, 94, 9a
                 // todo: b2
                 DOOR = 0x46, // works for music: 40
+                DRAGON_ROAR = 0x6a, // works for music: BOSS
                 // crash: 100
             }
         };
@@ -1304,7 +1306,7 @@ group general_enums() {
                 GENERAL_PURPOSE = 0x30, // TODO: used for secret boss bombs (set to 0 for exploded bombs) and speakers (indexed from 2^0 to 2^8)
                 UNKNOWN = 0x32, // TODO: used for secret boss and boss rush fans
                 DAMAGE_TYPE = 0x36, // used for vigor (weapon: 0x4e89, dog: 0x4F37, magic and default: 0x0000)
-                UNKNOWN = 0x3c, // TODO: used in ebon keep sewers (seems to be based on the tile the character stands on)
+                CURRENT_GROUND = 0x3c, // good: 10 (80?, 28?, 23?, 24?, 48) bad: 31 (22?, 26?, 63?) TODO: used in ebon keep sewers (seems to be based on the tile the character stands on)
 
                 // weird
                 PALETTE_BLACK_GREEN = 0x00,
@@ -1317,7 +1319,7 @@ group general_enums() {
                 TILE_GLITCH_4 = 0x0d,
                 BEHAVIOUR = 0x10,
                 WEIRD_KNOCKBACK = 0x12,
-                TURN_NORTH = 0x22
+                TURN_NORTH = 0x22,
             }
             enum ATTRIBUTE_BITS {
                 // used by the game
@@ -2291,16 +2293,20 @@ group functions() {
         fun param(value) {
             // writes arg0…arg20
 
-            if(value < 0x00) {
-                code(0xd0 + value);
-            } else if(value <= 0x0f) {
-                code(0xb0 + value);
-            } else if(value <= 0x1e) {
-                code(0xd0 + value);
-            } else if(value <= 0xff) {
-                code(0x82, 0x00 + value);
-            } else if(value <= 0xffff) {
-                code(0x84, 0x0000 + value);
+            if(value is Word) {
+                if(value < 0x00) {
+                    code(0xd0 + value);
+                } else if(value <= 0x0f) {
+                    code(0xb0 + value);
+                } else if(value <= 0x1e) {
+                    code(0xd0 + value);
+                } else if(value <= 0xff) {
+                    code(0x82, 0x00 + value);
+                } else if(value <= 0xffff) {
+                    code(0x84, 0x0000 + value);
+                }
+            } else {
+                calculate(value);
             }
         }
 
@@ -2502,6 +2508,11 @@ group functions() {
             }
 
             fun transition(map, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music) {
+                // if((<BOY>[HP] > 0d00) && (FLAG.IN_ANIMATION)) {
+                if(FLAG.IN_ANIMATION) {
+                    end();
+                }
+
                 if(change_music) {
                     music_fade(False);
 
@@ -2687,7 +2698,7 @@ group functions() {
                     call_id(FADE_IN);
                 }
 
-                // unset(FLAG.IN_ANIMATION); // neccessary?
+                unset(FLAG.IN_ANIMATION); // neccessary?
             }
 
             fun show_hud(show) {
@@ -4144,6 +4155,10 @@ group functions() {
     group cutscenes() {
         @install()
         fun generic_yeet(direction:DIRECTION, depth) {
+            if(FLAG.IN_ANIMATION) {
+                end();
+            }
+
             control(NONE);
 
             animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
@@ -4544,51 +4559,65 @@ group functions() {
             arg[0x02] = <BOY>[Y];
             <BOY>[JUMP_HEIGHT] = 0x20;
             attribute(BOY, NO_CLIP, True);
-            set(FLAG.IN_ANIMATION);
+            // set(FLAG.IN_ANIMATION);
 
-            sleep(0x35);
+            sleep(0x3f);
             // animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            control(NONE);
-            sleep(0x05);
 
             bomb_entity(BOY, 0x20);
             sound(HEAVY_IMPACT);
             // debug_memory(<BOY>[FACE_DIRECTION], <BOY>[FACE_DIRECTION]);
             
-            arg[0x04] = <BOY>[X];
-            arg[0x06] = <BOY>[Y];
 
-            attribute(BOY, INVISIBLE, True);
+            if((<BOY>[CURRENT_GROUND] & 0xff) != 0x10) {
+            // if(True) {
+                if(False) {
+                    MEMORY.STRING_PARAMETER_1 = <BOY>[CURRENT_GROUND] & 0xff;
+                    debug_subtext("yump damage: [MEM1]");
+                }
 
-            if(<BOY>[FACE_DIRECTION] == 0x00) {
-                walk_relative(BOY, COORDINATE_RELATIVE, 0x00, -0x01, False);
-                face(BOY, DIRECTION.NORTH);
-            } else if(<BOY>[FACE_DIRECTION] == 0x04) {
-                walk_relative(BOY, COORDINATE_RELATIVE, 0x01, 0x00, False);
-                face(BOY, DIRECTION.EAST);
-            } else if(<BOY>[FACE_DIRECTION] == 0x08) {
-                walk_relative(BOY, COORDINATE_RELATIVE, 0x00, 0x01, False);
-                face(BOY, DIRECTION.SOUTH);
-            } else {
-                walk_relative(BOY, COORDINATE_RELATIVE, -0x01, 0x00, False);
-                face(BOY, WEST);
+                control(NONE);
+                // sleep(0x05);
+
+                arg[0x04] = <BOY>[X];
+                arg[0x06] = <BOY>[Y];
+
+                attribute(BOY, INVISIBLE, True);
+
+                if(<BOY>[FACE_DIRECTION] == 0x00) {
+                    walk_relative(BOY, COORDINATE_RELATIVE, 0x00, -0x01, False);
+                    face(BOY, DIRECTION.NORTH);
+                } else if(<BOY>[FACE_DIRECTION] == 0x04) {
+                    walk_relative(BOY, COORDINATE_RELATIVE, 0x01, 0x00, False);
+                    face(BOY, DIRECTION.EAST);
+                } else if(<BOY>[FACE_DIRECTION] == 0x08) {
+                    walk_relative(BOY, COORDINATE_RELATIVE, 0x00, 0x01, False);
+                    face(BOY, DIRECTION.SOUTH);
+                } else {
+                    walk_relative(BOY, COORDINATE_RELATIVE, -0x01, 0x00, False);
+                    face(BOY, WEST);
+                }
+
+                sleep(0x05);
+
+                if((arg[0x04] == <BOY>[X]) && (arg[0x06] == <BOY>[Y])) {
+                    <BOY>[X] = arg[0x00];
+                    <BOY>[Y] = arg[0x02];
+
+                    damage(BOY, 0x01, True);
+                } else {
+                    <BOY>[Y] = arg[0x06];
+                    <BOY>[X] = arg[0x04];
+                }
+
+                attribute(BOY, INVISIBLE, False);
+
+                control(BOTH);
             }
-            sleep(0x03);
 
-            if((arg[0x04] == <BOY>[X]) && (arg[0x06] == <BOY>[Y])) {
-                <BOY>[X] = arg[0x00];
-                <BOY>[Y] = arg[0x02];
-
-                damage(BOY, 0x01, True);
-            } else {
-                <BOY>[Y] = arg[0x06];
-                <BOY>[X] = arg[0x04];
-            }
-            attribute(BOY, INVISIBLE, False);
 
             // animate(BOY, LOOP, ANIMATION_ALL.DEFAULT);
             attribute(BOY, NO_CLIP, False);
-            control(BOTH);
             // walk_relative(BOY, COORDINATE_RELATIVE, 0x00, 0x00, False);
             // debug_memory(<0x2834>, <BOY>[X]);
             // sleep(0x30);
@@ -4662,13 +4691,257 @@ group functions() {
             <0x2437> = 0x000f;
             sleep(0x30);
         }
+
+        fun empty_check(name, memory) {
+            if(memory > 0x00) {
+                MEMORY.STRING_PARAMETER_1 = memory;
+
+                debug_subtext("not empty: [MEM1]");
+                sleep(0d30);
+                debug_subtext(name);
+                end();
+            }
+        }
     };
 
     group experimental() {
-        fun attach_sterling_script_to_last_entity() {
-            <0x283d> = <LAST_ENTITY>;
+
+        @install()
+        @async()
+        fun grab(sterling, drop_x, drop_y, falling_threshold, damage_boy) {
+            attach_to_script(sterling);
             
-            call(0x9997a7); // (07) CALL 0x9997a7 Sterling battle over, Gomi introduction
+            sterling[GENERAL_PURPOSE] = 0x01;
+            set(FLAG.IN_ANIMATION);
+
+            if(False) {
+                <0x283d> = sterling;
+                call(0x99992d);
+
+                sterling[GENERAL_PURPOSE] = 0x00;
+                end();
+            }
+
+            // <0x2834> = 0xffff;
+
+            if(dead(<SCRIPT_OWNER>)) {
+                sterling[GENERAL_PURPOSE] = 0x00;
+                end();
+            }
+            
+            control(NONE);
+            attribute(BOY, ROOT, True);
+            attribute(SCRIPT_OWNER, ROOT, True);
+
+            // sterling flying
+
+            animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.STERLING_FLY_2);
+
+            arg[0x10] = <SCRIPT_OWNER>[X];
+            arg[0x12] = <SCRIPT_OWNER>[Y];
+
+            arg[0x14] = <BOY>[X] - 0x06;
+            arg[0x16] = <BOY>[Y] - 0x1f;
+
+            arg[0x18] = 0x1e;
+            arg[0x12] -= 0x10;
+
+            arg[0x1a] = arg[0x14] - arg[0x10];
+            arg[0x1c] = arg[0x16] - arg[0x12];
+
+            arg[0x1e] = (arg[0x1a] lshift 0x04) / arg[0x18];
+            arg[0x20] = (arg[0x1c] lshift 0x04) / arg[0x18];
+
+            arg[0x22] = arg[0x10] lshift 0x04;
+            arg[0x24] = arg[0x16] lshift 0x04;
+
+            <SCRIPT_OWNER>[JUMP_HEIGHT] = arg[0x18] / 0x02;
+            arg[0x12] = 0x00;
+
+            while(arg[0x12] <= arg[0x18]) {
+                arg[0x22] += arg[0x1e];
+                arg[0x24] += arg[0x20];
+                arg[0x26] = 0x0000;
+                _teleport(<SCRIPT_OWNER>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
+                yield();
+                arg[0x12] += 0x01;
+            }
+
+            // sterling reached boy
+
+            // if(dead(<SCRIPT_OWNER>)) {
+            //     subtext("dead 2");
+            //     end();
+            // }
+
+            // call(0x99988a);
+
+            if(True) {
+                debug_memory(arg[0x1e], arg[0x20]);
+                // subtext("test 2");
+                // end();
+            }
+
+            arg[0x10] = <BOY>[X];
+            arg[0x12] = <BOY>[Y];
+
+            if(True) {
+                arg[0x14] = drop_x lshift 0x03; // drop_x
+                arg[0x16] = drop_y lshift 0x03; // drop_y
+            } else if(arg[0x10] == 0x01) {
+                arg[0x14] = 0x00f8;
+                arg[0x16] = 0x00e8;
+                face(BOY, WEST);
+                face(SCRIPT_OWNER, WEST);
+            } else {
+                arg[0x14] = 0x02d8;
+                arg[0x16] = 0x00e8;
+                face(BOY, EAST);
+                face(SCRIPT_OWNER, EAST);
+            }
+
+            yield();
+
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            arg[0x18] = 0x004b;
+            arg[0x12] -= 0x10;
+            arg[0x26] = 0x0010;
+            _teleport(<BOY>, arg[0x10], arg[0x12]);
+
+            arg[0x26] = 0x0000;
+            _teleport(<SCRIPT_OWNER>, arg[0x10] - 0x06, arg[0x12] - 0x1f);
+
+            arg[0x1a] = arg[0x14] - arg[0x10];
+            arg[0x1c] = arg[0x16] - arg[0x12];
+
+            arg[0x1e] = (arg[0x1a] lshift 0x04) / arg[0x18];
+            arg[0x20] = (arg[0x1c] lshift 0x04) / arg[0x18];
+
+            arg[0x22] = arg[0x10] lshift 0x04;
+            arg[0x24] = arg[0x12] lshift 0x04;
+
+            <BOY>[JUMP_HEIGHT] = arg[0x18] / 0x02;
+            <SCRIPT_OWNER>[JUMP_HEIGHT] = arg[0x18] / 0x02;
+
+            arg[0x12] = 0x00;
+
+            while(arg[0x12] <= arg[0x18]) {
+                arg[0x22] += arg[0x1e];
+                arg[0x24] += arg[0x20];
+                arg[0x26] = 0x0010;
+                _teleport(<BOY>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
+                arg[0x26] = 0x0000;
+                _teleport(<SCRIPT_OWNER>, (arg[0x22] rshift 0x04) - 0x06, (arg[0x24] rshift 0x04) - 0x1f);
+                yield();
+                arg[0x12] += 0x01;
+            }
+
+            // sterling reached drop
+
+            sleep(0x1d);
+            call(0x99988a);
+
+            arg[0x10] = <BOY>[X];
+            arg[0x12] = <BOY>[Y];
+
+            if(True) {
+                // arg[0x14] = 0x00f8;
+                arg[0x16] = falling_threshold; // falling_threshold
+            } else if(arg[0x10] == 0x01) {
+                arg[0x14] = 0x00f8;
+                arg[0x16] = 0x01e8;
+            } else {
+                arg[0x14] = 0x02d8;
+                arg[0x16] = 0x0258;
+            }
+
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            // _teleport(<BOY>, arg[0x10], arg[0x12]);
+
+            while(arg[0x12] < arg[0x16]) {
+                _teleport(<BOY>, arg[0x10], arg[0x12]);
+                yield();
+                arg[0x12] += 0x04;
+            }
+
+            // boy dropped
+
+            sfx_effect(SHAKING, True);
+
+            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+            <0x23d7> = 0x0001;
+            unset(FLAG.IN_ANIMATION); // should be at the end?
+            damage(BOY, damage_boy, True);
+            sleep(0x0e);
+
+            sfx_effect(SHAKING, False);
+
+            attribute(BOY, ROOT, False);
+            control(BOTH);
+
+            if(False) { // teleport to default position
+                <0x24ab> = 0x0158;
+                <0x24af> = 0x00e8;
+
+                _teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
+            }
+
+            yield();
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+            attribute(<SCRIPT_OWNER>, ROOT, False);
+
+            sleep(0d120);
+
+            sterling[GENERAL_PURPOSE] = 0x00;
+            // unset(FLAG.IN_ANIMATION);
+        }
+        
+        @install()
+        @async()
+        fun attach_sterling_script(entity, stomp_radius, drop_x, drop_y, falling_threshold, damage_boy) {
+            if(False) {
+                <0x283d> = entity;
+                
+                call(0x9997a7); // (07) CALL 0x9997a7 Sterling battle over, Gomi introduction
+            } else {
+                if(False) {
+                    debug_memory(entity, stomp_radius);
+                    sleep(0d60);
+                }
+
+                while!(dead(entity)) {
+                    if(entity[GENERAL_PURPOSE] == 0x00) {
+                        arg[0x10] = entity[X];
+                        arg[0x12] = entity[Y];
+                        arg[0x14] = <ACTIVE>[X];
+                        arg[0x16] = <ACTIVE>[Y];
+
+                        if(arg[0x10] < arg[0x14]) {
+                            arg[0x18] = arg[0x14] - arg[0x10];
+                        } else {
+                            arg[0x18] = arg[0x10] - arg[0x14];
+                        }
+
+                        if(arg[0x12] < arg[0x16]) {
+                            arg[0x1a] = arg[0x16] - arg[0x12];
+                        } else {
+                            arg[0x1a] = arg[0x12] - arg[0x16];
+                        }
+
+                        if((arg[0x18] <= stomp_radius) && (arg[0x1a] <= stomp_radius)) {
+                            grab(entity, drop_x, drop_y, falling_threshold, damage_boy);
+                            call_async(ADDRESS.STERLING_ROAR);
+                        }
+                    }
+
+                    yield();
+
+                    if(False) {
+                        debug_memory(arg[0x18], arg[0x1a]);
+                        sleep(0d60);
+                    }
+                }
+            }
         }
 
         fun crash_land(character:CHARACTER) {
