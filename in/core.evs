@@ -2508,8 +2508,8 @@ group functions() {
             }
 
             fun transition(map, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music) {
-                // if((<BOY>[HP] > 0d00) && (FLAG.IN_ANIMATION)) {
-                if(FLAG.IN_ANIMATION) {
+                if((<BOY>[HP] > 0d00) && (FLAG.IN_ANIMATION)) {
+                // if(FLAG.IN_ANIMATION) {
                     end();
                 }
 
@@ -2795,6 +2795,10 @@ group functions() {
                 code(0xc2, enemy, x, y, "// (c2) Add NPC 0x71 spawner at 0x13,0x09");
             }
 
+            fun player_control(character:CHARACTER) {
+                code(0x98, entity_t(character), "// (98) SWITCH CHAR TO boy");
+            }
+
             fun available(character:CHARACTER) {
                 // TODO: parameter bug
                 
@@ -2805,7 +2809,7 @@ group functions() {
                     set(FLAG.DOG_UNAVAILABLE);
 
                     code(0xbd, "// (bd) BOY = Player controlled");
-                    code(0x98, entity_t(character), "// (98) SWITCH CHAR TO boy");
+                    player_control(character);
                     code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
                 } else if(character == CHARACTER.DOG) {
                     // teleport(BOY, 0x00, 0x00);
@@ -2814,7 +2818,7 @@ group functions() {
                     unset(FLAG.DOG_UNAVAILABLE);
 
                     code(0xbf, "// (bf) DOG = Player controlled");
-                    code(0x98, entity_t(character), "// (98) SWITCH CHAR TO dog");
+                    player_control(character);
                     code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
                 } else if(character == CHARACTER.BOTH) {
                     unset(FLAG.BOY_UNAVAILABLE);
@@ -4158,6 +4162,7 @@ group functions() {
             if(FLAG.IN_ANIMATION) {
                 end();
             }
+            set(FLAG.IN_ANIMATION);
 
             control(NONE);
 
@@ -4203,6 +4208,8 @@ group functions() {
 
                 yield();
             }
+
+            unset(FLAG.IN_ANIMATION);
         }
 
         @install()
@@ -4707,9 +4714,13 @@ group functions() {
     group experimental() {
 
         @install()
-        @async()
-        fun grab(sterling, drop_x, drop_y, falling_threshold, damage_boy) {
+        // @async()
+        fun grab(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
             attach_to_script(sterling);
+
+            if(False) {
+                debug_subtext("grab");
+            }
             
             sterling[GENERAL_PURPOSE] = 0x01;
             set(FLAG.IN_ANIMATION);
@@ -4730,11 +4741,13 @@ group functions() {
             }
             
             control(NONE);
+            player_control(BOY);
             attribute(BOY, ROOT, True);
             attribute(SCRIPT_OWNER, ROOT, True);
 
             // sterling flying
 
+            attribute(SCRIPT_OWNER, INVINCIBLE, True);
             animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.STERLING_FLY_2);
 
             arg[0x10] = <SCRIPT_OWNER>[X];
@@ -4763,6 +4776,7 @@ group functions() {
                 arg[0x24] += arg[0x20];
                 arg[0x26] = 0x0000;
                 _teleport(<SCRIPT_OWNER>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
+                _teleport(BOY, arg[0x14], arg[0x16]); // lock boy in position
                 yield();
                 arg[0x12] += 0x01;
             }
@@ -4776,7 +4790,7 @@ group functions() {
 
             // call(0x99988a);
 
-            if(True) {
+            if(False) {
                 debug_memory(arg[0x1e], arg[0x20]);
                 // subtext("test 2");
                 // end();
@@ -4839,7 +4853,9 @@ group functions() {
             // sterling reached drop
 
             sleep(0x1d);
-            call(0x99988a);
+            if(with_roar) {
+                call(0x99988a);
+            }
 
             arg[0x10] = <BOY>[X];
             arg[0x12] = <BOY>[Y];
@@ -4847,6 +4863,7 @@ group functions() {
             if(True) {
                 // arg[0x14] = 0x00f8;
                 arg[0x16] = falling_threshold; // falling_threshold
+                // arg[0x16] = arg[0x12] + falling_threshold;
             } else if(arg[0x10] == 0x01) {
                 arg[0x14] = 0x00f8;
                 arg[0x16] = 0x01e8;
@@ -4857,6 +4874,13 @@ group functions() {
 
             animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
             // _teleport(<BOY>, arg[0x10], arg[0x12]);
+
+            if(False) {
+                debug_subtext("drop boy");
+                sleep(0d60);
+                debug_memory(arg[0x12], arg[0x16]);
+                sleep(0d60);
+            }
 
             while(arg[0x12] < arg[0x16]) {
                 _teleport(<BOY>, arg[0x10], arg[0x12]);
@@ -4869,15 +4893,20 @@ group functions() {
             sfx_effect(SHAKING, True);
 
             animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+            attribute(BOY, ROOT, False);
+            control(BOTH);
+
+            if(True) { // otherwise it triggers the exits and not boy_death()
+                sleep(0d03);
+                unset(FLAG.IN_ANIMATION);
+            }
+
             <0x23d7> = 0x0001;
-            unset(FLAG.IN_ANIMATION); // should be at the end?
             damage(BOY, damage_boy, True);
             sleep(0x0e);
 
             sfx_effect(SHAKING, False);
 
-            attribute(BOY, ROOT, False);
-            control(BOTH);
 
             if(False) { // teleport to default position
                 <0x24ab> = 0x0158;
@@ -4888,6 +4917,7 @@ group functions() {
 
             yield();
             animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+            attribute(SCRIPT_OWNER, INVINCIBLE, False);
             attribute(<SCRIPT_OWNER>, ROOT, False);
 
             sleep(0d120);
@@ -4898,7 +4928,7 @@ group functions() {
         
         @install()
         @async()
-        fun attach_sterling_script(entity, stomp_radius, drop_x, drop_y, falling_threshold, damage_boy) {
+        fun attach_sterling_script(entity, with_roar, stomp_radius, drop_x, drop_y, falling_threshold, damage_boy) {
             if(False) {
                 <0x283d> = entity;
                 
@@ -4910,27 +4940,34 @@ group functions() {
                 }
 
                 while!(dead(entity)) {
-                    if(entity[GENERAL_PURPOSE] == 0x00) {
-                        arg[0x10] = entity[X];
-                        arg[0x12] = entity[Y];
-                        arg[0x14] = <ACTIVE>[X];
-                        arg[0x16] = <ACTIVE>[Y];
+                    if!(FLAG.IN_ANIMATION) {
+                        if(entity[GENERAL_PURPOSE] == 0x00) {
+                            arg[0x10] = entity[X];
+                            arg[0x12] = entity[Y];
+                            arg[0x14] = <BOY>[X];
+                            arg[0x16] = <BOY>[Y];
 
-                        if(arg[0x10] < arg[0x14]) {
-                            arg[0x18] = arg[0x14] - arg[0x10];
-                        } else {
-                            arg[0x18] = arg[0x10] - arg[0x14];
-                        }
+                            if(arg[0x10] < arg[0x14]) {
+                                arg[0x18] = arg[0x14] - arg[0x10];
+                            } else {
+                                arg[0x18] = arg[0x10] - arg[0x14];
+                            }
 
-                        if(arg[0x12] < arg[0x16]) {
-                            arg[0x1a] = arg[0x16] - arg[0x12];
-                        } else {
-                            arg[0x1a] = arg[0x12] - arg[0x16];
-                        }
+                            if(arg[0x12] < arg[0x16]) {
+                                arg[0x1a] = arg[0x16] - arg[0x12];
+                            } else {
+                                arg[0x1a] = arg[0x12] - arg[0x16];
+                            }
 
-                        if((arg[0x18] <= stomp_radius) && (arg[0x1a] <= stomp_radius)) {
-                            grab(entity, drop_x, drop_y, falling_threshold, damage_boy);
-                            call_async(ADDRESS.STERLING_ROAR);
+                            if((arg[0x18] <= stomp_radius) && (arg[0x1a] <= stomp_radius)) {
+                                // arg[0x20] += 0x01;
+                                // debug_memory(arg[0x20], 0x00);
+
+                                if(with_roar) {
+                                    call_async(ADDRESS.STERLING_ROAR);
+                                }
+                                grab(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
+                            }
                         }
                     }
 
