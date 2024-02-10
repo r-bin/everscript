@@ -1261,8 +1261,8 @@ group general_enums() {
             }
 
             enum WALK_TYPE {
-                TILE_ABSOLUTE = 0x6c,
-                TILE_ABSOLUTE_DIRECT = 0x6e,
+                TILE_ABSOLUTE = 0x6c, // [Word]
+                TILE_ABSOLUTE_DIRECT = 0x6e, // [Word]
 
                 COORDINATE_ABSOLUTE = 0x9d,
                 COORDINATE_ABSOLUTE_DIRECT = 0x73,
@@ -2429,13 +2429,6 @@ group functions() {
                     code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
                 }
             }
-            fun _control_enemy(character:CHARACTER, control) {
-                if(control == True) {
-                    code(0x2a, calculate(character), "// (2a) Make $2841 script controlled");
-                } else {
-                    code(0x2b, calculate(character), "// (2b) Make $2835 player/AI controlled");
-                }
-            }
 
             fun wait(character:CHARACTER) {
                 if(character == CHARACTER.NONE) {
@@ -2450,29 +2443,22 @@ group functions() {
 
             fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER) {
                 if((walk_type == WALK_TYPE.TILE_ABSOLUTE) || (walk_type == WALK_TYPE.TILE_ABSOLUTE_DIRECT)) {
-                    code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
-
-                    if(wait_for != CHARACTER.NONE) {
-                        wait(wait_for);
-                        if!(wait_for is Memory) {
-                            control(BOTH);
-                        }
+                    if((x is Word) || (y is Word)) {
+                        code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+                    } else {
+                        code(WALK_TYPE.COORDINATE_ABSOLUTE_DIRECT, entity_t(character), calculate(x lshift 0d3), calculate(y lshift 0d3), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
                     }
                 } else {
                     code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+                }
 
-                    if(wait_for != CHARACTER.NONE) {
-                        wait(wait_for);
-                        if!(wait_for is Memory) {
-                            control(BOTH);
-                        }
+                if(wait_for != CHARACTER.NONE) {
+                    wait(wait_for);
+
+                    if!(wait_for is Memory) {
+                        control(BOTH);
                     }
                 }
-            }
-            fun _walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER) {
-                code(walk_type, entity_t(character), calculate(x), calculate(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
-                
-                wait(wait_for);
             }
 
             fun walk_relative(character:CHARACTER, walk_type:WALK_TYPE, x, y, waiting) {
@@ -2559,25 +2545,28 @@ group functions() {
             }
 
             fun teleport(character:CHARACTER, x, y) {
-                if(character == CHARACTER.BOTH) {
-                    code(0x20, x, y, "// (20) Teleport both to 43 93");
-                } else {
-                    code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
-                }
-            }
-            fun _teleport(character:CHARACTER, x, y) {
-                if(character == CHARACTER.BOTH) {
-                    code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                    code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                } else {
-                    code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                }
-            }
-            // fun teleport_relative(character, x, y) {
-            //     <character>[0x1a] = <character>[0x26];
-            //     <character>[0x1c] = <character>[0x28];
-            // }
+                if((x is Word) && (y is Word)) {
+                    if(x > 0xff) {
+                        throw("teleport.x > 0xff");
+                    } else if(y > 0xff) {
+                        throw("teleport.y > 0xff");
+                    }
 
+                    if(character == CHARACTER.BOTH) {
+                        code(0x20, x, y, "// (20) Teleport both to 43 93");
+                    } else {
+                        code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
+                    }
+                } else {
+                    if(character == CHARACTER.BOTH) {
+                        code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                        code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                    } else {
+                        code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                    }
+                }
+            }
+            
             fun init_map(x_start, y_start, x_end, y_end) {
                 code(0x1b, address(0x23e9), address(0x23eb), x_start, y_start, "// (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0010");
                 code(0x1b, address(0x23ed), address(0x23ef), x_end, y_end, "// (1b) WRITE MAP X end   ($23ed) = 0x0400  (1b) WRITE MAP Y end   ($23ef) = 0x04b0");
@@ -2764,9 +2753,6 @@ group functions() {
             fun animate(character:CHARACTER, mode:ANIMATION_MODE, id) {
                 code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
             }
-            fun _animate(character:CHARACTER, mode:ANIMATION_MODE, id) {
-                code(0x78, calculate(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
-            }
 
             fun add_enemy(enemy:ENEMY, x, y) {
                 code(0xba, enemy, x, y, "// (ba) LOAD NPC 0b at 49 79");
@@ -2783,11 +2769,6 @@ group functions() {
                 add_enemy(PLACEHOLDER, x, y);
                 animate(LAST_ENTITY, LOOP, animation);
             }
-            fun _add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y) {
-                add_dynamic_enemy_with_flags(PLACEHOLDER, x, y, 0x00);
-                animate(LAST_ENTITY, LOOP, animation);
-            }
-
 
             fun add_enemy_spawner(enemy, x, y, quantity) {
                 MEMORY.ENEMY_SPAWNER_QUANTITY = quantity;
@@ -2890,30 +2871,13 @@ group functions() {
                     code(0x76, entity_t(character), "// (76) MAKE boy FACE WEST");
                 }
             }
-            fun _face(character, direction:DIRECTION) {
-                if(direction == DIRECTION.NORTH) {
-                    code(0x74, calculate(character), "// (74) MAKE boy FACE NORTH");
-                } else if(direction == DIRECTION.EAST) {
-                    code(0x77, calculate(character), "// (77) MAKE boy FACE EAST");
-                } else if(direction == DIRECTION.SOUTH) {
-                    code(0x75, calculate(character), "// (75) MAKE boy FACE SOUTH");
-                } else if(direction == DIRECTION.WEST) {
-                    code(0x76, calculate(character), "// (76) MAKE boy FACE WEST");
-                }
-            }
 
             fun face_each(character:CHARACTER, character2:CHARACTER) {
                 code(0x71, entity_t(character), entity_t(character2), "// (71) Make $2835 and controlled char face each other");
             }
-            fun _face_each(character:CHARACTER, character2:CHARACTER) {
-                code(0x71, calculate(character), calculate(character2), "// (71) Make $2835 and controlled char face each other");
-            }
 
             fun attach_to_script(character:CHARACTER) {
                 code(0x4e, entity_t(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
-            }
-            fun _attach_to_script(character) {
-                code(0x4e, calculate(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
             }
 
             fun attach_script(character:CHARACTER, flag:SCRIPT_TRIGGER, id) {
@@ -2939,11 +2903,6 @@ group functions() {
                     code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
                 }
             }
-            fun _destroy(character:CHARACTER) {
-                if(character > 0x00) {
-                    code(0x9b, calculate(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
-                }
-            }
 
             fun damage(character:CHARACTER, value, animation) {
                 if(animation) {
@@ -2965,9 +2924,6 @@ group functions() {
 
             fun attribute_bit(character:CHARACTER, attribute:ATTRIBUTE_BITS) {
                 code(0xa9, entity_t(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
-            }
-            fun _attribute_bit(character, attribute:ATTRIBUTE_BITS) {
-                code(0xa9, calculate(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
             }
 
             fun attribute(character:CHARACTER, attribute:ATTRIBUTE_BITS, on) {
@@ -3033,9 +2989,6 @@ group functions() {
                 eval("18 63 01 50 29 6c 1a d5 // $23bb = boy.y");
 
                 code(0xaf, 0x04, entity_t(character), entity_t(0x23b9), entity_t(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
-            }
-            fun _heel(character, x, y) {
-                code(0xaf, 0x04, entity_t(character), calculate(x), calculate(y), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
             }
 
             fun drag(enemy, x, y) {
@@ -4221,13 +4174,13 @@ group functions() {
             attribute_bit(DOG, ROOT, True);
 
             if(<ACTIVE>[FACE_DIRECTION] == DIRECTION.NORTH) {
-                _teleport(INACTIVE, <ACTIVE>[X] + 0x10, <ACTIVE>[Y]);
+                teleport(INACTIVE, <ACTIVE>[X] + 0x10, <ACTIVE>[Y]);
             } else if(<ACTIVE>[FACE_DIRECTION] == DIRECTION.EAST) {
-                _teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y] + 0x10);
+                teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y] + 0x10);
             } else if(<ACTIVE>[FACE_DIRECTION] == DIRECTION.SOUTH) {
-                _teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
+                teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
             } else {
-                _teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
+                teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
             }
 
             <INACTIVE>[Z] = <ACTIVE>[Z];
@@ -4275,18 +4228,18 @@ group functions() {
                 yield();
 
                 <0x23db> = 0x0020;
-                _teleport(BOY, <0x24ab> + 0x08, <0x24af>);
+                teleport(BOY, <0x24ab> + 0x08, <0x24af>);
                 yield();
                 <0x23db> = 0x0020;
-                _teleport(DOG, <0x24ab> - 0x08, <0x24af>);
+                teleport(DOG, <0x24ab> - 0x08, <0x24af>);
                 yield();
 
                 while(<0x24af> < <0x249f>) {
                     <0x23db> = 0x0020;
-                    _teleport(BOY, <0x24ab> + 0x08, <0x24af>);
+                    teleport(BOY, <0x24ab> + 0x08, <0x24af>);
                     yield();
                     <0x23db> = 0x0020;
-                    _teleport(DOG, <0x24ab> - 0x08, <0x24af>);
+                    teleport(DOG, <0x24ab> - 0x08, <0x24af>);
                     yield();
 
                     <0x24af> += 0x02;
@@ -4326,7 +4279,7 @@ group functions() {
                     <0x24af> += <0x24a7>;
                     <0x24ab> += 0x10;
 
-                    _teleport(ACTIVE, <0x24ab> rshift 0x04, <0x24af> rshift 0x04);
+                    teleport(ACTIVE, <0x24ab> rshift 0x04, <0x24af> rshift 0x04);
                     yield();
 
                     <0x24a7> += 0x01;
@@ -4344,7 +4297,7 @@ group functions() {
                     <0x24af> += <0x24a7>;
                     <0x24ab> += 0x10;
 
-                    _teleport(ACTIVE, <0x24ab> rshift 0x04, <0x24af> rshift 0x04);
+                    teleport(ACTIVE, <0x24ab> rshift 0x04, <0x24af> rshift 0x04);
                     yield();
 
                     <0x24a7> += 0x01;
@@ -4715,11 +4668,11 @@ group functions() {
 
         @install()
         // @async()
-        fun grab(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
+        fun sterling_grab(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
             attach_to_script(sterling);
 
             if(False) {
-                debug_subtext("grab");
+                debug_subtext("sterling grab");
             }
             
             sterling[GENERAL_PURPOSE] = 0x01;
@@ -4775,8 +4728,8 @@ group functions() {
                 arg[0x22] += arg[0x1e];
                 arg[0x24] += arg[0x20];
                 arg[0x26] = 0x0000;
-                _teleport(<SCRIPT_OWNER>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
-                _teleport(BOY, arg[0x14], arg[0x16]); // lock boy in position
+                teleport(<SCRIPT_OWNER>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
+                teleport(BOY, arg[0x14], arg[0x16]); // lock boy in position
                 yield();
                 arg[0x12] += 0x01;
             }
@@ -4820,10 +4773,10 @@ group functions() {
             arg[0x18] = 0x004b;
             arg[0x12] -= 0x10;
             arg[0x26] = 0x0010;
-            _teleport(<BOY>, arg[0x10], arg[0x12]);
+            teleport(<BOY>, arg[0x10], arg[0x12]);
 
             arg[0x26] = 0x0000;
-            _teleport(<SCRIPT_OWNER>, arg[0x10] - 0x06, arg[0x12] - 0x1f);
+            teleport(<SCRIPT_OWNER>, arg[0x10] - 0x06, arg[0x12] - 0x1f);
 
             arg[0x1a] = arg[0x14] - arg[0x10];
             arg[0x1c] = arg[0x16] - arg[0x12];
@@ -4843,9 +4796,9 @@ group functions() {
                 arg[0x22] += arg[0x1e];
                 arg[0x24] += arg[0x20];
                 arg[0x26] = 0x0010;
-                _teleport(<BOY>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
+                teleport(<BOY>, arg[0x22] rshift 0x04, arg[0x24] rshift 0x04);
                 arg[0x26] = 0x0000;
-                _teleport(<SCRIPT_OWNER>, (arg[0x22] rshift 0x04) - 0x06, (arg[0x24] rshift 0x04) - 0x1f);
+                teleport(<SCRIPT_OWNER>, (arg[0x22] rshift 0x04) - 0x06, (arg[0x24] rshift 0x04) - 0x1f);
                 yield();
                 arg[0x12] += 0x01;
             }
@@ -4873,7 +4826,7 @@ group functions() {
             }
 
             animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            // _teleport(<BOY>, arg[0x10], arg[0x12]);
+            // teleport(<BOY>, arg[0x10], arg[0x12]);
 
             if(False) {
                 debug_subtext("drop boy");
@@ -4883,7 +4836,7 @@ group functions() {
             }
 
             while(arg[0x12] < arg[0x16]) {
-                _teleport(<BOY>, arg[0x10], arg[0x12]);
+                teleport(<BOY>, arg[0x10], arg[0x12]);
                 yield();
                 arg[0x12] += 0x04;
             }
@@ -4912,7 +4865,7 @@ group functions() {
                 <0x24ab> = 0x0158;
                 <0x24af> = 0x00e8;
 
-                _teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
+                teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
             }
 
             yield();
@@ -4924,6 +4877,14 @@ group functions() {
 
             sterling[GENERAL_PURPOSE] = 0x00;
             // unset(FLAG.IN_ANIMATION);
+        }
+
+        @install()
+        fun sterling_grab_3d(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
+            // debug_subtext("+walk");
+            walk(sterling, TILE_ABSOLUTE_DIRECT, drop_x, drop_y, True);
+            control_enemy(sterling, True);
+            // debug_subtext("-walk");
         }
         
         @install()
@@ -4966,7 +4927,11 @@ group functions() {
                                 if(with_roar) {
                                     call_async(ADDRESS.STERLING_ROAR);
                                 }
-                                grab(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
+                                if(True) {
+                                    sterling_grab(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
+                                } else {
+                                    sterling_grab_3d(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
+                                }
                             }
                         }
                     }
