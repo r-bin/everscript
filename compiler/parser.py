@@ -47,6 +47,7 @@ class Parser():
             return memory
 
         self.native_functions = {
+            "throw": (lambda p: EverScriptException(p[2][0])),
             "eval": (lambda p: Function_Eval(p[2][0])),
             "goto": (lambda p: Function_Goto(p[2][0])),
             "code": (lambda p: Function_Code(p[2])),

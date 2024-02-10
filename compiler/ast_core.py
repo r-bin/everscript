@@ -313,6 +313,12 @@ class Function_Base(BaseBox, Resolvable):
 
         return merged_params
 
+class EverScriptException(Function_Base):
+    def __init__(self, description):
+        self.description = description
+
+    def _code(self, params:list[Param]):
+        TODO(self.description)
 
 class Word(Function_Base, Calculatable):
     def __init__(self, value, value_count=2, is_decimal=False):
