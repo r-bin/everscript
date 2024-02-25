@@ -9,7 +9,7 @@
     // is being used by the engine?
     <0x2450>..<0x2558>,
 
-    <0x2834>..<0x28ff>
+    <0x2834>..<0x288f> // 2834…28fb room specific memory (2834…288f seem to be general purpose)
 )
 #include("in/core.evs")
 
@@ -250,6 +250,7 @@ group non_maps() {
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
             WITH_DEBUG_ENTITIES = True,
+            WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = True,
             WITH_INTRO = False,
             WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
@@ -1170,7 +1171,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_center, crash, NONE);
+                map_transition(town_temple, elevator, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -2842,7 +2843,7 @@ area inbetwixx_center() {
                 set(SOULS_MEMORY.PUPPER_ENABLED);
             }
 
-            if(False) {
+            if(SOULS_MEMORY.WITH_DEBUG_ENTITY_ALCHEMY_SELECTION) {
                 unlock(ALCHEMY);
                 select_alchemy();
             }
@@ -7023,22 +7024,22 @@ area east_inbetwixx() {
                 PHASE = memory_tmp(),
                 TIMER = memory_tmp(),
 
-                HP = 0x03e8, // 1000
+                HP = 0d1000,
 
-                COUNTDOWN = 0x03,
+                COUNTDOWN = 0d03,
 
                 // p1
 
-                P1_THRESHOLD = 0x320, // 800
-                P1_TIME_BEFORE_SALVAGE = 0x200,
+                P1_THRESHOLD = 0d800,
+                P1_TIME_BEFORE_SALVAGE = 0d420,
 
                 // p2
 
-                P2_THRESHOLD = 0x1f4, // 500
-                P2_TIME_BEFORE_SALVAGE = 0x300,
+                P2_THRESHOLD = 0d500,
+                P2_TIME_BEFORE_SALVAGE = 0d420,
 
                 RANDOM_SPELL = memory_tmp(),
-                TIME_BEFORE_RANDOM_SPELL = 0x300,
+                TIME_BEFORE_RANDOM_SPELL = 0d720,
             }
 
             fun boss_killed() {
@@ -7058,11 +7059,18 @@ area east_inbetwixx() {
                 }
             }
 
-            fun cast_salvage(target:CHARACTER, level) {
+            fun cast_salvage(target:CHARACTER, count, level) {
+                // TODO: flash/fireball, depending whether or not it's dodgeable?
+
                 animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
-                cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+
+                if(count > 0d2) {
+                    cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+                }
                 cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
-                cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+                if(count > 0d2) {
+                    cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+                }
                 cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
             }
 
@@ -7101,14 +7109,20 @@ area east_inbetwixx() {
 
                 while(BOSS.PHASE == 0x00) {
                     if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                        cast_salvage(ACTIVE, 0x00);
+                        cast_salvage(ACTIVE, 0d2, 0x00);
 
                         BOSS.TIMER = 0x00;
                     }
                 
-                    if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                    if(BOSS.RIDER_ID[PALETTE] != 0x0400) { // TODO: buggy, since menu resets paletts
                         BOSS.TIMER += 0x01;
                     }
+
+                    if(False) {
+                        debug_memory(BOSS.TIMER, BOSS.RIDER_ID[PALETTE]);
+                        sleep(0d60);
+                    }
+
                     yield();
                 }
 
@@ -7122,12 +7136,12 @@ area east_inbetwixx() {
 
                 while(BOSS.PHASE == 0x01) {
                     if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                        cast_salvage(ACTIVE, 0x00);
+                        cast_salvage(ACTIVE, 0d4, 0x00);
 
                         BOSS.TIMER = 0x00;
                     }
                 
-                    if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                    if(BOSS.RIDER_ID[PALETTE] != 0x0400) { // TODO: buggy, since menu resets paletts
                         BOSS.TIMER += 0x01;
                     }
                     yield();
@@ -8902,7 +8916,7 @@ area east_inbetwixx() {
             }
         };
 
-        map pipe_caves_side(PIPEMAZE_ROOMS) {
+        map pipe_caves_side(IVOR_SEWERS_EXTERIOR) {
             enum entrance {
                 west = entrance(0x05, 0x0b, EAST),
                 pipe = entrance(0x05, 0x15, NONE),
@@ -11850,6 +11864,21 @@ area town() {
             init_map(0x00, 0x30, 0x50, 0x8a);
         }
 
+        fun open_elevator(open) {
+            if(open) {
+                object[0x05] = 0x7e; // open elevator
+            } else {
+                object[0x05] = 0x00; // close elevator
+            }
+        }
+
+        @install()
+        @async()
+        fun elevator_entrance() {
+            sleep(0d50);
+            open_elevator(False);
+        }
+
         fun elevator_triggered() {
             if!(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
                 error_contraption(SOUTH);
@@ -11859,16 +11888,16 @@ area town() {
 
             control(NONE);
 
-            object[0x05] = 0x7e; // open elevator
+            open_elevator(True);
             sleep(0x50);
 
             walk(BOY, TILE_ABSOLUTE, 0d43, 0d73, NONE);
-            walk(DOG, TILE_ABSOLUTE, 0d41, 0d73, BOTH);
+            walk(DOG, TILE_ABSOLUTE, 0d39, 0d73, BOTH);
 
             face(BOY, SOUTH);
             face(DOG, SOUTH);
             
-            object[0x05] = 0x00; // open elevator
+            open_elevator(False);
 
             sleep(0x50);
 
@@ -11887,7 +11916,20 @@ area town() {
             } else if(MEMORY.QUESTION_ANSWER == 0d02) {
                 map_transition(town_temple_underground_castle, elevator, NONE);
             } else {
-                map_transition(town_temple, elevator, NONE); // TODO: walk out again
+                if(False) {
+                    map_transition(town_temple, elevator, NONE); // TODO: walk out again
+                } else {
+                    open_elevator(True);
+                    sleep(0d80);
+
+                    walk(BOY, TILE_ABSOLUTE, 0d43, 0d82, NONE);
+                    walk(DOG, TILE_ABSOLUTE, 0d39, 0d82, BOTH);
+
+                    open_elevator(False);
+                    sleep(0d80);
+
+                    // sleep?
+                }
             }
         }
 
@@ -11904,7 +11946,7 @@ area town() {
                     west_2 = entrance(0x09, 0x3f, EAST),
 
                     // elevator = entrance(0x29, 0x49, NONE),
-                    elevator = entrance(0x29, 0x4c, SOUTH),
+                    elevator = entrance(0x29, 0x4c, SOUTH, { open_elevator(True); elevator_entrance(); }),
                 }
 
                 enum soundtrack {
@@ -12157,13 +12199,17 @@ area town() {
                 }
 
                 enum b_trigger {
-                    gourd_1__2_VINEGAR = @install() {
+                    gourd_2__3_brimstone = @install() {
                         debug_subtext("B=0");
-                        _loot_chest(0x02, VINEGAR, 0d02);
+                        _loot_chest(0x08, BRIMSTONE, 0d03);
                     },
-                    gourd_2__1_NECTAR = @install() {
+                    gourd_1_2__1_nectar = @install() {
                         debug_subtext("B=1");
-                        _loot_chest(0x01, NECTAR, 0d01);
+                        _loot_chest(0x07, NECTAR, 0d01);
+                    },
+                    gourd_1_1__1_wings = @install() {
+                        debug_subtext("B=2");
+                        _loot_chest(0x06, WINGS, 0d01);
                     },
                 }
 
@@ -12440,7 +12486,7 @@ area town() {
                     west_2 = entrance(0x09, 0x3f, EAST),
 
                     // elevator = entrance(0x29, 0x49, NONE),
-                    elevator = entrance(0x29, 0x4c, SOUTH),
+                    elevator = entrance(0x29, 0x4c, SOUTH, { open_elevator(True); elevator_entrance(); }),
                 }
 
                 enum soundtrack {
@@ -12684,7 +12730,7 @@ area town() {
                     west_2 = entrance(0x09, 0x3f, EAST),
 
                     // elevator = entrance(0x29, 0x49, NONE),
-                    elevator = entrance(0x29, 0x4c, SOUTH),
+                    elevator = entrance(0x29, 0x4c, SOUTH, { open_elevator(True); elevator_entrance(); }),
                 }
 
                 enum soundtrack {
