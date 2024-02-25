@@ -6503,70 +6503,58 @@ area east_inbetwixx() {
             }
         }
 
+        fun pit_scanner_entity(entity, trigger_damage) {
+            arg[0x10] = entity[CURRENT_GROUND] & 0xff;
+
+            if(((arg[0x10] > 0d40) && (arg[0x10] < 0d50)) || ((arg[0x10] == 0d40) && (entity[GENERAL_PURPOSE] > 0d00))) {
+                entity[GENERAL_PURPOSE] += (entity[CURRENT_GROUND] & 0xff) - 0d30;
+
+                if(entity[GENERAL_PURPOSE] > 0d200) {
+                    entity[GENERAL_PURPOSE] = 0x00;
+                    damage(entity, trigger_damage, True);
+
+                    sleep(0d120);
+                }
+            } else {
+                entity[GENERAL_PURPOSE] = 0x00;
+            }
+
+            sleep(0d03);
+        }
         @install()
         @async()
-        fun pit_scanner() {
-            // 0d127, 0d303
-            // 0d239, 0d448
-            // 0d368, 0d528-9
-            // 0d383, 0d592-3
-
-            // BOSS.ID = <BOY>;
-
+        fun pit_scanner_boy() {
             while(True) {
-                // if((BOSS.ID[X] == 0d127) && ((BOSS.ID[Y] == 0d303) || (BOSS.ID[Y] == 0d303))) {
-                if((BOSS.ID[X] >= 0d112) && (BOSS.ID[X] <= 0d127)) {
-                    if((BOSS.ID[Y] >= 0d302) && (BOSS.ID[Y] <= 0d305)) {
-                        pit_triggered(BOSS.ID, 0x01);
-                    }
-                } else if((BOSS.ID[X] >= 0d224) && (BOSS.ID[X] <= 0d239)) {
-                    if((BOSS.ID[Y] >= 0d446) && (BOSS.ID[Y] <= 0d449)) {
-                        pit_triggered(BOSS.ID, 0x02);
-                    }
-                } else if((BOSS.ID[X] >= 0d368) && (BOSS.ID[X] <= 0d383)) {
-                    if((BOSS.ID[Y] >= 0d526) && (BOSS.ID[Y] <= 0d529)) {
-                        pit_triggered(BOSS.ID, 0x03);
-                    }
-                // } else if((BOSS.ID[X] >= 0d368) && (BOSS.ID[X] <= 0d383)) {
-                    if((BOSS.ID[Y] >= 0d590) && (BOSS.ID[Y] <= 0d593)) {
-                        pit_triggered(BOSS.ID, 0x04);
-                    }
-                } else {
-                    BOSS.ID[GENERAL_PURPOSE] = 0x00;
-                }
-
-                sleep(0x0a);
+                pit_scanner_entity(<BOY>, 0d05);
             }
         }
         @install()
         @async()
-        fun pit_scanner_boy() { // TODO: remove
+        fun pit_scanner_dog() {
             while(True) {
-                // if((<BOY>[X] == 0d127) && ((<BOY>[Y] == 0d303) || (<BOY>[Y] == 0d303))) {
-                if((<BOY>[X] >= 0d112) && (<BOY>[X] <= 0d127)) {
-                    if((<BOY>[Y] >= 0d302) && (<BOY>[Y] <= 0d305)) {
-                        pit_triggered_boy(0x01);
-                    }
-                } else if((<BOY>[X] >= 0d224) && (<BOY>[X] <= 0d239)) {
-                    if((<BOY>[Y] >= 0d446) && (<BOY>[Y] <= 0d449)) {
-                        pit_triggered_boy(0x02);
-                    }
-                } else if((<BOY>[X] >= 0d368) && (<BOY>[X] <= 0d383)) {
-                    if((<BOY>[Y] >= 0d526) && (<BOY>[Y] <= 0d529)) {
-                        pit_triggered_boy(0x03);
-                    }
-                // } else if((<BOY>[X] >= 0d368) && (<BOY>[X] <= 0d383)) {
-                    if((<BOY>[Y] >= 0d590) && (<BOY>[Y] <= 0d593)) {
-                        pit_triggered_boy(0x04);
-                    }
-                } else {
-                    <BOY>[GENERAL_PURPOSE] = 0x00;
-                }
-
-                sleep(0x0a);
+                pit_scanner_entity(<DOG>, 0d05);
+            }
+        }
+        @install()
+        @async()
+        fun pit_scanner_boss() {
+            while!(dead(BOSS.ID)) {
+                pit_scanner_entity(BOSS.ID, 0d100);
             }
         }
 
+        @install()
+        fun boss_defeated() {
+            if(BOSS.DEBUG) {
+                subtext("boss defeated");
+            }
+            
+            souls_boss_defeated(DEAD_PIT_EGG, REWARD_PIT_EGG);
+
+            unset(BOSS.PROGRESS);
+
+            music(BUGMUCK_AMBIENT_MELODY, 0xff); // TODO
+        }
         @install()
         fun boss_triggered() {
             if(BOSS.DEBUG) {
@@ -6581,18 +6569,6 @@ area east_inbetwixx() {
 
             control_enemy(BOSS.ID, False);
         }
-        @install()
-        fun boss_defeated() {
-            if(BOSS.DEBUG) {
-                subtext("boss defeated");
-            }
-            
-            souls_boss_defeated(DEAD_PIT_EGG, REWARD_PIT_EGG);
-
-            unset(BOSS.PROGRESS);
-
-            music(BUGMUCK_AMBIENT_MELODY, 0xff); // TODO
-        }
 
         fun trigger_enter() {
             open_sandpits(True);
@@ -6603,8 +6579,6 @@ area east_inbetwixx() {
                 attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
                 <LAST_ENTITY>[HP] = 0d600;
                 BOSS.ID = <LAST_ENTITY>;
-
-                pit_scanner();
             }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
@@ -6637,6 +6611,10 @@ area east_inbetwixx() {
             }
 
             pit_scanner_boy();
+            yield();
+            pit_scanner_dog();
+            yield();
+            pit_scanner_boss();
         }
     };
 
