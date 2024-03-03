@@ -25,7 +25,7 @@ class Is(Function_Base):
         return False
     
     def eval(self, params:list[Param]):
-        value = self.value.resolve(params)
+        value = self.value.resolve(params, False)
         is_type_of = False
         
         match self.type:
