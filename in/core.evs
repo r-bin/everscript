@@ -2441,7 +2441,7 @@ group functions() {
                 }
             }
 
-            fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER) {
+            fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER, unlock) {
                 if((walk_type == WALK_TYPE.TILE_ABSOLUTE) || (walk_type == WALK_TYPE.TILE_ABSOLUTE_DIRECT)) {
                     if((x is Word) || (y is Word)) {
                         code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
@@ -2455,8 +2455,10 @@ group functions() {
                 if(wait_for != CHARACTER.NONE) {
                     wait(wait_for);
 
-                    if!(wait_for is Memory) {
-                        control(BOTH);
+                    if(unlock is Word) {
+                        if(unlock > 0d00) {
+                            control(BOTH);
+                        }
                     }
                 }
             }
@@ -2777,9 +2779,23 @@ group functions() {
                 }
             }
 
-            fun add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y) {
+            fun _add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y, mode:ANIMATION_MODE) {
+                _add_enemy(PLACEHOLDER, x, y);
+                
+                if(mode is Word) {
+                    animate(LAST_ENTITY, mode, animation);
+                } else {
+                    animate(LAST_ENTITY, LOOP, animation);
+                }
+            }
+            fun add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y, mode:ANIMATION_MODE) {
                 add_enemy(PLACEHOLDER, x, y);
-                animate(LAST_ENTITY, LOOP, animation);
+                
+                if(mode is Word) {
+                    animate(LAST_ENTITY, mode, animation);
+                } else {
+                    animate(LAST_ENTITY, LOOP, animation);
+                }
             }
 
             fun add_enemy_spawner(enemy, x, y, quantity) {
@@ -4381,6 +4397,83 @@ group functions() {
             sound(0xb0);
 
             control(BOTH);
+        }
+
+        fun teleporter_animation_in(entity) {
+            sound(TELEPORTER);
+            _add_placeholder(TELEPORT_IN, entity[X], entity[Y], ONCE);
+
+            sleep(0d29);
+
+            if(entity == <BOY>) {
+                animate(BOY, ONCE, ANIMATION_ALL.DEFAULT);
+            } else {
+                animate(DOG, ONCE, ANIMATION_ALL.DEFAULT);
+            }
+        }
+        fun teleporter_animation_out(entity) {
+            sound(TELEPORTER);
+            _add_placeholder(TELEPORT_OUT, entity[X], entity[Y], ONCE);
+
+            if(entity == <BOY>) {
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
+            } else {
+                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT2_TELEPORT);
+            }
+        }
+        @install()
+        @async()
+        fun teleporter_in(direction:DIRECTION) {
+            control(NONE);
+
+            animate(ACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+            animate(INACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+
+            teleporter_animation_in(<ACTIVE>);
+            if(direction == DIRECTION.NORTH) {
+                walk(ACTIVE, COORDINATE_RELATIVE, -0d1, -0d2, ACTIVE, False);
+                face(ACTIVE, NORTH);
+            } else if(direction == DIRECTION.EAST) {
+                walk(ACTIVE, COORDINATE_RELATIVE, 0d2, -0d1, ACTIVE, False);
+                face(ACTIVE, EAST);
+            } else if(direction == DIRECTION.SOUTH) {
+                walk(ACTIVE, COORDINATE_RELATIVE, 0d1, 0d2, ACTIVE, False);
+                face(ACTIVE, SOUTH);
+            } else if(direction == DIRECTION.WEST) {
+                walk(ACTIVE, COORDINATE_RELATIVE, -0d2, 0d1, ACTIVE, False);
+                face(ACTIVE, WEST);
+            }
+
+            teleporter_animation_in(<INACTIVE>);
+            if(direction == DIRECTION.NORTH) {
+                walk(INACTIVE, COORDINATE_RELATIVE, -0d2, 0d1, INACTIVE, False);
+                face(INACTIVE, NORTH);
+            } else if(direction == DIRECTION.EAST) {
+                walk(INACTIVE, COORDINATE_RELATIVE, 0d2, 0d1, INACTIVE, False);
+                face(INACTIVE, EAST);
+            } else if(direction == DIRECTION.SOUTH) {
+                walk(INACTIVE, COORDINATE_RELATIVE, -0d1, 0d2, INACTIVE, False);
+                face(INACTIVE, SOUTH);
+            } else if(direction == DIRECTION.WEST) {
+                walk(INACTIVE, COORDINATE_RELATIVE, -0d2, -0d1, INACTIVE, False);
+                face(INACTIVE, SOUTH);
+            }
+
+            control(BOTH);
+        } 
+        @install()
+        fun teleporter_out(x, y) {
+            control(NONE);
+
+            walk(ACTIVE, TILE_ABSOLUTE, x, y, ACTIVE);
+            face(ACTIVE, SOUTH);
+            teleporter_animation_out(<ACTIVE>);
+            
+            walk(INACTIVE, TILE_ABSOLUTE, x, y, INACTIVE);
+            face(INACTIVE, SOUTH);
+            teleporter_animation_out(<INACTIVE>);
+
+            sleep(0d50);
         }
 
         fun scene_raptors_death_escape() {
