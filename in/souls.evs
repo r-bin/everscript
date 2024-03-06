@@ -375,6 +375,11 @@ group non_maps() {
 
             DEAD_NARIS = flag(),
             REWARD_NARIS = ITEM.NECTAR,
+
+            DEAD_AQUAGOTH = flag(),
+            REWARD_AQUAGOTH = ITEM.NO_ITEM,
+            DEAD_SQUIDMAR = flag(),
+            REWARD_SQUIDMAR = ITEM.NECTAR,
         }
 
         fun asign_debug_button_function(flag, feature) {
@@ -1188,7 +1193,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(jaguar_cave, teleporter, NONE);
+                map_transition(squidmar, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1202,8 +1207,12 @@ group non_maps() {
                 debug_subtext("Start+R");
                 
                 if(SOULS_MEMORY.WITH_CHEATS) {
-                    attribute(BOY, NO_CLIP, True);
-                    // attribute(BOY, INVINCIBLE_TEMP, True);
+                    if(True) {
+                        attribute(BOY, NO_CLIP, True);
+                    }
+                    if(False) {
+                        attribute(BOY, INVINCIBLE_TEMP, True);
+                    }
                     <BOY>[HP] = SYSTEM.HP_MAX;
                 }
                 
@@ -2951,6 +2960,11 @@ area inbetwixx_center() {
             // sniff spots
 
             player_message(0d30, 0d75, reference(message_triggered));
+
+            if(False) {
+                add_enemy(FLOWER_PURPLE, 0x13, 0x47);
+                attach_script(LAST_ENTITY, 0x100, reference(@install() { if(dead(<SCRIPT_OWNER>)) { subtext("true"); } else { subtext("false"); } }));
+            }
         }
     };
 };
@@ -3259,7 +3273,6 @@ area west_inbetwixx() {
                 fog_wall_inside(SOULS_MEMORY.DEAD_OWL_BOY, exit_direction);
             }
         }
-
 
         enum stepon_trigger {
             exit_east_1 = @install() {
@@ -19249,6 +19262,10 @@ area dungeon_isaac() {
 };
 
 area dungeon_volcano() {
+    enum DUNGEON_VOLCANO {
+        DEFAULT_MUSIC = 0x72,
+    }
+
     map dungeon_volcano(VOLCANO) {
         enum entrance {
             north_1 = entrance(0x2e, 0x05, SOUTH),
@@ -19257,11 +19274,17 @@ area dungeon_volcano() {
             south_2 = entrance(0x51, 0xb1, NORTH),
         }
 
+        enum soundtrack {
+            default = soundtrack(DUNGEON_VOLCANO.DEFAULT_MUSIC, 0xff)
+        }
+
         enum ROOM {
             ID_STONE = memory_tmp(),
 
             Z_UPSTAIRS = 0x10,
             Z_DOWNSTAIRS = 0x20,
+
+            ROUND_STONE_TRIGGERED_NORTH = memory(),
         }
 
         enum BOSS {
@@ -19441,6 +19464,50 @@ area dungeon_volcano() {
             BOSS.PHASE += 0x01;
         }
 
+        @install()
+        fun stone_yump() {
+            fake_b();
+
+            arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+            <SCRIPT_OWNER>[JUMP_HEIGHT] = 0d50;
+
+            while((<SCRIPT_OWNER>[X] != arg[0x10][X]) && (<SCRIPT_OWNER>[Y] != arg[0x10][Y])) {
+                if(<SCRIPT_OWNER>[X] > arg[0x10][X]) {
+                    <SCRIPT_OWNER>[X] -= 0d01;
+                } else if(<SCRIPT_OWNER>[X] < arg[0x10][X]) {
+                    <SCRIPT_OWNER>[X] += 0d01;
+                }
+
+                if(<SCRIPT_OWNER>[Y] > arg[0x10][Y]) {
+                    <SCRIPT_OWNER>[Y] -= 0d01;
+                } else if(<SCRIPT_OWNER>[Y] < arg[0x10][Y]) {
+                    <SCRIPT_OWNER>[Y] += 0d01;
+                }
+
+                sleep(0d3);
+            }
+
+            destroy(arg[0x10]);
+            sound(GORE_MOSQUITO);
+
+            <SCRIPT_OWNER>[JUMP_HEIGHT] = 0d20;
+            sleep(0d40);
+            <SCRIPT_OWNER>[JUMP_HEIGHT] = 0d10;
+            sleep(0d30);
+
+            destroy(SCRIPT_OWNER);
+        }
+
+        fun trigger_stone(x, y, entity) {
+            arg[0x10] = entity;
+
+            add_enemy(STONE_ROUND, x, y);
+
+            <LAST_ENTITY>[GENERAL_PURPOSE] = arg[0x10];
+            attach_script(LAST_ENTITY, TALK, reference(stone_yump));
+        }
+
         fun trigger_enter() {
             if!(SOULS_MEMORY.DEAD_VOLCANO_HYDRA) {
                 if(<BOY>[Z] == ROOM.Z_UPSTAIRS) {
@@ -19458,7 +19525,46 @@ area dungeon_volcano() {
                 attach_script(LAST_ENTITY, TALK, reference(installed_error_contraption));
             }
 
+            // start
+            add_enemy_spawner(SPARK, 0d79, 0d153, 0d05);
+
+            // west 1
+            add_enemy_spawner(SPARK, 0d64, 0d139, 0d05);
+            add_enemy_spawner(SPARK, 0d41, 0d103, 0d05);
+
+            // west gourd
+            add_enemy(TENTACLE_SPIKE, 0d36, 0d66);
+
+            // east
+            add_enemy_spawner(SPARK, 0d110, 0d100, 0d05);
+
+            // east + west
+            add_enemy_spawner(SPARK, 0d48, 0d83, 0d05);
+            add_enemy_spawner(SPARK, 0d35, 0d72, 0d05);
+
+            // east + east
+            add_enemy_spawner(SPARK, 0d99, 0d63, 0d05);
+
+            // center
+
+            // north east exit
+            add_enemy(TENTACLE_SPIKE, 0d114, 0d51);
+
+
+            // north west exit
+
+            // gourd
+            add_enemy(TENTACLE_WHIP, 0d55, 0d34);
+            add_enemy(TENTACLE_SPIKE, 0d73, 0d47);
+            trigger_stone(0d79, 0d41, <LAST_ENTITY>);
+
             default_init_room(True, False);
+
+            // ramp
+            add_enemy_spawner(SPARK, 0d65, 0d62, 0d05);
+
+            add_enemy(TENTACLE_SPIKE, 0d52, 0d46);
+            add_enemy(TENTACLE_SPIKE, 0d55, 0d45);
         }
     };
 
@@ -19467,12 +19573,42 @@ area dungeon_volcano() {
             south = entrance(0x1b, 0x51, NORTH)
         }
 
+        enum soundtrack {
+            default = soundtrack(DUNGEON_VOLCANO.DEFAULT_MUSIC, 0xff)
+        }
+
         enum ROOM {
             FAKE_EXIT_ID = memory_tmp()
         }
 
+        enum BOSS {
+            DEBUG = False,
+
+            ID = memory_tmp(),
+            PLACEHOLDER_ID = memory_tmp(),
+
+            PROGRESS = flag_tmp(),
+
+            ENERGY_LEVEL = memory_tmp(),
+            ENERGY_LEVEL_THRESHOLD = 0d15,
+
+            SPAWNING = flag_tmp(),
+
+            WAVE_COUNT = memory_tmp(),
+            WAVE_COUNT_P0 = 0d4,
+        }
+
+        fun fog_wall(exit_direction:DIRECTION) {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(DEAD_SQUIDMAR, exit_direction);
+            }
+        }
+
+        @install()
         fun fake_exit() {
-            map_transition(dungeon_volcano, north_1, NORTH);
+            fog_wall(NONE);
+
+            map_transition(dungeon_volcano, north_1, SOUTH);
         }
 
         @install()
@@ -19500,26 +19636,193 @@ area dungeon_volcano() {
 
                 if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
                     fake_exit();
-                    end();
+                    sleep(0d60);
                 }
 
                 yield();
             }
         }
 
+        fun boss_defeated() {
+            object[0x01] = 0x01;
+
+            souls_boss_defeated(DEAD_SQUIDMAR, REWARD_SQUIDMAR);
+        }
+        fun start_boss() {
+            set(BOSS.PROGRESS);
+
+            destroy(BOSS.PLACEHOLDER_ID);
+
+            fade_to_music(BOSS);
+        }
+
+        fun max_energy_check() {
+            if(BOSS.ENERGY_LEVEL == BOSS.ENERGY_LEVEL_THRESHOLD) {
+                attribute_bit(BOSS.ID, INVINCIBLE_TEMP, True);
+
+                control(NONE);
+
+                while!(dead(<BOY>)) {
+                    sound(TESLA);
+
+                    arg[0x10] = randrange(0d2);
+                    if(arg[0x10] == 0d0) {
+                        shoot_entity_entity(BOSS.ID, LIGHTNING, BOY, 0d15, 0d0);
+                        damage(BOY, arg[0x12], True);
+                    } else {
+                        shoot_entity_entity(BOSS.ID, LIGHTNING, DOG, 0d15, 0d0);
+                        damage(DOG, arg[0x12], True);
+                    }
+
+                    sleep(0d10);
+
+                    arg[0x12] += 0d1;
+                }
+
+            }
+        }
+
+        fun _wave_enemy_dead() {
+            BOSS.WAVE_COUNT -= 0d1;
+
+            if(BOSS.DEBUG) {
+                MEMORY.STRING_PARAMETER_1 = BOSS.WAVE_COUNT;
+                MEMORY.STRING_PARAMETER_2 = BOSS.WAVE_COUNT_P0;
+                debug_subtext("wave alive: [MEM1]/[MEM2]");
+            }
+        }
         @install()
-        fun squidmar_dialog() {
+        fun wave_enemy_dead() {
+            _wave_enemy_dead();
+        }
+
+        @install()
+        @async()
+        fun spawn_enemy(type:ENEMY) {
+            BOSS.WAVE_COUNT += 0d1;
+
+            if(type == ENEMY.SPARK) {
+                add_enemy(SPARK, 0d26, 0d51);
+            }
+
+            attach_to_script(LAST_ENTITY);
+            // attribute_bit(SCRIPT_OWNER, AI_RUN, True);
+            attach_script(SCRIPT_OWNER, DEATH, reference(wave_enemy_dead));
+
+            arg[0x10] = randrange(0d4);
+            if(arg[0x10] == 0d0) { // north
+                arg[0x12] = 0d21;
+                arg[0x14] = 0d41;
+            } else if(arg[0x10] == 0d1) { // east
+                arg[0x12] = 0d33;
+                arg[0x14] = 0d52;
+            } else if(arg[0x10] == 0d2) { // south
+                arg[0x12] = 0d23;
+                arg[0x14] = 0d57;
+            } else if(arg[0x10] == 0d3) { // west
+                arg[0x12] = 0d18;
+                arg[0x14] = 0d53;
+            }
+
+            walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, arg[0x12], arg[0x14], SCRIPT_OWNER);
+            control_enemy(SCRIPT_OWNER, False);
+
+            if(type == ENEMY.SPARK) {
+                while!(dead(<SCRIPT_OWNER>)) {
+                    if(arg[0x16] < <SCRIPT_OWNER>[X]) {
+                        arg[0x16] = <SCRIPT_OWNER>[X];
+                        arg[0x18] = 0d0;
+                    } else if(arg[0x16] == <SCRIPT_OWNER>[X]) {
+                        arg[0x18] += 0d1;
+
+                        if(arg[0x18] > 0d20) {
+                            attribute_bit(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                            attribute_bit(SCRIPT_OWNER, ROOT, True);
+                            yield();
+
+                            if!(dead(BOSS.ID)) {
+                                if(True) {
+                                    sound(TESLA);
+                                    shoot_entity_entity(SCRIPT_OWNER, LIGHTNING, BOSS.ID, 0d30, 0d0);
+                                    sleep(0d30);
+                                }
+
+                                BOSS.ENERGY_LEVEL += 0d1;
+                                max_energy_check();
+
+                                if(True) {
+                                    MEMORY.STRING_PARAMETER_1 = BOSS.ENERGY_LEVEL;
+                                    MEMORY.STRING_PARAMETER_2 = BOSS.ENERGY_LEVEL_THRESHOLD;
+                                    subtext("Energy: [MEM1]/[MEM2]");
+                                }
+
+                                attribute_bit(SCRIPT_OWNER, INVISIBLE, True);
+                                sleep(0d10);
+
+                                _wave_enemy_dead();
+                                destroy(SCRIPT_OWNER);
+                            } else {
+                                destroy(SCRIPT_OWNER);
+                            }
+
+                            end();
+                        }
+                    }
+
+                    sleep(0d10);
+                }
+            }
+        }
+
+        fun spawn_wave() {
+            if!(BOSS.SPAWNING) {
+                set(BOSS.SPAWNING);
+
+                while(BOSS.WAVE_COUNT < BOSS.WAVE_COUNT_P0) {
+                    spawn_enemy(SPARK);
+
+                    sleep(0d30);
+                }
+
+                unset(BOSS.SPAWNING);
+            }
+        }
+
+        @install()
+        fun squidmar_placeholder_triggered() {
             dialog("I'm Squidmar.[0x80][0x19][0x81]");
         }
         @install()
-        fun squidmar_combat() {
-            dialog("...[0x80][0x19][0x81]");
+        fun squidmar_triggered() {
+            if!(BOSS.PROGRESS) {
+                subtext("…");
+
+                start_boss();
+            } else {
+                if(dead(BOSS.ID)) {
+                    boss_defeated();
+                } else {
+                    if(BOSS.DEBUG) {
+                        debug_memory(BOSS.ID[HP], 0d0);
+                    }
+
+                    spawn_wave();
+                }
+            }
         }
 
         fun trigger_enter() {
-            add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
-            attach_script(LAST_ENTITY, DAMAGE, reference(squidmar_combat));
-            attach_script(LAST_ENTITY, TALK, reference(squidmar_dialog));
+            if!(SOULS_MEMORY.DEAD_SQUIDMAR) {
+                add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
+                BOSS.ID = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, DAMAGE, reference(squidmar_triggered));
+
+                add_enemy(PLACEHOLDER, 0d25, 0d55);
+                BOSS.PLACEHOLDER_ID = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, TALK, reference(squidmar_placeholder_triggered));
+            } else {
+                object[0x01] = 0x01;
+            }
 
             default_init_room(True, False);
 
@@ -19535,12 +19838,16 @@ area dungeon_volcano() {
             south = entrance(0x1b, 0x51, NORTH)
         }
 
+        enum soundtrack {
+            default = soundtrack(DUNGEON_VOLCANO.DEFAULT_MUSIC, 0xff)
+        }
+
         enum ROOM {
             FAKE_EXIT_ID = memory_tmp(),
         }
 
         fun fake_exit() {
-            map_transition(dungeon_volcano, north_2, NORTH);
+            map_transition(dungeon_volcano, north_2, SOUTH);
         }
 
         @install()
@@ -19575,13 +19882,47 @@ area dungeon_volcano() {
             }
         }
 
-        @install()
-        fun aquagoth_dialog() {
-            dialog("I'm Aquagoth.[0x80][0x19][0x81]");
+        enum BOSS {
+            DEFEATED = flag(),
+
+            DIALOG_THRESHOLD_1 = 0d1000,
+            DIALOG_THRESHOLD_1_FLAG = flag_tmp(),
+
+            DIALOG_THRESHOLD_2 = 0d500,
+            DIALOG_THRESHOLD_2_FLAG = flag_tmp(),
         }
+
+        fun boss_defeated() {
+            set(SOULS_MEMORY.DEAD_AQUAGOTH);
+
+            arg[0x10] = 0d40;
+            while(arg[0x10] > 0d0) {
+                object[0x01] = 0x00;
+                yield();
+                object[0x01] = 0x01;
+                yield();
+
+                arg[0x10] -= 0d1;
+            }
+        }
+
         @install()
-        fun aquagoth_combat() {
-            dialog("...[0x80][0x19][0x81]");
+        fun aquagoth_triggered() {
+            if(dead(<SCRIPT_OWNER>)) {
+                boss_defeated();
+            } else if!(BOSS.DIALOG_THRESHOLD_2_FLAG) {
+                if(<SCRIPT_OWNER>[HP] < BOSS.DIALOG_THRESHOLD_2) {
+                    set(BOSS.DIALOG_THRESHOLD_2_FLAG);
+
+                    subtext("ugh…");
+                }
+            } else if!(BOSS.DIALOG_THRESHOLD_1_FLAG) {
+                if(<SCRIPT_OWNER>[HP] < BOSS.DIALOG_THRESHOLD_1) {
+                    set(BOSS.DIALOG_THRESHOLD_1_FLAG);
+
+                    subtext("…");
+                }
+            }
         }
 
         fun init_room() {
@@ -19593,9 +19934,14 @@ area dungeon_volcano() {
         }
 
         fun trigger_enter() {
-            add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
-            attach_script(LAST_ENTITY, DAMAGE, reference(aquagoth_combat));
-            attach_script(LAST_ENTITY, TALK, reference(aquagoth_dialog));
+            if!(SOULS_MEMORY.DEAD_AQUAGOTH) {
+                add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
+                attach_script(LAST_ENTITY, DAMAGE, reference(aquagoth_triggered));
+
+                subtext("A fould stench is in the air.");
+            } else {
+                object[0x01] = 0x01;
+            }
 
             init_room();
 
@@ -19603,8 +19949,6 @@ area dungeon_volcano() {
             ROOM.FAKE_EXIT_ID = <LAST_ENTITY>;
             sleep(0x10);
             fake_exit_scanner();
-
-            subtext("A fould stench is in the air.");
         }
     };
 };
