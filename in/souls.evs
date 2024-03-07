@@ -19589,6 +19589,8 @@ area dungeon_volcano() {
 
             PROGRESS = flag_tmp(),
 
+            HP = 0d1000,
+
             ENERGY_LEVEL = memory_tmp(),
             ENERGY_LEVEL_THRESHOLD = 0d15,
 
@@ -19685,6 +19687,8 @@ area dungeon_volcano() {
         fun _wave_enemy_dead() {
             BOSS.WAVE_COUNT -= 0d1;
 
+            destroy(SCRIPT_OWNER);
+
             if(BOSS.DEBUG) {
                 MEMORY.STRING_PARAMETER_1 = BOSS.WAVE_COUNT;
                 MEMORY.STRING_PARAMETER_2 = BOSS.WAVE_COUNT_P0;
@@ -19703,10 +19707,13 @@ area dungeon_volcano() {
 
             if(type == ENEMY.SPARK) {
                 add_enemy(SPARK, 0d26, 0d51);
+            } else if(type == ENEMY.MAGGOT) {
+                add_enemy(MAGGOT, 0d26, 0d51);
             }
 
             attach_to_script(LAST_ENTITY);
-            // attribute_bit(SCRIPT_OWNER, AI_RUN, True);
+            attribute(SCRIPT_OWNER, AI_RUN, True);
+            // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
             attach_script(SCRIPT_OWNER, DEATH, reference(wave_enemy_dead));
 
             arg[0x10] = randrange(0d4);
@@ -19726,6 +19733,7 @@ area dungeon_volcano() {
 
             walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, arg[0x12], arg[0x14], SCRIPT_OWNER);
             control_enemy(SCRIPT_OWNER, False);
+            // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
 
             if(type == ENEMY.SPARK) {
                 while!(dead(<SCRIPT_OWNER>)) {
@@ -19736,8 +19744,8 @@ area dungeon_volcano() {
                         arg[0x18] += 0d1;
 
                         if(arg[0x18] > 0d20) {
-                            attribute_bit(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-                            attribute_bit(SCRIPT_OWNER, ROOT, True);
+                            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                            attribute(SCRIPT_OWNER, ROOT, True);
                             yield();
 
                             if!(dead(BOSS.ID)) {
@@ -19756,11 +19764,11 @@ area dungeon_volcano() {
                                     subtext("Energy: [MEM1]/[MEM2]");
                                 }
 
-                                attribute_bit(SCRIPT_OWNER, INVISIBLE, True);
+                                attribute(SCRIPT_OWNER, INVISIBLE, True);
                                 sleep(0d10);
 
                                 _wave_enemy_dead();
-                                destroy(SCRIPT_OWNER);
+                                // destroy(SCRIPT_OWNER);
                             } else {
                                 destroy(SCRIPT_OWNER);
                             }
@@ -19775,16 +19783,10 @@ area dungeon_volcano() {
         }
 
         fun spawn_wave() {
-            if!(BOSS.SPAWNING) {
-                set(BOSS.SPAWNING);
+            while(BOSS.WAVE_COUNT < BOSS.WAVE_COUNT_P0) {
+                spawn_enemy(SPARK);
 
-                while(BOSS.WAVE_COUNT < BOSS.WAVE_COUNT_P0) {
-                    spawn_enemy(SPARK);
-
-                    sleep(0d30);
-                }
-
-                unset(BOSS.SPAWNING);
+                sleep(0d30);
             }
         }
 
@@ -19794,20 +19796,29 @@ area dungeon_volcano() {
         }
         @install()
         fun squidmar_triggered() {
-            if!(BOSS.PROGRESS) {
-                subtext("…");
+            if!(BOSS.SPAWNING) {
+                set(BOSS.SPAWNING);
+                yield();
+                yield();
+                yield();
 
-                start_boss();
-            } else {
-                if(dead(BOSS.ID)) {
-                    boss_defeated();
+                if!(BOSS.PROGRESS) {
+                    subtext("…");
+
+                    start_boss();
                 } else {
-                    if(BOSS.DEBUG) {
-                        debug_memory(BOSS.ID[HP], 0d0);
-                    }
+                    if(dead(BOSS.ID)) {
+                        boss_defeated();
+                    } else {
+                        if(BOSS.DEBUG) {
+                            debug_memory(BOSS.ID[HP], 0d0);
+                        }
 
-                    spawn_wave();
+                        spawn_wave();
+                    }
                 }
+
+                unset(BOSS.SPAWNING);
             }
         }
 
@@ -19815,6 +19826,7 @@ area dungeon_volcano() {
             if!(SOULS_MEMORY.DEAD_SQUIDMAR) {
                 add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
                 BOSS.ID = <LAST_ENTITY>;
+                BOSS.ID[HP] = BOSS.HP;
                 attach_script(LAST_ENTITY, DAMAGE, reference(squidmar_triggered));
 
                 add_enemy(PLACEHOLDER, 0d25, 0d55);
