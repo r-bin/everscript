@@ -51,6 +51,8 @@ class Calculatable():
                     return stringify(c.value)
                 case int():
                     return '{:02X}'.format(c, 'x')
+                case Word():
+                    return stringify(c.value)
                 case str():
                     return c
                 case list():
@@ -924,11 +926,13 @@ class Opcode():
 
         "write temp byte": 0x10,
         "write temp word": 0x19,
+        "write temp flag": 0x0d,
         "write byte": 0x14,
         "write word": 0x18,
         "write deref": 0x7a,
         "write object": 0x5c,
         "write arg": 0x1a,
+        "write flag": 0x0c,
     }
 
     def find_key_by_value(self, value:int) -> str:
