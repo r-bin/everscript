@@ -1193,7 +1193,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(squidmar, south, NONE);
+                map_transition(radahn3_arena, right, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -20503,7 +20503,7 @@ area experimental_room() {
         }
 
         enum soundtrack {
-            default = soundtrack(0x32, 0xff)
+            default = soundtrack(BOSS, 0xff)
         }
 
         enum stepon_trigger {
@@ -20529,19 +20529,10 @@ area experimental_room() {
             PHASE = memory_tmp(),
             TIMER = memory_tmp(),
 
-            HP = 0x03e8, // 1000
+            HP = 0d1000,
 
-            GRABBING = flag_tmp(),
-
-            COUNTDOWN = 0x03,
-
-            STOMP_ENTITY = memory_tmp(),
-            STOMP_DISTANCE = 0x20,
-            STOMP_COOL_DOWN_TIMER = memory_tmp(),
-            STOMP_COOL_DOWN = 0x100,
-            STOMP_DAMAGE_CLOSE = 0x50,
-            STOMP_DAMAGE = 0x10,
-            STOMP_EXPLOSION_DISTANCE = 0x30,
+            GRAB_DISTANCE = 0d35,
+            GRAB_DAMAGE = 0d10,
 
             // p1
 
@@ -20563,262 +20554,28 @@ area experimental_room() {
 
         @install()
         @async()
-        fun grab(sterling, drop_x, drop_y, falling_threshold) {
-            attach_to_script(sterling);
-            
-            set(BOSS.GRABBING);
-
-            if(BOSS.DEBUG) {
-                // debug_subtext("grab");
-                nop();
-            }
-
-            if(False) {
-                <0x283d> = BOSS.MOUNT_ID;
-                call(0x99992d);
-
-                unset(BOSS.GRABBING);
-                end();
-            }
-
-            // <0x2834> = 0xffff;
-
-            if(dead(<SCRIPT_OWNER>)) {
-                if(BOSS.DEBUG) {
-                    subtext("dead 1");
-                }
-                end();
-            }
-            if(BOSS.DEBUG) {
-                debug_subtext("root both");
-                sleep(0d60);
-            }
-            control(NONE);
-            attribute(BOY, ROOT, True);
-            attribute(SCRIPT_OWNER, ROOT, True);
-
-            if(BOSS.DEBUG) {
-                debug_subtext("sterling flying");
-                sleep(0d60);
-            }
-            animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.STERLING_FLY_2);
-
-            arg[0x10] = <SCRIPT_OWNER>[X];
-            arg[0x12] = <SCRIPT_OWNER>[Y];
-
-            arg[0x14] = <BOY>[X] - 0x06;
-            arg[0x16] = <BOY>[Y] - 0x1f;
-
-            arg[0x18] = 0x1e;
-            arg[0x12] -= 0x10;
-
-            arg[0x1a] = arg[0x14] - arg[0x10];
-            arg[0x1c] = arg[0x16] - arg[0x12];
-
-            arg[0x1e] = (arg[0x1a] << 0x04) / arg[0x18];
-            arg[0x20] = (arg[0x1c] << 0x04) / arg[0x18];
-
-            arg[0x22] = arg[0x10] << 0x04;
-            arg[0x24] = arg[0x16] << 0x04;
-
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = arg[0x18] / 0x02;
-            arg[0x12] = 0x00;
-
-            while(arg[0x12] <= arg[0x18]) {
-                arg[0x22] += arg[0x1e];
-                arg[0x24] += arg[0x20];
-                arg[0x26] = 0x0000;
-                teleport(<SCRIPT_OWNER>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
-                yield();
-                arg[0x12] += 0x01;
-
-                if(BOSS.DEBUG) {
-                    sleep(0d60);
-                    debug_memory(arg[0x22] >> 0x04, arg[0x24] >> 0x04);
-                }
-            }
-
-            if(BOSS.DEBUG) {
-                debug_subtext("sterling reached boy");
-                sleep(0d60);
-            }
-
-            // if(dead(<SCRIPT_OWNER>)) {
-            //     subtext("dead 2");
-            //     end();
-            // }
-
-            // call(0x99988a);
-
-            if(True) {
-                debug_memory(arg[0x1e], arg[0x20]);
-                // subtext("test 2");
-                // end();
-            }
-
-            arg[0x10] = <BOY>[X];
-            arg[0x12] = <BOY>[Y];
-
-            if(True) {
-                arg[0x14] = drop_x; // drop_x
-                arg[0x16] = drop_y; // drop_y
-            } else if(arg[0x10] == 0x01) {
-                arg[0x14] = 0x00f8;
-                arg[0x16] = 0x00e8;
-                face(BOY, WEST);
-                face(SCRIPT_OWNER, WEST);
-            } else {
-                arg[0x14] = 0x02d8;
-                arg[0x16] = 0x00e8;
-                face(BOY, EAST);
-                face(SCRIPT_OWNER, EAST);
-            }
-
-            yield();
-
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            arg[0x18] = 0x004b;
-            arg[0x12] -= 0x10;
-            arg[0x26] = 0x0010;
-            teleport(<BOY>, arg[0x10], arg[0x12]);
-
-            arg[0x26] = 0x0000;
-            teleport(<SCRIPT_OWNER>, arg[0x10] - 0x06, arg[0x12] - 0x1f);
-
-            arg[0x1a] = arg[0x14] - arg[0x10];
-            arg[0x1c] = arg[0x16] - arg[0x12];
-
-            arg[0x1e] = (arg[0x1a] << 0x04) / arg[0x18];
-            arg[0x20] = (arg[0x1c] << 0x04) / arg[0x18];
-
-            arg[0x22] = arg[0x10] << 0x04;
-            arg[0x24] = arg[0x12] << 0x04;
-
-            <BOY>[JUMP_HEIGHT] = arg[0x18] / 0x02;
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = arg[0x18] / 0x02;
-
-            arg[0x12] = 0x00;
-
-            while(arg[0x12] <= arg[0x18]) {
-                arg[0x22] += arg[0x1e];
-                arg[0x24] += arg[0x20];
-                arg[0x26] = 0x0010;
-                teleport(<BOY>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
-                arg[0x26] = 0x0000;
-                teleport(<SCRIPT_OWNER>, (arg[0x22] >> 0x04) - 0x06, (arg[0x24] >> 0x04) - 0x1f);
-                yield();
-                arg[0x12] += 0x01;
-            }
-
-            if(BOSS.DEBUG) {
-                debug_subtext("sterling reached drop");
-                sleep(0d60);
-            }
-
-            sleep(0x1d);
-            call(0x99988a);
-
-            arg[0x10] = <BOY>[X];
-            arg[0x12] = <BOY>[Y];
-
-            if(True) {
-                // arg[0x14] = 0x00f8;
-                arg[0x16] = falling_threshold; // falling_threshold
-            } else if(arg[0x10] == 0x01) {
-                arg[0x14] = 0x00f8;
-                arg[0x16] = 0x01e8;
-            } else {
-                arg[0x14] = 0x02d8;
-                arg[0x16] = 0x0258;
-            }
-
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            // teleport(<BOY>, arg[0x10], arg[0x12]);
-
-            while(arg[0x12] < arg[0x16]) {
-                teleport(<BOY>, arg[0x10], arg[0x12]);
-                yield();
-                arg[0x12] += 0x04;
-            }
-
-            if(BOSS.DEBUG) {
-                debug_subtext("boy dropped");
-                sleep(0d60);
-            }
-
-            sfx_effect(SHAKING, True);
-
-            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
-            <0x23d7> = 0x0001;
-            damage(BOY, 0x05, True);
-            sleep(0x0e);
-
-            sfx_effect(SHAKING, False);
-
-            attribute(BOY, ROOT, False);
-            control(BOTH);
-
-            if(False) { // teleport to default position
-                <0x24ab> = 0x0158;
-                <0x24af> = 0x00e8;
-
-                teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
-            }
-
-            yield();
-            animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
-            attribute(<SCRIPT_OWNER>, ROOT, False);
-
-            unset(BOSS.GRABBING);
-        }
-        
-        @install()
-        @async()
         fun stack_t01_offset() {
             while!(dead(BOSS.MOUNT_ID)) {
                 BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
                 BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
                 BOSS.RIDER_ID[JUMP_HEIGHT] = BOSS.MOUNT_ID[JUMP_HEIGHT];
-                yield();
-
-                if!(BOSS.GRABBING) {
-                    arg[0x00] = BOSS.MOUNT_ID[X];
-                    arg[0x02] = BOSS.MOUNT_ID[Y];
-                    arg[0x04] = <ACTIVE>[X];
-                    arg[0x06] = <ACTIVE>[Y];
-
-                    if(arg[0x00] < arg[0x04]) {
-                        arg[0x08] = arg[0x04] - arg[0x00];
-                    } else {
-                        arg[0x08] = arg[0x00] - arg[0x04];
-                    }
-
-                    if(arg[0x02] < arg[0x06]) {
-                        arg[0x0a] = arg[0x06] - arg[0x02];
-                    } else {
-                        arg[0x0a] = arg[0x02] - arg[0x06];
-                    }
-
-                    if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_DISTANCE)) {
-                        grab(BOSS.MOUNT_ID, 0x0140, 0x00c0, 0x0118);
-                        call_async(ADDRESS.STERLING_ROAR);
-                    }
-                }
-
-                yield();
-
-                // if(BOSS.DEBUG) {
-                //     debug_memory(arg[0x08], arg[0x0a]);
-                //     sleep(0x20);
-                // }
+                
+                sleep(0d2);
             }
         }
 
-        fun cast_salvage(target:CHARACTER, level) {
+        fun cast_salvage(target:CHARACTER, count, level) {
+            // TODO: flash/fireball, depending whether or not it's dodgeable?
+
             animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
-            cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+
+            if(count > 0d2) {
+                cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+            }
             cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
-            cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+            if(count > 0d2) {
+                cast(BOSS.RIDER_ID, target, CAST.FIREBALL, level);
+            }
             cast(BOSS.RIDER_ID, target, CAST.FLASH, level);
         }
 
@@ -20857,7 +20614,7 @@ area experimental_room() {
 
             while(BOSS.PHASE == 0x00) {
                 if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, 0x00);
+                    cast_salvage(ACTIVE, 0d2, 0x00);
 
                     BOSS.TIMER = 0x00;
                 }
@@ -20878,7 +20635,7 @@ area experimental_room() {
 
             while(BOSS.PHASE == 0x01) {
                 if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, 0x00);
+                    cast_salvage(ACTIVE, 0d2, 0x00);
 
                     BOSS.TIMER = 0x00;
                 }
@@ -20922,7 +20679,6 @@ area experimental_room() {
 
         fun spawn_boss(x, y) {
             add_enemy(VERMINATOR, x, y);
-            attribute(LAST_ENTITY, INVISIBLE, True);
             <LAST_ENTITY>[HP] = BOSS.HP;
             BOSS.RIDER_ID = <LAST_ENTITY>;
             attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
@@ -20935,6 +20691,8 @@ area experimental_room() {
         }
 
         fun trigger_enter() {
+            // character_selection(BOY);
+            
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
@@ -20944,26 +20702,11 @@ area experimental_room() {
             if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
                 close_exits(True);
 
-                spawn_boss(0x10, 0x13);
+                spawn_boss(0d16, 0d19);
 
-                if(False) {
-                    stack_t01_offset();
-                    boss_watcher();
-
-                    character_selection(BOY);
-                    countdown(BOSS.COUNTDOWN);
-                    attribute(BOY, INVINCIBLE, False);
-                } else if(False) {
-                    attach_sterling_script_to_last_entity();
-                } else {
-                    // stack_t01_offset();
-                    // call(0x9997a7);
-                    // attach_sterling_script_to_last_entity();
-
-                    control_enemy(LAST_ENTITY, True);
-
-                    attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.STOMP_DISTANCE, 0d40, 0d25, 0x0118, 0d100);
-                }
+                attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.GRAB_DISTANCE, 0d40, 0d25, 0x0118, BOSS.GRAB_DAMAGE);
+                stack_t01_offset();
+                boss_watcher();
             }
         }
     };
