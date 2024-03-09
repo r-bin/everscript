@@ -1059,29 +1059,36 @@ class Asign(BinaryOp):
     def _calculate(self, left:any, right:any, params:list[Param]):
         code = []
         if not isinstance(right, list):
-            right = right.calculate(params)
+            calculated_right = right.calculate(params)
 
         match left:
             case Memory():
-                match [left.type, left.value_count()]:
-                    case ["char", _]:
-                        code = left.calculate(params) + self._terminate(right)
-                    case ["28", 1]:
-                        code = [Opcode("write temp byte"), left.code(params)] + self._terminate(right)
-                    case ["28", _]:
-                        code = [Opcode("write temp word"), left.code(params)] + self._terminate(right)
-                    case ["22"|"xx", 1]:
-                        code = [Opcode("write byte"), left.code(params)] + self._terminate(right)
-                    case ["22"|"xx", _]:
-                        code = [Opcode("write word"), left.code(params)] + self._terminate(right)
+                match [left.type, left.value_count(), left.flag]:
+                    case ["char", _, None]:
+                        code = left.calculate(params) + self._terminate(calculated_right)
+
+                    case ["28", 1, None]:
+                        code = [Opcode("write temp byte"), left.code(params)] + self._terminate(calculated_right)
+                    case ["28", _, None]:
+                        code = [Opcode("write temp word"), left.code(params)] + self._terminate(calculated_right)
+                    case ["28", _, _]:
+                        code = [Opcode("write temp flag"), left.code(params)] + self._terminate(calculated_right)
+
+                    case ["22"|"xx", 1, None]:
+                        code = [Opcode("write byte"), left.code(params)] + self._terminate(calculated_right)
+                    case ["22"|"xx", _, None]:
+                        code = [Opcode("write word"), left.code(params)] + self._terminate(calculated_right)
+                    case ["22", _, _]:
+                        code = [Opcode("write flag"), left.code(params)] + self._terminate(calculated_right)
+
                     case _:
                         TODO()
             case Deref():
-                code = [Opcode("write deref")] + self._terminate(left.calculate(params, deref=False)) + self._terminate(right)
+                code = [Opcode("write deref")] + self._terminate(left.calculate(params, deref=False)) + self._terminate(calculated_right)
             case Object():
-                code = self._terminate([Opcode("write object")] + left.calculate(params)) + self._terminate(right)
+                code = self._terminate([Opcode("write object")] + left.calculate(params)) + self._terminate(calculated_right)
             case Arg():
-                code = [Opcode("write arg"), left.code(params)] + self._terminate(right)
+                code = [Opcode("write arg"), left.code(params)] + self._terminate(calculated_right)
             case _:
                 TODO()
 
@@ -1129,74 +1136,28 @@ class Include(BaseBox):
 
         return script
 
-class Set(Function_Base):
+class Set(Function_Base, Calculatable):
     def __init__(self, memory):
         self.memory = memory
 
     def _code(self, params:list[Param]):
-        combined = "xx xx"
+        code = Asign(self.memory.resolve(params), Word(1))
 
-        memory = self.memory.resolve(params)
-        if memory:
-            address = memory.address
-            address -= 0x2258
-            address <<=  3
+        code = code.calculate(params)
+        code = self._clean_calucatable(code, params)
 
-            flag = memory.flag
-            f = 0
-            while  flag > 1:
-                flag >>= 1
-                f += 1
-            flag = f
-            flag &= 0b111
-            
-            combined = address + flag
-            #combined -= 1 # TODO
-            combined = '{:04X}'.format(combined, 'x')
-            combined = wrap(combined, 2)
-            combined = ' '.join(reversed(combined))
-
-        value = 0x01
-        value &= 0b111
-        value += 0xb0
-        value = '{:02X}'.format(value, 'x')
-
-        return f"""
-0c {combined} {value}       // set({self.memory})
-        """
-class Unset(Function_Base):
+        return code
+class Unset(Function_Base, Calculatable):
     def __init__(self, memory):
         self.memory = memory
 
     def _code(self, params:list[Param]):
-        memory = self.memory.resolve(params)
+        code = Asign(self.memory.resolve(params), Word(0))
 
-        address = memory.address
-        address -= 0x2258
-        address <<=  3
+        code = code.calculate(params)
+        code = self._clean_calucatable(code, params)
 
-        flag = memory.flag
-        f = 0
-        while  flag > 1:
-            flag >>= 1
-            f += 1
-        flag = f
-        flag &= 0b111
-        
-        combined = address + flag
-        #combined -= 1 # TODO
-        combined = '{:04X}'.format(combined, 'x')
-        combined = wrap(combined, 2)
-        combined = ' '.join(reversed(combined))
-
-        value = 0x00
-        value &= 0b111
-        value += 0xb0
-        value = '{:02X}'.format(value, 'x')
-
-        return f"""
-0c {combined} {value}       // set({self.memory})
-        """
+        return code
 
 class Len(Function_Base):
     def __init__(self, script):
