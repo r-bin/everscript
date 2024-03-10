@@ -2367,7 +2367,11 @@ group functions() {
         }
 
         fun sleep(ticks) {
-            code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
+            if(ticks <= 0xff) {
+                code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
+            } else {
+                code(0xa8, ticks, "// (a8) SLEEP 899 TICKS");
+            }
         }
 
         fun call_id(script_id:ADDRESS_ID) {
@@ -3211,7 +3215,7 @@ group functions() {
                 conversation_end();
             }
 
-            fun outro_text_box(text_header, text_content) {
+            fun outro_text_box(text_header, text_content, stay_open) {
                 // example: outro_text_box("header[LF]", "text1[LF]text2");
 
                 fade_out();
@@ -3227,7 +3231,19 @@ group functions() {
                 font(DEFAULT);
                 text(text_content);
 
-                call_id(FADE_OUT_CREDITS);
+                if(False) {
+                    call_id(FADE_OUT_CREDITS);
+                } else {
+                    brightness(0d0);
+                    sleep(0d4);
+                    _fade_in();
+
+                    if(stay_open !is Word) {
+                        sleep(0d600);
+                        fade_out();
+                        text_end();
+                    }
+                }
             }
 
             fun debug_subtext(text) {
@@ -4148,6 +4164,34 @@ group functions() {
     };
 
     group cutscenes() {
+        fun check_range(entity_1, entity_2, range, callback) {
+            if(entity_1[X] < entity_2[X]) {
+                arg[0x10] = entity_2[X] - entity_1[X];
+            } else {
+                arg[0x10] = entity_1[X] - entity_2[X];
+            }
+
+            if(entity_1[Y] < entity_2[Y]) {
+                arg[0x12] = entity_2[Y] - entity_1[Y];
+            } else {
+                arg[0x12] = entity_1[Y] - entity_2[Y];
+            }
+
+            if((arg[0x10] <= range) && (arg[0x12] <= range)) {
+                callback();
+                end();
+            }
+        }
+        fun range_checker(entity_1, entity_2, range, callback) {
+            attach_to_script(entity_1);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                check_range(<SCRIPT_OWNER>, entity_2, range, callback);
+
+                yield();
+            }
+        }
+
         @install()
         fun generic_yeet(direction:DIRECTION, depth) {
             if(FLAG.IN_ANIMATION) {

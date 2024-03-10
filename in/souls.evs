@@ -31,16 +31,16 @@ group non_maps() {
     group strings() {
         @install(0x4713f)
         fun string_revealer_entity_name() {
-            'SECRET[END]'; // Bridge
+            'SECRET[END]'; // "Bridge"
         }
 
         @install(0x46852)
         fun string_enemy_spell_name_fireball() {
-            '[END]'; // Fireball - TODO: also used in alchemy selection
+            '[END]'; // "Fireball" - TODO: also used in alchemy selection
         }
         @install(0x46866)
         fun string_enemy_spell_name_flash() {
-            '[END]'; // Flash - TODO: also used in alchemy selection
+            '[END]'; // "Flash" - TODO: also used in alchemy selection
         }
     };
 
@@ -244,6 +244,7 @@ group non_maps() {
             INTRO_WATCHED = flag(),
 
             DEMO_MODE = False,
+            WITH_ENDBOSS = False,
             WITH_OPENING = False,
             WITH_SHRINE_INTRO = False,
             WITH_SAVESTATE_LOAD = False, // after splash screen
@@ -259,7 +260,7 @@ group non_maps() {
             WITH_SOULS_ON_DEATH = True,
             WITH_BONFIRE_INDEX = True,
             WITH_CHEATS = True, // fixes no clip after screen transitions
-            WITH_CHEATS_MARIO_YUMP = False,
+            WITH_CHEATS_MARIO_YUMP = True,
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -772,7 +773,7 @@ group non_maps() {
                     subtext("Game could not find bonfire #[MEM1]");
                 }
             } else {
-                if(MEMORY.MAP == 0x26) { // map inbetwixx
+                if(MEMORY.MAP == 0x26) { // inbetwixx
                     set(SOULS_MEMORY.BONFIRE_INBETWIXX);
                 }
             }
@@ -1193,7 +1194,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(radahn3_arena, right, NONE);
+                map_transition(town_temple_switch, west, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1766,7 +1767,7 @@ group non_maps() {
 area intro_screens() {
     fun intro_skip() {
         if!(SOULS_MEMORY.INIT) {
-            set(FLAG.DEBUG);
+            FLAG.DEBUG = True;
             init_souls();
         }
 
@@ -2794,38 +2795,7 @@ area inbetwixx_center() {
         @install()
         @async()
         fun revealer_approached() {
-            attach_to_script(ROOM.BRIDGE_REVEALER_ENTITY);
-
-            while!(dead(<SCRIPT_OWNER>)) {
-                arg[0x00] = <ACTIVE>[X];
-                arg[0x02] = <ACTIVE>[Y];
-                arg[0x04] = <SCRIPT_OWNER>[X];
-                arg[0x06] = <SCRIPT_OWNER>[Y];
-
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
-                    ravine_triggered();
-                    end();
-                }
-
-                if(ROOM.DEBUG) {
-                    debug_memory(arg[0x08], arg[0x0a]);
-                    sleep(0x20);
-                }
-
-                yield();
-            }
+            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, 0x20, { ravine_triggered(); });
         }
 
         @install()
@@ -3215,21 +3185,46 @@ area north_inbetwixx() {
             }
         }
 
+        fun show_credits() {
+            control(NONE);
+            
+            outro_text_box("Created by", "[LF][LF]twitch.tv/ps3003");
+
+            outro_text_box("Shoutouts Devs/Designers", "[LF][LF]twitch.tv/Black_Sliver[LF](evermizer.com)[LF][LF]twitch.tv/skarsnikus[LF](Evermore hacking)[LF][LF]twitch.tv/BarbarousKing[LF](Lunar Magic Streams)");
+
+            outro_text_box("Shoutouts Players", "[LF][LF]twitch.tv/its_cliqz[LF][LF]twitch.tv/solarcell007");
+
+            outro_text_box("", "[LF][LF]The End", True);
+        }
+        fun outro_triggered() {
+            question("[SLOW]I'm afraid there is no final boss, yet.[B]After starting the credits you can't return back to the game.[B]Exit the games and roll the credits?[CHOICE]credits…[CHOICE]leave…");
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                show_credits();
+            } else {
+                map_transition(inbetwixx, north, SOUTH);
+            }
+        }
+
         fun trigger_enter() {
             // place_masks(0x01);
 
-            add_enemy(VERMINATOR, 0x42, 0x07);
-            attribute(LAST_ENTITY, ROOT, True);
-
-            add_enemy(FORESTDRAKE, 0x38, 0x1d);
-            BOSS_STOMPY.MOUNT_ID = <LAST_ENTITY>;
-            stack_t01_offset();
-
-            add_enemy(STERLING, 0x4b, 0x1d);
-            // add_enemy(STERLING, 0x4b, 0x1d);
-            // attribute(LAST_ENTITY, NO_CLIP, True);
-
             default_init_room(True, True);
+
+            if(SOULS_MEMORY.WITH_ENDBOSS) {
+                add_enemy(VERMINATOR, 0x42, 0x07);
+                attribute(LAST_ENTITY, ROOT, True);
+
+                add_enemy(FORESTDRAKE, 0x38, 0x1d);
+                BOSS_STOMPY.MOUNT_ID = <LAST_ENTITY>;
+                stack_t01_offset();
+
+                add_enemy(STERLING, 0x4b, 0x1d);
+                // add_enemy(STERLING, 0x4b, 0x1d);
+                // attribute(LAST_ENTITY, NO_CLIP, True);
+            } else {
+                outro_triggered();
+            }
         }
     };
 };
@@ -11007,38 +11002,7 @@ area southern_jungle() {
         @install()
         @async()
         fun revealer_approached() {
-            attach_to_script(ROOM.BRIDGE_REVEALER_ENTITY);
-
-            while!(dead(<SCRIPT_OWNER>)) {
-                arg[0x00] = <ACTIVE>[X];
-                arg[0x02] = <ACTIVE>[Y];
-                arg[0x04] = <SCRIPT_OWNER>[X];
-                arg[0x06] = <SCRIPT_OWNER>[Y];
-
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if((arg[0x08] <= ROOM.BRIDGE_SIZE) && (arg[0x0a] <= ROOM.BRIDGE_SIZE)) {
-                    pit_triggered();
-                    end();
-                }
-
-                if(ROOM.DEBUG) {
-                    debug_memory(arg[0x08], arg[0x0a]);
-                    sleep(0x20);
-                }
-
-                yield();
-            }
+            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, ROOM.BRIDGE_SIZE, { pit_triggered(); });
         }
 
         @install()
@@ -12334,11 +12298,11 @@ area town() {
 
                 @install()
                 fun boss_defeated() {
-                    set(SOULS_MEMORY.DEAD_TEMPLE_MINITAUR);
-                    SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
-                    SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+                    souls_boss_defeated(DEAD_TEMPLE_MINITAUR, REWARD_TEMPLE_MINITAUR);
 
                     show_switch(True);
+
+                    fade_to_music(AREA_TEMPLE.MUSIC);
                 }
                 fun switch_activated() {
                     if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
@@ -12375,7 +12339,7 @@ area town() {
                 @install()
                 fun rider_damage() {
                     if(BOSS.PHASE == 0x00) {
-                        BOSS.DISMOUNT += 0x100;
+                        BOSS.DISMOUNT += 0d240;
                         // attribute(BOSS.RIDER_ID, NO_CLIP, False);
                     } else if(BOSS.PHASE == 0x01) {
                         if(dead(BOSS.MOUNT_ID)) { // TODO: doesn't trigger if minitaur dies last
@@ -12387,13 +12351,13 @@ area town() {
                 @install()
                 fun mount_damage() {
                     if(BOSS.PHASE == 0x00) {
-                        if(BOSS.MOUNT_ID[HP] < 0x012c) {
+                        if(BOSS.MOUNT_ID[HP] < 0d300) {
                             BOSS.PHASE = 0x01;
                             end();
                         }
                         nop();
                     } if(BOSS.PHASE == 0x01) {
-                        BOSS.DISMOUNT += 0x100;
+                        BOSS.DISMOUNT += 0d240;
                         // attribute(BOSS.RIDER_ID, NO_CLIP, False);
                         animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
                     }
@@ -12432,7 +12396,7 @@ area town() {
 
                     yield();
 
-                    BOSS.DISMOUNT = 0x100;
+                    BOSS.DISMOUNT = 0d240;
                     heel(BOSS.RIDER_ID, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y] - 0x1d);
                     BOSS.RIDER_ID[Z] = BOSS.MOUNT_ID[Z];
                     animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
@@ -12460,11 +12424,11 @@ area town() {
                     boss_defeated();
                 }
 
-                fun spawn_boss() {
-                    add_enemy(MINITAUR, 0x20, 0x20);
+                fun spawn_boss(x, y) {
+                    add_enemy(MINITAUR, x, y);
                     BOSS.MOUNT_ID = <LAST_ENTITY>;
                     attach_script(LAST_ENTITY, DAMAGE, reference(mount_damage));
-                    add_enemy(MEGATAUR, 0x20, 0x20);
+                    add_enemy(MEGATAUR, x, y);
                     BOSS.RIDER_ID = <LAST_ENTITY>;
                     attach_script(LAST_ENTITY, DAMAGE, reference(rider_damage));
 
@@ -12478,7 +12442,9 @@ area town() {
                     if!(SOULS_MEMORY.DEAD_TEMPLE_MINITAUR) {
                         show_switch(False);
 
-                        spawn_boss();
+                        spawn_boss(0d36, 0d36);
+
+                        fade_to_music(BOSS);
                     } else {
                         if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
                             object[0x00] = 0x0b;
@@ -12609,38 +12575,7 @@ area town() {
                 @install()
                 @async()
                 fun revealer_approached(entity) {
-                    attach_to_script(entity);
-
-                    while!(dead(<SCRIPT_OWNER>)) {
-                        arg[0x00] = <ACTIVE>[X];
-                        arg[0x02] = <ACTIVE>[Y];
-                        arg[0x04] = <SCRIPT_OWNER>[X];
-                        arg[0x06] = <SCRIPT_OWNER>[Y];
-
-                        if(arg[0x00] < arg[0x04]) {
-                            arg[0x08] = arg[0x04] - arg[0x00];
-                        } else {
-                            arg[0x08] = arg[0x00] - arg[0x04];
-                        }
-
-                        if(arg[0x02] < arg[0x06]) {
-                            arg[0x0a] = arg[0x06] - arg[0x02];
-                        } else {
-                            arg[0x0a] = arg[0x02] - arg[0x06];
-                        }
-
-                        if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
-                            pit_triggered();
-                            end();
-                        }
-
-                        if(ROOM.DEBUG) {
-                            debug_memory(arg[0x08], arg[0x0a]);
-                            sleep(0x20);
-                        }
-
-                        yield();
-                    }
+                    range_checker(entity, <ACTIVE>, 0x20, { pit_triggered(); });
                 }
 
                 fun open_doors(open) {
@@ -15069,10 +15004,10 @@ map bog_crossing(CROSSING) {
             add_enemy(BUZZARD_1, 0d15, 0d68);
             add_enemy(BUZZARD_1, 0d22, 0d78);
 
-            add_enemy(FLOWER_PURPLE, 0d35, 0d74);
+            add_enemy(FLOWER_ORANGE, 0d35, 0d74);
 
             // south
-            add_enemy(FLOWER_PURPLE, 0d33, 0d106);
+            add_enemy(FLOWER_ORANGE, 0d33, 0d106);
 
             add_enemy(BUZZARD_1, 0d55, 0d104);
         }
@@ -20531,7 +20466,7 @@ area experimental_room() {
 
             HP = 0d1000,
 
-            GRAB_DISTANCE = 0d35,
+            GRAB_DISTANCE = 0d30,
             GRAB_DAMAGE = 0d10,
 
             // p1

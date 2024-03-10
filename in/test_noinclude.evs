@@ -1,0 +1,93 @@
+#memory(
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    // reserved: <0x23b9>
+    <0x2272>..<0x2558>,
+
+    <0x2834>..<0x28ff>
+)
+// #include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "skip_intro",
+    // "brian",
+    // "camera_hack",
+    // "free_graveyard_ids",
+    // "save_file_growth",
+
+    // asm
+    // "debug_menu", // uses 0x3f0000…???
+    "_hook_input", // 0x3f0000…0x310000
+        "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
+)
+
+group core_copy() {
+    enum DIRECTION {
+        NORTH = 0x26,
+        EAST = 0x1d,
+        SOUTH = 0x21,
+        WEST = 0x19,
+        
+        NONE = 0x00,
+        UNKNOWN = 0x01
+    }
+
+    enum ADDRESS {
+        INTRO_FIRST_CODE_EXECUTED = 0x92e0ca,
+    }
+    enum MAP {
+        BRIAN = 0x15,
+    }
+
+    enum FLAG {
+        DEBUG = <0x22eb, 0x08>,
+    }
+    
+    fun fade_in() {
+        code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
+    }
+
+    fun load_map(map, x, y) {
+        code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
+    }
+    fun transition(map, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music) {
+        load_map(map, x, y);
+    }
+};
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(brians_room, center, NONE, True);
+}
+
+map brians_room(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x17, 0x19, NONE)
+    }
+
+    enum TEST {
+        MEMORY = memory(),
+        MEMORY_TMP = memory_tmp(),
+
+        FLAG = flag(),
+        FLAG_TMP = flag_tmp(),
+
+        INT = 0d01,
+    }
+    
+    @install()
+    fun trigger_enter() {
+        fade_in();
+
+        <0x2834> = 0xffff;
+
+        // TODO
+    }
+};
