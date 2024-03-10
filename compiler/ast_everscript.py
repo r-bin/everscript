@@ -38,7 +38,10 @@ class Is(Function_Base):
             case _:
                 TODO()
 
-        return is_type_of
+        if not self.inverted:
+            return is_type_of
+        else:
+            return not is_type_of
 
     def _code(self, params:list[Param]):
         pass
