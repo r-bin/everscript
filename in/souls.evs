@@ -371,6 +371,8 @@ group non_maps() {
 
             DEAD_TEMPLE_MINITAUR = flag(),
             REWARD_TEMPLE_MINITAUR = ITEM.NECTAR,
+            DEAD_TEMPLE_SQUAD = flag(),
+            REWARD_TEMPLE_SQUAD = ITEM.NECTAR,
             DEAD_TAVERN_BOXERS = flag(),
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
 
@@ -862,6 +864,7 @@ group non_maps() {
 
                 MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
                 MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
+                // MEMORY.ALCHEMY_LEVEL_SPEED = 0d1;
 
                 SOULS_MEMORY.MENU_CHOICE = 0xffff;
 
@@ -1194,7 +1197,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple_switch, west, NONE);
+                map_transition(town_temple_underground_boss, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -12667,6 +12670,181 @@ area town() {
                     open_doors(True);
 
                     default_init_room(True, False);
+                }
+            };
+
+            map town_temple_underground_boss(MEGATAUR) {
+                enum entrance {
+                    south = entrance(0x41, 0x53, NORTH)
+                }
+
+                enum soundtrack {
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+                }
+
+                enum stepon_trigger {
+                    exit_south = @install() {
+                        map_transition(town_temple_underground, north, SOUTH);
+                    }
+                }
+
+                enum BOSS {
+                    DEBBUG = False,
+
+                    PROGRESS = flag_tmp(),
+
+                    SQUAD_COUNT = 0d5,
+                    SQUAD_CHARGED = memory_tmp(),
+
+                    SQUAD_REQURIED = 0d5,
+                    SQUAD_REQURIED_COUNT = memory_tmp(),
+
+                    SQUAD_1 = memory_tmp(),
+                    SQUAD_2 = memory_tmp(),
+                    SQUAD_3 = memory_tmp(),
+                    SQUAD_4 = memory_tmp(),
+                    SQUAD_5 = memory_tmp(),
+                }
+
+                fun boss_defeated() {
+                    damage(BOSS.SQUAD_1, 0d999, True);
+                    damage(BOSS.SQUAD_2, 0d999, True);
+                    damage(BOSS.SQUAD_3, 0d999, True);
+                    damage(BOSS.SQUAD_4, 0d999, True);
+                    damage(BOSS.SQUAD_5, 0d999, True);
+
+                    BOSS.PROGRESS = False;
+                    souls_boss_defeated(DEAD_TEMPLE_SQUAD, REWARD_TEMPLE_SQUAD);
+
+                    fade_to_music(AREA_TEMPLE.MUSIC);
+                }
+
+                fun squad_killed() {
+                    BOSS.SQUAD_REQURIED_COUNT += 0d1;
+
+                    if(BOSS.SQUAD_REQURIED_COUNT == BOSS.SQUAD_REQURIED) {
+                        boss_defeated();
+                        end();
+                    }
+                }
+
+                @install()
+                fun squad_death() {
+                    if((BOSS.SQUAD_CHARGED == 0d0) || (BOSS.SQUAD_CHARGED == <SCRIPT_OWNER>[GENERAL_PURPOSE])) {
+                        BOSS.SQUAD_CHARGED = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                        squad_killed();
+
+                        yield();
+
+                        while(arg[0x14] == 0d0) {
+                            arg[0x10] = randrange(BOSS.SQUAD_COUNT) + 0d1;
+
+                            if(arg[0x10] != <SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                                if(arg[0x10] == 0d1) {
+                                    arg[0x12] = BOSS.SQUAD_1;
+                                } else if(arg[0x10] == 0d2) {
+                                    arg[0x12] = BOSS.SQUAD_2;
+                                } else if(arg[0x10] == 0d3) {
+                                    arg[0x12] = BOSS.SQUAD_3;
+                                } else if(arg[0x10] == 0d4) {
+                                    arg[0x12] = BOSS.SQUAD_4;
+                                } else if(arg[0x10] == 0d5) {
+                                    arg[0x12] = BOSS.SQUAD_5;
+                                }
+
+                                if!(dead(arg[0x12])) {
+                                    arg[0x14] = arg[0x10];
+                                }
+                            }
+
+                            yield();
+                        }
+
+                        BOSS.SQUAD_CHARGED = arg[0x10];
+                        // BOSS.SQUAD_CHARGED = 0d0;
+
+                        attribute(arg[0x12], ROOT, True);
+                        animate(arg[0x12], LOOP, ANIMATION_ALL.DEFAULT);
+                        shoot_entity_entity_offset(<SCRIPT_OWNER>, LIGHTNING_BALL, arg[0x12], 0d0, -(0d50), 0d60, 0d0);
+                        sleep(0d120);
+
+                        if!(dead(arg[0x12])) {
+                            attribute(arg[0x12], ROOT, False);
+                            animate(arg[0x12], ONCE, ANIMATION_ALL.DEFAULT);
+
+                            if(BOSS.DEBBUG) {
+                                debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], arg[0x14]);
+                            }
+
+                            while!(dead(arg[0x12])) {
+                                if(arg[0x12][PALETTE] != 0x0000) {
+                                    arg[0x12][PALETTE] = 0x0000;
+                                }
+                                
+                                sleep(0d5);
+                            }
+                        }
+                    }
+
+                    destroy(SCRIPT_OWNER);
+                }
+
+                fun spawn_oglin(x, y, memory, index) {
+                    // debug_subtext("oglin");
+
+                    add_enemy(OGLIN, x, y);
+                    memory = <LAST_ENTITY>;
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = index;
+                    attach_script(LAST_ENTITY, DEATH, reference(squad_death));
+
+                    // attribute(LAST_ENTITY, NO_CLIP, True);
+                    attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+                    animate(LAST_ENTITY, ONCE, ANIMATION_ALL.SLASH_2);
+
+                    sleep(0d60);
+
+                    attribute(LAST_ENTITY, INVINCIBLE_TEMP, False);
+                    // attribute(LAST_ENTITY, NO_CLIP, False);
+
+                    attribute(LAST_ENTITY, True, True);
+                }
+
+                fun add_squad(x, y) {
+                    while(BOSS.PROGRESS) {
+                        if(dead(BOSS.SQUAD_1)) {
+                            spawn_oglin(x, y, BOSS.SQUAD_1, 0d1);
+                        } else if(dead(BOSS.SQUAD_2)) {
+                            spawn_oglin(x, y, BOSS.SQUAD_2, 0d2);
+                        } else if(dead(BOSS.SQUAD_3)) {
+                            spawn_oglin(x, y, BOSS.SQUAD_3, 0d3);
+                        } else if(dead(BOSS.SQUAD_4)) {
+                            spawn_oglin(x, y, BOSS.SQUAD_4, 0d4);
+                        } else if(dead(BOSS.SQUAD_5)) {
+                            spawn_oglin(x, y, BOSS.SQUAD_5, 0d5);
+                        }
+
+                        sleep(0d60);
+                    }
+                }
+
+                fun trigger_enter() {
+                    character_selection(BOY);
+                    // attribute(BOY, INVINCIBLE_TEMP, True);
+
+                    if!(SOULS_MEMORY.DEAD_TEMPLE_SQUAD) {
+                        set(BOSS.PROGRESS);
+                        fade_to_music(BOSS);
+
+                        default_init_room(False, False);
+
+                        add_squad(0d64, 0d32);
+                    } else {
+                        default_init_room(False, False);
+                    }
+
+                    // 0d64, 0d22
+                    // 0d64, 0d40
                 }
             };
         };
