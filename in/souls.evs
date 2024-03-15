@@ -251,7 +251,7 @@ group non_maps() {
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
             WITH_DEBUG_ENTITIES = True,
-            WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
+            WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = True,
             WITH_INTRO = False,
             WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
@@ -1197,7 +1197,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple_underground_boss, south, NONE);
+                map_transition(town_temple_underground, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -12482,7 +12482,9 @@ area town() {
                 }
 
                 enum ROOM {
-                    DEBUG = False, 
+                    DEBUG = False,
+
+                    BOSS_DOOR_OPENED = flag(),
 
                     BRIDGE_LEFT = memory_tmp(),
                     BRIDGE_REVEALED_LEFT = flag(),
@@ -12500,9 +12502,37 @@ area town() {
                     damage(BOTH, SYSTEM.HP_MAX, False);
                 }
 
+                @install()
+                fun switch_triggered() {
+                    object[0x06] = 0x7e;
+
+                    while(arg[0x10] <= 0d7) {
+                        arg[0x10] += 0d1;
+
+                        sleep(0d9);
+                        sound(0x2c);
+                        object[0x00] = arg[0x10];
+                    }
+
+                    while(arg[0x12] <= 0d4) {
+                        arg[0x12] += 0d1;
+
+                        sleep(0d9);
+                        sound(0x76);
+                        object[0x04] = arg[0x12];
+                    }
+                }
+
                 enum stepon_trigger {
                     spear_check = @install() {
                         debug_subtext("S=0");
+
+                        if!(ROOM.BOSS_DOOR_OPENED) {
+                            guard_spear_2(NORTH, <0x2401>, 0x0008);
+                            
+                            ROOM.BOSS_DOOR_OPENED = True;
+                            switch_triggered();
+                        }
                     },
                     pit_5 = pit_triggered(),
                     pit_4 = pit_triggered(),
@@ -12529,8 +12559,11 @@ area town() {
                     door_east_1 = @install() {
                         debug_subtext("S=10");
                     },
-                    stepon_11 = @install() {
+                    door_boss = @install() {
                         debug_subtext("S=11");
+
+                        fog_wall_outside(DEAD_TEMPLE_SQUAD, SOUTH);
+                        map_transition(town_temple_underground_boss, south, NORTH);
                     },
                     switch_triggered = @install() {
                         debug_subtext("S=12");
@@ -12632,7 +12665,7 @@ area town() {
                     // object[0x01] = 0x01; // open gourde_2
                     // object[0x02] = 0x01; // open gourde_1
                     // object[0x03] = 0x01; // open door_NE
-                    // object[0x04] = 0x03; // open door_boss
+                    // object[0x04] = 0x04; // open door_boss
                     // object[0x05] = 0x7e; // open elevator
                     // object[0x06] = 0x01; // activate bridge_switch
                     // object[0x07] = 0x00; // open door_SW
@@ -12646,6 +12679,12 @@ area town() {
                     // object[0x0f] = 0x01; // show bridge_right_2
                     // object[0x10] = 0x01; // show bridge_right_3
                     // object[0x11] = 0x01; // show bridge_right_4
+
+                    if(ROOM.BOSS_DOOR_OPENED) {
+                        object[0x00] = 0x7e; // enroll bridge
+                        object[0x06] = 0x01; // activate bridge_switch
+                        object[0x04] = 0x04; // open door_boss
+                    }
 
                     if(ROOM.BRIDGE_REVEALED_RIGHT) {
                         show_bridge_right();
@@ -12682,12 +12721,6 @@ area town() {
                     default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
-                enum stepon_trigger {
-                    exit_south = @install() {
-                        map_transition(town_temple_underground, north, SOUTH);
-                    }
-                }
-
                 enum BOSS {
                     DEBBUG = False,
 
@@ -12704,6 +12737,16 @@ area town() {
                     SQUAD_3 = memory_tmp(),
                     SQUAD_4 = memory_tmp(),
                     SQUAD_5 = memory_tmp(),
+                }
+
+                enum stepon_trigger {
+                    exit_south = @install() {
+                        if(BOSS.PROGRESS) {
+                            fog_wall_inside(DEAD_TEMPLE_SQUAD, NORTH);
+                        }
+
+                        map_transition(town_temple_underground, north, SOUTH);
+                    }
                 }
 
                 fun boss_defeated() {
