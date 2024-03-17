@@ -100,6 +100,7 @@ class Lexer():
         
         self.lexer.add('OBJECT', 'object(?=\[)')
         self.lexer.add('ARG', 'arg(?=\[)')
+        self.lexer.add('SCRIPT', 'script(?=\[)')
         self.lexer.add('IDENTIFIER', '[a-zA-Z_][a-zA-Z0-9_]*(?![\(\{])')
 
         # ignore whitespace 

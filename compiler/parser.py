@@ -26,7 +26,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'OBJECT', 'ARG', 'IDENTIFIER',
+                'OBJECT', 'ARG', 'SCRIPT', 'IDENTIFIER',
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -223,6 +223,14 @@ class Parser():
                 index = Word(index)
 
             return Arg(index)
+        
+        @self.pg.production('expression : SCRIPT [ expression ]')
+        def parse(p):
+            index = p[2]
+            if isinstance(index, Token):
+                index = Word(index)
+
+            return Script(index)
         
         # enum
         @self.pg.production('enum : ENUM IDENTIFIER { enum_entry_list , }')
