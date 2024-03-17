@@ -827,7 +827,7 @@ class Operand():
             
         # _: 0x2c, # dialog response
         
-        # _: 0x54, # $2 = script data[0x09]
+        "script9": 0x54, # $2 = script data[0x09]
         
         "deref": 0x55, # deref res
         # _: 0x56, # deref res &0xff

@@ -188,6 +188,44 @@ class Arg(Function_Base, Calculatable, Memorable):
 
         return code
 
+class Script(Function_Base, Calculatable, Memorable):
+    # only index [0d9] exists
+    # "scrip[0d9] & 0x0100" seems to mean SCRIPT_OWNER is alive
+    # "scrip[0d9] & 0x0200" seems to mean SCRIPT_OWNER is dead
+
+    def __init__(self, index):
+        self.index = index
+        self.index = self.index.resolve([])
+        
+        if self.index.eval([]) != 9:
+            TODO()
+
+        self.memory = True
+
+    def __repr__(self):
+        return f"Script(index={self.index})"
+        
+    def is_memory(self, params:list[Param]):
+        return True
+    
+    def calculate(self, params:list[Param], offset=None, deref=False):
+        index = self.index.resolve(params)
+        index = index.code(params)
+
+        code = [Operand("script9")]
+
+        return code
+
+    def _code(self, params:list[Param]):
+        index = self.index.resolve(params)
+        
+        if isinstance(index, int):
+            index = Word(index)
+
+        code = index.code(params)
+
+        return code
+
 class Object(Function_Base, Calculatable, Memorable):
     def __init__(self, generator, index, flag=None):
         self.index = index
