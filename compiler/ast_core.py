@@ -345,7 +345,7 @@ class Word(Function_Base, Calculatable):
                 value = re.sub("0[dD]", "", value.value)
                 self.value = int(value)
                 
-                if self.value > 0xff:
+                if self.value > 0xff or len(value) >= 4:
                     self._value_count = 2
                 else:
                     self._value_count = 1

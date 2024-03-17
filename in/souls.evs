@@ -1197,7 +1197,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple_switch, west, NONE);
+                map_transition(town_temple, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -2815,6 +2815,7 @@ area inbetwixx_center() {
                 unlock(ALL);
             } else {
                 unlock(WEAPONS);
+                unlock(ARMOR);
                 unlock(JAGUAR_RING);
                 unlock(CHARMS);
                 unlock(CONSUMABLES);
@@ -11865,8 +11866,26 @@ area town() {
             open_elevator(False);
         }
 
-        fun elevator_triggered() {
-            if!(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
+        @install()
+        fun elevator_leave() {
+            if(False) {
+                map_transition(town_temple, elevator, NONE); // TODO: walk out again
+            } else {
+                open_elevator(True);
+                sleep(0d80);
+
+                walk(BOY, TILE_ABSOLUTE, 0d43, 0d82, NONE);
+                walk(DOG, TILE_ABSOLUTE, 0d39, 0d82, BOTH);
+
+                open_elevator(False);
+                sleep(0d80);
+
+                control(BOTH);
+            }
+        }
+
+        fun elevator_triggered(current_level) {
+            if!(AREA_TEMPLE.UNLOCKED_LEVEL_1) {
                 error_contraption(SOUTH);
 
                 end();
@@ -11890,32 +11909,31 @@ area town() {
             // map_transition(town_temple_underground, elevator, NONE);
 
             if(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
-                question("[SLOW]Press a button:[CHOICE]1[CHOICE]2[CHOICE]3");
+                _question("[SLOW]Press a button:[CHOICE]1[CHOICE]2[CHOICE]3");
             } else if(AREA_TEMPLE.UNLOCKED_LEVEL_1) {
-                question("[SLOW]Press a button:[CHOICE]1[CHOICE]2");
+                _question("[SLOW]Press a button:[CHOICE]1[CHOICE]2");
             }
 
             if(MEMORY.QUESTION_ANSWER == 0d00) {
-                map_transition(town_temple, elevator, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0d01) {
-                map_transition(town_temple_underground, elevator, NONE);
-            } else if(MEMORY.QUESTION_ANSWER == 0d02) {
-                map_transition(town_temple_underground_castle, elevator, NONE);
-            } else {
-                if(False) {
-                    map_transition(town_temple, elevator, NONE); // TODO: walk out again
+                if(current_level == 0d0) {
+                    elevator_leave();
                 } else {
-                    open_elevator(True);
-                    sleep(0d80);
-
-                    walk(BOY, TILE_ABSOLUTE, 0d43, 0d82, NONE);
-                    walk(DOG, TILE_ABSOLUTE, 0d39, 0d82, BOTH);
-
-                    open_elevator(False);
-                    sleep(0d80);
-
-                    // sleep?
+                    map_transition(town_temple, elevator, NONE);
                 }
+            } else if(MEMORY.QUESTION_ANSWER == 0d01) {
+                if(current_level == 0d1) {
+                    elevator_leave();
+                } else {
+                    map_transition(town_temple_underground, elevator, NONE);
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d02) {
+                if(current_level == 0d2) {
+                    elevator_leave();
+                } else {
+                    map_transition(town_temple_underground_castle, elevator, NONE);
+                }
+            } else {
+                elevator_leave();
             }
         }
 
@@ -12043,7 +12061,7 @@ area town() {
                         debug_subtext("S=30");
                     },
                     elevator = @install() {
-                        elevator_triggered();
+                        elevator_triggered(0d0);
                     },
                 }
 
@@ -12079,6 +12097,7 @@ area town() {
                 @install()
                 fun debug_triggered() {
                     set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
+                    set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
                     set(AREA_TEMPLE.UNLOCKED_LEVEL_2);
 
                     destroy(SCRIPT_OWNER);
@@ -12279,6 +12298,8 @@ area town() {
                 enum BOSS {
                     DEBUG = True,
 
+                    DEFAULT_Z = 0d16,
+
                     RIDER_ID = memory_tmp(),
                     MOUNT_ID = memory_tmp(),
                     TMP_ID = memory_tmp(),
@@ -12289,6 +12310,13 @@ area town() {
                     DISMOUNT = memory_tmp(),
 
                     COUNTDOWN = 0d03,
+
+                    P0_HITS = 0d10,
+                    P0_HIT_COUNTER = memory_tmp(),
+                    P0_HP_THRESHOLD = 0d300,
+
+                    P1_HITS = 0d10,
+                    P1_HIT_COUNTER = memory_tmp(),
                 }
 
                 fun show_switch(show) {
@@ -12310,6 +12338,7 @@ area town() {
                 fun switch_activated() {
                     if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
                         set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
+                        set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
 
                         // debug_memory(BOSS.DISMOUNT, BOSS.DISMOUNT);
                         object[0x00] = 0x0b;
@@ -12327,42 +12356,76 @@ area town() {
                     }
                 }
 
-                @install()
-                @async()
-                fun stack_t01_offset() {
-                    while!(dead(BOSS.MOUNT_ID)) {
-                        if(BOSS.DISMOUNT == 0x00) {
-                            BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-                            BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x1d;
+                fun knockback_check(entity) {
+                    if((entity[CURRENT_GROUND] & 0xff) != 0d16) {
+                        if(True) {
+                            if(BOSS.DEBUG) {
+                                debug_memory(entity[CURRENT_GROUND], 0d0);
+                            }
+
+                            // drag(entity, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y]);
+                            drag(SCRIPT_OWNER, 0d22 << 0d0003, 0d32 << 0d0003);
+                            entity[Z] = BOSS.DEFAULT_Z;
+                        } else {
+                            heal(SCRIPT_OWNER, 0d0, False);
+                            animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+
+                            attribute(SCRIPT_OWNER, NO_CLIP, True);
+
+                            while(<SCRIPT_OWNER>[CURRENT_GROUND] != 0d16) {
+                                sleep(0d30);
+                            }
+
+                            attribute(SCRIPT_OWNER, NO_CLIP, False);
                         }
-                        yield();
+
+                        end();
                     }
                 }
 
                 @install()
                 fun rider_damage() {
-                    if(BOSS.PHASE == 0x00) {
+                    if(BOSS.PHASE == 0d00) {
                         BOSS.DISMOUNT += 0d240;
                         // attribute(BOSS.RIDER_ID, NO_CLIP, False);
-                    } else if(BOSS.PHASE == 0x01) {
-                        if(dead(BOSS.MOUNT_ID)) { // TODO: doesn't trigger if minitaur dies last
-                            BOSS.PHASE = 0x02;
-                            end();
-                        }
+
+                        knockback_check(<SCRIPT_OWNER>);
+                        sleep(0d20);
+                        knockback_check(<SCRIPT_OWNER>);
+                    } else if(BOSS.PHASE == 0d01) {
+                        BOSS.DISMOUNT += 0d240;
+                        // attribute(BOSS.RIDER_ID, NO_CLIP, False);
+                        animate(BOSS.RIDER_ID, ONCE, ANIMATION_ALL.DEFAULT);
+
+                        knockback_check(<SCRIPT_OWNER>);
+                        sleep(0d20);
+                        knockback_check(<SCRIPT_OWNER>);
                     }
                 }
                 @install()
                 fun mount_damage() {
-                    if(BOSS.PHASE == 0x00) {
-                        if(BOSS.MOUNT_ID[HP] < 0d300) {
+                    if(BOSS.PHASE == 0d00) {
+                        BOSS.P0_HIT_COUNTER += 0d1;
+
+                        if((BOSS.P0_HIT_COUNTER >= BOSS.P0_HITS) || (BOSS.MOUNT_ID[HP] < BOSS.P0_HP_THRESHOLD) || (script[0x9] & 0x200)) {
                             BOSS.PHASE = 0d01;
                             end();
                         }
-                        nop();
+
+                        if(BOSS.DEBUG) {
+                            debug_memory(BOSS.P0_HIT_COUNTER, BOSS.MOUNT_ID[HP]);
+                        }
                     } if(BOSS.PHASE == 0d01) {
-                        BOSS.DISMOUNT += 0d240;
-                        // attribute(BOSS.RIDER_ID, NO_CLIP, False);
-                        animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
+                        BOSS.P1_HIT_COUNTER += 0d1;
+
+                        if(BOSS.DEBUG) {
+                            debug_memory(BOSS.P1_HIT_COUNTER, BOSS.MOUNT_ID[HP]);
+                        }
+
+                        if((BOSS.P1_HIT_COUNTER >= BOSS.P1_HITS) || (script[0x9] & 0x200)) {
+                            BOSS.PHASE = 0d02;
+                            end();
+                        }
                     }
                 }
 
@@ -12380,7 +12443,12 @@ area town() {
                             animate(BOSS.RIDER_ID, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
                             animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.SLASH_1);
                         } else if(BOSS.DISMOUNT == 0d01) {
-                            BOSS.RIDER_ID[Z] = BOSS.MOUNT_ID[Z];
+                            BOSS.RIDER_ID[Z] = BOSS.DEFAULT_Z;
+                        } else if(BOSS.DISMOUNT == 0d00) {
+                            if(BOSS.DISMOUNT == 0d00) {
+                                BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d30;
+                            }
                         }
                     
                         if(BOSS.DISMOUNT > 0d00) { // TODO: buggy, since menu resets paletts
@@ -12398,12 +12466,19 @@ area town() {
                     BOSS.RIDER_ID = BOSS.MOUNT_ID;
                     BOSS.MOUNT_ID = BOSS.TMP_ID;
 
+                    attach_script(BOSS.RIDER_ID, DAMAGE, reference(rider_damage));
+                    attach_script(BOSS.MOUNT_ID, DAMAGE, reference(mount_damage));
+
                     yield();
 
                     BOSS.DISMOUNT = 0d240;
-                    heel(BOSS.RIDER_ID, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y] - 0d30);
-                    BOSS.RIDER_ID[Z] = BOSS.MOUNT_ID[Z];
+                    drag(BOSS.RIDER_ID, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y] - 0d30);
+                    BOSS.RIDER_ID[Z] = BOSS.DEFAULT_Z;
                     animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ALL.DEFAULT);
+
+                    // walk(BOSS.MOUNT_ID, TILE_ABSOLUTE_DIRECT, 0d22, 0d32, False);
+                    drag(BOSS.MOUNT_ID, 0d22 << 0d0003, 0d32 << 0d0003);
+                    BOSS.MOUNT_ID[Z] = BOSS.DEFAULT_Z;
 
                     while(BOSS.PHASE == 0d01) {
                         if(BOSS.DISMOUNT == 0d05) {
@@ -12411,7 +12486,12 @@ area town() {
                             // attribute(BOSS.RIDER_ID, NO_CLIP, True);
                             animate(BOSS.RIDER_ID, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
                         } else if(BOSS.DISMOUNT == 0d01) {
-                            BOSS.RIDER_ID[Z] = BOSS.MOUNT_ID[Z];
+                            BOSS.RIDER_ID[Z] = BOSS.DEFAULT_Z;
+                        } else if(BOSS.DISMOUNT == 0d00) {
+                            if(BOSS.DISMOUNT == 0d00) {
+                                BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d30;
+                            }
                         }
                     
                         if(BOSS.DISMOUNT > 0d00) { // TODO: buggy, since menu resets paletts
@@ -12423,6 +12503,13 @@ area town() {
 
                     if(BOSS.DEBUG) {
                         subtext("yatta");
+                    }
+
+                    if!(dead(BOSS.MOUNT_ID)) {
+                        destroy(BOSS.MOUNT_ID);
+                    }
+                    if!(dead(BOSS.RIDER_ID)) {
+                        destroy(BOSS.RIDER_ID);
                     }
 
                     boss_defeated();
@@ -12438,7 +12525,6 @@ area town() {
 
                     animate(BOSS.RIDER_ID, FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
                     
-                    stack_t01_offset();
                     boss_watcher();
                 }
 
@@ -12594,7 +12680,7 @@ area town() {
                         debug_subtext("S=30");
                     },
                     elevator = @install() {
-                        elevator_triggered();
+                        elevator_triggered(0d1);
                     },
                 }
 
@@ -13011,7 +13097,7 @@ area town() {
                         debug_subtext("S=30");
                     },
                     elevator = @install() {
-                        elevator_triggered();
+                        elevator_triggered(0d2);
                     },
                 }
 
