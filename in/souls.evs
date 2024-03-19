@@ -190,24 +190,6 @@ group non_maps() {
             error_walk_back(exit_direction);
         }
 
-        fun fog_wall_outside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
-            if!(condition) {
-                question("[SLOW]A wall of white light[CHOICE]traverse…[CHOICE]leave…");
-
-                if(MEMORY.QUESTION_ANSWER != 0d00) {
-                    error_walk_back(exit_direction);
-                    end();
-                }
-            }
-        }
-        fun fog_wall_inside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
-            if!(condition) {
-                subtext("Fog wall active…");
-                error_walk_back(exit_direction);
-                end();
-            }
-        }
-
         @install()
         fun enemy_triggered_invincible() {
             heal(SCRIPT_OWNER, 0x00, False);
@@ -261,6 +243,7 @@ group non_maps() {
             WITH_BONFIRE_INDEX = True,
             WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_MARIO_YUMP = True,
+            WITH_FOG_WALL = False,
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -460,6 +443,28 @@ group non_maps() {
             }
 
             // subtext("Enemy Felled");
+        }
+
+        fun fog_wall_outside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
+            if(SOULS_MEMORY.WITH_FOG_WALL) {
+                if!(condition) {
+                    question("[SLOW]A wall of white light[CHOICE]traverse…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER != 0d00) {
+                        error_walk_back(exit_direction);
+                        end();
+                    }
+                }
+            }
+        }
+        fun fog_wall_inside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
+            if(SOULS_MEMORY.WITH_FOG_WALL) {
+                if!(condition) {
+                    subtext("Fog wall active…");
+                    error_walk_back(exit_direction);
+                    end();
+                }
+            }
         }
 
         fun dust_unreachable(x, y) {
@@ -1197,7 +1202,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple, south, NONE);
+                map_transition(town_temple_switch, west, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -7947,7 +7952,7 @@ area east_inbetwixx() {
 
                         set_camera(0x0108, 0xa0, 0x18);
                         walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
-                        walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH);
+                        walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, True);
                         free_camera();
 
                         BOSS.IN_PROGRESS = 0x01;
@@ -12296,7 +12301,7 @@ area town() {
                 }
 
                 enum BOSS {
-                    DEBUG = True,
+                    DEBUG = False,
 
                     DEFAULT_Z = 0d16,
 
@@ -12311,9 +12316,12 @@ area town() {
 
                     COUNTDOWN = 0d03,
 
+                    HP_MINITAUR = 0d200,
+                    HP_MEGATAUR = 0d200,
+
                     P0_HITS = 0d10,
                     P0_HIT_COUNTER = memory_tmp(),
-                    P0_HP_THRESHOLD = 0d300,
+                    P0_HP_THRESHOLD = 0d100,
 
                     P1_HITS = 0d10,
                     P1_HIT_COUNTER = memory_tmp(),
@@ -12388,6 +12396,11 @@ area town() {
                     if(BOSS.PHASE == 0d00) {
                         BOSS.DISMOUNT += 0d240;
                         // attribute(BOSS.RIDER_ID, NO_CLIP, False);
+
+                        if(script[0x9] == 0x200) { // TODO: too easy? megataur doesn't have magic resist
+                            BOSS.PHASE = 0d2;
+                            end();
+                        }
 
                         knockback_check(<SCRIPT_OWNER>);
                         sleep(0d20);
@@ -12518,9 +12531,12 @@ area town() {
                 fun spawn_boss(x, y) {
                     add_enemy(MINITAUR, x, y);
                     BOSS.MOUNT_ID = <LAST_ENTITY>;
+                    <LAST_ENTITY>[HP] = BOSS.HP_MINITAUR;
                     attach_script(LAST_ENTITY, DAMAGE, reference(mount_damage));
+
                     add_enemy(MEGATAUR, x, y);
                     BOSS.RIDER_ID = <LAST_ENTITY>;
+                    <LAST_ENTITY>[HP] = BOSS.HP_MEGATAUR;
                     attach_script(LAST_ENTITY, DAMAGE, reference(rider_damage));
 
                     animate(BOSS.RIDER_ID, FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
