@@ -63,6 +63,16 @@ group non_maps() {
         // fun tumblingweed_proc() {
         //     code(0x0c, "// flower purple proc value");
         // }
+        
+        // @install(0x8ed8b5)
+        // fun thraxx_hit() {
+        //     code(0d110, "// thraxx hit");
+        // }
+        
+        // @install(0x8ed8ad)
+        // fun thraxx_hit() {
+        //     code(0d10, "// thraxx damage");
+        // }
     };
 
     // group alchemy_ingredients() {
@@ -156,13 +166,13 @@ group non_maps() {
 
         fun error_walk_back(exit_direction:DIRECTION) {
             if(exit_direction == DIRECTION.NORTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, True);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, ACTIVE);
             } else if(exit_direction == DIRECTION.EAST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, ACTIVE, True);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, ACTIVE, ACTIVE);
             } else if(exit_direction == DIRECTION.SOUTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, ACTIVE, True);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, ACTIVE, ACTIVE);
             } else if(exit_direction == DIRECTION.WEST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, ACTIVE, True);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, ACTIVE, ACTIVE);
             }
         }
         fun error_dead_end(exit_direction:DIRECTION) {
@@ -243,7 +253,7 @@ group non_maps() {
             WITH_BONFIRE_INDEX = True,
             WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_MARIO_YUMP = True,
-            WITH_FOG_WALL = False,
+            WITH_FOG_WALL = True,
 
             MAP_VARIANT = <0x23b9>, // TODO: hardcoded
 
@@ -358,9 +368,11 @@ group non_maps() {
             REWARD_TEMPLE_SQUAD = ITEM.NECTAR,
             DEAD_TAVERN_BOXERS = flag(),
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
-
             DEAD_NARIS = flag(),
             REWARD_NARIS = ITEM.NECTAR,
+
+            DEAD_HEART = flag(),
+            REWARD_HEART = ITEM.NECTAR,
 
             DEAD_AQUAGOTH = flag(),
             REWARD_AQUAGOTH = ITEM.NO_ITEM,
@@ -1202,7 +1214,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple_switch, west, NONE);
+                map_transition(town_temple_underground_castle_south_east, west, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -2822,7 +2834,7 @@ area inbetwixx_center() {
                 unlock(WEAPONS);
                 unlock(ARMOR);
                 unlock(JAGUAR_RING);
-                unlock(CHARMS);
+                // unlock(CHARMS);
                 unlock(CONSUMABLES);
                 unlock(INGREDIENTS);
                 unlock(MONEY);
@@ -2941,8 +2953,9 @@ area inbetwixx_center() {
             player_message(0d30, 0d75, reference(message_triggered));
 
             if(False) {
-                add_enemy(FLOWER_PURPLE, 0x13, 0x47);
-                attach_script(LAST_ENTITY, 0x100, reference(@install() { if(dead(<SCRIPT_OWNER>)) { subtext("true"); } else { subtext("false"); } }));
+                destroy(DOG);
+                add_enemy(BOXER_1, 0x13, 0x47);
+                // attach_script(LAST_ENTITY, 0x100, reference(@install() { if(dead(<SCRIPT_OWNER>)) { subtext("true"); } else { subtext("false"); } }));
             }
         }
     };
@@ -6999,7 +7012,7 @@ area east_inbetwixx() {
             }
 
             enum soundtrack {
-                default = soundtrack(0x32, 0xff)
+                default = soundtrack(BOSS_JUNGLE, 0xff)
             }
 
             enum stepon_trigger {
@@ -7952,7 +7965,7 @@ area east_inbetwixx() {
 
                         set_camera(0x0108, 0xa0, 0x18);
                         walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
-                        walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, True);
+                        walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, BOTH);
                         free_camera();
 
                         BOSS.IN_PROGRESS = 0x01;
@@ -13246,6 +13259,189 @@ area town() {
                     }
                 }
 
+                fun boss_defeated() {
+                    SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
+                    SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+
+                    set(SOULS_MEMORY.DEAD_NARIS);
+                }
+
+                enum BOSS {
+                    DEBUG = True,
+
+                    RIDER_ID = memory_tmp(),
+                    MOUNT_ID = memory_tmp(),
+
+                    BOSS_HP = 0d2000,
+
+                    GUESS_RNG = memory_tmp(),
+                    ANGER_LEVEL = 0x0000,
+
+                    P1_THRESHOLD = 0x00,
+                }
+
+                @install()
+                fun naris_opening() {
+                    dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
+                }
+
+                // @install()
+                fun spawn_enemies(enemy_id) {
+                    add_enemy(enemy_id, 0x00, 0x00);
+                    <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
+                    <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y];
+                    add_enemy(enemy_id, 0x00, 0x00);
+                    <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
+                    <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y];
+                }
+
+                @install()
+                fun young_naris_question() {
+                    control_enemy(BOSS.MOUNT_ID, True);
+                    MEMORY.STRING_PARAMETER_1 = 0x00;
+                    MEMORY.STRING_PARAMETER_2 = 0x01;
+
+                    question("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].");
+
+                    BOSS.GUESS_RNG = randrange(0x02);
+
+                    if(MEMORY.QUESTION_ANSWER == BOSS.GUESS_RNG) {
+                        if(BOSS.DEBUG) {
+                            subtext("yay");
+                        }
+
+                        damage(BOSS.MOUNT_ID, 0x29a, True);
+                    } else if(MEMORY.QUESTION_ANSWER == 0x00) {
+                        if(BOSS.DEBUG) {
+                            subtext("nay 0");
+                        }
+
+                        spawn_enemies(ENEMY.MAGGOT);
+                    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                        if(BOSS.DEBUG) {
+                            subtext("nay 1");
+                        }
+
+                        spawn_enemies(ENEMY.MOSQUITO);
+                    }
+
+                    if(BOSS.DEBUG) {
+                        sleep(0x30);
+                        debug_memory(MEMORY.QUESTION_ANSWER, BOSS.GUESS_RNG);
+                    }
+
+                    control_enemy(BOSS.MOUNT_ID, False);
+                }
+                @install()
+                fun old_naris_question() {
+                    control_enemy(BOSS.MOUNT_ID, True);
+                    MEMORY.STRING_PARAMETER_1 = 0x00;
+                    MEMORY.STRING_PARAMETER_2 = 0x01;
+                    MEMORY.STRING_PARAMETER_3 = 0x02;
+
+                    question("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].[CHOICE][0xa3].");
+
+                    BOSS.GUESS_RNG = randrange(0x03);
+
+                    if(MEMORY.QUESTION_ANSWER == BOSS.GUESS_RNG) {
+                        if(BOSS.DEBUG) {
+                            subtext("yay");
+                        }
+
+                        damage(BOSS.MOUNT_ID, 0x29a, True);
+                    } else if(MEMORY.QUESTION_ANSWER == 0x00) {
+                        if(BOSS.DEBUG) {
+                            subtext("nay 0");
+                        }
+
+                        spawn_enemies(ENEMY.MAGGOT);
+                    } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                        if(BOSS.DEBUG) {
+                            subtext("nay 1");
+                        }
+
+                        spawn_enemies(ENEMY.MOSQUITO);
+                    } else if(MEMORY.QUESTION_ANSWER == 0x02) {
+                        if(BOSS.DEBUG) {
+                            subtext("nay 2");
+                        }
+
+                        spawn_enemies(ENEMY.SKELESNAIL);
+                    }
+
+                    if(BOSS.DEBUG) {
+                        sleep(0x30);
+                        debug_memory(MEMORY.QUESTION_ANSWER, BOSS.GUESS_RNG);
+                    }
+
+                    control_enemy(BOSS.MOUNT_ID, False);
+                }
+                
+                fun spawn_young_naris() {
+                    add_enemy(VILLAGER_3_2, 0d64, 0d35);
+                    BOSS.MOUNT_ID = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, TALK, reference(naris_opening));
+                    <LAST_ENTITY>[HP] = BOSS.BOSS_HP;
+                }
+
+                fun spawn_old_naris() {
+                    add_enemy(VILLAGER_3_5, 0x00, 0x00);
+                    <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
+                    <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y];
+                    BOSS.MOUNT_ID = <LAST_ENTITY>;
+                }
+
+                @install()
+                @async()
+                fun boss_watcher() {
+                    if(BOSS.DEBUG) {
+                        subtext("phase 0");
+                    }
+
+                    while(BOSS.RIDER_ID[HP] >= SYSTEM.HP_MAX) {
+                        yield();
+                    }
+
+                    attach_script(BOSS.RIDER_ID, DAMAGE, reference(young_naris_question));
+
+                    if(BOSS.DEBUG) {
+                        subtext("phase 1");
+                    }
+
+                    while!(dead(BOSS.MOUNT_ID)) {
+                        yield();
+                    }
+
+                    spawn_old_naris();
+                    attach_script(BOSS.RIDER_ID, DAMAGE, reference(old_naris_question));
+
+                    if(BOSS.DEBUG) {
+                        subtext("phase 2");
+                    }
+
+                    while!(dead(BOSS.MOUNT_ID)) {
+                        yield();
+                    }
+
+                    destroy(BOSS.RIDER_ID);
+
+                    if(BOSS.DEBUG) {
+                        subtext("yatta");
+                    }
+
+                    boss_defeated();
+                }
+
+                @install()
+                @async()
+                fun stack_t01() {
+                    while!(dead(BOSS.RIDER_ID)) {
+                        BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                        BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y];
+                        yield();
+                    }
+                }
+
                 @install()
                 fun debug_triggered() {
                     set(AREA_TEMPLE.BOSS_KEY);
@@ -13281,6 +13477,20 @@ area town() {
 
                     if!(AREA_TEMPLE.BOSS_KEY) {
                         add_debug_entity(0d69, 0d47, reference(debug_triggered));
+                    }
+
+                    if!(SOULS_MEMORY.DEAD_NARIS) {
+                        add_enemy(LIZARD, 0x14, 0x14, FLAG_ENEMY.INACTIVE_INVISIBLE);
+                        BOSS.RIDER_ID = <LAST_ENTITY>;
+                        attribute(LAST_ENTITY, INVISIBLE, True);
+                        attribute(LAST_ENTITY, ROOT, True);
+                        <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+
+                        spawn_young_naris();
+                        teleport(LAST_ENTITY, 0d96, 0d76);
+
+                        boss_watcher();
+                        stack_t01();
                     }
                 }
             };
@@ -14005,7 +14215,7 @@ area town() {
                     if(MEMORY.TICKET_FOR_EXHIBITION < 0x01) {
                         dialog("[SLOW]Hey, you have to buy a ticket first![B]");
 
-                        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, True);
+                        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, ACTIVE);
                     } else {
                         question("[SLOW]Please enter a ticket[CHOICE]Yes.[CHOICE]No.");
 
@@ -14850,195 +15060,123 @@ map bog_curve(TIMBERDRAKE) {
         default = soundtrack(0x68, 0xff)
     }
 
+    enum BOSS {
+        DEBUG = False,
+
+        ID = memory_tmp(),
+
+        PROGRESS = flag_tmp(),
+        PHASE = memory_tmp(),
+
+        HP = 0d500,
+
+        P1_THRESHOLD = 0d400,
+
+        P2_THRESHOLD = 0d300,
+    }
+
     enum stepon_trigger {
         exit_east = @install() {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(False, WEST);
+            }
             map_transition(town_bridge, west, EAST);
         },
         exit_south = @install() {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(False, NORTH);
+            }
             map_transition(bog_bridges, north, SOUTH);
         }
     }
 
+    @install()
+    fun puke() {
+        shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X], <BOY>[Y], 0x20 + randrange(0x10), 0x0a);
+        shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+        sleep(0x02);
+        shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+        sleep(0x02);
+        shoot_entity_absolute(BOSS.ID, ONION, <BOY>[X] + randrange(0x40), <BOY>[Y] + randrange(0x20), 0x20 + randrange(0x10), 0x0a);
+    }
+
     fun boss_defeated() {
-        SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
-        SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+        if!(SOULS_MEMORY.DEAD_HEART) {
+            BOSS.PROGRESS = False;
 
-        set(SOULS_MEMORY.DEAD_NARIS);
-    }
+            souls_boss_defeated(DEAD_HEART, REWARD_HEART);
 
-    enum BOSS {
-        DEBUG = True,
-
-        RIDER_ID = memory_tmp(),
-        MOUNT_ID = memory_tmp(),
-
-        BOSS_HP = 0x07d0, // 0d2000
-
-        GUESS_RNG = memory_tmp(),
-        ANGER_LEVEL = 0x0000,
-
-        P1_THRESHOLD = 0x00,
-    }
-
-    @install()
-    fun naris_opening() {
-        dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
-    }
-
-    // @install()
-    fun spawn_enemies(enemy_id) {
-        add_enemy(enemy_id, 0x00, 0x00);
-        <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
-        <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y];
-        add_enemy(enemy_id, 0x00, 0x00);
-        <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
-        <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y];
-    }
-
-    @install()
-    fun young_naris_question() {
-        control_enemy(BOSS.MOUNT_ID, True);
-        MEMORY.STRING_PARAMETER_1 = 0x00;
-        MEMORY.STRING_PARAMETER_2 = 0x01;
-
-        question("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].");
-
-        BOSS.GUESS_RNG = randrange(0x02);
-
-        if(MEMORY.QUESTION_ANSWER == BOSS.GUESS_RNG) {
-            if(BOSS.DEBUG) {
-                subtext("yay");
-            }
-
-            damage(BOSS.MOUNT_ID, 0x29a, True);
-        } else if(MEMORY.QUESTION_ANSWER == 0x00) {
-            if(BOSS.DEBUG) {
-                subtext("nay 0");
-            }
-
-            spawn_enemies(ENEMY.MAGGOT);
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-            if(BOSS.DEBUG) {
-                subtext("nay 1");
-            }
-
-            spawn_enemies(ENEMY.MOSQUITO);
+            music(0x68);
         }
-
-        if(BOSS.DEBUG) {
-            sleep(0x30);
-            debug_memory(MEMORY.QUESTION_ANSWER, BOSS.GUESS_RNG);
-        }
-
-        control_enemy(BOSS.MOUNT_ID, False);
-    }
-    @install()
-    fun old_naris_question() {
-        control_enemy(BOSS.MOUNT_ID, True);
-        MEMORY.STRING_PARAMETER_1 = 0x00;
-        MEMORY.STRING_PARAMETER_2 = 0x01;
-        MEMORY.STRING_PARAMETER_3 = 0x02;
-
-        question("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].[CHOICE][0xa3].");
-
-        BOSS.GUESS_RNG = randrange(0x03);
-
-        if(MEMORY.QUESTION_ANSWER == BOSS.GUESS_RNG) {
-            if(BOSS.DEBUG) {
-                subtext("yay");
-            }
-
-            damage(BOSS.MOUNT_ID, 0x29a, True);
-        } else if(MEMORY.QUESTION_ANSWER == 0x00) {
-            if(BOSS.DEBUG) {
-                subtext("nay 0");
-            }
-
-            spawn_enemies(ENEMY.MAGGOT);
-        } else if(MEMORY.QUESTION_ANSWER == 0x01) {
-            if(BOSS.DEBUG) {
-                subtext("nay 1");
-            }
-
-            spawn_enemies(ENEMY.MOSQUITO);
-        } else if(MEMORY.QUESTION_ANSWER == 0x02) {
-            if(BOSS.DEBUG) {
-                subtext("nay 2");
-            }
-
-            spawn_enemies(ENEMY.SKELESNAIL);
-        }
-
-        if(BOSS.DEBUG) {
-            sleep(0x30);
-            debug_memory(MEMORY.QUESTION_ANSWER, BOSS.GUESS_RNG);
-        }
-
-        control_enemy(BOSS.MOUNT_ID, False);
-    }
-    
-    fun spawn_young_naris() {
-        add_enemy(VILLAGER_3_2, 0x14, 0x14);
-        BOSS.MOUNT_ID = <LAST_ENTITY>;
-        attach_script(LAST_ENTITY, TALK, reference(naris_opening));
-        <LAST_ENTITY>[HP] = BOSS.BOSS_HP;
     }
 
-    fun spawn_old_naris() {
-        add_enemy(VILLAGER_3_4, 0x00, 0x00);
-        <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
-        <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y];
-        BOSS.MOUNT_ID = <LAST_ENTITY>;
+    fun spawn_raptor(x1, y1, direction:DIRECTION, x2, y2) {
+        while(BOSS.PROGRESS) {
+            add_enemy(RAPTOR_PURPLE, x1, y1);
+            attach_to_script(LAST_ENTITY);
+            face(SCRIPT_OWNER, direction);
+
+            walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, x2, y2, SCRIPT_OWNER, SCRIPT_OWNER);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                if!(BOSS.PROGRESS) {
+                    destroy(<SCRIPT_OWNER>);
+                    end();
+                } else {
+                    yield();
+                }
+            }
+
+            sleep(0d300);
+        }
     }
 
     @install()
     @async()
-    fun boss_watcher() {
-        if(BOSS.DEBUG) {
-            subtext("phase 0");
-        }
-
-        while(BOSS.RIDER_ID[HP] >= SYSTEM.HP_MAX) {
-            yield();
-        }
-
-        attach_script(BOSS.RIDER_ID, DAMAGE, reference(young_naris_question));
-
-        if(BOSS.DEBUG) {
-            subtext("phase 1");
-        }
-
-        while!(dead(BOSS.MOUNT_ID)) {
-            yield();
-        }
-
-        spawn_old_naris();
-        attach_script(BOSS.RIDER_ID, DAMAGE, reference(old_naris_question));
-
-        if(BOSS.DEBUG) {
-            subtext("phase 2");
-        }
-
-        while!(dead(BOSS.MOUNT_ID)) {
-            yield();
-        }
-
-        destroy(BOSS.RIDER_ID);
-
-        if(BOSS.DEBUG) {
-            subtext("yatta");
-        }
-
-        boss_defeated();
+    fun spawn_south() {
+        spawn_raptor(0d28, 0d45, NORTH, 0d25, 0d33);
+    }
+    @install()
+    @async()
+    fun spawn_east() {
+        spawn_raptor(0d49, 0d18, WEST, 0d34, 0d20);
     }
 
     @install()
-    @async()
-    fun stack_t01() {
-        while!(dead(BOSS.RIDER_ID)) {
-            BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-            BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y];
-            yield();
+    fun heart_triggered() {
+        puke();
+
+        if(dead(<SCRIPT_OWNER>)) {
+            boss_defeated();
+        } else if((BOSS.PHASE == 0d0) && (<SCRIPT_OWNER>[HP] < BOSS.P1_THRESHOLD)) {
+            BOSS.PHASE = 0d1;
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p1");
+            }
+
+            spawn_south();
+        } else if((BOSS.PHASE == 0d1) && (<SCRIPT_OWNER>[HP] < BOSS.P2_THRESHOLD)) {
+            BOSS.PHASE = 0d2;
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p2");
+            }
+
+            spawn_east();
+        }
+    }
+
+    @install()
+    fun boss_triggered() {
+        if!(BOSS.PROGRESS) {
+            BOSS.PROGRESS = True;
+
+            fade_to_music(BOSS_JUNGLE);
+
+            attach_script(SCRIPT_OWNER, DAMAGE, reference(heart_triggered));
+
+            puke();
         }
     }
 
@@ -15046,17 +15184,13 @@ map bog_curve(TIMBERDRAKE) {
         // object[0x00] = 0x7e;
         object[0x01] = 0x7e;
 
-        if!(SOULS_MEMORY.DEAD_NARIS) {
-            add_enemy(LIZARD, 0x14, 0x14, FLAG_ENEMY.INACTIVE_INVISIBLE);
-            BOSS.RIDER_ID = <LAST_ENTITY>;
-            attribute(LAST_ENTITY, INVISIBLE, True);
-            attribute(LAST_ENTITY, ROOT, True);
-            <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+        // add_enemy(RAPTOR_PURPLE, 0d29, 0d25);
 
-            spawn_young_naris();
-
-            boss_watcher();
-            stack_t01();
+        if!(SOULS_MEMORY.DEAD_HEART) {
+            add_enemy(THRAXX_HEART, 0d29, 0d25);
+            BOSS.ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
         }
 
         default_init_room(True, True);
