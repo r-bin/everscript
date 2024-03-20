@@ -214,7 +214,59 @@ group general_enums() {
             VANILLA_DEATH_GRAVEYARD_LIZARD_4 = 0x17dc,
         }
 
-        enum ATTACK_PROC {
+        enum IDLE_BEHAVIOR { // Character->"Unknown x03"
+            DEFAULT = 0x00,
+
+            HOVERING = 0x0c, // constant hovering, used: floating fan, puppets, mosquitos
+
+            MAGMAR_ROLL_SHOOT = 0x10,
+            MEGATAUR_ROLL = 0x1a,
+
+            // weird
+
+            DOG_IDLE = 0x06, // sniff around (extended with L and R), sit
+
+            // crash
+
+            VIPER_ROLL = 0x12, // used: vipers
+
+            // unknown
+
+            UNKNOWN_1 = 0x02, // used: carltron, bomb, speaker, fan, face, hearts, mungola, rimsala head, aquagoth, aegis, sitting npcs?, levitate entity, rock
+            UNKNOWN_2 = 0x04, // used: boy
+            UNKNOWN_3 = 0x08, // used: tiny tentacles, sphere bot, claws, flowers, snake statues
+            UNKNOWN_4 = 0x0a, // used: walking npcs? (tiny, barker?, prof, tinker, gomi, horace, …)
+            UNKNOWN_5 = 0x0e, // used: salabog, bone snake
+            UNKNOWN_6 = 0x14, // used: rimsalas
+            UNKNOWN_7 = 0x16, // used: "$0"?
+            UNKNOWN_8 = 0x18, // used: minitaur
+            UNKNOWN_9 = 0x1c, // used: tentacles
+
+            // crash: 1e, 20, …
+        }
+
+        enum CHARACTER_FLAG_ENEMY { // Character->"Unknown x05" (same as FLAG_ENEMY?)
+            NORMAL = 0x0000,
+            INACTIVE_INVISIBLE = 0x0001,
+            INVINCIBLE = 0x0002, // also friendly
+            INACTIVE = 0x0020,
+            MOSQUITO = 0x0040,
+            PHASING = 0x0400,
+            INVISBLE_INVINCIBLE_INACTIVE = 0x1000,
+
+            INACTIVE_IMORTAL = 0x0022,
+
+            // buggy
+
+            UNKNOWN = 0x01, // invisible, follows after hit
+        }
+        enum CHARACTER_FLAG_SPECIAL { // Character->"Flags"
+                STONE_LEVITATE = 0x0002,
+                STONE_LEVITATE_INVISIBLE = 0x0005,
+                BOMBABLE = 0x0004,
+        }
+
+        enum ATTACK_PROC { // Character->"Attack Proc.?"
             DEFAULT = 0x00,
             
             VORE = 0x0c, // flowers
@@ -876,6 +928,7 @@ group general_enums() {
 
                 // event
                 BOSS = 0x24,
+                BOSS_JUNGLE = 0x32,
 
                 // effect
                 FANFARE = 0x36,
@@ -2374,10 +2427,14 @@ group functions() {
         }
 
         fun sleep(ticks) {
-            if(ticks <= 0xff) {
-                code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
+            if(ticks is Word) {
+                if(ticks <= 0xff) {
+                    code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
+                } else {
+                    code(0xa8, ticks, "// (a8) SLEEP 899 TICKS");
+                }
             } else {
-                code(0xa8, ticks, "// (a8) SLEEP 899 TICKS");
+                code(0x3b, calculate(ticks), "// (3b) SLEEP (RAND & 3) + 4 TICKS");
             }
         }
 
@@ -2459,7 +2516,7 @@ group functions() {
                 }
             }
 
-            fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER, unlock) {
+            fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER, unlock:CHARACTER) {
                 if((walk_type == WALK_TYPE.TILE_ABSOLUTE) || (walk_type == WALK_TYPE.TILE_ABSOLUTE_DIRECT)) {
                     if((x is Word) || (y is Word)) {
                         code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
@@ -2474,8 +2531,16 @@ group functions() {
                     wait(wait_for);
 
                     if(unlock is Word) {
-                        if(unlock > 0d00) {
-                            control(BOTH);
+                        if(unlock is Word) {
+                            if(unlock == CHARACTER.BOY || unlock == CHARACTER.DOG || unlock == CHARACTER.BOTH) {
+                                control(BOTH);
+                            } else {
+                                control_enemy(unlock, False);
+                            }
+                        } else if(unlock is Memory) {
+                            control_enemy(unlock, False);
+                        } else {
+                            throw("invalid walk.unlock");
                         }
                     }
                 }
@@ -4806,8 +4871,9 @@ group functions() {
         fun debug_memory(m1, m2) {
             MEMORY.STRING_PARAMETER_1 = m1;
             MEMORY.STRING_PARAMETER_2 = m2;
+            // MEMORY.STRING_PARAMETER_3 = m3;
 
-            debug_subtext("memory = [MEM1] / [MEM2]");
+            debug_subtext("memory = [MEM1] / [MEM2] / [MEM3]");
         }
 
         fun test_stuff() {
