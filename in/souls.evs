@@ -22422,6 +22422,10 @@ area experimental_room() {
             test = entrance(0x21, 0x95, NORTH),
         }
 
+        enum soundtrack {
+            default = soundtrack(BOSS, 0xff)
+        }
+
         enum BOSS {
             DEBUG = True,
 
@@ -22591,20 +22595,70 @@ area experimental_room() {
 
         @install()
         @async()
-        fun barage(y_offset) {
+        fun _barage(y_offset, level) {
             shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d30, 0d0, 0d20, 0d0);
-            sleep(0d20);
 
+            sleep(0d20);
             shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d100, 0d0, 0d20, 0d0);
-            sleep(0d20);
 
+            sleep(0d20);
             shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d150, 0d0, 0d20, 0d0);
-            sleep(0d20);
 
+            sleep(0d20);
             shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d200, 0d0, 0d20, 0d0);
-            sleep(0d20);
 
+            // sleep(0d20);
             // shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d250, 0d0, 0d20, 0d0);
+        }
+        fun prepare_rng() {
+            // debug_memory(<BOY>[Y], BOSS.ID[Y]);
+
+            if(randrange(0d2) == 0d0) {
+                if(<BOY>[Y] > BOSS.ID[Y]) { // boy south of boss
+                    arg[0x14] = <BOY>[Y] - BOSS.ID[Y];
+
+                    if(arg[0x14] < 0d15) {
+                        arg[0x14] = 0d0;
+                    } else {
+                        arg[0x14] = 0d30;
+                    }
+                } else { // boy north of boss
+                    arg[0x14] = BOSS.ID[Y] - <BOY>[Y];
+
+                    if(arg[0x14] < 0d15) {
+                        arg[0x14] = 0d0;
+                    } else {
+                        arg[0x14] = -0d30;
+                    }
+                }
+
+                arg[0x12] = arg[0x14];
+            } else {
+                arg[0x12] = randrange(0d3);
+
+                if(arg[0x12] == 0d0) {
+                    arg[0x12] = -0d30;
+                } else if(arg[0x12] == 0d1) {
+                    arg[0x12] = 0d0;
+                } else {
+                    arg[0x12] = 0d30;
+                }
+            }
+
+            // debug_memory(<BOY>[Y] - BOSS.ID[Y], arg[0x14]);
+        }
+        @install()
+        @async()
+        fun barage(repeat, level) {
+            while(arg[0x10] < repeat) {
+                arg[0x10] += 0d1;
+
+                prepare_rng();
+
+                _barage(arg[0x12], level);
+
+                sleep(0d60);
+            }
         }
 
         @install()
@@ -22623,6 +22677,9 @@ area experimental_room() {
                     debug_memory(<SCRIPT_OWNER>[HP], arg[0x12]);
                 }
 
+                sound(0x76);
+                sleep(0d30);
+
                 if(arg[0x12] == 0d0) {
                     move_left(0d40);
                 } else if(arg[0x12] > 0d80) {
@@ -22630,22 +22687,24 @@ area experimental_room() {
                 } else if(arg[0x12] > 0d10) {
                     move_right(0d40);
                 }
+                sound(0x76);
 
-                arg[0x14] = randrange(0d3);
-                if(arg[0x14] == 0d0) {
-                    arg[0x14] = -0d30;
-                } else if(arg[0x14] == 0d1) {
-                    arg[0x14] = 0d0;
+                if(arg[0x14] > 0d0) {
+                    arg[0x14] -= 0d1;
                 } else {
-                    arg[0x14] = 0d30;
-                }
+                    barage(0d2, 0d1);
 
-                barage(arg[0x14]);
+                    if(0d2 > 0d1) {
+                        arg[0x14] = 0d2 - 0d1;
+                    }
+                }
             }
         }
 
         fun punish_position(entity, x) {
             if(entity[X] > (BOSS.ID[X] - x)) {
+                sound(TESLA);
+
                 face(entity, EAST);
                 damage(entity, 0d5, True);
             }
@@ -22724,7 +22783,7 @@ area experimental_room() {
                 add_placeholder(SPARK_LEFT, 0d41, 0d137);
                 BOSS.BARRIER_2_ID = <LAST_ENTITY>;
 
-                add_enemy(AEGIS_ENTITY, 0d44, 0d131);
+                add_enemy(AEGIS_ENTITY, 0d48, 0d131); // 0d44, 0d131
                 BOSS.ID = <LAST_ENTITY>;
                 // add_placeholder(SKELETON_SHIP_1, 0d41, 0d131);
 
