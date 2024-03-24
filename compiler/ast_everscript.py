@@ -495,20 +495,39 @@ class RawString(Function_Base):
 
         lexer = LexerGenerator()
         lexer.add('SLOW', '\[SLOW\]')
+        lexer.add('UNSLOW', '\[UNSLOW\]')
         lexer.add('LF', '\[LF\]')
         lexer.add('B', '\[B\]')
         lexer.add('END', '\[END\]')
         lexer.add('CHOICE', '\[CHOICE\]')
+        lexer.add('CHOICE_RIGHT', '\[CHOICE_RIGHT\]')
         lexer.add('MEM1', '\[MEM1\]')
         lexer.add('MEM2', '\[MEM2\]')
         lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
         lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
+        lexer.add('BOY', '\[BOY\]')
+        lexer.add('DOG', '\[DOG\]')
+        lexer.add('P3', '\[P3\]')
+        lexer.add('P4', '\[P4\]')
+        lexer.add('BOLD', '\[BOLD\]')
+        lexer.add('UNBOLD', '\[UNBOLD\]')
+        lexer.add('CENTER', '\[CENTER\]')
+        lexer.add('LEFT', '\[LEFT\]')
+        lexer.add('RIGHT', '\[RIGHT\]')
+        lexer.add('REPEAT', '\[REPEAT\]')
+        lexer.add('PAGE', '\[PAGE\]')
+        lexer.add('INVERTED', '\[INVERTED\]')
+        lexer.add('NOP', '\[NOP\]')
+        lexer.add('OK', '\[OK\]')
 
         lexer.add('…', '\…')
         lexer.add('`', '\`')
         lexer.add('´', '\´')
 
-        # TODO: 97, 92
+        lexer.add('->', '\-\>')
+        lexer.add('<-', '\<\-')
+
+        # TODO: 85 (same as [B]?), 97 (used before subtexts)
 
         lexer.add('CHAR', '.')
         lexer = lexer.build()
@@ -525,24 +544,65 @@ class RawString(Function_Base):
                     return '{'.encode('ASCII').hex()
                 case _ if c.name == "´":
                     return '}'.encode('ASCII').hex()
+                case _ if c.name == "OK":
+                    return '~'.encode('ASCII').hex()
+                
+                case _ if c.name == "->":
+                    return '^'.encode('ASCII').hex()
+                case _ if c.name == "<-":
+                    return "7f" # DEL
+                
                 case _ if c.name == "SLOW":
                     return "96"
+                case _ if c.name == "UNSLOW":
+                    return "97"
                 case _ if c.name == "LF":
                     return "0a"
-                case _ if c.name == "B":
+                case _ if c.name == "B": # same as 85?
                     return "86"
                 case _ if c.name == "END":
                     return "00"
-                case _ if c.name == "CHOICE":
+                case _ if c.name == "CHOICE": # including a LF
                     return "0a 8b"
+                case _ if c.name == "CHOICE_RIGHT": # does NOT including a LF
+                    return "8a"
                 case _ if c.name == "MEM1":
                     return "a1"
                 case _ if c.name == "MEM2":
                     return "a2"
+                case _ if c.name == "MEM3":
+                    return "a3"
                 case _ if c.name == "HEX":
                     return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
                 case _ if c.name == "PAUSE":
                     return "80 " + re.sub("\[PAUSE:([0-9a-f]{2})\]", r"\1", c.value) + " 80"
+                case _ if c.name == "BOY":
+                    return "81"
+                case _ if c.name == "DOG":
+                    return "82"
+                case _ if c.name == "P3": # unused, always "player 3"
+                    return "83"
+                case _ if c.name == "P4": # unused, always "player 4"
+                    return "84"
+                case _ if c.name == "BOLD": # unused, looks weird
+                    return "90"
+                case _ if c.name == "UNBOLD":
+                    return "91"
+                case _ if c.name == "CENTER": # applies to the current and following lines
+                    return "92"
+                case _ if c.name == "LEFT": # applies to the current and following lines
+                    return "93"
+                case _ if c.name == "RIGHT": # applies to the current and following lines
+                    return "94"
+                case _ if c.name == "REPEAT": # fills the textbox with the last word " 2" -> " 22222222…", " test" -> " testtesttest…"
+                    return "95"
+                case _ if c.name == "PAGE":
+                    return "87"
+                case _ if c.name == "INVERTED":
+                    return "98"
+                case _ if c.name == "NOP": # unused, but doesn't crash
+                    return "8f"
+                
                 case _:
                     raise Exception("invalid char")
         code = [f(c) for c in code]
