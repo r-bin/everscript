@@ -503,6 +503,7 @@ class RawString(Function_Base):
         lexer.add('CHOICE_RIGHT', '\[CHOICE_RIGHT\]')
         lexer.add('MEM1', '\[MEM1\]')
         lexer.add('MEM2', '\[MEM2\]')
+        lexer.add('MEM3', '\[MEM3\]')
         lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
         lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
         lexer.add('BOY', '\[BOY\]')
@@ -527,7 +528,7 @@ class RawString(Function_Base):
         lexer.add('->', '\-\>')
         lexer.add('<-', '\<\-')
 
-        # TODO: 85 (same as [B]?), 97 (used before subtexts)
+        # TODO: 85 (same as [B]?)
 
         lexer.add('CHAR', '.')
         lexer = lexer.build()
@@ -594,7 +595,7 @@ class RawString(Function_Base):
                     return "93"
                 case _ if c.name == "RIGHT": # applies to the current and following lines
                     return "94"
-                case _ if c.name == "REPEAT": # fills the textbox with the last word " 2" -> " 22222222…", " test" -> " testtesttest…"
+                case _ if c.name == "REPEAT": # unused, fills the textbox with the last word " 2" -> " 22222222…", " test" -> " testtesttest…"
                     return "95"
                 case _ if c.name == "PAGE":
                     return "87"
