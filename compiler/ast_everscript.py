@@ -553,7 +553,7 @@ class RawString(Function_Base):
                 case _ if c.name == "<-":
                     return "7f" # DEL
                 
-                case _ if c.name == "SLOW":
+                case _ if c.name == "SLOW": # only affects the current text box? (also works on the current subtext)
                     return "96"
                 case _ if c.name == "UNSLOW":
                     return "97"
