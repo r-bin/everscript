@@ -335,6 +335,8 @@ group non_maps() {
             // altus
             BONFIRE_ALTUS_WELL = flag(),
             BONFIRE_INDEX_ALTUS_WELL = 0x0400,
+            BONFIRE_CASTLE_PIT = flag(),
+            BONFIRE_INDEX_CASTLE_PIT = 0x0410,
 
             // omnitopia
             
@@ -612,6 +614,9 @@ group non_maps() {
                 } else if(SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_ALTUS_WELL) { // altus
                     set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
                     map_transition(well, crash, NONE);
+                } else if(SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_CASTLE_PIT) {
+                    // set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+                    map_transition(castle_fire_pit, west, NONE);
                 } else if(SOULS_MEMORY.BONFIRE_MAP != 0x00){
                     fade_in();
                     sleep(0x20);
@@ -766,6 +771,8 @@ group non_maps() {
                     SOULS_MEMORY.BONFIRE_INDEX = SOULS_MEMORY.BONFIRE_INDEX_JUNGLE_PIT;
                 } else if(SOULS_MEMORY.BONFIRE_INDEX_TMP == SOULS_MEMORY.BONFIRE_INDEX_ALTUS_WELL) { // altus
                     SOULS_MEMORY.BONFIRE_INDEX = SOULS_MEMORY.BONFIRE_INDEX_ALTUS_WELL;
+                } else if(SOULS_MEMORY.BONFIRE_INDEX_TMP == SOULS_MEMORY.BONFIRE_INDEX_CASTLE_PIT) {
+                    SOULS_MEMORY.BONFIRE_INDEX = SOULS_MEMORY.BONFIRE_INDEX_CASTLE_PIT;
                 } else {
                     subtext("Game could not find bonfire index trigger #[MEM1]");
                 }
@@ -975,6 +982,7 @@ group non_maps() {
 
                     // altus
                     SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
+                    SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
                 }
             }
 
@@ -1290,7 +1298,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_level_1, south, NONE);
+                map_transition(castle_throne_room, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -2125,9 +2133,14 @@ area shrine_area() {
             }
 
             text_start();
-            text("[SLOW]Return to Altus Pleateu?");
+            text("[SLOW]Return to Altus Plateu?");
             if(SOULS_MEMORY.BONFIRE_ALTUS_WELL) {
                 text("[CHOICE]Well…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(SOULS_MEMORY.BONFIRE_CASTLE_PIT) {
+                text("[CHOICE]Castle Pit…");
             } else {
                 text("[CHOICE]…");
             }
@@ -2138,6 +2151,10 @@ area shrine_area() {
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_ALTUS_WELL) {
                     map_transition(well, crash, NONE); // TODO
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                if(SOULS_MEMORY.BONFIRE_CASTLE_PIT) {
+                    map_transition(castle_fire_pit, west, NONE); // TODO
                 }
             }
         }
@@ -2168,7 +2185,7 @@ area shrine_area() {
 
             bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_JUNGLE_PIT), (SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_JUNGLE_PIT), reference(bonfire_triggered_jungle)); // southern jungle
 
-            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL), (SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_ALTUS_WELL), reference(bonfire_triggered_altus)); // altus plateau 
+            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_ALTUS_WELL) || (SOULS_MEMORY.BONFIRE_INDEX == SOULS_MEMORY.BONFIRE_INDEX_CASTLE_PIT)), reference(bonfire_triggered_altus)); // altus plateau 
 
             // bonfire_portal(0d59, 0d88, …); // omnitopia
         }
@@ -5357,8 +5374,8 @@ area altus_plateau_entry() {
                         BOSS.ID = <LAST_ENTITY>;
                     }
 
-                    attribute(BOY, INVINCIBLE, True);
-                    attribute(DOG, INVINCIBLE, True);
+                    attribute(BOY, INVINCIBLE_TEMP, True);
+                    attribute(DOG, INVINCIBLE_TEMP, True);
 
                     parity_check();
                 }
@@ -5803,6 +5820,12 @@ area altus_plateau_entry() {
 
                 enum ROOM {
                     FAKE_EXIT_ID = memory_tmp(),
+
+                    KING = memory_tmp(),
+                    FACE = memory_tmp(),
+
+                    IRON_THRONE_COUNT = memory(),
+                    IRON_THRONE_THRESHOLD = 0d4,
                 }
 
                 fun fake_exit() {
@@ -5849,7 +5872,315 @@ area altus_plateau_entry() {
                     select_alchemy_with_preselection(REVEALER);
 
                     destroy(SCRIPT_OWNER);
-                }                
+                }
+                
+                @install()
+                @async()
+                fun face_logic(entity) {
+                    attach_to_script(entity);
+
+                    while!(dead(<SCRIPT_OWNER>)) {
+                        object[0x00] = arg[0x10];
+                        arg[0x10] += 0d1;
+                        debug_memory(arg[0x10], 0d0);
+
+                        sound(0x76);
+                        sleep(0d180);
+                    }
+                }
+                fun add_face(x, y) {
+                    add_enemy(FACE_ENTITY, x, y);
+                    ROOM.FACE = <LAST_ENTITY>;
+
+                    face_logic(<LAST_ENTITY>);
+                }
+
+                @install()
+                fun iron_throne_reward() {
+                    _dialog("[SLOW]Your contribution to the iron throne will be honored.[B]");
+
+                    reward(LEVITATE);
+                    
+                    control(BOTH);
+                }
+
+                fun iron_throne_trade_sword() {
+                    while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                        if(False) {
+                            text_start();
+                        } else {
+                            control(NONE);
+                            open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+                        }
+
+                        if(FLAG.SWORD_2) {
+                            text("[CHOICE]Gladiator Sword…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.SWORD_3) {
+                            text("[CHOICE]Crusader Sword…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.SWORD_4) {
+                            text("[CHOICE]Neutron Blade…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+
+                        await_answer();
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER != 0xffff) {
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                if(FLAG.SWORD_2) {
+                                    FLAG.SWORD_2 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                                if(FLAG.SWORD_3) {
+                                    FLAG.SWORD_3 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                                if(FLAG.SWORD_4) {
+                                    FLAG.SWORD_4 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            }
+
+                            if(ROOM.IRON_THRONE_COUNT >= ROOM.IRON_THRONE_THRESHOLD) {
+                                iron_throne_reward();
+                                end();
+                            }
+                        }
+                    }
+                }
+                fun iron_throne_trade_axe() {
+                    while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                        if(False) {
+                            text_start();
+                        } else {
+                            control(NONE);
+                            open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+                        }
+
+                        if(FLAG.AXE_1) {
+                            text("[CHOICE]Spider's Claw…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.AXE_2) {
+                            text("[CHOICE]Bronze Axe…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.AXE_3) {
+                            text("[CHOICE]Knight Basher…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.AXE_4) {
+                            text("[CHOICE]Atom Smasher…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+
+                        await_answer();
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER != 0xffff) {
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                if(FLAG.AXE_1) {
+                                    FLAG.AXE_1 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                                if(FLAG.AXE_2) {
+                                    FLAG.AXE_2 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                                if(FLAG.AXE_3) {
+                                    FLAG.AXE_3 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                                if(FLAG.AXE_4) {
+                                    FLAG.AXE_4 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            }
+
+                            if(ROOM.IRON_THRONE_COUNT >= ROOM.IRON_THRONE_THRESHOLD) {
+                                iron_throne_reward();
+                                end();
+                            }
+                        }
+                    }
+                }
+                fun iron_throne_trade_spear() {
+                    while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                        if(False) {
+                            text_start();
+                        } else {
+                            control(NONE);
+                            open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+                        }
+
+                        if(FLAG.SPEAR_1) {
+                            text("[CHOICE]Horn Spear…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.SPEAR_2) {
+                            text("[CHOICE]Bronze Spear…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.SPEAR_3) {
+                            text("[CHOICE]Lance…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.SPEAR_4) {
+                            text("[CHOICE]Laser Lance…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+
+                        await_answer();
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER != 0xffff) {
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                if(FLAG.SPEAR_1) {
+                                    FLAG.SPEAR_1 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                                if(FLAG.SPEAR_2) {
+                                    FLAG.SPEAR_2 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                                if(FLAG.SPEAR_3) {
+                                    FLAG.SPEAR_3 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                                if(FLAG.SPEAR_4) {
+                                    FLAG.SPEAR_4 = False;
+                                    ROOM.IRON_THRONE_COUNT += 0d1;
+                                }
+                            }
+
+                            if(ROOM.IRON_THRONE_COUNT >= ROOM.IRON_THRONE_THRESHOLD) {
+                                iron_throne_reward();
+                                end();
+                            }
+                        }
+                    }
+                }
+                // @install()
+                fun iron_throne_trade() {
+                    dialog("[SLOW]Forfeit 4 of your weapons weapons and I'll grant you a formula[B]");
+
+                    // MEMORY.QUESTION_ANSWER = 0xffff;
+                    // while(MEMORY.QUESTION_ANSWER == 0xffff) {
+                        if(False) {
+                            text_start();
+                        } else {
+                            control(NONE);
+                            open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+                        }
+
+                        // text("[SLOW]What weapon do you want to turn in?");
+
+                        if(FLAG.SWORD_2 || FLAG.SWORD_3 || FLAG.SWORD_4) {
+                            text("[CHOICE]Sword…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.AXE_1 || FLAG.AXE_2 || FLAG.AXE_3 || FLAG.AXE_4) {
+                            text("[CHOICE]Axe…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.SPEAR_1 || FLAG.SPEAR_2 || FLAG.SPEAR_3 || FLAG.SPEAR_4) {
+                            text("[CHOICE]Spear…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(FLAG.BAZOOKA) {
+                            text("[CHOICE]Bazooka…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        
+                        await_answer();
+                        
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            if(FLAG.SWORD_2 || FLAG.SWORD_3 || FLAG.SWORD_4) {
+                                iron_throne_trade_sword();
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                            if(FLAG.AXE_1 || FLAG.AXE_2 || FLAG.AXE_3 || FLAG.AXE_4) {
+                                iron_throne_trade_axe();
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                            if(FLAG.SPEAR_1 || FLAG.SPEAR_2 || FLAG.SPEAR_3 || FLAG.SPEAR_4) {
+                                iron_throne_trade_spear();
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                            if(FLAG.BAZOOKA) {
+                                FLAG.BAZOOKA = False;
+                                ROOM.IRON_THRONE_COUNT += 0d1;
+
+                                if(ROOM.IRON_THRONE_COUNT >= ROOM.IRON_THRONE_THRESHOLD) {
+                                    iron_throne_reward();
+                                    end();
+                                }
+                            }
+                        }
+                    // }
+                }
+
+                @install()
+                fun king_triggered() {
+                    if(ROOM.IRON_THRONE_COUNT < ROOM.IRON_THRONE_THRESHOLD) {
+                        iron_throne_trade();
+                    } else {
+                        debug_subtext("TODO");
+                    }
+
+                    control(BOTH);
+                }
+
+                fun add_king(x, y) {
+                    add_enemy(BOY_BLACK, x, y, INVINCIBLE);
+                    ROOM.KING = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, TALK, reference(king_triggered));
+
+                    animate(LAST_ENTITY, FREEZE, ANIMATION_BOY.SWIRL_EXIT);
+
+                    if(False) {
+                        sleep(0d300);
+
+                        while(True) {
+                            teleport(ROOM.KING, 0d49, 0d17);
+                            animate(ROOM.KING, FREEZE, ANIMATION_BOY.SWIRL_EXIT);
+                            sleep(0d300);
+
+                            teleport(ROOM.KING, 0d49, 0d16);
+                            animate(ROOM.KING, FREEZE, ANIMATION_BOY.DRAGGED);
+                            sleep(0d300);
+                        }
+                    }
+                }
 
                 fun trigger_enter() {
                     if(FLAG.DEBUG) {
@@ -5858,7 +6189,13 @@ area altus_plateau_entry() {
                         }
                     }
 
-                    fade_in();
+                    if(False) {
+                        add_face(0d61, 0d03);
+                    }
+
+                    add_king(0d49, 0d17);
+
+                    default_init_room(False, False);
 
                     add_enemy(PLACEHOLDER, 0x31, 0x21);
                     ROOM.FAKE_EXIT_ID = <LAST_ENTITY>;
@@ -5896,6 +6233,10 @@ area altus_plateau_entry() {
 
                 fun ignite_pit() {
                     object[0x00] = 0x01; // ignite firepit
+
+                    bonfire(0d45, 0d17, SOULS_MEMORY.BONFIRE_CASTLE_PIT, SOULS_MEMORY.BONFIRE_INDEX_CASTLE_PIT);
+                    attribute(LAST_ENTITY, INVISIBLE, True);
+                    <LAST_ENTITY>[Z] = <BOY>[Z];
                 }
 
                 @install()
@@ -5905,8 +6246,10 @@ area altus_plateau_entry() {
                     if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
                         ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
                         set(ROOM.PIT_IGNITED);
-                        ignite_pit();
                         destroy(SCRIPT_OWNER);
+
+                        set(SOULS_MEMORY.BONFIRE_CASTLE_PIT);
+                        ignite_pit();
                     } else {
                         heal(SCRIPT_OWNER, 0x00, False);
                         // damage(SCRIPT_OWNER, 0x00, True);
@@ -11987,7 +12330,6 @@ area southern_jungle() {
                 destroy(SCRIPT_OWNER);
 
                 set(SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
-                add_bonfire();
             } else {
                 heal(SCRIPT_OWNER, 0x00, False);
                 // damage(SCRIPT_OWNER, 0x00, True);
