@@ -500,6 +500,7 @@ class RawString(Function_Base):
         lexer.add('B', '\[B\]')
         lexer.add('END', '\[END\]')
         lexer.add('CHOICE', '\[CHOICE\]')
+        lexer.add('CHOICE_INLINE', '\[CHOICE_INLINE\]')
         lexer.add('CHOICE_RIGHT', '\[CHOICE_RIGHT\]')
         lexer.add('MEM1', '\[MEM1\]')
         lexer.add('MEM2', '\[MEM2\]')
@@ -565,6 +566,8 @@ class RawString(Function_Base):
                     return "00"
                 case _ if c.name == "CHOICE": # including a LF
                     return "0a 8b"
+                case _ if c.name == "CHOICE_INLINE": # does NOT including a LF
+                    return "8b"
                 case _ if c.name == "CHOICE_RIGHT": # does NOT including a LF
                     return "8a"
                 case _ if c.name == "MEM1":
