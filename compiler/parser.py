@@ -15,7 +15,7 @@ class Parser():
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '!', 'AND', 'OR',
-                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=',
+                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=', '++', '--',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'INVERT_WORD',
                 'TRUE', 'FALSE',
@@ -603,6 +603,21 @@ class Parser():
         @self.pg.production('expression : ! expression')
         def parse(p):
             return Invert(p[1])
+        
+        @self.pg.production('expression : param ++')
+        @self.pg.production('expression : param --')
+        def parse(p):
+            left = p[0]
+            operator = p[1]
+
+            match operator.gettokentype():
+                case '++':
+                    return Asign(left, Add(left, Word(1)))
+                case '--':
+                    return Asign(left, Sub(left, Word(1)))
+                
+                case _:
+                    raise AssertionError('Oops, this should not be possible!')
 
         @self.pg.production('expression : param AND param')
         @self.pg.production('expression : param OR param')
@@ -648,6 +663,7 @@ class Parser():
                     return LowerEquals(left, right)
                 case '<':
                     return Lower(left, right)
+                
                 case '=':
                     return Asign(left, right)
                 case '-=':
@@ -655,9 +671,10 @@ class Parser():
                 case '+=':
                     return Asign(left, Add(left, right))
                 case 'OR=':
-                    return OrAsign(left, right)
+                    return Asign(left, Or(left, right))
                 case '&=':
-                    return AndAsign(left, right)
+                    return Asign(left, And(left, right))
+                
                 case '+':
                     return Add(left, right)
                 case '-':
@@ -676,6 +693,7 @@ class Parser():
                     return BinaryOr(left, right)
                 case 'B_XOR':
                     return BinaryXor(left, right)
+                
                 case _:
                     raise AssertionError('Oops, this should not be possible!')
 

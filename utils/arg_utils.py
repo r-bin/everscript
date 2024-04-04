@@ -71,9 +71,9 @@ examples:
             if opt == "-h":
                 help()
             elif opt in ("-v", "--version"):
-                print(_version)
+                print(self.version)
                 sys.exit()
-            elif opt in ("-p", "--profile"):
+            elif opt in ("--profile"):
                 return_args.profile = True
             elif opt in ("-r", "--rom"):
                 return_args.rom_file = arg

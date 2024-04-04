@@ -1199,20 +1199,6 @@ class Asign(BinaryOp):
 
         return code
 
-class OrAsign(BinaryOp):
-    def operator(self, inverted=False):
-        return "|="
-
-    def _code(self, params:list[Param]):
-        raise Exception("not implemented")
-
-class AndAsign(BinaryOp):
-    def operator(self, inverted=False):
-        return "&="
-
-    def _code(self, params:list[Param]):
-        raise Exception("not implemented")
-
 class Include(BaseBox):
     def __init__(self, generator, path):
         self.generator = generator
