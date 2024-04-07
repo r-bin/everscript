@@ -4219,12 +4219,54 @@ group functions() {
                     fanfare_item();
                 }
             }
+        };
 
+        group shop() {
             fun add_shop_item(item:SHOP_ITEM, price) {
                 code(0x89, param(item), param(price), "// (89) Add item 0x31 priced 0x32 to shop menu");
             }
+
             fun clear_shop() {
                 code(0x88, "// (88) Clear shopping ring");
+            }
+
+            fun await_buy_result() {
+                // (18) WRITE $23b9 = $2455 Shop buy result  18 61 01 08 fd 01 da
+
+                // 0 = cancel
+                // 1 = upper limit
+                // 2 = too expensive
+
+                // same as "<0x23b9> = <0x$2455>;", but with a "0x5a (Run shop: buy, get result)" at the end
+
+                code(0x18, 0x23b9 - 0x2258, 0x08, 0x2455 - 0x2258, 0x80 + 0x5a, "// (18) WRITE $23b9 = $2455 Shop buy result");
+            }
+            fun await_sell_result() {
+                // (18) WRITE $23b9 = $2455 Shop sell result  18 61 01 08 fd 01 db
+
+                // 0 = cancel
+                // 1 = upper limit
+                // 2 = too expensive
+
+                // same as "<0x23b9> = <0x$2455>;", but with a "0x5b (sell)" at the end
+
+                code(0x18, 0x23b9 - 0x2258, 0x08, 0x2455 - 0x2258, 0x80 + 0x5b, "// (18) WRITE $23b9 = $2455 Shop sell result");
+            }
+
+            fun shop_buy(shopping_items) {
+                // ui glitches if subtexts are being shown
+
+                <0x2455> = <BOY>;
+                // <0x2459> = 0x00;
+                
+                // <0x22ed, 0x2> = False;
+                // <0x22ee, 0x02> = True;
+
+                clear_shop();
+
+                shopping_items();
+
+                await_buy_result();
             }
         };
     };
