@@ -3,7 +3,7 @@ group general_enums() {
         WITH_DEBUG_SUBTEXT = True,
 
         HP_MAX = 0x7fff,
-        ITEM_MAX = 0x63,
+        ITEM_MAX = 0d99,
     }
 
     group rom() {
@@ -414,6 +414,8 @@ group general_enums() {
             // vendor
 
             VENDOR_RECOMMEND_CURRENCY_CHANGE = <0x240d>, // updated with call_id(VENDOR_RECOMMEND_CURRENCY_CHANGE);, 0->recommend change
+            VENDOR_SHOP_ITEMS = <0x2457>, // content of the shops ring menu
+            VENDOR_ENTITY = <0x2455>, // center of the ring menu
 
             // map
 
@@ -3291,6 +3293,9 @@ group functions() {
             fun subtext(id) {
                 code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
             }
+            fun clear_subtext() {
+                code(0x5a, "// (5a) UNTRACED INSTR, checking message timer");
+            }
             fun enable_subtext(enable) {
                 if(enable) {
                     code(0x80, "// (80) UNHIDE? UNWINDOWED TEXT");
@@ -4245,28 +4250,44 @@ group functions() {
                 // (18) WRITE $23b9 = $2455 Shop sell result  18 61 01 08 fd 01 db
 
                 // 0 = cancel
-                // 1 = upper limit
-                // 2 = too expensive
+                // 1 = nothing to sell -> close menu
+                // 2 = nothing to sell -> can't open menu
+                // 3 = armor currently equipped
 
                 // same as "<0x23b9> = <0x$2455>;", but with a "0x5b (sell)" at the end
 
                 code(0x18, 0x23b9 - 0x2258, 0x08, 0x2455 - 0x2258, 0x80 + 0x5b, "// (18) WRITE $23b9 = $2455 Shop sell result");
             }
 
-            fun shop_buy(shopping_items) {
-                // ui glitches if subtexts are being shown
+            fun shop_buy(entity, shopping_items) {
+                // TODO: broken, once the consumables menu was opened (afterwards you can sell infinite items)
 
-                <0x2455> = <BOY>;
+                clear_subtext();
+
+                MEMORY.VENDOR_ENTITY = entity;
                 // <0x2459> = 0x00;
                 
-                // <0x22ed, 0x2> = False;
-                // <0x22ee, 0x02> = True;
-
+                // <0x22ee, 0x02> = False;
+                // <0x22ed, 0x02> = False;
                 clear_shop();
 
                 shopping_items();
 
                 await_buy_result();
+
+                <0x22ee, 0x02> = True;
+            }
+
+            fun shop_sell(entity, shopping_items) {
+                clear_subtext();
+                clear_shop();
+                
+                MEMORY.VENDOR_ENTITY = entity;
+                // <0x2457> = 0xc;
+
+                shopping_items();
+
+                await_sell_result();
             }
         };
     };
