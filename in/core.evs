@@ -146,8 +146,8 @@ group general_enums() {
 
             // dialogue
 
-            NPC_DIALOGUE_START = 0x32, // control_enemy(ACTIVE, True) + face_each(SCRIPT_OWNER, ACTIVE)
-            NPC_DIALOGUE_STOP = 0x33, // control_enemy(ACTIVE, False)
+            NPC_DIALOGUE_START = 0x32, // control(ACTIVE, True) + face_each(SCRIPT_OWNER, ACTIVE)
+            NPC_DIALOGUE_STOP = 0x33, // control(ACTIVE, False)
 
             OPEN_TEXTBOX_DEFAULT = 0x02, // x=0x0a y=0x02 w=0x14 h=0x07
             OPEN_TEXTBOX_1 = 0x04, // x=0x0a y=0x02 w=0x14 h=0x06
@@ -2603,18 +2603,39 @@ group functions() {
         };
 
         group character_manipulation() {
-            fun control(character:CHARACTER) {
-                if(character == CHARACTER.NONE) {
-                    code(0xc0, "// (c0) BOY+DOG = STOPPED");
-                } else if(character == CHARACTER.BOTH) {
-                    code(0xc1, "// (c1) BOY+DOG = Player controlled");
-                }
-            }
-            fun control_enemy(character:CHARACTER, control) {
-                if(control == True) {
-                    code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+            fun control(character:CHARACTER, control) {
+                if(control is Word) {
+                    if(character == CHARACTER.BOY) {
+                        if(control) {
+                            code(0xbd, "// (bd) BOY = Player controlled");
+                        } else {
+                            code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                        }
+                    } else if(character == CHARACTER.DOG) {
+                        if(control) {
+                            code(0xbf, "// (bf) DOG = Player controlled");
+                        } else {
+                            code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+                        }
+                    } else {
+                        if(control) {
+                            code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+                        } else {
+                            code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                        }
+                    }
                 } else {
-                    code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                    if(character == CHARACTER.NONE) {
+                        code(0xc0, "// (c0) BOY+DOG = STOPPED");
+                    } else if(character == CHARACTER.BOTH) {
+                        code(0xc1, "// (c1) BOY+DOG = Player controlled");
+                    } else if(character == CHARACTER.BOY) {
+                        code(0xbd, "// (bd) BOY = Player controlled");
+                        code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+                    } else if(character == CHARACTER.DOG) {
+                        code(0xbf, "// (bf) DOG = Player controlled");
+                        code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                    }
                 }
             }
 
@@ -2648,10 +2669,10 @@ group functions() {
                             if(unlock == CHARACTER.BOY || unlock == CHARACTER.DOG || unlock == CHARACTER.BOTH) {
                                 control(BOTH);
                             } else {
-                                control_enemy(unlock, False);
+                                control(unlock, False);
                             }
                         } else if(unlock is Memory) {
-                            control_enemy(unlock, False);
+                            control(unlock, False);
                         } else {
                             throw("invalid walk.unlock");
                         }
@@ -5462,7 +5483,7 @@ group functions() {
         fun sterling_grab_3d(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
             // debug_subtext("+walk");
             walk(sterling, TILE_ABSOLUTE_DIRECT, drop_x, drop_y, True);
-            control_enemy(sterling, True);
+            control(sterling, True);
             // debug_subtext("-walk");
         }
         
