@@ -166,11 +166,11 @@ class Arg(Function_Base, Calculatable, Memorable):
 
         match [offset]:
             case [None]:
-                code = [Operand("read signed word arg"), index]
+                code = [Operand("read word arg"), index]
                 if deref:
                     code += [Operand("deref")]
             case [_]:
-                code = [Operand("read signed word arg"), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
+                code = [Operand("read word arg"), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
             case _:
@@ -213,6 +213,48 @@ class Script(Function_Base, Calculatable, Memorable):
         index = index.code(params)
 
         code = [Operand("script9")]
+
+        return code
+
+    def _code(self, params:list[Param]):
+        index = self.index.resolve(params)
+        
+        if isinstance(index, int):
+            index = Word(index)
+
+        code = index.code(params)
+
+        return code
+
+class Time(Function_Base, Calculatable, Memorable):
+    # only index [0d0] and [0d2] exists
+
+    def __init__(self, index):
+        self.index = index
+        self.index = self.index.resolve([])
+        
+        if self.index.eval([]) != 0 and self.index.eval([]) != 2:
+            TODO()
+
+        self.memory = True
+
+    def __repr__(self):
+        return f"Time(index={self.index})"
+        
+    def is_memory(self, params:list[Param]):
+        return True
+    
+    def calculate(self, params:list[Param], offset=None, deref=False):
+        index = self.index.resolve(params)
+        index = index.code(params)
+
+        match self.index.eval([]):
+            case 0:
+                code = [Operand("time0")]
+            case 2:
+                code = [Operand("time2")]
+            case _:
+                TODO()
 
         return code
 

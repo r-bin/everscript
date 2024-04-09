@@ -414,7 +414,8 @@ group general_enums() {
             // vendor
 
             VENDOR_RECOMMEND_CURRENCY_CHANGE = <0x240d>, // updated with call_id(VENDOR_RECOMMEND_CURRENCY_CHANGE);, 0->recommend change
-            VENDOR_SHOP_ITEMS = <0x2457>, // content of the shops ring menu
+            VENDOR_SHOP_ITEMS_BUY = <0x2459>,
+            VENDOR_SHOP_ITEMS_SELL = <0x2457>,
             VENDOR_ENTITY = <0x2455>, // center of the ring menu
 
             // map
@@ -1371,6 +1372,7 @@ group general_enums() {
 
                 // used in the scripts
                 MAX_HP = 0x0f, // <0x23e5>[0x0f] = boy max hp, <0x23e7>[0x0f] = dog max hp
+                BEHAVIOUR = 0x10, // (BEHAVIOUR & 0d20) = enabled
                 Z = 0x18,
                 X = 0x1a,
                 Y = 0x1c,
@@ -1394,7 +1396,6 @@ group general_enums() {
                 PALETTE = 0x0b,
                 PALETTE_BLACK_OR_TILE_GLITCH = 0x0c,
                 TILE_GLITCH_4 = 0x0d,
-                BEHAVIOUR = 0x10,
                 WEIRD_KNOCKBACK = 0x12,
                 TURN_NORTH = 0x22,
             }
@@ -2513,6 +2514,16 @@ group functions() {
                 calculate(character);
             }
         }
+
+        fun modulo(number, modulo, divider) {
+            while(number >= modulo) {
+                number -= modulo;
+
+                if((divider is Memory) || (divider is Arg)) {
+                    divider += 0d1;
+                }
+            }
+        }
     };
 
     group everscript_commands() {
@@ -3294,6 +3305,8 @@ group functions() {
                 code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
             }
             fun clear_subtext() {
+                // TODO: clear + disable?
+
                 code(0x5a, "// (5a) UNTRACED INSTR, checking message timer");
             }
             fun enable_subtext(enable) {
@@ -4293,6 +4306,41 @@ group functions() {
     };
 
     group complex() {
+        @install()
+        fun print_time() {
+            arg[0x10] = time[0d0];
+            arg[0x12] = time[0d2];
+
+            modulo(arg[0x10], 0d60, arg[0x16]); // frames->seconds
+            arg[0x14] = arg[0x10]; // frames
+
+            modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
+
+            modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
+
+            if(True) {
+                while(arg[0x12] > 0d0) {
+                    arg[0x12] -= 0d1;
+
+                    // 18m + 12s + 16f
+
+                    arg[0x18] += 0d18;
+                    arg[0x16] += 0d12;
+                    arg[0x14] += 0d16;
+                }
+
+                modulo(arg[0x14], 0d60, arg[0x16]); // frames->seconds
+                modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
+                modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
+            }
+
+            MEMORY.STRING_PARAMETER_1 = arg[0x1a];
+            MEMORY.STRING_PARAMETER_2 = arg[0x18];
+            MEMORY.STRING_PARAMETER_3 = arg[0x16];
+
+            debug_subtext("time = [MEM1]:[MEM2]:[MEM3]");
+        }
+
         fun loot(animation, flag, object_id, reward:LOOT_REWARD, amount, next) {
             if!(flag) {
                 if(reward < 0x1000) {

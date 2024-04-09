@@ -834,9 +834,9 @@ class Operand():
         
         # _: 0x57: # (player==dog)
             
-        # _: 0x58, # game timer bits 0-15 ($7e0b19..7e0b1a)
+        "time0": 0x58, # game timer bits 0-15 ($7e0b19..7e0b1a)
         
-        # _: 0x59, # bits 16-32 ($7e0b1b..7e0b1c)
+        "time2": 0x59, # bits 16-32 ($7e0b1b..7e0b1c)
         
         # _: 0x5a, # Run shop: buy, get result
         
