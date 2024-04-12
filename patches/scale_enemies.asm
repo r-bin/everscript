@@ -1,20 +1,43 @@
 hirom
 header
 
-; TODO: currently adds the content of $2700/entity+0x30 to the stats, instead of scaling them properly
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DESCRIPTION                                                                                                           ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; - The games has 142 sprite IDs: (Corresponds to ID=0…141 from the SoETilesViewer, contains 0x4a bytes of data each)
+;   - boy = 0A26? B678? (0)
+;   - …
+;   - FE = b9f0 (12)
+;   - … (96)
+;   - flower_orange = d5b0 (108)
+;   - flower_purple = d5fa (109)
+;   - raptor_purple = d644 (110)
+;   - … (31)
+;   - carltron = df3a (141)
+; - There are at least two special sprites, that are being excluded from any calculations
+;   - !ID_BOY = #$0a26
+;   - !ID_DOG = #$0a70
+; - The scaling covers:
+;   - HP (Triggered when the entity spawns, also injects the sprites level)
+;   - Attack
+;   - Defend
+;   - Magic Defend
+;   - Experience (Triggers twice after killing an enemy)
+;   - Money
+; - At the bottom is the table for all stats
+;   - 142 * 37 entries of 2 bytes
+;   - Default value is 0 (HP has to be 1 for enemies to spawn)
+; - The memory map is very wasteful and unoptimized at the moment
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; IDs:
-; boy = 0A26? B678? (0)
-; …
-; FE = b9f0 (12)
-; … (96)
-; flower_orange = d5b0 (108)
-; flower_purple = d5fa (109)
-; raptor_purple = d644 (110)
-; … (31)
-; carltron = df3a (141)
-
-!ENEMY_LEVEL = $2700
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INPUT                                                                                                                 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+!ENEMY_LEVEL = $2700 ; has to be set before add_enemy() is being called (before the HP is being defined, which is on spawn)
+!ENEMY_SPRITE_LEVEL_OFFSET = $008a ; sprite data to store the level
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 !MEMORY_STAT_HOOKS = $FE8000
 !MEMORY_TABLE_HP = $FE9000
@@ -34,7 +57,7 @@ header
 org $8fb15b 
   JSL hp_calculation ; size 4
 
-; attack calculation (when hit, includes boy and dog)
+; attack calculation (when hit, instantly dies at 0hp, includes boy and dog)
 org $8fc041
   NOP ; TAX (size 1)
   JSL attack_calculation ; LDA $8e0019,x (size 4)
@@ -60,19 +83,43 @@ org $8f82d4
 org $8f868e
   JSL money_calculation ; LDA $8e0027,x (size 4)
 
+
 org !MEMORY_STAT_HOOKS
 db "+ScaleEnemies"
+
+macro get_scaled_value(table, is_negative)
+  ; [IN] A:#$____ (source type) X:#$____ y:#$____ (source id)
+
+  if 0
+    CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
+  else
+    CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y
+  endif
+
+  TAX ; tranfer "source type"
+  LDA <table>-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  
+  if <is_negative> > 0
+    TAX
+    SEC : SBC <is_negative>,x
+  endif
+endmacro
+macro inject_level()
+  LDA !ENEMY_LEVEL
+  sta !ENEMY_SPRITE_LEVEL_OFFSET,y
+endmacro
+
 hp_calculation:
   TXA
   CMP !ID_BOY : BEQ .skipBoyDog
   CMP !ID_DOG : BEQ .skipBoyDog
 
   PHX ; push "source type"
-  
-  CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
-  TAX ; tranfer "source type"
 
-  LDA !MEMORY_TABLE_HP-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  %inject_level()
+  TXA
+  
+  %get_scaled_value(!MEMORY_TABLE_HP, 0)
   
   PLX ; pull "source type"
 
@@ -84,6 +131,7 @@ hp_calculation:
   .doneModifying
 
   RTL
+
 attack_calculation:
   ; example: wimpy #1 attacks boy
   ; [IN]     A:#$d5fa (wimpy) X:#$401d (wimpy id #1) Y:#$4e89 (boy)
@@ -101,11 +149,7 @@ attack_calculation:
   PHY ; push "target id"
 
   TXY ; transfer "source id"
-  CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
-  ; SEC : SBC #!OFFSET_FIRST_ID ; redundant with "LDA !MEMORY_TABLE_ATTACK-!OFFSET_FIRST_ID,x"
-  TAX ; tranfer "source type"
-
-  LDA !MEMORY_TABLE_ATTACK-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  %get_scaled_value(!MEMORY_TABLE_ATTACK, 0)
 
   PLY ; pull "target id"
 
@@ -133,10 +177,7 @@ defend_calculation:
 
   PHX ; push "source type"
   
-  CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
-  TAX ; tranfer "source type"
-
-  LDA !MEMORY_TABLE_DEFEND-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  %get_scaled_value(!MEMORY_TABLE_DEFEND, 0)
   
   PLX ; pull "source type"
 
@@ -165,14 +206,8 @@ magic_defend_calculation:
 
   
   PHX ; push "source type"
-  TXA ; tranfer "target type"
-  CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
-  TAX ; tranfer "target type"
-
-  ; LDA #$40 ; original code
-  ; SEC : SBC !ENEMY_LEVEL
-  ; SBC $8e001d,x ; original code
-  LDA !MEMORY_TABLE_MAGIC_DEFEND-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  
+  %get_scaled_value(!MEMORY_TABLE_MAGIC_DEFEND, $40)
   
   PLX ; pull "source type"
   PLP
@@ -196,10 +231,7 @@ experience_calculation:
 
   PHX ; push "source type"
   
-  CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
-  TAX ; tranfer "source type"
-
-  LDA !MEMORY_TABLE_EXPERIENCE-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  %get_scaled_value(!MEMORY_TABLE_EXPERIENCE, 0)
 
   PLX ; pull "source type"
   REP #$ff
@@ -219,10 +251,7 @@ money_calculation:
 
   PHX ; push "source type"
   
-  CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
-  TAX ; tranfer "source type"
-
-  LDA !MEMORY_TABLE_MONEY-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  %get_scaled_value(!MEMORY_TABLE_MONEY, 0)
   
   PLX ; pull "source type"
 
@@ -258,15 +287,15 @@ endmacro
 
 org !MEMORY_TABLE_HP
 %pad_monster_stat(108+1, 1)
-dw #18, #30, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001 ; "Wimpy Flower" (109)
-
+dw #18, #999, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001, #$0001 ; "Wimpy Flower" (109)
+%pad_monster_stat(32, 1)
 org !MEMORY_TABLE_ATTACK
 skip !OFFSET_TABLE_WIMPY ; the first !OFFSET_TABLE_WIMPY (108) entries
-dw #9, #18, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
+dw #9, #9, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
 
 org !MEMORY_TABLE_DEFEND
 skip !OFFSET_TABLE_WIMPY ; the first !OFFSET_TABLE_WIMPY (108) entries
-dw #28, #60, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
+dw #28, #$40, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
 
 org !MEMORY_TABLE_MAGIC_DEFEND
 %pad_monster_stat(108+1, $40)
@@ -274,10 +303,10 @@ dw #32, #32, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0
 
 org !MEMORY_TABLE_EXPERIENCE
 skip !OFFSET_TABLE_WIMPY ; the first !OFFSET_TABLE_WIMPY (108) entries
-dw #2, #4, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
+dw #2, #2, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
 
 org !MEMORY_TABLE_MONEY
 skip !OFFSET_TABLE_WIMPY ; the first !OFFSET_TABLE_WIMPY (108) entries
-dw #2, #4, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
+dw #2, #10, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000, #$0000 ; "Wimpy Flower" (109)
 
 db "-ScaleEnemies"

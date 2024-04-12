@@ -111,5 +111,6 @@ EOF
 - [rply](https://github.com/alex/rply)
 - [ips_util](https://github.com/nleseul/ips_util)
 - `/patches/skip_intro.txt` - Black Sliver
+- [`/patches/assassin_*.ips`](http://assassin17.brinkster.net/soe_patches.htm) - Assassin17
 - [`/patches/debug_menu*.asm`](https://www.romhacking.net/hacks/4638/) - XaserLE
 - `/research/maps/*` - Grizzly
