@@ -1,0 +1,258 @@
+#memory(
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    // reserved: <0x23b9>
+    <0x2272>..<0x2558>,
+
+    <0x2834>..<0x28ff>
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "skip_intro",
+    // "brian",
+    // "camera_hack",
+    // "free_graveyard_ids",
+    // "save_file_growth",
+
+    // asm
+    // "debug_menu", // uses 0x3f0000…???
+    "_hook_input", // 0x3f0000…0x310000
+        "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
+)
+
+// hotkeys
+
+@install()
+@inject(ADDRESS.HOTKEY_START)
+fun hotkey_start() {
+    debug_subtext("Start");
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
+fun hotkey_start_l() {
+    debug_subtext("Start+L");
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
+fun hotkey_start_r() {
+    debug_subtext("Start+R");
+
+    attribute(BOY, NO_CLIP, True);
+    debug_boy();
+}
+
+// maps
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    // map_transition(flowers, start, NONE);
+    
+    map_transition(rimsala, south, NONE);
+}
+
+group boss_rimsala() {
+    enum BOSS_RIMSALA {
+        DEBUG = True,
+
+        TYPE_RIMSALA_HEAD = ENEMY.RIMSALA_BOSS_2,
+        TYPE_RIMSALA = ENEMY.VIGOR,
+        TYPE_STATUE = ENEMY.RIMSALA_STATUTE_ENTITY,
+
+        ID_RIMSALA_HEAD = arg[0x10],
+        ID_RIMSALA = arg[0x12],
+
+        ID_STATUE_L1 = arg[0x14],
+        ID_STATUE_L2 = arg[0x16],
+        ID_STATUE_L3 = arg[0x18],
+        ID_STATUE_R1 = arg[0x1a],
+        ID_STATUE_R2 = arg[0x1c],
+        ID_STATUE_R3 = arg[0x1e],
+
+        RIMSALA_Z_OFFSET = 0d80,
+        RIMSALA_Z_DISTANCE = 0d50,
+
+        TIME_RELEASE_PHASE = 0d600,
+        TIME_CATCH_PHASE = 0d300,
+
+        STATUE_TRIGGER_SPELL = CAST.FLASH,
+        STATUE_TRIGGER_POWER = 0d90,
+        STATUE_TRIGGER_INTERVAL = 0d420,
+    }
+    @install()
+    @async()
+    fun statue_tracker(rimsala, statue_l1, statue_l2, statue_l3, statue_r1, statue_r2, statue_r3) {
+        if(BOSS_RIMSALA.DEBUG) {
+            debug_subtext("+statue_tracker");
+        }
+
+        sleep(BOSS_RIMSALA.STATUE_TRIGGER_INTERVAL);
+
+        while!(dead(rimsala)) {
+            if(BOSS_RIMSALA.DEBUG) {
+                debug_subtext("statue trigger");
+            }
+
+            arg[0x10] = randrange(0d6);
+            if(arg[0x10] == 0d0) {
+                cast(statue_l1, BOY, BOSS_RIMSALA.STATUE_TRIGGER_SPELL, BOSS_RIMSALA.STATUE_TRIGGER_POWER);
+            } else if(arg[0x10] == 0d1) {
+                cast(statue_l2, DOG, BOSS_RIMSALA.STATUE_TRIGGER_SPELL, BOSS_RIMSALA.STATUE_TRIGGER_POWER);
+            } else if(arg[0x10] == 0d2) {
+                cast(statue_l3, BOY, BOSS_RIMSALA.STATUE_TRIGGER_SPELL, BOSS_RIMSALA.STATUE_TRIGGER_POWER);
+            } else if(arg[0x10] == 0d3) {
+                cast(statue_r1, DOG, BOSS_RIMSALA.STATUE_TRIGGER_SPELL, BOSS_RIMSALA.STATUE_TRIGGER_POWER);
+            } else if(arg[0x10] == 0d4) {
+                cast(statue_r2, BOY, BOSS_RIMSALA.STATUE_TRIGGER_SPELL, BOSS_RIMSALA.STATUE_TRIGGER_POWER);
+            } else if(arg[0x10] == 0d5) {
+                cast(statue_r3, DOG, BOSS_RIMSALA.STATUE_TRIGGER_SPELL, BOSS_RIMSALA.STATUE_TRIGGER_POWER);
+            }
+
+            sleep(BOSS_RIMSALA.STATUE_TRIGGER_INTERVAL);
+        }
+
+        if(BOSS_RIMSALA.DEBUG) {
+            debug_subtext("-statue_tracker");
+        }
+    }
+    fun up() {
+        if(BOSS_RIMSALA.DEBUG) {
+            debug_subtext("up");
+        }
+
+        while(BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] > (arg[0x02] - BOSS_RIMSALA.RIMSALA_Z_OFFSET - BOSS_RIMSALA.RIMSALA_Z_DISTANCE)) {
+            BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] -= 0d1;
+            if(BOSS_RIMSALA.ID_RIMSALA[GENERAL_PURPOSE] == 0d0) {
+                BOSS_RIMSALA.ID_RIMSALA[Y] = BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] + BOSS_RIMSALA.RIMSALA_Z_OFFSET;
+            }
+
+            yield();
+        }
+    }
+    fun down() {
+        if(BOSS_RIMSALA.DEBUG) {
+            debug_subtext("down");
+        }
+
+        while(BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] < (arg[0x02] - BOSS_RIMSALA.RIMSALA_Z_OFFSET)) {
+            BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] += 0d1;
+            if(BOSS_RIMSALA.ID_RIMSALA[GENERAL_PURPOSE] == 0d0) {
+                BOSS_RIMSALA.ID_RIMSALA[Y] = BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] + BOSS_RIMSALA.RIMSALA_Z_OFFSET;
+            }
+
+            yield();
+        }
+    }
+    fun intro() {
+        if(BOSS_RIMSALA.DEBUG) {
+            debug_subtext("intro");
+        }
+
+        BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] = arg[0x02] - BOSS_RIMSALA.RIMSALA_Z_OFFSET - BOSS_RIMSALA.RIMSALA_Z_DISTANCE;
+        BOSS_RIMSALA.ID_RIMSALA[Y] = BOSS_RIMSALA.ID_RIMSALA_HEAD[Y] + BOSS_RIMSALA.RIMSALA_Z_OFFSET;
+
+        sleep(0d60);
+
+        down();
+
+        statue_tracker(BOSS_RIMSALA.ID_RIMSALA, BOSS_RIMSALA.ID_STATUE_L1, BOSS_RIMSALA.ID_STATUE_L2, BOSS_RIMSALA.ID_STATUE_L3, BOSS_RIMSALA.ID_STATUE_R1, BOSS_RIMSALA.ID_STATUE_R2, BOSS_RIMSALA.ID_STATUE_R3);
+    }
+    fun release() {
+        BOSS_RIMSALA.ID_RIMSALA[GENERAL_PURPOSE] = 0d1;
+
+        animate(BOSS_RIMSALA.ID_RIMSALA, ONCE, ANIMATION_ALL.DEFAULT);
+        control(BOSS_RIMSALA.ID_RIMSALA, False);
+
+        attribute(BOSS_RIMSALA.ID_RIMSALA, INVINCIBLE, True);
+        attribute(BOSS_RIMSALA.ID_RIMSALA, ROOT, False);
+
+        up();
+    }
+    fun catch() {
+        down();
+        walk(BOSS_RIMSALA.ID_RIMSALA, TILE_ABSOLUTE, arg[0x00] >> 0d3, arg[0x02] >> 0d3, BOSS_RIMSALA.ID_RIMSALA);
+
+        face(BOSS_RIMSALA.ID_RIMSALA, SOUTH);
+        animate(BOSS_RIMSALA.ID_RIMSALA, LOOP, ANIMATION_ALL.DEFAULT);
+
+        attribute(BOSS_RIMSALA.ID_RIMSALA, ROOT, True);
+        attribute(BOSS_RIMSALA.ID_RIMSALA, INVINCIBLE, False);
+        BOSS_RIMSALA.ID_RIMSALA[GENERAL_PURPOSE] = 0d0;
+    }
+    @install()
+    @async()
+    fun add_rimsala(x, y) {
+        x <<= 0d3;
+        y <<= 0d3;
+
+        _add_enemy(BOSS_RIMSALA.TYPE_RIMSALA_HEAD, x, y);
+        BOSS_RIMSALA.ID_RIMSALA_HEAD = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, INVINCIBLE, True);
+
+        _add_enemy(BOSS_RIMSALA.TYPE_RIMSALA, x, y);
+        BOSS_RIMSALA.ID_RIMSALA = <LAST_ENTITY>;
+        animate(LAST_ENTITY, LOOP, ANIMATION_ALL.DEFAULT);
+        attribute(LAST_ENTITY, INVINCIBLE, True);
+
+        add_enemy(BOSS_RIMSALA.TYPE_STATUE, 0d09, 0d32); // l1
+        BOSS_RIMSALA.ID_STATUE_L1 = <LAST_ENTITY>;
+        add_enemy(BOSS_RIMSALA.TYPE_STATUE, 0d17, 0d24); // l2
+        BOSS_RIMSALA.ID_STATUE_L2 = <LAST_ENTITY>;
+        add_enemy(BOSS_RIMSALA.TYPE_STATUE, 0d25, 0d16); // l3
+        BOSS_RIMSALA.ID_STATUE_L3 = <LAST_ENTITY>;
+        add_enemy(BOSS_RIMSALA.TYPE_STATUE, 0d43, 0d16); // r1
+        BOSS_RIMSALA.ID_STATUE_R1 = <LAST_ENTITY>;
+        add_enemy(BOSS_RIMSALA.TYPE_STATUE, 0d51, 0d24); // r2
+        BOSS_RIMSALA.ID_STATUE_R2 = <LAST_ENTITY>;
+        add_enemy(BOSS_RIMSALA.TYPE_STATUE, 0d59, 0d32); // r3
+        BOSS_RIMSALA.ID_STATUE_R3 = <LAST_ENTITY>;
+
+        intro();
+
+        while!(dead(BOSS_RIMSALA.ID_RIMSALA)) {
+            release();
+            sleep(BOSS_RIMSALA.TIME_RELEASE_PHASE);
+
+            catch();
+            sleep(BOSS_RIMSALA.TIME_CATCH_PHASE);
+        }
+    }
+};
+
+map rimsala(RIMSALA) {
+    enum entrance {
+        south = entrance(0x21, 0x3e, NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            debug_subtext("S=0");
+        },
+        stepon_1 = @install() {
+            debug_subtext("S=1");
+        },
+        spawn_boss_2 = @install() {
+            debug_subtext("S=2");
+        },
+        stepon_3 = @install() {
+            debug_subtext("S=3");
+        },
+        spawn_boss_1 = @install() {
+            debug_subtext("S=4");
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        // add_rimsala(0d34, 0d15);
+        add_rimsala(0d34, 0d27);
+    }
+};

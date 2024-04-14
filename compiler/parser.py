@@ -15,7 +15,7 @@ class Parser():
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '!', 'AND', 'OR',
-                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '-=', '+=', '++', '--',
+                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '<<=', '>>=', '*=', '/=', '-=', '+=', '++', '--',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'INVERT_WORD',
                 'TRUE', 'FALSE',
@@ -638,6 +638,10 @@ class Parser():
         @self.pg.production('expression : param OR= param')
         @self.pg.production('expression : param &= param')
         @self.pg.production('expression : param = param')
+        @self.pg.production('expression : param <<= param')
+        @self.pg.production('expression : param >>= param')
+        @self.pg.production('expression : param *= param')
+        @self.pg.production('expression : param /= param')
         @self.pg.production('expression : param -= param')
         @self.pg.production('expression : param += param')
         @self.pg.production('expression : param + param')
@@ -674,6 +678,14 @@ class Parser():
                 
                 case '=':
                     return Asign(left, right)
+                case '<<=':
+                    return Asign(left, ShiftLeft(left, right))
+                case '>>=':
+                    return Asign(left, ShiftRight(left, right))
+                case '*=':
+                    return Asign(left, Mul(left, right))
+                case '/=':
+                    return Asign(left, Div(left, right))
                 case '-=':
                     return Asign(left, Sub(left, right))
                 case '+=':
