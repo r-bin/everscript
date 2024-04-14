@@ -1,6 +1,5 @@
 ; Created by Skarsnik (See https://github.com/Skarsnik/sneshacking/blob/master/SoE/soepractice.asm)
 hirom
-header
 macro a8()
   sep #$20
 endmacro
@@ -98,7 +97,7 @@ org $CF8826
   
 ;; let do what we want
 org $F00000
-  print "Practice stuff Start at: ", pc
+  ; print "Practice stuff Start at: ", pc
 mni_begin:
   lda !MNI_GLOBAL_FRAME_COUNT
   INC A
