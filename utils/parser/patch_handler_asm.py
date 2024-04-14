@@ -28,7 +28,7 @@ class PatchHandlerAsm(PatchHandler):
 
         args = arg_utils.parse()
 
-        process_utils.call([args.asm, patch, tmp_rom], True)
+        process_utils.call([args.asm, patch, tmp_rom], False)
 
         diff = os.path.join(directory_patch, patch.stem)
         diff = Path(tmp_rom)

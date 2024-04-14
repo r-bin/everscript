@@ -4,7 +4,6 @@ macro ai16()
 endmacro
 
 hirom
-header
 
 !HOOK_MEMORY = $FE5000
 !HOTKEY_MEMORY = $FD0000
