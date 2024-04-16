@@ -54,10 +54,376 @@ fun hotkey_start_r() {
 
 @install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
 fun intro_skip() {
-    // map_transition(flowers, start, NONE);
-    
-    map_transition(rimsala, south, NONE);
+    // act 1
+    // map_transition(raptors, south, NONE);
+    // map_transition(thraxx, south, NONE);
+    // map_transition(graveyard, south, NONE);
+    // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
+    // map_transition(magmar, boss, NONE); // wip
+
+    // act 2
+    // map_transition(vigor, south, NONE);
+    // map_transition(megataur, south, NONE);
+    // map_transition(rimsala, south, NONE); // working
+    // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
+
+    // act 3
+    // map_transition(footknight, boss, NONE); // working
+    map_transition(bad_boys, east, NONE);
+    // map_transition(timberdrake, south, NONE); // working
+    // map_transition(verminator, south, NONE); // working
+    // map_transition(sterling, platform, NONE); // working (todo: grab)
+    // map_transition(mungola, east_2, NONE);
+
+    // act 4
+    // map_transition(face, south, NONE);
+    // map_transition(carltron, center, NONE);
 }
+
+// act 1
+
+group boss_salabog() {
+    enum BOSS_SALABOG {
+        DEBUG = True,
+
+        TYPE = ENEMY.SALABOG,
+
+        ID = arg[0x10],
+
+        RNG = arg[0x12],
+
+        WITH_ROAR = False,
+
+        SPAWN_Y = 0d42, // [tile]
+        SPAWN_MAX = 0d3,
+    }
+    fun change_z(entity:CHARACTER, z) {
+        <0x23db> = z;
+        teleport(entity, entity[X], entity[Y]);
+    }
+    fun submerge() {
+        change_z(SCRIPT_OWNER, 0x20);
+        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.SALABOG_DUCK);
+        yield();
+        yield();
+        wait(SCRIPT_OWNER);
+
+        if(BOSS_SALABOG.DEBUG) {
+            debug_subtext("submerge");
+        }
+
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] = (<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xfffe) + 0d1;
+
+        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+        animate(SCRIPT_OWNER, LOOP, INVISIBLE);
+        // attribute(SCRIPT_OWNER, INVISIBLE, True);
+    }
+    fun random_pause() {
+        arg[0x10] = randrange(0d4) + 0d3; // 3…6
+        while(arg[0x10] > 0d0) {
+            sleep(0d60);
+
+            arg[0x10] -= 0d1;
+        }
+    }
+    @install()
+    fun enemy_killed() {
+        nop(); // TODO
+    }
+    @install()
+    fun spawn_enemies(salabog) {
+        if(BOSS_SALABOG.DEBUG) {
+            debug_subtext("+enemy");
+        }
+
+        arg[0x10] = (salabog[GENERAL_PURPOSE] & 0x00f0) >> 0d4;
+
+        while(arg[0x10] < BOSS_SALABOG.SPAWN_MAX) {
+            arg[0x10] += 0d1;
+
+            _add_enemy(LANTERN_LIGHT, salabog[X], BOSS_SALABOG.SPAWN_Y << 0d0003);
+            attach_script(LAST_ENTITY, DEATH, reference(enemy_killed));
+            
+            sleep(0d30);
+        }
+
+        salabog[GENERAL_PURPOSE] = (salabog[GENERAL_PURPOSE] & 0xff0f) + (arg[0x10] << 0d0004);
+    }
+    fun emerge() {
+        arg[0x12] = <SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0d0008;
+
+        arg[0x14] = arg[0x12];
+
+        while(arg[0x14] == arg[0x12]) {
+            arg[0x14] = randrange(0d5);
+        }
+
+        if(BOSS_SALABOG.DEBUG) {
+            debug_memory(arg[0x12], arg[0x14]);
+        }
+
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] = (<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0x00ff) + (arg[0x14] << 0d0008);
+
+        if(BOSS_SALABOG.WITH_ROAR) {
+            sound(DRAGON_ROAR);
+        }
+        sfx_effect(SHAKING, True);
+
+        <0x23db> = 0x10;
+        if(arg[0x14] == 0d0) {
+            teleport(<SCRIPT_OWNER>, 0d09, 0d34);
+        } else if(arg[0x14] == 0d1) {
+            teleport(<SCRIPT_OWNER>, 0d23, 0d34);
+        } else if(arg[0x14] == 0d2) {
+            teleport(<SCRIPT_OWNER>, 0d30, 0d34);
+        } else if(arg[0x14] == 0d3) {
+            teleport(<SCRIPT_OWNER>, 0d38, 0d34);
+        } else {
+            teleport(<SCRIPT_OWNER>, 0d59, 0d34);
+        }
+
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xfff0;
+        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+
+        sleep(0d20);
+
+        face(SCRIPT_OWNER, SOUTH);
+        if(((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0x00f0) >> 0d4) >= BOSS_SALABOG.SPAWN_MAX) {
+            animate(SCRIPT_OWNER, ONCE, SLASH_1);
+        } else {
+            animate(SCRIPT_OWNER, ONCE, SLASH_1_3);
+
+            // TODO: spawn enemies 0x978b6c if count < 3
+            spawn_enemies(<SCRIPT_OWNER>);
+        }
+
+        sleep(0d40);
+        
+        sfx_effect(SHAKING, False);
+    }
+    @install()
+    fun salabog_triggered() {
+        if(script[0x9] == 0x200) {
+            if(BOSS_SALABOG.DEBUG) {
+                debug_subtext("dead");
+            }
+        } else if((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0x0f) > 0d0) {
+            if(BOSS_SALABOG.DEBUG) {
+                debug_subtext("hit in progress");
+            }
+
+            end();
+        }
+
+        submerge();
+
+        random_pause();
+
+        emerge();
+    }
+    fun add_salabog(x, y) {
+        add_enemy(BOSS_SALABOG.TYPE, x, y);
+        BOSS_SALABOG.ID = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE, reference(salabog_triggered));
+        // attribute(LAST_ENTITY, ROOT, True);
+        // control(LAST_ENTITY, True);
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d2 << 0d0008;
+
+        change_z(BOSS_SALABOG.ID, 0x20);
+        animate(BOSS_SALABOG.ID, ONCE, ANIMATION_ENEMY.SALABOG_STRAIGHT);
+        wait(BOSS_SALABOG.ID);
+        change_z(BOSS_SALABOG.ID, 0x10);
+
+    }
+    fun add_boss_salabog(x, y) {
+        add_salabog(x, y);
+
+        end();
+        while!(dead(BOSS_SALABOG.ID)) {
+            sleep(0d250);
+            sleep(0d250);
+
+        }
+    }
+};
+map salabog(SALABOG) {
+    enum entrance {
+        hut = entrance(0x1b, 0x11, SOUTH),
+        south = entrance(0x1c, 0x61, NORTH),
+
+        boss = entrance(0d30, 0d41, NONE),
+    }
+
+    enum stepon_trigger {
+        exit_hut = @install() {
+            debug_subtext("S=0");
+        },
+        exit_south = @install() {
+            debug_subtext("S=1");
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=2");
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_salabog(0d30, 0d34);
+    }
+};
+
+group boss_magmar() {
+    enum BOSS_MAGMAR {
+        DEBUG = True,
+
+        TYPE = ENEMY.MAGMAR,
+
+        MAGMAR_ID = arg[0x10],
+        BLUB_ID = arg[0x12],
+
+        RNG = arg[0x14],
+    }
+    fun add_blub(entity) {
+        debug_marker();
+        _add_enemy(0d35, BOSS_MAGMAR.MAGMAR_ID[X], BOSS_MAGMAR.MAGMAR_ID[Y]);
+        BOSS_MAGMAR.BLUB_ID = <LAST_ENTITY>;
+    }
+    fun blub(entity, show) {
+        if(show) {
+            teleport(BOSS_MAGMAR.BLUB_ID, BOSS_MAGMAR.MAGMAR_ID[X], BOSS_MAGMAR.MAGMAR_ID[Y]);
+            animate(BOSS_MAGMAR.BLUB_ID, ONCE, ANIMATION_PLACEHOLDER.LAVA_BLUB);
+            sleep(0d66);
+            animate(BOSS_MAGMAR.BLUB_ID, ONCE_FREEZE, ANIMATION_PLACEHOLDER.LAVA_BLUB);
+        } else {
+            animate(BOSS_MAGMAR.BLUB_ID, ONCE_FREEZE, INVISIBLE);
+        }
+    }
+    fun lava_suffle() {
+        BOSS_MAGMAR.RNG = randrange(0d6);
+
+        if(BOSS_MAGMAR.DEBUG) {
+            debug_memory(BOSS_MAGMAR.RNG, 0d0);
+        }
+
+        if(BOSS_MAGMAR.RNG == 0d1) {
+            teleport(BOSS_MAGMAR.MAGMAR_ID, 0d11, 0d27);
+        } else if(BOSS_MAGMAR.RNG == 0d2) {
+            teleport(BOSS_MAGMAR.MAGMAR_ID, 0d05, 0d25);
+        } else if(BOSS_MAGMAR.RNG == 0d3) {
+            teleport(BOSS_MAGMAR.MAGMAR_ID, 0d29, 0d31);
+        } else if(BOSS_MAGMAR.RNG == 0d4) {
+            teleport(BOSS_MAGMAR.MAGMAR_ID, 0d37, 0d27);
+        } else if(BOSS_MAGMAR.RNG == 0d5) {
+            teleport(BOSS_MAGMAR.MAGMAR_ID, 0d43, 0d27);
+        } else {
+            teleport(BOSS_MAGMAR.MAGMAR_ID, 0d19, 0d31);
+        }
+
+        blub(BOSS_MAGMAR.MAGMAR_ID, True);
+
+        animate(BOSS_MAGMAR.MAGMAR_ID, LOOP, SLASH_1_3);
+    }
+    fun yump_out() {
+        attribute(BOSS_MAGMAR.MAGMAR_ID, INVINCIBLE_TEMP, False);
+
+        // TODO: magmar jump instead
+        if(BOSS_MAGMAR.RNG == 0d1) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d27 << 0d0003, 0d37 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d2) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d37 << 0d0003, 0d45 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d3) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d21 << 0d0003, 0d37 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d4) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d19 << 0d0003, 0d41 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d5) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d09 << 0d0003, 0d39 << 0d0003);
+        } else {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d29 << 0d0003, 0d41 << 0d0003);
+        }
+        BOSS_MAGMAR.MAGMAR_ID[Z] = <BOY>[Z];
+
+        sfx_effect(SHAKING, True); // TODO 4 instead of 1
+
+        sleep(0d9);
+
+        animate(BOSS_MAGMAR.MAGMAR_ID, ONCE, SLASH_2);
+
+        sfx_effect(SHAKING, False);
+        blub(BOSS_MAGMAR.MAGMAR_ID, False);
+
+        control(BOSS_MAGMAR.MAGMAR_ID, False);
+    }
+    fun yump_in() {
+        control(BOSS_MAGMAR.MAGMAR_ID, True);
+
+        BOSS_MAGMAR.RNG = randrange(0d6);
+
+        if(BOSS_MAGMAR.DEBUG) {
+            debug_memory(BOSS_MAGMAR.RNG, 0d0);
+        }
+
+        if(BOSS_MAGMAR.RNG == 0d1) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d11 << 0d0003, 0d27 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d2) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d05 << 0d0003, 0d25 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d3) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d29 << 0d0003, 0d31 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d4) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d37 << 0d0003, 0d27 << 0d0003);
+        } else if(BOSS_MAGMAR.RNG == 0d5) {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d43 << 0d0003, 0d27 << 0d0003);
+        } else {
+            drag(BOSS_MAGMAR.MAGMAR_ID, 0d19 << 0d0003, 0d31 << 0d0003);
+        }
+
+        animate(BOSS_MAGMAR.MAGMAR_ID, ONCE_FREEZE, INVISIBLE);
+    }
+    fun add_boss_magmar(x, y) {
+        add_enemy(BOSS_MAGMAR.TYPE, x, y);
+        BOSS_MAGMAR.MAGMAR_ID = <LAST_ENTITY>;
+        control(LAST_ENTITY, True);
+        attribute(LAST_ENTITY, INVINCIBLE_TEMP, False);
+        animate(LAST_ENTITY, ONCE_FREEZE, INVISIBLE);
+
+        add_blub(BOSS_MAGMAR.MAGMAR_ID);
+        lava_suffle();
+
+        sleep(0d60);
+
+        while(True) {
+            yump_out();
+            sleep(0d900);
+
+            yump_in();
+            lava_suffle();
+            sleep(0d120);
+        }
+    }
+};
+map magmar(MAGMAR) {
+    enum entrance {
+        south = entrance(0x18, 0x47, NORTH),
+
+        boss = entrance(0d23, 0d35, NONE)
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            debug_subtext("S=0");
+
+            // add_boss_magmar(0d05, 0d25);
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_magmar(0d05, 0d25);
+    }
+};
+
+// act 2
 
 group boss_rimsala() {
     enum BOSS_RIMSALA {
@@ -264,7 +630,7 @@ group boss_rimsala() {
     }
     @install()
     @async()
-    fun add_rimsala(x, y) {
+    fun add_boss_rimsala(x, y) {
         x <<= 0d3;
         y <<= 0d3;
 
@@ -295,7 +661,6 @@ group boss_rimsala() {
         }
     }
 };
-
 map rimsala(RIMSALA) {
     enum entrance {
         south = entrance(0x21, 0x3e, NORTH)
@@ -313,7 +678,7 @@ map rimsala(RIMSALA) {
 
             if(<0x2834> == 0d0) {
                 <0x2834> = 0d1;
-                add_rimsala(0d34, 0d27);
+                add_boss_rimsala(0d34, 0d27);
             }
         },
         stepon_3 = @install() {
@@ -326,5 +691,666 @@ map rimsala(RIMSALA) {
 
     fun trigger_enter() {
         fade_in();
+    }
+};
+
+group boss_aquagoth() {
+    enum BOSS_AQUAGOTH {
+        DEBUG = True,
+
+        TYPE = ENEMY.AQUAGOTH_ENTITY,
+
+        ID = arg[0x10],
+
+        RNG = arg[0x12],
+        WEIRD_RNG = arg[0x14],
+
+        TIMER_RANDOM_CAST = randrange(0d128) + 0d63, // [frame] (1…3.2s)
+        TIMER_RANDOM_CAST_COOL_DOWN = 0d300, // [frame]
+    }
+    fun random_cast() {
+        BOSS_AQUAGOTH.RNG = randrange(0d128);
+
+        if(BOSS_AQUAGOTH.DEBUG) {
+            debug_memory(time[0d0] - BOSS_AQUAGOTH.WEIRD_RNG > BOSS_AQUAGOTH.TIMER_RANDOM_CAST_COOL_DOWN, BOSS_AQUAGOTH.RNG);
+        }
+
+        if(time[0d0] - BOSS_AQUAGOTH.WEIRD_RNG > BOSS_AQUAGOTH.TIMER_RANDOM_CAST_COOL_DOWN) { // locked for 5 seconds after a cast
+            if(BOSS_AQUAGOTH.RNG < 0d2) { // 0…1
+                cast(BOSS_AQUAGOTH.ID, BOTH, COROSION, 0d26);
+                BOSS_AQUAGOTH.WEIRD_RNG = time[0d0];
+            } else if(BOSS_AQUAGOTH.RNG < 0d11) { // 2…10
+                cast(BOSS_AQUAGOTH.ID, BOTH, LIGHTNING_STORM, 0d52);
+                BOSS_AQUAGOTH.WEIRD_RNG = time[0d0];
+            } else if(BOSS_AQUAGOTH.RNG < 0d12) { // 11
+                cast(BOSS_AQUAGOTH.ID, BOTH, LIGHTNING_STORM, 0d67);
+                BOSS_AQUAGOTH.WEIRD_RNG = time[0d0];
+            }
+        }
+    }
+    fun spawn_oglin() {
+        control(NONE);
+
+        face(BOY, SOUTH);
+        face(DOG, SOUTH);
+
+        if(True) {
+            MEMORY.CAMERA_X = <SCRIPT_OWNER>[X] - 0d128;
+            MEMORY.CAMERA_Y = MEMORY.CAMERA_BOUNDRY_Y_END - 0d225;
+
+            // open door
+            // sound(0x76); // glitchy?
+
+            wait(CAMERA_X);
+            wait(CAMERA_Y);
+
+            add_enemy(OGLIN, 0d26, 0d81);
+            face(LAST_ENTITY, NORTH);
+            // <LAST_ENTITY>[X] += 0d8;
+            // <LAST_ENTITY>[Y] += 0d80;
+        }
+
+        walk(LAST_ENTITY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] + 0d50, LAST_ENTITY, LAST_ENTITY);
+
+        if(True) {
+            // open door
+            // sound(0x76); // glitchy?
+
+            free_camera();
+            wait(CAMERA_X);
+        }
+
+        control(BOTH);
+    }
+    @install()
+    fun aquagoth_triggered() {
+        // TODO: should shrug on hit and continue with the default animation
+
+        if(script[0d9] == 0x200) {
+            end(); // TODO
+        }
+
+        <0x2845> += 0d1;
+
+        tile_animate(0d1, 0d1, 0d1); // aquagoth shoulders up
+        sleep(0d30);
+        tile_animate(0d1, 0d0, 0d0); // aquagoth shoulders down
+        sleep(0d15);
+
+        <0x2845> -= 0d1;
+
+        if((<SCRIPT_OWNER>[HP] < 0d1000) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d0)) {
+            BOSS_AQUAGOTH.RNG = randrange(0d8);
+
+            if(BOSS_AQUAGOTH.RNG == 0d0) {
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d1;
+
+                spawn_oglin();
+            }
+        }
+    }
+    fun add_boss_aquagoth(x, y) {
+        add_enemy(BOSS_AQUAGOTH.TYPE, x, y);
+        BOSS_AQUAGOTH.ID = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE, reference(aquagoth_triggered));
+
+        BOSS_AQUAGOTH.WEIRD_RNG = BOSS_AQUAGOTH.TIMER_RANDOM_CAST_COOL_DOWN;
+
+        while!(dead(BOSS_AQUAGOTH.ID)) {
+            sleep(BOSS_AQUAGOTH.TIMER_RANDOM_CAST);
+
+            // TODO: sparks
+
+            random_cast();
+        }
+    }
+};
+map aquagoth(AQUAGOTH) {
+    enum entrance {
+        south = entrance(0x1b, 0x51, NORTH)
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        // object[0x00] = 0x7e; // close door
+        // object[0x01] = 0x01; // hide aquagoth
+
+        add_boss_aquagoth(0d26, 0d51);
+    }
+};
+
+// act 3
+
+group boss_footknight() {
+    enum BOSS_FOOTKNIGHT {
+        DEBUG = False,
+
+        TYPE = ENEMY.FOOTKNIGHT,
+
+        ID = arg[0x10],
+    }
+    fun add_boss_footknight(x, y) {
+        add_enemy(BOSS_FOOTKNIGHT.TYPE, x, y);
+        BOSS_FOOTKNIGHT.ID = <LAST_ENTITY>;
+    }
+};
+map footknight(FOOTKNIGHT) {
+    enum entrance {
+        east = entrance(0x93, 0x42, WEST),
+        west = entrance(0x01, 0x42, EAST),
+        stairs_east = entrance(0x53, 0x4c, WEST),
+        stairs_west = entrance(0x40, 0x40, EAST), // 0x4c, 0x40
+
+        boss = entrance(0d51, 0d70, EAST), // 0x4c, 0x40
+    }
+
+    enum stepon_trigger {
+        stairs_east = @install() {
+            debug_subtext("S=0");
+            // map_transition(footknight, stairs_west, EAST);
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=1");
+        },
+        exit_west = @install() {
+            debug_subtext("S=2");
+            // map_transition(footknight, east, WEST);
+        },
+        exit_east = @install() {
+            debug_subtext("S=3");
+            // map_transition(footknight, west, EAST);
+        },
+        stairs_west = @install() {
+            debug_subtext("S=4");
+            // map_transition(footknight, stairs_east, WEST);
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_water_3 = @install() {
+            debug_subtext("B=0");
+            _loot(0x18, WATER, 0d01, 0d03);
+        },
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x17, WATER, 0d01, 0d01);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x16, ASH, 0d01, 0d02);
+        },
+        sniff__1_ash_3 = @install() {
+            debug_subtext("B=3");
+            _loot(0x15, ASH, 0d01, 0d03);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=4");
+            _loot(0x14, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_roots_4 = @install() {
+            debug_subtext("B=5");
+            _loot(0x13, ROOTS, 0d01, 0d04);
+        },
+        sniff__1_roots_3 = @install() {
+            debug_subtext("B=6");
+            _loot(0x12, ROOTS, 0d01, 0d03);
+        },
+        sniff__1_roots_4 = @install() {
+            debug_subtext("B=7");
+            _loot(0x11, ROOTS, 0d01, 0d04);
+        },
+        sniff__1_brimstone_3 = @install() {
+            debug_subtext("B=8");
+            _loot(0x10, BRIMSTONE, 0d01, 0d03);
+        },
+        sniff__1_brimstone_1 = @install() {
+            debug_subtext("B=9");
+            _loot(0x0f, BRIMSTONE, 0d01, 0d01);
+        },
+
+        sniff__1_brimstone_1 = @install() {
+            debug_subtext("B=10");
+            _loot(0x0e, BRIMSTONE, 0d01, 0d01);
+        },
+        sniff__1_iron_3 = @install() {
+            debug_subtext("B=11");
+            _loot(0x0d, IRON, 0d01, 0d03);
+        },
+        sniff__1_iron = @install() {
+            debug_subtext("B=12");
+            _loot(0x0c, IRON, 0d01, 0d00);
+        },
+        sniff__1_feather_2 = @install() {
+            debug_subtext("B=13");
+            _loot(0x0b, FEATHER, 0d01, 0d02);
+        },
+        sniff__1_acorns_3 = @install() {
+            debug_subtext("B=14");
+            _loot(0x0a, ACORNS, 0d01, 0d03);
+        },
+        sniff__1_acorns_2 = @install() {
+            debug_subtext("B=15");
+            _loot(0x09, ACORNS, 0d01, 0d02);
+        },
+        sniff__1_acorns_2 = @install() {
+            debug_subtext("B=16");
+            _loot(0x08, ACORNS, 0d01, 0d02);
+        },
+        sniff__1_mushroom_3 = @install() {
+            debug_subtext("B=17");
+            _loot(0x07, MUSHROOM, 0d01, 0d03);
+        },
+        sniff__1_mushroom_2 = @install() {
+            debug_subtext("B=18");
+            _loot(0x06, MUSHROOM, 0d01, 0d02);
+        }
+    }
+
+    fun trigger_enter() {
+        object[0x00] = 0x7e; // close stairs_west
+        object[0x01] = 0x7e; // close stairs_east
+        object[0x02] = 0x01; // close wall_2
+        object[0x03] = 0x01; // close wall_1
+        // object[0x04] = 0x01; // remove bridge_east
+        // object[0x05] = 0x01; // remove bridge_west
+
+        fade_in();
+
+        add_boss_footknight(0d75, 0d69);
+    }
+};
+
+group boss_timberdrake() {
+    enum BOSS_TIMBERDRAKE {
+        DEBUG = False,
+
+        TYPE = ENEMY.FORESTDRAKE,
+
+        ID = arg[0x10],
+
+        SPELL_ID = CAST.FIREBALL,
+        SPELL_POWER = 0d100,
+        WITH_ROAR = True,
+
+        RNG = arg[0x12],
+
+        TIMER_FIREBALL = rand(0xff) + 0d512, // [frame], 512…767 (8.5…12.5s)
+    }
+    fun roar() {
+        if(BOSS_TIMBERDRAKE.WITH_ROAR) {
+            sound(DRAGON_ROAR);
+        }
+        sfx_effect(SHAKING, True); // TODO: should be 3/1
+        sleep(0d30);
+        sfx_effect(SHAKING, False); // TODO: should be 3/1
+
+        animate(BOSS_TIMBERDRAKE.ID, ONCE, DEFAULT);
+    }
+    fun cast_fireball() {
+        BOSS_TIMBERDRAKE.RNG = randrange(0d4);
+
+        if(BOSS_TIMBERDRAKE.RNG == 0d2) {
+            roar();
+            cast(BOSS_TIMBERDRAKE.ID, BOY, BOSS_TIMBERDRAKE.SPELL_ID, BOSS_TIMBERDRAKE.SPELL_POWER);
+        } else if(BOSS_TIMBERDRAKE.RNG == 0d3) {
+            roar();
+            cast(BOSS_TIMBERDRAKE.ID, DOG, BOSS_TIMBERDRAKE.SPELL_ID, BOSS_TIMBERDRAKE.SPELL_POWER);
+        } else {
+            roar();
+            cast(BOSS_TIMBERDRAKE.ID, BOTH, BOSS_TIMBERDRAKE.SPELL_ID, BOSS_TIMBERDRAKE.SPELL_POWER);
+        }
+    }
+    fun add_boss_timberdrake(x, y) {
+        add_enemy(BOSS_TIMBERDRAKE.TYPE, x, y);
+        BOSS_TIMBERDRAKE.ID = <LAST_ENTITY>;
+
+        // intentionally ignores "0x99cfa6 Timberdrake AI? Part 2", which adds the sterling grab on a timer
+
+        while!(dead(BOSS_TIMBERDRAKE.ID)) {
+            sleep(BOSS_TIMBERDRAKE.TIMER_FIREBALL);
+
+            cast_fireball();
+        }
+    }
+};
+map timberdrake(TIMBERDRAKE) {
+    enum entrance {
+        east = entrance(0x2b, 0x15, WEST),
+        south = entrance(0x1b, 0x29, NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            debug_subtext("S=0");
+        },
+        exit_south = @install() {
+            debug_subtext("S=1");
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        // object[0x00] = 0x01; // close south
+        // object[0x01] = 0x01; // open east
+
+        add_boss_timberdrake(0d07, 0d33);
+    }
+};
+
+group boss_verminator() {
+    enum BOSS_VERMINATOR {
+        DEBUG = False,
+
+        TYPE = ENEMY.VERMINATOR,
+
+        ID = arg[0x10],
+
+        TIMER_RANDOM_SPELL = rand(0xff) + 0d256, // [frame], 256…767 (4.2…8.5s)
+
+        RNG = arg[0x12],
+    }
+    fun cast_random_target(spell:CAST, power) {
+        face(BOSS_VERMINATOR.ID, SOUTH);
+
+        BOSS_VERMINATOR.RNG = randrange(0d4);
+
+        if(BOSS_VERMINATOR.RNG == 0d0) {
+            cast(BOSS_VERMINATOR.ID, BOY, spell, power);
+        } else if(BOSS_VERMINATOR.RNG == 0d1) {
+            cast(BOSS_VERMINATOR.ID, DOG, spell, power);
+        } else {
+            cast(BOSS_VERMINATOR.ID, BOTH, spell, power);
+        }
+    }
+    fun cast_random_spell() {
+        animate(BOSS_VERMINATOR.ID, ONCE, CAST);
+
+        BOSS_VERMINATOR.RNG = randrange(0d16);
+        if(BOSS_VERMINATOR.RNG == 0d0) {
+            cast_random_target(PLAGUE, 0d10);
+        } else if(BOSS_VERMINATOR.RNG > 0d10) {
+            cast_random_target(DRAIN, 0d100);
+        } else if(BOSS_VERMINATOR.RNG > 0d5) {
+            cast_random_target(ACID_RAIN, 0d150);
+        } else {
+            cast_random_target(EXPLOSION, 0d200);
+        }
+    }
+    fun add_boss_verminator(x, y) {
+        add_enemy(BOSS_VERMINATOR.TYPE, x, y);
+        BOSS_VERMINATOR.ID = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, ROOT, True);
+        control(LAST_ENTITY, True);
+
+        while!(dead(BOSS_VERMINATOR.ID)) {
+            sleep(BOSS_VERMINATOR.TIMER_RANDOM_SPELL);
+
+            cast_random_spell();
+        }
+    }
+};
+map verminator(VERMINATOR) {
+    enum entrance {
+        north = entrance(0x16, 0x09, SOUTH),
+        east = entrance(0x29, 0x38, WEST),
+        south = entrance(0x16, 0x65, NORTH),
+        west = entrance(0x03, 0x38, EAST),
+        stairs = entrance(0x19, 0x4d, EAST)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            debug_subtext("S=0");
+        },
+        stepon_1 = @install() {
+            debug_subtext("S=1");
+        },
+        stepon_2 = @install() {
+            debug_subtext("S=2");
+        },
+        stepon_3 = @install() {
+            debug_subtext("S=3");
+        },
+        stepon_4 = @install() {
+            debug_subtext("S=4");
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=5");
+        },
+        exit_stairs = @install() {
+            debug_subtext("S=6");
+            // map_transition(verminator, south, WEST);
+        },
+        exit_south = @install() {
+            debug_subtext("S=7");
+            // map_transition(verminator, north, SOUTH);
+        },
+        exit_west = @install() {
+            debug_subtext("S=8");
+            // map_transition(verminator, east, WEST);
+        },
+        exit_east = @install() {
+            debug_subtext("S=9");
+            // map_transition(verminator, west, EAST);
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_verminator(0d22, 0d09);
+    }
+};
+
+group boss_sterling() {
+    enum BOSS_STERLING {
+        DEBUG = False,
+
+        TYPE = ENEMY.STERLING,
+
+        ID = arg[0x10],
+
+        RNG = arg[0x12],
+
+        TIMER_SPELL = randrange(0d256) + 0d512, // [frame] (8.5…12.8s)
+        SPELL_TYPE = CAST.FIREBALL,
+        SPELL_POWER = 0d100,
+
+        WITH_ROAR = False,
+    }
+    fun roar() {
+        if(BOSS_STERLING.WITH_ROAR) {
+            sound(DRAGON_ROAR);
+        }
+        sfx_effect(SHAKING, True); // TODO: should be 2/1
+        sleep(0d30);
+        sfx_effect(SHAKING, False); // TODO: should be 2/1
+
+        animate(BOSS_STERLING.ID, ONCE, DEFAULT);
+    }
+    fun cast_spell() {
+        BOSS_STERLING.RNG = randrange(0d4);
+
+        raor();
+
+        if(BOSS_STERLING.RNG == 0d2) {
+            cast(BOSS_STERLING.ID, BOY, BOSS_STERLING.SPELL_TYPE, BOSS_STERLING.SPELL_POWER);
+        } else if(BOSS_STERLING.RNG == 0d3) {
+            cast(BOSS_STERLING.ID, DOG, BOSS_STERLING.SPELL_TYPE, BOSS_STERLING.SPELL_POWER);
+        } else {
+            cast(BOSS_STERLING.ID, BOTH, BOSS_STERLING.SPELL_TYPE, BOSS_STERLING.SPELL_POWER);
+        }
+    }
+    fun add_boss_sterling(x, y) {
+        add_enemy(BOSS_STERLING.TYPE, x, y);
+        BOSS_STERLING.ID = <LAST_ENTITY>;
+
+        // TODO: attach_sterling_script
+
+        while!(dead(BOSS_STERLING.ID)) {
+            sleep(BOSS_STERLING.TIMER_SPELL);
+
+            cast_fireball();
+        }
+    }
+};
+map sterling(STERLING) {
+    enum entrance {
+        south = entrance(0x55, 0xf9, NORTH),
+        platform = entrance(0x51, 0x2f, NORTH)
+    }
+
+    enum stepon_trigger {
+        elevator_bottom = @install() {
+            debug_subtext("S=0");
+        },
+        elevator_top = @install() {
+            debug_subtext("S=1");
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=2");
+        },
+        trapdoor_4 = @install() {
+            debug_subtext("S=3");
+        },
+        exit_south = @install() {
+            debug_subtext("S=4");
+            // map_transition(sterling, platform, SOUTH);
+        },
+        trapdoor_1 = @install() {
+            debug_subtext("S=5");
+        },
+        stepon_6 = @install() {
+            debug_subtext("S=6");
+        },
+        stepon_7 = @install() {
+            debug_subtext("S=7");
+        },
+        trapdoor_2 = @install() {
+            debug_subtext("S=8");
+        },
+        stepon_9 = @install() {
+            debug_subtext("S=9");
+        },
+
+        trapdoor_3 = @install() {
+            debug_subtext("S=10");
+        },
+        stepon_11 = @install() {
+            debug_subtext("S=11");
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_water_2 = @install() {
+            debug_subtext("B=0");
+            _loot(0x1c, WATER, 0d01, 0d02);
+        },
+        sniff__1_water_4 = @install() {
+            debug_subtext("B=1");
+            _loot(0x1b, WATER, 0d01, 0d04);
+        },
+        sniff__1_acorns_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x1a, ACORNS, 0d01, 0d02);
+        },
+        sniff__1_acorns_1 = @install() {
+            debug_subtext("B=3");
+            _loot(0x19, ACORNS, 0d01, 0d01);
+        },
+        sniff__1_mushroom_3 = @install() {
+            debug_subtext("B=4");
+            _loot(0x18, MUSHROOM, 0d01, 0d03);
+        },
+        sniff__1_mushroom_1 = @install() {
+            debug_subtext("B=5");
+            _loot(0x17, MUSHROOM, 0d01, 0d01);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=6");
+            _loot(0x16, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=7");
+            _loot(0x15, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_feather_2 = @install() {
+            debug_subtext("B=8");
+            _loot(0x14, FEATHER, 0d01, 0d02);
+        },
+        sniff__1_feather_3 = @install() {
+            debug_subtext("B=9");
+            _loot(0x13, FEATHER, 0d01, 0d03);
+        },
+
+        sniff__1_feather_1 = @install() {
+            debug_subtext("B=10");
+            _loot(0x12, FEATHER, 0d01, 0d01);
+        },
+        sniff__1_iron = @install() {
+            debug_subtext("B=11");
+            _loot(0x11, IRON, 0d01, 0d00);
+        },
+        sniff__1_iron_2 = @install() {
+            debug_subtext("B=12");
+            _loot(0x10, IRON, 0d01, 0d02);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=13");
+            _loot(0x0f, ASH, 0d01, 0d02);
+        },
+        sniff__1_ash_1 = @install() {
+            debug_subtext("B=14");
+            _loot(0x0e, ASH, 0d01, 0d01);
+        },
+        sniff__1_ethanol_2 = @install() {
+            debug_subtext("B=15");
+            _loot(0x0d, ETHANOL, 0d01, 0d02);
+        },
+        sniff__1_ethanol_2 = @install() {
+            debug_subtext("B=16");
+            _loot(0x0c, ETHANOL, 0d01, 0d02);
+        },
+        sniff__1_ethanol_1 = @install() {
+            debug_subtext("B=17");
+            _loot(0x0b, ETHANOL, 0d01, 0d01);
+        },
+        gourd_x__1_feather = @install() {
+            debug_subtext("B=18");
+            _loot_chest(0x09, FEATHER, 0d01);
+        },
+        gourd_x__1_acorn = @install() {
+            debug_subtext("B=19");
+            _loot_chest(0x08, ACORNS, 0d01);
+        },
+
+        gourd_x__1_ash = @install() {
+            debug_subtext("B=20");
+            _loot_chest(0x02, ASH, 0d01);
+        },
+        gourd_x__1_ethanol = @install() {
+            debug_subtext("B=21");
+            _loot_chest(0x00, ETHANOL, 0d01);
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // open chest_2
+        // object[0x01] = 0x01; // open elevator_bottom
+        // object[0x02] = 0x01; // open chest_3
+        // object[0x03] = 0x01; // activate trapdoor_3
+        // object[0x04] = 0x01; // open elevator_top
+        // object[0x05] = 0x03; // activate trapdoor_2
+        // object[0x06] = 0x03; // activate trapdoor_4
+        // object[0x07] = 0x03; // activate trapdoor_1
+        // object[0x08] = 0x01; // open chest_1
+        // object[0x09] = 0x01; // open chest_4
+        // object[0x0a] = 0x01; // block elevator_top
+
+        fade_in();
+
+        add_boss_sterling(0d43, 0d29);
     }
 };
