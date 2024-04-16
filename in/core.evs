@@ -379,6 +379,8 @@ group general_enums() {
             // enemies
 
             NEXT_ENEMY_FOLLOWS_ENTITY = <0x2533>, // consumed after an enemy was added (e.g. BEE, CHAMELEON)
+            
+            Z_AFTER_TELEPORT = <0x23db>, // redundant with "entity[Z] = z;"
 
             // sniff spot looting
             LOOT_ITEM = <0x2391>,
@@ -2758,6 +2760,14 @@ group functions() {
                 load_map(map, x, y);
             }
 
+            fun _teleport(character:CHARACTER, x, y) {
+                if(character == CHARACTER.BOTH) {
+                    code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                    code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                } else {
+                    code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                }
+            }
             fun teleport(character:CHARACTER, x, y) {
                 if((x is Word) && (y is Word)) {
                     if(x > 0xff) {
@@ -2773,14 +2783,19 @@ group functions() {
                     }
                 } else {
                     if(character == CHARACTER.BOTH) {
-                        code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                        code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                        code(0x43, entity_t(BOY), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                        code(0x43, entity_t(DOG), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
                     } else {
-                        code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                        code(0x43, entity_t(character), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
                     }
                 }
             }
             
+            fun change_z(entity:CHARACTER, z) { // redundant: same as entity[Z]=z
+                MEMORY.Z_AFTER_TELEPORT = z;
+                teleport(entity, entity[X], entity[Y]);
+            }
+
             fun _init_map(x_start, y_start, x_end, y_end) {
                 MEMORY.CAMERA_BOUNDRY_X_START = x_start;
                 MEMORY.CAMERA_BOUNDRY_X_END = x_end;
@@ -3114,7 +3129,7 @@ group functions() {
                 if(target == CHARACTER.BOTH) {
                     code(0xac, entity_t(character), param(spell), param(level), entity_t(BOY), entity_t(DOG), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
                 } else {
-                    code(0xac, entity_t(character), param(spell), param(level), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+                    code(0xac, entity_t(character), calculate(spell), calculate(level), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
                 }
             }
 
@@ -3249,10 +3264,23 @@ group functions() {
                 code(0xaf, 0x04, entity_t(character), entity_t(0x23b9), entity_t(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
             }
 
-            fun drag(enemy:CHARACTER, x, y) {
+            fun _drag(enemy:CHARACTER, x, y, z) {
                 // eval("af 04 8d 02 00 88 61 01 88 63 01 e0 1e cc 03 // (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
 
-                code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+                if(z is Word) {
+                    code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), calculate(z), address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+                } else {
+                    code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+                }
+            }
+            fun drag(enemy:CHARACTER, x, y, z) {
+                // eval("af 04 8d 02 00 88 61 01 88 63 01 e0 1e cc 03 // (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+
+                if(z is Word) {
+                    code(0xaf, 0x04, entity_t(enemy), calculate(x << 0d0003), calculate(y << 0d0003), calculate(z), address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+                } else {
+                    code(0xaf, 0x04, entity_t(enemy), calculate(x << 0d0003), calculate(y << 0d0003), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+                }
             }
         };
 
@@ -4340,6 +4368,23 @@ group functions() {
 
     group complex() {
         @install()
+        fun cast_team(character, spell:CAST, level, skip_dead_dog) {
+            arg[0x10] = randrange(0d4);
+
+            if(arg[0x10] == 0d0) {
+                cast(character, BOY, spell, level);
+            } else if(arg[0x10] == 0d1) {
+                if(skip_dead_dog == True && <DOG>[HP] <= 0d0) {
+                    cast(character, BOY, spell, level);
+                } else {
+                    cast(character, DOG, spell, level);
+                }
+            } else {
+                cast(character, BOTH, spell, level);
+            }
+        }
+
+        @install()
         fun print_time() {
             arg[0x10] = time[0d0];
             arg[0x12] = time[0d2];
@@ -4667,18 +4712,18 @@ group functions() {
 
                 yield();
 
-                <0x23db> = 0x0020;
+                MEMORY.Z_AFTER_TELEPORT = 0x0020;
                 teleport(BOY, <0x24ab> + 0x08, <0x24af>);
                 yield();
-                <0x23db> = 0x0020;
+                MEMORY.Z_AFTER_TELEPORT = 0x0020;
                 teleport(DOG, <0x24ab> - 0x08, <0x24af>);
                 yield();
 
                 while(<0x24af> < <0x249f>) {
-                    <0x23db> = 0x0020;
+                    MEMORY.Z_AFTER_TELEPORT = 0x0020;
                     teleport(BOY, <0x24ab> + 0x08, <0x24af>);
                     yield();
-                    <0x23db> = 0x0020;
+                    MEMORY.Z_AFTER_TELEPORT = 0x0020;
                     teleport(DOG, <0x24ab> - 0x08, <0x24af>);
                     yield();
 

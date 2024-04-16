@@ -95,6 +95,9 @@ class Resolvable():
                 value = self.resolve_identifier(self, params)
             case Param():
                 value = self.resolve_param(self, params)
+            case BinaryOp():
+                value = self.__class__(self.left.resolve(params), self.right.resolve(params))
+                return value
             case _:
                 return self
             
