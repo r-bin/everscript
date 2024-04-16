@@ -69,7 +69,7 @@ fun intro_skip() {
 
     // act 3
     // map_transition(footknight, boss, NONE); // working
-    map_transition(bad_boys, east, NONE);
+    map_transition(bad_boys, west, NONE); // working (todo: phases/summons)
     // map_transition(timberdrake, south, NONE); // working
     // map_transition(verminator, south, NONE); // working
     // map_transition(sterling, platform, NONE); // working (todo: grab)
@@ -96,10 +96,6 @@ group boss_salabog() {
 
         SPAWN_Y = 0d42, // [tile]
         SPAWN_MAX = 0d3,
-    }
-    fun change_z(entity:CHARACTER, z) {
-        <0x23db> = z;
-        teleport(entity, entity[X], entity[Y]);
     }
     fun submerge() {
         change_z(SCRIPT_OWNER, 0x20);
@@ -169,7 +165,7 @@ group boss_salabog() {
         }
         sfx_effect(SHAKING, True);
 
-        <0x23db> = 0x10;
+        MEMORY.Z_AFTER_TELEPORT = 0x10;
         if(arg[0x14] == 0d0) {
             teleport(<SCRIPT_OWNER>, 0d09, 0d34);
         } else if(arg[0x14] == 0d1) {
@@ -958,6 +954,144 @@ map footknight(FOOTKNIGHT) {
         fade_in();
 
         add_boss_footknight(0d75, 0d69);
+    }
+};
+
+group boss_badboys() {
+    enum BOSS_BADBOYS {
+        DEBUG = False,
+
+        TYPE_BOY = ENEMY.BOY_BLACK,
+
+        ID_BOY = arg[0x10],
+        ID_OWL_1_1 = arg[0x10],
+        ID_OWL_1_2 = arg[0x12],
+        ID_OWL_1_3 = arg[0x14],
+        ID_OWL_2_1 = arg[0x16],
+        ID_OWL_2_2 = arg[0x18],
+        ID_OWL_2_3 = arg[0x1a],
+
+        SPELL_TIMER = arg[0x1c],
+        SPELL_THRESHOLD = 0d2055,
+
+        RNG = arg[0x1e],
+    }
+    @install()
+    fun drag_owls(owl1:BOSS_BADBOYS, owl2:BOSS_BADBOYS, x, y, direction:DIRECTION) {
+        animate(owl1, ONCE, SLASH_1);
+        animate(owl2, ONCE, SLASH_1);
+        wait(owl2);
+        
+        if(direction == DIRECTION.WEST) {
+            animate(owl1, ONCE, SLASH_1_3);
+            drag(owl1, x - 0d7, y - 0d2, 0d20);
+            animate(owl2, ONCE, SLASH_1_3);
+            drag(owl2, x - 0d7, y + 0d2, 0d20);
+
+            animate(owl1, ONCE, SLASH_1_3);
+            drag(owl1, x, y - 0d3, 0d20);
+            animate(owl2, ONCE, SLASH_1_3);
+            drag(owl2, x, y - 0d3, 0d20);
+        }
+
+        destroy(owl2);
+
+        teleport(owl1, x, y);
+        animate(owl1, ONCE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
+        wait(owl1);
+        destroy(owl1);
+
+        add_enemy(BOY_BLACK, x, y, INACTIVE);
+        
+        if(direction == DIRECTION.WEST) {
+            face(LAST_ENTITY, WEST);
+            drag(LAST_ENTITY, x - 0d7, y + 0d1, 0d20); // 33/32
+        }
+
+        <LAST_ENTITY>[Z] = 0x10;
+    }
+    fun add_owl(id:BOSS_BADBOYS, x, y) {
+        add_enemy(OWL_BLACK, x, y, INACTIVE);
+        id = <LAST_ENTITY>;
+        // attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+
+        <LAST_ENTITY>[Z] = 0x00;
+        animate(LAST_ENTITY, ONCE_FREEZE, SLASH_2);
+    }
+    fun cast_spell() {
+        if(False) {
+            face(BOSS_BADBOYS.ID_BOY, SOUTH);
+            animate(BOSS_BADBOYS.ID_BOY, ONCE, CAST);
+        }
+
+        // TODO
+        // cast_team(<BOY>, CRUSH, 0d100);
+        // cast_team(<BOY>, EXPLOSION, 0d120);
+        // cast_team(<BOY>, NITRO, 0d140);
+    }
+    fun add_boss_badboys(x, y) {
+        // add_enemy(BOSS_BADBOYS.TYPE_BOY, x, y);
+        // BOSS_BADBOYS.ID_BOY = <LAST_ENTITY>;
+
+        add_owl(ID_OWL_1_1, 0d13, 0d18); // 0d17, 0d27); // 0d11, 0d27);
+        add_owl(ID_OWL_1_2, 0d21, 0d18); // 0d25, 0d27); // 0d17, 0d32);
+        add_owl(ID_OWL_1_3, 0d29, 0d18); // 0d27, 0d27); // 0d25, 0d29);
+        add_owl(ID_OWL_2_1, 0d13, 0d31); // 0d17, 0d37); // 0d23, 0d29);
+        add_owl(ID_OWL_2_2, 0d21, 0d31); // 0d17, 0d35); // 0d21, 0d29);
+        add_owl(ID_OWL_2_3, 0d29, 0d31); // 0d25, 0d37); // 0d25, 0d31);
+
+        sleep(0d300);
+        drag_owls(ID_OWL_1_3, ID_OWL_2_3, x, y, WEST);
+        sleep(0d300);
+        drag_owls(ID_OWL_1_2, ID_OWL_2_2, x, y, WEST);
+        sleep(0d300);
+        drag_owls(ID_OWL_1_1, ID_OWL_2_1, x, y, WEST);
+
+        while(True) {
+            if(BOSS_BADBOYS.SPELL_TIMER > BOSS_BADBOYS.SPELL_THRESHOLD) {
+                cast_spell();
+                BOSS_BADBOYS.SPELL_TIMER = 0d0;
+            }
+
+            BOSS_BADBOYS.SPELL_TIMER += 0d1 + randrange(0d2);
+            yield();
+        }
+    }
+};
+map bad_boys(BAD_BOYS) {
+    enum entrance {
+        east = entrance(0x63, 0x1d, WEST),
+        west = entrance(0x01, 0x21, EAST)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            debug_subtext("S=0");
+        },
+        exit_west = @install() {
+            debug_subtext("S=1");
+        }
+    }
+
+    fun open_east_exit(open) {
+        if(open) {
+           object[0x00] = 0x00; 
+        } else {
+            object[0x00] = 0x7e;
+        }
+    }
+    fun open_bridge(open) {
+        if(open) {
+           object[0x07] = 0x07e; 
+        } else {
+            object[0x07] = 0x00;
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_badboys(0d40, 0d31);
     }
 };
 
