@@ -63,7 +63,7 @@ fun intro_skip() {
 
     // act 2
     // map_transition(vigor, south, NONE);
-    map_transition(megataur, south, NONE); // working
+    // map_transition(megataur, south, NONE); // working
     // map_transition(rimsala, south, NONE); // working
     // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
 
@@ -76,7 +76,7 @@ fun intro_skip() {
     // map_transition(mungola, east_2, NONE);
 
     // act 4
-    // map_transition(face, south, NONE);
+    map_transition(face, boss, NONE); // working (todo: bosses handling)
     // map_transition(carltron, center, NONE);
 }
 
@@ -1767,5 +1767,122 @@ map sterling(STERLING) {
         fade_in();
 
         add_boss_sterling(0d43, 0d29);
+    }
+};
+
+// act 4
+
+group boss_face() {
+    enum BOSS_FACE {
+        DEBUG = True,
+
+        TYPE_FACE = ENEMY.FACE_ENTITY,
+
+        ID_LEFT = arg[0x10],
+        ID_RIGHT = arg[0x12],
+
+        RNG = arg[0x14],
+
+        TIME_ACTIVATE = randrange(0d256) +  0d256, // [frame] (4.2…8.5s)
+        TIME_SPELL = randrange(0d128) +  0d127, // [frame] (2.1…4.2s)
+        TIME_DEACTIVATE = randrange(0d256) + 0d256, // [frame] (4.2…8.5s)
+
+        TIMER_SPELL_LEFT = arg[0x16],
+        TIMER_DEACTIVATE_LEFT = arg[0x18],
+
+    }
+    fun cast_random_spell(self, other) {
+        debug_marker();
+        BOSS_FACE.RNG = randrange(0d4);
+
+        if(BOSS_FACE.RNG == 0d0) {
+            cast(BOSS_FACE.ID_LEFT, BOY, FLASH, 0d150);
+        } else if(BOSS_FACE.RNG == 0d1) {
+            cast(BOSS_FACE.ID_LEFT, DOG, FLASH, 0d150);
+        } else if(BOSS_FACE.RNG == 0d2) {
+            cast(BOSS_FACE.ID_LEFT, BOTH, FLASH, 0d150);
+        } else {
+            cast(self, other, HEAL, 0d150);
+        }
+    }
+    fun activate_left() {
+        if(BOSS_FACE.ID_LEFT[GENERAL_PURPOSE] == 0d0) {
+            BOSS_FACE.ID_LEFT[GENERAL_PURPOSE] = 0d1;
+
+            // object on
+            attribute(BOSS_FACE.ID_LEFT, INVINCIBLE_TEMP, False);
+
+            if(BOSS_FACE.DEBUG) {
+                debug_subtext("+left");
+            }
+
+            BOSS_FACE.TIMER_DEACTIVATE_LEFT = BOSS_FACE.TIME_DEACTIVATE;
+            BOSS_FACE.TIMER_SPELL_LEFT = BOSS_FACE.TIME_SPELL;
+
+            while(BOSS_FACE.TIMER_DEACTIVATE_LEFT > 0d0) {
+            // while(True) {
+                BOSS_FACE.TIMER_DEACTIVATE_LEFT -= 0d1;
+
+                BOSS_FACE.TIMER_SPELL_LEFT -= 0d1;
+                if(BOSS_FACE.TIMER_SPELL_LEFT == 0d0) {
+                    BOSS_FACE.TIMER_SPELL_LEFT = BOSS_FACE.TIME_SPELL;
+
+                    debug_memory(BOSS_FACE.TIMER_DEACTIVATE_LEFT, BOSS_FACE.TIMER_SPELL_LEFT);
+                    // sleep(0d60);
+            
+                    cast_random_spell(BOSS_FACE.ID_LEFT, BOSS_FACE.ID_RIGHT);
+                }
+
+                yield();
+            }
+
+            BOSS_FACE.ID_LEFT[GENERAL_PURPOSE] = 0d0;
+            attribute(BOSS_FACE.ID_LEFT, INVINCIBLE_TEMP, True);
+            // object off
+
+            if(BOSS_FACE.DEBUG) {
+                debug_subtext("-left");
+            }
+        }
+    }
+    fun activate_right() {
+        nop();
+    }
+    fun add_face(x, y) {
+        add_enemy(BOSS_FACE.TYPE_FACE, x, y);
+    }
+    fun add_boss_face(x, y) {
+        add_face(x - 0d15, y);
+        BOSS_FACE.ID_LEFT = <LAST_ENTITY>;
+        add_face(x + 0d15, y);
+        BOSS_FACE.ID_RIGHT = <LAST_ENTITY>;
+
+        while(True) {
+            sleep(BOSS_FACE.TIME_ACTIVATE);
+
+            activate_left();
+        }
+    }
+};
+map face(FACE) {
+    enum entrance {
+        south = entrance(0x3a, 0x4e, NONE),
+
+        boss = entrance(0d23, 0d21, NONE),
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            debug_subtext("S=0");
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=1");
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_face(0d24, 0d17);
     }
 };
