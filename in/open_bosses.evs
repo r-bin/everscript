@@ -63,13 +63,13 @@ fun intro_skip() {
 
     // act 2
     // map_transition(vigor, south, NONE);
-    // map_transition(megataur, south, NONE);
+    map_transition(megataur, south, NONE); // working
     // map_transition(rimsala, south, NONE); // working
     // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
 
     // act 3
     // map_transition(footknight, boss, NONE); // working
-    map_transition(bad_boys, west, NONE); // working (todo: phases/summons)
+    // map_transition(bad_boys, west, NONE); // working (todo: phases/summons)
     // map_transition(timberdrake, south, NONE); // working
     // map_transition(verminator, south, NONE); // working
     // map_transition(sterling, platform, NONE); // working (todo: grab)
@@ -420,6 +420,287 @@ map magmar(MAGMAR) {
 };
 
 // act 2
+
+group boss_megataur() {
+    enum BOSS_MEGATAUR {
+        DEBUG = True,
+
+        TYPE = ENEMY.MEGATAUR,
+
+        ID = arg[0x10],
+        RNG = arg[0x12],
+    }
+    fun stomp() {
+        sleep(0d9);
+
+        animate(BOSS_MEGATAUR.ID, ONCE, ANIMATION_ENEMY.MEGATAUR_STOMP);
+        wait(BOSS_MEGATAUR.ID);
+
+        sfx_effect(SHAKING, True);
+
+        sleep(0d9);
+
+        animate(BOY, ONCE, KNOCKBACK);
+        damage(BOY, 0d10, True);
+        animate(DOG, ONCE, KNOCKBACK);
+        damage(DOG, 0d10, True); // vanilla: does less damage if the dog has <10 hp
+
+        sleep(0d29);
+
+        sfx_effect(SHAKING, False);
+    }
+    @install()
+    fun roll_in(id, x, y, with_animation) {
+        x <<= 0d0003;
+        y <<= 0d0003;
+
+        arg[0x10] = id[X];
+        arg[0x12] = id[Y];
+
+        arg[0x14] = x > arg[0x10]; // x positive
+        arg[0x16] = y > arg[0x12]; // y positive
+
+        if(arg[0x14] > 0d0) { // x_step
+            arg[0x18] = (x - arg[0x10]) >> 0d1;
+        } else {
+            arg[0x18] = (arg[0x10] - x) >> 0d1;
+        }
+        if(arg[0x16] > 0d0) { // y_step
+            arg[0x1a] = (y - arg[0x12]) >> 0d1;
+        } else {
+            arg[0x1a] = (arg[0x12] - y) >> 0d1;
+        }
+
+        if(False) {
+            debug_memory(arg[0x18], arg[0x1a]);
+            sleep(0d120);
+        }
+
+        if(with_animation > 0d0) {
+            animate(id, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+            sleep(0d3);
+            animate(id, ONCE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+            sleep(0d3);
+
+            id[JUMP_HEIGHT] = 0d20;
+        }
+
+        arg[0x1e] = arg[0x10];
+        arg[0x20] = arg[0x12];
+
+        arg[0x1c] = 0d32;
+        while(arg[0x1c] > 0d0) {
+            arg[0x1c] -= 0d1;
+            
+            if(arg[0x14] > 0d0) {
+                arg[0x1e] = ((arg[0x1e] << 0d0004) + arg[0x18]) >> 0d4;
+            } else {
+                arg[0x1e] = ((arg[0x1e] << 0d0004) - arg[0x18]) >> 0d4;
+            }
+            if(arg[0x16] > 0d0) {
+                arg[0x20] = ((arg[0x20] << 0d0004) + arg[0x1a]) >> 0d4;
+            } else {
+                arg[0x20] = ((arg[0x20] << 0d0004) - arg[0x1a]) >> 0d4;
+            }
+
+            _teleport(id, arg[0x1e], arg[0x20]);
+            yield();
+        }
+
+        if(with_animation > 0d0) {
+            sleep(0d3);
+            attribute(id, INVINCIBLE_TEMP, True);
+            animate(id, ONCE_FREEZE, INVISIBLE);
+
+            id[JUMP_HEIGHT] = 0d20;
+        }
+    }
+    @install()
+    fun roll_out(id, x1, y1, x2, y2, with_animation) {
+        x1 <<= 0d0003;
+        y1 <<= 0d0003;
+        x2 <<= 0d0003;
+        y2 <<= 0d0003;
+
+        sleep(0d240);
+
+        arg[0x10] = randrange(0x4);
+
+        if(rand(0x1) > 0d0) { // upper firepit
+            if(arg[0x10] == 0d0) {
+                arg[0x12] = x1 - (0d12 << 0d0003);
+                arg[0x14] = y1;
+            } else if(arg[0x10] == 0d1) {
+                arg[0x12] = x1 + (0d11 << 0d0003);
+                arg[0x14] = y1;
+            } else {
+                arg[0x12] = x1;
+                arg[0x14] = y1 + (0d11 << 0d0003);
+            }
+
+            arg[0x16] = arg[0x12] > x1; // x positive
+            arg[0x18] = arg[0x14] > y1; // y positive
+
+            if(arg[0x16] > 0d0) { // x_step
+                arg[0x1a] = (arg[0x12] - x1) >> 0d1;
+            } else {
+                arg[0x1a] = (x1 - arg[0x12]) >> 0d1;
+            }
+            if(arg[0x18] > 0d0) { // y_step
+                arg[0x1c] = (arg[0x14] - y1) >> 0d1;
+            } else {
+                arg[0x1c] = (y1 - arg[0x14]) >> 0d1;
+            }
+
+            if(False) {
+                debug_memory(arg[0x1a] >> 0d3, arg[0x1c] >> 0d3);
+                sleep(0d120);
+            }
+
+            _teleport(id, x1, y1);
+            arg[0x1e] = x1;
+            arg[0x20] = y1;
+        } else { // lower firepit
+            if(arg[0x10] == 0d0) {
+                arg[0x12] = x2 - (0d11 << 0d0003);
+                arg[0x14] = y2 + (0d5 << 0d0003);
+            } else if(arg[0x10] == 0d1) {
+                arg[0x12] = x2 + (0d13 << 0d0003);
+                arg[0x14] = y2 + (0d5 << 0d0003);
+            } else {
+                arg[0x12] = x2;
+                arg[0x14] = y2 - (0d7 << 0d0003);
+            }
+
+            arg[0x16] = arg[0x12] > x2;
+            arg[0x18] = arg[0x14] > y2;
+
+            if(arg[0x16] > 0d0) { // x_step
+                arg[0x1a] = (arg[0x12] - x2) >> 0d1;
+            } else {
+                arg[0x1a] = (x2 - arg[0x12]) >> 0d1;
+            }
+            if(arg[0x18] > 0d0) { // y_step
+                arg[0x1c] = (arg[0x14] - y2) >> 0d1;
+            } else {
+                arg[0x1c] = (y2 - arg[0x14]) >> 0d1;
+            }
+
+            _teleport(id, x2, y2);
+            arg[0x1e] = x2;
+            arg[0x20] = y2;
+        }
+
+        if(False) {
+            debug_memory(arg[0x1e] >> 0d3, arg[0x20] >> 0d3);
+            sleep(0d60);
+        }
+
+        attribute(id, INVINCIBLE_TEMP, False);
+        animate(id, ONCE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+        sleep(0d3);
+
+        arg[0x10] = 0d32;
+        while(arg[0x10] > 0d0) {
+            arg[0x10] -= 0d1;
+
+            if(arg[0x16] > 0d0) {
+                arg[0x1e] = ((arg[0x1e] << 0d0004) + arg[0x1a]) >> 0d4;
+            } else {
+                arg[0x1e] = ((arg[0x1e] << 0d0004) - arg[0x1a]) >> 0d4;
+            }
+            if(arg[0x18] > 0d0) {
+                arg[0x20] = ((arg[0x20] << 0d0004) + arg[0x1c]) >> 0d4;
+            } else {
+                arg[0x20] = ((arg[0x20] << 0d0004) - arg[0x1c]) >> 0d4;
+            }
+
+            _teleport(id, arg[0x1e], arg[0x20]);
+            yield();
+
+            if(False) {
+                debug_memory(arg[0x1e], arg[0x20]);
+                sleep(0d60);
+            }
+        }
+
+        if(False) {
+            debug_memory(arg[0x1e] >> 0d3, arg[0x20] >> 0d3);
+            sleep(0d60);
+        }
+
+        if(with_animation > 0d0) {
+            sleep(0d3);
+            animate(id, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+            sleep(0d4);
+            animate(id, ONCE, DEFAULT);
+            sleep(0d19);
+        }
+    }
+    fun random_action() {
+        BOSS_MEGATAUR.RNG = randrange(0d3);
+
+        if(BOSS_MEGATAUR.RNG == 0d0) {
+            stomp();
+        } else if(BOSS_MEGATAUR.RNG == 0d1) {
+            cast_team(BOSS_MEGATAUR.ID, CRUSH, 0d45, False, 0d3);
+        } else if(BOSS_MEGATAUR.RNG == 0d2) {
+            cast_team(BOSS_MEGATAUR.ID, DRAIN, 0d45, False, 0d3);
+        } else {
+            cast_team(BOSS_MEGATAUR.ID, CONFOUND, 0d45, False, 0d3);
+        }
+
+        animate(BOSS_MEGATAUR.ID, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+        sleep(0d10);
+        animate(BOSS_MEGATAUR.ID, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_BREATH);
+        sleep(0d180);
+        animate(BOSS_MEGATAUR.ID, LOOP, ANIMATION_ENEMY.MEGATAUR_IDLE);
+        sleep(0d130);
+    }
+    fun do_sth() {
+        BOSS_MEGATAUR.RNG = randrange(0d4);
+
+
+    }
+    fun add_boss_megataur(x, y) {
+        add_enemy(BOSS_MEGATAUR.TYPE, x, y);
+        BOSS_MEGATAUR.ID = <LAST_ENTITY>;
+        animate(LAST_ENTITY, ONCE_FREEZE, INVISIBLE);
+        // control(BOSS_MEGATAUR.ID, True);
+
+        sleep(0d240);
+
+        while!(dead(BOSS_MEGATAUR.ID)) {
+            roll_out(BOSS_MEGATAUR.ID, 0d64, 0d22, 0d64, 0d40, True);
+
+            control(BOSS_MEGATAUR.ID, False);
+            sleep(rand(0x7) << 0d0006);
+            control(BOSS_MEGATAUR.ID, True);
+
+            random_action();
+
+            roll_in(BOSS_MEGATAUR.ID, 0d64, 0d22, 0d64, 0d40, True);
+            sleep(0d120);
+        }
+    }
+};
+map megataur(MEGATAUR) {
+    enum entrance {
+        south = entrance(0x41, 0x53, NORTH)
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            debug_subtext("S=0");
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_megataur(0d64, 0d32);
+    }
+};
 
 group boss_rimsala() {
     enum BOSS_RIMSALA {
