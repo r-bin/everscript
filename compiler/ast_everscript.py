@@ -149,6 +149,7 @@ class Arg(Function_Base, Calculatable, Memorable):
         self.index = index
         self.index = self.index.resolve([])
         self.offset = None
+        self.signed = False
 
         self.memory = True
 
@@ -164,13 +165,17 @@ class Arg(Function_Base, Calculatable, Memorable):
 
         deref |= self.requires_deref
 
+        read_word = Operand("read word arg")
+        if self.signed:
+            read_word = Operand("read signed word arg")
+
         match [offset]:
             case [None]:
-                code = [Operand("read word arg"), index]
+                code = [read_word, index]
                 if deref:
                     code += [Operand("deref")]
             case [_]:
-                code = [Operand("read word arg"), index, Operand("push")] + offset.calculate(params) + [Operand("+")]
+                code = [read_word, index, Operand("push")] + offset.calculate(params) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
             case _:

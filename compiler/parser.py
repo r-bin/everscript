@@ -12,6 +12,7 @@ class Parser():
                 'VAL', 'VAR',
                 'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_ARG',
                 'IS', '!IS',
+                'SIGNED',
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '!', 'AND', 'OR',
@@ -208,6 +209,16 @@ class Parser():
 
             return Is(value, type, inverted)
 
+        @self.pg.production('expression : SIGNED expression')
+        def parse(p):
+            expression = p[1]
+            if isinstance(expression, Arg):
+                expression.signed = True
+            else:
+                TODO()
+
+            return expression
+        
         @self.pg.production('expression : OBJECT [ expression ]')
         def parse(p):
             index = p[2]

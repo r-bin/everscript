@@ -57,7 +57,7 @@ fun intro_skip() {
     // act 1
     // map_transition(raptors, south, NONE);
     // map_transition(thraxx, south, NONE);
-    // map_transition(graveyard, south, NONE);
+    map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
     // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
     // map_transition(magmar, boss, NONE); // wip
 
@@ -76,11 +76,351 @@ fun intro_skip() {
     // map_transition(mungola, east_2, NONE);
 
     // act 4
-    map_transition(face, boss, NONE); // working (todo: bosses handling)
+    // map_transition(face, boss, NONE); // working (todo: bosses handling)
     // map_transition(carltron, center, NONE);
 }
 
 // act 1
+
+group boss_vipercommander() {
+    enum BOSS_VIPERCOMMANDER {
+        DEBUG = True,
+
+        TYPE_COMMANDER = ENEMY.LIZARD_BLACK,
+        TYPE_LIZARD = ENEMY.LIZARD,
+
+        ID = arg[0x10],
+
+        TIMER_THRESHOLD = arg[0x12],
+        TIME_THRESHOLD = (randrange(0d8) + 0d9) * 0d60, // [frame] (9…17s)
+
+        BONK_DAMAGE = 0d10,
+    }
+    @install()
+    fun bonk(with_sound) {
+        if(with_sound == True) {
+            sound(0x80); // TODO
+        }
+
+        sfx_effect(SHAKING, True);
+        sleep(0d30);
+
+        animate(BOY, ONCE, KNOCKBACK);
+        animate(DOG, ONCE, KNOCKBACK);
+        sleep(0d4);
+
+        damage(BOY, BOSS_VIPERCOMMANDER.BONK_DAMAGE, True);
+        damage(DOG, BOSS_VIPERCOMMANDER.BONK_DAMAGE, True);
+
+        sfx_effect(SHAKING, False);
+    }
+    @install()
+    fun move_32_step(id, x, y, sleep_time) {
+        x <<= 0d0003;
+        y <<= 0d0003;
+
+        arg[0x10] = id[X];
+        arg[0x12] = id[Y];
+
+        arg[0x14] = x > arg[0x10]; // x positive
+        arg[0x16] = y > arg[0x12]; // y positive
+
+        if(arg[0x14] > 0d0) { // x_step
+            arg[0x18] = (x - arg[0x10]) >> 0d1;
+        } else {
+            arg[0x18] = (arg[0x10] - x) >> 0d1;
+        }
+        if(arg[0x16] > 0d0) { // y_step
+            arg[0x1a] = (y - arg[0x12]) >> 0d1;
+        } else {
+            arg[0x1a] = (arg[0x12] - y) >> 0d1;
+        }
+
+        if(False) {
+            debug_memory(arg[0x18], arg[0x1a]);
+            sleep(0d120);
+        }
+
+        arg[0x1e] = arg[0x10];
+        arg[0x20] = arg[0x12];
+
+        arg[0x1c] = 0d32;
+        while(arg[0x1c] > 0d0) {
+            arg[0x1c] -= 0d1;
+            
+            if(arg[0x14] > 0d0) {
+                arg[0x1e] = ((arg[0x1e] << 0d0004) + arg[0x18]) >> 0d4;
+            } else {
+                arg[0x1e] = ((arg[0x1e] << 0d0004) - arg[0x18]) >> 0d4;
+            }
+            if(arg[0x16] > 0d0) {
+                arg[0x20] = ((arg[0x20] << 0d0004) + arg[0x1a]) >> 0d4;
+            } else {
+                arg[0x20] = ((arg[0x20] << 0d0004) - arg[0x1a]) >> 0d4;
+            }
+
+            _teleport(id, arg[0x1e], arg[0x20]);
+            
+            if(sleep_time > 0d0) {
+                sleep(sleep_time);
+            } else {
+                yield();
+            }
+        }
+    }
+    @install()
+    fun roll_down(entity) {
+        animate(entity, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+        animate(entity, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+
+        arg[0x10] = entity[X] << 0d0004; // new x
+        arg[0x12] = entity[Y] << 0d0004; // new y
+
+        arg[0x14] = 0d0; // dx
+        arg[0x16] = -0d42; // dy
+
+        MEMORY.Z_AFTER_TELEPORT = 0x00;
+
+        while(signed arg[0x16] < 0d72) {
+            arg[0x10] += arg[0x14];
+            arg[0x12] += arg[0x16];
+
+            _teleport(entity, arg[0x10] >> 0d4, arg[0x12] >> 0d4);
+
+            yield();
+            signed arg[0x16] += 0d1;
+        }
+
+        entity[Z] = 0x10;
+        MEMORY.Z_AFTER_TELEPORT = 0x10;
+
+        animate(entity, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+        animate(entity, ONCE, DEFAULT);
+
+        sleep(0d30);
+        animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+
+        while(entity[Y] < (0d35 << 0d0003)) {
+            entity[Y] += 0d2;
+            yield();
+        }
+
+        animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+        sleep(0d20);
+        animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+    }
+    fun roll_up(entity) {
+        face(entity, NORTH);
+        animate(entity, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+
+        while(entity[Y] > (0d09 << 0d0003)) {
+            entity[Y] -= 0d2;
+            yield();
+        }
+
+        teleport(entity, 0d49, 0d09);
+        face(entity, SOUTH);
+
+        animate(entity, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+    }
+    fun add_lizard(x, y) {
+        add_enemy(BOSS_VIPERCOMMANDER.TYPE_LIZARD, x, y);
+    }
+    fun add_boss_vipercommander(x, y) {
+        add_enemy(BOSS_VIPERCOMMANDER.TYPE_COMMANDER, x, y);
+        BOSS_VIPERCOMMANDER.ID = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, ROOT, True);
+        control(LAST_ENTITY, True);
+        animate(LAST_ENTITY, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
+
+        add_lizard(0d29, 0d27);
+        add_lizard(0d29, 0d31);
+        add_lizard(0d67, 0d27);
+        add_lizard(0d67, 0d31);
+
+        sleep(0d300);
+
+        // roll_down();
+        // move_32_step(BOSS_VIPERCOMMANDER.ID, 0d50, 0d35, 0d7);
+
+        // move_32_step(BOSS_VIPERCOMMANDER.ID, 0d50, 0d09, 0d7);
+
+        BOSS_VIPERCOMMANDER.TIMER_THRESHOLD = time[0d0] + BOSS_VIPERCOMMANDER.TIME_THRESHOLD;
+        while!(dead(BOSS_VIPERCOMMANDER.ID)) {
+            if(
+                (<ACTIVE>[X] > (0d28 << 0d0003)) &&
+                (<ACTIVE>[X] < (0d70 << 0d0003)) &&
+                (<ACTIVE>[Y] < (0d28 << 0d0003)) &&
+                (BOSS_VIPERCOMMANDER.TIMER_THRESHOLD < time[0d0])
+            ) {
+                if(BOSS_VIPERCOMMANDER.DEBUG) {
+                    debug_subtext("bang");
+                }
+
+                control(BOSS_VIPERCOMMANDER.ID, True);
+                roll_down(BOSS_VIPERCOMMANDER.ID);
+                bonk();
+                roll_up(BOSS_VIPERCOMMANDER.ID);
+                control(BOSS_VIPERCOMMANDER.ID, False);
+
+                BOSS_VIPERCOMMANDER.TIMER_THRESHOLD = time[0d0] + BOSS_VIPERCOMMANDER.TIME_THRESHOLD;
+            }
+
+            sleep(0d20);
+        }
+    }
+};
+map graveyard(GRAVEYARD) {
+    enum entrance {
+        north = entrance(0x32, 0x0f, SOUTH),
+        south = entrance(0x2f, 0x5f, NORTH),
+
+        boss = entrance(0d49, 0d30, NONE),
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            debug_subtext("S=0");
+        },
+        exit_south = @install() {
+            debug_subtext("S=1");
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=2");
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_ash = @install() {
+            debug_subtext("B=0");
+            _loot(0x0c, ASH, 0d01, 0d00);
+        },
+        sniff__1_oil = @install() {
+            debug_subtext("B=1");
+            _loot(0x02, OIL, 0d01, 0d00);
+        },
+        sniff__1_ash_1 = @install() {
+            debug_subtext("B=2");
+            _loot(0x06, ASH, 0d01, 0d01);
+        },
+        sniff__1_ash = @install() {
+            debug_subtext("B=3");
+            _loot(0x0e, ASH, 0d01, 0d00);
+        },
+        sniff__1_ash = @install() {
+            debug_subtext("B=4");
+            _loot(0x0f, ASH, 0d01, 0d00);
+        },
+        sniff__1_ash = @install() {
+            debug_subtext("B=5");
+            _loot(0x07, ASH, 0d01, 0d00);
+        },
+        sniff__1_wax_1 = @install() {
+            debug_subtext("B=6");
+            _loot(0x1b, WAX, 0d01, 0d01);
+        },
+        sniff__1_wax_2 = @install() {
+            debug_subtext("B=7");
+            _loot(0x1c, WAX, 0d01, 0d02);
+        },
+        sniff__1_ash_1 = @install() {
+            debug_subtext("B=8");
+            _loot(0x11, ASH, 0d01, 0d01);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=9");
+            _loot(0x18, ASH, 0d01, 0d02);
+        },
+
+        sniff__1_clay_2 = @install() {
+            debug_subtext("B=10");
+            _loot(0x05, CLAY, 0d01, 0d02);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=11");
+            _loot(0x09, CLAY, 0d01, 0d00);
+        },
+        sniff__1_oil_2 = @install() {
+            debug_subtext("B=12");
+            _loot(0x19, OIL, 0d01, 0d02);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=13");
+            _loot(0x12, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=14");
+            _loot(0x15, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_oil = @install() {
+            debug_subtext("B=15");
+            _loot(0x08, OIL, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=16");
+            _loot(0x0a, CLAY, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=17");
+            _loot(0x01, WATER, 0d01, 0d00);
+        },
+        sniff__1_wter_1 = @install() {
+            debug_subtext("B=18");
+            _loot(0x03, WATER, 0d01, 0d01);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=19");
+            _loot(0x0d, ROOTS, 0d01, 0d00);
+        },
+
+        sniff__1_roots_1 = @install() {
+            debug_subtext("B=20");
+            _loot(0x1d, ROOTS, 0d01, 0d01);
+        },
+        sniff__1_roots_3 = @install() {
+            debug_subtext("B=21");
+            _loot(0x1a, ROOTS, 0d01, 0d03);
+        },
+        sniff__1_water_2 = @install() {
+            debug_subtext("B=22");
+            _loot(0x13, WATER, 0d01, 0d02);
+        },
+        sniff__1_clay_1 = @install() {
+            debug_subtext("B=23");
+            _loot(0x04, CLAY, 0d01, 0d01);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=24");
+            _loot(0x0b, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=25");
+            _loot(0x1e, WATER, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=26");
+            _loot(0x10, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_clay_1 = @install() {
+            debug_subtext("B=27");
+            _loot(0x17, CLAY, 0d01, 0d01);
+        },
+        sniff__1_ash = @install() {
+            debug_subtext("B=28");
+            _loot(0x16, ASH, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=29");
+            _loot(0x14, CLAY, 0d01, 0d00);
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_vipercommander(0d50, 0d09);
+    }
+};
 
 group boss_salabog() {
     enum BOSS_SALABOG {
@@ -1792,7 +2132,6 @@ group boss_face() {
 
     }
     fun cast_random_spell(self, other) {
-        debug_marker();
         BOSS_FACE.RNG = randrange(0d4);
 
         if(BOSS_FACE.RNG == 0d0) {

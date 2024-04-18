@@ -5,6 +5,7 @@ class Lexer():
         self.lexer = LexerGenerator()
 
     def _add_tokens(self):
+        self.lexer.add('SIGNED', 'signed(?=\ )')
         self.lexer.add('T_BYTE', 'Byte')
         self.lexer.add('T_WORD', 'Word')
         self.lexer.add('T_MEMORY', 'Memory')
