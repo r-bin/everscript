@@ -55,7 +55,7 @@ fun hotkey_start_r() {
 @install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
 fun intro_skip() {
     // act 1
-    map_transition(raptors, south, NONE); // working (todo: phases)
+    // map_transition(raptors, south, NONE); // working (todo: phases)
     // map_transition(thraxx, south, NONE);
     // map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
     // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
@@ -73,7 +73,7 @@ fun intro_skip() {
     // map_transition(timberdrake, south, NONE); // working
     // map_transition(verminator, south, NONE); // working
     // map_transition(sterling, platform, NONE); // working (todo: grab)
-    // map_transition(mungola, east_2, NONE);
+    map_transition(mungola, east_2, NONE); // working (todo: spawns, phases)
 
     // act 4
     // map_transition(face, boss, NONE); // working (todo: bosses handling)
@@ -2350,6 +2350,162 @@ map sterling(STERLING) {
         fade_in();
 
         add_boss_sterling(0d43, 0d29);
+    }
+};
+
+group boss_mungola() {
+    enum BOSS_MUNGOLA {
+        DEBUG = True,
+
+        TYPE_FACE = ENEMY.MUNGOLA_ENTITY,
+        TYPE_PUPPET_FEMALE = ENEMY.PUPPET_2,
+        TYPE_PUPPET_MALE = ENEMY.PUPPET_1,
+
+        ID_FACE = arg[0x10],
+        ID_PUPPET_FEMALE = arg[0x12],
+        ID_PUPPET_MALE = arg[0x14],
+
+        RNG = arg[0x16],
+
+        TIMER = arg[0x18],
+        TIME_SPELL = 0d720, // [frame] (12s)
+
+        HEAL_AMOUNT = 0d20 + randrange(0d64),
+    }
+    fun random_kick() {
+        BOSS_MUNGOLA.RNG = randrange(0d256);
+
+        if(BOSS_MUNGOLA.RNG == 0d0) {
+            if(BOSS_MUNGOLA.DEBUG) {
+                debug_subtext("kick!");
+            }
+
+            if(rand(0d1) == 0d0) {
+                animate(BOSS_MUNGOLA.ID_PUPPET_FEMALE, ONCE, ANIMATION_ENEMY.PUPPET_1_ATTACK);
+            } else {
+                animate(BOSS_MUNGOLA.ID_PUPPET_MALE, ONCE, ANIMATION_ENEMY.PUPPET_2_ATTACK_2);
+            }
+        }
+    }
+    fun heal_face() {
+        control(BOSS_MUNGOLA.ID_PUPPET_FEMALE, True);
+        control(BOSS_MUNGOLA.ID_PUPPET_MALE, True);
+
+        attribute(BOSS_MUNGOLA.ID_PUPPET_FEMALE, INVINCIBLE_TEMP, True);
+        attribute(BOSS_MUNGOLA.ID_PUPPET_MALE, INVINCIBLE_TEMP, True);
+
+        subtext("Mephista heals Mungola!");
+        sound(HEAL_START);
+
+        animate(BOSS_MUNGOLA.ID_PUPPET_FEMALE, ONCE, ANIMATION_ENEMY.PUPPET_2_JUMP);
+        sleep(0d60);
+
+        heal(BOSS_MUNGOLA.ID_FACE, BOSS_MUNGOLA.HEAL_AMOUNT, True);
+
+        attribute(BOSS_MUNGOLA.ID_PUPPET_FEMALE, INVINCIBLE_TEMP, False);
+        attribute(BOSS_MUNGOLA.ID_PUPPET_MALE, INVINCIBLE_TEMP, False);
+
+        control(BOSS_MUNGOLA.ID_PUPPET_FEMALE, False);
+        control(BOSS_MUNGOLA.ID_PUPPET_MALE, False);
+    }
+    fun rando_cast() {
+        if(BOSS_MUNGOLA.DEBUG) {
+            debug_subtext("cast!");
+        }
+
+        BOSS_MUNGOLA.RNG = randrange(0d256);
+
+        if(BOSS_MUNGOLA.RNG > 0d0) { // damage
+            BOSS_MUNGOLA.RNG = randrange(0d4);
+
+            if(BOSS_MUNGOLA.RNG != 0d0) {
+                cast(BOSS_MUNGOLA.ID_FACE, BOTH, COROSION, 0d100);
+            } else {
+                cast(BOSS_MUNGOLA.ID_FACE, BOTH, FIREBALL, 0d100);
+            }
+        } else { // heal
+            heal_face();
+        }
+    }
+    fun add_puppet_female(x, y) {
+        add_enemy(BOSS_MUNGOLA.TYPE_PUPPET_FEMALE, x, y);
+        BOSS_MUNGOLA.ID_PUPPET_FEMALE = <LAST_ENTITY>;
+        
+        animate(LAST_ENTITY, ONCE, ANIMATION_ENEMY.PUPPET_2_ENTER);
+        control(LAST_ENTITY, True);
+    }
+    fun add_puppet_male(x, y) {
+        add_enemy(BOSS_MUNGOLA.TYPE_PUPPET_MALE, x, y);
+        BOSS_MUNGOLA.ID_PUPPET_MALE = <LAST_ENTITY>;
+        
+        animate(LAST_ENTITY, ONCE, ANIMATION_ENEMY.PUPPET_1_ENTER);
+        control(LAST_ENTITY, True);
+    }
+    fun add_boss_mungola(x, y) {
+        add_enemy(BOSS_MUNGOLA.TYPE_FACE, x, y);
+        BOSS_MUNGOLA.ID_FACE = <LAST_ENTITY>;
+
+        if(False) {
+            add_puppet_female(0d19, 0d35);
+            add_puppet_male(0d41, 0d35);
+        } else {
+            add_puppet_female(0d25, 0d15);
+            add_puppet_male(0d35, 0d15);
+
+            while!(dead(BOSS_MUNGOLA.ID_FACE)) {
+                BOSS_MUNGOLA.TIMER += 0d1;
+
+                if(BOSS_MUNGOLA.TIMER > BOSS_MUNGOLA.TIME_SPELL) {
+                    BOSS_MUNGOLA.TIMER = 0d0;
+
+                    rando_cast();
+                }
+
+                random_kick();
+
+                yield();
+            }
+        }
+    }
+};
+map mungola(MUNGOLA) {
+    enum entrance {
+        east_1 = entrance(0x39, 0x15, WEST),
+        east_2 = entrance(0x39, 0x24, WEST)
+    }
+
+    enum stepon_trigger {
+        stairs = @install() {
+            debug_subtext("S=0");
+        },
+        exit_east_1 = @install() {
+            debug_subtext("S=1");
+        },
+        exit_east_2 = @install() {
+            debug_subtext("S=2");
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // shake banner_2
+        // object[0x01] = 0x01; // shake banner_4
+        // object[0x02] = 0x01; // shake banner_5
+        // object[0x03] = 0x01; // shake banner_1
+        // object[0x04] = 0x01; // shake banner_3
+        object[0x05] = 0x01; // change mungola_1 (scalp - 0:hidden, 1:shown, 2:dead)
+        object[0x06] = 0x01; // change mungola_2 (eye_left - 0:hidden, 1:hidden_wink, 2:shown, 3:dead)
+        object[0x07] = 0x02; // change mungola_3 (mouth_left - 0:hidden, 2:shown, 3:shown_teeth, 4:dead)
+        // object[0x08] = 0x01; // shake banner_2_more
+        object[0x09] = 0x01; // change mungola_4 (eye_right - 0:hidden, 1:hidden_wink, 2:shown, 3:dead)
+        object[0x0a] = 0x02; // change mungola_5 (mouth_left - 0:hidden, 2:shown, 3:shown_teeth, 4:dead)
+        object[0x0b] = 0x01; // change mungola_6 (chin - 0:hidden, 1:shown, 2:dead)
+        // object[0x0c] = 0x01; // open hole
+        object[0x0d] = 0x01; // unblock stairs
+        // object[0x0e] = 0x01; // close exit_east_2
+
+        fade_in();
+
+        add_boss_mungola(0d30, 0d09);
     }
 };
 
