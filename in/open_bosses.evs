@@ -58,13 +58,13 @@ fun hotkey_start_r() {
 fun intro_skip() {
     // act 1
     // map_transition(raptors, south, NONE); // working (todo: phases)
-    // map_transition(thraxx, south, NONE);
+    map_transition(thraxx, south, NONE); // wip
     // map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
     // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
     // map_transition(magmar, boss, NONE); // wip
 
     // act 2
-    map_transition(vigor, south, NONE); // working
+    // map_transition(vigor, south, NONE); // working
     // map_transition(megataur, south, NONE); // working
     // map_transition(rimsala, south, NONE); // working
     // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
@@ -324,6 +324,165 @@ map raptors(RAPTORS) {
         fade_in();
 
         add_boss_raptors(0d20, 0d20);
+    }
+};
+
+group boss_thraxx() {
+    enum BOSS_THRAXX {
+        DEBUG = True,
+
+        TYPE = ENEMY.THRAXX_HEART,
+
+        ID = arg[0x10],
+    }
+    @install()
+    fun roar() {
+        nop();
+    }
+    @install()
+    fun heart_triggered() {
+        if(BOSS_THRAXX.DEBUG) {
+            debug_subtext("heart triggered");
+        }
+
+        control(ACTIVE, True);
+
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0d1;
+
+        arg[0x10] = <SCRIPT_OWNER>[HP];
+        arg[0x12] = <SCRIPT_OWNER>[GENERAL_PURPOSE] * (rand(0x9) + 0d1);
+
+        damage(SCRIPT_OWNER, arg[0x12], True);
+        sleep(0d21);
+        // maggot
+        sleep(0d29);
+
+        if(arg[0x12] < arg[0x10]) {
+            control(NONE);
+
+            face(ACTIVE, NORTH);
+            animate(ACTIVE, FREEZE, KNOCKBACK);
+            attribute(ACTIVE, ROOT, True);
+            attribute(ACTIVE, UNKNOWN_2_1, True);
+
+            while(arg[0x14] <= 0d6) {
+                arg[0x14] += 0d1;
+
+                arg[0x16] = 0d0;
+                while(arg[0x16] < 0d7) {
+                    arg[0x16] += 0d1;
+
+                    teleport_relative(ACTIVE, 0d0, arg[0x14]);
+                    yield();
+                }
+            }
+
+            animate(ACTIVE, ONCE, KNOCKBACK);
+            attribute(ACTIVE, ROOT, False);
+            attribute(ACTIVE, UNKNOWN_2_1, False);
+
+            damage(ACTIVE, 0d5, True);
+            control(BOTH);
+
+            roar();
+        }
+
+    }
+    fun cage_triggered() {
+        sound(AXE_ATTACK);
+        yield();
+
+        // TODO: connect to memory
+
+        arg[0x10] += 0d1;
+        damage(arg[0x12], 0d2 + arg[0x10], True);
+
+        if(arg[0x10] > 0d2) {
+            arg[0x10] = 0d0;
+
+            // roar
+            // open cage
+            nop();
+        } else {
+            arg[0x14] += 0d1;
+        }
+
+    }
+    fun add_boss_thraxx(x, y) {
+        add_enemy(BOSS_THRAXX.TYPE, x, y);
+        BOSS_THRAXX.ID = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(heart_triggered));
+
+        add_enemy(THRAXX_LEFT_ARM, 0d19, 0d14);
+        add_enemy(THRAXX_RIGHT_ARM, 0d29, 0d14);
+    }
+};
+map thraxx(THRAXX) {
+    enum entrance {
+        north = entrance(0x18, 0x10, SOUTH),
+        south = entrance(0x17, 0x3f, NORTH),
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            debug_subtext("S=0");
+
+            // map_transition(thraxx, south, NORTH);
+        },
+        trigger_boss = @install() {
+            debug_subtext("S=1");
+        },
+        exit_south = @install() {
+            debug_subtext("S=2");
+            // map_transition(thraxx, north, SOUTH);
+        }
+    }
+
+    enum b_trigger {
+        cocoon = @install() {
+            debug_subtext("B=0");
+        },
+        rip_cage = @install() {
+            debug_subtext("B=1");
+
+            cage_triggered();
+        }
+    }
+
+    fun show_thraxx(show) {
+        if(show) {
+            object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+            object[0x01] = 0x00; // change body (0=present, 1=cocoon, 2=gone)
+            object[0x02] = 0x00; // change rip_entrance_right (0=present, 1=gone)
+            object[0x03] = 0x00; // change rip_entrance_left (0=present, 1=gone)
+        } else {
+            object[0x00] = 0x02; // change rip_entrance (0=open, 1=closed, 2=gone)
+            object[0x01] = 0x02; // change body (0=present, 1=cocoon, 2=gone)
+            object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
+            object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
+        }
+    }
+
+    fun show_cocoon(show) {
+        if(show) {
+            object[0x01] = 0x01;
+        } else {
+            object[0x01] = 0x00;
+        }
+    }
+
+    fun trigger_enter() {
+        show_thraxx(True);
+        // show_cocoon();
+
+        // object[0x00] = 0x01; // change rip_entrance (0=open, 1=closed, 2=gone)
+        // object[0x01] = 0x01; // change body (0=present, 1=cocoon, 2=gone)
+        // object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
+        // object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
+
+        fade_in();
+
+        add_boss_thraxx(0d24, 0d19);
     }
 };
 
