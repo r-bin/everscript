@@ -166,13 +166,14 @@ class Parser():
 
             return expression
 
-        @self.pg.production('expression : VAL IDENTIFIER')
-        @self.pg.production('expression : VAR IDENTIFIER')
+        @self.pg.production('expression : VAL IDENTIFIER = expression')
+        @self.pg.production('expression : VAR IDENTIFIER = expression')
         def parse(p):
             constant = p[0].gettokentype() == "VAL"
             name = p[1].value
+            value = p[3]
 
-            function_variable = FunctionVariable(name, constant)
+            function_variable = FunctionVariable(name, value, constant)
 
             scope = self.generator.current_scope()
 

@@ -581,6 +581,9 @@ class Function_Code(Function_Base):
                     list.append(code)
                 case str():
                     list.append(a)
+                case FunctionVariable():
+                    param = Param(a.name, a.value)
+                    params.append(param)
                 case None:
                     pass
                 case _:
@@ -966,6 +969,7 @@ class Opcode():
         return f"Opcode({'{:02X}'.format(self.value, 'x')}/{self.name})"
     
 class FunctionVariable():
-    def __init__(self, name, constant=False):
+    def __init__(self, name, value=None, constant=False):
         self.name = name
+        self.value = value
         self.constant = constant
