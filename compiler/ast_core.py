@@ -385,8 +385,10 @@ class Word(Function_Base, Calculatable):
 
         value = re.sub("[+-]{0,1}0x", "", value)
         value = wrap(value, 2)
+
+        value = ' '.join(reversed(value))
         
-        return ' '.join(reversed(value))
+        return value
     
     def calculate(self, params:list[Param]):
         i = self.eval(params)
