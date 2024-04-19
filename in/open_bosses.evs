@@ -39,6 +39,8 @@ fun hotkey_start() {
 @inject(ADDRESS.HOTKEY_START_L)
 fun hotkey_start_l() {
     debug_subtext("Start+L");
+
+    teleport_relative(<BOY>, 0d0, -0d1);
 }
 @install()
 @inject(ADDRESS.HOTKEY_START_R)
@@ -62,7 +64,7 @@ fun intro_skip() {
     // map_transition(magmar, boss, NONE); // wip
 
     // act 2
-    // map_transition(vigor, south, NONE);
+    map_transition(vigor, south, NONE); // working
     // map_transition(megataur, south, NONE); // working
     // map_transition(rimsala, south, NONE); // working
     // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
@@ -73,7 +75,7 @@ fun intro_skip() {
     // map_transition(timberdrake, south, NONE); // working
     // map_transition(verminator, south, NONE); // working
     // map_transition(sterling, platform, NONE); // working (todo: grab)
-    map_transition(mungola, east_2, NONE); // working (todo: spawns, phases)
+    // map_transition(mungola, east_2, NONE); // working (todo: spawns, phases)
 
     // act 4
     // map_transition(face, boss, NONE); // working (todo: bosses handling)
@@ -1003,6 +1005,268 @@ map magmar(MAGMAR) {
 };
 
 // act 2
+
+group boss_vigor() {
+    enum BOSS_VIGOR {
+        DEBUG = True,
+
+        TYPE = ENEMY.VIGOR,
+
+        ID = arg[0x10],
+        PHASE_RNG = arg[0x12],
+        RNG = arg[0x14],
+    }
+    @install()
+    fun cheer() {
+        // sound(ARENA_CHEER); // TODO: is a loop, that is being controlled by <0x2834, 0x04>
+        sleep(0d9);
+    }
+    @install()
+    fun flex(entity, freeze) {
+        face(entity, SOUTH);
+        animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.VIGOR_FLEX);
+
+        sleep(0d19);
+
+
+        if(freeze == 0d0) {
+            // sound(0x6e); // TODO: ???
+            animate(entity, ONCE, WALK_FORWARD);
+
+            sleep(0d19);
+        }
+    }
+    @install()
+    fun adjust_y(entity, target, phase_rng, direction:DIRECTION) {
+        attribute(entity, ROOT, True);
+        animate(entity, LOOP, WALK_FORWARD);
+
+        if(direction == DIRECTION.EAST) {
+            if(BOSS_VIGOR.DEBUG) {
+                debug_subtext("charge east");
+            }
+
+            if(phase_rng == 0d0) {
+                direction = 0d4;
+            } else {
+                direction = 0d1;
+            }
+        } else {
+            if(BOSS_VIGOR.DEBUG) {
+                debug_subtext("charge west");
+            }
+
+            if(phase_rng == 0d0) {
+                direction = -0d4;
+            } else {
+                direction = -0d1;
+            }
+        }
+
+        if(phase_rng == 0d0) {
+            arg[0x10] = 0d8;
+        } else if(phase_rng == 0d1) {
+            arg[0x10] = 0d8 * 0d3;
+        } else {
+            arg[0x10] = 0d7 * 0d3;
+        }
+
+        while(arg[0x12] < arg[0x10]) {
+            arg[0x12] += 0d1;
+
+            arg[0x14] = entity[Y];
+            arg[0x16] = target[Y];
+
+            arg[0x18] = arg[0x14] < arg[0x16];
+
+            if(arg[0x18] > 0d0) {
+                arg[0x1a] = (arg[0x16] - arg[0x14]) << 0d0004;
+                arg[0x1c] = arg[0x1a] >> 0d3;
+
+                arg[0x1e] = ((arg[0x14] << 0d0004) + arg[0x1c]) >> 0d4;
+            } else {
+                arg[0x1a] = (arg[0x14] - arg[0x16]) << 0d0004;
+                arg[0x1c] = arg[0x1a] >> 0d3;
+                
+                arg[0x1e] = ((arg[0x14] << 0d0004) - arg[0x1c]) >> 0d4;
+            }
+
+            teleport_relative(entity, 0d0, arg[0x1e] - arg[0x14]);
+
+            yield();
+
+            arg[0x20] = 0d0;
+            while(arg[0x20] < 0d7) {
+                arg[0x20] += 0d1;
+
+                arg[0x22] = arg[0x1e]; // new y
+
+                // arg[0x1c] = entity[Y];
+                if(arg[0x18] > 0d0) {
+                    arg[0x1e] = ((arg[0x1e] << 0d0004) + arg[0x1c]) >> 0d4;
+                } else {
+                    arg[0x1e] = ((arg[0x1e] << 0d0004) - arg[0x1c]) >> 0d4;
+                }
+
+                teleport_relative(entity, direction, arg[0x1e] - arg[0x22]);
+
+                yield();
+            }
+        }
+
+        animate(entity, ONCE, WALK_FORWARD);
+        attribute(entity, ROOT, False);
+
+        sleep(0d19);
+    }
+    @install()
+    fun garbage(entity, x, y, target) {
+        arg[0x10] = randrange(0d4);
+
+        if(arg[0x10] == 0d0) {
+            projectile(entity, BOTTLE, x, y, target[X], target[Y], 0d10, 0d20);
+        } else if(arg[0x10] == 0d1) {
+            projectile(entity, BOTTLE_BROKEN, x, y, target[X], target[Y], 0d10, 0d20);
+        } else if(arg[0x10] == 0d2) {
+            projectile(entity, CITRON, x, y, target[X], target[Y], 0d10, 0d20);
+        } else {
+            projectile(entity, ROCK, x, y, target[X], target[Y], 0d10, 0d20);
+        }
+    }
+    @install()
+    fun throw_garbage(entity, target) {
+        if(BOSS_VIGOR.DEBUG) {
+            debug_subtext("throw garbage");
+        }
+
+        flex(entity, True);
+
+        garbage(entity, (0d31 << 0d0003), (0d105 << 0d0003), target);
+        sleep(0d9);
+        garbage(entity, (0d17 << 0d0003), (0d105 << 0d0003), target);
+        sleep(0d14);
+        garbage(entity, (0d47 << 0d0003), (0d105 << 0d0003), target);
+        sleep(0d39);
+
+        animate(entity, LOOP, WALK_FORWARD);
+    }
+    @install()
+    fun throw_boomerang(entity, direction:FACE_DIRECTION) {
+        if(BOSS_VIGOR.DEBUG) {
+            debug_subtext("throw boomerang");
+        }
+
+        _face(entity, direction);
+        yield();
+
+        animate(entity, ONCE, SLASH_2);
+
+        sleep(0d30);
+    }
+    @install()
+    fun throw_spear(entity, target) {
+        if(BOSS_VIGOR.DEBUG) {
+            debug_subtext("throw spear");
+        }
+
+        arg[0x10] = entity[FACE_DIRECTION]; // charge direction
+
+        face_target(entity, target); // boy direction
+
+        debug_memory(arg[0x10], entity[FACE_DIRECTION]);
+
+        if(arg[0x10] == entity[FACE_DIRECTION]) {
+            // _face(entity, arg[0x10]);
+
+            yield();
+
+            animate(entity, ONCE, SLASH_1);
+
+            sleep(0d30);
+        }
+
+        sleep(0d30);
+    }
+    @install()
+    fun random_action(entity, phase_rng, direction:FACE_DIRECTION) {
+        if(phase_rng == 0d1) {
+            throw_garbage(entity, <ACTIVE>);
+        } else if(phase_rng == 0d2) {
+            throw_spear(entity, <ACTIVE>);
+            if(rand(0x1) == 0d0) {
+                throw_garbage(entity, <ACTIVE>);
+            }
+        } else {
+            if(BOSS_VIGOR.DEBUG) {
+                debug_subtext("throw nothing");
+            }
+        }
+    }
+    @install()
+    fun wheely(entity, direction:FACE_DIRECTION) {
+        if(direction != FACE_DIRECTION.NONE) {
+            _face(entity, direction);
+        }
+
+        animate(entity, LOOP, WALK_FORWARD);
+
+        attribute(entity, ROOT, True);
+        sleep(0d30);
+        attribute(entity, ROOT, False);
+
+        animate(entity, ONCE, WALK_FORWARD);
+    }
+    @install()
+    fun prepare_charge(entity, direction:FACE_DIRECTION, x, y) {
+        wheely(entity, NONE);
+
+        // cheer();
+
+        // animate(entity, ONCE, WALK_FORWARD);
+        // wait(entity);
+
+        // flex(entity);
+
+        walk(entity, TILE_ABSOLUTE, x, y, entity, entity);
+
+        face(entity, SOUTH);
+        sleep(0d30);
+
+        wheely(entity, direction);
+    }
+    fun add_boss_vigor(x, y) {
+        add_enemy(BOSS_VIGOR.TYPE, x, y);
+        BOSS_VIGOR.ID = <LAST_ENTITY>;
+        // control(LAST_ENTITY, True);
+
+        sleep(0d300);
+        while(True) {
+            BOSS_VIGOR.PHASE_RNG = randrange(0d4);
+            prepare_charge(BOSS_VIGOR.ID, EAST, 0d05, 0d85);
+            adjust_y(BOSS_VIGOR.ID, <BOY>, BOSS_VIGOR.PHASE_RNG, EAST);
+            random_action(BOSS_VIGOR.ID, BOSS_VIGOR.PHASE_RNG, EAST);
+
+            BOSS_VIGOR.PHASE_RNG = randrange(0d4);
+            prepare_charge(BOSS_VIGOR.ID, WEST, 0d59, 0d85);
+            adjust_y(BOSS_VIGOR.ID, <BOY>, BOSS_VIGOR.PHASE_RNG, WEST);
+            random_action(BOSS_VIGOR.ID, BOSS_VIGOR.PHASE_RNG, WEST);
+        }
+    }
+};
+map vigor(ARENA) {
+    enum entrance {
+        north_cinematic = entrance(0x20, 0x07, NONE),
+        south = entrance(0x22, 0x69, NORTH) // 0x22, 0x6a
+    }
+
+    fun trigger_enter() {
+        init_map(0x00, 0x30, 0x40, 0x70);
+        
+        fade_in();
+
+        add_boss_vigor(0d59, 0d85);
+    }
+};
 
 group boss_megataur() {
     enum BOSS_MEGATAUR {
