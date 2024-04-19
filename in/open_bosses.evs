@@ -55,9 +55,9 @@ fun hotkey_start_r() {
 @install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
 fun intro_skip() {
     // act 1
-    // map_transition(raptors, south, NONE);
+    map_transition(raptors, south, NONE); // working (todo: phases)
     // map_transition(thraxx, south, NONE);
-    map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
+    // map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
     // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
     // map_transition(magmar, boss, NONE); // wip
 
@@ -81,6 +81,249 @@ fun intro_skip() {
 }
 
 // act 1
+
+group boss_raptors() {
+    enum BOSS_RAPTORS {
+        DEBUG = True,
+
+        TYPE = ENEMY.RAPTOR_PURPLE,
+
+        ID = arg[0x10],
+        RNG = arg[0x12],
+
+        WITH_VANILLA_BUGS = False,
+    }
+    enum BUSH {
+        NORTH_WEST = 0d1,
+        NORTH_EAST = 0d2,
+        SOUTH_WEST = 0d3,
+        SOUTH_EAST = 0d4,
+
+        UNKNWON = 0d0,
+    }
+    @install()
+    fun wiggle_bush(bush_id, count) {
+        if(bush_id == BUSH.NORTH_WEST) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("shake north-west");
+            }
+
+            arg[0x10] = 0d0;
+        } else if(bush_id == BUSH.NORTH_EAST) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("shake north-east");
+            }
+            
+            arg[0x10] = 0d1;
+        } else if(bush_id == BUSH.SOUTH_WEST) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("shake south-west");
+            }
+            
+            arg[0x10] = 0d2;
+        } else {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("shake south-east");
+            }
+            
+            arg[0x10] = 0d3;
+        }
+
+        while(arg[0x12] < count) {
+            arg[0x12] += 0d1;
+
+            object[arg[0x10]] = 0d1;
+            sleep(0d7);
+            object[arg[0x10]] = 0d0;
+            sleep(0d7);
+        }
+    }
+    fun shake_bush(bush_id, peek) {
+        wiggle_bush(bush_id, 0d2);
+
+        // _add_placeholder(LEAVES_FALLING_2, <BOY>[X], <BOY>[Y], ONCE); // memory leak
+
+        wiggle_bush(bush_id, 0d2);
+    }
+    @install()
+    fun jump_in(entity) {
+        wiggle_bush(entity[GENERAL_PURPOSE], 0d1);
+
+        if(BOSS_RAPTORS.DEBUG) {
+            debug_subtext("in");
+        }
+
+        if(entity[GENERAL_PURPOSE] == BUSH.NORTH_WEST) {
+            _face(entity, SOUTH_EAST);
+            yield();
+            teleport(entity, 0d19, 0d21);
+        } else if(entity[GENERAL_PURPOSE] == BUSH.NORTH_EAST) {
+            _face(entity, SOUTH_WEST);
+            yield();
+            teleport(entity, 0d41, 0d23);
+        } else if(entity[GENERAL_PURPOSE] == BUSH.SOUTH_WEST) {
+            _face(entity, NORTH_EAST);
+            yield();
+            teleport(entity, 0d19, 0d37);
+        } else {
+            _face(entity, NORTH_WEST);
+            yield();
+            teleport(entity, 0d41, 0d39);
+        }
+
+        attribute(entity, INVINCIBLE_TEMP, False);
+        attribute(entity, INVISIBLE, False);
+
+        control(entity, False);
+        animate(entity, ONCE, SLASH_2);
+    }
+    @install()
+    fun jump_out(entity, x, y) {
+        if(BOSS_RAPTORS.DEBUG) {
+            debug_subtext("out");
+        }
+
+        if((entity[X] < (0d30 << 0d0003)) && ((entity[Y] < (0d30 << 0d0003)))) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("north west");
+            }
+            walk(entity, TILE_ABSOLUTE_DIRECT, 0d19, 0d23, NONE, NONE); // north west
+            entity[GENERAL_PURPOSE] = BUSH.NORTH_WEST;
+        } else if((entity[X] >= (0d30 << 0d0003)) && ((entity[Y] < (0d32 << 0d0003)))) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("north east");
+            }
+            walk(entity, TILE_ABSOLUTE_DIRECT, 0d41, 0d25, NONE, NONE); // north east
+            entity[GENERAL_PURPOSE] = BUSH.NORTH_EAST;
+        } else if((entity[X] < (0d30 << 0d0003)) && ((entity[Y] >= (0d30 << 0d0003)))) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("south west");
+            }
+            walk(entity, TILE_ABSOLUTE_DIRECT, 0d19, 0d39, NONE, NONE); // south west
+            entity[GENERAL_PURPOSE] = BUSH.SOUTH_WEST;
+        } else { // if((entity[X] < (0d30 << 0d0003)) && ((entity[Y] >= (0d32 << 0d0003)))) {
+            if(BOSS_RAPTORS.DEBUG) {
+                debug_subtext("south east -> north west (bug?)");
+            }
+            if(BOSS_RAPTORS.WITH_VANILLA_BUGS) {
+                walk(entity, TILE_ABSOLUTE_DIRECT, 0d19, 0d23, NONE, NONE);  // north west?
+                entity[GENERAL_PURPOSE] = BUSH.NORTH_WEST; // VANILLA BUG
+            } else {
+                walk(entity, TILE_ABSOLUTE_DIRECT, 0d39, 0d41, NONE, NONE);  // south east
+                entity[GENERAL_PURPOSE] = BUSH.SOUTH_EAST;
+            }
+        }
+
+        wait(entity);
+        control(entity, True);
+        attribute(entity, INVINCIBLE_TEMP, True);
+        attribute(entity, INVISIBLE, True);
+
+        shake_bush(entity[GENERAL_PURPOSE]);
+    }
+    @install()
+    fun shuffle(entity) {
+        entity[GENERAL_PURPOSE] = randrange(0d4) + 0d1; // current bush
+
+        arg[0x12] = entity[GENERAL_PURPOSE]; // peek-bush
+        while(arg[0x12] == entity[GENERAL_PURPOSE]) {
+            arg[0x12] = randrange(0d4) + 0d1;
+        }
+
+        arg[0x14] = entity[GENERAL_PURPOSE]; // non-peek-bush
+        while((arg[0x14] == entity[GENERAL_PURPOSE]) || (arg[0x14] == arg[0x12])) {
+            arg[0x14] = randrange(0d4) + 0d1;
+        }
+
+        shake_bush(arg[0x12], True);
+        sleep(0d30);
+        shake_bush(arg[0x14], False);
+    }
+    fun random_active_time() {
+        if(rand(0x3) > 0d0) {
+            if(rand(0x1) > 0d0) {
+                sleep(0d119);
+            } else {
+                sleep(0d479);
+            }
+        } else {
+            sleep(0d239);
+        }
+    }
+    fun add_boss_raptors(x, y) {
+        add_enemy(BOSS_RAPTORS.TYPE, 0d28, 0d32);
+        BOSS_RAPTORS.ID = <LAST_ENTITY>;
+        control(LAST_ENTITY, True);
+
+        while(True) {
+            shuffle(BOSS_RAPTORS.ID);
+            jump_in(BOSS_RAPTORS.ID);
+
+            random_active_time();
+
+            jump_out(BOSS_RAPTORS.ID);
+        }
+    }
+};
+map raptors(RAPTORS) {
+    enum entrance {
+        north = entrance(0x1b, 0x03, SOUTH),
+        south = entrance(0x1d, 0x33, NORTH),
+
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            debug_subtext("S=0");
+            // map_transition(village, south, NORTH);
+        },
+        exit_south = @install() {
+            debug_subtext("S=1");
+            // map_transition(flowers, north, SOUTH);
+        },
+        center = @install() {
+            debug_subtext("S=2");
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_crystal_1 = @install() {
+            debug_subtext("B=0");
+            _loot(0x09, CRYSTAL, 0d01, 0d01);
+        },
+        sniff__1_oil_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x08, OIL, 0d01, 0d01);
+        },
+        sniff__1_crystal_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x07, CRYSTAL, 0d01, 0d02);
+        },
+        sniff__1_water_2 = @install() {
+            debug_subtext("B=3");
+            _loot(0x06, WATER, 0d01, 0d02);
+        },
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    fun trigger_enter() {
+        close_exits(False);
+
+        fade_in();
+
+        add_boss_raptors(0d20, 0d20);
+    }
+};
 
 group boss_vipercommander() {
     enum BOSS_VIPERCOMMANDER {
