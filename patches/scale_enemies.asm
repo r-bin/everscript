@@ -39,7 +39,7 @@ hirom
 !ENEMY_LEVEL_COUNT = 37 ; reuses the !ENEMY_SPRITE_LEVEL_OFFSET bytes, which resulsts in 37 available levels
 ;
 !WITH_INVERTED_MAGIC_DEFEND = 0 ; currently disabled, because calculating $40-x was too difficult
-!WITH_DEBUB_PALETTE = 0 ; enemy palette = !ENEMY_LEVEL
+!WITH_DEBUB_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -525,7 +525,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(88) ; "Oglin" (56) = 88
   %default_stats(180) ; "Hedgeadillo" (57) = 180
   %default_stats(200) ; "Bad Boy" (58) = 200
-  %default_stats(80) ; "Tumble Weed" (59) = 80
+  dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 80
   %default_stats(240) ; "Mummy Cat" (60) = 240
   %default_stats(240) ; "Red Jelly Bal" (61) = 240
   dw #50, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Lime Slime" (62) = 120
@@ -713,10 +713,10 @@ org !MEMORY_TABLE_EXPERIENCE
   %default_stats(150) ; "Oglin" (56) = 150
   %default_stats(180) ; "Hedgeadillo" (57) = 180
   %default_stats(400) ; "Bad Boy" (58) = 400
-  %default_stats(50) ; "Tumble Weed" (59) = 50
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 50
   %default_stats(160) ; "Mummy Cat" (60) = 160
   %default_stats(600) ; "Red Jelly Bal" (61) = 600
-  %default_stats(50) ; "Lime Slime" (62) = 50
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Lime Slime" (62) = 50
   %default_stats(150) ; "Blue Goo" (63) = 150
   %default_stats(70) ; "Dancin' Fool" (64) = 70
   %default_stats(70) ; "Dancin' Fool" (65) = 70
@@ -807,10 +807,10 @@ org !MEMORY_TABLE_MONEY
   %default_stats(100) ; "Oglin" (56) = 100
   %default_stats(10) ; "Hedgeadillo" (57) = 10
   %default_stats(333) ; "Bad Boy" (58) = 333
-  %default_stats(40) ; "Tumble Weed" (59) = 40
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 40
   %default_stats(60) ; "Mummy Cat" (60) = 60
   %default_stats(40) ; "Red Jelly Bal" (61) = 40
-  %default_stats(30) ; "Lime Slime" (62) = 30
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Lime Slime" (62) = 30
   %default_stats(30) ; "Blue Goo" (63) = 30
   %default_stats(10) ; "Dancin' Fool" (64) = 10
   %default_stats(10) ; "Dancin' Fool" (65) = 10
