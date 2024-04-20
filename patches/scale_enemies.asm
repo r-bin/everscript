@@ -33,23 +33,23 @@ hirom
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; INPUT                                                                                                                 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+!ROM_HOOKS = $FE8000 ; 
 !ENEMY_LEVEL = $2700 ; has to be set before add_enemy() is being called (before the HP is being defined, which is on spawn)
 !ENEMY_PALETTE = $2702 ; just for debugging
 !ENEMY_SPRITE_LEVEL_OFFSET = $008a ; sprite data to store the level (sprite+0x8a seems to be unused for normal enemies)
 !ENEMY_LEVEL_COUNT = 37 ; reuses the !ENEMY_SPRITE_LEVEL_OFFSET bytes, which resulsts in 37 available levels
 ;
 !WITH_INVERTED_MAGIC_DEFEND = 0 ; currently disabled, because calculating $40-x was too difficult
-!WITH_DEBUB_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
+!WITH_DEBUG_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-!MEMORY_STAT_HOOKS = $FE8000
-!MEMORY_TABLE_HP = $FE9000
-!MEMORY_TABLE_ATTACK = $FEd000
-!MEMORY_TABLE_DEFEND = $Ff1000
-!MEMORY_TABLE_MAGIC_DEFEND = $Ff5000
-!MEMORY_TABLE_EXPERIENCE = $Ff9000
-!MEMORY_TABLE_MONEY = $Ffc000
+!MEMORY_TABLE_HP := !ROM_HOOKS+$1000+($4000*0)
+!MEMORY_TABLE_ATTACK := !ROM_HOOKS+$1000+($4000*1)
+!MEMORY_TABLE_DEFEND := !ROM_HOOKS+$1000+($4000*2)
+!MEMORY_TABLE_MAGIC_DEFEND := !ROM_HOOKS+$1000+($4000*3)
+!MEMORY_TABLE_EXPERIENCE := !ROM_HOOKS+$1000+($4000*4)
+!MEMORY_TABLE_MONEY := !ROM_HOOKS+$1000+($4000*5)
 
 !OFFSET_FIRST_ID = $B678
 !OFFSET_TABLE_WIMPY = $d5fa-!OFFSET_FIRST_ID
@@ -63,7 +63,7 @@ hirom
 !MPYM = $002135
 
 org $90cd44
-  if !WITH_DEBUB_PALETTE
+  if !WITH_DEBUG_PALETTE
     JSL hook_palette_calculation ; size 4
   endif
 
@@ -110,7 +110,7 @@ org $8f868e
   JSL money_calculation ; LDA $8e0027,x (size 4)
 
 
-org !MEMORY_STAT_HOOKS
+org !ROM_HOOKS
 db "+ScaleEnemies"
 
 macro get_scaled_value(table, is_negative)
