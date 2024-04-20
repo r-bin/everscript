@@ -18,7 +18,7 @@ class PatchHandlerSliver(PatchHandler):
     def __init__(self, patch_handler_txt: PatchHandlerTxt):
         self._patch_handler_txt = patch_handler_txt
 
-    def prepare_patch(self, rom_file, directory_patch, patch):
+    def prepare_patch(self, rom_file, directory_patch, patch, params=[]):
         # print(f" - converting patch {patch.name} to {patch.with_suffix('.txt').name} ({os.path.getsize(patch)})")
 
         code = self._parse_file(patch)
