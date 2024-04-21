@@ -13,3 +13,6 @@
         - Has 5 spawn points, but only 3 are reachable
     - Magmar:
         - Has 6(?) spawn points, but only 4 are reachable (`rand(0x5)` instad of `randrange(0d6)`)
+- Act 2:
+    - Crusticia:
+        - The two boxers and two drunk inside the ship are all named `"Mad Monk"`

@@ -106,7 +106,7 @@ class PatchUtils():
             copied_patch = Path(copied_patch)
             shutil.copy(patch_in, copied_patch)
 
-            print(f" - applying patch {patch}", end='')
+            print(f" - applying patch {patch.name}", end='')
 
             patch_handler = None
             match patch_in.suffix:
