@@ -4678,7 +4678,7 @@ group functions() {
         }
 
         @install()
-        fun generic_yeet(direction:DIRECTION, depth) {
+        fun generic_yeet(character:CHARACTER, direction:DIRECTION, depth) {
             if(FLAG.IN_ANIMATION) {
                 end();
             }
@@ -4686,45 +4686,49 @@ group functions() {
 
             control(NONE);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
-            sleep(0x05);
+            if(character == <BOY>) {
+                animate(character, LOOP, ANIMATION_BOY.FALL_1);
+                sleep(0d05);
+                animate(character, LOOP, ANIMATION_BOY.FALL_2);
+            } else {
+                animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
+            }
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            <BOY>[JUMP_HEIGHT] = 0x20;
+            character[JUMP_HEIGHT] = 0x20;
 
             if(arg[0x00] == DIRECTION.NORTH) {
-                arg[0x02] = <BOY>[Y] - 0x30;
-                while(<BOY>[Y] > arg[0x02]) {
-                    <BOY>[Y] -= 0x01;
+                arg[0x02] = character[Y] - 0x30;
+                while(character[Y] > arg[0x02]) {
+                    character[Y] -= 0x01;
 
                     yield();
                 }
             } else if(arg[0x00] == DIRECTION.EAST) {
-                arg[0x02] = <BOY>[X] + 0x30;
-                while(<BOY>[X] < arg[0x02]) {
-                    <BOY>[X] += 0x01;
+                arg[0x02] = character[X] + 0x30;
+                while(character[X] < arg[0x02]) {
+                    character[X] += 0x01;
 
                     yield();
                 }
             } else if(arg[0x00] == DIRECTION.SOUTH) {
-                arg[0x02] = <BOY>[Y] + 0x30;
-                while(<BOY>[Y] < arg[0x02]) {
-                    <BOY>[Y] += 0x01;
+                arg[0x02] = character[Y] + 0x30;
+                while(character[Y] < arg[0x02]) {
+                    character[Y] += 0x01;
 
                     yield();
                 }
             } else {
-                arg[0x02] = <BOY>[X] - 0x30;
-                while(<BOY>[X] > arg[0x02]) {
-                    <BOY>[X] -= 0x01;
+                arg[0x02] = character[X] - 0x30;
+                while(character[X] > arg[0x02]) {
+                    character[X] -= 0x01;
 
                     yield();
                 }
             }
 
-            arg[0x02] = <BOY>[Y] + 0x20;
-            while(<BOY>[Y] < arg[0x02]) {
-                <BOY>[Y] += 0x02;
+            arg[0x02] = character[Y] + 0x20;
+            while(character[Y] < arg[0x02]) {
+                character[Y] += 0x02;
 
                 yield();
             }
@@ -5346,6 +5350,13 @@ group functions() {
 
             debug_subtext("memory = [MEM1] / [MEM2] / [MEM3]");
         }
+        fun debug_memory3(m1, m2, m3) {
+            MEMORY.STRING_PARAMETER_1 = m1;
+            MEMORY.STRING_PARAMETER_2 = m2;
+            MEMORY.STRING_PARAMETER_3 = m3;
+
+            debug_subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+        }
 
         fun test_stuff() {
             unlock(INGREDIENTS);
@@ -5428,7 +5439,6 @@ group functions() {
     };
 
     group experimental() {
-
         @install()
         // @async()
         fun sterling_grab(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
@@ -5438,21 +5448,21 @@ group functions() {
                 debug_subtext("sterling grab");
             }
             
-            sterling[GENERAL_PURPOSE] = 0x01;
-            set(FLAG.IN_ANIMATION);
+            sterling[GENERAL_PURPOSE] = True;
+            // set(FLAG.IN_ANIMATION);
 
             if(False) {
                 <0x283d> = sterling;
                 call(0x99992d);
 
-                sterling[GENERAL_PURPOSE] = 0x00;
+                sterling[GENERAL_PURPOSE] = False;
                 end();
             }
 
             // <0x2834> = 0xffff;
 
             if(dead(<SCRIPT_OWNER>)) {
-                sterling[GENERAL_PURPOSE] = 0x00;
+                sterling[GENERAL_PURPOSE] = False;
                 end();
             }
             
@@ -5475,11 +5485,14 @@ group functions() {
             arg[0x18] = 0x1e;
             arg[0x12] -= 0x10;
 
-            arg[0x1a] = arg[0x14] - arg[0x10];
-            arg[0x1c] = arg[0x16] - arg[0x12];
+            val dx_grab = signed arg[0x1a];
+            val dy_grab = signed arg[0x1c];
 
-            arg[0x1e] = (arg[0x1a] << 0x04) / arg[0x18];
-            arg[0x20] = (arg[0x1c] << 0x04) / arg[0x18];
+            dx_grab = arg[0x14] - arg[0x10];
+            dy_grab = arg[0x16] - arg[0x12];
+
+            arg[0x1e] = (dx_grab << 0x04) / arg[0x18];
+            arg[0x20] = (dy_grab << 0x04) / arg[0x18];
 
             arg[0x22] = arg[0x10] << 0x04;
             arg[0x24] = arg[0x16] << 0x04;
@@ -5491,8 +5504,8 @@ group functions() {
                 arg[0x22] += arg[0x1e];
                 arg[0x24] += arg[0x20];
                 arg[0x26] = 0x0000;
-                teleport(<SCRIPT_OWNER>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
-                teleport(BOY, arg[0x14], arg[0x16]); // lock boy in position
+                _teleport(<SCRIPT_OWNER>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
+                _teleport(BOY, arg[0x14], arg[0x16]); // lock boy in position
                 yield();
                 arg[0x12] += 0x01;
             }
@@ -5536,16 +5549,24 @@ group functions() {
             arg[0x18] = 0x004b;
             arg[0x12] -= 0x10;
             arg[0x26] = 0x0010;
-            teleport(<BOY>, arg[0x10], arg[0x12]);
+            _teleport(BOY, arg[0x10], arg[0x12]);
 
             arg[0x26] = 0x0000;
-            teleport(<SCRIPT_OWNER>, arg[0x10] - 0x06, arg[0x12] - 0x1f);
+            _teleport(SCRIPT_OWNER, arg[0x10] - 0x06, arg[0x12] - 0x1f);
 
-            arg[0x1a] = arg[0x14] - arg[0x10];
-            arg[0x1c] = arg[0x16] - arg[0x12];
+            val dx = signed arg[0x1a];
+            val dy = signed arg[0x1c];
 
-            arg[0x1e] = (arg[0x1a] << 0x04) / arg[0x18];
-            arg[0x20] = (arg[0x1c] << 0x04) / arg[0x18];
+            dx = arg[0x14] - arg[0x10];
+            dy = arg[0x16] - arg[0x12];
+
+            if(False) {
+                debug_memory(dx, dy);
+                sleep(0d120);
+            }
+
+            arg[0x1e] = (dx << 0x04) / arg[0x18];
+            arg[0x20] = (dy << 0x04) / arg[0x18];
 
             arg[0x22] = arg[0x10] << 0x04;
             arg[0x24] = arg[0x12] << 0x04;
@@ -5559,11 +5580,16 @@ group functions() {
                 arg[0x22] += arg[0x1e];
                 arg[0x24] += arg[0x20];
                 arg[0x26] = 0x0010;
-                teleport(<BOY>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
+                _teleport(<BOY>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
                 arg[0x26] = 0x0000;
-                teleport(<SCRIPT_OWNER>, (arg[0x22] >> 0x04) - 0x06, (arg[0x24] >> 0x04) - 0x1f);
+                _teleport(<SCRIPT_OWNER>, (arg[0x22] >> 0x04) - 0x06, (arg[0x24] >> 0x04) - 0x1f);
                 yield();
                 arg[0x12] += 0x01;
+
+                if(False) {
+                    debug_memory(arg[0x22], arg[0x24]);
+                    sleep(0d60);
+                }
             }
 
             // sterling reached drop
@@ -5589,7 +5615,7 @@ group functions() {
             }
 
             animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            // teleport(<BOY>, arg[0x10], arg[0x12]);
+            // _teleport(<BOY>, arg[0x10], arg[0x12]);
 
             if(False) {
                 debug_subtext("drop boy");
@@ -5599,7 +5625,7 @@ group functions() {
             }
 
             while(arg[0x12] < arg[0x16]) {
-                teleport(<BOY>, arg[0x10], arg[0x12]);
+                _teleport(<BOY>, arg[0x10], arg[0x12]);
                 yield();
                 arg[0x12] += 0x04;
             }
@@ -5614,7 +5640,7 @@ group functions() {
 
             if(True) { // otherwise it triggers the exits and not boy_death()
                 sleep(0d03);
-                unset(FLAG.IN_ANIMATION);
+                // unset(FLAG.IN_ANIMATION);
             }
 
             <0x23d7> = 0x0001;
@@ -5628,7 +5654,7 @@ group functions() {
                 <0x24ab> = 0x0158;
                 <0x24af> = 0x00e8;
 
-                teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
+                _teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
             }
 
             yield();
@@ -5638,7 +5664,7 @@ group functions() {
 
             sleep(0d120);
 
-            sterling[GENERAL_PURPOSE] = 0x00;
+            sterling[GENERAL_PURPOSE] = False;
             // unset(FLAG.IN_ANIMATION);
         }
 
@@ -5665,7 +5691,7 @@ group functions() {
 
                 while!(dead(entity)) {
                     if!(FLAG.IN_ANIMATION) {
-                        if(entity[GENERAL_PURPOSE] == 0x00) {
+                        if(entity[GENERAL_PURPOSE] == False) {
                             arg[0x10] = entity[X];
                             arg[0x12] = entity[Y];
                             arg[0x14] = <BOY>[X];
