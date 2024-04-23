@@ -52,6 +52,7 @@ class Lexer():
         self.lexer.add('<', '\<(?!\<)')
         self.lexer.add('>', '\>(?!\>)')
         
+        self.lexer.add('~', '\~(?!=)')
         self.lexer.add('!', '\!(?!=)')
         self.lexer.add('+', '\+(?= )')
         self.lexer.add('-', '\-(?= )')
