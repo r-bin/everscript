@@ -806,7 +806,7 @@ class Operand():
         "read word arg": 0x13, # unsigned word script arg
 
         "!": 0x14, # boolean invert
-        # _: 0x15, # bitwise invert
+        "~": 0x15, # bitwise invert
         # _: 0x16, # flip sign
         
         "*": 0x17, # pull from stack, res = pulled * res

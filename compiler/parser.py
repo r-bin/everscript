@@ -15,7 +15,7 @@ class Parser():
                 'SIGNED',
                 '..',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
-                '!', 'AND', 'OR',
+                '~', '!', 'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '<<=', '>>=', '*=', '/=', '-=', '+=', '++', '--',
                 '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'INVERT_WORD',
@@ -180,6 +180,14 @@ class Parser():
             self.generator.set_identifier(name, function_variable)
 
             return function_variable
+        
+        # unary commands
+        
+        @self.pg.production('expression : ~ expression')
+        def parse(p):
+            expression = p[1]
+
+            return InvertWord(expression)
         
         @self.pg.production('expression : INVERT_WORD ( expression )')
         def parse(p):
