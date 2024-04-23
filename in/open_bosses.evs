@@ -56,13 +56,14 @@ fun hotkey_start_r() {
 fun intro_skip() {
     // act 1
     // map_transition(raptors, south, NONE); // working (todo: phases)
-    map_transition(thraxx, south, NONE); // wip
+    // map_transition(thraxx, south, NONE); // wip
     // map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
     // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
     // map_transition(magmar, boss, NONE); // wip
 
     // act 2
     // map_transition(vigor, south, NONE); // working
+    map_transition(minitaur, west, NONE);
     // map_transition(megataur, south, NONE); // working
     // map_transition(rimsala, south, NONE); // working
     // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
@@ -1422,6 +1423,119 @@ map vigor(ARENA) {
         fade_in();
 
         add_boss_vigor(0d59, 0d85);
+    }
+};
+
+group boss_minitaur() {
+    enum BOSS_MINITAUR {
+        DEBUG = True,
+
+        TYPE = ENEMY.MINITAUR,
+
+        ID = arg[0x10],
+
+        STOMP_TIMER = arg[0x12],
+        STOMP_TIME = 0d1024, // [frame] (17.1…34.1s)
+
+        STOMP_WAIT = 0d30,
+        STOMP_ANIMATION_TIME = 0d60,
+
+        STOMP_DAMAGE = 0d50,
+
+        INTERRUPTABLE_SLEEP_COUNTER = arg[0x14],
+        TILT = arg[0x16],
+    }
+    fun tilt() {
+        if(BOSS_MINITAUR.DEBUG) {
+            debug_subtext("stomp interrupted");
+        }
+
+        BOSS_MINITAUR.TILT = True;
+    }
+    fun interruptable_sleep(entity, time) {
+        BOSS_MINITAUR.INTERRUPTABLE_SLEEP_COUNTER = 0d0;
+        while(BOSS_MINITAUR.INTERRUPTABLE_SLEEP_COUNTER < time) {
+            BOSS_MINITAUR.INTERRUPTABLE_SLEEP_COUNTER++;
+
+            if((BOSS_MINITAUR.TILT == False) && ((entity[FLAGS_7] & 0x1) > 0d0)) {
+                tilt();
+            }
+
+            yield();
+        }
+    }
+    fun idle(entity) {
+        animate(entity, ONCE_FREEZE, DEFAULT);
+
+        interruptable_sleep(entity, BOSS_MINITAUR.STOMP_WAIT);
+        
+        animate(entity, ONCE, DEFAULT);
+    }
+    fun stomp(entity) {
+        control(NONE);
+        sfx_effect(SHAKING, True);
+
+        sleep(BOSS_MINITAUR.STOMP_ANIMATION_TIME);
+
+        damage(BOTH, BOSS_MINITAUR.STOMP_DAMAGE, True);
+
+        sfx_effect(SHAKING, False);
+        control(BOTH);
+    }
+    fun add_boss_minitaur(x, y) {
+        add_enemy(BOSS_MINITAUR.TYPE, x, y);
+        BOSS_MINITAUR.ID = <LAST_ENTITY>;
+
+
+        while!(dead(BOSS_MINITAUR.ID)) {
+            if(BOSS_MINITAUR.STOMP_TIMER >= BOSS_MINITAUR.STOMP_TIME) {
+                BOSS_MINITAUR.STOMP_TIMER = 0d0;
+
+                if(BOSS_MINITAUR.DEBUG) {
+                    debug_subtext("stomp");
+                }
+
+                face(BOSS_MINITAUR.ID, SOUTH);
+                animate(BOSS_MINITAUR.ID, ONCE, DEFAULT);
+                yield();
+
+                idle(BOSS_MINITAUR.ID);
+
+                if(BOSS_MINITAUR.TILT == False) {
+                    animate(BOSS_MINITAUR.ID, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+
+                    stomp(BOSS_MINITAUR.ID, True);
+
+                    idle(BOSS_MINITAUR.ID);
+                }
+
+                BOSS_MINITAUR.TILT = False;
+            }
+
+            yield();
+
+            BOSS_MINITAUR.STOMP_TIMER += 0d1 + randrange(0d2);
+        }
+    }
+};
+map minitaur(HALLS_SE) {
+    enum entrance {
+        west = entrance(0x01, 0x1b, EAST),
+    }
+
+    enum stepon_trigger {
+        exit_west = @install() {
+            debug_subtext("S=0");
+        },
+        switch = @install() {
+            debug_subtext("S=1");
+        }
+    }
+
+    fun trigger_enter() {
+        fade_in();
+
+        add_boss_minitaur(0d22, 0d32);
     }
 };
 
