@@ -430,7 +430,7 @@ org !MEMORY_TABLE_ATTACK
   %default_stats(88) ; "Stone Cobra" (55) = 88
   %default_stats(47) ; "Oglin" (56) = 47
   %default_stats(53) ; "Hedgeadillo" (57) = 53
-  %default_stats(85) ; "Bad Boy" (58) = 85
+  dw #30, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Bad Boy" (58) = 85
   %default_stats(23) ; "Tumble Weed" (59) = 23
   %default_stats(41) ; "Mummy Cat" (60) = 41
   %default_stats(110) ; "Red Jelly Bal" (61) = 110
@@ -460,7 +460,7 @@ org !MEMORY_TABLE_ATTACK
   %default_stats(145) ; "Rimsala" (85) = 145
   %default_stats(13) ; "Will o' the Wisp" (86) = 13
   %default_stats(37) ; "Magmar" (87) = 37
-  %default_stats(70) ; "Megataur" (88) = 70
+  dw #30, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Megataur" (88) = 70
   %default_stats(27) ; "Raptor" (89) = 27
   %default_stats(80) ; "Raptor" (90) = 80
   %default_stats(30) ; "Viper Commander" (91) = 30
@@ -524,7 +524,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(1200) ; "Stone Cobra" (55) = 1200
   %default_stats(88) ; "Oglin" (56) = 88
   %default_stats(180) ; "Hedgeadillo" (57) = 180
-  %default_stats(200) ; "Bad Boy" (58) = 200
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Bad Boy" (58) = 200
   dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 80
   %default_stats(240) ; "Mummy Cat" (60) = 240
   %default_stats(240) ; "Red Jelly Bal" (61) = 240
@@ -554,7 +554,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(80) ; "Rimsala" (85) = 80
   %default_stats(40) ; "Will o' the Wisp" (86) = 40
   %default_stats(40) ; "Magmar" (87) = 40
-  %default_stats(120) ; "Megataur" (88) = 120
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Megataur" (88) = 120
   %default_stats(48) ; "Raptor" (89) = 48
   %default_stats(48) ; "Raptor" (90) = 48
   %default_stats(92) ; "Viper Commander" (91) = 92
@@ -563,7 +563,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(80) ; "Mad Monk" (94) = 80
   %default_stats(80) ; "Son of Set" (95) = 80
   %default_stats(120) ; "Son of Anhur" (96) = 120
-  %default_stats(76) ; "Minitaur" (97) = 76
+  dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Minitaur" (97) = 76
   %default_stats(56) ; "Skelesnail" (98) = 56
   %default_stats(60) ; "Frippo" (99) = 60
   %default_stats(48) ; "Widowmaker" (100) = 48
@@ -597,7 +597,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(80) ; "Sphere Bot" (128) = 80
   %default_stats(1400) ; "Fan" (129) = 1400
   %default_stats(1400) ; "Speaker" (130) = 1400
-  %default_stats(120) ; "Rat" (131) = 120
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Rat" (131) = 120
   %default_stats(160) ; "Mechaduster" (132) = 160
   %default_stats(280) ; "Tentacle" (133) = 280
   %default_stats(240) ; "Tiny Tentacle" (134) = 240
@@ -712,7 +712,7 @@ org !MEMORY_TABLE_EXPERIENCE
   %default_stats(100) ; "Stone Cobra" (55) = 100
   %default_stats(150) ; "Oglin" (56) = 150
   %default_stats(180) ; "Hedgeadillo" (57) = 180
-  %default_stats(400) ; "Bad Boy" (58) = 400
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Bad Boy" (58) = 400
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 50
   %default_stats(160) ; "Mummy Cat" (60) = 160
   %default_stats(600) ; "Red Jelly Bal" (61) = 600
@@ -742,7 +742,7 @@ org !MEMORY_TABLE_EXPERIENCE
   %default_stats(3000) ; "Rimsala" (85) = 3000
   %default_stats(4) ; "Will o' the Wisp" (86) = 4
   %default_stats(500) ; "Magmar" (87) = 500
-  %default_stats(2500) ; "Megataur" (88) = 2500
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Megataur" (88) = 2500
   %default_stats(24) ; "Raptor" (89) = 24
   %default_stats(290) ; "Raptor" (90) = 290
   %default_stats(160) ; "Viper Commander" (91) = 160
@@ -751,7 +751,7 @@ org !MEMORY_TABLE_EXPERIENCE
   %default_stats(20) ; "Mad Monk" (94) = 20
   %default_stats(120) ; "Son of Set" (95) = 120
   %default_stats(250) ; "Son of Anhur" (96) = 250
-  %default_stats(1000) ; "Minitaur" (97) = 1000
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Minitaur" (97) = 1000
   %default_stats(20) ; "Skelesnail" (98) = 20
   %default_stats(12) ; "Frippo" (99) = 12
   %default_stats(40) ; "Widowmaker" (100) = 40
@@ -770,8 +770,8 @@ org !MEMORY_TABLE_EXPERIENCE
   %default_stats(1) ; "Mosquito" (113) = 1
   %default_stats(1) ; "Mosquito" (114) = 1
   %default_stats(8000) ; "Mungola" (115) = 8000
-  %default_stats(1000) ; "Old Nick" (116) = 1000
-  %default_stats(1000) ; "Mephista" (117) = 1000
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Old Nick" (116) = 1000
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Mephista" (117) = 1000
   %default_stats(500) ; "Thraxx's Heart" (118) = 500
   %default_stats(10000) ; "Coleoptera's Heart" (119) = 10000
   %default_stats(4166) ; "Right Claw" (120) = 4166
@@ -806,7 +806,7 @@ org !MEMORY_TABLE_MONEY
   %default_stats(10) ; "Stone Cobra" (55) = 10
   %default_stats(100) ; "Oglin" (56) = 100
   %default_stats(10) ; "Hedgeadillo" (57) = 10
-  %default_stats(333) ; "Bad Boy" (58) = 333
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Bad Boy" (58) = 333
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 40
   %default_stats(60) ; "Mummy Cat" (60) = 60
   %default_stats(40) ; "Red Jelly Bal" (61) = 40
@@ -845,7 +845,7 @@ org !MEMORY_TABLE_MONEY
   %default_stats(75) ; "Mad Monk" (94) = 75
   %default_stats(40) ; "Son of Set" (95) = 40
   %default_stats(250) ; "Son of Anhur" (96) = 250
-  %default_stats(10) ; "Minitaur" (97) = 10
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Minitaur" (97) = 10
   %default_stats(15) ; "Skelesnail" (98) = 15
   %default_stats(19) ; "Frippo" (99) = 19
   %default_stats(12) ; "Widowmaker" (100) = 12
@@ -864,8 +864,8 @@ org !MEMORY_TABLE_MONEY
   %default_stats(1) ; "Mosquito" (113) = 1
   %default_stats(1) ; "Mosquito" (114) = 1
   %default_stats(0) ; "Mungola" (115) = 0
-  %default_stats(250) ; "Old Nick" (116) = 250
-  %default_stats(250) ; "Mephista" (117) = 250
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Old Nick" (116) = 250
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Mephista" (117) = 250
   %default_stats(750) ; "Thraxx's Heart" (118) = 750
   %default_stats(4000) ; "Coleoptera's Heart" (119) = 4000
   %default_stats(400) ; "Right Claw" (120) = 400
