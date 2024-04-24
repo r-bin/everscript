@@ -46,9 +46,9 @@ START_SCRIPT:
   STX $86
   rtl
 
-; 40 bytes, script 0xfd8340
+; 40 bytes, script 0xfd83c0
 hotkey_pressed_start_r:
-	LDA #$0080
+	LDA #$00C0
   STA $0026
   LDA #$1583
   STA $0027
