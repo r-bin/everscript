@@ -299,6 +299,7 @@ group non_maps() {
             BONFIRE_FIRST_TRIGGER = flag(),
             BONFIRE_X = memory(),
             BONFIRE_Y = memory(),
+            BONFIRE_Z = memory(),
             BONFIRE_MAP = memory(),
             BONFIRE_VARIANT = memory(),
             BONFIRE_INDEX = memory(),
@@ -372,6 +373,9 @@ group non_maps() {
 
             DEAD_BOWSER = flag(),
             REWARD_BOWSER = ITEM.NECTAR,
+
+            DEAD_TOWN_PUPPETS = flag(),
+            REWARD_TOWN_PUPPETS = ITEM.NECTAR, // TODO
 
             DEAD_TEMPLE_MINITAUR = flag(),
             REWARD_TEMPLE_MINITAUR = CUSTOM_ITEM.SPEAR_ORB,
@@ -528,7 +532,7 @@ group non_maps() {
         }
 
         fun dust_unreachable(x, y) {
-            set(SOULS_MEMORY.DUST_UNREACHABLE);
+            SOULS_MEMORY.DUST_UNREACHABLE = True;
 
             SOULS_MEMORY.DUST_DROP_X = x * 0x0008;
             SOULS_MEMORY.DUST_DROP_Y = y * 0x0008;
@@ -825,6 +829,7 @@ group non_maps() {
 
             SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
             SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
+            SOULS_MEMORY.BONFIRE_Z = <ACTIVE>[Z];
 
             if(SOULS_MEMORY.WITH_BONFIRE_INDEX) {
                 SOULS_MEMORY.BONFIRE_INDEX = SOULS_MEMORY.BONFIRE_INDEX_TMP;
@@ -1024,9 +1029,11 @@ group non_maps() {
                 } else {
                     <BOY>[X] = SOULS_MEMORY.BONFIRE_X;
                     <BOY>[Y] = SOULS_MEMORY.BONFIRE_Y;
+                    <BOY>[Z] = SOULS_MEMORY.BONFIRE_Z;
 
                     <DOG>[X] = SOULS_MEMORY.BONFIRE_X;
                     <DOG>[Y] = SOULS_MEMORY.BONFIRE_Y;
+                    <DOG>[Z] = SOULS_MEMORY.BONFIRE_Z;
                 }
                 
 
@@ -9751,12 +9758,36 @@ area east_inbetwixx() {
                 }
 
                 // west
-                add_enemy(FRIPPO, 0x5b, 0x7d);
+                add_enemy(FRIPPO, 0d91, 0d125);
 
                 // east
                 if(True) {
+                    // south west
                     add_enemy(RAT_RED, 0d103, 0d120);
                     attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d130, 0d85, 0d784, 0d999);
+
+                    add_enemy(RAT_RED, 0d103, 0d84); // 0d116, 0d77);
+                    attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d130, 0d85, 0d784, 0d999);
+
+                    // south east
+                    add_enemy(RAT_RED, 0d154, 0d111);
+                    attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d130, 0d85, 0d784, 0d999);
+
+                    add_enemy(RAT_RED, 0d139, 0d103);
+                    attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d130, 0d85, 0d784, 0d999);
+
+                    <BOY>[GENERAL_PURPOSE] = 0d0;
+                    while(True) {
+                        if(<BOY>[GENERAL_PURPOSE] > 0d0) {
+                            // debug_subtext("boy grabbed");
+
+                            dust_unreachable(0d103, 0d136);
+
+                            end();
+                        }
+
+                        sleep(0d10);
+                    }
                 }
             }
         };
@@ -15708,6 +15739,8 @@ area town() {
             enum BOSS {
                 DEBUG = False,
 
+                PROGRESS = flag_tmp(),
+
                 PHASE = memory_tmp(),
                 TIMER = memory_tmp(),
 
@@ -15725,6 +15758,12 @@ area town() {
             }
 
             fun puppet_damaged(self, other, boss_id, dance_animation) {
+                if!(BOSS.PROGRESS) {
+                    BOSS.PROGRESS = True;
+
+                    fade_to_music(BOSS);
+                }
+
                 if(BOSS.PHASE == 0x00) {
                     BOSS.PHASE = 0x01;
 
@@ -15843,7 +15882,7 @@ area town() {
             fun trigger_enter() {
                 open_gate(True);
 
-                fade_in();
+                default_init_room(False, False);
 
                 if!(FLAG.IN_ANIMATION) {
                     <DOG>[X] -= 0x20;
@@ -15851,19 +15890,21 @@ area town() {
                     crash_land(BOTH);
                 }
 
-                // puppet_1(0x40, 0x29);
-                // puppet_1(0x6c, 0x29);
-                // puppet_2(0x56, 0x30);
+                if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                    // puppet_1(0x40, 0x29);
+                    // puppet_1(0x6c, 0x29);
+                    // puppet_2(0x56, 0x30);
 
-                puppet_1(0x4b, 0x29);
-                attach_script(LAST_ENTITY, DAMAGE, reference(damage_1));
-                BOSS.BOSS_1_ID = <LAST_ENTITY>;
+                    puppet_1(0d75, 0d41);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(damage_1));
+                    BOSS.BOSS_1_ID = <LAST_ENTITY>;
 
-                puppet_2(0x61, 0x29);
-                attach_script(LAST_ENTITY, DAMAGE, reference(damage_2));
-                BOSS.BOSS_2_ID = <LAST_ENTITY>;
+                    puppet_2(0d97, 0d41);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(damage_2));
+                    BOSS.BOSS_2_ID = <LAST_ENTITY>;
 
-                boss_ai();
+                    boss_ai();
+                }
             }
         };
     };
