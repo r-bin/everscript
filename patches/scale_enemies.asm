@@ -488,8 +488,8 @@ org !MEMORY_TABLE_ATTACK
   %default_stats(2) ; "Mosquito" (113) = 2
   %default_stats(175) ; "Mosquito" (114) = 175
   %default_stats(0) ; "Mungola" (115) = 0
-  %default_stats(78) ; "Old Nick" (116) = 78
-  %default_stats(78) ; "Mephista" (117) = 78
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Old Nick" (116) = 78
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Mephista" (117) = 78
   %default_stats(0) ; "Thraxx's Heart" (118) = 0
   %default_stats(0) ; "Coleoptera's Heart" (119) = 0
   %default_stats(17) ; "Right Claw" (120) = 17 (vanilla bug)
@@ -582,7 +582,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(0) ; "Mosquito" (113) = 0
   %default_stats(0) ; "Mosquito" (114) = 0
   %default_stats(160) ; "Mungola" (115) = 160
-  %default_stats(100) ; "Old Nick" (116) = 100
+  dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Old Nick" (116) = 100
   %default_stats(0) ; "Mephista" (117) = 0
   %default_stats(0) ; "Thraxx's Heart" (118) = 0
   %default_stats(0) ; "Coleoptera's Heart" (119) = 0
