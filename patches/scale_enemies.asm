@@ -469,7 +469,7 @@ org !MEMORY_TABLE_ATTACK
   %default_stats(28) ; "Mad Monk" (94) = 28
   %default_stats(36) ; "Son of Set" (95) = 36
   %default_stats(41) ; "Son of Anhur" (96) = 41
-  %default_stats(56) ; "Minitaur" (97) = 56
+  dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Minitaur" (97) = 56
   %default_stats(14) ; "Skelesnail" (98) = 14
   %default_stats(18) ; "Frippo" (99) = 18
   %default_stats(14) ; "Widowmaker" (100) = 14
@@ -597,7 +597,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(80) ; "Sphere Bot" (128) = 80
   %default_stats(1400) ; "Fan" (129) = 1400
   %default_stats(1400) ; "Speaker" (130) = 1400
-  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Rat" (131) = 120
+  %default_stats(120) ; "Rat" (131) = 120
   %default_stats(160) ; "Mechaduster" (132) = 160
   %default_stats(280) ; "Tentacle" (133) = 280
   %default_stats(240) ; "Tiny Tentacle" (134) = 240
