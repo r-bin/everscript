@@ -1417,7 +1417,7 @@ class Range(BaseBox):
                 list.append(FunctionKey(index))
         elif isinstance(self.start, Memory):
             step = 2
-            for address in range(self.start.eval(params), self.end.eval(params) + step, step):
+            for address in range(self.start.eval(params), self.end.eval(params), step):
                 list.append(Memory(address))
         else:
             raise Exception("unknown type")
@@ -1707,7 +1707,7 @@ class Loot(Function_Base):
         self.amount = amount
         self.next = Word(next)
     
-        flag = self._generator.get_flag()
+        flag = self._generator.get_flag("22")
 
         self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)
@@ -1728,7 +1728,7 @@ class Axe2Wall(Function_Base):
         self._generator = generator
         self.object = object
     
-        flag = self._generator.get_flag()
+        flag = self._generator.get_flag("22")
 
         self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)

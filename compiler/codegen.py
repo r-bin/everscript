@@ -181,14 +181,14 @@ allocated RAM:
 {flag}
         """.strip()
 
-    def get_memory(self) -> Memory:
-        memory = self.linker.link_memory()
+    def get_memory(self, type:str) -> Memory:
+        memory = self.linker.link_memory(type)
 
         self.memory.append(memory)
 
         return memory
-    def get_flag(self) -> Memory:
-        memory = self.linker.link_flag()
+    def get_flag(self, type:str) -> Memory:
+        memory = self.linker.link_flag(type)
 
         self.flags.append(memory)
 
