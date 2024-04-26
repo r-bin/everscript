@@ -5,9 +5,10 @@
     0x300000..0x3fffff, // extension
 
     // reserved: <0x23b9>
-    <0x2266>..<0x22f8>,
-    // is being used by the engine?
-    <0x2450>..<0x2558>,
+    <0x2265>..<0x22D9>, // vanilla sniff spots
+    <0x236D>..<0x2378>, // act4 codes
+    // <0x2379>..<0x237C>, // landing spots
+    <0x253d>..<0x2558>, // sliver extension "save_file_growth" (excluded string params)
 
     <0x2834>..<0x288f> // 2834…28fb room specific memory (2834…288f seem to be general purpose)
 )
@@ -137,12 +138,12 @@ group non_maps() {
 
         @install()
         fun bomb_wall_triggered() {
-            heal(SCRIPT_OWNER, 0x00, False);
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
 
             animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
             object[<SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
 
-            sleep(0x50);
+            sleep(0d80);
 
             destroy(SCRIPT_OWNER);
         }
@@ -704,6 +705,18 @@ group non_maps() {
 
         @install()
         fun boy_death() {
+            if(<SCRIPT_OWNER>[PIXIE_DUST] > 0d0) {
+                if!(SOULS_MEMORY.DUST_UNREACHABLE) {
+                    while(<SCRIPT_OWNER>[HP] <= 0d0) {
+                        yield();
+                    }
+                    attach_script(BOY, DEATH, reference(boy_death));
+                    end();
+                } else {
+                    <SCRIPT_OWNER>[PIXIE_DUST] = False;
+                }
+            }
+
             control(NONE);
             enable_subtext(False);
             attribute(BOY, INVINCIBLE_TEMP, True);
@@ -1069,8 +1082,8 @@ group non_maps() {
         fun collectible_collected() {
             fake_loot();
 
-            SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
-            SOULS_MEMORY.COLLECTIBLE_COUNTER += 0x01;
+            SOULS_MEMORY.PROGRESS_COUNTER++;
+            SOULS_MEMORY.COLLECTIBLE_COUNTER++;
 
             destroy(SCRIPT_OWNER);
 
@@ -1078,10 +1091,10 @@ group non_maps() {
             subtext("Collectibles: [MEM1]");
         }
         fun add_collectible(type, x, y, collected_trigger) {
-            if(type == 0x00) {
+            if(type == 0d0) {
                 add_placeholder(SCEPTER, x, y);
-            } else if(type == 0x01) {
-                add_placeholder(0x100, x, y);
+            } else if(type == 0d1) {
+                add_placeholder(CROWN, x, y);
             }
             attach_script(LAST_ENTITY, TALK, collected_trigger);
         }
@@ -12986,8 +12999,7 @@ area town() {
                         set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
                         set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
 
-                        // debug_memory(BOSS.DISMOUNT, BOSS.DISMOUNT);
-                        object[0x00] = 0x0b;
+                        generic_switch_floor(0x00);
                     }
                 }
 
@@ -14926,16 +14938,16 @@ area town() {
                     debug_memory(ROOM.PROGRESS, ROOM.PROGRESS);
                 }
 
-                if(ROOM.PROGRESS == 0x00) {
+                if(ROOM.PROGRESS == 0d0) {
                     add_enemy(MOSQUITO, 0x20, 0x53);
                     attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
-                } else if(ROOM.PROGRESS == 0x01) {
+                } else if(ROOM.PROGRESS == 0d1) {
                     add_enemy(BOY_BLACK, 0x20, 0x53);
                     attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
-                } else if(ROOM.PROGRESS == 0x02) {
+                } else if(ROOM.PROGRESS == 0d2) {
                     add_enemy(VIGOR, 0x20, 0x53);
                     attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
-                } else if(ROOM.PROGRESS == 0x03) {
+                } else if(ROOM.PROGRESS == 0d3) {
                     add_enemy(FOOTKNIGHT, 0x20, 0x53);
                     attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
                 } else {
@@ -15005,11 +15017,13 @@ area town() {
 
                 claim_reward();
 
-                question("[SLOW]Ready for the next oponent?[CHOICE]Yes[CHOICE]No");
+                question_max("[SLOW]Ready for the next oponent?[CHOICE]Yes…[CHOICE]No…[CHOICE]Leave…", 0d5);
 
-                if(MEMORY.QUESTION_ANSWER == 0x00) {
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
                     spawn_next_gladiator();
-                } else if(MEMORY.QUESTION_ANSWER == 0x01) {
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    nop();
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
                     map_transition(town_arena_entry, south_1, NONE);
                 }
             }
@@ -15031,6 +15045,9 @@ area town() {
 
             @install()
             fun pillar_triggered() {
+                heal(SCRIPT_OWNER, 0d0, False);
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
                 set(ROOM.PILLAR_OPENED);
 
                 object[0x01] = 0x01;
@@ -15039,7 +15056,7 @@ area town() {
 
                 add_collectible(0x00, 0x36, 0x48, reference(collectible_triggered));
 
-                sleep(0x20);
+                sleep(0d30);
                 destroy(SCRIPT_OWNER);
             }
 
@@ -15077,7 +15094,7 @@ area town() {
                 if!(ROOM.COLLECTIBLE_LOOTED) {
                     // add_enemy(PLACEHOLDER, 0x36, 0x49);
                     add_enemy(RIMSALA_STATUTE_ENTITY, 0x35, 0x4a, BOMBABLE);
-                    attach_script(LAST_ENTITY, DAMAGE, reference(pillar_triggered));
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(pillar_triggered));
                 } else {
                     object[0x01] = 0x01;
                 }
@@ -17311,12 +17328,12 @@ area dungeon_isaac() {
         }
 
         fun check_exits(clear_flag) {
-            if(AREA_BASEMENT.ENEMY_COUNT > 0x00) {
+            if(AREA_BASEMENT.ENEMY_COUNT > 0d0) {
                 enemies_alive();
 
                 end();
             } else {
-                set(clear_flag);
+                clear_flag = True;
             }
         }
 
@@ -17458,8 +17475,8 @@ area dungeon_isaac() {
         }
 
         fun add_isaac_enemy() {
-            AREA_BASEMENT.ENEMY_COUNT_TOTAL += 0x01;
-            AREA_BASEMENT.ENEMY_COUNT += 0x01;
+            AREA_BASEMENT.ENEMY_COUNT_TOTAL++;
+            AREA_BASEMENT.ENEMY_COUNT++;
         }
         fun add_isaac_enemy_fly_shooting(x, y) {
             add_isaac_enemy();

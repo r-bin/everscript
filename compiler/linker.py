@@ -39,7 +39,7 @@ class MemoryManager():
             "function_key": [],
 
             "memory": {"22":[], "28":[]},
-            "flag": []
+            "flag": {"22":[], "28":[]},
         }
 
     def add(self, memory):
@@ -124,16 +124,16 @@ class MemoryManager():
     def allocate_memory(self, type:str):
         memory = self.memory["memory"][type].pop(0)
         return memory
-    def allocate_flag(self):
-        if not self.memory["flag"]:
-            memory = self.memory["memory"]["22"].pop(0)
+    def allocate_flag(self, type):
+        if not self.memory["flag"][type]:
+            memory = self.memory["memory"][type].pop(0)
 
             for offset in range(0, 8):
-                self.memory["flag"].append(Memory(memory.address, 1 << offset))
+                self.memory["flag"][type].append(Memory(memory.address, 1 << offset))
             for offset in range(0, 8):
-                self.memory["flag"].append(Memory(memory.address + 1, 1 << offset))
+                self.memory["flag"][type].append(Memory(memory.address + 1, 1 << offset))
             
-        flag = self.memory["flag"].pop(0)
+        flag = self.memory["flag"][type].pop(0)
 
         return flag
 
@@ -329,7 +329,7 @@ class Linker():
 
         memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["22"]])
         memory_tmp = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["28"]])
-        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]])
+        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]["22"]])
 
         return f"""
 unallocated ROM:
@@ -353,11 +353,11 @@ unallocated RAM:
 {flag}
         """.strip()
 
-    def link_memory(self) -> Memory:
-        return self.memory_manager.allocate_memory("22")
+    def link_memory(self, type:str) -> Memory:
+        return self.memory_manager.allocate_memory(type)
         
-    def link_flag(self) -> Memory:
-        return self.memory_manager.allocate_flag()
+    def link_flag(self, type:str) -> Memory:
+        return self.memory_manager.allocate_flag(type)
 
     def link_string(self, string:String):
         self.memory_manager.allocate_text(string)
