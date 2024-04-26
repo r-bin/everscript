@@ -1335,7 +1335,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple_underground_boss, south, NONE);
+                map_transition(chessboard, boss, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1368,8 +1368,6 @@ group non_maps() {
 
                 // debug_tile();
             }
-
-            debug_memory(<0x229A>, 0d0);
         }
         @install()
         @inject(ADDRESS.HOTKEY_B)
@@ -5068,10 +5066,93 @@ area altus_plateau_entry() {
                     stairs_west = entrance(0x40, 0x40, EAST), // 0x4c, 0x40
 
                     crash = entrance(0x54, 0x39, NONE),
+                    boss = entrance(0d43, 0d70, EAST),
                 }
 
                 enum soundtrack {
                     default = soundtrack(ALTUS.MUSIC, 0xff)
+                }
+
+                enum ROOM {
+                    STAIRS_WEST_REVEALED = flag(),
+
+                    BLACK_SQUARE_PALETTE = 0x0000, // PALETTE.DOG_TOASTER,
+                }
+
+                fun open_stairs_east(open) {
+                    if(open) {
+                        object[0x01] = 0x00; // close stairs_east
+                    } else {
+                        object[0x01] = 0x7e; // close stairs_east
+                    }
+                }
+
+                fun close_arena(close) {
+                    if(close) {
+                        init_map(0x31, 0x2f, 0x65, 0x57);
+
+                        sound(IMPACT);
+                        object[0x02] = 0x01; // close wall_2
+                        sleep(0d10);
+                        sound(IMPACT);
+                        object[0x03] = 0x01; // close wall_1
+
+                    } else {
+                        init_map(0x00, 0x00, 0xff, 0xff);
+
+                        object[0x02] = 0x00; // close wall_2
+                        object[0x03] = 0x00; // close wall_1
+                    }
+                }
+
+                enum BOSS {
+                    ID = memory_tmp(),
+
+                    PROGRESS = flag_tmp(),
+                }
+
+                fun boss_defeated() {
+                    souls_boss_defeated(DEAD_CHESS, REWARD_CHESS);
+
+                    music(ALTUS.MUSIC);
+
+                    close_arena(False);
+                    open_stairs_east(True);
+                }
+
+                @install()
+                fun boss_triggered() {
+                    // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_TYPE]);
+
+                    // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
+                    //     heal(SCRIPT_OWNER, 0x30, True);
+                    //     end();
+                    // }
+                    
+                    if((<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
+                        heal(SCRIPT_OWNER, 0x30, True);
+                    } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00){
+                        heal(SCRIPT_OWNER, 0x30, True);
+                    }
+
+                    if(<SCRIPT_OWNER>[HP] <= 0x00) {
+                        boss_defeated();
+                    }
+                }
+
+                fun spawn_boss(x, y) {
+                    BOSS.PROGRESS = True;
+
+                    add_enemy(MAGMAR, x, y);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
+                    BOSS.ID = <LAST_ENTITY>;
+
+                    fade_to_music(BOSS);
+
+                    if(False) {
+                        attribute(BOY, INVINCIBLE_TEMP, True);
+                        attribute(DOG, INVINCIBLE_TEMP, True);
+                    }
                 }
 
                 enum stepon_trigger {
@@ -5080,6 +5161,16 @@ area altus_plateau_entry() {
                     },
                     spawn_boss = @install() {
                         debug_subtext("S=1");
+
+                        if!(SOULS_MEMORY.DEAD_CHESS) {
+                            if!(BOSS.PROGRESS) {
+                                walk(BOY, TILE_ABSOLUTE, 0x39, 0x44, NONE);
+                                walk(DOG, TILE_ABSOLUTE, 0x39, 0x48, BOTH, BOTH);
+
+                                close_arena(True);
+                                spawn_boss(0d74, 0d69); // 0d84, 0d57);
+                            }
+                        }
                     },
                     exit_west = @install() {
                         map_transition(gate, east, WEST);
@@ -5172,12 +5263,6 @@ area altus_plateau_entry() {
                     }
                 }
 
-                enum ROOM {
-                    STAIRS_WEST_REVEALED = flag(),
-
-                    BLACK_SQUARE_PALETTE = 0x0000, // PALETTE.DOG_TOASTER,
-                }
-
                 @install()
                 fun revealer_triggered() {
                     destroy(SCRIPT_OWNER);
@@ -5189,17 +5274,6 @@ area altus_plateau_entry() {
                     object[0x00] = 0x01;
                     sleep(0x10);
                     object[0x00] = 0x00;
-                }
-
-                fun place_detectors(show) {
-                    add_enemy(PLACEHOLDER, 0x4a, 0x39, STONE_LEVITATE);
-                    if(show) {
-                        animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
-                    }
-                }
-
-                enum BOSS {
-                    ID = memory_tmp(),
                 }
 
                 fun square_white(character) {
@@ -5297,31 +5371,6 @@ area altus_plateau_entry() {
                     }
                 }
 
-                fun boss_defeated() {
-                    souls_boss_defeated(DEAD_CHESS, REWARD_CHESS);
-
-                    music(ALTUS.MUSIC);
-                }
-
-                @install()
-                fun boss_triggered() {
-                    // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_TYPE]);
-
-                    // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
-                    //     heal(SCRIPT_OWNER, 0x30, True);
-                    //     end();
-                    // }
-                    
-                    if((<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
-                        heal(SCRIPT_OWNER, 0x30, True);
-                    } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00){
-                        heal(SCRIPT_OWNER, 0x30, True);
-                    }
-
-                    if(<SCRIPT_OWNER>[HP] <= 0x00) {
-                        boss_defeated();
-                    }
-                }
                 @install()
                 fun enemy_triggered() {
                     // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_TYPE]);
@@ -5345,7 +5394,7 @@ area altus_plateau_entry() {
                     set(ROOM.STAIRS_WEST_REVEALED);
 
                     object[0x00] = 0x00; // close stairs_west
-                    object[0x01] = 0x00; // close stairs_east
+                    open_stairs_east(True);
 
                     destroy(SCRIPT_OWNER);
                 }
@@ -5398,32 +5447,31 @@ area altus_plateau_entry() {
                         add_chess_enemy(0d68, 0d44);
                     }
 
-                    object[0x00] = 0x7e; // close stairs_west
-                    object[0x01] = 0x7e; // close stairs_east
-                    // object[0x02] = 0x01; // close wall_2
-                    // object[0x03] = 0x01; // close wall_1
-                    // object[0x04] = 0x01; // remove bridge_east
-                    // object[0x05] = 0x01; // remove bridge_west
+                    if(SOULS_MEMORY.DEAD_CHESS) {
+                        open_stairs_east(True);
+                    } else {
+                        open_stairs_east(False);
+                    }
 
                     if!(ROOM.STAIRS_WEST_REVEALED) {
                         add_enemy(REVEALER_TARGET_ENTITY, 0x3e, 0x40);
                         special_script(REVEALER, reference(revealer_triggered));
+
+                        object[0x00] = 0x7e; // close stairs_west
                     } else {
                         object[0x00] = 0x00;
                     }
 
                     default_init_room(True, True);
 
-                    if!(SOULS_MEMORY.DEAD_CHESS) {
-                        add_enemy(MAGMAR, 0x54, 0x39);
-                        attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
-                        BOSS.ID = <LAST_ENTITY>;
-                    }
-
-                    attribute(BOY, INVINCIBLE_TEMP, True);
-                    attribute(DOG, INVINCIBLE_TEMP, True);
-
                     parity_check();
+
+                    // object[0x00] = 0x7e; // close stairs_west
+                    // object[0x01] = 0x7e; // close stairs_east
+                    // object[0x02] = 0x01; // close wall_2
+                    // object[0x03] = 0x01; // close wall_1
+                    // object[0x04] = 0x01; // remove bridge_east
+                    // object[0x05] = 0x01; // remove bridge_west
                 }
             };
 
