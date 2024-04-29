@@ -19,7 +19,7 @@
 
 # Act 2
 - NPCs:
-    - **[UNUSED]** NPC #36 is named `"Madronius"` (White haired guy, green scarf), but in the camp NPC #32 is being used (White haired guy, purple scarf)
+    - **[UNUSED]** NPC #36 is named `"Madronius"` (White haired guy, green scarf), but in the camp NPC #32 is being used (Named "Alchemy", white haired guy, purple scarf)
     - **[ODD]** The two boxers and two drunk inside the ship are all named `"Mad Monk"` in the game files (Their names never show up)
     - **[ODD]** NPC #18 and #21 look identical (White haired guy, purple scarf)
     - **[ODD]** NPC #64 and #65 are identical ("Dancin' Fool")

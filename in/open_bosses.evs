@@ -56,16 +56,17 @@ fun hotkey_start_r() {
 fun intro_skip() {
     // act 1
     // map_transition(raptors, south, NONE); // working (todo: phases)
-    // map_transition(thraxx, south, NONE); // wip
+    map_transition(thraxx, south, NONE); // wip
     // map_transition(graveyard, boss, NONE); // working (todo: 4 summons, anti bonk)
     // map_transition(salabog, boss, NONE); // working (todo: 3 summons)
     // map_transition(magmar, boss, NONE); // wip
 
     // act 2
     // map_transition(vigor, south, NONE); // working
-    map_transition(minitaur, west, NONE);
+    // map_transition(minitaur, west, NONE);
     // map_transition(megataur, south, NONE); // working
     // map_transition(rimsala, south, NONE); // working
+    // map_transition(aegis, south, NONE);
     // map_transition(aquagoth, south, NONE); // working (todo: 3+1 summons)
 
     // act 3
@@ -273,7 +274,7 @@ map raptors(RAPTORS) {
 
         left = entrance(0x15, 0x1c, NONE),
         center = entrance(0x1e, 0x21, NONE),
-        right = entrance(0x2a, 0x23, NONE)
+        right = entrance(0x2a, 0x23, NONE),
     }
 
     enum stepon_trigger {
@@ -333,10 +334,20 @@ group boss_thraxx() {
         TYPE = ENEMY.THRAXX_HEART,
 
         ID = arg[0x10],
+
+        CAST_COUNTER = arg[0x12],
+        MAGGOT_COUNTER = arg[0x14],
     }
     @install()
     fun roar() {
         nop();
+    }
+    fun glowing_eyes(glow) {
+        if(glow) {
+            tile_animate(0x03, 0xff, 0x05);
+        } else {
+            tile_animate(0x03, 0xff, 0x00);
+        }
     }
     @install()
     fun heart_triggered() {
@@ -407,6 +418,81 @@ group boss_thraxx() {
         }
 
     }
+    fun open_mouth(open) {
+        if(open) {
+            tile_animate(0x02, 0xff, 0x01);
+        } else {
+            tile_animate(0x02, 0xff, 0x00);
+        }
+    }
+    fun open_rips(open, with_object) {
+        if(open) {
+            tile_animate(0x01, 0xff, 0x00);
+
+            if(with_object) {
+                object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+            }
+        } else {
+            tile_animate(0x01, 0xff, 0x01);
+
+            if(with_object) {
+                object[0x00] = 0x01; // change rip_entrance (0=open, 1=closed, 2=gone)
+            }
+        }
+    }
+    @install()
+    fun rip_triggered(heart) { // TODO: B-trigger
+        if(arg[0x10] < 0d4) { // rip cage open for 2s
+            sound(AXE_ATTACK);
+            yield();
+
+            arg[0x12]++;
+            damage(heart, 0d2 + arg[0x12], True);
+
+            if(arg[0x12] > 0d2) {
+                arg[0x12] = 0d0;
+
+                open_rips(True, True);
+
+                sleep(0d120);
+
+                arg[0x10]++;
+                open_rips(False, True);
+            }
+        } else if(False) {
+            nop(); // TODO: second, unknown case (does the same as the first if)
+        } else if(arg[0x10] >= 0d4) { // rip cage permanently open?
+            open_rips(True, True);
+        }
+    }
+    @install()
+    fun spawn_maggot() {
+        val rng = arg[0x10];
+
+        rng = randrange(0d8);
+
+        if(rng == 0d0) {
+            add_enemy(MAGGOT, 0d21, 0d27);
+        } else if(rng == 0d1) {
+            add_enemy(MAGGOT, 0d27, 0d27);
+        } else if(rng == 0d2) {
+            add_enemy(MAGGOT, 0d11, 0d29);
+        } else if(rng == 0d3) {
+            add_enemy(MAGGOT, 0d33, 0d31);
+        } else if(rng == 0d4) {
+            add_enemy(MAGGOT, 0d38, 0d39);
+        } else if(rng == 0d5) {
+            add_enemy(MAGGOT, 0d08, 0d39);
+        } else if(rng == 0d6) {
+            add_enemy(MAGGOT, 0d23, 0d42);
+        } else {
+            add_enemy(MAGGOT, 0d23, 0d30);
+        }
+        <LAST_ENTITY>[FALLING_HEIGHT] = 0d3200;
+        // TODO: death script
+
+        // TODO: count++
+    }
     fun add_boss_thraxx(x, y) {
         add_enemy(BOSS_THRAXX.TYPE, x, y);
         BOSS_THRAXX.ID = <LAST_ENTITY>;
@@ -414,6 +500,43 @@ group boss_thraxx() {
 
         add_enemy(THRAXX_LEFT_ARM, 0d19, 0d14);
         add_enemy(THRAXX_RIGHT_ARM, 0d29, 0d14);
+
+        tile_animate(0x00, 0xff, 0x00);
+        tile_animate(0x01, 0xff, 0x00);
+        open_mouth(True);
+        tile_animate(0x03, 0xff, 0x00);
+
+        while(True) {
+            debug_subtext("0");
+            object[0x00] = 0x00;
+            tile_animate(0x01, 0xff, 0x00);
+
+            sleep(0d300);
+
+            debug_subtext("1");
+            tile_animate(0x01, 0xff, 0x01);
+            sleep(0d300);
+        }
+
+        while!(dead(BOSS_THRAXX.ID)) {
+            sleep(0d60);
+
+            if(BOSS_THRAXX.CAST_COUNTER > 0d17) {
+                BOSS_THRAXX.CAST_COUNTER = 0d0;
+                cast(BOSS_THRAXX.ID, BOTH, ACID_RAIN, 0d50);
+            } else {
+                BOSS_THRAXX.CAST_COUNTER++;
+            }
+
+            if(BOSS_THRAXX.MAGGOT_COUNTER > 0d30) {
+                BOSS_THRAXX.MAGGOT_COUNTER = 0d0;
+                
+                tile_animate(0x01, 0xff, 0x00);
+                object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+            } else {
+                BOSS_THRAXX.MAGGOT_COUNTER++;
+            }
+        }
     }
 };
 map thraxx(THRAXX) {

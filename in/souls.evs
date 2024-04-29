@@ -30,6 +30,7 @@
     // "_hook_trigger",
     // "menu_close",
     "scale_enemies(!ROM_HOOKS=$FE8000, !WITH_DEBUG_PALETTE=0)",
+    // "five_status_effects_fix",
 )
 
 group non_maps() {
@@ -162,13 +163,13 @@ group non_maps() {
 
         fun error_walk_back(exit_direction:DIRECTION) {
             if(exit_direction == DIRECTION.NORTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, ACTIVE);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, BOTH);
             } else if(exit_direction == DIRECTION.EAST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, ACTIVE, ACTIVE);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, ACTIVE, BOTH);
             } else if(exit_direction == DIRECTION.SOUTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, ACTIVE, ACTIVE);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, ACTIVE, BOTH);
             } else if(exit_direction == DIRECTION.WEST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, ACTIVE, ACTIVE);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, ACTIVE, BOTH);
             }
         }
         fun error_dead_end(exit_direction:DIRECTION) {
@@ -1344,7 +1345,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(chessboard, boss, NONE);
+                map_transition(double_thraxx, south, NONE);
                 // map_transition(town_room, south, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
@@ -1359,7 +1360,11 @@ group non_maps() {
                 
                 if(SOULS_MEMORY.WITH_CHEATS) {
                     if(True) {
-                        attribute(BOY, NO_CLIP, True);
+                        if((<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.NO_CLIP) == 0d0) {
+                            attribute(BOY, NO_CLIP, True);
+                        } else {
+                            attribute(BOY, NO_CLIP, False);
+                        }
                     }
                     if(False) {
                         attribute(BOY, INVINCIBLE_TEMP, True);
@@ -12289,37 +12294,69 @@ area southern_jungle() {
             }
 
             @install()
-            @async()
-            fun knockback(entity:CHARACTER) {
+            fun roar() {
+                sound(THRAXX_DAMAGE);
+            }
+
+            @install()
+            fun knockback(heart:CHARACTER, entity:CHARACTER, with_sound) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("heart triggered");
+                }
+
                 open_thraxx_mouth(True);
 
-                control(NONE);
-                subtext("-");
-                face(ACTIVE, NORTH);
-                // animate(ACTIVE, FREEZE, KNOCKBACK);
-                animate(ACTIVE, ONCE, KNOCKBACK);
+                control(entity, True);
 
-                sound(0x22);
-                // tile_animate(0x03, 0xff, 0x05);
+                heart[GENERAL_PURPOSE] += 0d1;
 
-                // attribute(ACTIVE, VINCIBLE_TEMP, True);
-                // attribute(ACTIVE, UNKNOWN_2_1, True);
+                arg[0x10] = heart[HP];
+                arg[0x12] = heart[GENERAL_PURPOSE] * (rand(0x9) + 0d1);
 
-                // TODO
-
-                damage(ACTIVE, BOSS.KNOCKBACK_DAMAGE, True);
-                sleep(0d29);
+                damage(heart, arg[0x12], True);
+                sleep(0d21);
+                // maggot
                 sleep(0d29);
 
-                subtext("+");
+                if(arg[0x12] < arg[0x10]) {
+                    control(NONE);
+
+                    face(entity, NORTH);
+                    animate(entity, FREEZE, KNOCKBACK);
+                    attribute(entity, ROOT, True);
+                    attribute(entity, UNKNOWN_2_1, True);
+
+                    while(arg[0x14] <= 0d6) {
+                        arg[0x14] += 0d1;
+
+                        arg[0x16] = 0d0;
+                        while(arg[0x16] < 0d7) {
+                            arg[0x16] += 0d1;
+
+                            teleport_relative(entity, 0d0, arg[0x14]);
+                            yield();
+                        }
+                    }
+
+                    animate(entity, ONCE, KNOCKBACK);
+                    attribute(entity, ROOT, False);
+                    attribute(entity, UNKNOWN_2_1, False);
+
+                    damage(entity, 0d5, True);
+                    // control(BOTH);
+
+                    if(with_sound) {
+                        roar();
+                    }
+                }
+
                 control(BOTH);
 
                 open_thraxx_mouth(False);
             }
-
             @install()
             fun thraxx_trigger() {
-                <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+                // <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
 
                 MEMORY.MAP_PALETTE = 0x00;
 
@@ -12335,11 +12372,11 @@ area southern_jungle() {
                 BOSS.ARM_RIGHT_ID[X] = BOSS.ARM_RIGHT_X;
                 BOSS.ARM_RIGHT_ID[Y] = BOSS.ARM_RIGHT_Y;
 
-                knockback(<ACTIVE>);
+                knockback(<SCRIPT_OWNER>, <ACTIVE>);
             }
             @install()
             fun thraxx2_trigger() {
-                <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+                // <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
 
                 MEMORY.MAP_PALETTE = 0x07;
                 
@@ -12355,7 +12392,9 @@ area southern_jungle() {
                 BOSS.ARM_RIGHT_2_ID[X] = BOSS.ARM_RIGHT_X;
                 BOSS.ARM_RIGHT_2_ID[Y] = BOSS.ARM_RIGHT_Y;
 
-                knockback(<ACTIVE>);
+                debug_memory(BOSS.HEART_2_ID[GENERAL_PURPOSE], BOSS.HEART_ID[GENERAL_PURPOSE]);
+
+                knockback(<SCRIPT_OWNER>, <ACTIVE>);
             }
 
             fun trigger_enter() {
@@ -12364,28 +12403,30 @@ area southern_jungle() {
 
                 // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
                 add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
                 attach_script(LAST_ENTITY, DAMAGE, reference(thraxx2_trigger));
                 BOSS.HEART_2_ID = <LAST_ENTITY>;
                 add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
                 attach_script(LAST_ENTITY, DAMAGE, reference(thraxx_trigger));
                 BOSS.HEART_ID = <LAST_ENTITY>;
 
-                add_enemy(ENEMY.THRAXX_LEFT_ARM, 0x13, 0x0e);
+                add_enemy(ENEMY.THRAXX_LEFT_ARM, 0d19, 0d14);
                 BOSS.ARM_LEFT_ID = <LAST_ENTITY>;
-                add_enemy(ENEMY.THRAXX_RIGHT_ARM, 0x1d, 0x0d);
+                add_enemy(ENEMY.THRAXX_RIGHT_ARM, 0d29, 0d13);
                 BOSS.ARM_RIGHT_ID = <LAST_ENTITY>;
 
-                add_enemy(ENEMY.THRAXX2_LEFT_ARM, 0x00, 0x00);
+                add_enemy(ENEMY.THRAXX2_LEFT_ARM, 0d0, 0d0);
                 BOSS.ARM_LEFT_2_ID = <LAST_ENTITY>;
-                add_enemy(ENEMY.THRAXX2_RIGHT_ARM, 0x00, 0x00);
+                add_enemy(ENEMY.THRAXX2_RIGHT_ARM, 0d0, 0d0);
                 BOSS.ARM_RIGHT_2_ID = <LAST_ENTITY>;
 
-                fade_in();
+                default_init_room(False, False);
 
                 // double_hit_check();
 
-                sleep(0d30);
-                debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
+                // sleep(0d30);
+                // debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
             }
         };
     };
@@ -20799,6 +20840,8 @@ area dungeon_volcano() {
             Z_DOWNSTAIRS = 0x20,
 
             ROUND_STONE_TRIGGERED_NORTH = memory(),
+
+            BRIDGE_AQUAGOTH = True,
         }
 
         enum BOSS {
@@ -21022,7 +21065,18 @@ area dungeon_volcano() {
             attach_script(LAST_ENTITY, TALK, reference(stone_yump));
         }
 
+        @install()
+        fun debug_triggered() {
+            object[0x00] = 0x7e; // show bridge_north
+        }
+
         fun trigger_enter() {
+            if(ROOM.BRIDGE_AQUAGOTH) {
+                object[0x00] = 0x7e; // show bridge_north
+            } else {
+                add_debug_entity(0d91, 0d51, reference(debug_triggered));
+            }
+            
             if!(SOULS_MEMORY.DEAD_VOLCANO_HYDRA) {
                 if(<BOY>[Z] == ROOM.Z_UPSTAIRS) {
                     spawn_1_head();

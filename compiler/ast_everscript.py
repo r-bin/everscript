@@ -750,8 +750,12 @@ class Call(Function_Base, Calculatable):
     def _code(self, params:list[Param]):
         #params = self.handle_params(params, self.params)
 
+        function = self.function
+        if function:
+            function = function.resolve(params)
+
         if self.params and self.function:
-            for p, a in zip(self.params, self.function.args):
+            for p, a in zip(self.params, function.args):
                 if a.enum_base == None:
                     continue
 
@@ -775,8 +779,8 @@ class Call(Function_Base, Calculatable):
             if isinstance(param, Deref):
                 param.update(params)
         
-        if self.function:
-            function = self.function.resolve(params)
+        if function:
+            function = function.resolve(params)
         else:
             function = None
             
