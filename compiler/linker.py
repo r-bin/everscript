@@ -95,7 +95,7 @@ class MemoryManager():
             else:
                 del(memory[i])
 
-        raise Exception("no memory defined/available")
+        raise Exception("no memory defined/available (script)")
         
     def allocate_text(self, string:String):
         count = string.count([])
@@ -114,7 +114,7 @@ class MemoryManager():
             else:
                 del(memory[i])
 
-        raise Exception("no memory defined/available")
+        raise Exception("no memory defined/available (text)")
     
     def allocate_function_key(self, function):
         function_key = self.memory["function_key"].pop(0)
