@@ -33,7 +33,7 @@ hirom
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; INPUT                                                                                                                 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-!ROM_HOOKS = $FE8000 ; 
+!ROM_EXTENSION = $FE8000 ; 
 !ENEMY_LEVEL = $2700 ; has to be set before add_enemy() is being called (before the HP is being defined, which is on spawn)
 !ENEMY_PALETTE = $2702 ; just for debugging
 !ENEMY_SPRITE_LEVEL_OFFSET = $008a ; sprite data to store the level (sprite+0x8a seems to be unused for normal enemies)
@@ -44,12 +44,12 @@ hirom
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-!MEMORY_TABLE_HP := !ROM_HOOKS+$1000+($4000*0)
-!MEMORY_TABLE_ATTACK := !ROM_HOOKS+$1000+($4000*1)
-!MEMORY_TABLE_DEFEND := !ROM_HOOKS+$1000+($4000*2)
-!MEMORY_TABLE_MAGIC_DEFEND := !ROM_HOOKS+$1000+($4000*3)
-!MEMORY_TABLE_EXPERIENCE := !ROM_HOOKS+$1000+($4000*4)
-!MEMORY_TABLE_MONEY := !ROM_HOOKS+$1000+($4000*5)
+!MEMORY_TABLE_HP := !ROM_EXTENSION+$1000+($4000*0)
+!MEMORY_TABLE_ATTACK := !ROM_EXTENSION+$1000+($4000*1)
+!MEMORY_TABLE_DEFEND := !ROM_EXTENSION+$1000+($4000*2)
+!MEMORY_TABLE_MAGIC_DEFEND := !ROM_EXTENSION+$1000+($4000*3)
+!MEMORY_TABLE_EXPERIENCE := !ROM_EXTENSION+$1000+($4000*4)
+!MEMORY_TABLE_MONEY := !ROM_EXTENSION+$1000+($4000*5)
 
 !OFFSET_FIRST_ID = $B678
 !OFFSET_TABLE_WIMPY = $d5fa-!OFFSET_FIRST_ID
@@ -110,7 +110,7 @@ org $8f868e
   JSL money_calculation ; LDA $8e0027,x (size 4)
 
 
-org !ROM_HOOKS
+org !ROM_EXTENSION
 db "+ScaleEnemies"
 
 macro get_scaled_value(table, is_negative)

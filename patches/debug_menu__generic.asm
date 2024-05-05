@@ -1,8 +1,12 @@
 ; Created by XaserLE (See https://www.romhacking.net/hacks/4638/)
 hirom
 
-!RING_MENU_MEMORY = $FE0000
-!BUTTON_MEMORY = $FE0300
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INPUT                                                                                                                 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+!ROM_EXTENSION = $FE0000 ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 !NUMBER_OF_BUTTONS = #$0004
 
@@ -44,7 +48,7 @@ ORG $CE9A86
 ORG $CEA439  ; This is a LDA we will repeat in extended space.
     JSL CLICK_EVENT  ; Jump to extended space.
 
-ORG !RING_MENU_MEMORY
+ORG !ROM_EXTENSION
 
 ; Go to extended space to load the debug ring.
 LOAD_DEBUG_RING:
@@ -124,8 +128,6 @@ CLICK_EVENT:
     BNE $04      ;  | ROM Creation Date
     JML BUTTON_11_PRESSED  ; /
     RTL          ; Item was not from the debug ring, so go back to normal execution.
-
-ORG !BUTTON_MEMORY
 
 START_SCRIPT:
     JSL $8ccf18

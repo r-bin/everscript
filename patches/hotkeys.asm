@@ -5,8 +5,16 @@ endmacro
 
 hirom
 
-!HOOK_MEMORY = $FE5000
-!HOTKEY_MEMORY = $FD0000
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INPUT                                                                                                                 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+!ROM_HOOK = $FE5000 ;
+!ROM_EXTENSION = $FD0000 ;
+
+!INJECT_OFFSET = 0 ; injected into "_hook_input"
+!WITH_HOTKEY_B = 1 ; hotkey "b" enabled
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 !PREV_INPUT = $F0
 !WRAM_PACIFIED = $7e23bf
@@ -16,10 +24,10 @@ hirom
 !HOTKEY_START_R = #$1010 ; BYs(S) ↑↓←→ AXL(R) 0123
 !HOTKEY_B = #$8000 ; (B)YsS ↑↓←→ AXLR 0123
 
-org !HOOK_MEMORY+0
+org !ROM_HOOK+!INJECT_OFFSET
   JSL start_practice_stuff
 
-org !HOTKEY_MEMORY
+org !ROM_EXTENSION
 start_practice_stuff:
   %ai16()
   ldx !PREV_INPUT
@@ -39,11 +47,13 @@ start_practice_stuff:
   CMP !HOTKEY_START_R : BNE .after_hotkey_start_r
     JSL hotkey_pressed_start_r
   .after_hotkey_start_r
+  if !WITH_HOTKEY_B
   CMP !HOTKEY_B : BNE .after_hotkey_b
     LDA !WRAM_PACIFIED
     CMP #$0001 : BNE .after_hotkey_b
       JSL hotkey_pressed_b
   .after_hotkey_b
+  endif
 
   .noInput
 
