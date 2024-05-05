@@ -607,7 +607,9 @@ group general_enums() {
             TAPESTRY = <0x252d>,
             TICKET_FOR_EXHIBITION = <0x252f>,
 
-            // selected alchemy
+            // alchemy
+            ALCHEMY_REWARD_PRESELECTION = <0x2445>,
+
             SELECTED_ALCHEMY_0 = (Byte) <0x0ADA>,
             SELECTED_ALCHEMY_1 = (Byte) <0x0AD9>,
             SELECTED_ALCHEMY_2 = (Byte) <0x0AD8>,
@@ -1139,7 +1141,7 @@ group general_enums() {
                 VILLAGER_1_4 = 0x07, // #4, "Man", man, green hair, no shirt (fire eye guard)
                 VILLAGER_1_5 = 0x08, // #7, "Old woman", woman, teal hair, pink dress
                 VILLAGER_1_6 = 0x09, // #6, "Old man", man, green hair, beard, bone as cain
-                VILLAGER_1_7 = 0x12, // #10, "Alchemy", man, green hair, beard (hard ball guy)
+                VILLAGER_1_7 = 0x12, // #10, "Alchemy", man, green hair, beard (hard ball guy) (palette conflict: tumbling_weed)
                 VILLAGER_1_8 = 0x7e, // #35, "Strongheart", same as ^
 
                 BEE = 0x02, // #8, "Child's Pet"
@@ -1356,8 +1358,8 @@ group general_enums() {
             enum FLAG_ENEMY {
                 NORMAL = 0x0000,
                 INACTIVE_INVISIBLE = 0x0001,
-                INVINCIBLE = 0x0002,
-                INACTIVE = 0x0020,
+                INVINCIBLE = 0x0002, // set for most NPCs
+                INACTIVE = 0x0020, // same as control(…)
                 MOSQUITO = 0x0040,
                 PHASING = 0x0400,
                 INVISBLE_INVINCIBLE_INACTIVE = 0x1000,
@@ -1370,16 +1372,17 @@ group general_enums() {
                 BOMBABLE = 0x0004,
             }
             enum SCRIPT_TRIGGER {
-                DAMAGE_DEATH = 0x0100, // shows previous hp, or 0 (used: Vigor, Rimsala statues, Sterling, green house black flowers)
-                DEATH = 0x0200, // shows 0
-                DAMAGE = 0x0300, // shows previous hp
+                B = 0x0040, // talk/loot
+                DAMAGE = 0x0100, // <SCRIPT_OWNER>[HP] shows previous hp, script[0x9]=0x100, dead(<SCRIPT_OWNER>) shows 1->0
+                DEATH = 0x0200, // <SCRIPT_OWNER>[HP] shows 0, script[0x9]=0x200, dead(<SCRIPT_OWNER>) shows 0
+                
+                // groups
+                DAMAGE_DEATH = 0x0300, // <SCRIPT_OWNER>[HP] shows previous hp -> 0, script[0x9]=0x100->0x200, dead(<SCRIPT_OWNER>) shows 1->0 (used: Vigor, Rimsala statues, Sterling, green house black flowers)
+                ALL = 0x0340,
 
-                LOOT = 0x0040,
-
+                // unknown
                 UNKNOWN_1 = 0x0000, // TODO (used: default loot script, boss rush dust loot)
                 UNKNOWN_2 = 0x0001, // TODO (used: special scripts?)
-
-                TALK = 0xffff // fake id
             }
 
             enum DIRECTION {
@@ -1451,12 +1454,13 @@ group general_enums() {
 
                 // ATTRIBUTE.FLAGS_2 (character+0x11)
                 UNKNOWN = 0x01, // always set?
-                LOADING_SCREEN = 0x08,
+                LOADING_SCREEN = 0x08, // also ai following quickly?
                 HEALED = 0x10, // examples: PETAL (Blue glow)
                 NO_CLIP = 0x04, // see ATTRIBUTE_BITS.NO_CLIP
                 INVINCIBLE_TEMP = 0x40, // see ATTRIBUTE_BITS.INVINCIBLE_TEMP
 
                 // ATTRIBUTE.FLAGS_3 (character+0x12)
+                AI_FOLLOWING = 0x04, // ai following?
                 UNKNOWN_CAST = 0x38, // during cast on boy? (CRUSH, EXPLOSION, FLASH, FIREBALL)
 
                 // ATTRIBUTE.FLAGS_4 (character+0x13
@@ -1476,7 +1480,7 @@ group general_enums() {
 
                 // ATTRIBUTE.FLAGS_6 (character+0x15)
                 WINGS = 0x01,
-                DEAD = 0x04, // also set during KNOCKBACK
+                DEAD = 0x04, // also set during KNOCKBACK, or being eaten by a flower
                 AI_RUN = 0x08, // see ATTRIBUTE_BITS.AI_RUN
                 CONFOUND = 0x40, // confound/disrupt reverse controls
 
@@ -1726,11 +1730,6 @@ group general_enums() {
 
                 RAT_RED_HARMLESS = 0xDC56,
             }
-            enum CHARACTER_SCRIPT_TRIGGER {
-                TALK = 0x0040,
-                DAMAGE = 0x0100,
-                DEATH = 0x0200,
-            }
             enum STATUS_ID {
                 ATLAS = 0x00,
                 AURA = 0x08,
@@ -1816,7 +1815,7 @@ group general_enums() {
                 TYPE = 0x60, // see CHARACTER_TPYE
 
                 ATTACHED_SCRIPT_ID = 0x66, // see "attach_script(…)"
-                ATTACHED_SCRIPT_TRIGGER = 0x68, // see CHARACTER_SCRIPT_TRIGGER
+                ATTACHED_SCRIPT_TRIGGER = 0x68, // see SCRIPT_TRIGGER
                 
                 POINTER_STATUS_ICON_SPRITE = 0x6e, // ?
 
@@ -2499,7 +2498,7 @@ group general_enums() {
                 ONE_UP = 0x20,
                 CURE = 0x1a,
                 MIRACLE_CURE = 0x1e,
-                FORCEFIELD = 0x24,
+                FORCE_FIELD = 0x24,
 
                 // derpy
                 WATER = 0x30
@@ -3173,9 +3172,13 @@ group functions() {
                     wait(wait_for);
 
                     if(unlock is Word) {
-                        control(unlock);
+                        if((unlock == CHARACTER.NONE) || (unlock == CHARACTER.BOTH) || (unlock == CHARACTER.BOY) || (unlock == CHARACTER.DOG)) {
+                            control(unlock);
+                        } else {
+                            control(unlock, False);
+                        }
                     } else if((unlock is Memory) || (unlock is Arg)) {
-                        control(unlock, True);
+                        control(unlock, False);
                     }
                 }
             }
@@ -3589,12 +3592,11 @@ group functions() {
                 }
             }
 
-            fun select_alchemy() {
+            fun select_alchemy(alchemy_index:ALCHEMY_PRESELECT_INDEX) {
+                if(alchemy_index is Word) {
+                    MEMORY.ALCHEMY_REWARD_PRESELECTION = alchemy_index;
+                }
                 code(0x63, "// (63) SHOW ALCHEMY SELECTION SCREEN");
-            }
-            fun select_alchemy_with_preselection(alchemy_index:ALCHEMY_PRESELECT_INDEX) {
-                code(0x18, 0xed, 0x01, param(alchemy_index), "// (18) WRITE PRESELECT ALCHEMY ($2445) = Flash (0x1e)");
-                select_alchemy();
             }
 
             fun cast(character:CHARACTER, target:CHARACTER, spell:CAST, level) {
@@ -3632,12 +3634,12 @@ group functions() {
             }
 
             fun attach_script(character:CHARACTER, flag:SCRIPT_TRIGGER, id) {
-                if(flag == SCRIPT_TRIGGER.TALK) {
+                if(flag == SCRIPT_TRIGGER.B) {
                     if(character == CHARACTER.BOTH) {
-                        code(0x3d, entity_t(BOY), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
-                        code(0x3d, entity_t(DOG), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+                        code(0x3d, entity_t(BOY), 0x0000 + id, "// (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
+                        code(0x3d, entity_t(DOG), 0x0000 + id, "// (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
                     } else {
-                        code(0x3d, entity_t(character), 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+                        code(0x3d, entity_t(character), 0x0000 + id, "// (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
                     }
                 } else {
                     if(character == CHARACTER.BOTH) { // TODO: forced_memory=True when character=<memory>
@@ -3937,12 +3939,24 @@ group functions() {
                 control(BOTH);
             }
 
-            fun conversation_start(entity) {
-                control(NONE);
+            fun conversation_start(npc:CHARACTER) {
+                if(<ACTIVE>[Z] != npc[Z]) {
+                    end();
+                }
+                if(script[0x9] == 0x200) {
+                    end();
+                }
 
+                clear_subtext();
+
+                control(NONE);
+                control(npc, True);
+
+                face_each(ACTIVE, npc);
             }
-            fun conversation_end(entity) {
+            fun conversation_end(npc:CHARACTER) {
                 control(BOTH);
+                control(npc, False);
             }
             fun conversation_single_dialog(entity) {
                 conversation_start(entity);
@@ -4301,7 +4315,7 @@ group functions() {
                 MEMORY.LEVEL_4_SPEAR = level;
             }
 
-            fun unlock(item:ITEM) {
+            fun _unlock(item:ITEM) {
                 if(item == ITEM.ACID_RAIN) { // alchemy (32)
                     set(FLAG.ACID_RAIN);
                 } else if(item == ITEM.FLASH) {
@@ -4488,362 +4502,285 @@ group functions() {
                     unlock_weapon_level(0x0300);
                 }
             }
+            @install()
+            fun unlock(item:ITEM) {
+                _unlock(item);
+            }
 
-            fun reward(item:ITEM) {
+            fun _reward(item:ITEM) {
                 if(item == ITEM.ARMOR_POLISH) { // charms
                     subtext("Armor Polish"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.CHOCOBO_EGG) {
                     subtext("Chocobo Egg"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.INSECT_INCENSE) {
                     subtext("Insect Incense"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.JADE_DISK) {
                     subtext("Jade Disk"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.JAGUAR_RING) {
                     subtext("Jaguar Ring"); // subtext(0x066f);
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.MAGIC_GOURD) {
                     subtext("Magic Gourd"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.MOXA_STICK) {
                     subtext("Moxa Stick"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.ORACLE_BONE) {
                     subtext("Oracle Bone"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.RUBY_HEART) {
                     subtext("Ruby Heart"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.SILVER_SHEATH) {
                     subtext("Silver Sheath"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.STAFF_OF_LIFE) {
                     subtext("Staff of Life"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.SUN_STONE) {
                     subtext("Sun Stone"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.THUGS_CLOAK) {
                     subtext("Thug's Cloak"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.WIZARDS_COIN) {
                     subtext("Wizard's Coin"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.DIAMOND_EYE) {
                     subtext("Diamond Eye"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.DIAMOND_EYES) {
                     subtext("Diamond Eyes"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.GAUGE) {
                     subtext("Gauge"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.WHEEL) {
                     subtext("Wheel"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.QUEENS_KEY) {
                     subtext("Queen's Key"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.ENERGY_CORE) {
                     subtext("Energy Core"); // ?
                     
-                    fanfare_item();
-
                     unlock(item);
                 } else if(item == ITEM.AXE_1) { // weapons
                     MEMORY.GAIN_WEAPON = GAIN_WEAPON.AXE_1;
                     
                     subtext(0x05b8);
-                    fanfare_item();
                 } else if(item == ITEM.SPEAR_3) {
                     unlock(item);
                     
                     subtext(0x2247);
-                    fanfare_item();
                 } else if(item == ITEM.ACID_RAIN) { // alchemy
                     unlock(item);
                     
                     subtext("Learned Acid Rain"); // subtext(0x059d);
-                    fanfare_item();
                 } else if(item == ITEM.ATLAS) {
                     set(FLAG.ATLAS);
                     
                     subtext("Learned Atlas");
-                    fanfare_item();
                 } else if(item == ITEM.BARRIER) {
                     set(FLAG.BARRIER);
                     
                     subtext("Learned Barrier");
-                    fanfare_item();
                 } else if(item == ITEM.CALL_UP) {
                     set(FLAG.CALL_UP);
                     
                     subtext("Learned Call Up");
-                    fanfare_item();
                 } else if(item == ITEM.CORROSION) {
                     set(FLAG.CORROSION);
                     
                     subtext("Learned Corrosion");
-                    fanfare_item();
                 } else if(item == ITEM.CRUSH) {
                     set(FLAG.CRUSH);
                     
                     subtext("Learned Crush");
-                    fanfare_item();
                 } else if(item == ITEM.CURE) {
                     set(FLAG.CURE);
                     
                     subtext("Learned Cure");
-                    fanfare_item();
                 } else if(item == ITEM.DEFEND) {
                     set(FLAG.DEFEND);
                     
                     subtext("Learned Defend");
-                    fanfare_item();
                 } else if(item == ITEM.DOUBLE_DRAIN) {
                     set(FLAG.DOUBLE_DRAIN);
                     
                     subtext("Learned Double Drain");
-                    fanfare_item();
                 } else if(item == ITEM.DRAIN) {
                     set(FLAG.DRAIN);
                     
                     subtext("Learned Drain");
-                    fanfare_item();
                 } else if(item == ITEM.ENERGIZE) {
                     set(FLAG.ENERGIZE);
                     
                     subtext("Learned Energize");
-                    fanfare_item();
                 } else if(item == ITEM.ESCAPE) {
                     set(FLAG.ESCAPE);
                     
                     subtext("Learned Escape");
-                    fanfare_item();
                 } else if(item == ITEM.EXPLOSION) {
                     set(FLAG.EXPLOSION);
                     
                     subtext("Learned Explosion");
-                    fanfare_item();
                 } else if(item == ITEM.FIREBALL) {
                     set(FLAG.FIREBALL);
                     
                     subtext("Learned Fireball");
-                    fanfare_item();
                 } else if(item == ITEM.FIRE_POWER) {
                     set(FLAG.FIRE_POWER);
                     
                     subtext("Learned Fire Power");
-                    fanfare_item();
                 } else if(item == ITEM.FLASH) {
                     set(FLAG.FLASH);
                     
                     subtext("Learned Flash"); // subtext(0x0963);
-                    fanfare_item();
                 } else if(item == ITEM.FORCE_FIELD) {
                     set(FLAG.FORCE_FIELD);
                     
                     subtext("Learned Force Field");
-                    fanfare_item();
                 } else if(item == ITEM.HARD_BALL) {
                     set(FLAG.HARD_BALL);
                     
                     subtext("Learned Hard Ball"); // subtext(0x0651);
-                    fanfare_item();
                 } else if(item == ITEM.HEAL) {
                     set(FLAG.HEAL);
                     
                     subtext("Learned Heal");
-                    fanfare_item();
                 } else if(item == ITEM.LANCE) {
                     set(FLAG.LANCE);
                     
                     subtext("Learned Lance");
-                    fanfare_item();
                 } else if(item == ITEM.LASER) {
                     set(FLAG.LASER);
                     
                     subtext("Learned Laser");
-                    fanfare_item();
                 } else if(item == ITEM.LEVITATE) {
                     set(FLAG.LEVITATE);
                     
                     subtext("Learned Levitate");
-                    fanfare_item();
                 } else if(item == ITEM.LIGHTNING_STORM) {
                     set(FLAG.LIGHTNING_STORM);
                     
                     subtext("Learned Lightning Storm");
-                    fanfare_item();
                 } else if(item == ITEM.MIRACLE_CURE) {
                     set(FLAG.MIRACLE_CURE);
                     
                     subtext("Learned Miracle Cure");
-                    fanfare_item();
                 } else if(item == ITEM.NITRO) {
                     set(FLAG.NITRO);
                     
                     subtext("Learned Nitro");
-                    fanfare_item();
                 } else if(item == ITEM.ONE_UP) {
                     set(FLAG.ONE_UP);
                     
                     subtext("Learned One Up");
-                    fanfare_item();
                 } else if(item == ITEM.REFLECT) {
                     set(FLAG.REFLECT);
                     
                     subtext("Learned Reflect");
-                    fanfare_item();
                 } else if(item == ITEM.REGROWTH) {
                     set(FLAG.REGROWTH);
                     
                     subtext("Learned Regrowth");
-                    fanfare_item();
                 } else if(item == ITEM.REVEALER) {
                     set(FLAG.REVEALER);
                     
                     subtext("Learned Revealer");
-                    fanfare_item();
                 } else if(item == ITEM.REVIVE) {
                     set(FLAG.REVIVE);
                     
                     subtext("Learned Revive");
-                    fanfare_item();
                 } else if(item == ITEM.SLOW_BURN) {
                     set(FLAG.SLOW_BURN);
                     
                     subtext("Learned Slow Burn");
-                    fanfare_item();
                 } else if(item == ITEM.SPEED) {
                     set(FLAG.SPEED);
                     
                     subtext("Learned speed");
-                    fanfare_item();
                 } else if(item == ITEM.STING) {
                     set(FLAG.STING);
                     
                     subtext("Learned Sting");
-                    fanfare_item();
                 } else if(item == ITEM.STOP) {
                     set(FLAG.STOP);
                     
                     subtext("Learned Stop");
-                    fanfare_item();
                 } else if(item == ITEM.SUPER_HEAL) {
                     set(FLAG.SUPER_HEAL);
                     
                     subtext("Learned Super Heal");
-                    fanfare_item();
                 } else if(item == ITEM.PETAL) { // consumables
                     MEMORY.LOOT_ITEM = LOOT_REWARD.PETAL;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
                     
-                    fanfare_item();
                 } else if(item == ITEM.NECTAR) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.NECTAR;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
                     
-                    fanfare_item();
                 } else if(item == ITEM.BISCUIT) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.BISCUIT;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
                     
-                    fanfare_item();
                 } else if(item == ITEM.WINGS) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.WINGS;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
                     
-                    fanfare_item();
                 } else if(item == ITEM.HERBAL_ESSENCE) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.HERBAL_ESSENCE;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
                     
-                    fanfare_item();
                 } else if(item == ITEM.PIXIE_DUST) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.PIXIE_DUST;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
                     
-                    fanfare_item();
                 } else if(item == ITEM.CALL_BEADS) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.CALL_BEADS;
                     MEMORY.LOOT_OBJECT = 0xff;
                     call_id(LOOT_GOURD);
-                    
-                    fanfare_item();
                 } else if(item == ITEM.TICKET_FOR_EXHIBITION) { // tradable
                     MEMORY.TICKET_FOR_EXHIBITION += 0x01;
 
                     subtext("Found a ticket");
-                    
-                    fanfare_item();
                 }
+
+                fanfare_item();
+            }
+            @install()
+            fun reward(item:ITEM) {
+                _reward(item);
             }
         };
 
@@ -6267,7 +6204,7 @@ group functions() {
 
         fun bonfire_activate(x, y, id) {
             // add_enemy(LANTERN_LIGHT, x, y, INACTIVE_IMORTAL);
-            // attach_script(LAST_ENTITY, TALK, 0x181e);
+            // attach_script(LAST_ENTITY, B, 0x181e);
             // entity_script_controlled(LAST_ENTITY);
 
             add_enemy(LANTERN_LIGHT_RED, 0x00, 0x00, INACTIVE);
