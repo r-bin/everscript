@@ -403,7 +403,7 @@ allocated RAM:
                         pass
 
                     test = If(
-                            Equals(Param(None, Memory(0x23b9)), Param(None, Word(map.variant))),
+                            Equals(Param(None, Memory(0x2451)), Param(None, Word(map.variant))),
                             [function],
                             [False, False]
                         )
@@ -456,7 +456,7 @@ allocated RAM:
 
                 if entrance_code:
                     code = If(
-                        Equals(Param(None, Memory(0x23b7)), Param(None, Word(entrance_index))),
+                        Equals(Param(None, Memory(0x2453)), Param(None, Word(entrance_index))),
                         [entrance_code],
                         [False, False]
                     )
@@ -494,7 +494,7 @@ allocated RAM:
                     code = map.trigger_enter
                     code = _generate_trigger_enter(output, map, code)
                     test = If(
-                            Equals(Param(None, Memory(0x23b9)), Param(None, Word(map.variant))),
+                            Equals(Param(None, Memory(0x2451)), Param(None, Word(map.variant))),
                             [Call(self, code)],
                             [False, False]
                         )

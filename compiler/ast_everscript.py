@@ -1630,13 +1630,19 @@ yy // linking required
                 case _:
                     change_music = Word(0x00)
 
+            if self.map.soundtrack():
+                new_music = self.map.soundtrack().track
+            else:
+                new_music = Word(0x00)
+
             call_params = [
                 self.map.map_index,
                 self.entrance.x,
                 self.entrance.y,
                 self.direction,
                 self.entrance.direction,
-                change_music
+                change_music,
+                new_music
             ]
             call_params = [Param(None, Word(param, 1)) for param in call_params]
 
@@ -1647,8 +1653,9 @@ yy // linking required
             params = self.merge_params(params, call_params)
 
             code = Function_Code([
-                Asign(Memory(0x23b7), Word(entrance_index)),
-                Asign(Memory(0x23b9), Word(self.map.variant)),
+                Asign(Memory(0x244f), Word(self.map.map_index)),
+                Asign(Memory(0x2451), Word(self.map.variant)),
+                Asign(Memory(0x2453), Word(entrance_index)),
                 function_transition
             ], '\n').code(params)
 

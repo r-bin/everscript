@@ -4,6 +4,7 @@
 
 # Act 1
 - NPCs:
+    - **[ODD]** When the boy throws a stick during the dog introduction scene, the stick is an actual projectile with a hitbox
     - **[BUG]** Coleoptera's right claw contains a copy&paste error, compared to the left claw:
         - `2250 hp` vs. `2500 hp`
         - `17 attack` vs. `175 attack` (Same as Thraxx' right claw)
