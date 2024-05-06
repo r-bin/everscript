@@ -173,8 +173,8 @@ group general_enums() {
 
             // music
 
-            MUSIC_FADE_IN = 0x01,
-            MUSIC_FADE_OUT = 0x00,
+            MUSIC_FADE_IN = 0x01, // (CHANGE_MUSIC=True;)
+            MUSIC_FADE_OUT = 0x00, // (CHANGE_MUSIC=False;)
 
             // scripts
 
@@ -430,7 +430,6 @@ group general_enums() {
 
             CURRENCY_CURRENT = (Byte) <0x2348>,
 
-            MAP = (Byte) <0xadb>, // buggy
             PACIFIED = <0x23bf>,
             FAKE_HOUSE_ID = <0x234b>,
 
@@ -472,7 +471,7 @@ group general_enums() {
             WINDWALKER_TYPE = <0x2355>,
 
             // music
-            CURRENT_MUSICf = <0x0E4B>, // buggy
+            // CURRENT_MUSIC = <0x0E4B>, // buggy
 
             // weapons
             GAIN_WEAPON = <0x2441>,
@@ -487,7 +486,7 @@ group general_enums() {
 
             // map
 
-            CURRENT_MAP = (Byte) <0x0ADB>, // buggy, shows unknown memory
+            // CURRENT_MAP = (Byte) <0x0ADB>, // buggy, shows unknown memory
 
             CHANGE_MUSIC = <0x238d>,
 
@@ -647,6 +646,17 @@ group general_enums() {
 
             // debug
             DEBUG_MENU_COUNT = <0x0f5a>,
+
+            // reserved/hack (not part of the original engine)
+            CURRENT_MUSIC = <0x2445>, // originally "<0x0E4B>"
+            MUSIC_STACK_1 = <0x2447>,
+            MUSIC_STACK_2 = <0x2449>,
+            MUSIC_STACK_3 = <0x244b>,
+            MUSIC_STACK_4 = <0x244d>,
+
+            CURRENT_MAP = <0x244f>, // originally "(Byte) <0x0ADB>"
+            CURRENT_MAP_VARIANT = <0x2451>,
+            CURRENT_MAP_ENTRANCE_ID = <0x2453>,
 
             // unknown
             UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = <0x23d9>, // used in: boss rush (1=for eternal dust drops)
@@ -3034,6 +3044,10 @@ group functions() {
     };
 
     group everscript_commands() {
+        fun _subtext(id) { // debug copy
+            code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
+        }
+
         fun end() {
             code(0x00, "// (00) END (return)");
         }
@@ -3085,26 +3099,128 @@ group functions() {
                 volume(volume);
             }
             fun music_fade(on) {
-                if(on == True) {
-                    call_id(MUSIC_FADE_IN);
+                if(False) {
+                    if(on == True) {
+                        call_id(MUSIC_FADE_IN);
+                    } else {
+                        call_id(MUSIC_FADE_OUT);
+                    }
                 } else {
-                    call_id(MUSIC_FADE_OUT);
+                    if(on == True) {
+                        MEMORY.CHANGE_MUSIC = False;
+                        code(0x58, "// (58) FADE IN VOLUME");
+                    } else {
+                        MEMORY.CHANGE_MUSIC = True;
+                        code(0x59, "// (59) FADE OUT VOLUME");
+                    }
                 }
             }
             fun fade_to_music(music:MUSIC) {
                 music_fade(False);
                 music_volume(music, 0xff);
             }
-            fun music_enter(music, volume) {
-                if((MEMORY.CHANGE_MUSIC != 0x00) || (!FLAG.IN_ANIMATION)) { // hack: loading resets CHANGE_MUSIC, but entering the rooms requires it to be set
-                    music_fade(False);
-                    music_volume(music, volume);
-                    
-                    if(volume == 0xff) {
-                        music_fade(True);
-                    } else {
-                        volume(volume);
+
+            @install()
+            fun clear_music_stack() {
+                MEMORY.MUSIC_STACK_1 = 0d0;
+                MEMORY.MUSIC_STACK_2 = 0d0;
+                MEMORY.MUSIC_STACK_3 = 0d0;
+                MEMORY.MUSIC_STACK_4 = 0d0;
+            }
+            @install()
+            fun play_music(music:MUSIC, force, without_fade) {
+                MEMORY.MUSIC_STACK_1 = music;
+
+                // if((MEMORY.CHANGE_MUSIC > 0d0) || (MEMORY.CURRENT_MUSIC != music)) {
+                if(MEMORY.CURRENT_MUSIC != music) {
+                    if!(without_fade) {
+                        code(0x59, "// (59) FADE OUT VOLUME");
                     }
+
+                    if(music == MUSIC.BUGMUCK_AMBIENT_MELODY) {
+                        music(BUGMUCK_AMBIENT_MELODY);
+                    } else if(music == MUSIC.BOSS) {
+                        music(BOSS);
+                    } else if(music == MUSIC.FANFARE) {
+                        music(FANFARE);
+                    } else if(music == MUSIC.FANFARE_ITEM) {
+                        music(FANFARE_ITEM);
+                    } else {
+                        if(True) {
+                            MEMORY.STRING_PARAMETER_1 = music;
+                            _subtext("unknown music: [MEM1]");
+                            nop();
+                        }
+
+                        music(0d0);
+                    }
+                    MEMORY.CURRENT_MUSIC = music;
+
+                    if!(without_fade) {
+                        code(0x58, "// (58) FADE IN VOLUME");
+                    }
+                }
+            }
+            @install()
+            fun push_music(music:MUSIC, clear_stack) {
+                if(clear_stack > 0d0) {
+                    clear_music_stack();
+                }
+
+                if(MEMORY.MUSIC_STACK_4 != 0d0) {
+                    nop();
+                }
+                if(MEMORY.MUSIC_STACK_3 != 0d0) {
+                    MEMORY.MUSIC_STACK_4 = MEMORY.MUSIC_STACK_3;
+                }
+                if(MEMORY.MUSIC_STACK_2 != 0d0) {
+                    MEMORY.MUSIC_STACK_3 = MEMORY.MUSIC_STACK_2;
+                }
+                if(MEMORY.MUSIC_STACK_1 != 0d0) {
+                    MEMORY.MUSIC_STACK_2 = MEMORY.MUSIC_STACK_1;
+                }
+
+                play_music(music);
+
+                if(False) {
+                    debug_memory3(MEMORY.MUSIC_STACK_1, MEMORY.MUSIC_STACK_2, MEMORY.MUSIC_STACK_3);
+                }
+            }
+            @install()
+            fun pop_music() {
+                if(MEMORY.MUSIC_STACK_4 != 0d0) {
+                    MEMORY.MUSIC_STACK_3 = MEMORY.MUSIC_STACK_4;
+                    MEMORY.MUSIC_STACK_4 = 0d0;
+                }
+                if(MEMORY.MUSIC_STACK_3 != 0d0) {
+                    MEMORY.MUSIC_STACK_2 = MEMORY.MUSIC_STACK_3;
+                    MEMORY.MUSIC_STACK_3 = 0d0;
+                }
+                if(MEMORY.MUSIC_STACK_2 != 0d0) {
+                    MEMORY.MUSIC_STACK_1 = MEMORY.MUSIC_STACK_2;
+                    MEMORY.MUSIC_STACK_2 = 0d0;
+                }
+
+                play_music(MEMORY.MUSIC_STACK_1);
+
+                if(False) {
+                    debug_memory3(MEMORY.MUSIC_STACK_1, MEMORY.MUSIC_STACK_2, MEMORY.MUSIC_STACK_3);
+                }
+            }
+
+            fun music_enter(music, volume) {
+                if(False) {
+                    if((MEMORY.CHANGE_MUSIC != 0x00) || (!FLAG.IN_ANIMATION)) { // hack: loading resets CHANGE_MUSIC, but entering the rooms requires it to be set
+                        music_fade(False);
+                        music_volume(music, volume);
+                        
+                        if(volume == 0xff) {
+                            music_fade(True);
+                            volume(volume);
+                        }
+                    }
+                } else {
+                    push_music(music, True);
                 }
             }
         };
@@ -3205,11 +3321,17 @@ group functions() {
                 sleep(0x10);
             }
 
-            fun transition(map:MAP, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music) {
-                if(change_music) {
-                    music_fade(False);
+            fun transition(map:MAP, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music, new_music) {
+                if(False) {
+                    if(change_music) {
+                        music_fade(False);
 
-                    MEMORY.CHANGE_MUSIC = 0x01;
+                        MEMORY.CHANGE_MUSIC = 0x01;
+                    }
+                } else {
+                    if(MEMORY.CURRENT_MUSIC != new_music) {
+                        music_fade(False);
+                    }
                 }
 
                 if(direction_in == direction_out) {
@@ -4101,12 +4223,12 @@ group functions() {
 
             fun fanfare_boss() {
                 fanfare_start();
-                music(FANFARE);
+                play_music(FANFARE);
                 fanfare_end();
             }
             fun fanfare_item() {
                 fanfare_start();
-                music(FANFARE_ITEM);
+                play_music(FANFARE_ITEM);
                 fanfare_end();
             }
 
@@ -5644,6 +5766,10 @@ group functions() {
         }
 
         fun isaac_tear(costs_ingredients) {
+            if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) > 0d0) {
+                end();
+            }
+            
             if(costs_ingredients) {
                 if(MEMORY.WATER < 0x04) {
                     if(False) {
@@ -5658,6 +5784,8 @@ group functions() {
 
                 MEMORY.WATER -= 0x04;
             }
+
+            animate(BOY, ONCE_FREEZE, DEFAULT);
             
             if(<BOY>[FACE_DIRECTION] == 0x00) {
                 shoot_entity_offset_relative(BOY, ONION, 0x00, -0x15, 0x00, -0x60, 0x10, 0x0a);
@@ -5667,6 +5795,12 @@ group functions() {
                 shoot_entity_offset_relative(BOY, ONION, 0x00, -0x15, 0x00, 0x60, 0x10, 0x0a);
             } else {
                 shoot_entity_offset_relative(BOY, ONION, 0x00, -0x15, -0x60, 0x00, 0x10, 0x0a);
+            }
+
+            sleep(0d10);
+
+            if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
+                animate(BOY, ONCE, DEFAULT);
             }
         }
 
