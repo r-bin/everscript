@@ -12847,9 +12847,14 @@ area town() {
         enum AREA_TEMPLE {
             MUSIC = MUSIC.HALLS_1,
 
-            UNLOCKED_LEVEL_1 = flag(),
-            UNLOCKED_LEVEL_2 = flag(),
+            // level 0
 
+            // level 1
+            UNLOCKED_LEVEL_1 = flag(),
+            FIREPIT_UNLOCKED = flag(),
+
+            // level 2
+            UNLOCKED_LEVEL_2 = flag(),
             BOSS_KEY = flag(),
         }
 
@@ -13656,6 +13661,10 @@ area town() {
                     },
                     door_east_2 = @install() {
                         debug_subtext("S=9");
+
+                        if(AREA_TEMPLE.FIREPIT_UNLOCKED) {
+                            map_transition(town_temple_underground_firepit, west, EAST);
+                        }
                     },
 
                     door_east_1 = @install() {
@@ -13723,14 +13732,14 @@ area town() {
                         object[0x03] = 0x01; // NE
 
                         object[0x07] = 0x01; // SW
-                        object[0x08] = 0x01; // SE
+                        // object[0x08] = 0x01; // SE
 
                         object[0x09] = 0x01; // NW
                     } else {
                         object[0x03] = 0x00; // NE
 
                         object[0x07] = 0x00; // SW
-                        object[0x08] = 0x00; // SE
+                        // object[0x08] = 0x00; // SE
 
                         object[0x09] = 0x00; // NW
                     }
@@ -13811,6 +13820,97 @@ area town() {
                     set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
 
                     open_doors(True);
+
+                    default_init_room(True, False);
+
+                    if!(AREA_TEMPLE.FIREPIT_UNLOCKED) {
+                        add_enemy(PLACEHOLDER, 0d77, 0d92);
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            control(NONE);
+                            
+                            sound(WEIRD_SOUND);
+                            object[0x08] = 0x01; // open door_SE
+                            sleep(0d30);
+
+                            map_transition(town_temple_underground_firepit, west, EAST);
+                        }));
+                    } else {
+                        object[0x08] = 0x01; // open door_SE
+                    }
+                }
+            };
+
+            map town_temple_underground_firepit(FIREPIT_NOBILIA) {
+                enum entrance {
+                    west = entrance(0x05, 0x1b, EAST),
+
+                    cutscene_landing = entrance(0x0b, 0x1b, NONE),
+                    
+                    bonfire = entrance(0d45, 0d17, NONE, { bonfire_wakeup(-0d40, 0d8, -0d32, 0d32); }),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+                }
+
+                enum stepon_trigger {
+                    b_trigger_0 = @install() {
+                        debug_subtext("S=0");
+                    },
+                    exit_west = @install() {
+                        map_transition(town_temple_underground, east_2, WEST);
+                    },
+                }
+
+                enum ROOM {
+                    DEBUG = False,
+
+                    PIT_IGNITED = flag(),
+                    FIRE_ORB_TRIGGER_COUNTER = memory_tmp(),
+                }
+
+                fun ignite_pit() {
+                    object[0x00] = 0x01; // ignite firepit
+
+                    bonfire(0d45, 0d17, SOULS_MEMORY.BONFIRE_CASTLE_PIT);
+                    attribute(LAST_ENTITY, INVISIBLE, True);
+                    <LAST_ENTITY>[Z] = <BOY>[Z];
+                }
+
+                @install()
+                fun firepit_damage() {
+                    check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
+
+                    if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
+                        ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
+                        set(ROOM.PIT_IGNITED);
+                        destroy(SCRIPT_OWNER);
+
+                        set(SOULS_MEMORY.BONFIRE_CASTLE_PIT);
+                        ignite_pit();
+                    } else {
+                        heal(SCRIPT_OWNER, 0x00, False);
+                        // damage(SCRIPT_OWNER, 0x00, True);
+                    }
+
+                    // reset_alchemy_types();
+                }
+
+                fun trigger_enter() {
+                    AREA_TEMPLE.FIREPIT_UNLOCKED = True;
+
+                    // object[0x00] = 0x01; // ignite fire
+                    // object[0x01] = 0x02; // show windwalker_collision
+
+                    if!(ROOM.PIT_IGNITED) {
+                        add_enemy(FACE_ENTITY, 0d45, 0d17);
+                        attribute(LAST_ENTITY, INVISIBLE, True);
+                        attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
+
+                        reset_alchemy_types();
+                    } else {
+                        ignite_pit();
+                    }
 
                     default_init_room(True, False);
                 }
