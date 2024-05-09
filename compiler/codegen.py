@@ -466,7 +466,7 @@ allocated RAM:
             code_transition_in = If_list(code_transition_in)
 
             function_enter = Function("_trigger_enter", 
-                [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
+                [Asign(Memory(0x244f), Word(map.map_index)), Asign(Memory(0x2451), Word(map.variant))] + [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):

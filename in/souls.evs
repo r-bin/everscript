@@ -305,6 +305,7 @@ group non_maps() {
             BONFIRE_MAP = memory(),
             BONFIRE_VARIANT = memory(),
             BONFIRE_TELEPORT_REQUIRED = flag(),
+            BONFIRE_TELEPORT_BIND = flag(),
 
             // center
             BONFIRE_INBETWIXX = flag(),
@@ -530,6 +531,42 @@ group non_maps() {
             }
         }
 
+        @install()
+        @async()
+        fun bonfire_wakeup(offset_boy_x, offset_boy_y, offset_dog_x, offset_dog_y) {
+            debug_memory(SOULS_MEMORY.BONFIRE_MAP, SOULS_MEMORY.BONFIRE_VARIANT);
+
+            if!(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
+                // if(SOULS_MEMORY.BONFIRE_X == 0d0 && SOULS_MEMORY.BONFIRE_Y == 0d0 && SOULS_MEMORY.BONFIRE_Z == 0d0) {
+                    <BOY>[X] += signed arg[0x00];
+                    <BOY>[Y] += signed arg[0x02];
+
+                    <DOG>[X] += signed arg[0x04];
+                    <DOG>[Y] += signed arg[0x06];
+                // }
+            }
+
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            attribute(DOG, INVINCIBLE_TEMP, True);
+
+            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+            sleep(0d30);
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+            sleep(0d40);
+
+            animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+
+            sleep(0d20);
+            animate(DOG, ONCE, DEFAULT);
+
+            attribute(BOY, INVINCIBLE_TEMP, False);
+            attribute(DOG, INVINCIBLE_TEMP, False);
+        }
+
         fun dust_unreachable(x, y) {
             SOULS_MEMORY.DUST_UNREACHABLE = True;
 
@@ -587,33 +624,26 @@ group non_maps() {
         fun return_to_bonfire() {
             refresh_flask();
 
+            // SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED = True;
+
             if(SOULS_MEMORY.BONFIRE_MAP == MAP.CROSSING) { // center
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(inbetwixx, start, NONE);
+                map_transition(inbetwixx, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.BLIMP_EXTERIOR) { // east
-                // set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(east_crossing, east, NONE);
+                map_transition(east_crossing, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.PIPEMAZE_ROOMS) {
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(pipe_entrance, pipe_east, NONE);
+                map_transition(pipe_entrance, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.NOBILIA_SQUARE) {
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(town_center, crash, NONE);
+                map_transition(town_center, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.DARK_FOREST) { // west
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(basement_0_start, center, NONE);
+                map_transition(basement_0_start, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.STERLING) {
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
                 map_transition(volcano_tower, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) { // south
-                // set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(jungle_firepit, south, NONE);
+                map_transition(jungle_firepit, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) { // altus
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(well, crash, NONE);
+                map_transition(well, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) {
-                // set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-                map_transition(castle_fire_pit, west, NONE);
+                map_transition(castle_fire_pit, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP != 0x0000){
                 fade_in();
                 sleep(0d30);
@@ -738,6 +768,12 @@ group non_maps() {
                 end();
             }
 
+            if(True) {
+                SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
+                SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
+                SOULS_MEMORY.BONFIRE_Z = <ACTIVE>[Z];
+            }
+
             if(SOULS_MEMORY.WINGS_BLOCKED) {
                 unset(SOULS_MEMORY.WINGS_BLOCKED);
                 special_script(WINGS, reference(wings_used));
@@ -784,9 +820,11 @@ group non_maps() {
 
             // replace_bonfire(<SCRIPT_OWNER>, reference(bonfire_triggered));
 
-            SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
-            SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
-            SOULS_MEMORY.BONFIRE_Z = <ACTIVE>[Z];
+            if(True) {
+                SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
+                SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
+                SOULS_MEMORY.BONFIRE_Z = <ACTIVE>[Z];
+            }
 
             SOULS_MEMORY.BONFIRE_MAP = MEMORY.CURRENT_MAP;
             SOULS_MEMORY.BONFIRE_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
@@ -2235,7 +2273,8 @@ area shrine_area() {
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_INBETWIXX) {
-                    map_transition(inbetwixx, start, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.CROSSING;
+                    map_transition(inbetwixx, bonfire, NONE);
                 }
             }
         }
@@ -2263,11 +2302,13 @@ area shrine_area() {
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_EAST_CROSSING) {
-                    map_transition(east_crossing, east, NORTH); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.BLIMP_EXTERIOR;
+                    map_transition(east_crossing, bonfire, NORTH);
                 }
             } else if(MEMORY.QUESTION_ANSWER == 0x01) {
                 if(SOULS_MEMORY.BONFIRE_PIPES) {
-                    map_transition(pipe_entrance, pipe_west, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.PIPEMAZE_ROOMS;
+                    map_transition(pipe_entrance, bonfire, NONE);
                 }
             }
         }
@@ -2295,11 +2336,13 @@ area shrine_area() {
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_VOLCANO_TOWER) {
-                    map_transition(volcano_tower, south, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.STERLING;
+                    map_transition(volcano_tower, bonfire, NONE);
                 }
             } else if(MEMORY.QUESTION_ANSWER == 0x01) {
                 if(SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON) {
-                    map_transition(basement_0_start, center, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.DARK_FOREST;
+                    map_transition(basement_0_start, bonfire, NONE);
                 }
             }
         }
@@ -2322,7 +2365,8 @@ area shrine_area() {
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_TOWN_CENTER) {
-                    map_transition(town_center, crash, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.NOBILIA_SQUARE;
+                    map_transition(town_center, bonfire, NONE); // TODO
                 }
             }
         }
@@ -2345,7 +2389,8 @@ area shrine_area() {
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_JUNGLE_PIT) {
-                    map_transition(jungle_firepit, south, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_JUNGLE;
+                    map_transition(jungle_firepit, bonfire, NONE);
                 }
             }
         }
@@ -2373,11 +2418,13 @@ area shrine_area() {
 
             if(MEMORY.QUESTION_ANSWER == 0x00) {
                 if(SOULS_MEMORY.BONFIRE_ALTUS_WELL) {
-                    map_transition(well, crash, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.WELL;
+                    map_transition(well, bonfire, NONE);
                 }
             } else if(MEMORY.QUESTION_ANSWER == 0x01) {
                 if(SOULS_MEMORY.BONFIRE_CASTLE_PIT) {
-                    map_transition(castle_fire_pit, west, NONE); // TODO
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_NOBILIA;
+                    map_transition(castle_fire_pit, bonfire, NONE);
                 }
             }
         }
@@ -2986,7 +3033,8 @@ area inbetwixx_center() {
             west_1 = entrance(0x04, 0x71, EAST),
             west_2 = entrance(0x04, 0x2f, EAST),
 
-            start = entrance(0x0f, 0x47, NONE)
+            start = entrance(0x0f, 0x47, NONE),
+            bonfire = entrance(0d49, 0d53, NONE, { bonfire_wakeup(0d0, -0d16, -0d24, 0d0); }),
         }
 
         enum soundtrack {
@@ -3334,7 +3382,7 @@ area inbetwixx_center() {
                 // load_map(0x05, 0x0f, 0x47);
             }
 
-            bonfire(0x31, 0x35, SOULS_MEMORY.BONFIRE_INBETWIXX);
+            bonfire(0d49, 0d53, SOULS_MEMORY.BONFIRE_INBETWIXX);
             bomb_wall_trigger(0x01, 0x01, 0d63, 0d63);
             bomb_wall_trigger(0x00, 0x10, 0d64, 0d99);
 
@@ -4486,7 +4534,7 @@ area altus_plateau_entry() {
                 south = entrance(0x55, 0xf9, NORTH),
                 platform = entrance(0x51, 0x2f, NORTH),
 
-                bonfire = entrance(0d67, 0d159, NONE),
+                bonfire = entrance(0d67, 0d159, NONE, { bonfire_wakeup(0d0, 0d8, -0d24, 0d0); }),
             }
 
             enum soundtrack {
@@ -5764,6 +5812,7 @@ area altus_plateau_entry() {
                 west = entrance(0x01, 0x1c, EAST),
 
                 crash = entrance(0x38, 0x18, NONE),
+                bonfire = entrance(0d30, 0d20, NONE, { bonfire_wakeup(0d0, 0d8, 0d32, 0d0); }),
             }
 
             enum soundtrack {
@@ -5822,7 +5871,7 @@ area altus_plateau_entry() {
                     }
                 }
 
-                bonfire(0x1e, 0x14, SOULS_MEMORY.BONFIRE_ALTUS_WELL);
+                bonfire(0d30, 0d20, SOULS_MEMORY.BONFIRE_ALTUS_WELL);
                 
                 default_init_room(True, True);
             }
@@ -6506,6 +6555,8 @@ area altus_plateau_entry() {
                     west = entrance(0x05, 0x1b, EAST),
 
                     cutscene_landing = entrance(0x0b, 0x1b, NONE),
+                    
+                    bonfire = entrance(0d45, 0d17, NONE, { bonfire_wakeup(-0d40, 0d8, -0d32, 0d32); }),
                 }
 
                 enum soundtrack {
@@ -7486,10 +7537,11 @@ area east_inbetwixx() {
             east = entrance(0x3f, 0x4b, WEST),
             west = entrance(0x01, 0x4b, EAST),
 
-            crash = entrance(0x32, 0x1e, NONE),
-
             elevator_top = entrance(0x0d, 0x2b, SOUTH),
             elevator_bottom = entrance(0x1b, 0x47, SOUTH),
+
+            crash = entrance(0x32, 0x1e, NONE, { crash_both(); }),
+            bonfire = entrance(0d45, 0d68, NONE, { bonfire_wakeup(0d0, 0d8, 0d24, 0d0); }),
         }
 
         enum soundtrack {
@@ -7754,10 +7806,6 @@ area east_inbetwixx() {
                 add_enemy(RAPTOR_PURPLE, 0d17, 0d71);
             }
 
-            if!(FLAG.IN_ANIMATION) {
-                crash_both();
-            }
-
             if!(ROOM.STONE_TRIGGERED) {
                 add_enemy(STONE_ROUND, 0x24, 0x18);
                 attach_script(LAST_ENTITY, B, reference(stone_triggered));
@@ -7765,7 +7813,7 @@ area east_inbetwixx() {
                 object[0x00] = 0x01;
             }
 
-            bonfire(0x2d, 0x44, SOULS_MEMORY.BONFIRE_EAST_CROSSING);
+            bonfire(0d45, 0d68, SOULS_MEMORY.BONFIRE_EAST_CROSSING);
 
             if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
                 add_enemy(STONE_ROUND, 0x15, 0x1b);
@@ -8921,6 +8969,8 @@ area east_inbetwixx() {
                 pipe_east = entrance(0x2d, 0x17, NONE),
                 south = entrance(0x1a, 0x2f, NORTH),
                 pipe_west = entrance(0x07, 0x17, NONE),
+
+                bonfire = entrance(0d14, 0d31, NONE, { bonfire_wakeup(-0d32, 0d8, 0d32, 0d8); }),
             }
             
             enum soundtrack {
@@ -8959,7 +9009,7 @@ area east_inbetwixx() {
             }
 
             fun gourd_looted() {
-                bonfire(0x0e, 0x1f, SOULS_MEMORY.BONFIRE_PIPES);
+                bonfire(0d14, 0d31, SOULS_MEMORY.BONFIRE_PIPES);
             }
 
             enum b_trigger {
@@ -9112,6 +9162,8 @@ area east_inbetwixx() {
 
             enum stepon_trigger {
                 switch_triggered = @install() {
+                    debug_subtext("S=0");
+
                     if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
                         sound(MAGMA_HARDENING);
 
@@ -9121,27 +9173,39 @@ area east_inbetwixx() {
                     }
                 },
                 exit_room_switch = @install() {
+                    debug_subtext("S=1");
+
                     map_transition(mosquito_arena, right, NORTH);
                 },
                 exit_room_gate = @install() {
+                    debug_subtext("S=2");
+
                     map_transition(pipe_maze, pipe_west, NONE);
                 },
                 exit_room_empty = nop(),
                 exit_north_1 = nop(),
                 exit_north_2 = nop(),
                 jump_room_switch = @install() {
+                    debug_subtext("S=6");
+
                     call(0x94af0d);
                 },
                 jump_room_gate = @install() {
+                    debug_subtext("S=7");
+
                     call(0x94af34);
                 },
                 exit_south = nop(),
                 jump_empty_room = nop(),
 
                 exit_gate = @install() {
+                    debug_subtext("S=10");
+
                     map_transition(mario_dungeon_boss, south, NORTH);
                 },
                 approach_gate = @install() {
+                    debug_subtext("S=11");
+
                     if!(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND) {
                         subtext("Locked by a mechanism.");
                     }
@@ -12617,6 +12681,8 @@ area southern_jungle() {
 
         enum entrance {
             south = entrance(0x17, 0x2c, NORTH),
+
+            bonfire = entrance(0d15, 0d23, NONE, { bonfire_wakeup(0d8, 0d32, 0d40, 0d16); }),
         }
 
         enum soundtrack {
@@ -14463,7 +14529,8 @@ area town() {
 
                 door = entrance(0x08, 0x5d, SOUTH, { generic_door(True, False); }),
 
-                crash = entrance(0x2c, 0x39, NONE),
+                crash = entrance(0x2c, 0x39, NONE, { crash_both(); }),
+                bonfire = entrance(0d44, 0d58, NONE, { bonfire_wakeup(0d0, 0d8, 0d0, -0d8); }),
             }
 
             enum soundtrack {
@@ -14521,12 +14588,6 @@ area town() {
                     add_enemy(SLIME, 0d7, 0d59);
                 }
 
-                if!(FLAG.IN_ANIMATION) {
-                    crash_both();
-                }
-
-                object[0x0d] = 0x02;
-
                 // object[0x0e] = 0x01;
 
                 // object[0x00] = 0x01; // show crowd_1_1
@@ -14542,10 +14603,10 @@ area town() {
                 // object[0x0a] = ???
                 // object[0x0b] = same as crowd_2_2 ???
                 // object[0x0c] = same as crowd_1_3 ???
-                // object[0x0d] = 0x02; // show statue, crater, statue_reparing
+                object[0x0d] = 0x02; // show statue, crater, statue_reparing
                 // object[0x0e] = 0x01; // show guard_statue
 
-                bonfire(0x2c, 0x3a, SOULS_MEMORY.BONFIRE_TOWN_CENTER);
+                bonfire(0d44, 0d58, SOULS_MEMORY.BONFIRE_TOWN_CENTER);
 
                 default_init_room(False, False);
             }
@@ -17812,7 +17873,8 @@ area dungeon_isaac() {
                 south = entrance(0x11, 0x55, NORTH),
                 west = entrance(0x00, 0x38, EAST),
 
-                center = entrance(0x12, 0x38, NONE),
+                center = entrance(0d18, 0d56, NONE, { crash_both(); subtext("Basement Level 1"); }),
+                bonfire = entrance(0d23, 0d51, NONE, { bonfire_wakeup(-0d24, 0d0, 0d0, 0d8); }),
             }
 
             enum soundtrack {
@@ -17889,15 +17951,6 @@ area dungeon_isaac() {
                 bonfire(0d23, 0d51, SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON);
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
-
-                if!(FLAG.IN_ANIMATION) {
-                    // teleport(DOG, 0x19, 0x1d);
-                    <DOG>[X] += 0x20;
-                    <DOG>[Y] += 0x20;
-                    crash_land(BOTH);
-
-                    subtext("Basement Level 1");
-                }
             }
         };
 
