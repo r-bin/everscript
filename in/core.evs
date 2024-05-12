@@ -6077,10 +6077,12 @@ group functions() {
         }
         @install()
         fun ai_move_projectile_ring(entity, projectile:THROWABLE, radius, step, pause, timer, with_double, with_sound) {
+            control(entity, True);
+            face(entity, EAST);
+
             arg[0x10] = 0x0100;
             arg[0x12] = 0x0000;
 
-            face(entity, EAST);
             while(timer > 0d0) {
                 timer--;
 
@@ -6163,6 +6165,8 @@ group functions() {
                     arg[0x12] -= step;
                 }
             }
+
+            control(entity, False);
         }
 
         fun toss_shoot(entity, projectile:THROWABLE, target, delta_x, delta_y) {
@@ -6198,6 +6202,8 @@ group functions() {
         }
         @install()
         fun ai_move_projectile_puke(entity, projectile:THROWABLE, target, count) {
+            face_target(entity, target);
+
             puke_shoot(entity, projectile, target, 0d0, 0d0);
             arg[0x10]++;
 
@@ -6250,6 +6256,14 @@ group functions() {
             ai_move_projectile_plus(entity, projectile, radius);
         }
 
+        @install()
+        fun ai_move_tesla(entity, target) {
+            sound(TESLA);
+
+            shoot_entity_entity(entity, LIGHTNING, target, 0d15, 0d0);
+            damage(target, 0d10, True);
+        }
+
         // bombs
 
         @install()
@@ -6276,6 +6290,56 @@ group functions() {
             sleep(0d35);
 
             destroy(arg[0x10]);
+        }
+
+        // movement
+
+        @install()
+        fun ai_move_charge_right(entity, target, speed, count) {
+            control(entity, True);
+
+            attribute(entity, ROOT, True);
+            animate(entity, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+            face(entity, EAST);
+
+            while(count > 0d0) {
+                while(entity[X] < 0x200) {
+                    entity[X] += speed;
+                    bomb_entity(entity, 0d10);
+
+                    yield();
+                }
+
+                count--;
+
+                entity[X] = 0d0;
+                entity[Y] = target[Y];
+
+                animate(entity, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+            }
+
+            arg[0x10] = <BOY>[X];
+
+            while(entity[X] < arg[0x10]) {
+                entity[X] += speed;
+                bomb_entity(entity, 0d10);
+
+                yield();
+            }
+
+            animate(entity, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+
+            arg[0x10] = entity[X] - 0d20;
+
+            while(entity[X] > arg[0x10]) {
+                entity[X]--;
+
+                sleep(0d2);
+            }
+
+            attribute(entity, ROOT, False);
+            animate(entity, ONCE, DEFAULT);
+            control(entity, False);
         }
 
         // scripts
