@@ -6065,7 +6065,221 @@ group functions() {
         }
     };
 
-    group experimental() {
+    group ai_moves() {
+        // projectile
+
+        fun ring_shoot(entity, projectile, x, y, with_sound) {
+            if(with_sound > 0d0) {
+                sound(PROJECTILE_SHOOTING);
+            }
+
+            shoot_entity_relative(entity, projectile, x, y, 0x14, 0x00);
+        }
+        @install()
+        fun ai_move_projectile_ring(entity, projectile:THROWABLE, radius, step, pause, timer, with_double, with_sound) {
+            arg[0x10] = 0x0100;
+            arg[0x12] = 0x0000;
+
+            face(entity, EAST);
+            while(timer > 0d0) {
+                timer--;
+
+                while(arg[0x12] < radius) {
+                    ring_shoot(entity, projectile, arg[0x10], arg[0x12], with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, -(arg[0x10]), -(arg[0x12]), with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x12] += step;
+                }
+                while(arg[0x10] > 0x00) {
+                    ring_shoot(entity, projectile, arg[0x10], arg[0x12], with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, -(arg[0x10]), -(arg[0x12]), with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x10] -= step;
+                }
+
+                face(entity, SOUTH);
+                while(arg[0x10] < radius) {
+                    ring_shoot(entity, projectile, -(arg[0x10]), arg[0x12], with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, arg[0x10], -(arg[0x12]), with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x10] += step;
+                }
+                while(arg[0x12] > 0x00) {
+                    ring_shoot(entity, projectile, -(arg[0x10]), arg[0x12], with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, arg[0x10], -(arg[0x12]), with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x12] -= step;
+                }
+
+                face(entity, WEST);
+                while(arg[0x12] < radius) {
+                    ring_shoot(entity, projectile, -(arg[0x10]), -(arg[0x12]), with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, arg[0x10], arg[0x12], with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x12] += step;
+                }
+                while(arg[0x10] > 0x00) {
+                    ring_shoot(entity, projectile, -(arg[0x10]), -(arg[0x12]), with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, arg[0x10], arg[0x12], with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x10] -= step;
+                }
+
+                face(entity, NORTH);
+                while(arg[0x10] < radius) {
+                    ring_shoot(entity, projectile, arg[0x10], -(arg[0x12]), with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, -(arg[0x10]), arg[0x12], with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x10] += step;
+                }
+                while(arg[0x12] > 0x00) {
+                    ring_shoot(entity, projectile, arg[0x10], -(arg[0x12]), with_sound);
+                    if(with_double) {
+                        yield();
+                        ring_shoot(entity, projectile, -(arg[0x10]), arg[0x12], with_sound);
+                    }
+                    sleep(pause);
+                    arg[0x12] -= step;
+                }
+            }
+        }
+
+        fun toss_shoot(entity, projectile:THROWABLE, target, delta_x, delta_y) {
+            shoot_entity_absolute(entity, projectile, target[X] + delta_x, target[Y] + delta_y, 0d50, 0d0);
+        }
+        @install()
+        fun ai_move_projectile_toss(entity, projectile:THROWABLE, target, count) {
+            face(entity, SOUTH);
+
+            while(arg[0x10] < count) {
+                arg[0x10]++;
+
+                arg[0x12] = arg[0x10] + (randrange(0d3) * arg[0x10]);
+                if(rand(0x1)) {
+                    arg[0x12] = 0d0 - arg[0x12];
+                }
+
+                arg[0x14] = arg[0x10] + (randrange(0d3) * arg[0x10]);
+                if(rand(0x1)) {
+                    arg[0x14] = 0d0 - arg[0x14];
+                }
+
+                toss_shoot(entity, projectile, target, arg[0x12], arg[0x14]);
+                
+                if(arg[0x10] < count) {
+                    sleep(0d5 + randrange(0d8));
+                }
+            }
+        }
+
+        fun puke_shoot(entity, projectile:THROWABLE, target, delta_x, delta_y) {
+            shoot_entity_absolute(entity, projectile, target[X] + delta_x, target[Y] + delta_y, 0d30 + randrange(0d20), 0d10);
+        }
+        @install()
+        fun ai_move_projectile_puke(entity, projectile:THROWABLE, target, count) {
+            puke_shoot(entity, projectile, target, 0d0, 0d0);
+            arg[0x10]++;
+
+            while(arg[0x10] < count) {
+                arg[0x10]++;
+
+                puke_shoot(entity, projectile, target, randrange(0x40), randrange(0x20));
+
+                if(arg[0x10] < count) {
+                    sleep(randrange(0d10));
+                }
+            }
+        }
+
+        @install()
+        fun ai_move_projectile_splash(entity, projectile:THROWABLE) {
+            shoot_entity_relative(entity, projectile, 0d30 + randrange(0d30), 0d30 + randrange(0d30), 0d30 + randrange(0d15), 0d10);
+            shoot_entity_relative(entity, projectile, 0d30 + randrange(0d30), 0d30 + randrange(0d30), 0d30 + randrange(0d15), 0d10);
+
+            shoot_entity_relative(entity, projectile, -0d30 - randrange(0d30), 0d30 + randrange(0d30), 0d30 + randrange(0d15), 0d10);
+            shoot_entity_relative(entity, projectile, -0d30 - randrange(0d30), 0d30 + randrange(0d30), 0d30 + randrange(0d15), 0d10);
+
+            shoot_entity_relative(entity, projectile, -0d30 - randrange(0d30), -0d30 - randrange(0d30), 0d30 + randrange(0d15), 0d10);
+            shoot_entity_relative(entity, projectile, -0d30 - randrange(0d30), -0d30 - randrange(0d30), 0d30 + randrange(0d15), 0d10);
+
+            shoot_entity_relative(entity, projectile, 0d30 + randrange(0d30), -0d30 - randrange(0d30), 0d30 + randrange(0d15), 0d10);
+            shoot_entity_relative(entity, projectile, 0d30 + randrange(0d30), -0d30 - randrange(0d30), 0d30 + randrange(0d15), 0d10);
+        }
+
+        @install()
+        fun ai_move_projectile_x(entity, projectile:THROWABLE, radius) {
+            shoot_entity_relative(entity, projectile, radius, -(radius), 0x10, 0xff); // north east
+            shoot_entity_relative(entity, projectile, -(radius), -(radius), 0x10, 0xff); // north west
+            shoot_entity_relative(entity, projectile, radius, radius, 0x10, 0xff); // south east
+            shoot_entity_relative(entity, projectile, -(radius), radius, 0x10, 0xff); // south west
+        }
+
+        @install()
+        fun ai_move_projectile_plus(entity, projectile:THROWABLE, radius) {
+            shoot_entity_relative(entity, projectile, 0x00, -(radius), 0x10, 0xff); // north
+            shoot_entity_relative(entity, projectile, radius, 0x00, 0x10, 0xff); // east
+            shoot_entity_relative(entity, projectile, 0x00, radius, 0x10, 0xff); // south
+            shoot_entity_relative(entity, projectile, -(radius), 0x00, 0x10, 0xff); // west
+        }
+
+        @install()
+        fun ai_move_projectile_star(entity, projectile:THROWABLE, radius) {
+            ai_move_projectile_x(entity, projectile, (radius * 0d2) / 0d3);
+
+            ai_move_projectile_plus(entity, projectile, radius);
+        }
+
+        // bombs
+
+        @install()
+        fun ai_move_bomb_toss(entity, projectile:THROWABLE, target) {
+            shoot_entity_entity(entity, ONION, target, 0x2a, 0x1a);
+            arg[0x10] = target[X];
+            arg[0x12] = target[Y];
+            sleep(0d80);
+
+            bomb_absolute(entity, arg[0x10], arg[0x12], 0x60);
+
+            _add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, arg[0x10], arg[0x12]);
+            arg[0x14] = <LAST_ENTITY>;
+
+            sleep(0d35);
+            destroy(arg[0x14]);
+        }
+        @install()
+        fun ai_move_bomb_enemy(entity) {
+            bomb_entity(entity, 0d110);
+
+            add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, entity[X], entity[Y]);
+            arg[0x10] = <LAST_ENTITY>;
+            sleep(0d35);
+
+            destroy(arg[0x10]);
+        }
+
+        // scripts
+
         @install()
         // @async()
         fun sterling_grab(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
@@ -6364,7 +6578,9 @@ group functions() {
                 }
             }
         }
+    };
 
+    group experimental() {
         fun crash_land(character:CHARACTER) {
             if(character == CHARACTER.BOY) {
                 <BOY>[FALLING_HEIGHT] = 0x1068;

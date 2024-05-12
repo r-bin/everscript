@@ -98,6 +98,9 @@ class Resolvable():
             case BinaryOp():
                 value = self.__class__(self.left.resolve(params), self.right.resolve(params))
                 return value
+            case UnaryOp():
+                value = self.__class__(self.value.resolve(params))
+                return value
             case _:
                 return self
             
@@ -133,17 +136,6 @@ class Resolvable():
                     return p.value
 
         return None
-     
-class Inverted(Resolvable):
-    def __init__(self, value):
-        self.value = value
-        
-    def is_memory(self, params:list[Param]):
-        is_memory = self.value.resolve(params)
-
-        is_memory = is_memory.is_memory(params)
-
-        return is_memory
 
 class Param(BaseBox, Resolvable):
     def __init__(self, name, value):
@@ -744,21 +736,6 @@ class BinaryOp(Operator):
         operator = self.operator()
         invert = False
 
-        match [left, right]:
-            case [Inverted(), Inverted()]:
-                invert = False
-                left = left.value
-                right = right.value
-            case [_, Inverted()]:
-                invert = True
-                right = right.value
-            case [Inverted(), _]:
-                invert = True
-                left = left.value
-
-        if invert:
-            operator = self.operator(True)
-
         return left.calculate(params) + [Operand("push")] + right.calculate(params) + [operator]
     
     def flatten(self, x, params:list[Param]):
@@ -807,7 +784,7 @@ class Operand():
 
         "!": 0x14, # boolean invert
         "~": 0x15, # bitwise invert
-        # _: 0x16, # flip sign
+        "-x": 0x16, # flip sign
         
         "*": 0x17, # pull from stack, res = pulled * res
         "/": 0x18, # pulled / res
