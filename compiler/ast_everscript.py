@@ -1701,6 +1701,13 @@ class InvertWord(UnaryOp):
         code = value + [Operand("~")]
 
         return code
+class Inverted(UnaryOp):
+    def _calculate(self, value:any, params:list[Param]):
+        code = []
+
+        code = value + [Operand("-x")]
+
+        return code
     
 class Loot(Function_Base):
     def unwrap_param(self, param):
