@@ -337,7 +337,7 @@ org !MEMORY_TABLE_HP
   %default_stats(100) ; "Stone Cobra" (55) = 100
   %default_stats(120) ; "Oglin" (56) = 120
   %default_stats(90) ; "Hedgeadillo" (57) = 90
-  %default_stats(90) ; "Bad Boy" (58) = 90
+  dw #90, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; "Bad Boy" (58) = 700
   %default_stats(60) ; "Tumble Weed" (59) = 60
   %default_stats(100) ; "Mummy Cat" (60) = 100
   %default_stats(100) ; "Red Jelly Bal" (61) = 100
