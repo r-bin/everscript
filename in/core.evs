@@ -658,6 +658,8 @@ group general_enums() {
             CURRENT_MAP_VARIANT = <0x2451>, // has to be set during the transition, before the room was entered
             CURRENT_MAP_ENTRANCE_ID = <0x2453>,
 
+            RETURN = <0x2455>,
+
             // unknown
             UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = <0x23d9>, // used in: boss rush (1=for eternal dust drops)
 
@@ -5057,22 +5059,24 @@ group functions() {
         group trading() {
             @install()
             fun item_pay(type:ITEM, count, dry) {
-                <0x2834> = False;
+                MEMORY.RETURN = False;
 
                 if(type == ITEM.RICE) {
                     if(MEMORY.RICE >= count) {
                         if!(dry) {
                             MEMORY.RICE -= count;
                         }
-                        <0x2834> = True;
+                        MEMORY.RETURN = True;
                     }
+                    end();
                 } else if(type == ITEM.SPICE) {
                     if(MEMORY.SPICE >= count) {
                         if!(dry) {
                             MEMORY.SPICE -= count;
                         }
-                        <0x2834> = True;
+                        MEMORY.RETURN = True;
                     }
+                    end();
                 } else {
                     MEMORY.STRING_PARAMETER_1 = type;
                     debug_subtext("unknown item #[MEM1]");
@@ -5080,7 +5084,7 @@ group functions() {
             }
 
             @install()
-            fun trading_error_ingredient(type:ITEM) {
+            fun item_to_string(type:ITEM) {
                 if(type == ITEM.RICE) {
                     text("Rice");
                 } else if(type == ITEM.SPICE) {
@@ -5103,7 +5107,7 @@ group functions() {
                     }
                     arg[0x10]++;
 
-                    trading_error_ingredient(in_1_type);
+                    item_to_string(in_1_type);
                 }
                 if(in_2_type > 0d0) {
                     if(arg[0x10] > 0d0) {
@@ -5111,7 +5115,7 @@ group functions() {
                     }
                     arg[0x10]++;
 
-                    trading_error_ingredient(in_2_type);
+                    item_to_string(in_2_type);
                 }
                 if(in_3_type > 0d0) {
                     if(arg[0x10] > 0d0) {
@@ -5119,7 +5123,7 @@ group functions() {
                     }
                     arg[0x10]++;
 
-                    trading_error_ingredient(in_3_type);
+                    item_to_string(in_3_type);
                 }
 
                 text("![B]");
@@ -5131,7 +5135,7 @@ group functions() {
                 if(in_1_type != ITEM.NO_ITEM) {
                     item_pay(in_1_type, in_1_count, True);
 
-                    if!(<0x2834>) {
+                    if!(MEMORY.RETURN) {
                         // subtext("insufficient fond #1");
                         arg[0x10] = in_1_type;
                         // end();
@@ -5140,7 +5144,7 @@ group functions() {
                 if(in_2_type != ITEM.NO_ITEM) {
                     item_pay(in_2_type, in_2_count, True);
 
-                    if!(<0x2834>) {
+                    if!(MEMORY.RETURN) {
                         // subtext("insufficient fond #2");
                         arg[0x12] = in_2_type;
                         // end();
@@ -5149,7 +5153,7 @@ group functions() {
                 if(in_3_type != ITEM.NO_ITEM) {
                     item_pay(in_3_type, in_3_count, True);
 
-                    if!(<0x2834>) {
+                    if!(MEMORY.RETURN) {
                         // subtext("insufficient fond #3");
                         arg[0x14] = in_3_type;
                         // end();
@@ -5158,6 +5162,8 @@ group functions() {
 
                 if((arg[0x10] > 0d0) || (arg[0x12] > 0d0) || (arg[0x14] > 0d0)) {
                     trading_error(arg[0x10], arg[0x12], arg[0x14]);
+
+                    MEMORY.RETURN = False;
                     end();
                 }
 
@@ -5171,20 +5177,24 @@ group functions() {
                     item_pay(in_3_type, in_3_count);
                 }
 
-                MEMORY.STRING_PARAMETER_1 = out_count;
+                MEMORY.RETURN = True;
 
-                if(out_type == ITEM.RICE) {
-                    MEMORY.RICE += out_count;
-                    subtext("Gained [MEM1] rice");
-                } else if(out_type == ITEM.SPICE) {
-                    MEMORY.SPICE += out_count;
-                    subtext("Gained [MEM1] spice");
-                } else if(out_type == ITEM.MONEY) {
-                    currency_get(TALONS, out_count);
-                    subtext("Gained [MEM1] souls");
-                } else {
-                    MEMORY.STRING_PARAMETER_1 = out_type;
-                    debug_subtext("unknown item #[MEM1]");
+                if(out_type != ITEM.NO_ITEM) {
+                    MEMORY.STRING_PARAMETER_1 = out_count;
+
+                    if(out_type == ITEM.RICE) {
+                        MEMORY.RICE += out_count;
+                        subtext("Gained [MEM1] rice");
+                    } else if(out_type == ITEM.SPICE) {
+                        MEMORY.SPICE += out_count;
+                        subtext("Gained [MEM1] spice");
+                    } else if(out_type == ITEM.MONEY) {
+                        currency_get(TALONS, out_count);
+                        subtext("Gained [MEM1] souls");
+                    } else {
+                        MEMORY.STRING_PARAMETER_1 = out_type;
+                        debug_subtext("unknown item #[MEM1]");
+                    }
                 }
             }
         };
