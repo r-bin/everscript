@@ -4249,10 +4249,18 @@ group functions() {
 
         group currency() {
             fun currency_get(type:CURRENCY, amount) {
-                code(0x7c, param(type), 0x000000 + amount, "// (7c) Give 50 Talons (moniez)");
+                if(amount is Word) {
+                    code(0x7c, param(type), 0x000000 + amount, "// (7c) Give 50 Talons (moniez)");
+                } else {
+                    code(0x84, param(type), calculate(amount), "// (84) Give $2393 Credits (moniez)");
+                }
             }
             fun currency_take(type:CURRENCY, amount) {
-                code(0x7d, param(type), 0x000000 + amount, "// (7d) Take 10 Talons (moniez)");
+                if(amount is Word) {
+                    code(0x7d, param(type), 0x000000 + amount, "// (7d) Take 10 Talons (moniez)");
+                } else {
+                    code(0x85, param(type), calculate(amount), "// (85) Take $2447 Jewels (moniez)");
+                }
             }
             fun currency_convert(from_amount, from_type:CURRENCY, to_amount, to_type:CURRENCY) {
                 code(0x7e, param(from_amount), param(from_type), param(to_amount), param(to_type), "// (7e) Exchange 1 Gold Coins to 8 Credits (moniez)");
@@ -5046,6 +5054,141 @@ group functions() {
     };
 
     group complex() {
+        group trading() {
+            @install()
+            fun item_pay(type:ITEM, count, dry) {
+                <0x2834> = False;
+
+                if(type == ITEM.RICE) {
+                    if(MEMORY.RICE >= count) {
+                        if!(dry) {
+                            MEMORY.RICE -= count;
+                        }
+                        <0x2834> = True;
+                    }
+                } else if(type == ITEM.SPICE) {
+                    if(MEMORY.SPICE >= count) {
+                        if!(dry) {
+                            MEMORY.SPICE -= count;
+                        }
+                        <0x2834> = True;
+                    }
+                } else {
+                    MEMORY.STRING_PARAMETER_1 = type;
+                    debug_subtext("unknown item #[MEM1]");
+                }
+            }
+
+            @install()
+            fun trading_error_ingredient(type:ITEM) {
+                if(type == ITEM.RICE) {
+                    text("Rice");
+                } else if(type == ITEM.SPICE) {
+                    text("Spice");
+                } else if(type == ITEM.MONEY) {
+                    text("Money");
+                } else {
+                    MEMORY.STRING_PARAMETER_1 = type;
+                    text("Unknown item #[MEM1]");
+                }
+            }
+            @install()
+            fun trading_error(in_1_type:ITEM, in_2_type:ITEM, in_3_type:ITEM) {
+                text_start();
+                text("you don't have enough ");
+
+                if(in_1_type > 0d0) {
+                    if(arg[0x10] > 0d0) {
+                        text(" and ");
+                    }
+                    arg[0x10]++;
+
+                    trading_error_ingredient(in_1_type);
+                }
+                if(in_2_type > 0d0) {
+                    if(arg[0x10] > 0d0) {
+                        text(" and ");
+                    }
+                    arg[0x10]++;
+
+                    trading_error_ingredient(in_2_type);
+                }
+                if(in_3_type > 0d0) {
+                    if(arg[0x10] > 0d0) {
+                        text(" and ");
+                    }
+                    arg[0x10]++;
+
+                    trading_error_ingredient(in_3_type);
+                }
+
+                text("![B]");
+                text_end();
+            }
+
+            @install()
+            fun trade_items(out_type:ITEM, out_count, in_1_type:ITEM, in_1_count, in_2_type:ITEM, in_2_count, in_3_type:ITEM, in_3_count) {
+                if(in_1_type != ITEM.NO_ITEM) {
+                    item_pay(in_1_type, in_1_count, True);
+
+                    if!(<0x2834>) {
+                        // subtext("insufficient fond #1");
+                        arg[0x10] = in_1_type;
+                        // end();
+                    }
+                }
+                if(in_2_type != ITEM.NO_ITEM) {
+                    item_pay(in_2_type, in_2_count, True);
+
+                    if!(<0x2834>) {
+                        // subtext("insufficient fond #2");
+                        arg[0x12] = in_2_type;
+                        // end();
+                    }
+                }
+                if(in_3_type != ITEM.NO_ITEM) {
+                    item_pay(in_3_type, in_3_count, True);
+
+                    if!(<0x2834>) {
+                        // subtext("insufficient fond #3");
+                        arg[0x14] = in_3_type;
+                        // end();
+                    }
+                }
+
+                if((arg[0x10] > 0d0) || (arg[0x12] > 0d0) || (arg[0x14] > 0d0)) {
+                    trading_error(arg[0x10], arg[0x12], arg[0x14]);
+                    end();
+                }
+
+                if(in_1_type != ITEM.NO_ITEM) {
+                    item_pay(in_1_type, in_1_count);
+                }
+                if(in_2_type != ITEM.NO_ITEM) {
+                    item_pay(in_2_type, in_2_count);
+                }
+                if(in_3_type != ITEM.NO_ITEM) {
+                    item_pay(in_3_type, in_3_count);
+                }
+
+                MEMORY.STRING_PARAMETER_1 = out_count;
+
+                if(out_type == ITEM.RICE) {
+                    MEMORY.RICE += out_count;
+                    subtext("Gained [MEM1] rice");
+                } else if(out_type == ITEM.SPICE) {
+                    MEMORY.SPICE += out_count;
+                    subtext("Gained [MEM1] spice");
+                } else if(out_type == ITEM.MONEY) {
+                    currency_get(TALONS, out_count);
+                    subtext("Gained [MEM1] souls");
+                } else {
+                    MEMORY.STRING_PARAMETER_1 = out_type;
+                    debug_subtext("unknown item #[MEM1]");
+                }
+            }
+        };
+
         @install()
         fun cast_team(character, spell:CAST, level, skip_dead_dog, rand_range) {
             if(rand_range > 0d0) {
@@ -6062,6 +6205,25 @@ group functions() {
                 sleep(0d30);
                 destroy(SCRIPT_OWNER);
             }
+        }
+
+        fun test_trading() {
+            question_max("deal?[CHOICE]+5 rice[CHOICE]2 rice -> 1 spice[CHOICE]1 spice -> 5 souls[CHOICE]pay 10 souls[CHOICE]2 rice + 1 spice -> 10 souls", 0d10);
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                trade_items(RICE, 0d5);
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                trade_items(SPICE, 0d1, RICE, 0d2);
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                trade_items(MONEY, 0d5, SPICE, 0d1);
+            } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                item_pay(MONEY, 0d10);
+                // trade_items(MONEY, 0d5, SPICE, 0d1);
+            } else if(MEMORY.QUESTION_ANSWER == 0d4) {
+                trade_items(MONEY, 0d10, RICE, 0d2, SPICE, 0d1);
+            }
+
+            control(BOTH);
         }
     };
 
