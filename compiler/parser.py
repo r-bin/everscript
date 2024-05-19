@@ -791,7 +791,8 @@ class Parser():
 
         @self.pg.error
         def error_handle_lex(token):
-            raise ValueError(token)
+            raise Exception(f"Syntax error: name='{token.name}' position={token.source_pos}")
+            #raise ValueError(token)
 
     def get_parser(self):
         return self.pg.build()
