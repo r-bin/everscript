@@ -4179,7 +4179,44 @@ group functions() {
                 conversation_end(npc);
             }
 
-            fun outro_text_box(text_header, text_content, stay_open) {
+            @install()
+            fun print_time() {
+                arg[0x10] = time[0d0];
+                arg[0x12] = time[0d2];
+
+                modulo(arg[0x10], 0d60, arg[0x16]); // frames->seconds
+                arg[0x14] = arg[0x10]; // frames
+
+                modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
+
+                modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
+
+                if(True) {
+                    while(arg[0x12] > 0d0) {
+                        arg[0x12] -= 0d1;
+
+                        // 18m + 12s + 16f
+
+                        arg[0x18] += 0d18;
+                        arg[0x16] += 0d12;
+                        arg[0x14] += 0d16;
+                    }
+
+                    modulo(arg[0x14], 0d60, arg[0x16]); // frames->seconds
+                    modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
+                    modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
+                }
+
+                MEMORY.STRING_PARAMETER_1 = arg[0x1a];
+                MEMORY.STRING_PARAMETER_2 = arg[0x18];
+                MEMORY.STRING_PARAMETER_3 = arg[0x16];
+
+                if(True) {
+                    text("[MEM1]:[MEM2]:[MEM3]");
+                }
+            }
+
+            fun outro_start() {
                 // example: outro_text_box("header[LF]", "text1[LF]text2");
 
                 fade_out();
@@ -4189,25 +4226,77 @@ group functions() {
 
                 open_message_box(TRANSPARENT_CENTERED, 0x04, 0x04, 0x18, 0x14);
 
+                brightness(0d0);
+                sleep(0d4);
+                _fade_in();
+            }
+            fun outro_end(stay_open) {
+                if(False) {
+                    call_id(FADE_OUT_CREDITS);
+                } else {
+                    if(True) { // stay_open !is Word
+                        sleep(0d600);
+                        fade_out();
+                        text_end();
+                    }
+                }
+            }
+            fun outro_text_box(text_header, text_content, stay_open) {
+                outro_start();
+
                 font(OUTRO);
                 text(text_header);
 
                 font(DEFAULT);
                 text(text_content);
 
-                if(False) {
-                    call_id(FADE_OUT_CREDITS);
-                } else {
-                    brightness(0d0);
-                    sleep(0d4);
-                    _fade_in();
+                outro_end(False);
+            }
+            fun outro_stats(progress, bosses, collectibles, stay_open) {
+                outro_start();
 
-                    if(stay_open !is Word) {
-                        sleep(0d600);
-                        fade_out();
-                        text_end();
-                    }
+                font(OUTRO);
+                text("Time:[LF]");
+
+                font(DEFAULT);
+                print_time();
+
+                sleep(0d120);
+
+                if(True) {
+                    font(OUTRO);
+                    text("[LF][LF]Progress:[LF]");
+
+                    font(DEFAULT);
+                    MEMORY.STRING_PARAMETER_1 = progress;
+                    text("[MEM1]");
+
+                    sleep(0d120);
                 }
+
+                if(True) {
+                    font(OUTRO);
+                    text("[LF][LF]Bosses:[LF]");
+
+                    font(DEFAULT);
+                    MEMORY.STRING_PARAMETER_1 = bosses;
+                    text("[MEM1]");
+
+                    sleep(0d120);
+                }
+
+                if(True) {
+                    font(OUTRO);
+                    text("[LF][LF]Collectibles:[LF]");
+
+                    font(DEFAULT);
+                    MEMORY.STRING_PARAMETER_1 = collectibles;
+                    text("[MEM1]");
+
+                    sleep(0d120);
+                }
+
+                outro_end(False);
             }
 
             fun debug_marker() {
@@ -5315,41 +5404,6 @@ group functions() {
             } else {
                 cast(character, BOTH, spell, level);
             }
-        }
-
-        @install()
-        fun print_time() {
-            arg[0x10] = time[0d0];
-            arg[0x12] = time[0d2];
-
-            modulo(arg[0x10], 0d60, arg[0x16]); // frames->seconds
-            arg[0x14] = arg[0x10]; // frames
-
-            modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
-
-            modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
-
-            if(True) {
-                while(arg[0x12] > 0d0) {
-                    arg[0x12] -= 0d1;
-
-                    // 18m + 12s + 16f
-
-                    arg[0x18] += 0d18;
-                    arg[0x16] += 0d12;
-                    arg[0x14] += 0d16;
-                }
-
-                modulo(arg[0x14], 0d60, arg[0x16]); // frames->seconds
-                modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
-                modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
-            }
-
-            MEMORY.STRING_PARAMETER_1 = arg[0x1a];
-            MEMORY.STRING_PARAMETER_2 = arg[0x18];
-            MEMORY.STRING_PARAMETER_3 = arg[0x16];
-
-            debug_subtext("time = [MEM1]:[MEM2]:[MEM3]");
         }
 
         fun loot(animation, flag, object_id, reward:LOOT_REWARD, amount, next) {
