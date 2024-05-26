@@ -163,13 +163,13 @@ group non_maps() {
 
         fun error_walk_back(exit_direction:DIRECTION) {
             if(exit_direction == DIRECTION.NORTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, BOTH);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, BOTH);
             } else if(exit_direction == DIRECTION.EAST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, ACTIVE, BOTH);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d2, 0d0, ACTIVE, BOTH);
             } else if(exit_direction == DIRECTION.SOUTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, ACTIVE, BOTH);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, ACTIVE, BOTH);
             } else if(exit_direction == DIRECTION.WEST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, ACTIVE, BOTH);
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0d2, 0d0, ACTIVE, BOTH);
             }
         }
         fun error_dead_end(exit_direction:DIRECTION) {
@@ -193,6 +193,11 @@ group non_maps() {
         }
         fun error_locked(exit_direction:DIRECTION) {
             subtext("Locked.");
+
+            error_walk_back(exit_direction);
+        }
+        fun error_dlc(exit_direction:DIRECTION) {
+            subtext("DLC area…");
 
             error_walk_back(exit_direction);
         }
@@ -244,24 +249,29 @@ group non_maps() {
             INTRO_WATCHED = flag(),
             DEBUG = True,
 
-            WITH_ENDBOSS = False,
+            // features
             WITH_OPENING = False,
             WITH_SHRINE_INTRO = False,
             WITH_SAVESTATE_LOAD = True, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
-            WITH_DEBUG_ENTITIES = True,
-            WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
             WITH_INTRO = False,
             WITH_STARTING_CLASS = False,
             WITH_WEATHER = True,
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             WITH_TRASH_ENEMIES = True,
             WITH_SOULS_ON_DEATH = True,
-            WITH_CHEATS = True, // fixes no clip after screen transitions
+            WITH_FOG_WALL = True,
+            // cheats
+            WITH_DEBUG_ENTITIES = True,
+            WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
+            WITH_CHEATS = False, // fixes no clip after screen transitions
             WITH_CHEATS_ALL_BONFIRES = True,
             WITH_CHEATS_MARIO_YUMP = True,
-            WITH_FOG_WALL = True,
+            // areas
+            WITH_ENDBOSS = False,
+            WITH_SOUTH_INBETWIXX = False,
+            WITH_SQUIDMAR_BRIDGE = False,
 
             // boy dust
             DUST_ENTITY = memory(),
@@ -351,6 +361,9 @@ group non_maps() {
             REWARD_DARK_ONE = CUSTOM_ITEM.AXE_ORB,
 
             // altus
+            DEAD_SIDESCROLLER = flag(),
+            REWARD_SIDESCROLLER = ITEM.NECTAR, // TODO
+
             DEAD_CHESS = flag(),
             REWARD_CHESS = CUSTOM_ITEM.AXE_ORB,
 
@@ -1329,7 +1342,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(castle_throne_room, south, NONE);
+                map_transition(ship, east, NONE);
 
                 // MEMORY.MAP_PALETTE -= 0x01;
             }
@@ -3992,7 +4005,7 @@ area north_inbetwixx() {
                         control(BOSS.ID, False);
                     }
 
-                } else if((BOSS.RNG == 0d2) && (True)) {
+                } else if((BOSS.RNG == 0d2) && (SOULS_MEMORY.DEAD_SIDESCROLLER)) {
                     prepare_casting();
 
                     arg[0x10] = randrange(0d3);
@@ -4152,7 +4165,7 @@ area north_inbetwixx() {
             if!(SOULS_MEMORY.DEAD_GIDEON) {
                 // attribute(BOY, INVINCIBLE_TEMP, True);
 
-                if(True) {
+                if(False) {
                     <BOY>[HP] = SYSTEM.HP_MAX;
                     
                     SOULS_MEMORY.DEAD_MONSTRO = True;
@@ -4954,6 +4967,8 @@ area altus_plateau_entry() {
             },
             grass_non_sword = @install() {
                 debug_subtext("B=32");
+
+                error_dlc(NONE);
             },
         }
 
@@ -4971,7 +4986,10 @@ area altus_plateau_entry() {
                 }
             }
 
-            add_enemy(STONE, 0d68, 0d65);
+            add_enemy(STONE_ROUND, 0d68, 0d65);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                error_dlc(NONE);
+            }));
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // path
@@ -4993,7 +5011,9 @@ area altus_plateau_entry() {
 
             if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
                 add_enemy(STONE_ROUND, 0d11, 0d114);
-                attach_script(LAST_ENTITY, B, reference(@install() { error_wrong_side(SOUTH); }));
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    error_wrong_side(SOUTH);
+                }));
             }
         }
     };
@@ -5515,6 +5535,8 @@ area altus_plateau_entry() {
                 }
 
                 if(True) {
+                    SOULS_MEMORY.DEAD_SIDESCROLLER = True;
+
                     exit_map();
                 }
             }
@@ -7388,39 +7410,22 @@ area northwest_inbetwixx() {
         }
 
         @install()
-        fun yeet() {
-            control(NONE);
-
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
-            sleep(0x05);
-
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            <BOY>[JUMP_HEIGHT] = 0x20;
-
-            arg[0x00] = <BOY>[X] + 0x30;
-            while(<BOY>[X] < arg[0x00]) {
-                <BOY>[X] += 0x01;
-
-                yield();
+        fun waterfall_triggered() {
+            if(False) {
+                generic_yeet_waterfall();
+                map_transition(junkyard, crash_north, NONE);
+            } else {
+                error_dlc(NONE);
             }
-
-            arg[0x02] = <BOY>[Y] + 0x40;
-            while(<BOY>[Y] < arg[0x02]) {
-                <BOY>[Y] += 0x02;
-
-                yield();
-            }
-
-            map_transition(junkyard, crash_north, NONE);
         }
 
         enum stepon_trigger {
-            stepon_0 = yeet(),
-            stepon_1 = yeet(),
-            stepon_2 = yeet(),
-            stepon_3 = yeet(),
-            stepon_4 = yeet(),
-            stepon_5 = yeet(),
+            stepon_0 = waterfall_triggered(),
+            stepon_1 = waterfall_triggered(),
+            stepon_2 = waterfall_triggered(),
+            stepon_3 = waterfall_triggered(),
+            stepon_4 = waterfall_triggered(),
+            stepon_5 = waterfall_triggered(),
             stepon_6 = @install() {
                 map_transition(northwest_inbetwixx, cave, SOUTH);
             }
@@ -8846,13 +8851,15 @@ area east_inbetwixx() {
             // object[0x00] = 0x01;
             // object[0x01] = 0x01;
 
-            if!(ROOM.WATER_REMOVED) {
-                add_enemy(REVEALER_TARGET_ENTITY, 0x52, 0x26);
-                special_script(REVEALER, reference(revealer_triggered));
+            if(SOULS_MEMORY.WITH_SOUTH_INBETWIXX) {
+                if!(ROOM.WATER_REMOVED) {
+                    add_enemy(REVEALER_TARGET_ENTITY, 0x52, 0x26);
+                    special_script(REVEALER, reference(revealer_triggered));
 
-                add_debug_entity(0x5b, 0x23, reference(debug_triggered));
-            } else {
-                remove_water(True);
+                    add_debug_entity(0x5b, 0x23, reference(debug_triggered));
+                } else {
+                    remove_water(True);
+                }
             }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
@@ -11946,39 +11953,22 @@ area southern_jungle() {
         }
 
         @install()
-        fun yeet() {
-            control(NONE);
-
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
-            sleep(0x05);
-
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            <BOY>[JUMP_HEIGHT] = 0x20;
-
-            arg[0x00] = <BOY>[X] + 0x30;
-            while(<BOY>[X] < arg[0x00]) {
-                <BOY>[X] += 0x01;
-
-                yield();
+        fun waterfall_triggered() {
+            if(False) {
+                generic_yeet_waterfall();
+                map_transition(junkyard, crash_south, NONE);
+            } else {
+                error_dlc(NONE);
             }
-
-            arg[0x02] = <BOY>[Y] + 0x40;
-            while(<BOY>[Y] < arg[0x02]) {
-                <BOY>[Y] += 0x02;
-
-                yield();
-            }
-
-            map_transition(junkyard, crash_south, NONE);
         }
 
         enum stepon_trigger {
-            stepon_0 = yeet(),
-            stepon_1 = yeet(),
-            stepon_2 = yeet(),
-            stepon_3 = yeet(),
-            stepon_4 = yeet(),
-            stepon_5 = yeet(),
+            stepon_0 = waterfall_triggered(),
+            stepon_1 = waterfall_triggered(),
+            stepon_2 = waterfall_triggered(),
+            stepon_3 = waterfall_triggered(),
+            stepon_4 = waterfall_triggered(),
+            stepon_5 = waterfall_triggered(),
             stepon_6 = @install() {
                 map_transition(eastern_river, north, SOUTH);
             }
@@ -17833,6 +17823,8 @@ map ship(CRUSTICIA) {
         },
         door_1_1 = @install() {
             debug_subtext("S=9");
+
+            error_dlc(SOUTH);
         },
 
         door_3_2 = @install() {
@@ -17859,6 +17851,9 @@ map ship(CRUSTICIA) {
         }
 
         add_enemy(STONE_ROUND, 0x54, 0x52);
+        attach_script(LAST_ENTITY, B, reference(@install() {
+            error_dlc(NONE);
+        }));
         
         default_init_room(True, True);
     }
@@ -21787,8 +21782,6 @@ area dungeon_volcano() {
             Z_DOWNSTAIRS = 0x20,
 
             ROUND_STONE_TRIGGERED_NORTH = memory(),
-
-            BRIDGE_AQUAGOTH = True,
         }
 
         enum BOSS {
@@ -22018,7 +22011,7 @@ area dungeon_volcano() {
         }
 
         fun trigger_enter() {
-            if(ROOM.BRIDGE_AQUAGOTH) {
+            if(SOULS_MEMORY.WITH_SQUIDMAR_BRIDGE) {
                 object[0x00] = 0x7e; // show bridge_north
             } else {
                 add_debug_entity(0d91, 0d51, reference(debug_triggered));
