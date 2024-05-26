@@ -1,6 +1,7 @@
 group general_enums() {
     enum SYSTEM {
         WITH_DEBUG_SUBTEXT = True,
+        WITH_DEBUG_MUSIC = False,
 
         HP_MAX = 0x7fff,
         ITEM_MAX = 0d99,
@@ -3152,10 +3153,16 @@ group functions() {
             }
             @install()
             fun play_music(music:MUSIC, force, without_fade) {
+                if(SYSTEM.WITH_DEBUG_MUSIC) {
+                    MEMORY.STRING_PARAMETER_1 = music;
+
+                    _subtext("play_music([MEM1])");
+                }
+
                 MEMORY.MUSIC_STACK_1 = music;
 
                 // if((MEMORY.CHANGE_MUSIC > 0d0) || (MEMORY.CURRENT_MUSIC != music)) {
-                if(MEMORY.CURRENT_MUSIC != music) {
+                if((MEMORY.CURRENT_MUSIC != music) || (MEMORY.CURRENT_MUSIC == MUSIC.FANFARE) || (MEMORY.CURRENT_MUSIC == MUSIC.FANFARE_ITEM)) {
                     if!(without_fade) {
                         code(0x59, "// (59) FADE OUT VOLUME");
                     }
@@ -3234,6 +3241,14 @@ group functions() {
             }
             @install()
             fun push_music(music:MUSIC, clear_stack) {
+                if(SYSTEM.WITH_DEBUG_MUSIC) {
+                    MEMORY.STRING_PARAMETER_1 = music;
+                    MEMORY.STRING_PARAMETER_2 = clear_stack;
+                    
+                    _subtext("push_music([MEM1], [MEM2])");
+                    sleep(0d60);
+                }
+
                 if(clear_stack > 0d0) {
                     clear_music_stack();
                 }
@@ -3259,6 +3274,10 @@ group functions() {
             }
             @install()
             fun pop_music() {
+                if(SYSTEM.WITH_DEBUG_MUSIC) {
+                    _subtext("pop_music()");
+                }
+
                 if(MEMORY.MUSIC_STACK_4 != 0d0) {
                     MEMORY.MUSIC_STACK_3 = MEMORY.MUSIC_STACK_4;
                     MEMORY.MUSIC_STACK_4 = 0d0;
@@ -4395,7 +4414,7 @@ group functions() {
 
                 call(0x92bf33); // (29) CALL 0x92bf33 Hold up weapon
 
-                sleep(0xc8);
+                sleep(0d200);
 
                 control(BOTH);
 
@@ -4431,6 +4450,12 @@ group functions() {
                 }
 
                 fanfare_end();
+
+                if(push_music is Word) {
+                    if(push_music) {
+                        pop_music();
+                    }
+                }
             }
 
             fun unlock_armor(unlocked) {
@@ -4830,7 +4855,7 @@ group functions() {
                 _unlock(item);
             }
 
-            fun _reward(item:ITEM, amount, without_fanfare) {
+            fun _reward(item:ITEM, without_fanfare) {
                 if(item == ITEM.ARMOR_POLISH) { // charms
                     subtext("Armor Polish"); // ?
                     
