@@ -272,6 +272,7 @@ group non_maps() {
             WITH_TRASH_ENEMIES = True,
             WITH_SOULS_ON_DEATH = True,
             WITH_FOG_WALL = True,
+            WITH_SIDE_QUESTS = True,
             // cheats
             WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
@@ -1382,7 +1383,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(west_hut_inside, door, NONE);
+                map_transition(well, west, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -1639,7 +1640,36 @@ group non_maps() {
 
             @install()
             fun npc_mario_dialog_0() {
+                conversation_start(SCRIPT_OWNER);
+
                 if(NPC_MARIO.PROGRESS == 0d0) {
+                    if(NPC_MARIO.SUB_PROGRESS == 0d0) {
+                        dialog("[SLOW]Hey, you.[B]");
+
+                        NPC_MARIO.SUB_PROGRESS++;
+                    } else if(NPC_MARIO.SUB_PROGRESS == 0d1) {
+                        dialog("[SLOW]Have you seen my brother? I seem to have taken a wrong turn down there.[B]");
+
+                        NPC_MARIO.SUB_PROGRESS++;
+                    } else if(NPC_MARIO.SUB_PROGRESS == 0d2) {
+                        dialog("[SLOW]The three of us were traveling eastwards to the Sewers, before we were separated.[B]");
+
+                        NPC_MARIO.SUB_PROGRESS++;
+                    } else if(NPC_MARIO.SUB_PROGRESS == 0d3) {
+                        dialog("[SLOW]Please look for my brother. He might be injured.[B]");
+
+                        NPC_MARIO.PROGRESS++;
+                        NPC_MARIO.SUB_PROGRESS = 0d0;
+                    }
+                } else {
+                    dialog("[SLOW]Please hurry![B]");
+                }
+
+                conversation_end(SCRIPT_OWNER);
+            }
+            @install()
+            fun npc_mario_dialog_1() {
+                if(NPC_MARIO.PROGRESS == 0d1) {
                     if(NPC_MARIO.SUB_PROGRESS == 0d0) {
                         if(MEMORY.MUSHROOM <= 0d0) {
                             subtext("…");
@@ -1698,10 +1728,10 @@ group non_maps() {
                 }
             }
             @install()
-            fun npc_mario_dialog_1() {
+            fun npc_mario_dialog_2() {
                 conversation_start(SCRIPT_OWNER);
 
-                if(NPC_MARIO.PROGRESS == 0d1) {
+                if(NPC_MARIO.PROGRESS == 0d2) {
                     if(NPC_MARIO.SUB_PROGRESS == 0d0) {
                         dialog("[SLOW]I followed them to the Sewers all the way from the Kingdom of Mushrooms.[B]");
 
@@ -1722,6 +1752,22 @@ group non_maps() {
                 }
 
                 conversation_end(SCRIPT_OWNER);
+            }
+
+            fun add_souls_npc_mario(x, y, flags:FLAG_ENEMY) {
+                if(flags is Word) {
+                    add_enemy(NPC_MARIO.BODY, x, y, flags);
+                } else {
+                    add_enemy(NPC_MARIO.BODY, x, y, 0d0);
+                }
+
+                if(NPC_MARIO.PROGRESS == 0d0) {
+                    attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_0));
+                } else if(NPC_MARIO.PROGRESS == 0d1) {
+                    attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
+                } else {
+                    attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_2));
+                }
             }
         };
 
@@ -2158,7 +2204,7 @@ group non_maps() {
                 };
             };
             
-            fun add_souls_npc_smith(x, y, flags) {
+            fun add_souls_npc_smith(x, y, flags:FLAG_ENEMY) {
                 if(flags is Word) {
                     add_enemy(NPC_SMITH.BODY, x, y, flags);
                 } else {
@@ -6319,9 +6365,85 @@ area altus_plateau_entry() {
                 },
             }
 
+            enum ROOM {
+                DEBUG = False,
+
+                WELL_CRANKS = memory_tmp(),
+                CRANKS_REQUIRED = 0d20,
+
+                WELL_STATE = flag_tmp(),
+
+                LUIGI_ID = memory_tmp(),
+
+                LUIGI_LIMIT_TOP = 0d433,
+                LUIGI_LIMIT_BOTTOM = 0d447,
+            }
+
+            fun crank_well() {
+                ROOM.WELL_STATE = !ROOM.WELL_STATE;
+
+                sound(SQUEEK);
+
+                if(ROOM.WELL_STATE) {
+                    object[0x00] = 0x00;
+                    object[0x01] = 0x00;
+                    object[0x02] = 0x00;
+                } else {
+                    object[0x00] = 0x01;
+                    object[0x01] = 0x01;
+                    object[0x02] = 0x01;
+                }
+
+                if(ROOM.LUIGI_ID > 0d0) {
+                    arg[0x10] = ROOM.LUIGI_LIMIT_TOP + (ROOM.CRANKS_REQUIRED - ROOM.WELL_CRANKS);
+
+                    if(arg[0x10] < ROOM.LUIGI_LIMIT_BOTTOM) {
+                        _teleport(ROOM.LUIGI_ID, 0d215, arg[0x10]);
+                    } else if(arg[0x10] == ROOM.LUIGI_LIMIT_BOTTOM) {
+                        teleport(ROOM.LUIGI_ID, 0d0, 0d0);
+                    }
+                }
+
+                if(ROOM.DEBUG) {
+                    MEMORY.STRING_PARAMETER_1 = ROOM.WELL_CRANKS;
+                    MEMORY.STRING_PARAMETER_2 = ROOM.CRANKS_REQUIRED;
+                    MEMORY.STRING_PARAMETER_3 = arg[0x10];
+
+                    debug_subtext("cranks = [MEM1]/[MEM2] ([MEM3])");
+                }
+            }
+            fun drop_bucket() {
+                control(NONE);
+
+                while(ROOM.WELL_CRANKS > 0d0) {
+                    ROOM.WELL_CRANKS--;
+                    crank_well();
+
+                    sleep(0d3);
+                }
+                ROOM.WELL_CRANKS = 0d0;
+
+                sound(WATER_PLOP);
+
+                control(BOTH);
+            }
+
+            fun well_triggered() {
+                nop();
+            }
+
             enum b_trigger {
                 well = @install() {
                     debug_subtext("B=0");
+
+                    if(ROOM.WELL_CRANKS < ROOM.CRANKS_REQUIRED) {
+                        ROOM.WELL_CRANKS++;
+                        crank_well();
+                    } else {
+                        drop_bucket();
+
+                        well_triggered();
+                    }
                 },
             }
 
@@ -6362,6 +6484,13 @@ area altus_plateau_entry() {
                     if!(FLAG.IN_ANIMATION) {
                         crash_both();
                         crash_windwalker();
+                    }
+                }
+
+                if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+                    if(NPC_MARIO.PROGRESS == 0d0) {
+                        add_souls_npc_mario(0d0, 0d0, INACTIVE);
+                        ROOM.LUIGI_ID = <LAST_ENTITY>;
                     }
                 }
 
@@ -10257,14 +10386,31 @@ area east_inbetwixx() {
                 }
             }
 
+            @install()
+            fun stone_locked() {
+                add_enemy(STONE_ROUND, 0d222, 0d39);
+                attach_script(LAST_ENTITY, B, reference(installed_error_unknown));
+
+                init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
+            }
+            @install()
+            fun stone_unlocked() {
+                add_enemy(STONE_ROUND, 0d222, 0d39);
+                // add_enemy(STONE_ROUND, 0xdc, 0x26);
+
+                init_room(0x04);
+            }
+
             fun trigger_enter() {
-                if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
-                    if(NPC_MARIO.PROGRESS == 0d0) {
-                        add_enemy(STONE_ROUND, 0xde, 0x27);
-                        attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_0));
+                if(SOULS_MEMORY.WITH_SIDE_QUESTS || (NPC_MARIO.PROGRESS == 0d0)) {
+                    if(NPC_MARIO.PROGRESS < 0d1) {
+                        stone_locked();
+                    } else if(NPC_MARIO.PROGRESS == 0d1) {
+                        add_enemy(STONE_ROUND, 0d222, 0d39);
+                        attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
 
                         if(NPC_MARIO.SUB_PROGRESS > 0x00) {
-                            add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+                            add_souls_npc_mario(0d229, 0d39, INACTIVE);
                             face(LAST_ENTITY, WEST);
 
                             init_room(0x04);
@@ -10272,16 +10418,10 @@ area east_inbetwixx() {
                             init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
                         }
                     } else {
-                        add_enemy(STONE_ROUND, 0xde, 0x27);
-                        // add_enemy(STONE_ROUND, 0xdc, 0x26);
-
-                        init_room(0x04);
+                        stone_unlocked();
                     }
                 } else {
-                    add_enemy(STONE_ROUND, 0xde, 0x27);
-                    attach_script(LAST_ENTITY, B, reference(installed_error_unknown));
-
-                    init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
+                    stone_locked();
                 }
                 
                 default_init_room(True, False);
@@ -10329,10 +10469,10 @@ area east_inbetwixx() {
                 }
 
                 if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
-                    if(NPC_MARIO.PROGRESS == 0x01) {
-                        add_enemy(NPC_MARIO.BODY, 0x0e, 0x20);
+                    if(NPC_MARIO.PROGRESS == 0d2) {
+                        add_souls_npc_mario(0d13, 0d32);
                         NPC_MARIO.ID = <LAST_ENTITY>;
-                        attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
+                        attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_2));
                     }
                 }
 
