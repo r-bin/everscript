@@ -201,6 +201,15 @@ group non_maps() {
 
             error_walk_back(exit_direction);
         }
+        @install()
+        fun installed_error_unknown() {
+            subtext("…");
+        }
+        fun error_unknown(exit_direction:DIRECTION) {
+            subtext("…");
+
+            error_walk_back(exit_direction);
+        }
 
         @install()
         fun enemy_triggered_invincible() {
@@ -240,7 +249,8 @@ group non_maps() {
             SPEAR_ORB = 0xf001, // available: 3
             AXE_ORB = 0xf002, // available: 3
 
-            SMITH_KEY = 0xf100, // unlocks orbs
+            SMITH_KEY = 0xf100, // unlocks orb upgrades
+            BIG_MUSHROOM = 0xf101, // unlocks jumping in the sewers
 
             RING_CAT = 0xf200, // reduces fall damage
         }
@@ -270,6 +280,7 @@ group non_maps() {
             WITH_CHEATS_MARIO_YUMP = True,
             // areas
             WITH_ENDBOSS = False,
+            WITH_BOAT_RIDE = False,
             WITH_SOUTH_INBETWIXX = False,
             WITH_SQUIDMAR_BRIDGE = False,
 
@@ -294,6 +305,7 @@ group non_maps() {
             ORB_SPEAR =  memory(),
             
             SMITH_KEY = flag(),
+            BIG_MUSHROOM = flag(),
 
             RING_CAT = flag(),
 
@@ -412,7 +424,7 @@ group non_maps() {
 
         fun asign_debug_button_function(flag, feature) {
             if(flag) {
-                arg[0x00] += 0x01;
+                arg[0x00]++;
 
                 if(
                     (SOULS_MEMORY.DEBUG_MENU_BUTTON_1 != feature)
@@ -491,6 +503,12 @@ group non_maps() {
                 fanfare_item(True);
 
                 SOULS_MEMORY.SMITH_KEY = True;
+            } else if(item == CUSTOM_ITEM.BIG_MUSHROOM) {
+                subtext("Gained Big Mushroom");
+                    
+                fanfare_item(True);
+
+                SOULS_MEMORY.BIG_MUSHROOM = True;
             }
         }
         @install()
@@ -978,9 +996,9 @@ group non_maps() {
             if(MEMORY.QUESTION_ANSWER == 0d0) { // chocobo egg
                 set(FLAG.CHOCOBO_EGG);
             } else if(MEMORY.QUESTION_ANSWER == 0d1) { // nectar
-                MEMORY.NECTAR += 0x01;
+                MEMORY.NECTAR++;
             } else if(MEMORY.QUESTION_ANSWER == 0d2) { // wings
-                MEMORY.WINGS += 0x01;
+                MEMORY.WINGS++;
             } else if(MEMORY.QUESTION_ANSWER == 0d3) {// queens key
                 set(FLAG.QUEENS_KEY);
             }
@@ -1364,9 +1382,9 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(ship, east, NONE);
+                map_transition(west_hut_inside, door, NONE);
 
-                // MEMORY.MAP_PALETTE -= 0x01;
+                // MEMORY.MAP_PALETTE--;
             }
         }
         @install()
@@ -1392,10 +1410,10 @@ group non_maps() {
                 
                 debug_boy();
 
-                // MEMORY.MAP_PALETTE += 0x01;
+                // MEMORY.MAP_PALETTE++;
 
                 if(False) {
-                    <0x2834> += 0x01;
+                    <0x2834>++;
                 }
 
                 // debug_tile();
@@ -1537,9 +1555,9 @@ group non_maps() {
                         question("[SLOW]estus upgrade?[CHOICE]yes[CHOICE]no");
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) {
-                            SOULS_MEMORY.ESTUS_SHARDS -= 0x01;
+                            SOULS_MEMORY.ESTUS_SHARDS--;
 
-                            SOULS_MEMORY.ESTUS_CHARGES += 0x01;
+                            SOULS_MEMORY.ESTUS_CHARGES++;
                         }
                     }
                 }
@@ -1568,15 +1586,15 @@ group non_maps() {
                 fun shrine_maiden_triggered__first_bonfire() {
                     if(NPC_SHRINE_MAIDEN.PROGRESS == 0x00) {
                         if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x00) {
-                            NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                            NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
                         
                             dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
                         } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x01) {
-                            NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                            NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
                         
                             dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
                         } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x02) {
-                            NPC_SHRINE_MAIDEN.SUB_PROGRESS += 0x01;
+                            NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
                         
                             dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
                         } else {
@@ -1621,57 +1639,89 @@ group non_maps() {
 
             @install()
             fun npc_mario_dialog_0() {
-                if(NPC_MARIO.PROGRESS == 0x00) {
-                    if(NPC_MARIO.SUB_PROGRESS == 0x00) {
-                        NPC_MARIO.SUB_PROGRESS += 0x01;
+                if(NPC_MARIO.PROGRESS == 0d0) {
+                    if(NPC_MARIO.SUB_PROGRESS == 0d0) {
+                        if(MEMORY.MUSHROOM <= 0d0) {
+                            subtext("…");
+                        } else {
+                            NPC_MARIO.SUB_PROGRESS++;
 
-                        add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
-                        face(LAST_ENTITY, WEST);
-                        init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
+                            add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+                            face(LAST_ENTITY, WEST);
+                            init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
 
-                        subtext("is there somebody?");
-                    } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
-                        NPC_MARIO.SUB_PROGRESS += 0x01;
+                            
+                            subtext("Is that… a… Mushroom?");
+                        }
+                    } else if(NPC_MARIO.SUB_PROGRESS == 0d1) {
+                        conversation_start(SCRIPT_OWNER);
 
-                        dialog("[SLOW]test1[B]");
-                    } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
-                        NPC_MARIO.PROGRESS += 0x01;
-                        NPC_MARIO.SUB_PROGRESS = 0x00;
+                        question("[SLOW]Mushroom… please…[CHOICE]give…[CHOICE]leave…");
 
-                        dialog("[SLOW]test2[B]");
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            item_pay(MUSHROOM, 0d1, 0d0);
+                            if(MEMORY.RETURN) {
+                                if(False) {
+                                    sound(PURCHASE);
+                                }
+
+                                dialog("[SLOW]…[B]");
+
+                                NPC_MARIO.SUB_PROGRESS++;
+                            }
+                        }
+
+                        conversation_end(SCRIPT_OWNER);
+                    } else if(NPC_MARIO.SUB_PROGRESS == 0d2) {
+                        conversation_start(SCRIPT_OWNER);
+
+                        question("[SLOW]more…[CHOICE]give…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            item_pay(MUSHROOM, 0d1, 0d0);
+                            if(MEMORY.RETURN) {
+                                if(False) {
+                                    sound(PURCHASE);
+                                }
+
+                                dialog("[SLOW]you saved  me…[B]");
+
+                                NPC_MARIO.PROGRESS++;
+                                NPC_MARIO.SUB_PROGRESS = 0d0;
+                            }
+                        }
+
+                        conversation_end(SCRIPT_OWNER);
                     }
                 } else {
-                    dialog("[SLOW]Please go now[B]");
+                    dialog("[SLOW]you saved  me…[B]");
                 }
             }
             @install()
             fun npc_mario_dialog_1() {
-                control(NPC_MARIO.ID, True);
-                face_each(BOY, NPC_MARIO.ID);
+                conversation_start(SCRIPT_OWNER);
 
-                if(NPC_MARIO.PROGRESS == 0x01) {
-                    // NPC_MARIO.PROGRESS += 0x01;
-                    // NPC_MARIO.SUB_PROGRESS = 0x00;
+                if(NPC_MARIO.PROGRESS == 0d1) {
+                    if(NPC_MARIO.SUB_PROGRESS == 0d0) {
+                        dialog("[SLOW]I followed them to the Sewers all the way from the Kingdom of Mushrooms.[B]");
 
-                    if(NPC_MARIO.SUB_PROGRESS == 0x00) {
-                        NPC_MARIO.SUB_PROGRESS += 0x01;
+                        NPC_MARIO.SUB_PROGRESS++;
+                    } else if(NPC_MARIO.SUB_PROGRESS == 0d1) {
+                        dialog("[SLOW]This should help you navigate within the Sewers.[B]");
 
-                        dialog("[SLOW]test1[B]");
-                    } else if(NPC_MARIO.SUB_PROGRESS == 0x01) {
-                        NPC_MARIO.SUB_PROGRESS += 0x01;
+                        custom_reward(BIG_MUSHROOM);
+                        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
 
-                        dialog("[SLOW]test2[B]");
-                    } else if(NPC_MARIO.SUB_PROGRESS == 0x02) {
-                        NPC_MARIO.PROGRESS += 0x01;
-                        NPC_MARIO.SUB_PROGRESS += 0x00;
+                        dialog("[SLOW]Press `Start´ to use the Big Mushroom within the Sewers.[B]");
 
-                        dialog("[SLOW]test3[B]");
+                        NPC_MARIO.PROGRESS++;
+                        NPC_MARIO.SUB_PROGRESS = 0d0;
                     }
                 } else {
-                    dialog("[SLOW]Please go now[B]");
+                    dialog("[SLOW]Use it to help me clear this place from the infestation.[B]");
                 }
 
-                control(NPC_MARIO.ID, False);
+                conversation_end(SCRIPT_OWNER);
             }
         };
 
@@ -2859,7 +2909,7 @@ area shrine_area() {
                     (NPC_SHRINE_MAIDEN.PROGRESS == 0x00) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x03) &&
                     !(ROOM.SHRINE_BONFIRE_LIT)
                 ) {
-                    NPC_SHRINE_MAIDEN.PROGRESS += 0x01;
+                    NPC_SHRINE_MAIDEN.PROGRESS++;
                     NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0x00;
 
                     set(ROOM.SHRINE_BONFIRE_LIT);
@@ -3210,7 +3260,7 @@ area shrine_area() {
             }
 
             fun update_counter() {
-                ROOM.RAT_COUNTER += 0d01;
+                ROOM.RAT_COUNTER++;
 
                 if(ROOM.RAT_COUNTER < ROOM.RATS_TO_KILL) {
                     print_counter();
@@ -3335,14 +3385,17 @@ area shrine_area() {
             gourd_1_3_2 = nop(),
             gourd_1_3_1 = nop(),
 
-            gourd_3 = @install() {
+            gourd_3__30_money = @install() {
                 debug_subtext("B=20");
+                _loot_chest(0x04, MONEY, 0d30);
             },
-            gourd_2 = @install() {
+            gourd_2__1_water = @install() {
                 debug_subtext("B=21");
+                _loot_chest(0x03, WATER, 0d01);
             },
-            gourd_1 = @install() {
+            gourd_1__4_water = @install() {
                 debug_subtext("B=22");
+                _loot_chest(0x02, WATER, 0d03);
             },
             gourd_1_1_2 = nop(),
             gourd_1_1_1 = nop(),
@@ -4413,7 +4466,7 @@ area west_inbetwixx() {
                 question("[SLOW]Use Spoon[CHOICE]Yes[CHOICE]No");
 
                 if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    MEMORY.SPOON -= 0x01;
+                    MEMORY.SPOON--;
                     set(ROOM.BRANCH_USED);
 
                     <SCRIPT_OWNER>[PALETTE] = 0x0800;
@@ -4685,19 +4738,29 @@ area west_inbetwixx() {
 
         @install()
         fun trap_door() {
-            if!(ROOM.CLUE_1) {
+            if!(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+                error_unknown(NONE);
+                end();
+            }
+            if((!ROOM.CLUE_1) || (!ROOM.CLUE_2)) {
                 fake_b();
                 end();
             }
-            if!(ROOM.CLUE_2) {
-                fake_b();
-                end();
-            }
+
+            sound(WEIRD_SOUND);
+
+            animate_boy_kneel();
             
             question("[SLOW]A trap door under the rug.[CHOICE]Enter…[CHOICE]Leave…");
 
             if(MEMORY.QUESTION_ANSWER == 0d0) {
+                face(BOY, SOUTH);
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+                sleep(0d20);
+
                 map_transition(basement_0_start, center, NONE);
+            } else {
+                animate(BOY, ONCE, DEFAULT);
             }
         }
 
@@ -5203,14 +5266,14 @@ area altus_plateau_entry() {
                 face(DOG, EAST);
                 sleep(0x20);
 
-                while(arg[0x00] < 0xa0) {
-                    arg[0x00] += 0x01;
+                while(arg[0x00] < 0d160) {
+                    arg[0x00]++;
                     control(NONE);
                     face(BOY, EAST);
                     face(DOG, EAST);
-                    <SCRIPT_OWNER>[Y] -= 0x01;
-                    <BOY>[Y] -= 0x01;
-                    <DOG>[Y] -= 0x01;
+                    <SCRIPT_OWNER>[Y]--;
+                    <BOY>[Y]--;
+                    <DOG>[Y]--;
 
                     yield();
                 }
@@ -6720,7 +6783,6 @@ area altus_plateau_entry() {
                             open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
                         }
 
-                        debug_marker();
                         if((!ROOM.CLAIMED_SWORD_2) && FLAG.SWORD_2) {
                             text("[CHOICE]Gladiator Sword…");
                         } else {
@@ -7435,7 +7497,9 @@ area northwest_inbetwixx() {
             add_enemy(PLACEHOLDER, 0x17, 0x00);
             ROOM.SECRET_PASSAGE_TRIGGER = <LAST_ENTITY>;
 
-            hidden_exit_check();
+            if(SOULS_MEMORY.WITH_BOAT_RIDE) {
+                hidden_exit_check();
+            }
 
             bomb_wall_trigger(0x00, 0x01, 0d64, 0d17);
         }
@@ -7751,7 +7815,7 @@ area east_inbetwixx() {
                 question("[SLOW]Use Spoon[CHOICE]Yes[CHOICE]No");
 
                 if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    MEMORY.SPOON -= 0x01;
+                    MEMORY.SPOON--;
                     set(ROOM.BRANCH_USED);
 
                     <SCRIPT_OWNER>[PALETTE] = 0x0800;
@@ -8408,7 +8472,7 @@ area east_inbetwixx() {
                     }
                 
                     if(BOSS.RIDER_ID[PALETTE] != 0x0400) { // TODO: buggy, since menu resets paletts
-                        BOSS.TIMER += 0x01;
+                        BOSS.TIMER++;
                     }
 
                     if(False) {
@@ -8435,7 +8499,7 @@ area east_inbetwixx() {
                     }
                 
                     if(BOSS.RIDER_ID[PALETTE] != 0x0400) { // TODO: buggy, since menu resets paletts
-                        BOSS.TIMER += 0x01;
+                        BOSS.TIMER++;
                     }
                     yield();
                 }
@@ -8445,7 +8509,7 @@ area east_inbetwixx() {
                 cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
                 while(BOSS.PHASE == 0x01) {
-                    BOSS.TIMER += 0x01;
+                    BOSS.TIMER++;
 
                     if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
                         BOSS.TIMER = 0x0000;
@@ -9075,7 +9139,7 @@ area east_inbetwixx() {
                     //     sleep(0x20);
                     // }
                 } else {
-                    BOSS.STOMP_COOL_DOWN_TIMER -= 0x01;
+                    BOSS.STOMP_COOL_DOWN_TIMER--;
                 }
             }
         }
@@ -9131,7 +9195,7 @@ area east_inbetwixx() {
                 }
             
                 if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER += 0x01;
+                    BOSS.TIMER++;
                 }
                 yield();
             }
@@ -9152,7 +9216,7 @@ area east_inbetwixx() {
                 }
             
                 if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER += 0x01;
+                    BOSS.TIMER++;
                 }
                 yield();
             }
@@ -9163,7 +9227,7 @@ area east_inbetwixx() {
             cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
             while(BOSS.PHASE == 0x01) {
-                BOSS.TIMER += 0x01;
+                BOSS.TIMER++;
 
                 if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
                     BOSS.TIMER = 0x0000;
@@ -9373,8 +9437,6 @@ area east_inbetwixx() {
 
             ROOMS_CLEARED = memory(),
 
-            BIG_MUSHROOM_UNLOCKED = flag(),
-
             MUSIC_ENTRANCE = 0x72,
             MUSIC_MAZE = 0x72,
         }
@@ -9549,7 +9611,7 @@ area east_inbetwixx() {
 
                 default_init_room(True, False);
 
-                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                if(SOULS_MEMORY.BIG_MUSHROOM) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
 
@@ -9700,7 +9762,7 @@ area east_inbetwixx() {
 
                 default_init_room(True, False);
 
-                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                if(SOULS_MEMORY.BIG_MUSHROOM) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
             }
@@ -9845,8 +9907,8 @@ area east_inbetwixx() {
                 BOSS.BOSS_START_X = BOSS.BOSS_ID[X];
                 BOSS.BOSS_START_Y = BOSS.BOSS_ID[Y];
 
-                while(BOSS.BOSS_START_TIMER < 0x78) {
-                    BOSS.BOSS_START_TIMER += 0x01;
+                while(BOSS.BOSS_START_TIMER < 0d120) {
+                    BOSS.BOSS_START_TIMER++;
 
                     BOSS.BOSS_ID[X] = BOSS.BOSS_START_X;
                     BOSS.BOSS_ID[Y] = BOSS.BOSS_START_Y;
@@ -10054,7 +10116,7 @@ area east_inbetwixx() {
 
                 default_init_room(True, False);
 
-                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                if(SOULS_MEMORY.BIG_MUSHROOM) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
             }
@@ -10196,29 +10258,35 @@ area east_inbetwixx() {
             }
 
             fun trigger_enter() {
-                if(NPC_MARIO.PROGRESS == 0x00) {
-                    add_enemy(STONE_ROUND, 0xde, 0x27);
-                    attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_0));
+                if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+                    if(NPC_MARIO.PROGRESS == 0d0) {
+                        add_enemy(STONE_ROUND, 0xde, 0x27);
+                        attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_0));
 
-                    if(NPC_MARIO.SUB_PROGRESS > 0x00) {
-                        add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
-                        face(LAST_ENTITY, WEST);
+                        if(NPC_MARIO.SUB_PROGRESS > 0x00) {
+                            add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+                            face(LAST_ENTITY, WEST);
+
+                            init_room(0x04);
+                        } else {
+                            init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
+                        }
+                    } else {
+                        add_enemy(STONE_ROUND, 0xde, 0x27);
+                        // add_enemy(STONE_ROUND, 0xdc, 0x26);
 
                         init_room(0x04);
-                    } else {
-                        init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
                     }
-
                 } else {
                     add_enemy(STONE_ROUND, 0xde, 0x27);
-                    // add_enemy(STONE_ROUND, 0xdc, 0x26);
+                    attach_script(LAST_ENTITY, B, reference(installed_error_unknown));
 
-                    init_room(0x04);
+                    init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
                 }
                 
                 default_init_room(True, False);
 
-                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                if(SOULS_MEMORY.BIG_MUSHROOM) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
             }
@@ -10247,7 +10315,7 @@ area east_inbetwixx() {
 
             @install()
             fun debug_triggered() {
-                set(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED);
+                set(SOULS_MEMORY.BIG_MUSHROOM);
                 SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
 
                 destroy(SCRIPT_OWNER);
@@ -10255,20 +10323,22 @@ area east_inbetwixx() {
 
             fun trigger_enter() {
                 if(FLAG.DEBUG) {
-                    if!(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                    if!(SOULS_MEMORY.BIG_MUSHROOM) {
                         add_debug_entity(0x0c, 0x0e, reference(debug_triggered));
                     }
                 }
 
-                if(NPC_MARIO.PROGRESS == 0x01) {
-                    add_enemy(NPC_MARIO.BODY, 0x0e, 0x20);
-                    NPC_MARIO.ID = <LAST_ENTITY>;
-                    attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
+                if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+                    if(NPC_MARIO.PROGRESS == 0x01) {
+                        add_enemy(NPC_MARIO.BODY, 0x0e, 0x20);
+                        NPC_MARIO.ID = <LAST_ENTITY>;
+                        attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
+                    }
                 }
 
                 default_init_room(True, True);
 
-                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                if(SOULS_MEMORY.BIG_MUSHROOM) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
             }
@@ -10511,7 +10581,7 @@ area east_inbetwixx() {
             fun trigger_enter() {
                 default_init_room(True, False);
 
-                if(PIPE_MAZE.BIG_MUSHROOM_UNLOCKED) {
+                if(SOULS_MEMORY.BIG_MUSHROOM) {
                     SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
                 }
 
@@ -10563,7 +10633,7 @@ area east_inbetwixx() {
                 if!(flag) {
                     set(flag);
 
-                    MARIO.ROOMS_CLEARED += 0x01;
+                    MARIO.ROOMS_CLEARED++;
                 }
             }
 
@@ -10606,7 +10676,7 @@ area east_inbetwixx() {
 
                 @install()
                 fun mario_enemy_killed() {
-                    ROOM.ENEMY_COUNT -= 0x01;
+                    ROOM.ENEMY_COUNT--;
 
                     if((ROOM.ENEMY_COUNT <= 0x00) && (ROOM.GATE_COUNT == ROOM.ROOMS_TO_CLEAR)) {
                         if(ROOM.DEBUG) {
@@ -10621,7 +10691,7 @@ area east_inbetwixx() {
                     add_enemy(FRIPPO, x, y);
                     attach_script(LAST_ENTITY, DEATH, reference(mario_enemy_killed));
 
-                    ROOM.ENEMY_COUNT += 0x01;
+                    ROOM.ENEMY_COUNT++;
                 }
 
                 fun door_triggered() {
@@ -10637,7 +10707,7 @@ area east_inbetwixx() {
 
                 fun init_gate(index, flag) {
                     if(flag) {
-                        ROOM.GATE_COUNT += 0x01;
+                        ROOM.GATE_COUNT++;
 
                         if(index == 0x01) {
                             object[0x00] = 0x01; // press switch_1
@@ -10670,7 +10740,7 @@ area east_inbetwixx() {
                     } else {
                         set(flag);
 
-                        ROOM.GATE_COUNT += 0x01;
+                        ROOM.GATE_COUNT++;
 
                         if(ROOM.DEBUG) {
                             debug_memory(ROOM.GATE_COUNT, ROOM.ENEMY_COUNT);
@@ -11214,7 +11284,7 @@ area east_inbetwixx() {
                 fun add_mario_frippo(x, y) {
                     add_enemy(FRIPPO, x, y);
 
-                    ROOM.ENEMY_COUNT += 0x01;
+                    ROOM.ENEMY_COUNT++;
                 }
 
                 fun door_triggered() {
@@ -11230,7 +11300,7 @@ area east_inbetwixx() {
 
                 fun init_gate(index, flag) {
                     if(flag) {
-                        ROOM.GATE_COUNT += 0x01;
+                        ROOM.GATE_COUNT++;
 
                         if(index == 0x01) {
                             object[0x00] = 0x01; // press switch_1
@@ -11263,7 +11333,7 @@ area east_inbetwixx() {
                     } else {
                         set(flag);
 
-                        ROOM.GATE_COUNT += 0x01;
+                        ROOM.GATE_COUNT++;
 
                         if(ROOM.GATE_COUNT == ROOM.ROOMS_TO_CLEAR) {
                             set(ROOM.ROOM_CLEARED);
@@ -11503,7 +11573,7 @@ area east_inbetwixx() {
 
                             arg[0x00] = <BOY>[FACE_DIRECTION];
                         } else {
-                            MOUNT.WALK_REPEAT_TIMER += 0x01;
+                            MOUNT.WALK_REPEAT_TIMER++;
                         }
 
                         sleep(0x01);
@@ -11843,7 +11913,7 @@ area east_inbetwixx() {
 
                             if((arg[0x08] < 0x0f) && (arg[0x0a] < 0x0f)) {
                                 boss_hit();
-                                BOSS.ENEMY_COUNT -= 0x01;
+                                BOSS.ENEMY_COUNT--;
                                 destroy(enemy);
                             }
                         }
@@ -11871,7 +11941,7 @@ area east_inbetwixx() {
                     
                     @install()
                     fun add_mario_koopa() {
-                        BOSS.ENEMY_COUNT += 0x01;
+                        BOSS.ENEMY_COUNT++;
 
                         _add_enemy(LIZARD, BOSS.ID[X], BOSS.ID[Y]);
                         attach_to_script(LAST_ENTITY);
@@ -12922,7 +12992,7 @@ area southern_jungle() {
             }
             @install()
             fun thraxx_trigger() {
-                // <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+                // <SCRIPT_OWNER>[GENERAL_PURPOSE]++;
 
                 MEMORY.MAP_PALETTE = 0x00;
 
@@ -12942,7 +13012,7 @@ area southern_jungle() {
             }
             @install()
             fun thraxx2_trigger() {
-                // <SCRIPT_OWNER>[GENERAL_PURPOSE] += 0x01;
+                // <SCRIPT_OWNER>[GENERAL_PURPOSE]++;
 
                 MEMORY.MAP_PALETTE = 0x07;
                 
@@ -13785,7 +13855,7 @@ area town() {
                         }
                     
                         if(BOSS.DISMOUNT > 0d00) { // TODO: buggy, since menu resets paletts
-                            BOSS.DISMOUNT -= 0d01;
+                            BOSS.DISMOUNT--;
                         }
 
                         yield();
@@ -13828,7 +13898,7 @@ area town() {
                         }
                     
                         if(BOSS.DISMOUNT > 0d00) { // TODO: buggy, since menu resets paletts
-                            BOSS.DISMOUNT -= 0d01;
+                            BOSS.DISMOUNT--;
                         }
 
                         yield();
@@ -15124,8 +15194,8 @@ area town() {
                 }
 
                 fun boss_defeated() {
-                    SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
-                    SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+                    SOULS_MEMORY.BOSSES_DEFEATED_COUNTER++;
+                    SOULS_MEMORY.PROGRESS_COUNTER++;
 
                     set(SOULS_MEMORY.DEAD_NARIS);
                 }
@@ -15590,7 +15660,7 @@ area town() {
             }
 
             fun boxer_hit(rider_id, mount_id, hit_counter) { // TODO: buggy
-                hit_counter += 0x01;
+                hit_counter++;
 
                 debug_memory(hit_counter, ROOM.HITS_THRESHOLD);
 
@@ -15603,13 +15673,13 @@ area town() {
                     destroy(mount_id);
                     destroy(rider_id);
 
-                    ROOM.BOXERS_BEATEN += 0x01;
+                    ROOM.BOXERS_BEATEN++;
                     
                 }
             }
 
             fun boxer_killed() {
-                ROOM.BOXERS_BEATEN += 0x01;
+                ROOM.BOXERS_BEATEN++;
 
                 if(ROOM.BOXERS_BEATEN >= ROOM.BOXERS_BEATEN_THRESHOLD) {
                     souls_boss_defeated(DEAD_TAVERN_BOXERS, REWARD_TAVERN_BOXERS);
@@ -15620,7 +15690,7 @@ area town() {
             fun boxer1dead() {
                 // boxer_hit(ROOM.RIDER_1_ID, ROOM.MOUNT_1_ID ,ROOM.HITS_BOXER_1);
 
-                ROOM.HITS_BOXER_1 += 0x01;
+                ROOM.HITS_BOXER_1++;
 
                 if(ROOM.HITS_BOXER_1 >= ROOM.HITS_THRESHOLD) {
                     add_enemy(PLACEHOLDER, 0x00, 0x00);
@@ -15638,7 +15708,7 @@ area town() {
             fun boxer2dead() {
                 // boxer_hit(ROOM.RIDER_2_ID, ROOM.MOUNT_2_ID ,ROOM.HITS_BOXER_2);
 
-                ROOM.HITS_BOXER_2 += 0x01;
+                ROOM.HITS_BOXER_2++;
 
                 if(ROOM.HITS_BOXER_2 >= ROOM.HITS_THRESHOLD) {
                     add_enemy(PLACEHOLDER, 0x00, 0x00);
@@ -15656,7 +15726,7 @@ area town() {
             fun boxer3dead() {
                 // boxer_hit(ROOM.RIDER_3_ID, ROOM.MOUNT_3_ID ,ROOM.HITS_BOXER_3);
 
-                ROOM.HITS_BOXER_3 += 0x01;
+                ROOM.HITS_BOXER_3++;
 
                 if(ROOM.HITS_BOXER_3 >= ROOM.HITS_THRESHOLD) {
                     add_enemy(PLACEHOLDER, 0x00, 0x00);
@@ -16062,7 +16132,7 @@ area town() {
                         question("[SLOW]Please enter a ticket[CHOICE]Yes.[CHOICE]No.");
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) {
-                            MEMORY.TICKET_FOR_EXHIBITION -= 0x01;
+                            MEMORY.TICKET_FOR_EXHIBITION--;
 
                             map_transition(gladiator_arena, south, SOUTH);
                         }
@@ -16096,7 +16166,7 @@ area town() {
                             show_currency(True);
 
                             sound(PURCHASE);
-                            MEMORY.TICKET_FOR_EXHIBITION += 0x01;
+                            MEMORY.TICKET_FOR_EXHIBITION++;
                         }
                     }
 
@@ -16187,7 +16257,7 @@ area town() {
             fun gladiator_dead() {
                 unset(ROOM.FIGHT_IN_PROGRESS);
 
-                ROOM.PROGRESS += 0x01;
+                ROOM.PROGRESS++;
 
                 sound(0x6e);
                 
@@ -17134,7 +17204,7 @@ area town() {
                             }
                         }
                     } else {
-                        BOSS.TIMER += 0x01;
+                        BOSS.TIMER++;
                     }
 
                     yield();
@@ -17250,15 +17320,15 @@ map town_bridge(BAD_BOYS) {
         animate(BOY, ONCE, SLASH_2);
 
         if((ROOM.RIDDLE_PROGRESS == 0x00) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x01)) {
-            ROOM.RIDDLE_PROGRESS += 0x01;
+            ROOM.RIDDLE_PROGRESS++;
         } else if((ROOM.RIDDLE_PROGRESS == 0x01) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x02)) {
-            ROOM.RIDDLE_PROGRESS += 0x01;
+            ROOM.RIDDLE_PROGRESS++;
         } else if((ROOM.RIDDLE_PROGRESS == 0x02) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x03)) {
-            ROOM.RIDDLE_PROGRESS += 0x01;
+            ROOM.RIDDLE_PROGRESS++;
         } else if((ROOM.RIDDLE_PROGRESS == 0x03) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x04)) {
-            ROOM.RIDDLE_PROGRESS += 0x01;
+            ROOM.RIDDLE_PROGRESS++;
         } else if((ROOM.RIDDLE_PROGRESS == 0x04) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x05)) {
-            ROOM.RIDDLE_PROGRESS += 0x01;
+            ROOM.RIDDLE_PROGRESS++;
         } else if((ROOM.RIDDLE_PROGRESS == 0x05) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x06)) {
             riddle_solved();
         }
@@ -18586,18 +18656,18 @@ area dungeon_isaac() {
             entity[JUMP_HEIGHT] = 0x30;
             
             while(arg[0x02] <= 0x30) {
-                arg[0x02] += 0x01;
+                arg[0x02]++;
 
                 if(entity[X] > <BOY>[X]) {
-                    entity[X] -= 0x01;
+                    entity[X]--;
                 } else if(entity[X] < <BOY>[X]) {
-                    entity[X] += 0x01;
+                    entity[X]++;
                 }
 
                 if(entity[Y] > <BOY>[Y]) {
-                    entity[Y] -= 0x01;
+                    entity[Y]--;
                 } else if(entity[Y] < <BOY>[Y]) {
-                    entity[Y] += 0x01;
+                    entity[Y]++;
                 }
 
                 sleep(0x02);
@@ -18646,7 +18716,7 @@ area dungeon_isaac() {
 
         @install()
         fun isaac_enemy_death() {
-            AREA_BASEMENT.ENEMY_COUNT -= 0x01;
+            AREA_BASEMENT.ENEMY_COUNT--;
 
             // if(AREA_BASEMENT.ENEMY_COUNT == 0x00) {
             //     AREA_BASEMENT.ENABLE_DOORS = 0x01;
@@ -22001,8 +22071,8 @@ area dungeon_volcano() {
         }
 
         fun boss_defeated() {
-            SOULS_MEMORY.BOSSES_DEFEATED_COUNTER += 0x01;
-            SOULS_MEMORY.PROGRESS_COUNTER += 0x01;
+            SOULS_MEMORY.BOSSES_DEFEATED_COUNTER++;
+            SOULS_MEMORY.PROGRESS_COUNTER++;
 
             set(SOULS_MEMORY.DEAD_VOLCANO_HYDRA);
 
@@ -22041,7 +22111,7 @@ area dungeon_volcano() {
                 boss_defeated();
             }
 
-            BOSS.PHASE += 0x01;
+            BOSS.PHASE++;
         }
 
         @install()
@@ -22054,15 +22124,15 @@ area dungeon_volcano() {
 
             while((<SCRIPT_OWNER>[X] != arg[0x10][X]) && (<SCRIPT_OWNER>[Y] != arg[0x10][Y])) {
                 if(<SCRIPT_OWNER>[X] > arg[0x10][X]) {
-                    <SCRIPT_OWNER>[X] -= 0d01;
+                    <SCRIPT_OWNER>[X]--;
                 } else if(<SCRIPT_OWNER>[X] < arg[0x10][X]) {
-                    <SCRIPT_OWNER>[X] += 0d01;
+                    <SCRIPT_OWNER>[X]++;
                 }
 
                 if(<SCRIPT_OWNER>[Y] > arg[0x10][Y]) {
-                    <SCRIPT_OWNER>[Y] -= 0d01;
+                    <SCRIPT_OWNER>[Y]--;
                 } else if(<SCRIPT_OWNER>[Y] < arg[0x10][Y]) {
-                    <SCRIPT_OWNER>[Y] += 0d01;
+                    <SCRIPT_OWNER>[Y]++;
                 }
 
                 sleep(0d3);
@@ -22688,7 +22758,7 @@ area experimental_room() {
         }
 
         fun boss_hit() {
-            BOSS.HIT_COUNT_MEMORY -= 0x01;
+            BOSS.HIT_COUNT_MEMORY--;
 
             if(BOSS.HIT_COUNT_MEMORY <= 0x00) {
                 boss_defeated();
@@ -23211,7 +23281,7 @@ area experimental_room() {
                 }
             
                 if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER += 0x01;
+                    BOSS.TIMER++;
                 }
                 yield();
             }
@@ -23232,7 +23302,7 @@ area experimental_room() {
                 }
             
                 if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER += 0x01;
+                    BOSS.TIMER++;
                 }
                 yield();
             }
@@ -23242,7 +23312,7 @@ area experimental_room() {
             cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
             while(BOSS.PHASE == 0x01) {
-                BOSS.TIMER += 0x01;
+                BOSS.TIMER++;
 
                 if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
                     BOSS.TIMER = 0x0000;
@@ -23371,11 +23441,11 @@ area experimental_room() {
         fun fly_left_right() {
             while(True) {
                 while(BOSS.MOUNT_ID[X] < 0x150) {
-                    BOSS.MOUNT_ID[X] += 0x01;
+                    BOSS.MOUNT_ID[X]++;
                     yield();
                 }
                 while(BOSS.MOUNT_ID[X] > 0x50) {
-                    BOSS.MOUNT_ID[X] -= 0x01;
+                    BOSS.MOUNT_ID[X]--;
                     yield();
                 }
             }
@@ -23521,7 +23591,7 @@ area experimental_room() {
                 sleep(0x1);
 
                 // if(<DOG>[HP] <= 0x00) {
-                //     <DOG>[X] += 0x01;
+                //     <DOG>[X]++;
                 // }
 
                 arg[0x00] = <BOY>[X];
@@ -23542,7 +23612,7 @@ area experimental_room() {
                 }
 
                 if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
-                    <BOY>[X] += 0x01;
+                    <BOY>[X]++;
                 }
 
                 arg[0x00] = <DOG>[X];
@@ -23563,7 +23633,7 @@ area experimental_room() {
                 }
 
                 if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
-                    <DOG>[X] += 0x01;
+                    <DOG>[X]++;
                 }
             }
         }
@@ -23663,11 +23733,11 @@ area experimental_room() {
 
             while(<BOY>[X] > 0x70) {
                 // teleport(<BOY>, <0x24ab>, <0x24af>);
-                <BOY>[X] -= 0x01;
+                <BOY>[X]--;
                 // teleport(DOG, <0x24ab>, <0x24af>);
                 // teleport(0x2838, 0x24ab, 0x24af - 0x01);
 
-                // <0x24ab> -= 0x01;
+                // <0x24ab>--;
                 yield();
 
                 // debug_memory(<0x24ab>, <0x24cf>);
@@ -23680,7 +23750,7 @@ area experimental_room() {
                 // teleport(DOG, <0x24ab>, <0x24af>);
                 // teleport(0x2838, 0x24ab, 0x24af - 0x01);
 
-                // <0x24ab> -= 0x01;
+                // <0x24ab>--;
                 yield();
 
                 // debug_memory(<0x24ab>, <0x24cf>);
@@ -24201,13 +24271,13 @@ area experimental_room() {
                     } else if(<SCRIPT_OWNER> == BOSS.ID_RIGHT) {
                         if(BOSS.PHASE >= 0x02) {
                             if(dead(<SCRIPT_OWNER>)) {
-                                BOSS.PHASE += 0x01;
+                                BOSS.PHASE++;
                             }
                         }
                     } else if(<SCRIPT_OWNER> == BOSS.ID_BACK) {
                         if(BOSS.PHASE >= 0x02) {
                             if(dead(<SCRIPT_OWNER>)) {
-                                BOSS.PHASE += 0x01;
+                                BOSS.PHASE++;
                             }
                         }
                     }
@@ -24429,11 +24499,11 @@ area experimental_room() {
             _question("[SLOW]Choose item:[CHOICE][MEM1] Potion[CHOICE][MEM2] Pokedoll");
 
             if(MEMORY.QUESTION_ANSWER == 0d00) {
-                MEMORY.PETAL -= 0d01;
+                MEMORY.PETAL--;
 
                 heal(DOG, 0d20, True);
             } else if(MEMORY.QUESTION_ANSWER == 0d01) {
-                MEMORY.WINGS -= 0d01;
+                MEMORY.WINGS--;
 
                 subtext("You escaped safely.");
                 sleep(0d200);
