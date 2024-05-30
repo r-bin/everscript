@@ -93,74 +93,6 @@ group non_maps() {
     };
 
     group helper() {
-        fun fake_loot() {
-            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
-            sleep(0d15);
-            sound(CLICK_3);
-            sleep(0d15);
-        }
-
-        fun fake_loot_gourd() {
-            sound(CLICK_3);
-        }
-
-        fun fake_b() {
-            animate(ACTIVE, ONCE, SLASH_1);
-        }
-
-        @install()
-        @async()
-        fun crash_both() {
-            <DOG>[X] -= 0x20;
-            <DOG>[Y] -= 0x20;
-
-            crash_land(BOTH);
-        }
-
-        fun character_selection(character:CHARACTER) {
-            if(character == CHARACTER.BOY) {
-                available(BOY);
-                teleport(DOG, 0x00, 0x00);
-            } else if(character == CHARACTER.DOG) {
-                available(DOG);
-                teleport(BOY, 0x00, 0x00);
-
-                attach_script(DOG, DEATH, reference(boy_death));
-            }
-        }
-
-        fun branch_lady(x, y, id) {
-            add_enemy(VILLAGER_2_4, x, y);
-            entity_script_controlled(LAST_ENTITY);
-            face(LAST_ENTITY, WEST);
-            attach_script(LAST_ENTITY, B, id);
-            <LAST_ENTITY>[PALETTE] = 0x50;
-        }
-
-        @install()
-        fun bomb_wall_triggered() {
-            heal(SCRIPT_OWNER, 0d0, False);
-            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-
-            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-            object[<SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
-
-            sleep(0d80);
-
-            destroy(SCRIPT_OWNER);
-        }
-        fun bomb_wall_trigger(object, value, x, y) {
-            // add_enemy(THRAXX_HEART, x, y, 0x0000);
-            add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
-            // attribute(LAST_ENTITY, NO_CLIP, True);
-            // <LAST_ENTITY>[HP] = object;
-            // <LAST_ENTITY>[0x15] = 0x01;
-            
-            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(bomb_wall_triggered));
-            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object << 0x8) + value);
-            // <0x2834> = <LAST_ENTITY>;
-        }
-
         fun error_walk_back(exit_direction:DIRECTION) {
             if(exit_direction == DIRECTION.NORTH) {
                 walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, BOTH);
@@ -257,27 +189,30 @@ group non_maps() {
         enum SOULS_MEMORY {
             INIT = flag(),
             INTRO_WATCHED = flag(),
+            // debug
             DEBUG = True,
+            DEBUG_BOMBABLE_WALLS = False,
 
             // features
             WITH_OPENING = False,
-            WITH_SHRINE_INTRO = False,
             WITH_SAVESTATE_LOAD = True, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
-            WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
-            WITH_INTRO = False,
+            // souls specific features
+            WITH_INTRO = True,
             WITH_STARTING_CLASS = False,
-            WITH_WEATHER = True,
-            WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
-            WITH_TRASH_ENEMIES = True,
+            WITH_SHRINE_INTRO = True,
             WITH_SOULS_ON_DEATH = True,
+            WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
+            WITH_TRASH_ENEMIES = True,
             WITH_FOG_WALL = True,
             WITH_SIDE_QUESTS = True,
+            WITH_WEATHER = True,
+            WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             // cheats
             WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
-            WITH_CHEATS = False, // fixes no clip after screen transitions
-            WITH_CHEATS_ALL_BONFIRES = True,
+            WITH_CHEATS = True, // fixes no clip after screen transitions
+            WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = True,
             // areas
             WITH_ENDBOSS = False,
@@ -1329,6 +1264,42 @@ group non_maps() {
 
                 yield();
             }
+        }
+
+        fun branch_lady(x, y, id) {
+            add_enemy(VILLAGER_2_4, x, y);
+            entity_script_controlled(LAST_ENTITY);
+            face(LAST_ENTITY, WEST);
+            attach_script(LAST_ENTITY, B, id);
+            <LAST_ENTITY>[PALETTE] = 0x50;
+        }
+
+        @install()
+        fun bomb_wall_triggered() {
+            heal(SCRIPT_OWNER, 0d0, False);
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+            object[<SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
+
+            sleep(0d80);
+
+            destroy(SCRIPT_OWNER);
+        }
+        fun add_bombable_entity(x, y) {
+            if(SOULS_MEMORY.DEBUG_BOMBABLE_WALLS) {
+                add_enemy(THRAXX2_HEART, x, y, BOMBABLE);
+            } else {
+                add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
+            }
+
+        }
+        fun bomb_wall_trigger(object, value, x, y) {
+            add_bombable_entity(x, y);
+            
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(bomb_wall_triggered));
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object << 0x8) + value);
+            // <0x2834> = <LAST_ENTITY>;
         }
     };
 
@@ -16526,12 +16497,11 @@ area town() {
 
                 SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
 
-                sleep(0x10);
+                sleep(0d15);
                 show_bridge(False);
 
                 if!(ROOM.COLLECTIBLE_LOOTED) {
-                    // add_enemy(PLACEHOLDER, 0x36, 0x49);
-                    add_enemy(RIMSALA_STATUTE_ENTITY, 0x35, 0x4a, BOMBABLE);
+                    add_bombable_entity(0d53, 0d74);
                     attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(pillar_triggered));
                 } else {
                     object[0x01] = 0x01;
