@@ -13,6 +13,8 @@ hirom
 
 !INJECT_OFFSET = 0 ; injected into "_hook_input"
 !WITH_HOTKEY_B = 1 ; hotkey "b" enabled
+!WITH_INPUT_P1_DUMP = 1 ; dumps inputs into $2258 space enabled
+!INPUT_P1_DUMP = $2457
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -30,8 +32,15 @@ org !ROM_HOOK+!INJECT_OFFSET
 org !ROM_EXTENSION
 start_practice_stuff:
   %ai16()
+  
+  if !WITH_INPUT_P1_DUMP
+    LDA $4218 ; "JOY1L"
+    STA $7e0000+!INPUT_P1_DUMP
+  endif
+  
   ldx !PREV_INPUT
   lda $0104
+
   CMP !PREV_INPUT
   BEQ .noInput
 
