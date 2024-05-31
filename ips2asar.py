@@ -1,3 +1,4 @@
+import string
 from pprint import pprint
 from textwrap import wrap
 import sys, getopt
@@ -38,6 +39,95 @@ class IpsRecord:
     def __repr__(self):
         formatted_offset = '{:06X}'.format(self.offset)
         return f'IpsRecord[{formatted_offset}] = {self.data}'
+    
+    def plot(self, commented_out):
+        could_be_constant = not self.repeat and len(self.raw) <= 3
+
+        try:
+            data_string = self.raw.decode('UTF-8')
+            data_string = filter(lambda x: x in string.printable, data_string)
+            if len(self.raw) != len(data_string):
+                raise Exception("different string")
+            could_be_string = not self.repeat and True
+        except Exception as exception:
+            could_be_string = False
+
+        prefix = ""
+        if commented_out:
+            prefix += Back.YELLOW
+        prefix += f"\t"
+        if commented_out:
+            prefix += f";{Back.RESET} "
+
+        def indentation():
+            indentation = prefix
+
+            if could_be_constant or could_be_string:
+                indentation += "\t"
+
+            return indentation
+
+        if could_be_constant:
+            comment = "could be a constant, instead of ASM"
+            print(f"{prefix}if 1 {format_comment(comment)}")
+
+            data = int.from_bytes(self.raw, "little")
+
+            match len(self.raw):
+                case 1:
+                    formatted_data = '{:02X}'.format(data)
+                case 2:
+                    formatted_data = '{:04X}'.format(data)
+                case 3:
+                    formatted_data = '{:06X}'.format(data)
+                case _:
+                    formatted_data = None
+
+            comment = f"TODO (size={self.size})"
+            print(f"{indentation()}db {format_constant(formatted_data)} {format_comment(comment)}")
+            if not could_be_string:
+                comment = "ASM"
+                print(f"{prefix}else {format_comment(comment)}")
+
+        if could_be_string:
+            comment = "could be a string, instead of ASM"
+            if could_be_constant:
+                print(f"{prefix}elif 0 {format_comment(comment)}")
+            else:
+                print(f"{prefix}if 1 {format_comment(comment)}")
+
+            comment = f"string \"{data_string}\""
+
+            print(f"{indentation()}db {format_string(data_string)} {format_comment(comment)}")
+
+            comment = "ASM"
+            print(f"{prefix}else {format_comment(comment)}")
+
+        match self.data:
+            case list():
+                for asar_command in self.data:
+                    print(f"{indentation()}{asar_command}")
+            case str():
+                if False:
+                    data = ", ".join([element.data] * element.size)
+                else:
+                    data = self.data
+
+                try: # TODO
+                    data_string = self.raw.decode('UTF-8')
+                    if data_string == '\x00':
+                        raise Exception("empty string")
+
+                    comment = f"repeat '{data_string}' (#${data}) size={self.size} times"
+                    print(f"{indentation()}!i = 1 : while !i < 20 : db {format_character(data_string)} : endwhile {format_comment(comment)}")
+                except Exception as exception:
+                    comment = f"repeat #${data} size={self.size} times"
+                    print(f"{indentation()}!i = 1 : while !i < 20 : db {format_constant(data)} : endwhile {format_comment(comment)}")
+            case _:
+                print("; unknown")
+
+        if could_be_constant or could_be_string:
+            print(f"{prefix}endif")
 
 class parse_ips:
     debug = False
@@ -492,7 +582,7 @@ class parse_ips:
 
             self.read_name("EOF", file)
 
-    def plot(self):
+    def plot(self, original_rom):
         print(f"patch='{self.patch}', elements={self.elements}")
 
         print(f"analyzing '{self.patch}'…")
@@ -509,80 +599,24 @@ class parse_ips:
 
                     print(f"org {format_memory(memory)} {format_comment(comment)}")
 
-                    could_be_constant = not element.repeat and len(element.raw) <= 3
 
-                    try:
-                        data_string = element.raw.decode('UTF-8')
-                        could_be_string = not element.repeat and True
-                    except Exception as exception:
-                        could_be_string = False
+                    if (element.offset + element.size) < os.path.getsize(original_rom):
+                        with open(original_rom, "rb") as file:
+                            file.seek(element.offset)
 
-                    def indentation():
-                        if could_be_constant or could_be_string:
-                            return "\t" * 2
-                        else:
-                            return "\t"
+                            data = file.read(element.size)
 
-                    if could_be_constant:
-                        comment = "could be a constant, instead of ASM"
-                        print(f"\tif 1 {format_comment(comment)}")
+                            sub_elements = self.read_opcode(element.offset, data, True)
 
-                        data = int.from_bytes(element.raw, "little")
+                            original_element = IpsRecord(element.offset, element.size, sub_elements)
+                            original_element.raw = data
 
-                        match len(element.raw):
-                            case 1:
-                                formatted_data = '{:02X}'.format(data)
-                            case 2:
-                                formatted_data = '{:04X}'.format(data)
-                            case 3:
-                                formatted_data = '{:06X}'.format(data)
-                            case _:
-                                formatted_data = None
+                            original_element.plot(True)
+                    else:
+                        print(f"{Back.YELLOW}\t; extension{Back.RESET}")
 
-                        print(f"{indentation()}db {format_constant(formatted_data)} {format_comment(comment)}")
-                        if not could_be_string:
-                            comment = "ASM"
-                            print(f"\telse {format_comment(comment)}")
+                    element.plot(False)
 
-                    if could_be_string:
-                        comment = "could be a string, instead of ASM"
-                        if could_be_constant:
-                            print(f"\telif 0 {format_comment(comment)}")
-                        else:
-                            print(f"\tif 1 {format_comment(comment)}")
-
-                        comment = f"string \"{data_string}\""
-
-                        print(f"{indentation()}db {format_string(data_string)} {format_comment(comment)}")
-
-                        comment = "ASM"
-                        print(f"\telse {format_comment(comment)}")
-
-                    match element.data:
-                        case list():
-                            for asar_command in element.data:
-                                print(f"{indentation()}{asar_command}")
-                        case str():
-                            if False:
-                                data = ", ".join([element.data] * element.size)
-                            else:
-                                data = element.data
-
-                            try: # TODO
-                                data_string = element.raw.decode('UTF-8')
-                                if data_string == '\x00':
-                                    raise Exception("empty string")
-
-                                comment = f"repeat \"{data_string}\" (#${data}) size={element.size} times"
-                                print(f"{indentation()}!i = 1 : while !i < 20 : db {format_character(data_string)} : endwhile {format_comment(comment)}")
-                            except Exception as exception:
-                                comment = f"repeat #${data} size={element.size} times"
-                                print(f"{indentation()}!i = 1 : while !i < 20 : db {format_constant(data)} : endwhile {format_comment(comment)}")
-                        case _:
-                            print("; unknown")
-
-                    if could_be_constant or could_be_string:
-                        print("\tendif")
                 case _:
                     print("; unknown")
 
@@ -594,7 +628,7 @@ def main():
 
     parser = parse_ips()
 
-    parser.parse(argv[0], argv[1])
-    parser.plot()
+    parser.parse(argv[0], argv[2])
+    parser.plot(argv[1])
 
 main()
