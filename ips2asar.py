@@ -1,4 +1,6 @@
+from ansiwrap import *
 import string
+from pathlib import Path
 from pprint import pprint
 from textwrap import wrap
 import sys, getopt
@@ -9,8 +11,10 @@ from copy import copy, deepcopy
 import re
 from colorama import *
 
+def format_command(text):
+    return f"{Back.CYAN}; {text}{Back.RESET}"
 def format_comment(text):
-    return " " * 20 + f"{Fore.GREEN}; {text}{Fore.RESET}"
+    return f"{Fore.GREEN}; {text}{Fore.RESET}"
 def format_memory(text):
     return f"{Fore.RED}${text}{Fore.RESET}"
 def format_rom_memory(text):
@@ -22,6 +26,11 @@ def format_string(text):
 def format_character(text):
     return f"{Fore.CYAN}'{text}'{Fore.RESET}"
 
+def print_columns(asar_command, comment):
+    if False:
+        print(f"{asar_command :<50}{comment :<40}")
+    else:
+        print(asar_command + " " * (50 - ansilen(asar_command)), comment)
 
 class IpsRecord:
     offset = 0
@@ -45,9 +54,11 @@ class IpsRecord:
 
         try:
             data_string = self.raw.decode('UTF-8')
-            data_string = filter(lambda x: x in string.printable, data_string)
+            data_string = ''.join(filter(lambda x: x in string.printable, data_string))
             if len(self.raw) != len(data_string):
                 raise Exception("different string")
+            data_string = repr(data_string)
+            data_string = data_string[1:-1]
             could_be_string = not self.repeat and True
         except Exception as exception:
             could_be_string = False
@@ -55,7 +66,7 @@ class IpsRecord:
         prefix = ""
         if commented_out:
             prefix += Back.YELLOW
-        prefix += f"\t"
+        prefix += " " * 2
         if commented_out:
             prefix += f";{Back.RESET} "
 
@@ -63,13 +74,13 @@ class IpsRecord:
             indentation = prefix
 
             if could_be_constant or could_be_string:
-                indentation += "\t"
+                indentation += " " * 2
 
             return indentation
 
         if could_be_constant:
             comment = "could be a constant, instead of ASM"
-            print(f"{prefix}if 1 {format_comment(comment)}")
+            print_columns(f"{prefix}if 1", format_comment(comment))
 
             data = int.from_bytes(self.raw, "little")
 
@@ -84,29 +95,31 @@ class IpsRecord:
                     formatted_data = None
 
             comment = f"TODO (size={self.size})"
-            print(f"{indentation()}db {format_constant(formatted_data)} {format_comment(comment)}")
+            print_columns(f"{indentation()}db {format_constant(formatted_data)}", format_comment(comment))
             if not could_be_string:
                 comment = "ASM"
-                print(f"{prefix}else {format_comment(comment)}")
+                print_columns(f"{prefix}else", format_comment(comment))
 
         if could_be_string:
             comment = "could be a string, instead of ASM"
             if could_be_constant:
-                print(f"{prefix}elif 0 {format_comment(comment)}")
+                print_columns(f"{prefix}elif 0", format_comment(comment))
             else:
-                print(f"{prefix}if 1 {format_comment(comment)}")
+                print_columns(f"{prefix}if 1", format_comment(comment))
 
             comment = f"string \"{data_string}\""
 
-            print(f"{indentation()}db {format_string(data_string)} {format_comment(comment)}")
+            print_columns(f"{indentation()}db {format_string(data_string)}", format_comment(comment))
 
             comment = "ASM"
-            print(f"{prefix}else {format_comment(comment)}")
+            print_columns(f"{prefix}else", format_comment(comment))
 
         match self.data:
             case list():
                 for asar_command in self.data:
-                    print(f"{indentation()}{asar_command}")
+                    data = str(asar_command).split(";")
+
+                    print_columns(indentation() + data[0], ";" + data[1])
             case str():
                 if False:
                     data = ", ".join([element.data] * element.size)
@@ -119,12 +132,13 @@ class IpsRecord:
                         raise Exception("empty string")
 
                     comment = f"repeat '{data_string}' (#${data}) size={self.size} times"
-                    print(f"{indentation()}!i = 1 : while !i < 20 : db {format_character(data_string)} : endwhile {format_comment(comment)}")
+                    data = data_string
+                    print_columns(f"{indentation()}!i = 1 : while !i < 20 : db {format_character(data_string)} : endwhile", format_comment(comment))
                 except Exception as exception:
                     comment = f"repeat #${data} size={self.size} times"
-                    print(f"{indentation()}!i = 1 : while !i < 20 : db {format_constant(data)} : endwhile {format_comment(comment)}")
+                    print_columns(f"{indentation()}!i = 1 : while !i < 20 : db {format_constant(data)} : endwhile", format_comment(comment))
             case _:
-                print("; unknown")
+                print("; unknown/broken commands")
 
         if could_be_constant or could_be_string:
             print(f"{prefix}endif")
@@ -169,9 +183,9 @@ class parse_ips:
             comment = ' '.join(comment)
             comment = f"{comment} (size={self.size}, opcode='{self.name}')"
 
-            if not self.data and self.size > 1:
+            if self.data == None and self.size > 1:
                 comment = "incomplete command: " + comment
-                return f"{name} ?? {format_comment(comment)}"
+                return f"{name} {Back.RED}??{Back.RESET}{format_comment(comment)}"
 
             data = self.data
             size = self.size
@@ -203,9 +217,9 @@ class parse_ips:
                 postfix = ""
 
             if not data:
-                return f"{name}{format_comment(comment)}"
+                return f"{name}" + f"{format_comment(comment)}"
             else:
-                return f"{name} {formatted_data}{postfix}{format_comment(comment)}"
+                return f"{name} {formatted_data}{postfix}" + f"{format_comment(comment)}"
 
             
 
@@ -474,7 +488,7 @@ class parse_ips:
 
         return True
     
-    def read_opcode(self, patch_offset, data, ignore_broken_commands=False):
+    def read_opcode(self, patch_offset, data, strict=False):
         size = len(data)
         data = BytesIO(data)
 
@@ -499,7 +513,7 @@ class parse_ips:
 
                 opcode.raw = raw
                 elements.append(opcode)
-            elif ignore_broken_commands:
+            elif not strict:
                 data.read(size - data.tell())
                 opcode.raw = raw
                 elements.append(opcode)
@@ -524,7 +538,7 @@ class parse_ips:
             # raise Exception(f"invalid header '{data}'")
             pass
 
-    def read_element(self, file, ignore_broken_commands=False):
+    def read_element(self, file, strict=False):
         offset = file.read(3)
         offset = int.from_bytes(offset, "big")
         offset -= 512 # header
@@ -553,7 +567,7 @@ class parse_ips:
 
 
                 try:
-                    sub_element = self.read_opcode(offset, data, ignore_broken_commands)
+                    sub_element = self.read_opcode(offset, data, strict)
                 except Exception as exception:
                     sub_element = data
 
@@ -563,7 +577,7 @@ class parse_ips:
                 self.elements.append(element)
 
 
-    def parse(self, patch, ignore_broken_commands=False):
+    def parse(self, patch, strict=False):
         if self.debug:
             print(f"parsing patch '{patch}'")
 
@@ -576,44 +590,43 @@ class parse_ips:
             self.read_name("PATCH", file)
 
             while((self.size - file.tell()) > 5):
-                self.read_element(file, ignore_broken_commands)
+                self.read_element(file, strict)
 
                 pass
 
             self.read_name("EOF", file)
 
     def plot(self, original_rom):
-        print(f"patch='{self.patch}', elements={self.elements}")
-
         print(f"analyzing '{self.patch}'…")
 
         for element in self.elements:
             match element:
                 case str():
-                    print(element)
+                    print(format_command(element))
                 case IpsRecord():
                     memory = '{:06X}'.format(element.offset)
                     raw_memory = '{:06X}'.format(element.offset)
                     
                     comment = f"{element.size} bytes (raw_address=${raw_memory})"
 
-                    print(f"org {format_memory(memory)} {format_comment(comment)}")
+                    print_columns(f"org {format_memory(memory)}", format_comment(comment))
 
+                    if original_rom:
+                        if (element.offset + element.size) < os.path.getsize(original_rom):
+                            with open(original_rom, "rb") as file:
+                                file.seek(element.offset)
 
-                    if (element.offset + element.size) < os.path.getsize(original_rom):
-                        with open(original_rom, "rb") as file:
-                            file.seek(element.offset)
+                                data = file.read(element.size)
 
-                            data = file.read(element.size)
+                                sub_elements = self.read_opcode(element.offset, data)
 
-                            sub_elements = self.read_opcode(element.offset, data, True)
+                                original_element = IpsRecord(element.offset, element.size, sub_elements)
+                                original_element.raw = data
 
-                            original_element = IpsRecord(element.offset, element.size, sub_elements)
-                            original_element.raw = data
-
-                            original_element.plot(True)
-                    else:
-                        print(f"{Back.YELLOW}\t; extension{Back.RESET}")
+                                original_element.plot(True)
+                        else:
+                            indentation = " " * 2
+                            print(f"{Back.YELLOW}{indentation}; extension{Back.RESET}")
 
                     element.plot(False)
 
@@ -626,9 +639,36 @@ def main():
     argv = sys.argv
     argv = argv[1:]
 
+    # ips2asar patch.ips
+    # ips2asar --comparison rom.smc patch.ips
+    # ips2asar patch.ips
+
+    comparison = None
+    strict = False
+
+    try:
+        opts, args = getopt.getopt(argv,"hc:s",["help", "comparison=", "strict"])
+    except getopt.GetoptError:
+        help()
+
+    if len(args) == 1:
+        input_file = args[0]
+        input_file = Path(input_file)
+    else:
+        help()
+
+    for opt, arg in opts:
+        if opt == "-h":
+            print("help")
+        elif opt in ("--comparison", "-c"):
+            comparison = arg
+            comparison = Path(comparison)
+        elif opt in ("--strict", "-s"):
+            strict = True
+
     parser = parse_ips()
 
-    parser.parse(argv[0], argv[2])
-    parser.plot(argv[1])
+    parser.parse(input_file, strict)
+    parser.plot(comparison)
 
 main()
