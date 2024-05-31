@@ -6,11 +6,29 @@ import os
 from io import BytesIO
 from copy import copy, deepcopy
 import re
+from colorama import *
+
+def format_comment(text):
+    return " " * 20 + f"{Fore.GREEN}; {text}{Fore.RESET}"
+def format_memory(text):
+    return f"{Fore.RED}${text}{Fore.RESET}"
+def format_rom_memory(text):
+    return f"{Fore.RED}${text}{Fore.RESET}"
+def format_constant(text):
+    return f"{Fore.CYAN}#${text}{Fore.RESET}"
+def format_string(text):
+    return f"{Fore.CYAN}\"{text}\"{Fore.RESET}"
+def format_character(text):
+    return f"{Fore.CYAN}'{text}'{Fore.RESET}"
+
 
 class IpsRecord:
     offset = 0
     size = 0
     data = []
+
+    raw = []
+    repeat = False
 
     def __init__(self, offset, size, data):
         self.offset = offset
@@ -53,13 +71,17 @@ class parse_ips:
         def __repr__(self):
             name = re.sub(" .*", "", self.name)
 
-            if not self.data and self.size > 1:
-                return f"{name} ?? ; incomplete command"
+            comment = binascii.b2a_hex(self.raw).decode('UTF-8')
+            comment = wrap(comment, 2)
 
-            if "#const" in self.name:
-                prefix = "#$"
-            else:
-                prefix = "$"
+            comment[0] = f"[{comment[0]}]"
+        
+            comment = ' '.join(comment)
+            comment = f"{comment} (size={self.size}, opcode='{self.name}')"
+
+            if not self.data and self.size > 1:
+                comment = "incomplete command: " + comment
+                return f"{name} ?? {format_comment(comment)}"
 
             data = self.data
             size = self.size
@@ -77,6 +99,11 @@ class parse_ips:
                     formatted_data = '{:06X}'.format(data)
                 case _:
                     formatted_data = None
+            
+            if "#const" in self.name:
+                formatted_data = format_constant(f"{formatted_data}")
+            else:
+                formatted_data = format_memory(f"{formatted_data}")
 
             if ",Y" in self.name:
                 postfix = ",Y"
@@ -85,49 +112,41 @@ class parse_ips:
             else:
                 postfix = ""
 
-            comment = binascii.b2a_hex(self.raw).decode('UTF-8')
-            comment = wrap(comment, 2)
-
-            comment[0] = f"[{comment[0]}]"
-        
-            comment = ' '.join(comment)
-            comment = " " * 20 + f"; {comment} (size={self.size}, opcode='{self.name}')"
-
-            if not formatted_data:
-                return f"{name}{comment}"
+            if not data:
+                return f"{name}{format_comment(comment)}"
             else:
-                return f"{name} {prefix}{formatted_data}{postfix}{comment}"
+                return f"{name} {formatted_data}{postfix}{format_comment(comment)}"
 
             
 
     opcode = {
-        0x61: ASM65816(0x61, 2, "ADC"),
+        0x61: ASM65816(0x61, 2, "ADC (dp,X)"),
         0x63: ASM65816(0x63, 2, "ADC sr,S"),
         0x65: ASM65816(0x65, 2, "ADC dp"),
-        0x67: ASM65816(0x67, 2, "ADC "),
+        0x67: ASM65816(0x67, 2, "ADC [dp]"),
         0x69: ASM65816(0x69, 2, "ADC #const", m_0=True),
         0x6D: ASM65816(0x6D, 3, "ADC addr"),
         0x6F: ASM65816(0x6F, 4, "ADC long"),
         0x71: ASM65816(0x71, 2, "ADC ( dp),Y"),
-        0x72: ASM65816(0x72, 2, "ADC"),
+        0x72: ASM65816(0x72, 2, "ADC (dp)"),
         0x73: ASM65816(0x73, 2, "ADC (sr,S),Y"),
         0x75: ASM65816(0x75, 2, "ADC dp,X"),
-        0x77: ASM65816(0x77, 2, "ADC ,Y"),
+        0x77: ASM65816(0x77, 2, "ADC [dp],Y"),
         0x79: ASM65816(0x79, 3, "ADC addr,Y"),
         0x7D: ASM65816(0x7D, 3, "ADC addr,X"),
         0x7F: ASM65816(0x7F, 4, "ADC long,X"),
-        0x21: ASM65816(0x21, 2, "AND"),
+        0x21: ASM65816(0x21, 2, "AND (dp,X)"),
         0x23: ASM65816(0x23, 2, "AND sr,S"),
         0x25: ASM65816(0x25, 2, "AND dp"),
-        0x27: ASM65816(0x27, 2, "AND "),
+        0x27: ASM65816(0x27, 2, "AND [dp]"),
         0x29: ASM65816(0x29, 2, "AND #const", m_0=True),
         0x2D: ASM65816(0x2D, 3, "AND addr"),
         0x2F: ASM65816(0x2F, 4, "AND long"),
         0x31: ASM65816(0x31, 2, "AND (dp),Y"),
-        0x32: ASM65816(0x32, 2, "AND"),
+        0x32: ASM65816(0x32, 2, "AND (dp)"),
         0x33: ASM65816(0x33, 2, "AND (sr,S),Y"),
         0x35: ASM65816(0x35, 2, "AND dp,X"),
-        0x37: ASM65816(0x37, 2, "AND ,Y"),
+        0x37: ASM65816(0x37, 2, "AND [dp],Y"),
         0x39: ASM65816(0x39, 3, "AND addr,Y"),
         0x3D: ASM65816(0x3D, 3, "AND addr,X"),
         0x3F: ASM65816(0x3F, 4, "AND long,X"),
@@ -148,7 +167,7 @@ class parse_ips:
         0xD0: ASM65816(0xD0, 2, "BNE nearlabel"),
         0x10: ASM65816(0x10, 2, "BPL nearlabel"),
         0x80: ASM65816(0x80, 2, "BRA nearlabel"),
-        0x00: ASM65816(0x00, 2, "BRK"),
+        0x00: ASM65816(0x00, 1, "BRK"), # size should be 2
         0x82: ASM65816(0x82, 3, "BRL label"),
         0x50: ASM65816(0x50, 2, "BVC nearlabel"),
         0x70: ASM65816(0x70, 2, "BVS nearlabel"),
@@ -156,18 +175,18 @@ class parse_ips:
         0xD8: ASM65816(0xD8, 1, "CLD"),
         0x58: ASM65816(0x58, 1, "CLI"),
         0xB8: ASM65816(0xB8, 1, "CLV"),
-        0xC1: ASM65816(0xC1, 2, "CMP"),
+        0xC1: ASM65816(0xC1, 2, "CMP (dp,X)"),
         0xC3: ASM65816(0xC3, 2, "CMP sr,S"),
         0xC5: ASM65816(0xC5, 2, "CMP dp"),
-        0xC7: ASM65816(0xC7, 2, "CMP "),
+        0xC7: ASM65816(0xC7, 2, "CMP [dp]"),
         0xC9: ASM65816(0xC9, 2, "CMP #const", m_0=True),
         0xCD: ASM65816(0xCD, 3, "CMP addr"),
         0xCF: ASM65816(0xCF, 4, "CMP long"),
         0xD1: ASM65816(0xD1, 2, "CMP (dp),Y"),
-        0xD2: ASM65816(0xD2, 2, "CMP"),
+        0xD2: ASM65816(0xD2, 2, "CMP (dp)"),
         0xD3: ASM65816(0xD3, 2, "CMP (sr,S),Y"),
         0xD5: ASM65816(0xD5, 2, "CMP dp,X"),
-        0xD7: ASM65816(0xD7, 2, "CMP ,Y"),
+        0xD7: ASM65816(0xD7, 2, "CMP [dp],Y"),
         0xD9: ASM65816(0xD9, 3, "CMP addr,Y"),
         0xDD: ASM65816(0xDD, 3, "CMP addr,X"),
         0xDF: ASM65816(0xDF, 4, "CMP long,X"),
@@ -185,18 +204,18 @@ class parse_ips:
         0xDE: ASM65816(0xDE, 3, "DEC addr,X"),
         0xCA: ASM65816(0xCA, 1, "DEX"),
         0x88: ASM65816(0x88, 1, "DEY"),
-        0x41: ASM65816(0x41, 2, "EOR"),
+        0x41: ASM65816(0x41, 2, "EOR (dp,X)"),
         0x43: ASM65816(0x43, 2, "EOR sr,S"),
         0x45: ASM65816(0x45, 2, "EOR dp"),
-        0x47: ASM65816(0x47, 2, "EOR "),
+        0x47: ASM65816(0x47, 2, "EOR [dp]"),
         0x49: ASM65816(0x49, 2, "EOR #const", m_0=True),
         0x4D: ASM65816(0x4D, 3, "EOR addr"),
         0x4F: ASM65816(0x4F, 4, "EOR long"),
         0x51: ASM65816(0x51, 2, "EOR (dp),Y"),
-        0x52: ASM65816(0x52, 2, "EOR"),
+        0x52: ASM65816(0x52, 2, "EOR (dp)"),
         0x53: ASM65816(0x53, 2, "EOR (sr,S),Y"),
         0x55: ASM65816(0x55, 2, "EOR dp,X"),
-        0x57: ASM65816(0x57, 2, "EOR ,Y"),
+        0x57: ASM65816(0x57, 2, "EOR [dp],Y"),
         0x59: ASM65816(0x59, 3, "EOR addr,Y"),
         0x5D: ASM65816(0x5D, 3, "EOR addr,X"),
         0x5F: ASM65816(0x5F, 4, "EOR long,X"),
@@ -209,24 +228,24 @@ class parse_ips:
         0xC8: ASM65816(0xC8, 1, "INY"),
         0x4C: ASM65816(0x4C, 3, "JMP addr"),
         0x5C: ASM65816(0x5C, 4, "JMP long"),
-        0x6C: ASM65816(0x6C, 3, "JMP"),
-        0x7C: ASM65816(0x7C, 3, "JMP"),
-        0xDC: ASM65816(0xDC, 3, "JMP "),
+        0x6C: ASM65816(0x6C, 3, "JMP (addr)"),
+        0x7C: ASM65816(0x7C, 3, "JMP (addr,X)"),
+        0xDC: ASM65816(0xDC, 3, "JMP [addr]"),
         0x20: ASM65816(0x20, 3, "JSR addr"),
         0x22: ASM65816(0x22, 4, "JSR long"),
-        0xFC: ASM65816(0xFC, 3, "JSR"),
-        0xA1: ASM65816(0xA1, 2, "LDA"),
+        0xFC: ASM65816(0xFC, 3, "JSR (addr,X))"),
+        0xA1: ASM65816(0xA1, 2, "LDA (dp,X)"),
         0xA3: ASM65816(0xA3, 2, "LDA sr,S"),
         0xA5: ASM65816(0xA5, 2, "LDA dp"),
-        0xA7: ASM65816(0xA7, 2, "LDA "),
+        0xA7: ASM65816(0xA7, 2, "LDA [dp]"),
         0xA9: ASM65816(0xA9, 2, "LDA #const", m_0=True),
         0xAD: ASM65816(0xAD, 3, "LDA addr"),
         0xAF: ASM65816(0xAF, 4, "LDA long"),
         0xB1: ASM65816(0xB1, 2, "LDA (dp),Y"),
-        0xB2: ASM65816(0xB2, 2, "LDA"),
+        0xB2: ASM65816(0xB2, 2, "LDA (dp)"),
         0xB3: ASM65816(0xB3, 2, "LDA (sr,S),Y"),
         0xB5: ASM65816(0xB5, 2, "LDA dp,X"),
-        0xB7: ASM65816(0xB7, 2, "LDA ,Y"),
+        0xB7: ASM65816(0xB7, 2, "LDA [dp],Y"),
         0xB9: ASM65816(0xB9, 3, "LDA addr,Y"),
         0xBD: ASM65816(0xBD, 3, "LDA addr,X"),
         0xBF: ASM65816(0xBF, 4, "LDA long,X"),
@@ -248,23 +267,23 @@ class parse_ips:
         0x54: ASM65816(0x54, 3, "MVN srcbk,destbk"),
         0x44: ASM65816(0x44, 3, "MVP srcbk,destbk"),
         0xEA: ASM65816(0xEA, 1, "NOP"),
-        0x01: ASM65816(0x01, 2, "ORA"),
+        0x01: ASM65816(0x01, 2, "ORA (dp,X)"),
         0x03: ASM65816(0x03, 2, "ORA sr,S"),
         0x05: ASM65816(0x05, 2, "ORA dp"),
-        0x07: ASM65816(0x07, 2, "ORA "),
+        0x07: ASM65816(0x07, 2, "ORA [dp]"),
         0x09: ASM65816(0x09, 2, "ORA #const", m_0=True),
         0x0D: ASM65816(0x0D, 3, "ORA addr"),
         0x0F: ASM65816(0x0F, 4, "ORA long"),
         0x11: ASM65816(0x11, 2, "ORA (dp),Y"),
-        0x12: ASM65816(0x12, 2, "ORA"),
+        0x12: ASM65816(0x12, 2, "ORA (dp)"),
         0x13: ASM65816(0x13, 2, "ORA (sr,S),Y"),
         0x15: ASM65816(0x15, 2, "ORA dp,X"),
-        0x17: ASM65816(0x17, 2, "ORA ,Y"),
+        0x17: ASM65816(0x17, 2, "ORA [dp],Y"),
         0x19: ASM65816(0x19, 3, "ORA addr,Y"),
         0x1D: ASM65816(0x1D, 3, "ORA addr,X"),
         0x1F: ASM65816(0x1F, 4, "ORA long,X"),
         0xF4: ASM65816(0xF4, 3, "PEA addr"),
-        0xD4: ASM65816(0xD4, 2, "PEI"),
+        0xD4: ASM65816(0xD4, 2, "PEI (dp)"),
         0x62: ASM65816(0x62, 3, "PER label"),
         0x48: ASM65816(0x48, 1, "PHA"),
         0x8B: ASM65816(0x8B, 1, "PHB"),
@@ -293,18 +312,18 @@ class parse_ips:
         0x40: ASM65816(0x40, 1, "RTI"),
         0x6B: ASM65816(0x6B, 1, "RTL"),
         0x60: ASM65816(0x60, 1, "RTS"),
-        0xE1: ASM65816(0xE1, 2, "SBC"),
+        0xE1: ASM65816(0xE1, 2, "SBC (dp,X)"),
         0xE3: ASM65816(0xE3, 2, "SBC sr,S"),
         0xE5: ASM65816(0xE5, 2, "SBC dp"),
-        0xE7: ASM65816(0xE7, 2, "SBC "),
+        0xE7: ASM65816(0xE7, 2, "SBC [dp]"),
         0xE9: ASM65816(0xE9, 2, "SBC #const", m_0=True),
         0xED: ASM65816(0xED, 3, "SBC addr"),
         0xEF: ASM65816(0xEF, 4, "SBC long"),
         0xF1: ASM65816(0xF1, 2, "SBC (dp),Y"),
-        0xF2: ASM65816(0xF2, 2, "SBC"),
+        0xF2: ASM65816(0xF2, 2, "SBC (dp)"),
         0xF3: ASM65816(0xF3, 2, "SBC (sr,S),Y"),
         0xF5: ASM65816(0xF5, 2, "SBC dp,X"),
-        0xF7: ASM65816(0xF7, 2, "SBC ,Y"),
+        0xF7: ASM65816(0xF7, 2, "SBC [dp],Y"),
         0xF9: ASM65816(0xF9, 3, "SBC addr,Y"),
         0xFD: ASM65816(0xFD, 3, "SBC addr,X"),
         0xFF: ASM65816(0xFF, 4, "SBC long,X"),
@@ -312,17 +331,17 @@ class parse_ips:
         0xF8: ASM65816(0xF8, 1, "SED"),
         0x78: ASM65816(0x78, 1, "SEI"),
         0xE2: ASM65816(0xE2, 2, "SEP #const"),
-        0x81: ASM65816(0x81, 2, "STA"),
+        0x81: ASM65816(0x81, 2, "STA (dp,X)"),
         0x83: ASM65816(0x83, 2, "STA sr,S"),
         0x85: ASM65816(0x85, 2, "STA dp"),
-        0x87: ASM65816(0x87, 2, "STA "),
+        0x87: ASM65816(0x87, 2, "STA [dp]"),
         0x8D: ASM65816(0x8D, 3, "STA addr"),
         0x8F: ASM65816(0x8F, 4, "STA long"),
         0x91: ASM65816(0x91, 2, "STA (dp),Y"),
-        0x92: ASM65816(0x92, 2, "STA"),
+        0x92: ASM65816(0x92, 2, "STA (dp)"),
         0x93: ASM65816(0x93, 2, "STA (sr,S),Y"),
         0x95: ASM65816(0x95, 2, "STA _dp_X"),
-        0x97: ASM65816(0x97, 2, "STA ,Y"),
+        0x97: ASM65816(0x97, 2, "STA [dp],Y"),
         0x99: ASM65816(0x99, 3, "STA addr,Y"),
         0x9D: ASM65816(0x9D, 3, "STA addr,X"),
         0x9F: ASM65816(0x9F, 4, "STA long,X"),
@@ -381,7 +400,6 @@ class parse_ips:
             opcode = deepcopy(self.opcode[opcode])
             opcode.offset = offset
 
-
             if (size - data.tell()) >= (opcode.size - 1):
                 if opcode.size > 1:
                     param = data.read(opcode.size - 1)
@@ -419,6 +437,9 @@ class parse_ips:
     def read_element(self, file, ignore_broken_commands=False):
         offset = file.read(3)
         offset = int.from_bytes(offset, "big")
+        offset -= 512 # header
+        if offset >= 0x30_0000:
+            offset += 0xC0_0000
         size = file.read(2)
         size = int.from_bytes(size, "big")
 
@@ -426,10 +447,14 @@ class parse_ips:
             case 0:
                 size = file.read(2)
                 size = int.from_bytes(size, "big")
-                data = file.read(1)
+                raw = data = file.read(1)
                 data = binascii.b2a_hex(data).decode('UTF-8')
 
-                self.elements.append(IpsRecord(offset, size, data))
+                element = IpsRecord(offset, size, data)
+                element.raw = raw
+                element.repeat = True
+
+                self.elements.append(element)
             case _:
                 data = file.read(size)
 
@@ -442,7 +467,10 @@ class parse_ips:
                 except Exception as exception:
                     sub_element = data
 
-                self.elements.append(IpsRecord(offset, size, sub_element))
+                element = IpsRecord(offset, size, sub_element)
+                element.raw = data
+
+                self.elements.append(element)
 
 
     def parse(self, patch, ignore_broken_commands=False):
@@ -474,21 +502,87 @@ class parse_ips:
                 case str():
                     print(element)
                 case IpsRecord():
-                    print(f"org ${'{:06X}'.format(element.offset)} ; {element.size} bytes")
+                    memory = '{:06X}'.format(element.offset)
+                    raw_memory = '{:06X}'.format(element.offset)
+                    
+                    comment = f"{element.size} bytes (raw_address=${raw_memory})"
+
+                    print(f"org {format_memory(memory)} {format_comment(comment)}")
+
+                    could_be_constant = not element.repeat and len(element.raw) <= 3
+
+                    try:
+                        data_string = element.raw.decode('UTF-8')
+                        could_be_string = not element.repeat and True
+                    except Exception as exception:
+                        could_be_string = False
+
+                    def indentation():
+                        if could_be_constant or could_be_string:
+                            return "\t" * 2
+                        else:
+                            return "\t"
+
+                    if could_be_constant:
+                        comment = "could be a constant, instead of ASM"
+                        print(f"\tif 1 {format_comment(comment)}")
+
+                        data = int.from_bytes(element.raw, "little")
+
+                        match len(element.raw):
+                            case 1:
+                                formatted_data = '{:02X}'.format(data)
+                            case 2:
+                                formatted_data = '{:04X}'.format(data)
+                            case 3:
+                                formatted_data = '{:06X}'.format(data)
+                            case _:
+                                formatted_data = None
+
+                        print(f"{indentation()}db {format_constant(formatted_data)} {format_comment(comment)}")
+                        if not could_be_string:
+                            comment = "ASM"
+                            print(f"\telse {format_comment(comment)}")
+
+                    if could_be_string:
+                        comment = "could be a string, instead of ASM"
+                        if could_be_constant:
+                            print(f"\telif 0 {format_comment(comment)}")
+                        else:
+                            print(f"\tif 1 {format_comment(comment)}")
+
+                        comment = f"string \"{data_string}\""
+
+                        print(f"{indentation()}db {format_string(data_string)} {format_comment(comment)}")
+
+                        comment = "ASM"
+                        print(f"\telse {format_comment(comment)}")
 
                     match element.data:
                         case list():
                             for asar_command in element.data:
-                                print(f"\t{asar_command}")
+                                print(f"{indentation()}{asar_command}")
                         case str():
                             if False:
                                 data = ", ".join([element.data] * element.size)
                             else:
                                 data = element.data
 
-                            print(f"\tdb {data} ; repeat size={element.size} times")
+                            try: # TODO
+                                data_string = element.raw.decode('UTF-8')
+                                if data_string == '\x00':
+                                    raise Exception("empty string")
+
+                                comment = f"repeat \"{data_string}\" (#${data}) size={element.size} times"
+                                print(f"{indentation()}!i = 1 : while !i < 20 : db {format_character(data_string)} : endwhile {format_comment(comment)}")
+                            except Exception as exception:
+                                comment = f"repeat #${data} size={element.size} times"
+                                print(f"{indentation()}!i = 1 : while !i < 20 : db {format_constant(data)} : endwhile {format_comment(comment)}")
                         case _:
                             print("; unknown")
+
+                    if could_be_constant or could_be_string:
+                        print("\tendif")
                 case _:
                     print("; unknown")
 
