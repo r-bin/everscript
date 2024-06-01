@@ -1,3 +1,4 @@
+from enum import Enum, auto
 from ansiwrap import *
 import string
 from pathlib import Path
@@ -10,6 +11,11 @@ from io import BytesIO
 from copy import copy, deepcopy
 import re
 from colorama import *
+
+class RomMapping(Enum):
+    NO_ROM = "norom"
+    HI_ROM = "hirom"
+    LO_ROM = "lorom"
 
 def format_command(text):
     return f"{Back.CYAN}; {text}{Back.RESET}"
@@ -148,7 +154,19 @@ class parse_ips:
 
     patch = None
     elements = []
+    mapper = None
 
+    def __init__(self, mapper=RomMapping.NO_ROM):
+        self.mapper = mapper
+
+    def snes2asar(self, address):
+        match self.mapper:
+            case RomMapping.NO_ROM:
+                return address
+            case RomMapping.LO_ROM:
+                raise Exception("TODO")
+            case RomMapping.HI_ROM:
+                return address + 0x40_0000
 
     class ASM65816:
         hex = 0
@@ -189,10 +207,10 @@ class parse_ips:
 
             data = self.data
             size = self.size
-            if self.is_relative or "nearlabel" in self.name:
+
+            if self.is_relative or "label" in self.name:
                 data += self.offset
                 data += self.size
-                size = 4
 
             match size:
                 case 2:
@@ -219,9 +237,7 @@ class parse_ips:
             if not data:
                 return f"{name}" + f"{format_comment(comment)}"
             else:
-                return f"{name} {formatted_data}{postfix}" + f"{format_comment(comment)}"
-
-            
+                return f"{name} {formatted_data}{postfix}" + f"{format_comment(comment)}"    
 
     opcode = {
         0x61: ASM65816(0x61, 2, "ADC (dp,X)"),
@@ -502,7 +518,7 @@ class parse_ips:
             if not opcode in self.opcode:
                 print(f"invalid opcode {'{:02X}'.format(opcode)}")
             opcode = deepcopy(self.opcode[opcode])
-            opcode.offset = offset
+            opcode.offset = self.snes2asar(offset)
 
             if (size - data.tell()) >= (opcode.size - 1):
                 if opcode.size > 1:
@@ -542,8 +558,6 @@ class parse_ips:
         offset = file.read(3)
         offset = int.from_bytes(offset, "big")
         offset -= 512 # header
-        if offset >= 0x30_0000:
-            offset += 0xC0_0000
         size = file.read(2)
         size = int.from_bytes(size, "big")
 
@@ -599,12 +613,15 @@ class parse_ips:
     def plot(self, original_rom):
         print(f"analyzing '{self.patch}'…")
 
+        print_columns(self.mapper.value, format_comment("rom mapping"))
+
         for element in self.elements:
             match element:
                 case str():
                     print(format_command(element))
                 case IpsRecord():
-                    memory = '{:06X}'.format(element.offset)
+                    memory = self.snes2asar(element.offset)
+                    memory = '{:06X}'.format(memory)
                     raw_memory = '{:06X}'.format(element.offset)
                     
                     comment = f"{element.size} bytes (raw_address=${raw_memory})"
@@ -645,9 +662,10 @@ def main():
 
     comparison = None
     strict = False
+    mapper = RomMapping.NO_ROM
 
     try:
-        opts, args = getopt.getopt(argv,"hc:s",["help", "comparison=", "strict"])
+        opts, args = getopt.getopt(argv,"hc:sm:",["help", "comparison=", "strict", "mapper="])
     except getopt.GetoptError:
         help()
 
@@ -665,8 +683,10 @@ def main():
             comparison = Path(comparison)
         elif opt in ("--strict", "-s"):
             strict = True
+        elif opt in ("--mapper", "-m"):
+            mapper = RomMapping(arg.lower())
 
-    parser = parse_ips()
+    parser = parse_ips(mapper)
 
     parser.parse(input_file, strict)
     parser.plot(comparison)
