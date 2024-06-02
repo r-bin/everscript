@@ -59,12 +59,23 @@ class IpsRecord:
         could_be_constant = not self.repeat and len(self.raw) <= 3
 
         try:
-            data_string = self.raw.decode('UTF-8')
+            constains_invalid_characters = False
+            data_string = self.raw.decode('UTF-8', 'ignore')
             data_string = ''.join(filter(lambda x: x in string.printable, data_string))
-            if len(self.raw) != len(data_string):
-                raise Exception("different string")
+            if len(self.raw) < 20:
+                if len(self.raw) != len(data_string):
+                    raise Exception("different string")
+            else:
+                if len(self.raw) == len(data_string):
+                    pass
+                elif len(self.raw) - 5 < len(data_string):
+                    constains_invalid_characters = True
+                else:
+                    raise Exception("different string")
             data_string = repr(data_string)
             data_string = data_string[1:-1]
+            if constains_invalid_characters:
+                data_string = f"{Back.RED}{data_string}{Back.RESET}"
             could_be_string = not self.repeat and True
         except Exception as exception:
             could_be_string = False
@@ -211,6 +222,7 @@ class parse_ips:
             if self.is_relative or "label" in self.name:
                 data += self.offset
                 data += self.size
+                size = 4 # TODO: incorrectly changes the total size
 
             match size:
                 case 2:
