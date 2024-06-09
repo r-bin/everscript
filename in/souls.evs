@@ -183,6 +183,8 @@ group non_maps() {
 
             SMITH_KEY = 0xf100, // unlocks orb upgrades
             BIG_MUSHROOM = 0xf101, // unlocks jumping in the sewers
+            ISAAC_LETTER = 0xf102, // unlocks isaac wanted poster
+            ISAAC_WANTED_POSTER = 0xf103, // unlocks ?
 
             RING_CAT = 0xf200, // reduces fall damage
         }
@@ -194,7 +196,7 @@ group non_maps() {
             DEBUG_BOMBABLE_WALLS = False,
 
             // features
-            WITH_OPENING = False,
+            WITH_OPENING = False, // doesn't work?
             WITH_SAVESTATE_LOAD = True, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
@@ -209,9 +211,9 @@ group non_maps() {
             WITH_WEATHER = True,
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             // cheats
-            WITH_DEBUG_ENTITIES = True,
+            WITH_DEBUG_ENTITIES = False,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
-            WITH_CHEATS = True, // fixes no clip after screen transitions
+            WITH_CHEATS = False, // fixes no clip after screen transitions
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = True,
             // areas
@@ -242,6 +244,8 @@ group non_maps() {
             
             SMITH_KEY = flag(),
             BIG_MUSHROOM = flag(),
+            ISAAC_LETTER = flag(),
+            ISAAC_WANTED_POSTER = flag(),
 
             RING_CAT = flag(),
 
@@ -445,6 +449,18 @@ group non_maps() {
                 fanfare_item(True);
 
                 SOULS_MEMORY.BIG_MUSHROOM = True;
+            } else if(item == CUSTOM_ITEM.ISAAC_LETTER) {
+                subtext("Gained Letter to Maggy");
+                    
+                fanfare_item(True);
+
+                SOULS_MEMORY.ISAAC_LETTER = True;
+            } else if(item == CUSTOM_ITEM.ISAAC_WANTED_POSTER) {
+                subtext("Gained Article `Wanted: Maggy´");
+                    
+                fanfare_item(True);
+
+                SOULS_MEMORY.ISAAC_WANTED_POSTER = True;
             }
         }
         @install()
@@ -1354,7 +1370,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(well, west, NONE);
+                map_transition(town_inn, door_left, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -4735,7 +4751,12 @@ area west_inbetwixx() {
 
         enum b_trigger {
             gourd_1__1_oil  = @install() {
-                nop();
+                fake_loot_gourd();
+
+                object[0x00] = 0x01; // unload gourd_1
+                custom_reward(ISAAC_LETTER);
+
+                dialog("The letter seems to be old, it's barely readable.[B]But it clearly states the phrases `To Maggy´, `child´ and something about leaving.[B]Based on the coat of arms the origin seems to be a town.[B]Maybe I can find more clues there.[B]");
             },
             gourd_2__1_wax = @install() {
                 fake_loot_gourd();
@@ -4782,7 +4803,9 @@ area west_inbetwixx() {
         }
 
         fun trigger_enter() {
-            object[0x00] = 0x01; // unload gourd_1
+            if(SOULS_MEMORY.ISAAC_LETTER) {
+                object[0x00] = 0x01; // unload gourd_1
+            }
             if(ROOM.CLUE_1) {
                 object[0x02] = 0x01; // unload gourd_2
             }
@@ -16717,6 +16740,21 @@ area town() {
                 },
             }
 
+            @install()
+            fun inn_triggered() {
+                if(SOULS_MEMORY.ISAAC_LETTER && !SOULS_MEMORY.ISAAC_WANTED_POSTER) {
+                    question("An old newspaper.[CHOICE]Maggy article…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        custom_reward(ISAAC_WANTED_POSTER);
+
+                        dialog("`Magdalena O. Moriah, …´[B]");
+                    }
+                } else {
+                    dialog("An old newspaper. Nothing catches your eye.[B]");
+                }
+            }
+
             enum b_trigger {
                 gourd_backroom_3chests_3 = nop(),
                 gourd_backroom_3chests_2 = nop(),
@@ -16738,12 +16776,8 @@ area town() {
                 },
                 inn_inn_2_south = nop(),
                 inn_inn_2_east = nop(),
-                inn_east = @install() {
-                    debug_subtext("B=15");
-                },
-                inn_south = @install() {
-                    debug_subtext("B=16");
-                },
+                inn_east = inn_triggered(),
+                inn_south = inn_triggered(),
                 gourd = @install() {
                     debug_subtext("B=17");
 
