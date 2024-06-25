@@ -1,13 +1,11 @@
 # Scripts
 
 - Content
-  - Town content
-  - Town boss
-  - Mario dungeon
-  - Isaac dungeon
-  - Castle
-  - Ship cave
-  - Volcano dungeon
+  - fix bonfires (tower)
+  - isaac quest ending
+  - mario quest ending
+  - mario sewer rooms
+  - optional dialogs
 
 - Currency convertion
   - ``"Unnamed Global script 0x55" = (id:55 => addr:0x92cac4)``

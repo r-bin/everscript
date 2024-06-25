@@ -281,6 +281,7 @@ group non_maps() {
             BONFIRE_EAST_CROSSING = flag(),
             BONFIRE_PIPES = flag(),
             BONFIRE_TOWN_CENTER = flag(),
+            BONFIRE_TEMPLE_PIT = flag(),
 
             // west
             BONFIRE_ISAAC_DUNGEON = flag(),
@@ -811,7 +812,29 @@ group non_maps() {
             } else if(MEMORY.QUESTION_ANSWER == 0d01) {
                 select_alchemy();
             } else if(MEMORY.QUESTION_ANSWER == 0d02) {
-                save("test");
+                if(MEMORY.CURRENT_MAP == MAP.CROSSING) { // center
+                    save("Inbetwixx");
+                } else if(MEMORY.CURRENT_MAP == MAP.BLIMP_EXTERIOR) { // east
+                    save("East Inbetwixx");
+                } else if(MEMORY.CURRENT_MAP == MAP.PIPEMAZE_ROOMS) {
+                    save("Sewers");
+                } else if(MEMORY.CURRENT_MAP == MAP.NOBILIA_SQUARE) {
+                    save("Town Center");
+                } else if((MEMORY.CURRENT_MAP == MAP.FIREPIT_NOBILIA) && (MEMORY.CURRENT_MAP_VARIANT == 0d1)) {
+                    save("Temple Lvl.2");
+                } else if(MEMORY.CURRENT_MAP == MAP.DARK_FOREST) { // west
+                    save("Basement Lvl.1");
+                } else if(MEMORY.CURRENT_MAP == MAP.STERLING) {
+                    save("Volcano Tower");
+                } else if(MEMORY.CURRENT_MAP == MAP.WELL) {
+                    save("Plateau");
+                } else if((MEMORY.CURRENT_MAP == MAP.FIREPIT_NOBILIA) && (MEMORY.CURRENT_MAP_VARIANT == 0d0)) {
+                    save("Castle");
+                } else if(MEMORY.CURRENT_MAP != 0x0000){
+                    subtext("Game could not find bonfire #[MEM1]");
+                }
+
+                // TODO
             }
 
             // animate(BOY, ONCE, DEFAULT);
@@ -1370,7 +1393,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_inn, door_left, NONE);
+                map_transition(town_temple_underground_firepit, west, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -2782,6 +2805,11 @@ area shrine_area() {
             } else {
                 text("[CHOICE]…");
             }
+            if(SOULS_MEMORY.BONFIRE_TEMPLE_PIT) {
+                text("[CHOICE]Temple Lvl.2…");
+            } else {
+                text("[CHOICE]…");
+            }
             await_answer();
             text_end();
             control(BOTH);
@@ -2790,6 +2818,12 @@ area shrine_area() {
                 if(SOULS_MEMORY.BONFIRE_TOWN_CENTER) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.NOBILIA_SQUARE;
                     map_transition(town_center, bonfire, NONE); // TODO
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                if(SOULS_MEMORY.BONFIRE_TEMPLE_PIT) {
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_NOBILIA;
+                    SOULS_MEMORY.BONFIRE_VARIANT = 0d1;
+                    map_transition(town_temple_underground_firepit, bonfire, NONE); // TODO
                 }
             }
         }
@@ -2847,6 +2881,7 @@ area shrine_area() {
             } else if(MEMORY.QUESTION_ANSWER == 0d1) {
                 if(SOULS_MEMORY.BONFIRE_CASTLE_PIT) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_NOBILIA;
+                    SOULS_MEMORY.BONFIRE_VARIANT = 0d0;
                     map_transition(castle_fire_pit, bonfire, NONE);
                 }
             }
@@ -2872,13 +2907,13 @@ area shrine_area() {
 
             bonfire_portal(0d77, 0d100, (SOULS_MEMORY.BONFIRE_EAST_CROSSING || SOULS_MEMORY.BONFIRE_PIPES), ((SOULS_MEMORY.BONFIRE_MAP == MAP.BLIMP_EXTERIOR) || (SOULS_MEMORY.BONFIRE_MAP == MAP.PIPEMAZE_ROOMS)), reference(bonfire_triggered_east)); // east inbetwixx
 
-            bonfire_portal(0d69, 0d104, (SOULS_MEMORY.BONFIRE_TOWN_CENTER), (SOULS_MEMORY.BONFIRE_MAP == MAP.NOBILIA_SQUARE), reference(bonfire_triggered_town)); // town
+            bonfire_portal(0d69, 0d104, (SOULS_MEMORY.BONFIRE_TOWN_CENTER || SOULS_MEMORY.BONFIRE_TEMPLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.NOBILIA_SQUARE) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d1))), reference(bonfire_triggered_town)); // town
 
             bonfire_portal(0d61, 0d104, (SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON || SOULS_MEMORY.BONFIRE_VOLCANO_TOWER), ((SOULS_MEMORY.BONFIRE_MAP == MAP.DARK_FOREST) || (SOULS_MEMORY.BONFIRE_MAP == MAP.STERLING)), reference(bonfire_triggered_west)); // west inbetwixx
 
             bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_JUNGLE_PIT), (SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE), reference(bonfire_triggered_jungle)); // southern jungle
 
-            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || (SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA)), reference(bonfire_triggered_altus)); // altus plateau 
+            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
 
             // bonfire_portal(0d59, 0d88, …); // omnitopia
         }
@@ -7209,7 +7244,7 @@ area altus_plateau_entry() {
                     // object[0x00] = 0x01; // ignite fire
                     // object[0x01] = 0x02; // show windwalker_collision
 
-                    if!(ROOM.PIT_IGNITED) {
+                    if((!ROOM.PIT_IGNITED) && (!SOULS_MEMORY.BONFIRE_CASTLE_PIT)) {
                         add_enemy(FACE_ENTITY, 0d45, 0d17);
                         attribute(LAST_ENTITY, INVISIBLE, True);
                         attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
@@ -14397,7 +14432,7 @@ area town() {
                 fun ignite_pit() {
                     object[0x00] = 0x01; // ignite firepit
 
-                    bonfire(0d45, 0d17, SOULS_MEMORY.BONFIRE_CASTLE_PIT);
+                    bonfire(0d45, 0d17, SOULS_MEMORY.BONFIRE_TEMPLE_PIT);
                     attribute(LAST_ENTITY, INVISIBLE, True);
                     <LAST_ENTITY>[Z] = <BOY>[Z];
                 }
@@ -14411,7 +14446,7 @@ area town() {
                         set(ROOM.PIT_IGNITED);
                         destroy(SCRIPT_OWNER);
 
-                        set(SOULS_MEMORY.BONFIRE_CASTLE_PIT);
+                        set(SOULS_MEMORY.BONFIRE_TEMPLE_PIT);
                         ignite_pit();
                     } else {
                         heal(SCRIPT_OWNER, 0x00, False);
