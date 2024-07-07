@@ -155,6 +155,14 @@ group non_maps() {
             damage(SCRIPT_OWNER, 0x00, True);
         }
 
+        fun guard_boy_damage() {
+            if(<ACTIVE> == <DOG>) {
+                end();
+            }
+            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
+                end();
+            }
+        }
     };
 
     group souls_helper() {
@@ -202,18 +210,19 @@ group non_maps() {
             // souls specific features
             WITH_INTRO = True,
             WITH_STARTING_CLASS = False,
-            WITH_SHRINE_INTRO = True,
+            WITH_SHRINE_INTRO = False,
             WITH_SOULS_ON_DEATH = True,
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
             WITH_TRASH_ENEMIES = True,
             WITH_FOG_WALL = True,
+            WITH_FOGWALL_WALKBACK = False,
             WITH_SIDE_QUESTS = True,
             WITH_WEATHER = True,
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             // cheats
-            WITH_DEBUG_ENTITIES = False,
+            WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
-            WITH_CHEATS = False, // fixes no clip after screen transitions
+            WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = True,
             // areas
@@ -544,7 +553,11 @@ group non_maps() {
             if(SOULS_MEMORY.WITH_FOG_WALL) {
                 if!(condition) {
                     subtext("Fog wall active…");
-                    error_walk_back(exit_direction);
+
+                    if(SOULS_MEMORY.WITH_FOGWALL_WALKBACK) {
+                        error_walk_back(exit_direction);
+                    }
+
                     end();
                 }
             }
@@ -630,11 +643,7 @@ group non_maps() {
 
             attach_script(SCRIPT_OWNER, B, reference(dust_loot));
 
-            MEMORY.UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = 0x0001;
-            animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.DUST);
-            sleep(0d60);
-            MEMORY.UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = 0x0001;
-            animate(SCRIPT_OWNER, FREEZE, ANIMATION_ENEMY.DUST);
+            animate_eternal_dust();
         }
 
         @install()
@@ -781,9 +790,7 @@ group non_maps() {
 
         @install()
         fun bonfire_triggered() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             if(True) {
                 SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
@@ -853,9 +860,7 @@ group non_maps() {
 
         @install()
         fun bonfire_bond() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             // replace_bonfire(<SCRIPT_OWNER>, reference(bonfire_triggered));
 
@@ -895,9 +900,7 @@ group non_maps() {
 
         @install()
         fun bonfire_lit() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             if(MEMORY.CURRENT_MAP == MAP.CROSSING) { // center
                 set(SOULS_MEMORY.BONFIRE_INBETWIXX);
@@ -1114,8 +1117,7 @@ group non_maps() {
         }
 
         fun player_message(x, y, trigger) {
-            add_enemy(PLACEHOLDER, x, y);
-            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_PLACEHOLDER.LEAVES_FALLING_2);
+            add_placeholder(LEAVES_FALLING_2, x, y, ONCE_FREEZE);
 
             attach_script(LAST_ENTITY, B, trigger);
         }
@@ -2044,6 +2046,11 @@ group non_maps() {
 
 
                             if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                if!((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) {
+                                    response_negative();
+                                    end();
+                                }
+
                                 if!(FLAG.SWORD_1) {
                                     upgrade_act_1_weapon();
 
@@ -2092,6 +2099,11 @@ group non_maps() {
                                     response_negative();
                                 }
                             } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                                if!((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) {
+                                    response_negative();
+                                    end();
+                                }
+
                                 if!(FLAG.AXE_1) {
                                     upgrade_act_1_weapon();
 
@@ -2140,6 +2152,11 @@ group non_maps() {
                                     response_negative();
                                 }
                             } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                                if!((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4)) {
+                                    response_negative();
+                                    end();
+                                }
+
                                 if!(FLAG.SPEAR_1) {
                                     upgrade_act_1_weapon();
 
@@ -2702,9 +2719,7 @@ area shrine_area() {
 
         @install()
         fun bonfire_triggered_inbetwixx() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
             
             text_start();
             text("[SLOW]Return to Inbetwixx?");
@@ -2726,9 +2741,7 @@ area shrine_area() {
         }
         @install()
         fun bonfire_triggered_east() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             text_start();
             text("[SLOW]Return to East Inbetwixx?");
@@ -2760,9 +2773,7 @@ area shrine_area() {
         }
         @install()
         fun bonfire_triggered_west() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             text_start();
             text("[SLOW]Return to West Inbetwixx?");
@@ -2794,9 +2805,7 @@ area shrine_area() {
         }
         @install()
         fun bonfire_triggered_town() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             text_start();
             text("[SLOW]Return to Town?");
@@ -2829,9 +2838,7 @@ area shrine_area() {
         }
         @install()
         fun bonfire_triggered_jungle() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             text_start();
             text("[SLOW]Return to Southern Jungle?");
@@ -2853,9 +2860,7 @@ area shrine_area() {
         }
         @install()
         fun bonfire_triggered_altus() {
-            if(<SCRIPT_OWNER>[DAMAGE_TYPE] == DAMAGE_TYPE.DOG_ATTACK) {
-                end();
-            }
+            guard_boy_damage();
 
             text_start();
             text("[SLOW]Return to Altus Plateu?");
