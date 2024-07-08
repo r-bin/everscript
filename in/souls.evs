@@ -13428,6 +13428,7 @@ area town() {
             MUSIC = MUSIC.HALLS_1,
 
             // level 0
+            NORTHERN_WALL = 0d408,
 
             // level 1
             UNLOCKED_LEVEL_1 = flag(),
@@ -13440,6 +13441,17 @@ area town() {
 
         fun fake_northern_wall() {
             init_map(0x00, 0x30, 0x50, 0x8a);
+
+            while(True) {
+                if(<BOY>[Y] < AREA_TEMPLE.NORTHERN_WALL) {
+                    <BOY>[Y] = AREA_TEMPLE.NORTHERN_WALL;
+                }
+                if(<DOG>[Y] < AREA_TEMPLE.NORTHERN_WALL) {
+                    <DOG>[Y] = AREA_TEMPLE.NORTHERN_WALL;
+                }
+
+                yield();
+            }
         }
 
         fun open_elevator(open) {
@@ -13714,8 +13726,6 @@ area town() {
                     open_doors(True);
                     object[0x07] = 0x00; // SW
 
-                    fake_northern_wall();
-
                     default_init_room(False, False);
 
                     // object[0x00] = 0x7e; // enroll bridge
@@ -13728,6 +13738,8 @@ area town() {
                     // object[0x07] = 0x00; // open door_SW
                     // object[0x08] = 0x00; // open door_SE
                     // object[0x09] = 0x00; // open door_NW
+
+                    fake_northern_wall();
                 }
             };
 
@@ -17191,11 +17203,36 @@ area town() {
                 default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
             }
 
+            enum BOSS {
+                DEBUG = False,
+
+                PROGRESS = flag_tmp(),
+
+                PHASE = memory_tmp(),
+                TIMER = memory_tmp(),
+
+                BOSS_1_ID = memory_tmp(),
+                BOSS_2_ID = memory_tmp(),
+                BOSS_REMAINING_ID = memory_tmp(),
+
+                LAST_DAMAGED = memory_tmp(),
+                RNG = memory_tmp(),
+
+                P1_SPELL = DISRUPT,
+                P1_SPELL_LEVEL = 0d15,
+
+                P2_TIMER_THRARSHOLD = 0d600
+            }
+
             enum stepon_trigger {
                 stepon_0 = @install() {
                     debug_subtext("S=0");
                 },
                 exit_south = @install() {
+                    if(BOSS.PROGRESS) {
+                        fog_wall_inside(DEAD_TOWN_PUPPETS, NORTH);
+                    }
+                    
                     map_transition(town_level_2, north, SOUTH);
                 },
                 stepon_2 = @install() {
@@ -17282,27 +17319,6 @@ area town() {
                 } else {
                     object[0x00] = 0x00;
                 }
-            }
-
-            enum BOSS {
-                DEBUG = False,
-
-                PROGRESS = flag_tmp(),
-
-                PHASE = memory_tmp(),
-                TIMER = memory_tmp(),
-
-                BOSS_1_ID = memory_tmp(),
-                BOSS_2_ID = memory_tmp(),
-                BOSS_REMAINING_ID = memory_tmp(),
-
-                LAST_DAMAGED = memory_tmp(),
-                RNG = memory_tmp(),
-
-                P1_SPELL = DISRUPT,
-                P1_SPELL_LEVEL = 0x30,
-
-                P2_TIMER_THRARSHOLD = 0x258, // 600
             }
 
             fun puppet_damaged(self, other, boss_id, dance_animation) {
