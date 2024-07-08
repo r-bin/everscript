@@ -5692,6 +5692,31 @@ group functions() {
             animate(SCRIPT_OWNER, FREEZE, ANIMATION_ENEMY.DUST);
         }
 
+        fun animate_falling(character:CHARACTER) {
+            if(character == <BOY>) {
+                animate(character, LOOP, ANIMATION_BOY.FALL_2);
+            } else {
+                animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
+            }
+        }
+        fun animate_landing(character:CHARACTER, with_shake) {
+            if(with_shake) {
+                sfx_effect(SHAKING, True);
+            }
+            
+            if(character == <BOY>) {
+                animate(character, ONCE, ANIMATION_BOY.FALL_1);
+            } else {
+                animate(character, ONCE, DEFAULT);
+            }
+
+            if(with_shake) {
+                sleep(0d20);
+
+                sfx_effect(SHAKING, False);
+            }
+        }
+
         fun check_range(entity_1, entity_2, range, callback) {
             if(entity_1[X] < entity_2[X]) {
                 arg[0x10] = entity_2[X] - entity_1[X];
@@ -5850,6 +5875,50 @@ group functions() {
 
             attribute_bit(BOY, INVISIBLE, True);
             attribute_bit(DOG, INVISIBLE, True);
+        }
+
+        fun _generic_fall_gomi(character:CHARACTER, x, y, depth, falling_damage) {
+            attach_to_script(character);
+
+            walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER);
+            if(True) { // vanilla workaround: when the active player lands the inactive one's walk() is interrupted and the falling animaition starts
+                _teleport(SCRIPT_OWNER, x, y);
+            }
+
+            // face(character, SOUTH);
+            animate_falling(character);
+
+            while(character[Y] < depth) {
+                character[Y] += 0d4;
+                yield();
+            }
+
+            animate_landing(character, True);
+
+            if(falling_damage > 0d0) {
+                damage(SCRIPT_OWNER, falling_damage, True);
+            }
+        }
+        @install()
+        @async()
+        fun _generic_fall_gomi_async(character:CHARACTER, x, y, depth, falling_damage) {
+            _generic_fall_gomi(character, x, y, depth, falling_damage);
+        }
+        @install()
+        fun _generic_fall_gomi_sync(character:CHARACTER, x, y, depth, falling_damage) {
+            _generic_fall_gomi(character, x, y, depth, falling_damage);
+        }
+        @install()
+        fun generic_fall_gomi(x, y, depth, falling_damage) {
+            control(NONE);
+
+            x *= 0d8;
+            y *= 0d8;
+
+            _generic_fall_gomi_async(<INACTIVE>, x + 0d8, y, depth, falling_damage);
+            _generic_fall_gomi_sync(<ACTIVE>, x - 0d8, y, depth, falling_damage);
+
+            control(BOTH);
         }
 
         @install()
