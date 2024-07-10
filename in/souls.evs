@@ -16318,6 +16318,13 @@ area town() {
                 default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
             }
 
+            fun guard_dog_interaction() {
+                if(<ACTIVE> == <DOG>) {
+                    dialog("[SLOW]For legal reasons animals aren't allowed in the arena.[B]");
+                    end();
+                }
+            }
+
             enum stepon_trigger {
                 exit_south_2 = @install() {
                     map_transition(town_market, door_1, SOUTH);
@@ -16327,10 +16334,12 @@ area town() {
                     debug_subtext("S=2");
                 },
                 exit_south_1 = @install() {
-                    if(MEMORY.TICKET_FOR_EXHIBITION < 0x01) {
+                    guard_dog_interaction();
+
+                    if(MEMORY.TICKET_FOR_EXHIBITION < 0d1) {
                         dialog("[SLOW]Hey, you have to buy a ticket first![B]");
 
-                        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, ACTIVE, ACTIVE);
+                        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, ACTIVE);
                     } else {
                         question("[SLOW]Please enter a ticket[CHOICE]Yes.[CHOICE]No.");
 
@@ -16349,6 +16358,8 @@ area town() {
 
             enum b_trigger {
                 b_trigger_0 = @install() {
+                    guard_dog_interaction();
+
                     show_currency(True);
 
                     if_currency(MEMORY.CURRENCY_CURRENT < ROOM.TICKET_PRICE) {
@@ -16373,7 +16384,7 @@ area town() {
                         }
                     }
 
-                    sleep(0x10);
+                    sleep(0d16);
                     show_currency(False);
                 },
                 b_trigger_1 = nop(),
@@ -16415,24 +16426,30 @@ area town() {
                 MANAGER_ID = memory_tmp(),
 
                 PROGRESS = memory(),
+                MAX_PROGRESS = 0d4,
 
                 FIGHT_IN_PROGRESS = flag_tmp(),
+                CURRENT_BOSS_DEFEATED = flag_tmp(),
 
                 PILLAR_OPENED = flag_tmp(),
                 COLLECTIBLE_LOOTED = flag(),
 
-                REWARD_1_KILLS = 0x02,
+                REWARD_1_KILLS = 0d4,
                 REWARD_1_CLAIMED = flag(),
-                REWARD_2_KILLS = 0x04,
+                REWARD_2_KILLS = 0d8,
                 REWARD_2_CLAIMED = flag(),
-                REWARD_3_KILLS = 0x06,
+                REWARD_3_KILLS = 0d999,
                 REWARD_3_CLAIMED = flag(),
-                REWARD_4_KILLS = 0x08,
+                REWARD_4_KILLS = 0d999,
                 REWARD_4_CLAIMED = flag(),
             }
 
             @install()
             fun spawn_next_gladiator() {
+                find_all(BOMB, {
+                    destroy(current_id);
+                });
+
                 set(ROOM.FIGHT_IN_PROGRESS);
 
                 if(ROOM.DEBUG) {
@@ -16459,15 +16476,13 @@ area town() {
             @install()
             fun gladiator_dead() {
                 unset(ROOM.FIGHT_IN_PROGRESS);
+                set(ROOM.CURRENT_BOSS_DEFEATED);
 
-                ROOM.PROGRESS++;
-
-                sound(0x6e);
+                sound(ARENA_CHANT);
                 
                 animate(ROOM.MANAGER_ID, LOOP, ANIMATION_ENEMY.TINY_FLEX);
-                sleep(0xa0);
+                sleep(0d160);
                 animate(ROOM.MANAGER_ID, ONCE, DEFAULT);
-
             }
 
             fun learn_levitate() {
@@ -16481,12 +16496,6 @@ area town() {
                 if((ROOM.PROGRESS >= ROOM.REWARD_1_KILLS) && !ROOM.REWARD_1_CLAIMED) {
                     set(ROOM.REWARD_1_CLAIMED);
                     
-                    subtext("todo");
-
-                    end();
-                } else if((ROOM.PROGRESS >= ROOM.REWARD_2_KILLS) && !ROOM.REWARD_2_CLAIMED) {
-                    set(ROOM.REWARD_2_CLAIMED);
-                    
                     dialog("[SLOW]Let me teach you my secret formula.[B]");
 
                     learn_levitate();
@@ -16494,16 +16503,22 @@ area town() {
                     dialog("[SLOW]This technique has been passed down for generations.[B]");
 
                     end();
+                } else if((ROOM.PROGRESS >= ROOM.REWARD_2_KILLS) && !ROOM.REWARD_2_CLAIMED) {
+                    set(ROOM.REWARD_2_CLAIMED);
+                    
+                    reward(NECTAR);
+
+                    end();
                 } else if((ROOM.PROGRESS >= ROOM.REWARD_3_KILLS) && !ROOM.REWARD_3_CLAIMED) {
                     set(ROOM.REWARD_3_CLAIMED);
                     
-                    subtext("todo");
+                    reward(NECTAR);
 
                     end();
                 } else if((ROOM.PROGRESS >= ROOM.REWARD_4_KILLS) && !ROOM.REWARD_4_CLAIMED) {
                     set(ROOM.REWARD_4_CLAIMED);
                     
-                    subtext("todo");
+                    reward(NECTAR);
 
                     end();
                 }
@@ -16512,20 +16527,33 @@ area town() {
             @install()
             fun manager_triggered() {
                 if(ROOM.FIGHT_IN_PROGRESS) {
-                    dialog("[SLOW]You should focus on your enemy.[B]");
+                    subtext("You should focus on your opponent!");
                     end();
+                } else if(ROOM.CURRENT_BOSS_DEFEATED) {
+                    ROOM.CURRENT_BOSS_DEFEATED = False;
+                    ROOM.PROGRESS++;
+
+                    sound(ARENA_CHANT);
                 }
 
                 claim_reward();
 
-                question_max("[SLOW]Ready for the next oponent?[CHOICE]Yes…[CHOICE]No…[CHOICE]Leave…", 0d5);
+                if(ROOM.PROGRESS < ROOM.MAX_PROGRESS) {
+                    question_max("[SLOW]Ready for the next oponent?[CHOICE]Yes…[CHOICE]No…[CHOICE]Leave…", 0d5);
 
-                if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    spawn_next_gladiator();
-                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
-                    nop();
-                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
-                    map_transition(town_arena_entry, south_1, NONE);
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        spawn_next_gladiator();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                        nop();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                        map_transition(town_arena_entry, south_1, NONE);
+                    }
+                } else {
+                    question("[SLOW]There is no worthy opponent left for you…[CHOICE]Leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        map_transition(town_arena_entry, south_1, NONE);
+                    }
                 }
             }
 
@@ -16584,6 +16612,7 @@ area town() {
                 attach_script(LAST_ENTITY, B, reference(manager_triggered));
 
                 show_bridge(True);
+                character_selection(BOY);
                 default_init_room(False, False);
                 character_selection(BOY);
 
