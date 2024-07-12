@@ -39,6 +39,11 @@ group non_maps() {
         fun string_revealer_entity_name() {
             'SECRET[END]'; // "Bridge"
         }
+
+        @install(0x92c98b) // originally script id 0x51
+        fun currency_name() {
+            text("Souls");
+        }
     };
 
     group enemy_properties() {
@@ -195,6 +200,12 @@ group non_maps() {
             ISAAC_WANTED_POSTER = 0xf103, // unlocks ?
 
             RING_CAT = 0xf200, // reduces fall damage
+        }
+        enum TEMP_SYSTEM_FLAGS {
+            NO_BOY = <0x28fb, 0x01>,
+            NO_DOG = <0x28fb, 0x02>,
+
+            NO_CURRENCY_DISPLAY = <0x28fb, 0x04>,
         }
         enum SOULS_MEMORY {
             INIT = flag(),
@@ -630,9 +641,11 @@ group non_maps() {
 
             // sleep(0x80);
 
-            show_currency(True);
-            sleep(0x40);
-            show_currency(False);
+            if!(TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY) {
+                show_currency(True);
+                sleep(0x40);
+                show_currency(False);
+            }
         }
 
         @install()
@@ -746,7 +759,9 @@ group non_maps() {
             animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
 
             if(SOULS_MEMORY.WITH_SOULS_ON_DEATH) {
-                show_currency(True);
+                if!(TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY) {
+                    show_currency(True);
+                }
 
                 sleep(0d120);
                 
@@ -767,9 +782,11 @@ group non_maps() {
                 SOULS_MEMORY.DUST_DROP_MAP = MEMORY.CURRENT_MAP;
                 SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
 
-                currency_get(CURRENCY.CREDITS, 0d1);
+                if!(TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY) {
+                    currency_get(CURRENCY.CREDITS, 0d1);
 
-                show_currency(True);
+                    show_currency(True);
+                }
             }
 
             sleep(0d160);
@@ -1038,12 +1055,16 @@ group non_maps() {
             }
 
             if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.CURRENT_MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == MEMORY.CURRENT_MAP_VARIANT)) {
-                _add_enemy(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
+                if(False) {
+                    _add_enemy(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
+                } else {
+                    _add_enemy(ENEMY.BOY, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
+                }
                 SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
                 
                 attribute(LAST_ENTITY, MUTE, True);
-                damage(LAST_ENTITY, 0x03e8, False);
+                damage(LAST_ENTITY, 0d999, False);
             }
 
             if((<ACTIVE>[X] == 0x00) && (<ACTIVE>[Y] == 0x00)) {
@@ -1165,11 +1186,40 @@ group non_maps() {
             init_hack();
             
             MEMORY.DOG_WRITE = DOG.WOLF;
-            available(BOTH);
+
             init_weather(night, rain);
 
             SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
             MEMORY.PACIFIED = 0x00;
+
+            if(TEMP_SYSTEM_FLAGS.NO_DOG) {
+                if(False) {
+                    FLAG.BOY_UNAVAILABLE = False;
+                    FLAG.DOG_UNAVAILABLE = True;
+                } else {
+                    available(BOY);
+                }
+
+                teleport(DOG, 0d0, 0d0);
+            } else if(TEMP_SYSTEM_FLAGS.NO_BOY) {
+                if(False) {
+                    FLAG.BOY_UNAVAILABLE = True;
+                    FLAG.DOG_UNAVAILABLE = False;
+                } else {
+                    available(DOG);
+                }
+
+                teleport(BOY, 0d0, 0d0);
+
+                attach_script(DOG, DEATH, reference(boy_death));
+            } else {
+                if(False) {
+                    FLAG.BOY_UNAVAILABLE = False;
+                    FLAG.DOG_UNAVAILABLE = False;
+                } else {
+                    available(BOTH);
+                }
+            }
 
             fade_in();
         }
@@ -1395,7 +1445,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_temple_underground_firepit, west, NONE);
+                map_transition(chessboard, boss, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -6269,6 +6319,8 @@ area altus_plateau_entry() {
                 }
 
                 fun trigger_enter() {
+                    TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY = True; // TODO: should not discolor magmar
+                    
                     add_enemy(BOY_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
                     ROOM.PALETTE_DONOR_BOY = <LAST_ENTITY>;
                     add_enemy(DOG_1_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
@@ -16597,6 +16649,8 @@ area town() {
             }
 
             fun trigger_enter() {
+                TEMP_SYSTEM_FLAGS.NO_DOG = True;
+                
                 init_map(0x00, 0x30, 0x40, 0x70);
 
                 if(FLAG.DEBUG) {
@@ -16612,9 +16666,7 @@ area town() {
                 attach_script(LAST_ENTITY, B, reference(manager_triggered));
 
                 show_bridge(True);
-                character_selection(BOY);
                 default_init_room(False, False);
-                character_selection(BOY);
 
                 SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
 
@@ -22878,11 +22930,15 @@ area dungeon_volcano() {
 area experimental_room() {
     fun character_selection(character:CHARACTER) {
         if(character == CHARACTER.BOY) {
+            TEMP_SYSTEM_FLAGS.NO_DOG = True;
+
             available(BOY);
             destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
             attribute(BOY, INVINCIBLE, True);
         } else if(character == CHARACTER.DOG) {
+            TEMP_SYSTEM_FLAGS.NO_BOY = True;
+
             available(DOG);
             teleport(BOY, 0x00, 0x00);
 
