@@ -28,3 +28,4 @@
 # Act 3
 - NPCs:
     - **[ODD]** The NPC guiding the player through the freak show is called `"Barker"` in the game files (Their names never show up)
+    - **[ODD]** Tinker has two different shopping ring menus (the first time you talk to him he sells iron)
