@@ -2668,8 +2668,9 @@ group general_enums() {
                 DRAGGED = 0x001c,
                 SWIRL_ENTER = 0x0020,
                 SWIRL_EXIT = 0x0022,
-                FALL_1 = 0x0024,
-                FALL_2 = 0x0026,
+                FALL_1 = 0x0024, // todo
+                FALL_2 = 0x0026, // arm waving
+                FALL_3 = 0x0188, // salto
                 SLEEP_DOWN = 0x0028,
                 KNEEL = 0x002a,
                 SLEEP_WATER = 0x002C,
@@ -6472,6 +6473,51 @@ group functions() {
         }
 
         @install()
+        fun rocket_jump() {
+            if(True) {
+                _add_placeholder(EXPLOSION_1, <BOY>[X], <BOY>[Y]);
+                arg[0x00] = <LAST_ENTITY>;
+            }
+
+            if(True) {
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_3);
+            }
+
+            while(True) {
+
+                arg[0x02] = <BOY>[X];
+                arg[0x04] = <BOY>[Y];
+
+                if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    teleport_relative(BOY, 0d0, -0d4);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH_EAST) {
+                    teleport_relative(BOY, 0d3, -0d3);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    teleport_relative(BOY, 0d4, 0d0);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_EAST) {
+                    teleport_relative(BOY, 0d3, 0d3);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    teleport_relative(BOY, 0d0, 0d4);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_WEST) {
+                    teleport_relative(BOY, -0d3, 0d3);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    teleport_relative(BOY, -0d4, 0d0);
+                } if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH_WEST) {
+                    teleport_relative(BOY, -0d3, -0d3);
+                }
+
+                if((<BOY>[X] == arg[0x02]) && (<BOY>[Y] == arg[0x04])) {
+                    animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+
+                    destroy(arg[0x00]);
+                    end();
+                }
+
+                yield();
+            }
+        }
+
+        @install()
         fun mario_yump() {
             if!(FLAG.DEBUG) {
                 if(MEMORY.WINGS <= 0d0) {
@@ -7426,6 +7472,34 @@ group functions() {
                 subtext("yay");
                 
                 yield();
+            }
+        }
+
+        fun track_speed() {
+            <0x2834> = <BOY>[X];
+            <0x2836> = <BOY>[Y];
+
+            while(True) {
+                debug_memory((<BOY>[X] - <0x2834>) / 0d3, (<BOY>[Y] - <0x2836>) / 0d3);
+                <0x2834> = <BOY>[X];
+                <0x2836> = <BOY>[Y];
+
+                sleep(0d180);
+            }
+        }
+
+        fun unique_drop_test() {
+            _add_enemy(MOSQUITO, <BOY>[X], <BOY>[Y] - 0d20);
+            if!(<0x2834, 0x01>) {
+                attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                    attach_script(SCRIPT_OWNER, B, reference(@install() {
+                        loot(LOOT_SNIFF, <0x2834, 0x01>, 0xff, PETAL, 0d1, 0d0);
+
+                        destroy(SCRIPT_OWNER);
+                    }));
+                    
+                    animate_eternal_dust();
+                }));
             }
         }
     };
