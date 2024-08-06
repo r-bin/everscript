@@ -553,6 +553,27 @@ class Memory(Function_Base, Calculatable, Memorable):
 
         return code
 
+class Memory_Alloc(Function_Base, Calculatable, Memorable):
+
+    class MemorySize(Enum):
+        FLAG = "flag"
+        BYTE = "byte"
+        WORD = "word"
+    
+    class MemoryType(Enum):
+        SRAM = "SRAM"
+        RAM = "RAM"
+        TEMP = "TEMP"
+
+    def __init__(self, generator:any, size, type):
+        self._generator = generator
+
+        self.size = self.parse_argument_with_type(self._generator, size, "MEMORY_SIZE")
+        self.type = self.parse_argument_with_type(self._generator, type, "MEMORY_TYPE")
+
+        pass
+
+
 class Function_Code(Function_Base):
     def __init__(self, script, delimiter=' '):
         self.script = script
