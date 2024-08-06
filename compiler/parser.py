@@ -27,7 +27,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
-                'OBJECT', 'ARG', 'SCRIPT', 'TIME', 'IDENTIFIER',
+                'MEMORY', 'OBJECT', 'ARG', 'SCRIPT', 'TIME', 'IDENTIFIER',
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -573,6 +573,12 @@ class Parser():
         @self.pg.production('expression : memory')
         def parse(p):
             return p[0]
+        @self.pg.production('memory : MEMORY ( expression , expression )')
+        def parse(p):
+            size = p[2]
+            type = p[4]
+            
+            return Memory_Alloc(self.generator, size, type)
         @self.pg.production('memory : memory_flag')
         def parse(p):
             return p[0]
