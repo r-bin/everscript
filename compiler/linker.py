@@ -50,6 +50,8 @@ class MemoryManager():
                 match m.start:
                     case StringKey() | FunctionKey() | Memory():
                         self.add(m.eval([]))
+                    #case Memory():
+                    #    self.memory["memory"][m.start.type].append(m)
                     case _:
                         self._add(m)
             elif isinstance(m, StringKey):
