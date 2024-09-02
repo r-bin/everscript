@@ -656,6 +656,13 @@ group general_enums() {
             DARK_FOREST_XY = <0x2835>,
             DARK_FOREST_LAYOUT = <0x2839>,
 
+            // fade effect (used for wings and cutscenes)
+            FADE_X = <0x23ad>, // usually 0x80 (center)
+            FADE_Y = <0x23af>, // usually 0x70 (center)
+            FADE_START = <0x23b1>, // usually 0xff (closing) or 0d2 (opening)
+            FADE_STEP = <0x23b3>, // usually -0d3 (closing) or 0d3 (opening)
+            FADE_TRIGGER = <0x23b5>, // usually 0d1 (TODO: sometimes 0-4 are being used), causes a lot of lag
+
             // debug
             DEBUG_MENU_COUNT = <0x0f5a>,
 
@@ -7532,16 +7539,31 @@ group functions() {
             }
         }
 
-        fun track_speed() {
-            <0x2834> = <BOY>[X];
-            <0x2836> = <BOY>[Y];
+        @install()
+        fun track_speed(character, time) {
+            arg[0x10] = character[X];
+            arg[0x12] = character[Y];
 
             while(True) {
-                debug_memory((<BOY>[X] - <0x2834>) / 0d3, (<BOY>[Y] - <0x2836>) / 0d3);
-                <0x2834> = <BOY>[X];
-                <0x2836> = <BOY>[Y];
+                sleep(0d60 * time);
 
-                sleep(0d180);
+                arg[0x14] = character[X];
+                arg[0x16] = character[Y];
+
+                arg[0x14] = (signed arg[0x14] - signed arg[0x10]) / time;
+                arg[0x16] = (signed arg[0x16] - signed arg[0x12]) / time;
+
+                if(signed arg[0x14] < 0d0) {
+                    arg[0x14] = -(arg[0x14]);
+                }
+                if(signed arg[0x16] < 0d0) {
+                    arg[0x16] = -(arg[0x16]);
+                }
+
+                debug_memory(arg[0x14], arg[0x16]);
+
+                character[X] = arg[0x10];
+                character[Y] = arg[0x12];
             }
         }
 

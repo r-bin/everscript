@@ -19,7 +19,7 @@ hirom
 !BUTTON_4_TITLE_MEMORY = $c46614 ; "Debug: Turn off both backgrounds[END]" (33 bytes)
 !BUTTON_4_TITLE = "No-Clip"
 !BUTTON_5_TITLE_MEMORY = $c46635 ; "Debug: Show background 1 only[END]" (30 bytes)
-!BUTTON_5_TITLE = "Available Character (Careful)"
+!BUTTON_5_TITLE = "Misc."
 !BUTTON_6_TITLE_MEMORY = $c46653 ; "Debug: Show background 2 only[END]" (30 bytes)
 !BUTTON_6_TITLE = "Set/Unset Flags"
 !BUTTON_7_TITLE_MEMORY = $c46671 ; "Debug: Show both backgrounds[END]" (29 bytes)
