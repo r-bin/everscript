@@ -142,6 +142,12 @@ group non_maps() {
 
             error_walk_back(exit_direction);
         }
+        @install()
+        fun installed_error_locked(exit_direction:DIRECTION) {
+            subtext("Locked.");
+
+            error_walk_back(exit_direction);
+        }
         fun error_dlc(exit_direction:DIRECTION) {
             subtext("DLC area…");
 
@@ -2989,29 +2995,25 @@ area shrine_area() {
 
         enum stepon_trigger {
             exit_hut_1 = @install() {
-                locked_door();
+                map_transition(hut_1, door, NORTH);
             },
             exit_hut_2 = @install() {
-                locked_door();
+                map_transition(hut_2, door, NORTH);
             },
             exit_hut_3 = @install() {
-                locked_door();
+                map_transition(hut_3, door, NORTH);
             },
             exit_hut_4 = @install() {
-                locked_door();
+                map_transition(hut_4, door, NORTH);
             },
             exit_hut_5 = @install() {
-                locked_door();
+                map_transition(hut_5, door, NORTH);
             },
             exit_hut_6 = @install() {
-                locked_door();
+                map_transition(hut_6, door, NORTH);
             },
             exit_hut_7 = @install() {
-                if!(ROOM.SMITH_UNLOCKED) {
-                    locked_door();
-                } else {
-                    map_transition(hut_smith, door, NORTH);
-                }
+                map_transition(hut_smith, door, NORTH);
             },
             exit_hut8 = @install() {
                 map_transition(hut_cat, door, NORTH);
@@ -3157,10 +3159,29 @@ area shrine_area() {
             add_bonfire();
         }
 
+        fun add_door(x, y, locked) {
+            if(locked) {
+                add_enemy(STONE_ROUND, x, y);
+                attach_script(LAST_ENTITY, B, reference(installed_error_locked));
+            } else {
+                add_enemy(STONE_ROUND, x - 0d4, y);
+            }
+        }
+
         fun trigger_enter() {
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
+
+            add_door(0d15, 0d29, True);
+            add_door(0d51, 0d47, True);
+            add_door(0d83, 0d49, True);
+            add_door(0d101, 0d57, True);
+            add_door(0d111, 0d75, True);
+
+
+            add_door(0d33, 0d62, False); // cat
+            add_door(0d69, 0d85, True); // shrine maiden
 
             add_debug_entity(0d54, 0d84, reference(debug_triggered));
 
@@ -3172,14 +3193,650 @@ area shrine_area() {
 
             add_souls_npc_shrine_maiden(AUTO, 0d71, 0d88);
             if(NPC_SMITH.PROGRESS == 0d0) {
+                add_door(0d37, 0d93, True); // smith
                 add_souls_npc_smith(0d42, 0d93);
             } else {
+                add_door(0d37, 0d93, False); // smith
                 ROOM.SMITH_UNLOCKED = True;
             }
 
             // object[0x00] = 0x01; // open gourd
             // … sniff spots?
             // object[0x11] = 0x01; // ignite fire
+
+            default_init_room(False, False);
+        }
+    };
+
+    map hut_1(VILLAGE_HUTS) { // variant 1_1
+        enum entrance {
+            door = entrance(0x10, 0x23, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door_1_2 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_1, SOUTH);
+            },
+        }
+
+        enum b_trigger {
+            gourd_3_3_3__1_water = nop(),
+            gourd_3_3_2__1_water = nop(),
+            gourd_3_3_1__1_water = nop(),
+            gourd_3_2_4__1_water = nop(),
+            gourd_3_2_3__4_water = nop(),
+            gourd_3_2_1__1_petal = nop(),
+            gourd_3_2_2__2_clay = nop(),
+            gourd_3_1_2__1_call_beads = nop(),
+            gourd_3_1_1__1_water = nop(),
+            gourd_2_3_2__2_water = nop(),
+
+            gourd_2_3_1__1_roots = nop(),
+            gourd_2_2_3__4_water = nop(),
+            gourd_2_2_2__2_roots = nop(),
+            gourd_2_2_1__1_water = nop(),
+            gourd_2_1_3__3_clay = nop(),
+            gourd_2_1_2__18_money = nop(),
+            gourd_2_1_1__1_clay = nop(),
+            gourd_1_3_3__2_roots = nop(),
+            gourd_1_3_2__1_water = nop(),
+            gourd_1_3_1__1_nectar = nop(),
+
+            gourd_1_2_3__30_money = nop(),
+            gourd_1_2_2__1_water = nop(),
+            gourd_1_2_1__4_water = nop(),
+            gourd_2 = @install() {
+                debug_subtext("B=23");
+                _loot_chest(0x01, WATER, 0d01);
+            },
+            gourd_1_1_1 = @install() {
+                debug_subtext("B=24");
+                _loot_chest(0x00, ROOTS, 0d01);
+            },
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x01);
+
+            // object[0x00] = 0x01; // open gourd_1_1_1
+            // object[0x01] = 0x01; // open gourd_1_1_2
+
+            fade_in();
+        }
+    };
+
+    map hut_2(VILLAGE_HUTS) { // variant 2_3
+        enum entrance {
+            door = entrance(0x54, 0x49, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_2, SOUTH);
+            },
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door_1_2 = nop(),
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3_3_3__1_water = nop(),
+            gourd_3_3_2__1_water = nop(),
+            gourd_3_3_1__1_water = nop(),
+            gourd_3_2_4__1_water = nop(),
+            gourd_3_2_3__4_water = nop(),
+            gourd_3_2_1__1_petal = nop(),
+            gourd_3_2_2__2_clay = nop(),
+            gourd_3_1_2__1_call_beads = nop(),
+            gourd_3_1_1__1_water = nop(),
+            gourd_2__2_water = @install() {
+                debug_subtext("B=9");
+                _loot_chest(0x0f, WATER, 0d02);
+            },
+
+            gourd_1__1_roots = @install() {
+                debug_subtext("B=10");
+                _loot_chest(0x0e, ROOTS, 0d01);
+            },
+            gourd_2_2_3__4_water = nop(),
+            gourd_2_2_2__2_roots = nop(),
+            gourd_2_2_1__1_water = nop(),
+            gourd_2_1_3__3_clay = nop(),
+            gourd_2_1_2__18_money = nop(),
+            gourd_2_1_1__1_clay = nop(),
+            gourd_1_3_3__2_roots = nop(),
+            gourd_1_3_2__1_water = nop(),
+            gourd_1_3_1__1_nectar = nop(),
+
+            gourd_1_2_3__30_money = nop(),
+            gourd_1_2_2__1_water = nop(),
+            gourd_1_2_1__4_water = nop(),
+            gourd_1_1_2__1_water = nop(),
+            gourd_1_1_1__2_roots = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x06);
+
+            // object[0x0e] = 0x01; // open gourd_2_3_1
+            // object[0x0f] = 0x01; // open gourd_2_3_2
+
+            fade_in();
+        }
+    };
+
+    map hut_3(VILLAGE_HUTS) { // variant 1_2
+        enum entrance {
+            door = entrance(0x32, 0x23, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_3, SOUTH);
+            },
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3_3_3__1_water = nop(),
+            gourd_3_3_2__1_water = nop(),
+            gourd_3_3_1__1_water = nop(),
+            gourd_3_2_4__1_water = nop(),
+            gourd_3_2_3__4_water = nop(),
+            gourd_3_2_1__1_petal = nop(),
+            gourd_3_2_2__2_clay = nop(),
+            gourd_3_1_2__1_call_beads = nop(),
+            gourd_3_1_1__1_water = nop(),
+            gourd_2_3_2__2_water = nop(),
+
+            gourd_2_3_1__1_roots = nop(),
+            gourd_2_2_3__4_water = nop(),
+            gourd_2_2_2__2_roots = nop(),
+            gourd_2_2_1__1_water = nop(),
+            gourd_2_1_3__3_clay = nop(),
+            gourd_2_1_2__18_money = nop(),
+            gourd_2_1_1__1_clay = nop(),
+            gourd_1_3_3__2_roots = nop(),
+            gourd_1_3_2__1_water = nop(),
+            gourd_1_3_1__1_nectar = nop(),
+
+            gourd_3__30_money = @install() {
+                debug_subtext("B=20");
+                _loot_chest(0x04, MONEY, 0d30);
+            },
+            gourd_2__1_water = @install() {
+                debug_subtext("B=21");
+                _loot_chest(0x03, WATER, 0d01);
+            },
+            gourd_1__4_water = @install() {
+                debug_subtext("B=22");
+                _loot_chest(0x02, WATER, 0d03);
+            },
+            gourd_1_1_2__1_water = nop(),
+            gourd_1_1_1__2_roots = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x02);
+
+            // object[0x02] = 0x01; // open gourd_1_2_1
+            // object[0x03] = 0x01; // open gourd_1_2_2
+            // object[0x04] = 0x01; // open gourd_1_2_3
+
+            fade_in();
+        }
+    };
+
+    map hut_4(VILLAGE_HUTS) { // variant 1_3
+        enum entrance {
+            door = entrance(0x32, 0x23, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_4, SOUTH);
+            },
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3_3_3__1_water = nop(),
+            gourd_3_3_2__1_water = nop(),
+            gourd_3_3_1__1_water = nop(),
+            gourd_3_2_4__1_water = nop(),
+            gourd_3_2_3__4_water = nop(),
+            gourd_3_2_1__1_petal = nop(),
+            gourd_3_2_2__2_clay = nop(),
+            gourd_3_1_2__1_call_beads = nop(),
+            gourd_3_1_1__1_water = nop(),
+            gourd_2_3_2__2_water = nop(),
+
+            gourd_2_3_1__1_roots = nop(),
+            gourd_2_2_3__4_water = nop(),
+            gourd_2_2_2__2_roots = nop(),
+            gourd_2_2_1__1_water = nop(),
+            gourd_2_1_3__3_clay = nop(),
+            gourd_2_1_2__18_money = nop(),
+            gourd_2_1_1__1_clay = nop(),
+            gourd_1_3_3__2_roots = nop(),
+            gourd_1_3_2__1_water = nop(),
+            gourd_1_3_1__1_nectar = nop(),
+
+            gourd_3__30_money = @install() {
+                debug_subtext("B=20");
+                _loot_chest(0x04, MONEY, 0d30);
+            },
+            gourd_2__1_water = @install() {
+                debug_subtext("B=21");
+                _loot_chest(0x03, WATER, 0d01);
+            },
+            gourd_1__4_water = @install() {
+                debug_subtext("B=22");
+                _loot_chest(0x02, WATER, 0d03);
+            },
+            gourd_1_1_2__1_water = nop(),
+            gourd_1_1_1__2_roots = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x02);
+
+            // object[0x02] = 0x01; // open gourd_1_2_1
+            // object[0x03] = 0x01; // open gourd_1_2_2
+            // object[0x04] = 0x01; // open gourd_1_2_3
+
+            fade_in();
+        }
+    };
+
+    map hut_5(VILLAGE_HUTS) { // variant 2_1
+        enum entrance {
+            door = entrance(0x10, 0x49, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_5, SOUTH);
+            },
+            exit_door_1_3 = nop(),
+            exit_door_1_2 = nop(),
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3_3_3__1_water = nop(),
+            gourd_3_3_2__1_water = nop(),
+            gourd_3_3_1__1_water = nop(),
+            gourd_3_2_4__1_water = nop(),
+            gourd_3_2_3__4_water = nop(),
+            gourd_3_2_1__1_petal = nop(),
+            gourd_3_2_2__2_clay = nop(),
+            gourd_3_1_2__1_call_beads = nop(),
+            gourd_3_1_1__1_water = nop(),
+            gourd_2_3_2__2_water = nop(),
+
+            gourd_2_3_1__1_roots = nop(),
+            gourd_2_2_3__4_water = nop(),
+            gourd_2_2_2__2_roots = nop(),
+            gourd_2_2_1__1_water = nop(),
+            gourd_3__3_clay = @install() {
+                debug_subtext("B=14");
+                _loot_chest(0x0a, CLAY, 0d03);
+            },
+            gourd_2__18_money = @install() {
+                debug_subtext("B=15");
+                _loot_chest(0x09, MONEY, 0d18);
+            },
+            gourd_1__1_clay = @install() {
+                debug_subtext("B=16");
+                _loot_chest(0x08, CLAY, 0d01);
+            },
+            gourd_1_3_3__2_roots = nop(),
+            gourd_1_3_2__1_water = nop(),
+            gourd_1_3_1__1_nectar = nop(),
+
+            gourd_1_2_3__30_money = nop(),
+            gourd_1_2_2__1_water = nop(),
+            gourd_1_2_1__4_water = nop(),
+            gourd_1_1_2__1_water = nop(),
+            gourd_1_1_1__2_roots = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x04);
+
+            // object[0x08] = 0x01; // open gourd_2_1_1
+            // object[0x09] = 0x01; // open gourd_2_1_2
+            // object[0x0a] = 0x01; // open gourd_2_1_3
+
+            fade_in();
+        }
+    };
+
+    map hut_6(VILLAGE_HUTS) { // variant 3_1 (fire eyes)
+        enum entrance {
+            door = entrance(0x10, 0x6f, NORTH),
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_6, SOUTH);
+            },
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door_1_2 = nop(),
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3_3_3__1_water = nop(),
+            gourd_3_3_2__1_water = nop(),
+            gourd_3_3_1__1_water = nop(),
+            gourd_3_2_4__1_water = nop(),
+            gourd_3_2_3__4_water = nop(),
+            gourd_3_2_1__1_petal = nop(),
+            gourd_3_2_2__2_clay = nop(),
+            gourd_2__1_call_beads = @install() {
+                debug_subtext("B=7");
+                // _loot_chest(0x11, BISCUIT, 0d01);
+                _loot_chest(0x11, CALL_BEADS, 0d01);
+            },
+            gourd_1__1_water = @install() {
+                debug_subtext("B=8");
+                _loot_chest(0x10, WATER, 0d01);
+            },
+            gourd_2_3_2__2_water = nop(),
+
+            gourd_2_3_1__1_roots = nop(),
+            gourd_2_2_3__4_water = nop(),
+            gourd_2_2_2__2_roots = nop(),
+            gourd_2_2_1__1_water = nop(),
+            gourd_2_1_3__3_clay = nop(),
+            gourd_2_1_2__18_money = nop(),
+            gourd_2_1_1__1_clay = nop(),
+            gourd_1_3_3__2_roots = nop(),
+            gourd_1_3_2__1_water = nop(),
+            gourd_1_3_1__1_nectar = nop(),
+
+            gourd_1_2_3__30_money = nop(),
+            gourd_1_2_2__1_water = nop(),
+            gourd_1_2_1__4_water = nop(),
+            gourd_1_1_2__1_water = nop(),
+            gourd_1_1_1__2_roots = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x07);
+
+            // object[0x10] = 0x01; // open gourd_3_1_1
+            // object[0x11] = 0x01; // open gourd_3_1_2
+
+            fade_in();
+        }
+    };
+
+    map hut_smith(VILLAGE_HUTS) {
+        enum entrance {
+            door = entrance(0x32, 0x23, NORTH),
+        }
+
+        enum soundtrack {
+            default = soundtrack(MYSTERY, 0xff)
+        }
+
+        enum stepon_trigger {
+            exit_door_3_3 = nop(),
+            exit_door_3_2 = nop(),
+            exit_door_3_1 = nop(),
+            exit_door_2_3 = nop(),
+            exit_door_2_2 = nop(),
+            exit_door_2_1 = nop(),
+            exit_door_1_3 = nop(),
+            exit_door = @install() {
+                map_transition(shrine, hut_7, SOUTH);
+            },
+            exit_door_1_1 = nop(),
+        }
+
+        enum b_trigger {
+            gourd_3_3_3 = nop(),
+            gourd_3_3_2 = nop(),
+            gourd_3_3_1 = nop(),
+            gourd_3_2_4 = nop(),
+            gourd_3_2_3 = nop(),
+            gourd_3_2_1 = nop(),
+            gourd_3_2_2 = nop(),
+            gourd_3_1_2 = nop(),
+            gourd_3_1_1 = nop(),
+            gourd_2_3_2 = nop(),
+
+            gourd_2_3_1 = nop(),
+            gourd_2_2_3 = nop(),
+            gourd_2_2_2 = nop(),
+            gourd_2_2_1 = nop(),
+            gourd_2_1_3 = nop(),
+            gourd_2_1_2 = nop(),
+            gourd_2_1_1 = nop(),
+            gourd_1_3_3 = nop(),
+            gourd_1_3_2 = nop(),
+            gourd_1_3_1 = nop(),
+
+            gourd_3__30_money = @install() {
+                debug_subtext("B=20");
+                _loot_chest(0x04, MONEY, 0d30);
+            },
+            gourd_2__1_water = @install() {
+                debug_subtext("B=21");
+                _loot_chest(0x03, WATER, 0d01);
+            },
+            gourd_1__4_water = @install() {
+                debug_subtext("B=22");
+                _loot_chest(0x02, WATER, 0d03);
+            },
+            gourd_1_1_2 = nop(),
+            gourd_1_1_1 = nop(),
+        }
+
+        fun init_map(index) {
+            if(index == 0x01) {
+                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
+            } else if(index == 0x02) {
+                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
+            } else if(index == 0x03) {
+                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
+            } else if(index == 0x04) {
+                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
+            } else if(index == 0x05) {
+                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
+            } else if(index == 0x06) {
+                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
+            } else if(index == 0x07) {
+                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
+            } else if(index == 0x08) {
+                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
+            } else if(index == 0x09) {
+                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
+            }
+        }
+
+        fun trigger_enter() {
+            init_map(0x02);
+
+            // object[0x02] = 0x01; // open gourd_1_2_1
+            // object[0x03] = 0x01; // open gourd_1_2_2
+            // object[0x04] = 0x01; // open gourd_1_2_3
+
+            if(NPC_SMITH.PROGRESS >= 0d1) {
+                add_souls_npc_smith(0d49, 0d18);
+            }
 
             default_init_room(False, False);
         }
@@ -3469,105 +4126,6 @@ area shrine_area() {
             }
         };
 
-    };
-
-    map hut_smith(VILLAGE_HUTS) {
-        enum entrance {
-            door = entrance(0x32, 0x23, NORTH),
-        }
-
-        enum soundtrack {
-            default = soundtrack(MYSTERY, 0xff)
-        }
-
-        enum stepon_trigger {
-            exit_door_3_3 = nop(),
-            exit_door_3_2 = nop(),
-            exit_door_3_1 = nop(),
-            exit_door_2_3 = nop(),
-            exit_door_2_2 = nop(),
-            exit_door_2_1 = nop(),
-            exit_door_1_3 = nop(),
-            exit_door = @install() {
-                map_transition(shrine, hut_7, SOUTH);
-            },
-            exit_door_1_1 = nop(),
-        }
-
-        enum b_trigger {
-            gourd_3_3_3 = nop(),
-            gourd_3_3_2 = nop(),
-            gourd_3_3_1 = nop(),
-            gourd_3_2_4 = nop(),
-            gourd_3_2_3 = nop(),
-            gourd_3_2_1 = nop(),
-            gourd_3_2_2 = nop(),
-            gourd_3_1_2 = nop(),
-            gourd_3_1_1 = nop(),
-            gourd_2_3_2 = nop(),
-
-            gourd_2_3_1 = nop(),
-            gourd_2_2_3 = nop(),
-            gourd_2_2_2 = nop(),
-            gourd_2_2_1 = nop(),
-            gourd_2_1_3 = nop(),
-            gourd_2_1_2 = nop(),
-            gourd_2_1_1 = nop(),
-            gourd_1_3_3 = nop(),
-            gourd_1_3_2 = nop(),
-            gourd_1_3_1 = nop(),
-
-            gourd_3__30_money = @install() {
-                debug_subtext("B=20");
-                _loot_chest(0x04, MONEY, 0d30);
-            },
-            gourd_2__1_water = @install() {
-                debug_subtext("B=21");
-                _loot_chest(0x03, WATER, 0d01);
-            },
-            gourd_1__4_water = @install() {
-                debug_subtext("B=22");
-                _loot_chest(0x02, WATER, 0d03);
-            },
-            gourd_1_1_2 = nop(),
-            gourd_1_1_1 = nop(),
-        }
-
-        fun init_map(index) {
-            if(index == 0x01) {
-                init_map(0x00, 0x00, 0x20, 0x24); // hut_1_1
-            } else if(index == 0x02) {
-                init_map(0x22, 0x00, 0x42, 0x24); // hut_1_2
-            } else if(index == 0x03) {
-                init_map(0x44, 0x00, 0x64, 0x24); // hut_1_3
-            } else if(index == 0x04) {
-                init_map(0x00, 0x26, 0x20, 0x4a); // hut_2_1
-            } else if(index == 0x05) {
-                init_map(0x22, 0x26, 0x42, 0x4a); // hut_2_2
-            } else if(index == 0x06) {
-                init_map(0x44, 0x26, 0x64, 0x4a); // hut_2_3
-            } else if(index == 0x07) {
-                init_map(0x00, 0x4c, 0x20, 0x70); // hut_3_1
-            } else if(index == 0x08) {
-                init_map(0x22, 0x4c, 0x42, 0x70); // hut_3_2 ?
-            } else if(index == 0x09) {
-                init_map(0x44, 0x4c, 0x64, 0x70); // hut_3_3
-            }
-        }
-
-        fun trigger_enter() {
-            init_map(0x02);
-
-            // object[0x02] = 0x01; // open gourd_1_2_1
-            // object[0x03] = 0x01; // open gourd_1_2_2
-            // object[0x04] = 0x01; // open gourd_1_2_3
-
-            if(NPC_SMITH.PROGRESS >= 0d1) {
-                add_souls_npc_smith(0d49, 0d18);
-            }
-
-            default_init_room(False, False);
-        }
     };
 };
 
