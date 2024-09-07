@@ -322,6 +322,7 @@ class Linker():
     def __init__(self, code=[]):
         self.code = code
         self.memory_manager = MemoryManager()
+        self.linked_methods = []
 
     def get_memory_allocation(self):
         text_key = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["text_key"]])
@@ -377,6 +378,7 @@ unallocated RAM:
     def link_function_key(self, function:Function):
         if function.key == None:
             self.memory_manager.allocate_function_key(function)
+            self.linked_methods.append(function)
 
 
     def link_map_variants(self, maps:list[Map]):
