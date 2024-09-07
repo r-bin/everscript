@@ -318,7 +318,7 @@ class FunctionKey(Function_Base):
             raise Exception("invalid index (only index%3==0 is allowed")
 
     def __repr__(self):
-        return f"FunctionKey({self.index})"
+        return f"FunctionKey({'{:04X}'.format(self.index, 'x')}/{self.index})"
         
     def eval(self):
         return Range(self.address, self.address + (self.value_count() - 1))

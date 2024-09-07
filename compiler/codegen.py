@@ -160,6 +160,7 @@ class CodeGen():
             strings.append(f"   - [{'{:06X}'.format(s.text_key.address, 'x')}, {'{:04X}'.format(s.text_key.count([]), 'x')}] {s.text_key}")
             strings.append(f"   - [{'{:06X}'.format(s.address, 'x')}, {'{:04X}'.format(s.count([]), 'x')}] {s}")
         strings = '\n'.join(strings)
+        function_keys = '\n'.join([f"   - [{m.key}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.linker.linked_methods])
         memory = '\n'.join([f"   - [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory])
         flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.flags])
 
@@ -169,6 +170,9 @@ class CodeGen():
 allocated ROM:
   strings:
 {strings}
+
+  function keys:
+{function_keys}
 
   scripts:
     TODO

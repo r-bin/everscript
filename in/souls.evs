@@ -1,6 +1,6 @@
 #memory(
     string_key(0x0546)..string_key(0x232b), // last half of string keys
-    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+    function_key(0x0000)..function_key(0x1716), // 0x1719 seems to be used by the engine
 
     0x300000..0x3fffff, // extension
 
@@ -226,12 +226,12 @@ group non_maps() {
             INIT = flag(),
             INTRO_WATCHED = flag(),
             // debug
-            DEBUG = False,
+            DEBUG = True,
             DEBUG_BOMBABLE_WALLS = False,
 
             // features
             WITH_OPENING = False, // doesn't work?
-            WITH_SAVESTATE_LOAD = True, // after splash screen
+            WITH_SAVESTATE_LOAD = False, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
             WITH_INTRO = True,
@@ -244,7 +244,7 @@ group non_maps() {
             WITH_FOGWALL_WALKBACK = False,
             WITH_SIDE_QUESTS = True,
             WITH_CHEAP_SWORD2 = True,
-            WITH_WEATHER = True,
+            WITH_WEATHER = False, // TODO: has to be persistent to be playable
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             // cheats
             WITH_DEBUG_ENTITIES = True,
@@ -271,11 +271,13 @@ group non_maps() {
             // custom items
             ESTUS_CHARGES = memory(),
             ESTUS_SHARDS = memory(),
-            ESTUS_CHARGES_INIT = 0x01,
+            ESTUS_CHARGES_INIT = 0d1,
 
             ORB_SWORD =  memory(),
-            ORB_AXE =  memory(),
+            ORB_AXE = memory(),
             ORB_SPEAR =  memory(),
+
+            BEES = memory(),
             
             SMITH_KEY = flag(),
             BIG_MUSHROOM = flag(),
@@ -1126,6 +1128,22 @@ group non_maps() {
                 attribute(BOY, NO_CLIP, False);
                 attribute(DOG, NO_CLIP, False);
             }
+        }
+
+        fun add_bee(x, y, collected_trigger) {
+            add_enemy(BEE, x, y);
+            attach_script(LAST_ENTITY, B, collected_trigger);
+        }
+        fun bee_collected() {
+            fake_loot();
+
+            SOULS_MEMORY.PROGRESS_COUNTER++;
+            SOULS_MEMORY.BEES++;
+            
+            destroy(SCRIPT_OWNER);
+
+            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.BEES;
+            subtext("Bees: [MEM1]");
         }
 
         fun collectible_collected() {
@@ -4423,13 +4441,6 @@ area inbetwixx_center() {
             
             destroy(SCRIPT_OWNER);
         }
-
-        @install()
-        fun message_triggered() {
-            player_message_triggered();
-
-            subtext("try rolling");
-        }
         
         @install()
         fun trigger_enter() {
@@ -4506,7 +4517,11 @@ area inbetwixx_center() {
             // object[0x06] = 0x01; // block gourd_2_1
             // sniff spots
 
-            player_message(0d30, 0d75, reference(message_triggered));
+            player_message(0d30, 0d75, reference(@install() {
+                player_message_triggered();
+
+                subtext("try rolling");
+            }));
 
             if(False) {
                 destroy(DOG);
