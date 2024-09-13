@@ -342,61 +342,61 @@ group non_maps() {
             COLLECTIBLE_COUNTER = memory(),
 
             // west
-            DEAD_OWL_BOY = flag(),
+            DEAD_OWL_BOY = flag(), // t0+
             REWARD_OWL_BOY = ITEM.NECTAR, // TODO
 
-            DEAD_MONSTRO = flag(),
+            DEAD_MONSTRO = flag(), // t0
             REWARD_MONSTRO = CUSTOM_ITEM.SWORD_ORB,
-            DEAD_DARK_ONE = flag(),
+            DEAD_DARK_ONE = flag(), // t2
             REWARD_DARK_ONE = CUSTOM_ITEM.AXE_ORB,
 
             // altus
-            DEAD_SIDESCROLLER = flag(),
+            DEAD_SIDESCROLLER = flag(), // t0
             REWARD_SIDESCROLLER = ITEM.NECTAR, // TODO
 
-            DEAD_CHESS = flag(),
+            DEAD_CHESS = flag(), // t0
             REWARD_CHESS = CUSTOM_ITEM.AXE_ORB,
 
             // east
-            DEAD_PIT_EGG = flag(),
+            DEAD_PIT_EGG = flag(), // t0
             REWARD_PIT_EGG = ITEM.WINGS,
 
-            DEAD_VOLCANO_HYDRA = flag(),
+            DEAD_VOLCANO_HYDRA = flag(), // TODO: rework
             REWARD_VOLCANO_HYDRA = ITEM.NECTAR, // TODO
-            DEAD_ARENA_RADAHN = flag(),
+            DEAD_ARENA_RADAHN = flag(), // t?
             REWARD_ARENA_RADAHN = CUSTOM_ITEM.SPEAR_ORB,
-            DEAD_STOMPY_RADAHN = flag(),
+            DEAD_STOMPY_RADAHN = flag(), // t?
             REWARD_STOMPY_RADAHN = ITEM.NECTAR, // TODO
             
-            DEAD_ARENA_MOSQUITO = flag(),
+            DEAD_ARENA_MOSQUITO = flag(), // t0
             REWARD_ARENA_MOSQUITO = ITEM.PIXIE_DUST,
 
-            DEAD_BOWSER = flag(),
+            DEAD_BOWSER = flag(), // t?
             REWARD_BOWSER = ITEM.NECTAR, // TODO
 
-            DEAD_TAVERN_BOXERS = flag(),
+            DEAD_TAVERN_BOXERS = flag(), // t0
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
-            DEAD_TOWN_PUPPETS = flag(),
+            DEAD_TOWN_PUPPETS = flag(), // TODO: rework
             REWARD_TOWN_PUPPETS = ITEM.NECTAR, // TODO
 
             DEAD_TEMPLE_MINITAUR = flag(),
             REWARD_TEMPLE_MINITAUR = CUSTOM_ITEM.SPEAR_ORB,
-            DEAD_TEMPLE_SQUAD = flag(),
+            DEAD_TEMPLE_SQUAD = flag(), // t? - locked: spear2
             REWARD_TEMPLE_SQUAD = CUSTOM_ITEM.AXE_ORB,
-            DEAD_WALL = flag(),
+            DEAD_WALL = flag(), // t2?
             REWARD_WALL = ITEM.NECTAR, // TODO
-            DEAD_NARIS = flag(),
+            DEAD_NARIS = flag(), // TODO
             REWARD_NARIS = ITEM.NECTAR, // TODO
 
-            DEAD_HEART = flag(),
+            DEAD_HEART = flag(), // t0
             REWARD_HEART = CUSTOM_ITEM.SWORD_ORB,
 
-            DEAD_AQUAGOTH = flag(),
+            DEAD_AQUAGOTH = flag(), // t?
             REWARD_AQUAGOTH = ITEM.NO_ITEM,
-            DEAD_SQUIDMAR = flag(),
+            DEAD_SQUIDMAR = flag(), // locked: axe2
             REWARD_SQUIDMAR = CUSTOM_ITEM.SPEAR_ORB,
 
-            DEAD_GIDEON = flag(),
+            DEAD_GIDEON = flag(), // t?
             REWARD_GIDEON = ITEM.NOTHING,
         }
 
@@ -1474,7 +1474,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(cave_left_entrance, south_1, NONE);
+                map_transition(duel_arena_waiting_room, fall, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -7327,6 +7327,13 @@ area altus_plateau_entry() {
                     south_1 = entrance(0x72, 0x38, NORTH),
                     south_2 = entrance(0x4c, 0x38, NORTH),
                     south_3 = entrance(0x08, 0x38, NORTH),
+
+                    guard = entrance(0d63, 0d15, NONE, {
+                        face(BOY, NORTH);
+                        animate(BOY, ONCE, ANIMATION_ALL.KNOCKBACK);
+
+                        subtext("Back on the streets with you!");
+                    }),
                 }
 
                 enum soundtrack {
@@ -7369,6 +7376,18 @@ area altus_plateau_entry() {
                     },
                     guard = @install() {
                         debug_subtext("B=4");
+
+                        if(MEMORY.TICKET_FOR_EXHIBITION < 0d1) {
+                            dialog("[SLOW]Bring me a ticket from the market first and you can try your luck in the arena.[B]");
+                        } else {
+                            question("[SLOW]Enter a ticket[CHOICE]Yes.[CHOICE]No.");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                MEMORY.TICKET_FOR_EXHIBITION--;
+
+                                map_transition(duel_arena_waiting_room, fall, NONE);
+                            }
+                        }
                     },
                     b_trigger_5 = @install() {
                         debug_subtext("B=5");
@@ -8186,6 +8205,290 @@ area altus_plateau_entry() {
 
                     fade_in();
                 }
+            };
+
+            group duel_arena() {
+                enum AREA_DUEL_ARENA {
+                    DEFAULT_MUSIC = MUSIC.BOSS_ARENA,
+                }
+
+                map duel_arena_waiting_room(ARENA_ROOM) {
+                    enum entrance {
+                        north = entrance(0x14, 0x13, SOUTH),
+                        
+                        fall = entrance(0d19, 0d30, NONE, { crash_both(); }),
+                    }
+
+                    enum soundtrack {
+                        default = soundtrack(AREA_DUEL_ARENA.DEFAULT_MUSIC, 0xff)
+                    }
+
+                    enum stepon_trigger {
+                        exit_north = @install() {
+                            debug_subtext("S=0");
+
+                            map_transition(duel_arena, south, NORTH);
+                        },
+                    }
+
+                    enum b_trigger {
+                        gourd_west = @install() {
+                            debug_subtext("B=0");
+                            _loot_chest(0x01, ARMOR_2_1, 0x01);
+                            // _loot_chest(0x01, ARMOR_2_2, 0x01);
+                            // _loot_chest(0x01, ARMOR_2_3, 0x01);
+                        },
+                        secret_passage = @install() { // empty
+                            debug_subtext("B=1");
+                        },
+                        gourd_east = @install() {
+                            debug_subtext("B=2");
+                            _loot_chest(0x02, PETAL, 0x01);
+                        },
+                        gourd_hidden_1_1 = @install() {
+                            debug_subtext("B=3");
+                            _loot_chest(0x03, WAX, 0x01);
+                        },
+                        gourd_hidden_1_2 = @install() {
+                            debug_subtext("B=4");
+                            _loot_chest(0x04, CALL_BEADS, 0x01);
+                        },
+                        gourd_hidden_1_3 = @install() {
+                            debug_subtext("B=5");
+                            _loot_chest(0x05, ARMBAND_2_1, 0x01);
+                            // _loot_chest(0x02, ARMBAND_2_2, 0x01);
+                            // _loot_chest(0x02, ARMBAND_2_3, 0x01);
+                        },
+                        gourd_hidden_2_1 = @install() {
+                            debug_subtext("B=6");
+                            _loot_chest(0x06, WAX, 0x01);
+                        },
+                        gourd_hidden_2_2 = @install() {
+                            debug_subtext("B=7");
+                            _loot_chest(0x07, CALL_BEADS, 0x01);
+                        },
+                        gourd_hidden_2_3 = @install() {
+                            debug_subtext("B=8");
+                            _loot_chest(0x08, HELM_2_1, 0x01);
+                            // _loot_chest(0x02, HELM_2_2, 0x01);
+                            // _loot_chest(0x02, HELM_2_3, 0x01);
+                        },
+                    }
+
+                    fun trigger_enter() {
+                        object[0x00] = 0x04; // open door
+
+                        // object[0x01] = 0x01; // loot gourd_west
+                        // object[0x02] = 0x01; // loot gourd_east
+
+                        // object[0x03] = 0x01; // loot gourd_hidden_1_1
+                        // object[0x04] = 0x01; // loot gourd_hidden_1_2
+                        // object[0x05] = 0x01; // loot gourd_hidden_1_3
+
+                        // object[0x06] = 0x01; // loot gourd_hidden_2_1
+                        // object[0x07] = 0x01; // loot gourd_hidden_2_2
+                        // object[0x08] = 0x01; // loot gourd_hidden_2_3
+
+                        TEMP_SYSTEM_FLAGS.NO_DOG = True;
+
+                        default_init_room(False, False);
+                    }
+                };
+
+                map duel_arena(ARENA) {
+                    enum entrance {
+                        north_cinematic = entrance(0x20, 0x07, NONE),
+                        south = entrance(0x22, 0x69, NORTH) // 0x22, 0x6a
+                    }
+
+                    enum soundtrack {
+                        default = soundtrack(AREA_DUEL_ARENA.DEFAULT_MUSIC, 0xff)
+                    }
+
+                    enum ROOM {
+                        enemy_1 = MOSQUITO,
+                        enemy_2 = FLOWER_PURPLE,
+                        enemy_3 = LIZARD,
+                        enemy_4 = TUMBLING_WEED,
+
+                        enemy_5 = MINITAUR,
+                        enemy_6 = BOY_BLACK,
+                        enemy_7 = STERLING,
+
+                        HIT_COUNT_KILL = 0d3,
+                        HIT_COUNT = memory_tmp(),
+                        KILL_COUNT = memory(),
+
+                        HIT_COUNT_BOY = memory_tmp(),
+
+                        ID_ENEMY = memory_tmp(),
+                    }
+
+                    fun stall() {
+                        while(arg[0x10] < 0d120) {
+                            arg[0x10]++;
+
+                            teleport(ROOM.ID_ENEMY, 0d25, 0d84);
+                            teleport(BOY, 0d38, 0d84);
+                            yield();
+                        }
+                    }
+
+                    @install()
+                    fun give_reward() {
+                        control(NONE);
+
+                        custom_reward(SPEAR_ORB);
+                        
+                        dialog("[SLOW]…Um, you actually won…?[B]Well fought. Don't just gamble your reward away.[B]");
+
+                        map_transition(castle_center, guard, NONE);
+                    }
+
+                    @install()
+                    fun prepare_next_enemy() {
+                        ROOM.HIT_COUNT = 0d0;
+                        ROOM.HIT_COUNT_BOY = 0d0;
+
+                        if(ROOM.ID_ENEMY[HP] > 0d0) {
+                            destroy(ROOM.ID_ENEMY);
+                        }
+
+                        if(ROOM.KILL_COUNT == 0d0) {
+                            add_enemy(ROOM.enemy_1, 0d32, 0d84);
+                        } else if(ROOM.KILL_COUNT == 0d1) {
+                            add_enemy(ROOM.enemy_2, 0d32, 0d84);
+                        } else if(ROOM.KILL_COUNT == 0d2) {
+                            add_enemy(ROOM.enemy_3, 0d32, 0d84);
+                        } else if(ROOM.KILL_COUNT == 0d3) {
+                            add_enemy(ROOM.enemy_4, 0d32, 0d84);
+                        } else if(ROOM.KILL_COUNT == 0d4) {
+                            add_enemy(ROOM.enemy_5, 0d32, 0d84);
+                        } else if(ROOM.KILL_COUNT == 0d5) {
+                            add_enemy(ROOM.enemy_6, 0d32, 0d84);
+                        } else if(ROOM.KILL_COUNT == 0d6) {
+                            add_enemy(ROOM.enemy_7, 0d32, 0d84);
+                            attach_sterling_script(<LAST_ENTITY>, False, 0d30, 0d38, 0d60, 0d664, 0d999);
+                        } else {
+                            give_reward();
+                        }
+
+                        ROOM.ID_ENEMY = <LAST_ENTITY>;
+
+                        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(hit_enemy));
+                        attach_script(BOY, DAMAGE_DEATH, reference(hit_boy));
+
+                        teleport(ROOM.ID_ENEMY, 0d25, 0d84);
+                        teleport(BOY, 0d38, 0d84);
+
+                        face(ROOM.ID_ENEMY, EAST);
+                        face(BOY, WEST);
+
+                        attribute(ROOM.ID_ENEMY, ROOT, True);
+                        attribute(BOY, ROOT, True);
+
+                        stall();
+
+                        attribute(ROOM.ID_ENEMY, ROOT, False);
+                        attribute(BOY, ROOT, False);
+                    }
+
+                    @install()
+                    fun reset() {
+                        yield();
+                        
+                        attribute(ROOM.ID_ENEMY, INVINCIBLE_TEMP, True);
+                        attribute(BOY, INVINCIBLE_TEMP, True);
+
+                        if(False) {
+                            heal(ROOM.ID_ENEMY, 0d0, False);
+                            heal(BOY, 0d0, False);
+                        }
+
+                        teleport(ROOM.ID_ENEMY, 0d25, 0d84);
+                        teleport(BOY, 0d38, 0d84);
+
+                        face(ROOM.ID_ENEMY, EAST);
+                        face(BOY, WEST);
+
+                        attribute(ROOM.ID_ENEMY, ROOT, True);
+                        attribute(BOY, ROOT, True);
+
+                        stall();
+
+                        attribute(ROOM.ID_ENEMY, ROOT, False);
+                        attribute(BOY, ROOT, False);
+
+                        attribute(ROOM.ID_ENEMY, INVINCIBLE_TEMP, False);
+                        attribute(BOY, INVINCIBLE_TEMP, False);
+                    }
+
+                    fun hit() {
+                        if((<BOY>[HP] <= 0d0) || (ROOM.ID_ENEMY[HP] <= 0d0)) {
+                            subtext("TKO!");
+                        } else {
+                            MEMORY.STRING_PARAMETER_1 = ROOM.HIT_COUNT;
+                            MEMORY.STRING_PARAMETER_2 = ROOM.HIT_COUNT_BOY;
+                            subtext("[MEM1]:[MEM2]");
+                        }
+                    }
+
+                    @install()
+                    fun hit_boy() {
+                        sound(ARENA_CHANT);
+
+                        ROOM.HIT_COUNT_BOY++;
+
+                        hit();
+                        
+                        if((<BOY>[HP] <= 0d0) || (ROOM.HIT_COUNT_BOY >= ROOM.HIT_COUNT_KILL)) {
+                            attach_script(BOY, DEATH, reference(boy_death));
+                            damage(BOY, 0d999, True);
+                        } else {
+                            reset();
+                        }
+                    }
+                    @install()
+                    fun hit_enemy() {
+                        sound(ARENA_CHANT);
+
+                        if(ROOM.ID_ENEMY[DAMAGE_TYPE] != DAMAGE_TYPE.BOY_ATTACK) {
+                            heal(ROOM.ID_ENEMY, 0d999, True);
+                            
+                            damage(BOY, 0d5, True);
+                            hit_boy();
+                            
+                            end();
+                        }
+
+                        ROOM.HIT_COUNT++;
+
+                        hit();
+
+                        if((ROOM.HIT_COUNT >= ROOM.HIT_COUNT_KILL) || (ROOM.ID_ENEMY[HP] <= 0d0)) {
+                            ROOM.HIT_COUNT = 0d0;
+                            ROOM.KILL_COUNT++;
+
+                            prepare_next_enemy();
+                        } else {
+                            reset();
+                        }
+                    }
+
+                    fun trigger_enter() {
+                        init_map(0x00, 0x30, 0x40, 0x70);
+
+                        TEMP_SYSTEM_FLAGS.NO_DOG = True;
+                        default_init_room(False, False);
+
+                        walk(BOY, TILE_ABSOLUTE, 0d38, 0d84, BOY, BOY);
+
+                        if(False) {
+                            ROOM.KILL_COUNT = 0d6;
+                        }
+                        prepare_next_enemy();
+                    }
+                };
             };
         };
     };
@@ -23754,7 +24057,7 @@ area dungeon_volcano() {
 
                 init_map(0x3a, 0x08, 0x68, 0x38); // room_es
 
-                fade_in();
+                default_init_room(False, False);
             }
         };
 
@@ -23841,7 +24144,7 @@ area dungeon_volcano() {
 
                 init_map(0x3a, 0x08, 0x68, 0x38); // room_es
 
-                fade_in();
+                default_init_room(False, False);
             }
         };
 
@@ -24016,9 +24319,19 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // south
+                        add_enemy(RAPTOR_PURPLE, 0d31, 0d180);
+
+                        add_enemy(FLOWER_PURPLE, 0d21, 0d169);
+
+                        // north
+                        add_enemy(FLOWER_PURPLE, 0d58, 0d162);
+                    }
+
                     init_room(0d1);
 
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -24171,8 +24484,15 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // south
+                        add_enemy(LIZARD, 0d119, 0d233);
+
+                        add_enemy(LIZARD, 0d158, 0d238);
+                    }
+
                     init_room(0d3);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
             map cave_left_south_west(OGLIN_CAVE) { // variant room_3 (U-shape)
@@ -24324,8 +24644,15 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // south
+                        add_enemy(RAPTOR_PURPLE, 0d152, 0d241);
+
+                        add_enemy(RAPTOR_PURPLE, 0d109, 0d235);
+                    }
+
                     init_room(0d3);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -24533,8 +24860,23 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // west
+                        add_enemy(FLOWER_PURPLE, 0d91, 0d75);
+
+                        // center
+                        add_enemy(LIZARD, 0d115, 0d33);
+
+                        add_enemy(FLOWER_PURPLE, 0d116, 0d71);
+
+                        // east
+                        add_enemy(LIZARD, 0d134, 0d72);
+
+                        add_enemy(LIZARD, 0d147, 0d13);
+                    }
+
                     init_room(0d5);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
             map cave_left_north_west(OGLIN_CAVE) { // variant room_6 (exit)
@@ -24709,8 +25051,23 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // south
+                        add_enemy(LIZARD, 0d43, 0d63);
+
+                        // center
+                        add_enemy(LIZARD, 0d27, 0d27);
+
+                        add_enemy(LIZARD, 0d48, 0d52);
+
+                        add_enemy(FLOWER_PURPLE, 0d68, 0d41);
+
+                        // north
+                        add_enemy(LIZARD, 0d50, 0d16);
+                    }
+
                     init_room(0d6);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -24820,8 +25177,12 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        add_enemy(LIZARD, 0d152, 0d94);
+                    }
+
                     init_room(0d6);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -24933,8 +25294,12 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        add_enemy(LIZARD, 0d17, 0d41);
+                    }
+
                     init_room(0d0);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
         };
@@ -25138,8 +25503,25 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // east
+                        add_enemy(FLOWER_PURPLE, 0d149, 0d143);
+
+                        add_enemy(FLOWER_PURPLE, 0d151, 0d179);
+
+                        // center
+                        add_enemy(RAPTOR_PURPLE, 0d112, 0d150);
+
+                        add_enemy(FLOWER_PURPLE, 0d39, 0d132);
+
+                        // north
+                        add_enemy(FLOWER_PURPLE, 0d121, 0d122);
+
+                        add_enemy(RAPTOR_PURPLE, 0d131, 0d161);
+                    }
+
                     init_room(0d4);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -25292,8 +25674,15 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // south
+                        add_enemy(FLOWER_PURPLE, 0d157, 0d236);
+
+                        add_enemy(RAPTOR_PURPLE, 0d109, 0d235);
+                    }
+
                     init_room(0d3);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -25451,7 +25840,7 @@ area dungeon_volcano() {
 
                 fun trigger_enter() {
                     init_room(0d8);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -25511,7 +25900,7 @@ area dungeon_volcano() {
                     // object[0x03] = 0x01; // loot gourd_hammock
 
                     init_room(0x00);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
 
@@ -25621,8 +26010,12 @@ area dungeon_volcano() {
                 }
 
                 fun trigger_enter() {
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        add_enemy(RAPTOR_PURPLE, 0d158, 0d83);
+                    }
+
                     init_room(0d6);
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
         };
