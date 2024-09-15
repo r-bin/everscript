@@ -381,9 +381,9 @@ group non_maps() {
 
             DEAD_TEMPLE_MINITAUR = flag(),
             REWARD_TEMPLE_MINITAUR = CUSTOM_ITEM.SPEAR_ORB,
-            DEAD_TEMPLE_SQUAD = flag(), // t? - locked: spear2
+            DEAD_TEMPLE_SQUAD = flag(), // t2 (nerfed from t3+) - locked: spear2
             REWARD_TEMPLE_SQUAD = CUSTOM_ITEM.AXE_ORB,
-            DEAD_WALL = flag(), // t2?
+            DEAD_WALL = flag(), // t2
             REWARD_WALL = ITEM.NECTAR, // TODO
             DEAD_NARIS = flag(), // TODO
             REWARD_NARIS = ITEM.NECTAR, // TODO
@@ -391,9 +391,9 @@ group non_maps() {
             DEAD_HEART = flag(), // t0
             REWARD_HEART = CUSTOM_ITEM.SWORD_ORB,
 
-            DEAD_AQUAGOTH = flag(), // t?
+            DEAD_AQUAGOTH = flag(), // t0
             REWARD_AQUAGOTH = ITEM.NO_ITEM,
-            DEAD_SQUIDMAR = flag(), // locked: axe2
+            DEAD_SQUIDMAR = flag(), // t2 (nerfed from t3+) - locked: axe2
             REWARD_SQUIDMAR = CUSTOM_ITEM.SPEAR_ORB,
 
             DEAD_GIDEON = flag(), // t?
@@ -1474,7 +1474,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(duel_arena_waiting_room, fall, NONE);
+                map_transition(west_hut_outside, east, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -5337,7 +5337,7 @@ area west_inbetwixx() {
             hut = entrance(0x13, 0x13, SOUTH), // TODO: 13/15
             east = entrance(0x25, 0x12, WEST),
 
-            backdoor = entrance(0x0f, 0x0f, WEST),
+            backdoor = entrance(0d15, 0d16, WEST),
         }
 
         enum soundtrack {
@@ -5353,23 +5353,25 @@ area west_inbetwixx() {
             }
         }
 
-        @install()
-        fun secret_room_triggered() {
-            map_transition(potato_room, stairs, WEST);
-        }
-
         fun trigger_enter() {
-
             default_init_room(True, True);
 
-            // add_enemy(PLACEHOLDER, 0x0d, 0x0e);
-            add_enemy(PLACEHOLDER, 0x0d, 0x12);
-            attach_script(LAST_ENTITY, B, reference(secret_room_triggered));
+            add_enemy(PLACEHOLDER, 0d13, 0d18);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                sound(WEIRD_SOUND);
+
+                map_transition(potato_room, stairs, NONE);
+                attribute(BOY, INVISIBLE, True);
+            }));
         }
     };
 
     map potato_room(EBON_CELLAR) {
         // chests=vanilla
+
+        enum soundtrack {
+            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
+        }
 
         enum entrance {
             stairs = entrance(0x29, 0x0d, WEST)
@@ -15765,7 +15767,7 @@ area town() {
                 fun squad_killed() {
                     BOSS.SQUAD_REQURIED_COUNT++;
 
-                    if(BOSS.SQUAD_REQURIED_COUNT == BOSS.SQUAD_REQURIED) {
+                    if(BOSS.SQUAD_REQURIED_COUNT >= BOSS.SQUAD_REQURIED) {
                         boss_defeated();
                         end();
                     }
@@ -15807,10 +15809,14 @@ area town() {
                         BOSS.SQUAD_CHARGED = arg[0x10];
                         // BOSS.SQUAD_CHARGED = 0d0;
 
+                        attribute(BOY, INVINCIBLE_TEMP, True);
+
                         attribute(arg[0x12], ROOT, True);
                         animate(arg[0x12], LOOP, DEFAULT);
                         shoot_entity_entity_offset(<SCRIPT_OWNER>, LIGHTNING_BALL, arg[0x12], 0d0, -(0d50), 0d60, 0d0);
-                        sleep(0d120);
+                        sleep(0d20);
+                        attribute(BOY, INVINCIBLE_TEMP, False);
+                        sleep(0d100);
 
                         if!(dead(arg[0x12])) {
                             attribute(arg[0x12], ROOT, False);
@@ -23542,7 +23548,7 @@ area dungeon_volcano() {
 
             PROGRESS = flag_tmp(),
 
-            HP = 0d1000,
+            HP = 0d500,
 
             ENERGY_LEVEL = memory_tmp(),
             ENERGY_LEVEL_THRESHOLD = 0d15,
@@ -23599,7 +23605,8 @@ area dungeon_volcano() {
         }
 
         fun boss_defeated() {
-            object[0x01] = 0x01;
+            object[0x01] = 0x01; // hide aquagoth
+            object[0x00] = 0x00; // close door
 
             souls_boss_defeated(DEAD_SQUIDMAR, REWARD_SQUIDMAR);
         }
@@ -23607,6 +23614,8 @@ area dungeon_volcano() {
             set(BOSS.PROGRESS);
 
             destroy(BOSS.PLACEHOLDER_ID);
+
+            object[0x00] = 0x7e; // close door
 
             push_music(BOSS);
         }
@@ -23787,7 +23796,7 @@ area dungeon_volcano() {
                 BOSS.PLACEHOLDER_ID = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, B, reference(squidmar_placeholder_triggered));
             } else {
-                object[0x01] = 0x01;
+                object[0x01] = 0x01; // hide aquagoth
             }
 
             default_init_room(True, False);
