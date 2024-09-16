@@ -213,6 +213,7 @@ group non_maps() {
             BIG_MUSHROOM = 0xf101, // unlocks jumping in the sewers
             ISAAC_LETTER = 0xf102, // unlocks isaac wanted poster
             ISAAC_WANTED_POSTER = 0xf103, // unlocks ?
+            BUG_CATCHER = 0xf104, // unlocks bee collecting
 
             RING_CAT = 0xf200, // reduces fall damage
         }
@@ -283,6 +284,7 @@ group non_maps() {
             BIG_MUSHROOM = flag(),
             ISAAC_LETTER = flag(),
             ISAAC_WANTED_POSTER = flag(),
+            BUG_CATCHER = flag(),
 
             RING_CAT = flag(),
 
@@ -499,6 +501,12 @@ group non_maps() {
                 fanfare_item(True);
 
                 SOULS_MEMORY.ISAAC_WANTED_POSTER = True;
+            } else if(item == CUSTOM_ITEM.BUG_CATCHER) {
+                subtext("Gained Bug Catcher");
+                    
+                fanfare_item(True);
+
+                SOULS_MEMORY.BUG_CATCHER = True;
             }
         }
         @install()
@@ -1134,7 +1142,23 @@ group non_maps() {
             add_enemy(BEE, x, y);
             attach_script(LAST_ENTITY, B, collected_trigger);
         }
-        fun bee_collected() {
+        fun bee_collected(flag) {
+            if(
+                (!SOULS_MEMORY.BUG_CATCHER)
+                || (MEMORY.CURRENT_WEAPON != WEAPON_INDEX.SWORD_1)
+                || (<ACTIVE> == <DOG>)
+            ) {
+                damage(ACTIVE, 0d5, True);
+
+                end();
+            }
+
+            set(flag);
+
+            control(SCRIPT_OWNER, True);
+
+            fake_b();
+            wait(BOY);
             fake_loot();
 
             SOULS_MEMORY.PROGRESS_COUNTER++;
@@ -2378,6 +2402,96 @@ group non_maps() {
             }
         };
 
+        group npc_bee_boy() {
+            enum NPC_BEE_BOY {
+                PROGRESS = memory(),
+
+                REWARD_1 = ITEM.FLASH,
+                REWARD_1_COLLECTED = flag(),
+                REWARD_1_PRICE = 0d1,
+            }
+
+            group bee_boy_ai() {
+                fun response_positive() {
+                    dialog("[SLOW]If you bring me enough bees I'll reward you with some treasures I found…[B]");
+                }
+                fun response_negative() {
+                    dialog("[SLOW]Bring me more bees…[B]");
+                }
+
+                fun add_following_bee(entity) {
+                    MEMORY.NEXT_ENEMY_FOLLOWS_ENTITY = entity;
+                    _add_enemy(BEE, entity[X], entity[Y]);
+                }
+
+                fun request_reward() {
+                    if((!NPC_BEE_BOY.REWARD_1_COLLECTED) && (NPC_BEE_BOY.PROGRESS >= NPC_BEE_BOY.REWARD_1_PRICE)) {
+                        NPC_BEE_BOY.REWARD_1_COLLECTED = True;
+
+                        add_following_bee(<SCRIPT_OWNER>);
+
+                        reward(NPC_BEE_BOY.REWARD_1);
+
+                        response_positive();
+                    } else {
+                        response_negative();
+                    }
+                }
+
+                @install()
+                fun bee_boy_triggered() {
+                    conversation_start(SCRIPT_OWNER);
+
+                    if!(SOULS_MEMORY.BUG_CATCHER) {
+                        question("[SLOW]Can you help me to find more bees?[CHOICE]help…[CHOICE]leave…");
+                        
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                            custom_reward(BUG_CATCHER);
+
+                            dialog("[SLOW]I attached it to your bone, so use it to collect them![B]");
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // leave
+                            response_negative();
+                        } else {
+                            response_negative();
+                        }   
+                    } else {
+                        arg[0x10] = SOULS_MEMORY.BEES - NPC_BEE_BOY.PROGRESS;
+
+                        if(arg[0x10] > 0d0) {
+                            if(arg[0x10] == 0d1) {
+                                question("[SLOW]You brought me only 1 bee?[CHOICE]give…[CHOICE]leave…");
+                            } else {
+                                MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                                question("[SLOW]You brought me [MEM1] bees?[CHOICE]give…[CHOICE]leave…");
+                            }
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // give
+                                NPC_BEE_BOY.PROGRESS = SOULS_MEMORY.BEES;
+                                request_reward();
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // leave
+                                response_negative();
+                            } else {
+                                response_negative();
+                            }
+                        } else {
+                            response_negative();
+                        }
+                    }
+
+                    conversation_end(SCRIPT_OWNER);
+                }
+            };
+            
+            fun add_souls_npc_bee_boy(x, y) {
+                add_enemy(VILLAGER_1_2, x, y);
+                attach_script(LAST_ENTITY, B, reference(bee_boy_triggered));
+
+                if(NPC_BEE_BOY.REWARD_1_COLLECTED) {
+                    add_following_bee(<LAST_ENTITY>);
+                }
+            }
+        };
+
         group npc_alchemists() {
             // "C"
             group npc_alchemist_corrosion() {
@@ -3190,6 +3304,8 @@ area shrine_area() {
             if!(FLAG.IN_ANIMATION) {
                 crash_both();
             }
+
+            add_souls_npc_bee_boy(0d60, 0d60);
 
             add_door(0d15, 0d29, True);
             add_door(0d51, 0d47, True);
@@ -6533,6 +6649,8 @@ area altus_plateau_entry() {
 
                     PALETTE_DONOR_BOY = memory_tmp(),
                     PALETTE_DONOR_DOG = memory_tmp(),
+
+                    BEE_COLLECTED = flag(),
                 }
 
                 fun open_stairs_east(open) {
@@ -6940,6 +7058,12 @@ area altus_plateau_entry() {
                         object[0x00] = 0x7e; // close stairs_west
                     } else {
                         object[0x00] = 0x00;
+                    }
+
+                    if!(ROOM.BEE_COLLECTED) {
+                        add_bee(0d143, 0d31, reference(@install() {
+                            bee_collected(ROOM.BEE_COLLECTED);
+                        }));
                     }
 
                     default_init_room(True, True);
