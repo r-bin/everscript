@@ -61,10 +61,6 @@ class Parser():
             "install_string": (lambda p: InstalledString(self.generator, p[2][0])),
             "string_key": (lambda p: StringKey(p[2][0])),
             "function_key": (lambda p: FunctionKey(p[2][0])),
-            "memory": (lambda p: self.generator.get_memory("22")),
-            "memory_tmp": (lambda p: self.generator.current_scope().allocate_memory()),
-            "flag": (lambda p: self.generator.get_flag("22")),
-            "flag_tmp": (lambda p: self.generator.current_scope().allocate_flag()),
             "reference": (lambda p: Reference(self.generator, p[2][0])),
             "deref": (lambda p: Deref(self.generator, p[2][0], None)),
             "_address": (lambda p: RawAddress(p[2][0])),
@@ -577,8 +573,10 @@ class Parser():
         def parse(p):
             size = p[2]
             type = p[4]
+
+            allocated_memory = Memory_Alloc(self.generator, size, type)
             
-            return Memory_Alloc(self.generator, size, type)
+            return allocated_memory.memory
         @self.pg.production('memory : memory_flag')
         def parse(p):
             return p[0]

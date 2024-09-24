@@ -1420,9 +1420,9 @@ class Range(BaseBox):
             for index in range(self.start.index, self.end.index + step, step):
                 list.append(FunctionKey(index))
         elif isinstance(self.start, Memory):
-            step = 2
-            for address in range(self.start.eval(params), self.end.eval(params), step):
-                list.append(Memory(address))
+            step = 1
+            for address in range(self.start.eval(params), self.end.eval(params) + 1, step):
+                list.append(Memory(address, size=1))
         else:
             raise Exception("unknown type")
         return list
@@ -1725,7 +1725,7 @@ class Loot(Function_Base):
         self.amount = amount
         self.next = Word(next)
     
-        flag = self._generator.get_flag("22")
+        flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, Memory_Alloc.MemoryType.SRAM)
 
         self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)
@@ -1746,7 +1746,7 @@ class Axe2Wall(Function_Base):
         self._generator = generator
         self.object = object
     
-        flag = self._generator.get_flag("22")
+        flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, Memory_Alloc.MemoryType.SRAM)
 
         self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)

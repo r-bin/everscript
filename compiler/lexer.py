@@ -100,7 +100,7 @@ class Lexer():
         self.lexer.add('FUN_MEMORY', '#memory(?=\()')
         self.lexer.add('FUN_PATCH', '#patch(?=\()')
 
-        self.lexer.add('MEMORY', 'memory_new(?=\()')
+        self.lexer.add('MEMORY', 'memory(?=\()')
         self.lexer.add('OBJECT', 'object(?=\[)')
         self.lexer.add('ARG', 'arg(?=\[)')
         self.lexer.add('SCRIPT', 'script(?=\[)')
