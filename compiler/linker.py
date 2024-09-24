@@ -38,8 +38,8 @@ class MemoryManager():
             "text_key": [],
             "function_key": [],
 
-            "memory": {"22":[], "28":[]},
-            "flag": {"22":[], "28":[]},
+            "memory": {"sram":[], "ram":[], "temp":[]},
+            "flag": {"sram":[], "ram":[], "temp":[]},
         }
 
     def add(self, memory):
@@ -59,7 +59,19 @@ class MemoryManager():
             elif isinstance(m, FunctionKey):
                 self.memory["function_key"].append(m)
             elif isinstance(m, Memory):
-                self.memory["memory"][m.type].append(m)
+                match [m.sram, m.type]:
+                    case [True, _]:
+                        memory_list = self.memory["memory"]["sram"]
+                    case [_, "22"]:
+                        memory_list = self.memory["memory"]["ram"]
+                    case [_, "28"]:
+                        memory_list = self.memory["memory"]["temp"]
+                    case [_, _]:
+                        TODO()
+                
+                memory_list.append(m)
+                # memory_list.sort(key=lambda x: x.address)
+                memory_list.sort(key=lambda x: x.address, reverse=m.type=="28")
             else:
                 raise Exception(f"unsupported memory: {m}")
 
@@ -123,21 +135,51 @@ class MemoryManager():
         
         function.key = function_key
         
-    def allocate_memory(self, type:str):
-        memory = self.memory["memory"][type].pop(0)
-        return memory
-    def allocate_flag(self, type):
-        if not self.memory["flag"][type]:
-            memory = self.memory["memory"][type].pop(0)
+    def allocate_memory(self, size, type):
+        match type.value:
+            case 0:
+                memory_type = "sram"
+            case 1:
+                memory_type = "ram"
+            case 2:
+                memory_type = "temp"
+            case _:
+                TODO()
 
-            for offset in range(0, 8):
-                self.memory["flag"][type].append(Memory(memory.address, 1 << offset))
-            for offset in range(0, 8):
-                self.memory["flag"][type].append(Memory(memory.address + 1, 1 << offset))
-            
-        flag = self.memory["flag"][type].pop(0)
+        memory_list = self.memory["memory"][memory_type]
+        size = size.value
 
-        return flag
+        if size == 0:
+            if not self.memory["flag"][memory_type]:
+                memory = self.memory["memory"][memory_type].pop(0)
+
+                for offset in range(0, 8):
+                    self.memory["flag"][memory_type].append(Memory(memory.address, 1 << offset))
+                
+            flag = self.memory["flag"][memory_type].pop(0)
+
+            return flag
+        elif size == 1:
+            m = memory_list.pop(0)
+
+            return m
+        elif size == 2:
+            m2 = None
+            for i, m in enumerate(memory_list, start=0):
+                if m2 == None:
+                    m2 = m
+                    continue
+                else:
+                    if m2.address == m.address - 1:
+                        del memory_list[i + 1]
+                        del memory_list[i]
+
+                        m.force_value_count(2)
+                        return m
+                    else:
+                        m2 = m
+
+        raise Exception("invalid memory allocation")
 
 
 class MapDataHandler():
@@ -330,9 +372,11 @@ class Linker():
         
         script = '\n'.join([f"   - [{'{:04X}'.format(m.start, 'x')}, {'{:04X}'.format(m.end - m.start, 'x')}] {m}" for m in self.memory_manager.memory["script"]])
 
-        memory = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["22"]])
-        memory_tmp = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["28"]])
-        flag = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]["22"]])
+        memory_sram = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["sram"]])
+        memory_ram = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["ram"]])
+        memory_temp = '\n'.join([f"   -  [{'{:04X}'.format(m.address, 'x')}, {'{:04X}'.format(m.count([]), 'x')}] {m}" for m in self.memory_manager.memory["memory"]["temp"]])
+        flag_sram = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]["sram"]])
+        flag_ram = '\n'.join([f"   - [{'{:04X}'.format(f.address, 'x')}, {'{:04X}'.format(f.count([]), 'x')}] {f}" for f in self.memory_manager.memory["flag"]["ram"]])
 
         return f"""
 unallocated ROM:
@@ -346,18 +390,24 @@ unallocated ROM:
 {script}
 
 unallocated RAM:
-  memory:
-{memory}
+  SRAM:
+{memory_sram}
 
-  temp memory:
-{memory_tmp}
+  RAM:
+{memory_ram}
 
-  flags:
-{flag}
+  TEMP:
+{memory_temp}
+
+  flags SRAM:
+{flag_sram}
+
+  flags RAM:
+{flag_ram}
         """.strip()
 
-    def link_memory(self, type:str) -> Memory:
-        return self.memory_manager.allocate_memory(type)
+    def link_memory(self, size, type) -> Memory:
+        return self.memory_manager.allocate_memory(size, type)
         
     def link_flag(self, type:str) -> Memory:
         return self.memory_manager.allocate_flag(type)

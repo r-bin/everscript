@@ -4,6 +4,7 @@ from rply.token import BaseBox
 from rply import Token
 import re
 from textwrap import wrap
+from enum import IntEnum
 
 def TODO(message = ""):
     raise Exception(message)
@@ -418,7 +419,7 @@ class Memory(Function_Base, Calculatable, Memorable):
         else = arbitrary access (hack)
     """
 
-    def __init__(self, address=None, flag=None, offset=None):
+    def __init__(self, address=None, flag=None, size=2, offset=None):
         self.address = address
         if isinstance(self.address, Word):
             self.address = self.address.eval([])
@@ -433,7 +434,10 @@ class Memory(Function_Base, Calculatable, Memorable):
             self.offset = self.offset.eval([])
 
         self.memory = True
-        self._value_count = 2
+        if size not in [1, 2]:
+            TODO()
+        self._value_count = size
+        self.sram = False
 
         self.inverted = False
         self.handle_type()
@@ -441,15 +445,18 @@ class Memory(Function_Base, Calculatable, Memorable):
     def handle_type(self):
         if self.address >= 0x2834:
             self.type = "28"
+        #elif self.address >= 0x2500: # TODO
+        #    self.type = "22"
         elif self.address >= 0x2258:
             self.type = "22"
+            self.sram = True
         elif self.address <= 0xff:
             self.type = "char"
         else:
             self.type = "xx"
 
     def __repr__(self):
-        return f"Memory(address={'{:02X}'.format(self.address, 'x')}/{self.type}, flag={self.flag}, offset={self.offset})"
+        return f"Memory(address={'{:02X}'.format(self.address, 'x')}/{self.type}, flag={self.flag}, size={self.value_count()}, offset={self.offset})"
     
     def is_memory(self, params:list[Param]):
         return True
@@ -554,24 +561,34 @@ class Memory(Function_Base, Calculatable, Memorable):
         return code
 
 class Memory_Alloc(Function_Base, Calculatable, Memorable):
-
-    class MemorySize(Enum):
-        FLAG = "flag"
-        BYTE = "byte"
-        WORD = "word"
+    class MemorySize(IntEnum):
+        FLAG = 0
+        BYTE = 1
+        WORD = 2
     
-    class MemoryType(Enum):
-        SRAM = "SRAM"
-        RAM = "RAM"
-        TEMP = "TEMP"
+    class MemoryType(IntEnum):
+        SRAM = 0
+        RAM = 1
+        TEMP_RESERVED = 2
+        TEMP = 3
 
     def __init__(self, generator:any, size, type):
         self._generator = generator
 
-        self.size = self.parse_argument_with_type(self._generator, size, "MEMORY_SIZE")
-        self.type = self.parse_argument_with_type(self._generator, type, "MEMORY_TYPE")
+        size = self.parse_argument_with_type(self._generator, size, "MEMORY_SIZE")
+        size = size.eval([])
+        size = self.MemorySize(size)
+        self.size = size
 
-        pass
+        type = self.parse_argument_with_type(self._generator, type, "MEMORY_TYPE")
+        type = type.eval([])
+        type = self.MemoryType(type)
+        self.type = type
+
+        if self.type == self.MemoryType.TEMP:
+            self.memory = self._generator.current_scope().get_memory(self.size, self.type)
+        else:
+            self.memory = self._generator.get_memory(self.size, self.type)
 
 
 class Function_Code(Function_Base):

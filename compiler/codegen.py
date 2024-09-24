@@ -40,8 +40,8 @@ class Scope(BaseBox):
 
     def _update_memory(self) -> None:
         if not self.temp_memory:
-            self.temp_memory = [m for m in self._generator.linker.memory_manager.memory["memory"]["28"]]
-            self.temp_memory = list(reversed(self.temp_memory))
+            self.temp_memory = [m for m in self._generator.linker.memory_manager.memory["memory"]["temp"]]
+            self.temp_memory.sort(key=lambda x: x.address)
 
         if not self.temp_flag:
             self.temp_flag = []
@@ -55,12 +55,49 @@ class Scope(BaseBox):
                     
                 # self.temp_vars = list(reversed(self.temp_vars))
 
+    def get_memory(self, size, type) -> Memory:
+        self._update_memory()
+
+        memory_list = self.temp_memory
+        size = size.value
+
+        if size == 0:
+            if not self.temp_flag:
+                memory = memory_list.pop(0)
+
+                for offset in range(0, 8):
+                    self.temp_flag.append(Memory(memory.address, 1 << offset))
+                
+            flag = self.temp_flag.pop(0)
+
+            return flag
+        elif size == 1:
+            m = memory_list.pop(0)
+
+            return m
+        elif size == 2:
+            m2 = None
+            for i, m in enumerate(memory_list, start=0):
+                if m2 == None:
+                    m2 = m
+                    continue
+                else:
+                    if m2.address == m.address - 1:
+                        del memory_list[i + 1]
+                        del memory_list[i]
+
+                        m.force_value_count(2)
+                        return m
+                    else:
+                        m2 = m
+
+        raise Exception("invalid memory allocation")
+    
     def allocate_memory(self) -> Memory:
         self._update_memory()
 
         memory = self.temp_memory
-        memory = list(reversed(memory))
-        memory = self.temp_memory.pop()
+        memory = self.temp_memory.pop(0)
 
         return memory
     
@@ -185,8 +222,8 @@ allocated RAM:
 {flag}
         """.strip()
 
-    def get_memory(self, type:str) -> Memory:
-        memory = self.linker.link_memory(type)
+    def get_memory(self, size, type) -> Memory:
+        memory = self.linker.link_memory(size, type)
 
         self.memory.append(memory)
 
