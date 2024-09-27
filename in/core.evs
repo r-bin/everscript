@@ -105,7 +105,7 @@ group general_enums() {
         enum ADDRESS_ID {
             // map
 
-            FADE_IN = 0x36, // reads: BOY_UNAVAILABLE+DOG_UNAVAILABLE, TRANSITION_ENTER_DIRECTION, DOG_READ, writes: VELOCITY+FALLING_HEIGHT, TRANSITION_ENTER_DIRECTION
+            FADE_IN = 0x36, // reads: BOY_UNAVAILABLE+DOG_UNAVAILABLE, TRANSITION_ENTER_DIRECTION, DOG_READ, writes: VELOCITY+Z, TRANSITION_ENTER_DIRECTION
 
             FADE_OUT_CREDITS = 0x57,
 
@@ -128,7 +128,7 @@ group general_enums() {
             TRANSITION_UNKNOWN_7 = 0x1c,
             TRANSITION_UNKNOWN_8 = 0x28,
 
-            UNKNOWN_TRANSITION_ENTER_HANDLER = 0x36, // reads: TRANSITION_ENTER_DIRECTION+BOY_UNAVAILABLE+DOG_UNAVAILABLE, does: walk by 1 tile or FALLING_HEIGHT or VELOCITY
+            UNKNOWN_TRANSITION_ENTER_HANDLER = 0x36, // reads: TRANSITION_ENTER_DIRECTION+BOY_UNAVAILABLE+DOG_UNAVAILABLE, does: walk by 1 tile or Z or VELOCITY
 
             WINGS_HELPER = 0x5b,
 
@@ -458,7 +458,7 @@ group general_enums() {
 
             NEXT_DAMAGE_NO_KNOCKBACK = <0x23d5>,
             
-            Z_AFTER_TELEPORT = <0x23db>, // redundant with "entity[Z] = z;"
+            Z_AFTER_TELEPORT = <0x23db>, // redundant with "entity[Z_LEVEL] = z;"
 
             // sniff spot looting
             LOOT_ITEM = <0x2391>,
@@ -1508,6 +1508,14 @@ group general_enums() {
                 BLACK_2 = 0x0050,
             }
 
+            enum STAMINA {
+                PERCENTAGE_100 = 0x0400,
+                PERCENTAGE_75 = 0x0300,
+                PERCENTAGE_50 = 0x0200,
+                PERCENTAGE_25 = 0x0100,
+                PERCENTAGE_0 = 0x0000,
+            }
+
             enum ATTRIBUTE_FLAGS {
                 // ATTRIBUTE.FLAGS_1 (character+0x10)
                 INVINCIBLE = 0x02, // see ATTRIBUTE_BITS.INVINCIBLE
@@ -1843,10 +1851,10 @@ group general_enums() {
                 FLAGS_6 = 0x15,
                 FLAGS_7 = 0x16,
                 // positioning
-                Z = 0x18, // Bits: 0=elevation, 1=stairs
+                Z_LEVEL = 0x18, // used for stairs/bridges (0x10 = upper floor, 0x20 = lower floor, 0x60 = stairs?)
                 X = 0x1a,
                 Y = 0x1c,
-                FALLING_HEIGHT = 0x1e, // used for boss rush intro
+                Z = 0x1e, // used for boss rush intro
                 VELOCITY = 0x20, // used for wings (0xe0 signed), magmar, megataur, act2 intro, puppets, sterling flight
                 FACE_DIRECTION = 0x22, // enum FACE_DIRECTION
                 TARGET_LAST_WEAPON_DAMAGE = 0x24, // contains _entity_x
@@ -1854,7 +1862,7 @@ group general_enums() {
                 Y_TILE = 0x28,
                 HP = 0x2a,
 
-                STAMINA = 0x2e, // 0…100% = 0…1024
+                STAMINA = 0x2e, // enum STAMINA (seems to instantly regenerate during some animations?)
                 GENERAL_PURPOSE = 0x30, // DOES NOT RESET WHEN THE SPRITE CHANGES! used for secret boss bombs (set to 0 for exploded bombs) and speakers (indexed from 2^0 to 2^8)
                 UNKNOWN = 0x32, // TODO: used for secret boss and boss rush fans
                 DAMAGE_TYPE = 0x36, // used for vigor (weapon: 0x4e89, dog: 0x4F37, magic and default: 0x0000)
@@ -3591,7 +3599,7 @@ group functions() {
                 code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
             }
             
-            fun change_z(entity:CHARACTER, z) { // redundant: same as entity[Z]=z
+            fun change_z(entity:CHARACTER, z) { // redundant: same as entity[Z_LEVEL]=z
                 MEMORY.Z_AFTER_TELEPORT = z;
                 teleport(entity, entity[X], entity[Y]);
             }
@@ -4254,7 +4262,7 @@ group functions() {
 
             fun conversation_start(npc:CHARACTER) {
                 if(False) {
-                    if(<ACTIVE>[Z] != npc[Z]) {
+                    if(<ACTIVE>[Z_LEVEL] != npc[Z_LEVEL]) {
                         end();
                     }
                 }
@@ -6014,7 +6022,7 @@ group functions() {
 
         fun crash_land(character:CHARACTER) {
             if(character == CHARACTER.BOY) {
-                <BOY>[FALLING_HEIGHT] = 0x1068;
+                <BOY>[Z] = 0x1068;
                 animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
                 sleep(0x60);
                 <BOY>[VELOCITY] = 0x10;
@@ -6024,7 +6032,7 @@ group functions() {
                 sleep(0x10);
                 animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
             } else if(character == CHARACTER.DOG) {
-                <DOG>[FALLING_HEIGHT] = 0x1068;
+                <DOG>[Z] = 0x1068;
                 animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
                 sleep(0x60);
                 <DOG>[VELOCITY] = 0x10;
@@ -6034,9 +6042,9 @@ group functions() {
                 sleep(0x10);
                 animate(DOG, ONCE, ANIMATION_DOG.ACT1_SIT);
             } else if(character == CHARACTER.BOTH) {
-                <BOY>[FALLING_HEIGHT] = 0x1068;
+                <BOY>[Z] = 0x1068;
                 animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-                <DOG>[FALLING_HEIGHT] = 0x1068;
+                <DOG>[Z] = 0x1068;
                 animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
                 sleep(0x60);
                 <BOY>[VELOCITY] = 0x10;
@@ -6272,7 +6280,7 @@ group functions() {
                 teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
             }
 
-            <INACTIVE>[Z] = <ACTIVE>[Z];
+            <INACTIVE>[Z_LEVEL] = <ACTIVE>[Z_LEVEL];
 
             // teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
 
@@ -6742,6 +6750,9 @@ group functions() {
             if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
                 end();
             }
+            if(<BOY>[STAMINA] < STAMINA.PERCENTAGE_100) {
+                end();
+            }
 
             if(costs_ingredients) {
                 if(MEMORY.IRON < 0x04) {
@@ -6774,6 +6785,8 @@ group functions() {
             attach_to_script(LAST_ENTITY);
             attach_script(SCRIPT_OWNER, DEATH, ADDRESS_ID.BOMB_EXPLOSION);
 
+            <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
+
             sleep(0d130);
 
             damage(SCRIPT_OWNER, 0d9999, False);
@@ -6785,6 +6798,9 @@ group functions() {
 
         fun isaac_tear(costs_ingredients) {
             if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                end();
+            }
+            if(<BOY>[STAMINA] < STAMINA.PERCENTAGE_75) {
                 end();
             }
             
@@ -6820,6 +6836,8 @@ group functions() {
             if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
                 animate(BOY, ONCE, DEFAULT);
             }
+            
+            <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
         }
 
         @install()
@@ -6872,7 +6890,7 @@ group functions() {
             if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
                 end();
             }
-            if(<BOY>[FALLING_HEIGHT] > 0d0) {
+            if(<BOY>[Z] > 0d0) {
                 end();
             }
 
