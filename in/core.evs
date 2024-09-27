@@ -105,7 +105,7 @@ group general_enums() {
         enum ADDRESS_ID {
             // map
 
-            FADE_IN = 0x36, // reads: BOY_UNAVAILABLE+DOG_UNAVAILABLE, TRANSITION_ENTER_DIRECTION, DOG_READ, writes: JUMP_HEIGHT+FALLING_HEIGHT, TRANSITION_ENTER_DIRECTION
+            FADE_IN = 0x36, // reads: BOY_UNAVAILABLE+DOG_UNAVAILABLE, TRANSITION_ENTER_DIRECTION, DOG_READ, writes: VELOCITY+FALLING_HEIGHT, TRANSITION_ENTER_DIRECTION
 
             FADE_OUT_CREDITS = 0x57,
 
@@ -128,7 +128,7 @@ group general_enums() {
             TRANSITION_UNKNOWN_7 = 0x1c,
             TRANSITION_UNKNOWN_8 = 0x28,
 
-            UNKNOWN_TRANSITION_ENTER_HANDLER = 0x36, // reads: TRANSITION_ENTER_DIRECTION+BOY_UNAVAILABLE+DOG_UNAVAILABLE, does: walk by 1 tile or FALLING_HEIGHT or JUMPING_HEIGHT
+            UNKNOWN_TRANSITION_ENTER_HANDLER = 0x36, // reads: TRANSITION_ENTER_DIRECTION+BOY_UNAVAILABLE+DOG_UNAVAILABLE, does: walk by 1 tile or FALLING_HEIGHT or VELOCITY
 
             WINGS_HELPER = 0x5b,
 
@@ -1847,7 +1847,7 @@ group general_enums() {
                 X = 0x1a,
                 Y = 0x1c,
                 FALLING_HEIGHT = 0x1e, // used for boss rush intro
-                JUMP_HEIGHT = 0x20, // used for wings (0xe0 signed), magmar, megataur, act2 intro, puppets, sterling flight
+                VELOCITY = 0x20, // used for wings (0xe0 signed), magmar, megataur, act2 intro, puppets, sterling flight
                 FACE_DIRECTION = 0x22, // enum FACE_DIRECTION
                 TARGET_LAST_WEAPON_DAMAGE = 0x24, // contains _entity_x
                 X_TILE = 0x26,
@@ -2136,7 +2136,7 @@ group general_enums() {
                 STOP = 0x0341,
                 SUPER_HEAL = 0x0342,
 
-                // consumables
+                // consumables (same as 0x80X)
                 PETAL = 0x0400,
                 NECTAR = 0x0401,
                 HONEY = 0x0402,
@@ -5565,18 +5565,18 @@ group functions() {
                     MEMORY.LOOT_OBJECT = object_id;
 
                     if(reward < 0x0100) { 
-                        if(amount > 0x00) {
+                        if(amount > 0d0) {
                             MEMORY.LOOT_AMOUNT_CURRENCY = amount;
                         }
                     } else {
-                        if(amount > 0x01) {
-                            MEMORY.LOOT_AMOUNT = amount - 0x01;
-                        }    
+                        if(amount > 0d1) {
+                            MEMORY.LOOT_AMOUNT = amount - 0d1;
+                        }
                     }
 
                     call_id(animation);
                     
-                    if(next > 0x00) {
+                    if(next > 0d0) {
                         MEMORY.LOOT_AMOUNT = next;
                     }
 
@@ -5763,7 +5763,7 @@ group functions() {
                 <BOY>[FALLING_HEIGHT] = 0x1068;
                 animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
                 sleep(0x60);
-                <BOY>[JUMP_HEIGHT] = 0x10;
+                <BOY>[VELOCITY] = 0x10;
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
                 sleep(0x10);
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
@@ -5773,7 +5773,7 @@ group functions() {
                 <DOG>[FALLING_HEIGHT] = 0x1068;
                 animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
                 sleep(0x60);
-                <DOG>[JUMP_HEIGHT] = 0x10;
+                <DOG>[VELOCITY] = 0x10;
                 animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
                 sleep(0x10);
                 animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_FALL1);
@@ -5785,9 +5785,9 @@ group functions() {
                 <DOG>[FALLING_HEIGHT] = 0x1068;
                 animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
                 sleep(0x60);
-                <BOY>[JUMP_HEIGHT] = 0x10;
+                <BOY>[VELOCITY] = 0x10;
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
-                <DOG>[JUMP_HEIGHT] = 0x10;
+                <DOG>[VELOCITY] = 0x10;
                 animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
                 sleep(0x10);
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
@@ -5935,7 +5935,7 @@ group functions() {
                 animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
             }
 
-            character[JUMP_HEIGHT] = 0d30;
+            character[VELOCITY] = 0d30;
 
             if(direction == DIRECTION.NORTH) {
                 arg[0x10] = character[Y] - 0d50;
@@ -5983,7 +5983,7 @@ group functions() {
             sleep(0x05);
 
             animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            <BOY>[JUMP_HEIGHT] = 0x20;
+            <BOY>[VELOCITY] = 0x20;
 
             arg[0x00] = <BOY>[X] + 0x30;
             while(<BOY>[X] < arg[0x00]) {
@@ -6635,7 +6635,7 @@ group functions() {
 
             arg[0x10] = <BOY>[X];
             arg[0x12] = <BOY>[Y];
-            <BOY>[JUMP_HEIGHT] = 0d30;
+            <BOY>[VELOCITY] = 0d30;
             attribute(BOY, NO_CLIP, True);
 
             sleep(0d60);
@@ -6835,6 +6835,9 @@ group functions() {
         // projectile
 
         fun ring_shoot(entity, projectile, x, y, with_sound) {
+            if(dead(entity)) {
+                end();
+            }
             if(with_sound > 0d0) {
                 sound(PROJECTILE_SHOOTING);
             }
@@ -7232,7 +7235,7 @@ group functions() {
             arg[0x22] = arg[0x10] << 0x04;
             arg[0x24] = arg[0x16] << 0x04;
 
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = arg[0x18] / 0x02;
+            <SCRIPT_OWNER>[VELOCITY] = arg[0x18] / 0x02;
             arg[0x12] = 0x00;
 
             while(arg[0x12] <= arg[0x18]) {
@@ -7306,8 +7309,8 @@ group functions() {
             arg[0x22] = arg[0x10] << 0x04;
             arg[0x24] = arg[0x12] << 0x04;
 
-            <BOY>[JUMP_HEIGHT] = arg[0x18] / 0x02;
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = arg[0x18] / 0x02;
+            <BOY>[VELOCITY] = arg[0x18] / 0x02;
+            <SCRIPT_OWNER>[VELOCITY] = arg[0x18] / 0x02;
 
             arg[0x12] = 0x00;
 

@@ -227,7 +227,7 @@ group non_maps() {
             INIT = memory(FLAG, SRAM),
             INTRO_WATCHED = memory(FLAG, SRAM),
             // debug
-            DEBUG = False,
+            DEBUG = True,
             DEBUG_BOMBABLE_WALLS = False,
 
             // features
@@ -1501,7 +1501,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(west_hut_outside, east, NONE);
+                map_transition(windwalker_sidescroller, west, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -5537,6 +5537,8 @@ area west_inbetwixx() {
 
 area altus_plateau_entry() {
     enum AREA_ALTUS_PLATEAU {
+        DEFAULT_MUSIC = MUSIC.JUNGLE_AMBIENT_BIRDS,
+
         ENTRANCE_UNLOCKED = memory(FLAG, SRAM),
     }
 
@@ -5558,7 +5560,7 @@ area altus_plateau_entry() {
         }
 
         enum soundtrack {
-            default = soundtrack(JUNGLE_AMBIENT_BIRDS, 0xff)
+            default = soundtrack(AREA_ALTUS_PLATEAU.DEFAULT_MUSIC, 0xff)
         }
 
         enum ROOM {
@@ -6123,9 +6125,15 @@ area altus_plateau_entry() {
             }
 
             enum ROOM {
+                DEBUG = False,
+
                 SHIP_ID = memory(WORD, TEMP),
 
+                PROGRESS = memory(BYTE, SRAM),
+
                 START_HEIGHT = 0x1fff,
+
+                ENEMIES_ALIVE = memory(BYTE, TEMP),
 
                 LANE_1 = 0x05,
                 LANE_2 = 0x0c,
@@ -6174,9 +6182,23 @@ area altus_plateau_entry() {
                 }
             }
 
+            @install()
+            fun enemy_killed() {
+                ROOM.ENEMIES_ALIVE--;
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.ENEMIES_ALIVE, 0d0);
+                }
+            }
+
             fun enemy(enemy, y) {
+                ROOM.ENEMIES_ALIVE++;
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.ENEMIES_ALIVE, 0d1);
+                }
+
                 add_enemy(enemy, 0x20, y);
-                <LAST_ENTITY>[HP] = 0x01;
+                <LAST_ENTITY>[HP] = 0d1;
+                attach_script(LAST_ENTITY, DEATH, reference(enemy_killed));
                 face(LAST_ENTITY, WEST);
                 
                 // attach_to_script(LAST_ENTITY);
@@ -6185,21 +6207,43 @@ area altus_plateau_entry() {
             }
 
             fun shooting_mosquito(enemy, y) {
+                ROOM.ENEMIES_ALIVE++;
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.ENEMIES_ALIVE, 0d1);
+                }
+
                 add_enemy(enemy, 0x20, y);
-                <LAST_ENTITY>[HP] = 0x01;
+                <LAST_ENTITY>[HP] = 0d1;
                 face(LAST_ENTITY, WEST);
+                attach_script(LAST_ENTITY, DEATH, reference(enemy_killed));
                 
                 attach_to_script(LAST_ENTITY);
-                walk(LAST_ENTITY, TILE_ABSOLUTE_DIRECT, 0x00, y, NONE);
+                walk(LAST_ENTITY, TILE_ABSOLUTE_DIRECT, 0d0, y, NONE);
+
+                arg[0x10] = 0x80 + randrange(0d60);
 
                 while!(dead(<SCRIPT_OWNER>)) {
-                    if(<SCRIPT_OWNER>[X] <= 0x00) {
-                        destroy(SCRIPT_OWNER);
-                        end();
+                    arg[0x10]--;
+
+                    if(<SCRIPT_OWNER>[X] <= 0d0) {
+                        if(<SCRIPT_OWNER>[HP] > 0d0) {
+                            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                            yield();
+
+                            destroy(SCRIPT_OWNER);
+                            enemy_killed();
+                            end();
+                        }
                     }
-                    sound(PROJECTILE_SHOOTING);
-                    shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0x10, 0xff);
-                    sleep(0x80);
+
+                    if(arg[0x10] == 0d0) {
+                        arg[0x10] = 0x80 + randrange(0d60);
+
+                        sound(PROJECTILE_SHOOTING);
+                        shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0x10, 0xff);
+                    }
+
+                    yield();
                 }
             }
 
@@ -6225,22 +6269,23 @@ area altus_plateau_entry() {
                 attach_to_script(BOSS.ID);
 
                 while!(dead(<SCRIPT_OWNER>)) {
-                    if(BOSS.RING_TIMER == 0x00) {
+                    if((BOSS.RING_TIMER == 0d0) && (<SCRIPT_OWNER>[FALLING_HEIGHT] == 0d0) && !(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
                         sound(PROJECTILE_SHOOTING);
                         shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0x10, 0xff);
                     }
+
                     sleep(0x40);
-                    BOSS.ID[JUMP_HEIGHT] = 0x05;
+                    <SCRIPT_OWNER>[VELOCITY] = 0d5;
                     sleep(0x40);
-                    BOSS.ID[JUMP_HEIGHT] = 0x05;
+                    <SCRIPT_OWNER>[VELOCITY] = 0d5;
                 }
             }
 
             @install()
             fun fan_damage() {
-                if(BOSS.PHASE == 0x00) {
+                if(BOSS.PHASE == 0d0) {
                     if(BOSS.ID[HP] <= BOSS.P1_THRESHOLD) {
-                        BOSS.PHASE = 0x01;
+                        BOSS.PHASE = 0d1;
                     }
                 }
             }
@@ -6278,8 +6323,18 @@ area altus_plateau_entry() {
                         sleep(BOSS.TURN_TIME);
                     } else {
                         attribute(BOSS.ID, INVINCIBLE, True);
-                        BOSS.ID[JUMP_HEIGHT] = 0d50;
+
+                        while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                            yield();
+                        }
+
+                        BOSS.ID[VELOCITY] = 0d50;
                         walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, 0x10, 0x10, SCRIPT_OWNER);
+
+                        while(BOSS.ID[FALLING_HEIGHT] > 0d0) {
+                            yield();
+                        }
+
                         attribute(BOSS.ID, INVINCIBLE, False);
 
                         attribute(BOSS.ID, ROOT, True);
@@ -6294,12 +6349,12 @@ area altus_plateau_entry() {
             fun exit_map() {
                 attribute(BOY, INVINCIBLE_TEMP, True);
 
-                <BOY>[JUMP_HEIGHT] = 0x20;
-                ROOM.SHIP_ID[JUMP_HEIGHT] = 0x20;
+                <BOY>[VELOCITY] = 0x20;
+                ROOM.SHIP_ID[VELOCITY] = 0x20;
                 sleep(0x30);
 
-                <BOY>[JUMP_HEIGHT] = 0xff;
-                ROOM.SHIP_ID[JUMP_HEIGHT] = 0xff;
+                <BOY>[VELOCITY] = 0xff;
+                ROOM.SHIP_ID[VELOCITY] = 0xff;
                 sleep(0x50);
 
                 map_transition(well, crash, NONE);
@@ -6310,6 +6365,20 @@ area altus_plateau_entry() {
                 destroy(SCRIPT_OWNER);
 
                 exit_map();
+            }
+
+            fun pause() {
+                sleep(0d60);
+
+                while(ROOM.ENEMIES_ALIVE > 0d0) {
+                    yield();
+                }
+
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.ENEMIES_ALIVE, 0d0);
+                }
+
+                sleep(0d120);
             }
 
             fun trigger_enter() {
@@ -6338,44 +6407,48 @@ area altus_plateau_entry() {
 
                 subtext("go!");
 
-                if(True) {
+                if(ROOM.PROGRESS == 0d0) {
                     enemy(ENEMY.MOSQUITO, 0x10);
 
-                    sleep(0d250);
+                    pause();
 
                     enemy(ENEMY.MOSQUITO, 0x05);
                     enemy(ENEMY.MOSQUITO, 0x15);
 
-                    sleep(0d250);
+                    pause();
 
                     enemy(ENEMY.MOSQUITO, 0x05);
                     enemy(ENEMY.MOSQUITO, 0x15);
 
-                    sleep(0d250);
+                    pause();
 
                     enemy(ENEMY.BUZZARD_1, 0x10);
 
-                    sleep(0d250);
+                    pause();
+
+                    ROOM.PROGRESS = 0d1;
                 }
 
-                if(True) {
+                if(ROOM.PROGRESS == 0d1) {
                     shooting_mosquito_2();
 
-                    sleep(0d250);
+                    pause();
 
                     shooting_mosquito_1();
                     shooting_mosquito_3();
 
-                    sleep(0d250);
+                    pause();
 
                     shooting_mosquito_1();
                     shooting_mosquito_2();
                     shooting_mosquito_3();
 
-                    sleep(0d250);
+                    pause();
+
+                    ROOM.PROGRESS = 0d2;
                 }
 
-                if(True) {
+                if(ROOM.PROGRESS == 0d2) {
                     shooting_fan();
                     sleep(0x60);
 
@@ -6390,6 +6463,8 @@ area altus_plateau_entry() {
                     }
 
                     sleep(0d250);
+
+                    ROOM.PROGRESS = 0d3;
                 }
 
                 if(True) {
@@ -6406,6 +6481,10 @@ area altus_plateau_entry() {
             south = entrance(0x15, 0x23, NORTH),
 
             teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
+        }
+
+        enum soundtrack {
+            default = soundtrack(AREA_ALTUS_PLATEAU.DEFAULT_MUSIC, 0xff)
         }
 
         enum stepon_trigger {
@@ -6428,6 +6507,10 @@ area altus_plateau_entry() {
     map cave_shop(ACT1_2_CAVES) {
         enum entrance {
             south = entrance(0x40, 0x2d, NORTH),
+        }
+
+        enum soundtrack {
+            default = soundtrack(AREA_ALTUS_PLATEAU.DEFAULT_MUSIC, 0xff)
         }
 
         enum stepon_trigger {
@@ -7192,7 +7275,7 @@ area altus_plateau_entry() {
                 attach_to_script(LAST_ENTITY);
                 <SCRIPT_OWNER>[FALLING_HEIGHT] = 0x1fff;
                 sleep(0x80);
-                <SCRIPT_OWNER>[JUMP_HEIGHT] = 0x20;
+                <SCRIPT_OWNER>[VELOCITY] = 0x20;
                 
                 add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
                 arg[0x00] = <LAST_ENTITY>;
@@ -9421,7 +9504,7 @@ area east_inbetwixx() {
             if(<ACTIVE> == <BOY>) {
                 animate(BOY, ONCE, SLASH_2);
 
-                <SCRIPT_OWNER>[JUMP_HEIGHT] = 0x30;
+                <SCRIPT_OWNER>[VELOCITY] = 0x30;
                 sleep(0x50);
 
                 object[0x00] = 0x01;
@@ -10108,8 +10191,8 @@ area east_inbetwixx() {
         @install()
         @async()
         fun stomp() {
-            BOSS.RIDER_ID[JUMP_HEIGHT] = 0x38;
-            BOSS.MOUNT_ID[JUMP_HEIGHT] = 0x30;
+            BOSS.RIDER_ID[VELOCITY] = 0x38;
+            BOSS.MOUNT_ID[VELOCITY] = 0x30;
 
             // attribute(BOSS.MOUNT_ID, ROOT, True);
             // animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
@@ -12144,13 +12227,13 @@ area east_inbetwixx() {
                     while((BOSS.ID[Y] - 0x0a) < <BOY>[Y]) {
                         BOSS.RNG = randrange(0x04);
                         if(BOSS.RNG == 0x00) {
-                            BOSS.ID[JUMP_HEIGHT] = 0x10;
+                            BOSS.ID[VELOCITY] = 0x10;
                             sleep(0x10);
                         } else if(BOSS.RNG == 0x01) {
-                            BOSS.ID[JUMP_HEIGHT] = 0x20;
+                            BOSS.ID[VELOCITY] = 0x20;
                             sleep(0x20);
                         } else if(BOSS.RNG == 0x02) {
-                            BOSS.ID[JUMP_HEIGHT] = 0x30;
+                            BOSS.ID[VELOCITY] = 0x30;
                             sleep(0x30);
                         }
 
@@ -12183,7 +12266,7 @@ area east_inbetwixx() {
                     while((BOSS.ID[Y] - 0x0a) < <BOY>[Y]) {
                         // if(BOSS.ID[Y] < (<BOY>[Y] - 0x0a)) {
                         if(True) {
-                            if((BOSS.ID[JUMP_HEIGHT] > 0x00) && (<BOY>[JUMP_HEIGHT] > 0x00)) {
+                            if((BOSS.ID[VELOCITY] > 0x00) && (<BOY>[VELOCITY] > 0x00)) {
                                 damage(BOY, 0x01, True);
                             }
                         }
@@ -12945,7 +13028,7 @@ area east_inbetwixx() {
                         attribute(SCRIPT_OWNER, ROOT, True);
                         sleep(0x55);
 
-                        <SCRIPT_OWNER>[JUMP_HEIGHT] = 0x20;
+                        <SCRIPT_OWNER>[VELOCITY] = 0x20;
                         sleep(0x30);
 
                         attribute(SCRIPT_OWNER, ROOT, False);
@@ -13548,10 +13631,10 @@ area southern_jungle() {
             animate(ROOM.LIFT_TRIGGER, LOOP, ANIMATION_PLACEHOLDER.LIFT_MOVING);
 
             while(arg[0x00] < ROOM.LIFT_END) {
-                ROOM.LIFT_TRIGGER[JUMP_HEIGHT] = arg[0x00];
-                ROOM.LIFT_CORD[JUMP_HEIGHT] = arg[0x00];
-                <BOY>[JUMP_HEIGHT] = arg[0x00];
-                <DOG>[JUMP_HEIGHT] = arg[0x00];
+                ROOM.LIFT_TRIGGER[VELOCITY] = arg[0x00];
+                ROOM.LIFT_CORD[VELOCITY] = arg[0x00];
+                <BOY>[VELOCITY] = arg[0x00];
+                <DOG>[VELOCITY] = arg[0x00];
 
                 arg[0x00] += ROOM.LIFT_SPEED_INCREMEND;
                 sleep(ROOM.LIFT_SPEED_SLEEP);
@@ -15049,7 +15132,7 @@ area town() {
                     door_west_2 = @install() {
                         debug_subtext("S=7");
 
-                        fog_wall_outside(DEAD_WALL, WEST);
+                        fog_wall_outside(DEAD_WALL, EAST);
                         map_transition(town_temple_underground_wall_boss, fake_lift, WEST);
                     },
                     door_west_1 = @install() {
@@ -19873,7 +19956,7 @@ area dungeon_isaac() {
 
         @install()
         fun jump(entity) {
-            entity[JUMP_HEIGHT] = 0x30;
+            entity[VELOCITY] = 0x30;
             
             while(arg[0x02] <= 0x30) {
                 arg[0x02]++;
@@ -21927,7 +22010,7 @@ area dungeon_isaac() {
 
                 @install()
                 fun yeet() {
-                    BOSS.ID[JUMP_HEIGHT] = 0d85;
+                    BOSS.ID[VELOCITY] = 0d85;
                     
                     BOSS.FOLLOWING = True;
                     sleep(0d160);
@@ -21939,7 +22022,7 @@ area dungeon_isaac() {
 
                 @install()
                 fun hop() {
-                    BOSS.ID[JUMP_HEIGHT] = 0d30;
+                    BOSS.ID[VELOCITY] = 0d30;
 
                     BOSS.FOLLOWING = True;
                     sleep(0d60);
@@ -23474,7 +23557,7 @@ area dungeon_volcano() {
 
             arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
 
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = 0d50;
+            <SCRIPT_OWNER>[VELOCITY] = 0d50;
 
             while((<SCRIPT_OWNER>[X] != arg[0x10][X]) && (<SCRIPT_OWNER>[Y] != arg[0x10][Y])) {
                 if(<SCRIPT_OWNER>[X] > arg[0x10][X]) {
@@ -23495,9 +23578,9 @@ area dungeon_volcano() {
             destroy(arg[0x10]);
             sound(GORE_MOSQUITO);
 
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = 0d20;
+            <SCRIPT_OWNER>[VELOCITY] = 0d20;
             sleep(0d40);
-            <SCRIPT_OWNER>[JUMP_HEIGHT] = 0d10;
+            <SCRIPT_OWNER>[VELOCITY] = 0d10;
             sleep(0d30);
 
             destroy(SCRIPT_OWNER);
@@ -26729,7 +26812,7 @@ area experimental_room() {
             while!(dead(BOSS.MOUNT_ID)) {
                 BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
                 BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
-                BOSS.RIDER_ID[JUMP_HEIGHT] = BOSS.MOUNT_ID[JUMP_HEIGHT];
+                BOSS.RIDER_ID[VELOCITY] = BOSS.MOUNT_ID[VELOCITY];
                 
                 sleep(0d2);
             }
@@ -27239,7 +27322,7 @@ area experimental_room() {
             // call_async(0x94eb0c);
 
             animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            <BOY>[JUMP_HEIGHT] = 0x20;
+            <BOY>[VELOCITY] = 0x20;
 
             while(<BOY>[X] > 0x70) {
                 // teleport(<BOY>, <0x24ab>, <0x24af>);
@@ -28047,9 +28130,9 @@ area experimental_room() {
                 subtext("Bee uses…");
 
                 if(False) {
-                    BOSS.POKEMON[JUMP_HEIGHT] = 0d100;
+                    BOSS.POKEMON[VELOCITY] = 0d100;
                 } else {
-                    BOSS.POKEMON[JUMP_HEIGHT] = 0d20;
+                    BOSS.POKEMON[VELOCITY] = 0d20;
                 }
                 cast(BOSS.POKEMON, DOG, STING, 0d20);
                 sleep(0d200);
@@ -28068,7 +28151,7 @@ area experimental_room() {
             } else {
                 subtext("Chameleon uses…");
 
-                BOSS.POKEMON[JUMP_HEIGHT] = 0d20;
+                BOSS.POKEMON[VELOCITY] = 0d20;
                 cast(BOSS.POKEMON, DOG, FLASH, 0d30);
                 sleep(0d200);
             }

@@ -947,7 +947,7 @@ class Opcode():
 
         "obj": 0x5d,
 
-        "write temp byte": 0x10,
+        "write temp byte": 0x11,
         "write temp word": 0x19,
         "write temp flag": 0x0d,
         "write byte": 0x14,
