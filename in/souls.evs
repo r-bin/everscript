@@ -4788,6 +4788,26 @@ area north_inbetwixx() {
 
             destroy(SCRIPT_OWNER);
         }
+        @install()
+        @async()
+        fun place_mosquito() {
+            _add_enemy(MOSQUITO, BOSS.ID[X], BOSS.ID[Y]);
+            attach_to_script(LAST_ENTITY);
+
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                if((BOSS.ID[X] >= MEMORY.CAMERA_X_MIN) && ((BOSS.ID[X] <= MEMORY.CAMERA_X_MAX)) && (BOSS.ID[Y] >= MEMORY.CAMERA_Y_MIN) && ((BOSS.ID[Y] <= MEMORY.CAMERA_Y_MAX))) {
+                    cast(SCRIPT_OWNER, BOSS.ID, FIREBALL, 0d20);
+                } else {
+                    cast(SCRIPT_OWNER, BOY, FIREBALL, 0d10);
+                }
+            }));
+
+            sleep(0d600);
+
+            cast(SCRIPT_OWNER, BOY, FIREBALL, 0d10);
+
+            destroy(SCRIPT_OWNER);
+        }
 
         @install()
         fun choose_move_set() {
@@ -4795,7 +4815,7 @@ area north_inbetwixx() {
             BOSS.CASTING = False;
 
             while!(BOSS.CASTING) {
-                BOSS.RNG = randrange(0d5);
+                BOSS.RNG = randrange(0d6);
 
                 if((BOSS.RNG == 0d0) && (SOULS_MEMORY.DEAD_MONSTRO)) {
                     prepare_casting();
@@ -4848,6 +4868,11 @@ area north_inbetwixx() {
 
                     animate(BOSS.ID, ONCE, ANIMATION_BOY.KNEEL);
                     place_spark();
+                } else if((BOSS.RNG == 0d5) && (SOULS_MEMORY.DEAD_ARENA_MOSQUITO)) {
+                    prepare_casting();
+
+                    animate(BOSS.ID, ONCE, ANIMATION_BOY.KNEEL);
+                    place_mosquito();
                 } else {
                     if(BOSS.DEBUG) {
                         // debug_memory(BOSS.RNG, 0d0);
@@ -4989,10 +5014,11 @@ area north_inbetwixx() {
                 if(False) {
                     <BOY>[HP] = SYSTEM.HP_MAX;
                     
-                    SOULS_MEMORY.DEAD_MONSTRO = True;
+                    // SOULS_MEMORY.DEAD_MONSTRO = True;
                     // SOULS_MEMORY.DEAD_DARK_ONE = True;
-                    SOULS_MEMORY.DEAD_BOWSER = True;
+                    // SOULS_MEMORY.DEAD_BOWSER = True;
                     // SOULS_MEMORY.DEAD_SQUIDMAR = True;
+                    SOULS_MEMORY.DEAD_ARENA_MOSQUITO = True;
                 }
 
                 add_boss(0d66, 0d35);
@@ -14322,7 +14348,6 @@ area town() {
 
             // level 1
             UNLOCKED_LEVEL_1 = memory(FLAG, SRAM),
-            FIREPIT_UNLOCKED = memory(FLAG, SRAM),
 
             // level 2
             UNLOCKED_LEVEL_2 = memory(FLAG, SRAM),
@@ -14604,19 +14629,19 @@ area town() {
 
                 fun open_doors(open) {
                     if(open) {
-                        object[0x03] = 0x01; // NE
+                        object[0x09] = 0x01; // NE
+                        object[0x03] = 0x01; // NW
 
-                        object[0x07] = 0x01; // SW
                         object[0x08] = 0x01; // SE
+                        object[0x07] = 0x01; // SW
 
-                        object[0x09] = 0x01; // NW
                     } else {
-                        object[0x03] = 0x00; // NE
+                        object[0x09] = 0x00; // NE
+                        object[0x03] = 0x00; // NW
 
-                        object[0x07] = 0x00; // SW
                         object[0x08] = 0x00; // SE
+                        object[0x07] = 0x00; // SW
 
-                        object[0x09] = 0x00; // NW
                     }
                 }
 
@@ -14630,6 +14655,25 @@ area town() {
                 }
 
                 fun trigger_enter() {
+                    // object[0x00] = 0x7e; // enroll bridge
+                    // object[0x01] = 0x01; // open gourde_2
+                    // object[0x02] = 0x01; // open gourde_1
+                    // object[0x03] = 0x01; // open door_NW
+                    // object[0x04] = 0x04; // open door_boss
+                    // object[0x05] = 0x7e; // open elevator
+                    // object[0x06] = 0x01; // activate bridge_switch
+                    // object[0x07] = 0x01; // open door_SW
+                    // object[0x08] = 0x01; // open door_SE
+                    // object[0x09] = 0x01; // open door_NE
+                    // object[0x0a] = 0x01; // activate switch
+                    // object[0x0b] = 0x01; // show bridge_left_1
+                    // object[0x0c] = 0x01; // show bridge_left_2
+                    // object[0x0d] = 0x01; // show bridge_left_3
+                    // object[0x0e] = 0x01; // show bridge_right_1
+                    // object[0x0f] = 0x01; // show bridge_right_2
+                    // object[0x10] = 0x01; // show bridge_right_3
+                    // object[0x11] = 0x01; // show bridge_right_4
+
                     if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
                         add_debug_entity(0d69, 0d87, reference(debug_triggered));
                     }
@@ -14651,17 +14695,6 @@ area town() {
 
                     fake_northern_wall();
                     default_init_room(False, False);
-
-                    // object[0x00] = 0x7e; // enroll bridge
-                    // object[0x01] = 0x01; // open gourde_2
-                    // object[0x02] = 0x01; // open gourde_1
-                    // object[0x03] = 0x01; // open door_NE
-                    // object[0x04] = 0x03; // open door_boss
-                    // object[0x05] = 0x7e; // open elevator
-                    // object[0x06] = 0x01; // activate switch
-                    // object[0x07] = 0x00; // open door_SW
-                    // object[0x08] = 0x00; // open door_SE
-                    // object[0x09] = 0x00; // open door_NW
                 }
             };
 
@@ -15103,6 +15136,9 @@ area town() {
                     DEBUG = False,
 
                     BOSS_DOOR_OPENED = memory(FLAG, SRAM),
+                    FIREPIT_UNLOCKED = memory(FLAG, SRAM),
+                    DOOR_WALL_BOSS_OPENED = memory(FLAG, SRAM),
+                    STONE_OFFSET = 0d8 * 0d4,
 
                     BRIDGE_LEFT = memory(WORD, TEMP),
                     BRIDGE_REVEALED_LEFT = memory(FLAG, SRAM),
@@ -15176,7 +15212,7 @@ area town() {
                     door_east_2 = @install() {
                         debug_subtext("S=9");
 
-                        if(AREA_TEMPLE.FIREPIT_UNLOCKED) {
+                        if(ROOM.FIREPIT_UNLOCKED) {
                             map_transition(town_temple_underground_firepit, west, EAST);
                         }
                     },
@@ -15245,19 +15281,19 @@ area town() {
 
                 fun open_doors(open) {
                     if(open) {
-                        object[0x03] = 0x01; // NE
+                        object[0x09] = 0x01; // NE
+                        // object[0x03] = 0x01; // NW
 
-                        object[0x07] = 0x01; // SW
                         // object[0x08] = 0x01; // SE
+                        object[0x07] = 0x01; // SW
 
-                        object[0x09] = 0x01; // NW
                     } else {
-                        object[0x03] = 0x00; // NE
+                        object[0x09] = 0x00; // NE
+                        // object[0x03] = 0x00; // NW
 
-                        object[0x07] = 0x00; // SW
                         // object[0x08] = 0x00; // SE
+                        object[0x07] = 0x00; // SW
 
-                        object[0x09] = 0x00; // NW
                     }
                 }
                 fun show_bridge_left() {
@@ -15272,34 +15308,17 @@ area town() {
                     object[0x11] = 0x01; // show bridge_right_4
                 }
 
-                @install()
-                fun revealer_triggered() {
-                    if(<SCRIPT_OWNER> == ROOM.BRIDGE_LEFT) {
-                        set(ROOM.BRIDGE_REVEALED_LEFT);
-
-                        show_bridge_left();
-
-                        destroy(SCRIPT_OWNER);
-                    } else if(<SCRIPT_OWNER> == ROOM.BRIDGE_RIGHT) {
-                        set(ROOM.BRIDGE_REVEALED_RIGHT);
-
-                        show_bridge_right();
-
-                        destroy(SCRIPT_OWNER);
-                    }
-                }
-
                 fun trigger_enter() {
                     // object[0x00] = 0x7e; // enroll bridge
                     // object[0x01] = 0x01; // open gourde_2
                     // object[0x02] = 0x01; // open gourde_1
-                    // object[0x03] = 0x01; // open door_NE
+                    // object[0x03] = 0x01; // open door_NW
                     // object[0x04] = 0x04; // open door_boss
                     // object[0x05] = 0x7e; // open elevator
                     // object[0x06] = 0x01; // activate bridge_switch
-                    // object[0x07] = 0x00; // open door_SW
-                    // object[0x08] = 0x00; // open door_SE
-                    // object[0x09] = 0x00; // open door_NW
+                    // object[0x07] = 0x01; // open door_SW
+                    // object[0x08] = 0x01; // open door_SE
+                    // object[0x09] = 0x01; // open door_NE
                     // object[0x0a] = 0x01; // activate switch
                     // object[0x0b] = 0x01; // show bridge_left_1
                     // object[0x0c] = 0x01; // show bridge_left_2
@@ -15331,7 +15350,67 @@ area town() {
 
                         revealer_approached(<LAST_ENTITY>);
                     }
-                    special_script(REVEALER, reference(revealer_triggered));
+                    special_script(REVEALER, reference(@install() {
+                        if(<SCRIPT_OWNER> == ROOM.BRIDGE_LEFT) {
+                            set(ROOM.BRIDGE_REVEALED_LEFT);
+
+                            show_bridge_left();
+
+                            destroy(SCRIPT_OWNER);
+                        } else if(<SCRIPT_OWNER> == ROOM.BRIDGE_RIGHT) {
+                            set(ROOM.BRIDGE_REVEALED_RIGHT);
+
+                            show_bridge_right();
+
+                            destroy(SCRIPT_OWNER);
+                        }
+                    }));
+
+                    add_enemy(STONE, 0d8, 0d62, STONE_LEVITATE);
+                    if(ROOM.DOOR_WALL_BOSS_OPENED) {
+                        <LAST_ENTITY>[X] += ROOM.STONE_OFFSET;
+
+                        object[0x03] = 0x01; // open door_NW
+                    }
+                    special_script(LEVITATE, reference(@install() {
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                        if!(ROOM.DOOR_WALL_BOSS_OPENED) {
+                            sleep(0d60);
+
+                            ROOM.DOOR_WALL_BOSS_OPENED = True;
+                            object[0x03] = 0x01; // open door_NW
+
+                            sleep(0d60);
+
+                            while(arg[0x10] < ROOM.STONE_OFFSET) {
+                                arg[0x10]++;
+
+                                <SCRIPT_OWNER>[X]++;
+
+                                sleep(0d3);
+                            }
+
+                            sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+                        } else {
+                            sleep(0d120);
+
+                            while(arg[0x10] < ROOM.STONE_OFFSET) {
+                                arg[0x10]++;
+
+                                <SCRIPT_OWNER>[X]--;
+
+                                sleep(0d3);
+                            }
+
+                            sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                            ROOM.DOOR_WALL_BOSS_OPENED = False;
+                            object[0x03] = 0x00; // open door_NW
+                        }
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    }));
 
                     set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
 
@@ -15339,10 +15418,12 @@ area town() {
 
                     default_init_room(True, False);
 
-                    if!(AREA_TEMPLE.FIREPIT_UNLOCKED) {
+                    if!(ROOM.FIREPIT_UNLOCKED) {
                         add_enemy(PLACEHOLDER, 0d77, 0d92);
                         attach_script(LAST_ENTITY, B, reference(@install() {
                             control(NONE);
+
+                            ROOM.FIREPIT_UNLOCKED = True;
                             
                             sound(WEIRD_SOUND);
                             object[0x08] = 0x01; // open door_SE
@@ -15413,8 +15494,6 @@ area town() {
                 }
 
                 fun trigger_enter() {
-                    AREA_TEMPLE.FIREPIT_UNLOCKED = True;
-
                     // object[0x00] = 0x01; // ignite fire
                     // object[0x01] = 0x02; // show windwalker_collision
 
@@ -16202,19 +16281,17 @@ area town() {
 
                 fun open_doors(open) {
                     if(open) {
-                        object[0x03] = 0x01; // NE
+                        object[0x09] = 0x01; // NE
+                        object[0x03] = 0x01; // NW
 
-                        object[0x07] = 0x01; // SW
                         object[0x08] = 0x01; // SE
-
-                        object[0x09] = 0x01; // NW
+                        object[0x07] = 0x01; // SW
                     } else {
-                        object[0x03] = 0x00; // NE
+                        object[0x09] = 0x00; // NE
+                        object[0x03] = 0x00; // NW
 
-                        object[0x07] = 0x00; // SW
                         object[0x08] = 0x00; // SE
-
-                        object[0x09] = 0x00; // NW
+                        object[0x07] = 0x00; // SW
                     }
                 }
 
@@ -16271,11 +16348,24 @@ area town() {
                 }
 
                 fun trigger_enter() {
-                    // object[0x00] = 0x01; // hide statue
-                    // object[0x01] = 0x01; // hide rubble
-                    // 2-4 ?
-                    // object[0x05] = 0x01; // open door
-                    // >5 ?
+                    // object[0x00] = 0x7e; // enroll bridge
+                    // object[0x01] = 0x01; // open gourde_2
+                    // object[0x02] = 0x01; // open gourde_1
+                    // object[0x03] = 0x01; // open door_NW
+                    // object[0x04] = 0x04; // open door_boss
+                    // object[0x05] = 0x7e; // open elevator
+                    // object[0x06] = 0x01; // activate bridge_switch
+                    // object[0x07] = 0x01; // open door_SW
+                    // object[0x08] = 0x01; // open door_SE
+                    // object[0x09] = 0x01; // open door_NE
+                    // object[0x0a] = 0x01; // activate switch
+                    // object[0x0b] = 0x01; // show bridge_left_1
+                    // object[0x0c] = 0x01; // show bridge_left_2
+                    // object[0x0d] = 0x01; // show bridge_left_3
+                    // object[0x0e] = 0x01; // show bridge_right_1
+                    // object[0x0f] = 0x01; // show bridge_right_2
+                    // object[0x10] = 0x01; // show bridge_right_3
+                    // object[0x11] = 0x01; // show bridge_right_4
 
                     default_init_room(True, False);
                 }
