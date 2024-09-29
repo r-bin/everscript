@@ -3864,3 +3864,217 @@ map desert(DESERT) {
         desert_damage();
     }
 };
+
+map river_bridge(RIVER) {
+    enum entrance {
+        east = entrance(0x44, 0x44, WEST),
+        west = entrance(0x01, 0x3d, EAST),
+        cave = entrance(0x41, 0x0b, SOUTH)
+    }
+
+    enum ROOM {
+        LIFT_ID = memory(WORD, TEMP),
+        LIFT_POSITION = memory(BYTE, SRAM),
+    }
+
+    fun init_lift(position) {
+        if(ROOM.LIFT_POSITION == 0d0) {
+            ROOM.LIFT_POSITION = position;
+        }
+
+        if(ROOM.LIFT_POSITION == 0d1) {
+            add_placeholder(LIFT_MOVING, 0d16, 0d15, ONCE_FREEZE);
+        } else if(ROOM.LIFT_POSITION == 0d2) {
+            add_placeholder(LIFT_MOVING, 0d33, 0d15, ONCE_FREEZE);
+        } else if(ROOM.LIFT_POSITION == 0d3) {
+            add_placeholder(LIFT_MOVING, 0d49, 0d15, ONCE_FREEZE);
+        }
+
+        ROOM.LIFT_ID = <LAST_ENTITY>;
+    }
+
+    @install()
+    fun move_lift(lift_id, position, dry) {
+        if(ROOM.LIFT_POSITION == position) {
+            end();
+        }
+
+        if(position == 0d1) {
+            arg[0x10] = 0d128;
+        } else if(position == 0d2) {
+            arg[0x10] = 0d264;
+        } else if(position == 0d3) {
+            arg[0x10] = 0d392;
+        }
+
+        if!(dry) {
+            if((<BOY>[X] < 0d272) ^ (<DOG>[X] < 0d272)) {
+                arg[0x12] = True;
+            }
+
+            if(arg[0x12]) {
+                walk(ACTIVE, COORDINATE_ABSOLUTE, lift_id[X], lift_id[Y], ACTIVE, NONE);
+                face(ACTIVE, SOUTH);
+            } else {
+                walk(ACTIVE, COORDINATE_ABSOLUTE, lift_id[X] - 0d8, lift_id[Y], NONE, NONE);
+                walk(INACTIVE, COORDINATE_ABSOLUTE, lift_id[X] + 0d8, lift_id[Y], BOTH, NONE);
+                face(ACTIVE, SOUTH);
+                face(INACTIVE, SOUTH);
+            }
+        }
+
+        animate(lift_id, LOOP, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+        while(lift_id[X] > arg[0x10]) {
+            lift_id[X]--;
+
+            if!(dry) {
+                if(arg[0x12]) {
+                    <ACTIVE>[X] = lift_id[X];
+                    <ACTIVE>[Y] = lift_id[Y];
+                } else {
+                    <ACTIVE>[X] = lift_id[X] - 0d8;
+                    <ACTIVE>[Y] = lift_id[Y];
+
+                    <INACTIVE>[X] = lift_id[X] + 0d8;
+                    <INACTIVE>[Y] = lift_id[Y];
+                }
+            }
+
+            yield();
+        }
+        while(lift_id[X] < arg[0x10]) {
+            lift_id[X]++;
+
+            if!(dry) {
+                if(arg[0x12]) {
+                    <ACTIVE>[X] = lift_id[X];
+                    <ACTIVE>[Y] = lift_id[Y];
+                } else {
+                    <ACTIVE>[X] = lift_id[X] - 0d8;
+                    <ACTIVE>[Y] = lift_id[Y];
+
+                    <INACTIVE>[X] = lift_id[X] + 0d8;
+                    <INACTIVE>[Y] = lift_id[Y];
+                }
+            }
+
+            yield();
+        }
+
+        animate(lift_id, ONCE_FREEZE, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+        if!(dry) {
+            if(arg[0x12]) {
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, ACTIVE, ACTIVE);
+            } else {
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, NONE, BOTH);
+                walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, BOTH, BOTH);
+            }
+        }
+
+        ROOM.LIFT_POSITION = position;
+    }
+
+    enum stepon_trigger {
+        lift_west = @install() {
+            debug_subtext("S=0");
+
+            if(ROOM.LIFT_POSITION == 0d1) {
+                move_lift(ROOM.LIFT_ID, 0d3);
+            }
+        },
+        lift_east = @install() {
+            debug_subtext("S=1");
+
+            if(ROOM.LIFT_POSITION == 0d3) {
+                move_lift(ROOM.LIFT_ID, 0d1);
+            }
+        },
+        exit_west = @install() {
+            debug_subtext("S=2");
+        },
+        bridge_east = @install() {
+            debug_subtext("S=3");
+        },
+        bridge_west = @install() {
+            debug_subtext("S=4");
+        },
+        stepon_5 = @install() {
+            debug_subtext("S=5");
+        },
+        stepon_6 = @install() {
+            debug_subtext("S=6");
+        },
+        stepon_7 = @install() {
+            debug_subtext("S=7");
+        },
+        stepon_8 = @install() {
+            debug_subtext("S=8");
+        },
+        exit_west = @install() {
+            debug_subtext("S=9");
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=0");
+            _loot(0x0c, WATER, 0d01, 0d01);
+        },
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x0b, WATER, 0d01, 0d01);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x0a, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=3");
+            _loot(0x09, ASH, 0d01, 0d02);
+        },
+        sniff__1_wax_1 = @install() {
+            debug_subtext("B=4");
+            _loot(0x08, WAX, 0d01, 0d01);
+        },
+        sniff__1_brimstone_2 = @install() {
+            debug_subtext("B=5");
+            _loot(0x07, BRIMSTONE, 0d01, 0d02);
+        },
+        sniff__1_brimstone = @install() {
+            debug_subtext("B=6");
+            _loot(0x06, BRIMSTONE, 0d01, 0d00);
+        },
+        sniff__1_limestone_1 = @install() {
+            debug_subtext("B=7");
+            _loot(0x05, LIMESTONE, 0d01, 0d01);
+        },
+        sniff__1_limestone_2 = @install() {
+            debug_subtext("B=8");
+            _loot(0x04, LIMESTONE, 0d01, 0d02);
+        },
+        sniff__1_ethanol_1 = @install() {
+            debug_subtext("B=9");
+            _loot(0x03, ETHANOL, 0d01, 0d01);
+        },
+
+        sniff__1_ethanol_2 = @install() {
+            debug_subtext("B=10");
+            _loot(0x02, ETHANOL, 0d01, 0d02);
+        },
+        sniff__1_ethanol_1 = @install() {
+            debug_subtext("B=11");
+            _loot(0x01, ETHANOL, 0d01, 0d01);
+        },
+        axe2_wall = @install() {
+            debug_subtext("B=12");
+        },
+    }
+    
+    fun trigger_enter() {
+        init_lift(0d3);
+
+        fade_in();
+    }
+};

@@ -7499,6 +7499,11 @@ area altus_plateau_entry() {
                     default = soundtrack(CASTLE.MUSIC, 0xff)
                 }
 
+                enum ROOM {
+                    BEE_COLLECTED = memory(FLAG, SRAM),
+                    BEE_TRIGGERED = memory(FLAG, TEMP),
+                }
+
                 enum stepon_trigger {
                     exit_north = @install() {
                         map_transition(castle_throne_room, south, NORTH);
@@ -7612,6 +7617,19 @@ area altus_plateau_entry() {
                 }
 
                 fun trigger_enter() {
+                    add_enemy(STONE, 0d86, 0d20, STONE_LEVITATE);
+                    special_script(LEVITATE, reference(@install() {
+                        if!(ROOM.BEE_TRIGGERED) {
+                            ROOM.BEE_TRIGGERED = True;
+
+                            if!(ROOM.BEE_COLLECTED) {
+                                add_bee(0d86, 0d20, reference(@install() {
+                                    bee_collected(ROOM.BEE_COLLECTED);
+                                }));
+                            }
+                        }
+                    }));
+
                     default_init_room(False, False);
 
                     place_statue(VIGOR, 0d64, 0d32);
@@ -8697,12 +8715,130 @@ area northwest_inbetwixx() {
             default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
         }
 
+        enum ROOM {
+            DEBUG = False,
+
+            LIFT_ID = memory(WORD, TEMP),
+            LIFT_POSITION = memory(BYTE, SRAM),
+            CENTER_LINE = 0d272,
+
+            SECRET_PASSAGE_TRIGGER = memory(WORD, TEMP),
+            SECRET_PASSAGE_DISTANCE = 0x10,
+        }
+
+        fun init_lift(position) {
+            if(ROOM.LIFT_POSITION == 0d0) {
+                ROOM.LIFT_POSITION = position;
+            }
+
+            if(ROOM.LIFT_POSITION == 0d1) {
+                add_placeholder(LIFT_MOVING, 0d16, 0d15, ONCE_FREEZE);
+            } else if(ROOM.LIFT_POSITION == 0d2) {
+                add_placeholder(LIFT_MOVING, 0d33, 0d15, ONCE_FREEZE);
+            } else if(ROOM.LIFT_POSITION == 0d3) {
+                add_placeholder(LIFT_MOVING, 0d49, 0d15, ONCE_FREEZE);
+            }
+
+            ROOM.LIFT_ID = <LAST_ENTITY>;
+        }
+
+        @install()
+        fun move_lift(lift_id, position, dry) {
+            if(ROOM.LIFT_POSITION == position) {
+                end();
+            }
+
+            if(position == 0d1) {
+                arg[0x10] = 0d128;
+            } else if(position == 0d2) {
+                arg[0x10] = 0d264;
+            } else if(position == 0d3) {
+                arg[0x10] = 0d392;
+            }
+
+            if!(dry) {
+                if((<BOY>[X] < ROOM.CENTER_LINE) ^ (<DOG>[X] < ROOM.CENTER_LINE)) {
+                    arg[0x12] = True;
+                }
+
+                if(arg[0x12]) {
+                    walk(ACTIVE, COORDINATE_ABSOLUTE, lift_id[X], lift_id[Y], ACTIVE, NONE);
+                    face(ACTIVE, SOUTH);
+                } else {
+                    walk(ACTIVE, COORDINATE_ABSOLUTE, lift_id[X] - 0d8, lift_id[Y], NONE, NONE);
+                    walk(INACTIVE, COORDINATE_ABSOLUTE, lift_id[X] + 0d8, lift_id[Y], BOTH, NONE);
+                    face(ACTIVE, SOUTH);
+                    face(INACTIVE, SOUTH);
+                }
+            }
+
+            animate(lift_id, LOOP, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+            while(lift_id[X] > arg[0x10]) {
+                lift_id[X]--;
+
+                if!(dry) {
+                    if(arg[0x12]) {
+                        <ACTIVE>[X] = lift_id[X];
+                        <ACTIVE>[Y] = lift_id[Y];
+                    } else {
+                        <ACTIVE>[X] = lift_id[X] - 0d8;
+                        <ACTIVE>[Y] = lift_id[Y];
+
+                        <INACTIVE>[X] = lift_id[X] + 0d8;
+                        <INACTIVE>[Y] = lift_id[Y];
+                    }
+                }
+
+                yield();
+            }
+            while(lift_id[X] < arg[0x10]) {
+                lift_id[X]++;
+
+                if!(dry) {
+                    if(arg[0x12]) {
+                        <ACTIVE>[X] = lift_id[X];
+                        <ACTIVE>[Y] = lift_id[Y];
+                    } else {
+                        <ACTIVE>[X] = lift_id[X] - 0d8;
+                        <ACTIVE>[Y] = lift_id[Y];
+
+                        <INACTIVE>[X] = lift_id[X] + 0d8;
+                        <INACTIVE>[Y] = lift_id[Y];
+                    }
+                }
+
+                yield();
+            }
+
+            animate(lift_id, ONCE_FREEZE, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+            if!(dry) {
+                if(arg[0x12]) {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, ACTIVE, ACTIVE);
+                } else {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, NONE, BOTH);
+                    walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, BOTH, BOTH);
+                }
+            }
+
+            ROOM.LIFT_POSITION = position;
+        }
+
         enum stepon_trigger {
             lift_west = @install() {
                 debug_subtext("S=0");
+
+                if(ROOM.LIFT_POSITION == 0d1) {
+                    move_lift(ROOM.LIFT_ID, 0d3);
+                }
             },
             lift_east = @install() {
                 debug_subtext("S=1");
+
+                if(ROOM.LIFT_POSITION == 0d3) {
+                    move_lift(ROOM.LIFT_ID, 0d1);
+                }
             },
             exit_west = @install() {
                 map_transition(volcano, east, WEST);
@@ -8791,13 +8927,6 @@ area northwest_inbetwixx() {
             }
         }
 
-        enum ROOM {
-            DEBUG = False,
-
-            SECRET_PASSAGE_TRIGGER = memory(WORD, TEMP),
-            SECRET_PASSAGE_DISTANCE = 0x10,
-        }
-
         @install()
         @async()
         fun hidden_exit_check() {
@@ -8833,6 +8962,19 @@ area northwest_inbetwixx() {
         }
         
         fun trigger_enter() {
+            init_lift(0d2);
+            if(ROOM.LIFT_POSITION == 0d2) {
+                add_enemy(FRIPPO, 0d33, 0d15 + 0d1);
+                <LAST_ENTITY>[HP] = 0d1;
+                attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                    if(<ACTIVE>[X] < ROOM.CENTER_LINE) {
+                        move_lift(ROOM.LIFT_ID, 0d1, True);
+                    } else {
+                        move_lift(ROOM.LIFT_ID, 0d3, True);
+                    }
+                }));
+            }
+
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // east
                 add_enemy(BUZZARD_1, 0d50, 0d26);
@@ -15373,6 +15515,10 @@ area town() {
                         object[0x03] = 0x01; // open door_NW
                     }
                     special_script(LEVITATE, reference(@install() {
+                        if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                            end();
+                        }
+
                         attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
 
                         if!(ROOM.DOOR_WALL_BOSS_OPENED) {
@@ -17080,38 +17226,46 @@ area town() {
             }
 
             enum b_trigger {
-                b_trigger_0 = @install() {
+                person_4_1__chicken_feeding = @install() {
                     debug_subtext("B=0");
                 },
-                b_trigger_1 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=1");
                 },
-                b_trigger_2 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=2");
                 },
-                b_trigger_3 = @install() {
+                prophet = @install() {
                     debug_subtext("B=3");
                 },
-                b_trigger_4 = @install() {
+                vendor_10_5__glove = @install() {
                     debug_subtext("B=4");
                 },
-                b_trigger_5 = @install() {
+                vendor_10_4__silver_sheath = @install() {
                     debug_subtext("B=5");
                 },
-                b_trigger_6 = @install() {
+                vendor_10_3__appraisal = @install() {
                     debug_subtext("B=6");
                 },
-                b_trigger_7 = @install() {
+                vendor_10_2__moxa_stick = @install() {
                     debug_subtext("B=7");
                 },
-                b_trigger_8 = @install() {
+                vendor_10_1__sun_stone = @install() {
                     debug_subtext("B=8");
                 },
-                b_trigger_9 = @install() {
+                vendor_7_2__limestone_tablet = @install() {
                     debug_subtext("B=9");
+
+                    question_max("[SLOW]Do you want to trade for Mud Pepper?[CHOICE]1 Dry Ice…", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // dry ice
+                        trade_items(MUD_PEPPER, 0d5, DRY_ICE, 0d1);
+                    }
+
+                    control(BOTH);
                 },
 
-                vendor_7_1 = @install() { // scarab lady
+                vendor_7_1__jeweled_scarab = @install() { // scarab lady
                     debug_subtext("B=10");
 
                     question_max("[SLOW]Do you want to trade for Mushrooms?[CHOICE]5 Limestone…[CHOICE]5 Vinegar…[CHOICE]3 Bones…", 0d5);
@@ -17126,149 +17280,149 @@ area town() {
 
                     control(BOTH);
                 },
-                b_trigger_11 = @install() {
+                vendor_9_2__helmet = @install() {
                     debug_subtext("B=11");
                 },
-                b_trigger_12 = @install() {
+                vendor_9_1__ruby_heart = @install() {
                     debug_subtext("B=12");
                 },
-                b_trigger_13 = @install() {
+                vendor_8_2__jade_disk = @install() {
                     debug_subtext("B=13");
                 },
-                b_trigger_14 = @install() {
+                vendor_8_1__beads = @install() {
                     debug_subtext("B=14");
                 },
-                b_trigger_15 = @install() {
+                vendor_6_1__beads = @install() {
                     debug_subtext("B=15");
                 },
-                b_trigger_16 = @install() {
+                vendor_5_4__currency = @install() {
                     debug_subtext("B=16");
                 },
                 b_trigger_17 = @install() {
                     debug_subtext("B=17");
                 },
-                b_trigger_18 = @install() {
+                vendor_5_2__spice = @install() {
                     debug_subtext("B=18");
                 },
-                b_trigger_19 = @install() {
+                vendor_5_1__perfume = @install() {
                     debug_subtext("B=19");
                 },
 
-                b_trigger_20 = @install() {
+                vendor_4_1__rice = @install() {
                     debug_subtext("B=20");
                 },
-                b_trigger_21 = @install() {
+                vendor_4_2__beads = @install() {
                     debug_subtext("B=21");
                 },
-                b_trigger_22 = @install() {
+                vendor_4_3__tapestry = @install() {
                     debug_subtext("B=22");
                 },
-                b_trigger_23 = @install() {
+                vendor_3_4__polish = @install() {
                     debug_subtext("B=23");
                 },
-                b_trigger_24 = @install() {
+                vendor_3_3__chest = @install() {
                     debug_subtext("B=24");
                 },
-                b_trigger_25 = @install() {
+                vendor_3_2__amulet = @install() {
                     debug_subtext("B=25");
                 },
-                b_trigger_26 = @install() {
+                vendor_3_1__jackal = @install() {
                     debug_subtext("B=26");
                 },
-                b_trigger_27 = @install() {
+                vendor_2_3__pot = @install() {
                     debug_subtext("B=27");
                 },
-                b_trigger_28 = @install() {
+                vendor_1_4__rice = @install() {
                     debug_subtext("B=28");
                 },
-                b_trigger_29 = @install() {
+                vendor_1_3__fish = @install() {
                     debug_subtext("B=29");
                 },
 
-                b_trigger_30 = @install() {
+                guard_1_1 = @install() {
                     debug_subtext("B=30");
                 },
-                b_trigger_31 = @install() {
+                vendor_2_2__egg = @install() {
                     debug_subtext("B=31");
                 },
-                b_trigger_32 = @install() {
+                vendor_2_1__spoon = @install() {
                     debug_subtext("B=32");
                 },
-                b_trigger_33 = @install() {
+                vendor_1_1__spice = @install() {
                     debug_subtext("B=33");
                 },
-                b_trigger_34 = @install() {
+                goat_xx = @install() {
                     debug_subtext("B=34");
                 },
-                b_trigger_35 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=35");
                 },
-                b_trigger_36 = @install() {
+                goat_xx = @install() {
                     debug_subtext("B=36");
                 },
-                b_trigger_37 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=37");
                 },
-                b_trigger_38 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=38");
                 },
-                b_trigger_39 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=39");
                 },
 
-                b_trigger_40 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=40");
                 },
-                b_trigger_41 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=41");
                 },
-                b_trigger_42 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=42");
                 },
-                b_trigger_43 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=43");
                 },
-                b_trigger_44 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=44");
                 },
-                b_trigger_45 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=45");
                 },
-                b_trigger_46 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=46");
                 },
-                b_trigger_47 = @install() {
+                chicken_xx = @install() {
                     debug_subtext("B=47");
                 },
-                b_trigger_48 = @install() {
+                pot_hidden = @install() {
                     debug_subtext("B=48");
                 },
-                b_trigger_49 = @install() {
+                guard_4_1 = @install() {
                     debug_subtext("B=49");
                 },
 
-                b_trigger_50 = @install() {
+                person_4_2__juggler = @install() {
                     debug_subtext("B=50");
                 },
-                b_trigger_51 = @install() {
+                goat_xx = @install() {
                     debug_subtext("B=51");
                 },
-                b_trigger_52 = @install() {
+                goat_xx = @install() {
                     debug_subtext("B=52");
                 },
-                b_trigger_53 = @install() {
+                vendor_1_2__rice = @install() {
                     debug_subtext("B=53");
                 },
-                b_trigger_54 = @install() {
+                person_4_3__juggler_crowd_1 = @install() {
                     debug_subtext("B=54");
                 },
-                b_trigger_55 = @install() {
+                person_4_3__juggler_crowd_2 = @install() {
                     debug_subtext("B=55");
                 },
-                b_trigger_56 = @install() {
+                pot_xx = @install() {
                     debug_subtext("B=56");
                 },
-                b_trigger_57 = @install() {
+                pot_xx = @install() {
                     debug_subtext("B=57");
                 },
             }
@@ -17313,7 +17467,7 @@ area town() {
                 object[0x16] = 0x01; // remove vendor_5_2 (other spice guy)
                 object[0x17] = 0x01; // remove vendor_5_3 (chicken guy)
                 object[0x18] = 0x01; // remove vendor_6_1 (beads lady)
-                object[0x19] = 0x01; // remove vendor_7_2 (tablet lady)
+                // object[0x19] = 0x01; // remove vendor_7_2 (tablet lady)
                 object[0x1a] = 0x01; // remove vendor_8_1 (other beads guy)
                 object[0x1b] = 0x01; // remove vendor_8_2 (jade disk lady)
                 object[0x1c] = 0x01; // remove vendor_9_1 (heart lady)
