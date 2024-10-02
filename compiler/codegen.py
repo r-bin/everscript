@@ -682,11 +682,11 @@ allocated RAM:
         address = inject.eval([])
         call = Call(self, function)
         count = call.count([])
-        if function.terminate:
+        if inject.terminate:
             count += 1 # TODO
         
         script = [call.code([])]
-        if function.terminate:
+        if inject.terminate:
             script += [ End().code([]) ]
         else:
             pass
