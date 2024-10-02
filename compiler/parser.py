@@ -364,9 +364,9 @@ class Parser():
                     return Annotation_Install(params[0], params[1].eval([]) > 0)
                 
                 case ["inject", 1]:
-                    return Annotation_Inject(params[0], True)
+                    return Annotation_Inject(params[0], False)
                 case ["inject", 2]:
-                    return Annotation_Inject(params[0], params[1].eval() == 0)
+                    return Annotation_Inject(params[0], params[1].eval([]) > 0)
                 
                 case ["async", 0]:
                     return Annotation_Async()

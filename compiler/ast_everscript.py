@@ -393,7 +393,7 @@ class Annotation_Install(BaseBox):
             return None
     
 class Annotation_Inject(BaseBox):
-    def __init__(self, address, terminate):
+    def __init__(self, address, terminate=False):
         self.address = address
         self.terminate = terminate
 
