@@ -396,6 +396,12 @@ class Word(Function_Base, Calculatable):
         #    i = (i - 0xfff0) & 0x0f
         #    i = [[Operand("int fff0-ffff"), i]]
         else:
+            if self.value_count() == None:
+                if self.value > 0xff:
+                    self.force_value_count(2)
+                else:
+                    self.force_value_count(1)
+
             match [self.value_count(), self.value >= 0x00]:
                 case [1, True]:
                     i = [Operand("byte"), self.code([])]

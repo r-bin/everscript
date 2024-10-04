@@ -3426,6 +3426,12 @@ group functions() {
                     } else if(character == CHARACTER.DOG) {
                         code(0xbf, "// (bf) DOG = Player controlled");
                         code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                    } else {
+                        if(control) {
+                            code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+                        } else {
+                            code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                        }
                     }
                 }
             }
@@ -3770,10 +3776,27 @@ group functions() {
                 code(0x8c, install_string(id), "// (a3) CALL 'Actual save dialog' (0x4e)");
             }
 
-            fun set_camera(x, y, speed) {
-                MEMORY.CAMERA_PAN_X = x;
-                MEMORY.CAMERA_PAN_Y = y;
-                MEMORY.CAMERA_PAN_SPEED = speed;
+            enum CAMERA_PAN_TYPE {
+                COORDINATE_CORNER = 0d0,
+                COORDINATE_CENTER = 0d1,
+                
+                TILE_CENTER = 0d2,
+            }
+
+            fun set_camera(type:CAMERA_PAN_TYPE, x, y, speed) {
+                if(type == CAMERA_PAN_TYPE.COORDINATE_CORNER) {
+                    MEMORY.CAMERA_PAN_X = x;
+                    MEMORY.CAMERA_PAN_Y = y;
+                    MEMORY.CAMERA_PAN_SPEED = speed;
+                } else if(type == CAMERA_PAN_TYPE.COORDINATE_CENTER) {
+                    MEMORY.CAMERA_PAN_X = x - (0d256 / 0d2);
+                    MEMORY.CAMERA_PAN_Y = y - (0d224 / 0d2);
+                    MEMORY.CAMERA_PAN_SPEED = speed;
+                } else if(type == CAMERA_PAN_TYPE.TILE_CENTER) {
+                    MEMORY.CAMERA_PAN_X = (x << 0d3) - (0d256 / 0d2 - 0d4);
+                    MEMORY.CAMERA_PAN_Y = (y << 0d3) - (0d224 / 0d2 - 0d4);
+                    MEMORY.CAMERA_PAN_SPEED = speed;
+                }
             }
             fun free_camera() {
                 MEMORY.CAMERA_PAN_X = 0xffff;
@@ -3788,6 +3811,25 @@ group functions() {
         group sprite() {
             fun animate(character:CHARACTER, mode:ANIMATION_MODE, id:ANIMATION_ALL) {
                 code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+            }
+            fun smart_animate(character:CHARACTER, mode:ANIMATION_MODE, id:ANIMATION_ALL) {
+                if(character is Word) {
+                    animate(character, mode, id);
+                } else {
+                    if((id == ANIMATION_BOY.FALL_2) || (id == ANIMATION_DOG.ACT1_FALL2)) {
+                        if(character == <BOY>) {
+                            animate(character, mode, ANIMATION_BOY.FALL_2);
+                        } else {
+                            animate(character, mode, ANIMATION_DOG.ACT1_FALL2);
+                        }
+                    } else if((id == ANIMATION_BOY.FALL_1) || (id == ANIMATION_DOG.ACT1_ANGRY)) {
+                        if(character == <BOY>) {
+                            animate(character, mode, ANIMATION_BOY.FALL_1);
+                        } else {
+                            animate(character, mode, ANIMATION_DOG.ACT1_ANGRY);
+                        }
+                    }
+                }
             }
 
             fun _add_enemy(enemy:ENEMY, x, y, flags:FLAG_ENEMY) {
@@ -6150,12 +6192,146 @@ group functions() {
                 yield();
             }
         }
+        fun range_checker2(entity_1, entity_2, entity_3, range, callback) {
+            attach_to_script(entity_1);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                check_range(<SCRIPT_OWNER>, entity_2, range, callback);
+
+                yield();
+
+                check_range(<SCRIPT_OWNER>, entity_3, range, callback);
+
+                yield();
+            }
+        }
 
         @install()
         fun generic_switch_floor(object_id) {
             sound(MAGMA_HARDENING);
 
             object[object_id] = 0x0b;
+        }
+
+        @install()
+        fun generic_act1_volcano_pressure_plate_jump(entity, z, end, step) {
+            if(entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                end();
+            }
+
+            arg[0x10] = -(z);
+            arg[0x12] = entity[X] << 0d4;
+            arg[0x14] = entity[Y] << 0d4;
+
+            if(False) {
+                debug_memory3(signed arg[0x10], end, step);
+                sleep(0d60);
+                debug_boy();
+                sleep(0d60);
+            }
+
+            debug_marker();
+            smart_animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+
+            while(signed arg[0x10] < end) {
+                arg[0x10]++;
+
+                arg[0x12] += step;
+                arg[0x14] += signed arg[0x10];
+
+                _teleport(entity, arg[0x12] >> 0d4, arg[0x14] >> 0d4);
+                yield();
+            }
+
+            smart_animate(entity, ONCE, ANIMATION_BOY.FALL_1);
+        }
+
+        fun _generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step) {
+            walk(entity, TILE_ABSOLUTE, x, y, entity, NONE);
+
+            object[object_id] = object_state;
+            tile_animate(0x01, 0xff, 0x08);
+
+            generic_act1_volcano_pressure_plate_jump(entity, z, end, step);
+
+            if(object_id == 0x05) {
+                object[object_id] = 0x01;
+            } else {
+                object[object_id] = 0x00;
+            }
+
+            control(entity, False);
+        }
+        @install()
+        @async()
+        fun generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step) {
+            _generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step);
+        }
+        fun generic_act1_volcano_pressure_plate(x, y, object_id, object_state, z, end, step) {
+            control(ACTIVE, True);
+
+            while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                yield();
+            }
+            control(INACTIVE, True);
+
+            generic_act1_volcano_pressure_plate_walk(<ACTIVE>, x, y, object_id, object_state, z, end, step);
+
+            _generic_act1_volcano_pressure_plate_walk(<INACTIVE>, x, y, object_id, object_state, z, end, step);
+        }
+
+        fun _generic_act1_volcano_cave_hole_walk(entity) {
+            smart_animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+
+            while(arg[0x10] < 0d19) {
+                arg[0x10]++;
+
+                _teleport(entity, entity[X], entity[Y] + 0d4);
+
+                yield();
+            }
+
+            smart_animate(entity, ONCE, ANIMATION_BOY.FALL_1);
+
+            control(entity, False);
+        }
+        @install()
+        @async()
+        fun generic_act1_volcano_cave_hole_walk(entity) {
+            sleep(0d44);
+
+            _generic_act1_volcano_cave_hole_walk(entity);
+        }
+        @install()
+        fun generic_act1_volcano_cave_hole(x_in, y_in, x_out, y_out, skip_wait_inactive) {
+            control(ACTIVE, True);
+
+            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, ACTIVE, NONE);
+
+            while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                yield();
+            }
+            control(INACTIVE, True);
+
+
+            set_camera(TILE_CENTER, x_out, y_out, 0x20);
+            teleport(ACTIVE, x_out, y_out);
+            face(ACTIVE, SOUTH);
+
+            wait(CAMERA_PAN_Y);
+
+            if!(skip_wait_inactive) {
+                walk(INACTIVE, TILE_ABSOLUTE, x_in, y_in, INACTIVE, NONE);
+                walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, INACTIVE, NONE);
+            }
+
+            teleport(INACTIVE, x_out, y_out);
+            face(INACTIVE, SOUTH);
+
+            generic_act1_volcano_cave_hole_walk(<INACTIVE>);
+            _generic_act1_volcano_cave_hole_walk(<ACTIVE>);
+
+            free_camera();
         }
 
         @install()
@@ -6315,7 +6491,7 @@ group functions() {
             attach_to_script(character);
 
             walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER);
-            if(True) { // vanilla workaround: when the active player lands the inactive one's walk() is interrupted and the falling animaition starts
+            if(True) { // vanilla workaround: when the active player lands the inactive one's walk() is interrupted and the falling animation starts
                 _teleport(SCRIPT_OWNER, x, y);
             }
 
@@ -6730,7 +6906,7 @@ group functions() {
 
                 if((<0x2360> & 0xff) != 0d4) {
                     if(x is Word || x is Memory || y is Word || y is Memory) {
-                        set_camera(x, y, 0x80 >> 0d2);
+                        set_camera(COORDINATE_CORNER, x, y, 0x80 >> 0d2);
 
                         wait(CAMERA_PAN_Y);
 
