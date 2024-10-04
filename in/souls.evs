@@ -1760,6 +1760,8 @@ group non_maps() {
                 PROGRESS = memory(WORD, SRAM),
                 SUB_PROGRESS = memory(WORD, SRAM),
 
+                MARIO_TEASED = memory(FLAG, SRAM),
+
                 // ID = memory(WORD, SRAM),
                 BODY = ENEMY.VILLAGER_2_1,
             }
@@ -4440,7 +4442,7 @@ area inbetwixx_center() {
         @install()
         @async()
         fun revealer_approached() {
-            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, 0x20, { ravine_triggered(); });
+            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, { ravine_triggered(); });
         }
 
         @install()
@@ -5591,6 +5593,8 @@ area altus_plateau_entry() {
             cave_east = entrance(0x4d, 0x6a, SOUTH),
 
             cave_gauge = entrance(0x5f, 0x16, SOUTH),
+
+            cave_2_2 = entrance(0x44, 0x23, SOUTH),
         }
 
         enum soundtrack {
@@ -5599,50 +5603,114 @@ area altus_plateau_entry() {
 
         enum ROOM {
             STONE_MOVED = memory(FLAG, SRAM),
+            STONE_OFFSET = 0d8 * 0d2,
+        }
+
+        fun pressure_plate_0_1() {
+            generic_act1_volcano_pressure_plate(0x3c, 0x3f, 0x05, 0x02, 0d93, 0d59, 0d2);
+        }
+        fun pressure_plate_0_2() {
+            if(ROOM.STONE_MOVED) {
+                generic_act1_volcano_pressure_plate(0x44, 0x41, 0x06, 0x01, 0d61, 0d30, 0d4);
+            }
+        }
+        @install()
+        @async()
+        fun exit_north() {
+            sleep(0d75);
+            map_transition(well, crash, NONE);
+        }
+        fun pressure_plate_1_1() {
+            exit_north();
+            generic_act1_volcano_pressure_plate(0x30, 0x39, 0x04, 0x01, 0d145, 0d00, 0d0);
+        }
+        fun pressure_plate_1_2() {
+            generic_act1_volcano_pressure_plate(0x4e, 0x31, 0x03, 0x01, 0d74, 0d52, 0d0);
+        }
+        fun pressure_plate_2_1() {
+            generic_act1_volcano_pressure_plate(0x3c, 0x27, 0x01, 0x01, 0d68, 0d27, 0d3);
+        }
+        fun pressure_plate_2_2() {
+            generic_act1_volcano_pressure_plate(0x52, 0x25, 0x02, 0x01, 0d71, 0d49, 0d0);
+        }
+        fun pressure_plate_3_1() {
+            generic_act1_volcano_pressure_plate(0x36, 0x1d, 0x07, 0x01, 0d59, 0d39, 0d3);
+        }
+        fun pressure_plate_3_2() {
+            generic_act1_volcano_pressure_plate(0x52, 0x19, 0x00, 0x01, 0d66, 0d37, 0d1);
         }
 
         enum stepon_trigger {
             tunnel_gauge = @install() {
+                debug_subtext("S=0");
+
                 map_transition(cave_gauge, south, NORTH);
             },
-            stepon_1 = @install() {
+            pressure_plate_1_2_right = @install() {
                 debug_subtext("S=1");
+
+                pressure_plate_1_2();
             },
-            stepon_2 = @install() {
+            pressure_plate_1_2_left = @install() {
                 debug_subtext("S=2");
+                
+                pressure_plate_1_2();
             },
-            stepon_3 = @install() {
+            door_1_2_hole_0_2 = @install() {
                 debug_subtext("S=3");
+
+                generic_act1_volcano_cave_hole(0x46, 0x31, 0d74, 0d56);
             },
-            stepon_4 = @install() {
+            pressure_plate_3_1_left = @install() {
                 debug_subtext("S=4");
+                
+                pressure_plate_3_1();
             },
-            stepon_5 = @install() {
+            cave_2_1_hole_0_1 = @install() {
                 debug_subtext("S=5");
+
+                generic_act1_volcano_cave_hole(0x2a, 0x35, 0d48, 0d60);
             },
-            stepon_6 = @install() {
+            cave_2_1_hole_1_1 = @install() {
                 debug_subtext("S=6");
+
+                generic_act1_volcano_cave_hole(0d52, 0d36, 0d52, 0d48);
             },
-            stepon_7 = @install() {
+            cave_4_hole_0_2 = @install() {
                 debug_subtext("S=7");
+
+                generic_act1_volcano_cave_hole(0d62, 0d18, 0d74, 0d56, True);
             },
-            stepon_8 = @install() {
+            cave_5_hole_3 = @install() {
                 debug_subtext("S=8");
+
+                generic_act1_volcano_cave_hole(0x4a, 0x09, 0d72, 0d16);
             },
-            stepon_9 = @install() {
+            cave_4_hole_1_2 = @install() {
                 debug_subtext("S=9");
+
+                generic_act1_volcano_cave_hole(0d76, 0d23, 0d82, 0d42, True);
             },
 
-            stepon_10 = @install() {
+            cave_2_2_hole_1_2 = @install() {
                 debug_subtext("S=10");
+
+                map_transition(pipe_pit, south, NORTH);
+                // generic_act1_volcano_cave_hole(0x44, 0x23, 0d82, 0d42);
             },
             exit_south = @install() {
+                debug_subtext("S=11");
+
                 map_transition(west_inbetwixx, north, SOUTH);
             },
             cave_east = @install() {
+                debug_subtext("S=12");
+
                 map_transition(cave_shop, south, NORTH);
             },
             cave_west = @install() {
+                debug_subtext("S=13");
+
                 if(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
                     map_transition(stairs, stairs_west_bottom, NORTH);
                 } else {
@@ -5650,36 +5718,48 @@ area altus_plateau_entry() {
                 }
             },
             cave_center = @install() {
+                debug_subtext("S=14");
+
                 map_transition(volcano_tower, south, NORTH);
             },
             exit_east = @install() {
+                debug_subtext("S=15");
+
                 map_transition(northwest_inbetwixx, west, EAST);
             },
-            stepon_16 = @install() {
+            pressure_plate_2_2_right = @install() {
                 debug_subtext("S=16");
+                
+                pressure_plate_2_2();
             },
-            stepon_17 = @install() {
+            pressure_plate_3_2 = @install() {
                 debug_subtext("S=17");
+                
+                pressure_plate_3_2();
             },
-            stepon_18 = @install() {
-                debug_subtext("S=18");
+            pressure_plate_1_1 = @install() {
+                debug_subtext("S=8");
+                
+                pressure_plate_1_1();
             },
             stepon_19 = @install() {
                 debug_subtext("S=19");
             },
 
-            stepon_20 = @install() {
+            pressure_plate_0_1_right = @install() {
                 debug_subtext("S=20");
+                
+                pressure_plate_0_1();
             },
-            plate_0_2_1 = @install() {
-                if(ROOM.STONE_MOVED) {
-                    debug_subtext("S=21");
-                }
+            pressure_plate_0_2_right = @install() {
+                debug_subtext("S=21");
+                
+                pressure_plate_0_2();
             },
-            plate_0_2_2 = @install() {
-                if(ROOM.STONE_MOVED) {
-                    debug_subtext("S=22");
-                }
+            pressure_plate_0_2_left = @install() {
+                debug_subtext("S=22");
+                
+                pressure_plate_0_2();
             },
             stepon_23 = @install() {
                 debug_subtext("S=23");
@@ -5687,25 +5767,33 @@ area altus_plateau_entry() {
             stepon_24 = @install() {
                 debug_subtext("S=24");
             },
-            stepon_25 = @install() {
+            pressure_plate_3_1_right = @install() {
                 debug_subtext("S=25");
+                
+                pressure_plate_3_1();
             },
             stepon_26 = @install() {
                 debug_subtext("S=26");
             },
-            stepon_27 = @install() {
+            pressure_plate_2_2_left = @install() {
                 debug_subtext("S=27");
+                
+                pressure_plate_2_2();
             },
             stepon_28 = @install() {
                 debug_subtext("S=28");
             },
-            stepon_29 = @install() {
+            pressure_plate_0_1_left = @install() {
                 debug_subtext("S=29");
+
+                pressure_plate_0_1();
             },
 
-            stepon_30 = @install() {
+            pressure_plate_2_1 = @install() {
                 debug_subtext("S=30");
-            }
+                
+                pressure_plate_2_1();
+            },
         }
 
         enum b_trigger {
@@ -5861,9 +5949,48 @@ area altus_plateau_entry() {
                 }
             }
 
-            add_enemy(STONE_ROUND, 0d68, 0d65);
-            attach_script(LAST_ENTITY, B, reference(@install() {
-                error_dlc(NONE);
+            add_enemy(STONE, 0d68, 0d65, STONE_LEVITATE);
+            special_script(LEVITATE, reference(@install() {
+                if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                    end();
+                }
+
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                if!(ROOM.STONE_MOVED) {
+                    sleep(0d60);
+
+                    ROOM.STONE_MOVED = True;
+
+                    sleep(0d60);
+
+                    while(arg[0x10] < ROOM.STONE_OFFSET) {
+                        arg[0x10]++;
+
+                        <SCRIPT_OWNER>[X]++;
+
+                        sleep(0d3);
+                    }
+
+                    sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+                } else {
+                    sleep(0d120);
+
+                    while(arg[0x10] < ROOM.STONE_OFFSET) {
+                        arg[0x10]++;
+
+                        <SCRIPT_OWNER>[X]--;
+
+                        sleep(0d3);
+                    }
+
+                    sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                    ROOM.STONE_MOVED = False;
+                    object[0x03] = 0x00; // open door_NW
+                }
+
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
             }));
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
@@ -5903,6 +6030,8 @@ area altus_plateau_entry() {
                 platform = entrance(0x51, 0x2f, NORTH),
 
                 bonfire = entrance(0d67, 0d159, NONE, { bonfire_wakeup(0d0, 0d8, -0d24, 0d0); }),
+
+                crash = entrance(0d23, 0d249, NONE, { crash_both(); }),
             }
 
             enum soundtrack {
@@ -5921,19 +6050,37 @@ area altus_plateau_entry() {
                     generic_fall_gomi(0d91, 0d191, 0d1640, 0d5);
                 }
             }
+            @install()
+            fun trapdoor_4() {
+                debug_subtext("S=3/7");
+
+                object[0x03] = 0x03; // activate trapdoor_4
+
+                if(SOULS_MEMORY.RING_CAT) {
+                    generic_fall_gomi(0d43, 0d96, 0d1280);
+                } else {
+                    generic_fall_gomi(0d43, 0d96, 0d1280, 0d5);
+                }
+            }
 
             enum stepon_trigger {
                 elevator_bottom = @install() {
                     debug_subtext("S=0");
+
+                    generic_elevator_gomi(0x3e, 0xcf, 0x01, 0x01, 0d62, 0d76, 0x04, 0x01);
                 },
                 elevator_top = @install() {
                     debug_subtext("S=1");
+
+                    generic_elevator_gomi(0x3e, 0x4e, 0x04, 0x01, 0d62, 0d205, 0x01, 0x01);
                 },
                 spawn_boss = @install() {
                     debug_subtext("S=2");
                 },
                 trapdoor_4 = @install() {
                     debug_subtext("S=3");
+
+                    trapdoor_4();
                 },
                 exit_south = @install() {
                     map_transition(volcano, cave_center, SOUTH);
@@ -5942,8 +6089,10 @@ area altus_plateau_entry() {
                 stepon_6 = @install() {
                     debug_subtext("S=6");
                 },
-                stepon_7 = @install() {
+                trapdoor_4_open = @install() {
                     debug_subtext("S=7");
+
+                    trapdoor_4();
                 },
                 trapdoor_2 = @install() {
                     debug_subtext("S=8");
@@ -5951,9 +6100,9 @@ area altus_plateau_entry() {
                     object[0x06] = 0x03; // activate trapdoor_2
 
                     if(SOULS_MEMORY.RING_CAT) {
-                        generic_fall_gomi(0d60, 0d160, 0d1408);
+                        generic_fall_gomi(0d61, 0d160, 0d1408);
                     } else {
-                        generic_fall_gomi(0d60, 0d160, 0d1408, 0d5);
+                        generic_fall_gomi(0d61, 0d160, 0d1408, 0d5);
                     }
                 },
                 stepon_9 = @install() {
@@ -6104,9 +6253,9 @@ area altus_plateau_entry() {
                 // object[0x00] = 0x01; // open chest_2
                 // object[0x01] = 0x01; // open elevator_bottom
                 // object[0x02] = 0x01; // open chest_3
-                object[0x03] = 0x01; // activate trapdoor_4
+                // object[0x03] = 0x01; // activate trapdoor_3
                 // object[0x04] = 0x01; // open elevator_top
-                // object[0x05] = 0x03; // activate trapdoor_3
+                // object[0x05] = 0x03; // activate trapdoor_4
                 // object[0x06] = 0x03; // activate trapdoor_2
                 // object[0x07] = 0x03; // activate trapdoor_1
                 // object[0x08] = 0x01; // open chest_1
@@ -6508,6 +6657,117 @@ area altus_plateau_entry() {
                 }
             }
         };
+    };
+
+    map pipe_pit(IVOR_EBON_PRISON) { // variant pit
+        enum entrance {
+            south = entrance(0d42, 0d140, NORTH),
+            west = entrance(0d24, 0d115, EAST),
+            east = entrance(0d59, 0d115, WEST),
+        }
+
+        enum ROOM {
+            ID_FAKE_EXIT = memory(WORD, TEMP),
+            ID_PIT = memory(WORD, TEMP),
+
+            ID_YOSHI = memory(WORD, TEMP),
+            ID_MARIO = memory(WORD, TEMP),
+        }
+
+        enum stepon_trigger {
+            switch_6 = nop(),
+            switch_5 = nop(),
+            switch_4 = nop(),
+            switch_3 = nop(),
+            switch_2 = nop(),
+            switch_7 = nop(),
+            switch_1 = nop(),
+            exit_door = nop(),
+            stepon_8 = nop(),
+            stepon_9 = nop(),
+
+            stepon_10 = nop(),
+            stepon_11 = nop(),
+            stepon_12 = nop(),
+            stepon_13 = nop(),
+            stepon_14 = nop(),
+            pipe_3_1 = nop(),
+            pipe_1_1 = nop(),
+            pipe_2_1 = nop(),
+            pipe_2_2 = nop(),
+            pipe_2_3 = nop(),
+
+            pipe_1_2 = nop(),
+            pipe_1_3 = nop(),
+            pipe_1_4 = nop(),
+            pipe_3_2 = nop(),
+            pipe_3_3 = nop(),
+            pipe_3_4 = nop(),
+            stepon_26 = nop(),
+            stepon_27 = nop(),
+            stepon_28 = nop(),
+            stepon_29 = nop(),
+
+            stepon_30 = nop(),
+            stepon_31 = nop(),
+        }
+
+        enum b_trigger {
+            cell_1_gourd__1_armband_3_1 = nop(),
+        }
+
+        @install()
+        @async()
+        fun fake_exit_scanner() {
+            range_checker(ROOM.ID_FAKE_EXIT, <ACTIVE>, {
+                map_transition(volcano, cave_2_2, SOUTH);
+            });
+        }
+        @install()
+        @async()
+        fun pit_scanner() {
+            range_checker_rect(ROOM.ID_PIT, <ACTIVE>, 0d35, 0d15, {
+                generic_fall(0d100, 0d1000);
+                map_transition(volcano_tower, crash, NONE);
+            });
+        }
+
+        fun tease_mario() {
+            add_enemy(RAPTOR_GREEN, 0d24 - 0d2, 0d115, INACTIVE_IMORTAL);
+            ROOM.ID_YOSHI = <LAST_ENTITY>;
+            add_enemy(VILLAGER_2_1, 0d24 - 0d2, 0d115, INACTIVE_IMORTAL);
+            face(LAST_ENTITY, EAST);
+            ROOM.ID_MARIO = <LAST_ENTITY>;
+
+            stack_sprite(ROOM.ID_YOSHI, ROOM.ID_MARIO, 0d0, 0d15);
+
+            subtext("He should be in that direction.");
+
+            walk(ROOM.ID_YOSHI, TILE_ABSOLUTE, 0d59 + 0d2, 0d115, ROOM.ID_YOSHI, NONE);
+            destroy(ROOM.ID_YOSHI);
+            destroy(ROOM.ID_MARIO);
+        }
+
+        fun trigger_enter() {
+            init_map(0d24, 0d108, 0d60, 0d140);
+            fade_in();
+
+            fake_walls();
+
+            add_enemy(PLACEHOLDER, 0d42, 0d140);
+            ROOM.ID_FAKE_EXIT = <LAST_ENTITY>;
+            fake_exit_scanner();
+
+            add_enemy(PLACEHOLDER, 0d42, 0d122);
+            ROOM.ID_PIT = <LAST_ENTITY>;
+            pit_scanner();
+
+            if((!NPC_MARIO.MARIO_TEASED) && (NPC_MARIO.PROGRESS < 0d1)) {
+                NPC_MARIO.MARIO_TEASED = True;
+                
+                tease_mario();
+            }
+        }
     };
 
     map cave_gauge(PYRAMID_CAVE) {
@@ -13550,7 +13810,7 @@ area southern_jungle() {
         @install()
         @async()
         fun revealer_approached() {
-            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, ROOM.BRIDGE_SIZE, { pit_triggered(); });
+            range_checker_square(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, ROOM.BRIDGE_SIZE, { pit_triggered(); });
         }
 
         @install()
@@ -15424,7 +15684,7 @@ area town() {
                 @install()
                 @async()
                 fun revealer_approached(entity) {
-                    range_checker(entity, <ACTIVE>, 0x20, { pit_triggered(); });
+                    range_checker(entity, <ACTIVE>, { pit_triggered(); });
                 }
 
                 fun open_doors(open) {

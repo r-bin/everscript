@@ -520,7 +520,7 @@ group general_enums() {
 
             CAMERA_PAN_X = <0x242b>,
             CAMERA_PAN_Y = <0x242d>,
-            CAMERA_PAN_SPEED = <0x242f>,
+            CAMERA_PAN_SPEED = <0x242f>, // default=0x80
 
             FOREGROUND_OFFSET_X = <0x241b>, // only used in dark forest
             FOREGROUND_OFFSET_Y = <0x241d>,
@@ -3518,6 +3518,12 @@ group functions() {
 
             fun transition(map:MAP, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music, new_music:MUSIC) {
                 if(False) {
+                    if(<ACTIVE>[Z] > 0d0) {
+                        end();
+                    }
+                }
+
+                if(False) {
                     if(change_music) {
                         music_fade(False);
 
@@ -3798,8 +3804,12 @@ group functions() {
                     MEMORY.CAMERA_PAN_SPEED = speed;
                 }
             }
+            fun set_camera_entity(entity, speed) {
+                set_camera(COORDINATE_CENTER, entity[X], entity[Y], speed);
+            }
             fun free_camera() {
                 MEMORY.CAMERA_PAN_X = 0xffff;
+                MEMORY.CAMERA_PAN_SPEED = 0x80;
             }
 
             fun desert_screen(x, y) {
@@ -6049,6 +6059,62 @@ group functions() {
                 yield();
             }
         }
+
+        group map_manipulation() {
+            fun check_fake_wall(entity, direction:DIRECTION) {
+                if(direction == DIRECTION.NORTH) {
+                    if(entity[Y] < (MEMORY.CAMERA_BOUNDRY_Y_START + 0d24)) {
+                        entity[Y] = MEMORY.CAMERA_BOUNDRY_Y_START + 0d24;
+                    }
+                } else if(direction == DIRECTION.EAST) {
+                    if(entity[X] > (MEMORY.CAMERA_BOUNDRY_X_END - 0d4)) {
+                        entity[X] = MEMORY.CAMERA_BOUNDRY_X_END - 0d4;
+                    }
+                } else if(direction == DIRECTION.SOUTH) {
+                    if(entity[Y] > (MEMORY.CAMERA_BOUNDRY_Y_END - 0d4)) {
+                        entity[Y] = MEMORY.CAMERA_BOUNDRY_Y_END - 0d4;
+                    }
+                } else if(direction == DIRECTION.WEST) {
+                    if(entity[X] < (MEMORY.CAMERA_BOUNDRY_X_START + 0d4)) {
+                        entity[X] = MEMORY.CAMERA_BOUNDRY_X_START + 0d4;
+                    }
+                }
+            }
+            @install()
+            @async()
+            fun fake_walls() {
+                while(True) {
+                    check_fake_wall(<ACTIVE>, NORTH);
+                    check_fake_wall(<INACTIVE>, NORTH);
+                    yield();
+
+                    check_fake_wall(<ACTIVE>, EAST);
+                    check_fake_wall(<INACTIVE>, EAST);
+                    yield();
+
+                    check_fake_wall(<ACTIVE>, SOUTH);
+                    check_fake_wall(<INACTIVE>, SOUTH);
+                    yield();
+
+                    check_fake_wall(<ACTIVE>, WEST);
+                    check_fake_wall(<INACTIVE>, WEST);
+                    yield();
+                }
+            }
+        };
+
+        group sprite_stacking() {
+            @install()
+            @async()
+            fun stack_sprite(entity_mount, entity_rider, offset_x, offset_y) {
+                while!(dead(entity_mount)) {
+                    entity_rider[X] = entity_mount[X] + offset_x;
+                    entity_rider[Y] = entity_mount[Y] - offset_y;
+
+                    yield();
+                }
+            }
+        };
     };
 
     group cutscenes() {
@@ -6165,42 +6231,70 @@ group functions() {
             }
         }
 
-        fun check_range(entity_1, entity_2, range, callback) {
-            if(entity_1[X] < entity_2[X]) {
-                arg[0x10] = entity_2[X] - entity_1[X];
-            } else {
-                arg[0x10] = entity_1[X] - entity_2[X];
-            }
+        fun check_range(entity_1, entity_2, x, y, callback) {
+            if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                if(entity_1[X] < entity_2[X]) {
+                    arg[0x10] = entity_2[X] - entity_1[X];
+                } else {
+                    arg[0x10] = entity_1[X] - entity_2[X];
+                }
 
-            if(entity_1[Y] < entity_2[Y]) {
-                arg[0x12] = entity_2[Y] - entity_1[Y];
-            } else {
-                arg[0x12] = entity_1[Y] - entity_2[Y];
-            }
+                if(entity_1[Y] < entity_2[Y]) {
+                    arg[0x12] = entity_2[Y] - entity_1[Y];
+                } else {
+                    arg[0x12] = entity_1[Y] - entity_2[Y];
+                }
+                
+                if(False) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                    MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                    // MEMORY.STRING_PARAMETER_3 = m3;
 
-            if((arg[0x10] <= range) && (arg[0x12] <= range)) {
-                callback();
-                sleep(0d300); // end();
+                    _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+                }
+
+                if((arg[0x10] <= x) && (arg[0x12] <= y)) {
+                    callback();
+                    sleep(0d300); // end();
+                }
             }
         }
-        fun range_checker(entity_1, entity_2, range, callback) {
+        fun range_checker(entity_1, entity_2, callback) {
             attach_to_script(entity_1);
 
             while!(dead(<SCRIPT_OWNER>)) {
-                check_range(<SCRIPT_OWNER>, entity_2, range, callback);
+                check_range(<SCRIPT_OWNER>, entity_2, 0x20, 0x20, callback);
 
                 yield();
             }
         }
-        fun range_checker2(entity_1, entity_2, entity_3, range, callback) {
+        fun range_checker_square(entity_1, entity_2, range, callback) {
             attach_to_script(entity_1);
 
             while!(dead(<SCRIPT_OWNER>)) {
-                check_range(<SCRIPT_OWNER>, entity_2, range, callback);
+                check_range(<SCRIPT_OWNER>, entity_2, range, range, callback);
+
+                yield();
+            }
+        }
+        fun range_checker_rect(entity_1, entity_2, x, y, callback) {
+            attach_to_script(entity_1);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+
+                yield();
+            }
+        }
+        fun range_checker2(entity_1, entity_2, entity_3, x, y, callback) {
+            attach_to_script(entity_1);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
 
                 yield();
 
-                check_range(<SCRIPT_OWNER>, entity_3, range, callback);
+                check_range(<SCRIPT_OWNER>, entity_3, x, y, callback);
 
                 yield();
             }
@@ -6527,6 +6621,56 @@ group functions() {
 
             _generic_fall_gomi_async(<INACTIVE>, x + 0d8, y, depth, falling_damage);
             _generic_fall_gomi_sync(<ACTIVE>, x - 0d8, y, depth, falling_damage);
+
+            control(BOTH);
+        }
+
+        fun generic_elevator_gomi(x_in, y_in, object_id_in, object_state_in, x_out, y_out, object_id_out, object_state_out) {
+            control(NONE);
+
+            walk(ACTIVE, TILE_ABSOLUTE, x_in, y_in, NONE, NONE);
+            walk(INACTIVE, TILE_ABSOLUTE_DIRECT, x_in, y_in, BOTH, NONE);
+
+            sleep(0d32);
+
+            face(ACTIVE, NORTH);
+            face(INACTIVE, NORTH);
+
+            object[object_id_in] = object_state_in; // open elevator_bottom
+            sleep(0d10);
+
+            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, NONE, NONE);
+            walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, BOTH, BOTH);
+
+            face(ACTIVE, SOUTH);
+            face(INACTIVE, SOUTH);
+
+            animate(ACTIVE, LOOP, INVISIBLE);
+            animate(INACTIVE, LOOP, INVISIBLE);
+
+            object[object_id_in] = 0x00; // open elevator_bottom
+
+            teleport(BOTH, x_out, y_out - 0d2);
+            
+            set_camera_entity(<ACTIVE>, 0x20);
+            wait(CAMERA_PAN_Y);
+
+            object[object_id_out] = object_state_out; // open elevator_bottom
+            sleep(0d10);
+
+            animate(ACTIVE, ONCE, DEFAULT);
+            animate(INACTIVE, ONCE, DEFAULT);
+
+            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, NONE, NONE);
+            walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, BOTH, NONE);
+            sleep(0d10);
+
+            object[object_id_out] = 0x00; // open elevator_bottom
+            
+            walk(ACTIVE, TILE_RELATIVE_DIRECT, -0d1, 0d1, NONE, NONE);
+            walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d1, 0d1, BOTH, NONE);
+
+            free_camera();
 
             control(BOTH);
         }
@@ -7176,6 +7320,13 @@ group functions() {
     };
 
     group debug_helper() {
+        @install()
+        fun _debug_boy() {
+            MEMORY.STRING_PARAMETER_1 = <BOY>[X];
+            MEMORY.STRING_PARAMETER_2 = <BOY>[Y];
+
+            debug_subtext("boy = [MEM1]/[MEM2]");
+        }
         @install()
         fun debug_boy() {
             MEMORY.STRING_PARAMETER_1 = <BOY>[X] / 0x08;
