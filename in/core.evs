@@ -827,6 +827,23 @@ group general_enums() {
 
             GOURD_1 = <0x2268, 0x40>,
         }
+
+        enum CUSTOM_MEMORY {
+            // <0x28f9, x>
+            START_ROCKET_JUMP_COUNT = (Byte) <0x28f9>,
+        }
+        enum CUSTOM_FLAG {
+            // <0x28fb, x>
+            NO_BOY = <0x28fb, 0x01>,
+            NO_DOG = <0x28fb, 0x02>,
+
+            NO_CURRENCY_DISPLAY = <0x28fb, 0x04>,
+
+            // <0x28fa, x>
+            START_MARIO_YUMP = <0x28fa, 0x01>,
+            START_ROCKET_JUMP = <0x28fa, 0x02>,
+            START_ISAAC_TEAR = <0x28fa, 0x04>,
+        }
     };
 
     group everscript() {
@@ -3612,7 +3629,7 @@ group functions() {
                 code(0xb9, entity_t(character), calculate(x), calculate(y), "// (b9) Teleport $2835 by x:signed arg9, y:signed arg3 - signed arg5");
             }
 
-            fun teleport_screen(dx, dy) {
+            fun teleport_screen(dx, dy) { // scren=0d512/0d512
                 code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
             }
             
@@ -6101,6 +6118,28 @@ group functions() {
                     yield();
                 }
             }
+
+            @install()
+            @async()
+            fun no_clip_box(x_start, y_start, x_end, y_end) {
+                while(True) {
+                    if(!CUSTOM_FLAG.START_MARIO_YUMP) {
+                        if(
+                            (<ACTIVE>[X] >= x_start) && (<ACTIVE>[X] <= x_end) &&
+                            (<ACTIVE>[Y] >= y_start) && (<ACTIVE>[Y] <= y_end)
+                        ) {
+                            attribute(ACTIVE, NO_CLIP, True);
+                        } else {
+                            attribute(ACTIVE, NO_CLIP, False);
+                        }
+                    }
+
+                    // debug_memory(<BOY>[Z], 0d0);
+
+                    yield();
+                }
+            }
+
         };
 
         group sprite_stacking() {
@@ -6232,30 +6271,32 @@ group functions() {
         }
 
         fun check_range(entity_1, entity_2, x, y, callback) {
-            if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                if(entity_1[X] < entity_2[X]) {
-                    arg[0x10] = entity_2[X] - entity_1[X];
-                } else {
-                    arg[0x10] = entity_1[X] - entity_2[X];
-                }
+            if(entity_2[Z] == 0d0) {
+                if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    if(entity_1[X] < entity_2[X]) {
+                        arg[0x10] = entity_2[X] - entity_1[X];
+                    } else {
+                        arg[0x10] = entity_1[X] - entity_2[X];
+                    }
 
-                if(entity_1[Y] < entity_2[Y]) {
-                    arg[0x12] = entity_2[Y] - entity_1[Y];
-                } else {
-                    arg[0x12] = entity_1[Y] - entity_2[Y];
-                }
-                
-                if(False) {
-                    MEMORY.STRING_PARAMETER_1 = arg[0x10];
-                    MEMORY.STRING_PARAMETER_2 = arg[0x12];
-                    // MEMORY.STRING_PARAMETER_3 = m3;
+                    if(entity_1[Y] < entity_2[Y]) {
+                        arg[0x12] = entity_2[Y] - entity_1[Y];
+                    } else {
+                        arg[0x12] = entity_1[Y] - entity_2[Y];
+                    }
+                    
+                    if(False) {
+                        MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                        MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                        // MEMORY.STRING_PARAMETER_3 = m3;
 
-                    _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
-                }
+                        _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+                    }
 
-                if((arg[0x10] <= x) && (arg[0x12] <= y)) {
-                    callback();
-                    sleep(0d300); // end();
+                    if((arg[0x10] <= x) && (arg[0x12] <= y)) {
+                        callback();
+                        sleep(0d300); // end();
+                    }
                 }
             }
         }
@@ -7121,7 +7162,8 @@ group functions() {
             destroy(SCRIPT_OWNER);
         }
 
-        fun isaac_tear(costs_ingredients) {
+        @install()
+        fun _isaac_tear(costs_ingredients) {
             if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
                 end();
             }
@@ -7156,30 +7198,78 @@ group functions() {
                 shoot_entity_offset_relative(BOY, ONION, 0x00, -0x15, -0x60, 0x00, 0x10, 0x0a);
             }
 
-            sleep(0d10);
+            if(False) {
+                sleep(0d10);
 
-            if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
-                animate(BOY, ONCE, DEFAULT);
+                if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
+                    animate(BOY, ONCE, DEFAULT);
+                }
+            } else {
+                animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
             }
             
             <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
         }
+        @install()
+        fun isaac_tear(costs_ingredients) {
+            if(CUSTOM_FLAG.START_ISAAC_TEAR) {
+                end();
+            }
+            CUSTOM_FLAG.START_ISAAC_TEAR = True;
+
+            arg[0x10] = <BOY>[FACE_DIRECTION];
+
+            while(MEMORY.INPUT_P1 & 0x1000) {
+                _face(<BOY>, arg[0x10]);
+
+                _isaac_tear(costs_ingredients);
+
+                yield();
+            }
+
+            CUSTOM_FLAG.START_ISAAC_TEAR = False;
+        }
 
         @install()
         fun rocket_jump() {
+            if(CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT >= 0d3) {
+                end();
+            } else {
+                MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
+                damage(BOY, CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT * 0d5, True);
+
+                CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT++;
+            }
+
             if(True) {
                 _add_placeholder(EXPLOSION_1, <BOY>[X], <BOY>[Y]);
-                arg[0x00] = <LAST_ENTITY>;
+                arg[0x10] = <LAST_ENTITY>;
             }
+
+            arg[0x12] = <BOY>[X];
+            arg[0x14] = <BOY>[Y];
 
             if(True) {
                 animate(BOY, LOOP, ANIMATION_BOY.FALL_3);
             }
 
             while(True) {
+                if(True) {
+                    <BOY>[Z] = 0d100; // TODO: drops by 1/f instead of staying at 100
+                }
 
-                arg[0x02] = <BOY>[X];
-                arg[0x04] = <BOY>[Y];
+                if(<BOY>[HP] <= 0d0) {
+                    destroy(arg[0x10]);
+                    CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT--;
+                    end();
+                }
+
+                if(CUSTOM_FLAG.START_MARIO_YUMP && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT == 0d1)) {
+                    arg[0x16] = True;
+                }
+
+                arg[0x18] = <BOY>[X];
+                arg[0x1a] = <BOY>[Y];
 
                 if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
                     teleport_relative(BOY, 0d0, -0d4);
@@ -7199,10 +7289,49 @@ group functions() {
                     teleport_relative(BOY, -0d3, -0d3);
                 }
 
-                if((<BOY>[X] == arg[0x02]) && (<BOY>[Y] == arg[0x04])) {
+                if((<BOY>[X] == arg[0x18]) && (<BOY>[Y] == arg[0x1a])) {
+                    if(arg[0x16]) {
+                        arg[0x20] = <BOY>[FACE_DIRECTION];
+                        control(NONE);
+                        // attribute(BOY, INVISIBLE, True);
+
+                        animate(BOY, ONCE, ANIMATION_ALL.DEFAULT);
+
+                        sleep(0d5);
+
+                        arg[0x1c] = <BOY>[X];
+                        arg[0x1e] = <BOY>[Y];
+
+                        if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y] + 0d24, NONE, NONE);
+                        } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X] - 0d24, <BOY>[Y], NONE, NONE);
+                        } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y] - 0d24, NONE, NONE);
+                        } else {
+                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X] + 0d24, <BOY>[Y], NONE, NONE);
+                        }
+
+                        sleep(0d10);
+
+                        if((arg[0x1c] == <BOY>[X]) && (arg[0x1e] == <BOY>[Y])) {
+                            _teleport(BOY, arg[0x12], arg[0x14]);
+
+                            damage(BOY, 0d1, True);
+                        } else {
+                            <BOY>[X] = arg[0x1c];
+                            <BOY>[Y] = arg[0x1e];
+                            _face(<BOY>, arg[0x20]);
+                        }
+
+                        // attribute(BOY, INVISIBLE, False);
+                        control(BOTH);
+                    }
+                    
                     animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
 
-                    destroy(arg[0x00]);
+                    destroy(arg[0x10]);
+                    CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT--;
                     end();
                 }
 
@@ -7215,8 +7344,18 @@ group functions() {
             if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
                 end();
             }
-            if(<BOY>[Z] > 0d0) {
-                end();
+
+            if(False) {
+                if(<BOY>[Z] > 0d0) {
+                    end();
+                }
+            } else {
+                if(CUSTOM_FLAG.START_MARIO_YUMP) {
+                    end();
+                } else {
+                    CUSTOM_FLAG.START_MARIO_YUMP = True;
+                    yield();
+                }
             }
 
             if(costs_ingredients) {
@@ -7307,6 +7446,11 @@ group functions() {
             // debug_memory(<0x2834>, <BOY>[X]);
             // sleep(0x30);
             // debug_memory(<0x2836>, <BOY>[Y]);
+
+
+            if(True) {
+                CUSTOM_FLAG.START_MARIO_YUMP = False;
+            }
         }
 
         fun windwalker_rocket() {
@@ -7316,6 +7460,83 @@ group functions() {
 
             shoot_entity_offset_relative(BOY, ONION, 0x10, 0x00, 0x00ff, 0x00, 0x10, 0xff);
             sound(PROJECTILE_SHOOTING);
+        }
+
+        @install()
+        fun quantum_jump() {
+            arg[0x10] = <BOY>[X];
+            arg[0x12] = <BOY>[Y];
+
+            if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                teleport_screen(0d0, -0d1);
+
+                if(<BOY>[Y] < arg[0x12]) {
+                    arg[0x14] = True;
+                }
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                teleport_screen(0d1, 0d0);
+
+                if(<BOY>[X] > arg[0x10]) {
+                    arg[0x14] = True;
+                }
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                teleport_screen(0d0, 0d1);
+
+                if(<BOY>[Y] > arg[0x12]) {
+                    arg[0x14] = True;
+                }
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                teleport_screen(-0d1, 0d0);
+
+                if(<BOY>[X] < arg[0x10]) {
+                    arg[0x14] = True;
+                }
+            }
+
+            if((arg[0x10] == <BOY>[X]) && (arg[0x12] == <BOY>[Y])) {
+                MEMORY.STRING_PARAMETER_1 = arg[0x14];
+
+                debug_subtext("nay = [MEM1]");
+            } else {
+                MEMORY.STRING_PARAMETER_1 = arg[0x14];
+
+                debug_subtext("yay = [MEM1]");
+            }
+        }
+
+        fun dodge_roll() {
+            if(False) {
+                control(NONE);
+            }
+
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.FALL_1);
+
+            if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                arg[0x12] = 0d3;
+                arg[0x14] = 0d0;
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                arg[0x12] = 0d0;
+                arg[0x14] = 0d3;
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                arg[0x12] = -0d3;
+                arg[0x14] = 0d0;
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                arg[0x12] = 0d0;
+                arg[0x14] = -0d3;
+            }
+
+            while(arg[0x10] < 0d10) {
+                arg[0x10]++;
+
+                teleport_relative(BOY, arg[0x12], arg[0x14]);
+                yield();
+            }
+
+            animate(BOY, ONCE, DEFAULT);
+            
+            if(False) {
+                control(BOTH);
+            }
         }
     };
 
