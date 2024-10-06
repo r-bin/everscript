@@ -1,5 +1,5 @@
 #memory(
-    0x3f0000..0x3fffff // extension 0x3f0000++
+    0x3e0000..0x3fffff // extension 0x3f0000++
 )
 
 group import_copies() {
@@ -524,268 +524,202 @@ group import_copies() {
             yield();
         }
     }
-    fun control(character:CHARACTER, control) {
-        if(control is Word) {
-            if(character == CHARACTER.BOY) {
-                if(control) {
-                    code(0xbd, "// (bd) BOY = Player controlled");
+            fun control(character:CHARACTER, control) {
+                if(control is Word) {
+                    if(character == CHARACTER.BOY) {
+                        if(control) {
+                            code(0xbd, "// (bd) BOY = Player controlled");
+                        } else {
+                            code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                        }
+                    } else if(character == CHARACTER.DOG) {
+                        if(control) {
+                            code(0xbf, "// (bf) DOG = Player controlled");
+                        } else {
+                            code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+                        }
+                    } else {
+                        if(control) {
+                            code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+                        } else {
+                            code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                        }
+                    }
                 } else {
-                    code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
-                }
-            } else if(character == CHARACTER.DOG) {
-                if(control) {
-                    code(0xbf, "// (bf) DOG = Player controlled");
-                } else {
-                    code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
-                }
-            } else {
-                if(control) {
-                    code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
-                } else {
-                    code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                    if(character == CHARACTER.NONE) {
+                        code(0xc0, "// (c0) BOY+DOG = STOPPED");
+                    } else if(character == CHARACTER.BOTH) {
+                        code(0xc1, "// (c1) BOY+DOG = Player controlled");
+                    } else if(character == CHARACTER.BOY) {
+                        code(0xbd, "// (bd) BOY = Player controlled");
+                        code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+                    } else if(character == CHARACTER.DOG) {
+                        code(0xbf, "// (bf) DOG = Player controlled");
+                        code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                    } else {
+                        if(control) {
+                            code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+                        } else {
+                            code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                        }
+                    }
                 }
             }
-        } else {
-            if(character == CHARACTER.NONE) {
-                code(0xc0, "// (c0) BOY+DOG = STOPPED");
-            } else if(character == CHARACTER.BOTH) {
-                code(0xc1, "// (c1) BOY+DOG = Player controlled");
-            } else if(character == CHARACTER.BOY) {
-                code(0xbd, "// (bd) BOY = Player controlled");
-                code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
-            } else if(character == CHARACTER.DOG) {
-                code(0xbf, "// (bf) DOG = Player controlled");
-                code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
-            } else {
-                if(control) {
-                    code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
-                } else {
-                    code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
-                }
-            }
-        }
-    }
 };
 
-enum REVEALER_HELPER {
-    DEBUG = False,
+enum ROOM {
+    ROW_1 = 0x90, // 0x0012 * 0d0008,
+    ROW_2 = 0x1f0, // 0x003e * 0d0008,
+    ROW_3 = 0x350, // 0x006a * 0d0008,
+    ROW_4 = 0x4b0, // 0x0096 * 0d0008,
 
-    ID_BETWEEN = <0x283b>,
-    ID_PYRAMID = <0x2835>,
-    ID_HALLS_LEFT = <0x2850>,
-    ID_HALLS_RIGHT_1 = <0x2835>,
-    ID_HALLS_RIGHT_2 = <0x2837>,
-    ID_HALLS_NORTH_WEST = <0x2850>,
-    ID_HALLS_NORTH_EAST = <0x2850>,
+    COLUMN_1 = 0x90, // 0x0012 * 0d0008,
+    COLUMN_2 = 0x290, // 0x0052 * 0d0008,
+    COLUMN_3 = 0x490, // 0x0092 * 0d0008,
+    COLUMN_4 = 0x690, // 0x00d2 * 0d0008,
 }
 
-// between
-@install()
-@async()
-fun revealer_between_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0x20, { call(0x96bf7c); });
-}
-@install()
-@inject(0x96c2b7, True) // "Unnamed Short script 0x1959" = (id:1959 => addr:0x96c2b7)"
-fun revealer_between_triggered() {
-    if(REVEALER_HELPER.DEBUG) {
-        subtext("revealer triggered");
+fun guard_door(x, y) {
+    if(
+        (<BOY>[X] < (x - 0d30))
+        || (<BOY>[X] > (x + 0d30))
+        || (<BOY>[Y] < (y - 0d30))
+        || (<BOY>[Y] > (y + 0d30))
+    ) {
+        end();
     }
-
-    object[0x02] = 0x7e;
-    sleep(0x29);
-    destroy(REVEALER_HELPER.ID_BETWEEN);
 }
+
 @install()
-@inject(0x96c4c2) // "[0x96c4c2] (ba) LOAD NPC 5e at 24 1d"
-fun revealer_between() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0x24, 0x1a);
-    REVEALER_HELPER.ID_BETWEEN = <LAST_ENTITY>;
+@inject(0x9aedbf, True) // [76,56:78,58] = (id:b5e => (46dbf@928df2) => addr:0x9aedbf)
+fun door_d4() {
+    guard_door(ROOM.COLUMN_4, ROOM.ROW_4);
 
-    revealer_between_approached(<LAST_ENTITY>);   
-}
-
-// pyramid
-@install()
-@async()
-fun revealer_pyramid_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0d45, {
-        if(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
-            end();
-        }
-        
-        call(0x96c83b);
-    });
-}
-@install()
-@inject(0x96ced7, True) // "Unnamed Short script 0x195f" = (id:195f => addr:0x96ced7)"
-fun revealer_pyramid_triggered() {
-    if(REVEALER_HELPER.DEBUG) {
-        subtext("revealer triggered");
-    }
-
-    object[0x0b] = 0x7e;
-    sleep(0x29);
-    destroy(REVEALER_HELPER.ID_PYRAMID);
-}
-@install()
-@inject(0x96cfd1) // "[0x96cfd1] (ba) LOAD NPC 5e at 94 76"
-fun revealer_pyramid() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0d148, 0d119);
-    REVEALER_HELPER.ID_PYRAMID = <LAST_ENTITY>;
-
-    revealer_pyramid_approached(<LAST_ENTITY>);   
-}
-
-
-// halls_left
-@install()
-@async()
-fun revealer_halls_left_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0x20, { call(0x979372); });
-}
-fun show_bridge_left() {
-    object[0x0b] = 0x01; // show bridge_left_1
-    object[0x0c] = 0x01; // show bridge_left_2
-    object[0x0d] = 0x01; // show bridge_left_3
-}
-fun show_bridge_right() {
-    object[0x0e] = 0x01; // show bridge_right_1
-    object[0x0f] = 0x01; // show bridge_right_2
-    object[0x10] = 0x01; // show bridge_right_3
-    object[0x11] = 0x01; // show bridge_right_4
-}
-@install()
-@inject(0x979499, True) // "Unnamed Short script 0x1983" = (id:1983 => addr:0x979499)"
-fun revealer_halls_left_triggered() {
-    if(REVEALER_HELPER.DEBUG) {
-        subtext("revealer triggered");
-    }
-
-    if(<SCRIPT_OWNER> == REVEALER_HELPER.ID_HALLS_LEFT) {
-        show_bridge_left();
-
-        destroy(SCRIPT_OWNER);
-    } else {
-        show_bridge_right();
-
-        destroy(REVEALER_HELPER.ID_HALLS_RIGHT_1);
-        destroy(REVEALER_HELPER.ID_HALLS_RIGHT_2);
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aedc7); // [0x9aedc7] (1b) WRITE $249d = 0x06d0
     }
 }
 @install()
-@inject(0x97957b) // "[0x97957b] (ba) LOAD NPC 5e at 20 24"
-fun revealer_halls_left() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0d32, 0d32);
-    REVEALER_HELPER.ID_HALLS_LEFT = <LAST_ENTITY>;
+@inject(0x9aed2c, True) // [56,56:58,58] = (id:b61 => (46d2c@928df5) => addr:0x9aed2c)
+fun door_d3() {
+    guard_door(ROOM.COLUMN_3, ROOM.ROW_4);
 
-    revealer_halls_left_approached(<LAST_ENTITY>);
-}
-// halls_right_1
-@install()
-@async()
-fun revealer_halls_right_1_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0d45, { call(0x979372); });
-}
-@install()
-@inject(0x97957f) // "[0x97957f] (ba) LOAD NPC 5e at 34 24"
-fun revealer_halls_right_1() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0d51, 0d32);
-    REVEALER_HELPER.ID_HALLS_RIGHT_1 = <LAST_ENTITY>;
-
-    revealer_halls_right_1_approached(<LAST_ENTITY>);   
-}
-// halls_right_2
-@install()
-@async()
-fun revealer_halls_right_2_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0d45, { call(0x979372); });
-}
-@install()
-@inject(0x979573) // "[0x979573] (ba) LOAD NPC 5e at 3f 0d"
-fun revealer_halls_right_2() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0d64, 0d23);
-    REVEALER_HELPER.ID_HALLS_RIGHT_2 = <LAST_ENTITY>;
-
-    revealer_halls_right_2_approached(<LAST_ENTITY>);   
-}
-
-// halls north west
-@install()
-@async()
-fun revealer_halls_north_west_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0d45, {
-        if(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
-            end();
-        }
-        
-        call(0x979759); // "[34,27:3c,28] = (id:4b6 => (29759@92874a) => addr:0x979759)"
-    });
-}
-@install()
-@inject(0x979a06, True) // "Unnamed Short script 0x1989" = (id:1989 => addr:0x979a06)"
-fun revealer_halls_north_west_triggered() {
-    if(REVEALER_HELPER.DEBUG) {
-        subtext("revealer triggered");
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aed34); // [0x9aed34] (1b) WRITE $249d = 0x04d0
     }
-
-    control(NONE);
-
-    object[0x06] = 0x7e;
-    sleep(0d30);
-    object[0x07] = 0x7e;
-    sleep(0d30);
-    object[0x08] = 0x7e;
-    sleep(0d30);
-    object[0x09] = 0x7e;
-    sleep(0d30);
-    object[0x0a] = 0x7e;
-    sleep(0d30);
-
-    destroy(REVEALER_HELPER.ID_HALLS_NORTH_WEST);
-    
-    control(BOTH);
 }
 @install()
-@inject(0x979aac) // "[0x979aac] (ba) LOAD NPC 5e at 66 49"
-fun revealer_halls_north_west() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0d100, 0d83);
-    REVEALER_HELPER.ID_HALLS_NORTH_WEST = <LAST_ENTITY>;
+@inject(0x9aecca, True) // [56,2a:58,2c] = (id:b64 => (46cca@928df8) => addr:0x9aecca)
+fun door_b3() {
+    guard_door(ROOM.COLUMN_3, ROOM.ROW_2);
 
-    revealer_halls_north_west_approached(<LAST_ENTITY>);   
-}
-
-// halls north east
-@install()
-@async()
-fun revealer_halls_north_east_approached(entity) {
-    range_checker(entity, <ACTIVE>, 0d45, {
-        if(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
-            end();
-        }
-        
-        call(0x97a23f); // "[0f,26:10,2d] = (id:684 => (2a23f@928918) => addr:0x97a23f)"
-    });
-}
-@install()
-@inject(0x979fab, True) // ""Unknown script in Halls NE" = (id:198f => addr:0x979fab)"
-fun revealer_halls_north_east_triggered() {
-    if(REVEALER_HELPER.DEBUG) {
-        subtext("revealer triggered");
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aecd2); // [0x9aecd2] (1b) WRITE $249d = 0x04d0
     }
+}
 
-    object[0x08] = 0x7e;
-    sleep(0d30);
-    object[0x09] = 0x7e;
-    sleep(0d30);
 
-    destroy(REVEALER_HELPER.ID_HALLS_NORTH_EAST);
+
+@install()
+@inject(0x9aed5d, True) // [76,40:78,42] = (id:b67 => (46d5d@928dfb) => addr:0x9aed5d)
+fun door_c4() {
+    guard_door(ROOM.COLUMN_4, ROOM.ROW_3);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aed65); // [0x9aed65] (1b) WRITE $249d = 0x06d0
+    }
 }
 @install()
-@inject(0x97a385) // "[0x97a385] (ba) LOAD NPC 5e at 7a 4a"
-fun revealer_halls_north_east() {
-    add_enemy(REVEALER_TARGET_ENTITY, 0d122, 0d82);
-    REVEALER_HELPER.ID_HALLS_NORTH_EAST = <LAST_ENTITY>;
+@inject(0x9aed8e, True) // [76,2a:78,2c] = (id:b6a => (46d8e@928dfe) => addr:0x9aed8e)
+fun door_b4() {
+    guard_door(ROOM.COLUMN_4, ROOM.ROW_2);
 
-    revealer_halls_north_east_approached(<LAST_ENTITY>);   
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aed96); // [0x9aed96] (1b) WRITE $249d = 0x06d0
+    }
+}
+@install()
+@inject(0x9aee83, True) // [76,14:78,16] = (id:b6d => (46e83@928e01) => addr:0x9aee83)
+fun door_a4() {
+    guard_door(ROOM.COLUMN_4, ROOM.ROW_1);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aee8b); // [0x9aee8b] (1b) WRITE $249d = 0x06d0
+    }
+}
+@install()
+@inject(0x9aecfb, True) // [56,14:58,16] = (id:b70 => (46cfb@928e04) => addr:0x9aecfb)
+fun door_a3() {
+    guard_door(ROOM.COLUMN_3, ROOM.ROW_1);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aed03); // [0x9aed03] (1b) WRITE $249d = 0x04d0
+    }
+}
+@install()
+@inject(0x9aee52, True) // [36,2a:38,2c] = (id:b73 => (46e52@928e07) => addr:0x9aee52)
+fun door_b2() {
+    guard_door(ROOM.COLUMN_2, ROOM.ROW_2);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aee5a); // [0x9aee5a] (1b) WRITE $249d = 0x02d0
+    }
+}
+@install()
+@inject(0x9aee21, True) // [36,14:38,16] = (id:b76 => (46e21@928e0a) => addr:0x9aee21)
+fun door_a2() {
+    guard_door(ROOM.COLUMN_2, ROOM.ROW_1);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aee29); // [0x9aee29] (1b) WRITE $249d = 0x02d0
+    }
+}
+
+
+@install()
+@inject(0x9aedf0, True) // [16,14:18,16] = (id:b79 => (46df0@928e0d) => addr:0x9aedf0)
+fun door_a1() {
+    guard_door(ROOM.COLUMN_1, ROOM.ROW_1);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aedf8); // [0x9aedf8] (1b) WRITE $249d = 0x00d0
+    }
+}
+
+@install()
+@inject(0x9aef16, True) // [16,56:18,58] = (id:b7c => (46f16@928e10) => addr:0x9aef16)
+fun door_d1() {
+    guard_door(ROOM.COLUMN_1, ROOM.ROW_4);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aef1e); // [0x9aef1e] (1b) WRITE $249d = 0x00d0
+    }
+}
+@install()
+@inject(0x9aeeb4, True) // [16,40:18,42] = (id:b7f => (46eb4@928e13) => addr:0x9aeeb4)
+fun door_c1() {
+    guard_door(ROOM.COLUMN_1, ROOM.ROW_3);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aeebc); // [0x9aeebc] (1b) WRITE $249d = 0x00d0
+    }
+}
+@install()
+@inject(0x9aeee5, True) // [36,40:38,42] = (id:b82 => (46ee5@928e16) => addr:0x9aeee5)
+fun door_c2() {
+    guard_door(ROOM.COLUMN_2, ROOM.ROW_3);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aeeed); // [0x9aeeed] (1b) WRITE $249d = 0x02d0
+    }
+}
+
+@install()
+@inject(0x9aef47, True) // [46,35:48,37] = (id:afb => (46f47@928d8f) => addr:0x9aef47)
+fun door_saturn() {
+    guard_door(0d904, 0d664);
+
+    if(<ACTIVE> != <DOG>) {
+        call(0x9aef4f); // [0x9aef4f] (1b) WRITE $249d = 0x00d0
+    }
 }
