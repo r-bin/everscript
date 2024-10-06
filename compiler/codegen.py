@@ -325,10 +325,10 @@ allocated RAM:
         if variants:
             output.append(self._generate_map())
 
-            function_keys = [function for function in self.code if function.key != None]
-            function_keys.sort(key=lambda k: k.key.index)
-            for function in function_keys:
-                output.append(self._generate_function_key(function))
+        function_keys = [function for function in self.code if function.key != None]
+        function_keys.sort(key=lambda k: k.key.index)
+        for function in function_keys:
+            output.append(self._generate_function_key(function))
 
         # string()
         for string in self.strings:
