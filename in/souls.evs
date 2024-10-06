@@ -218,12 +218,6 @@ group non_maps() {
 
             RING_CAT = 0xf200, // reduces fall damage
         }
-        enum TEMP_SYSTEM_FLAGS {
-            NO_BOY = <0x28fb, 0x01>,
-            NO_DOG = <0x28fb, 0x02>,
-
-            NO_CURRENCY_DISPLAY = <0x28fb, 0x04>,
-        }
         enum SOULS_MEMORY {
             INIT = memory(FLAG, SRAM),
             INTRO_WATCHED = memory(FLAG, SRAM),
@@ -668,7 +662,7 @@ group non_maps() {
 
             // sleep(0x80);
 
-            if!(TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY) {
+            if!(CUSTOM_FLAG.NO_CURRENCY_DISPLAY) {
                 show_currency(True);
                 sleep(0x40);
                 show_currency(False);
@@ -786,7 +780,7 @@ group non_maps() {
             animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
 
             if(SOULS_MEMORY.WITH_SOULS_ON_DEATH) {
-                if!(TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY) {
+                if!(CUSTOM_FLAG.NO_CURRENCY_DISPLAY) {
                     show_currency(True);
                 }
 
@@ -809,7 +803,7 @@ group non_maps() {
                 SOULS_MEMORY.DUST_DROP_MAP = MEMORY.CURRENT_MAP;
                 SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
 
-                if!(TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY) {
+                if!(CUSTOM_FLAG.NO_CURRENCY_DISPLAY) {
                     currency_get(CURRENCY.CREDITS, 0d1);
 
                     show_currency(True);
@@ -1256,7 +1250,7 @@ group non_maps() {
             SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
             MEMORY.PACIFIED = False;
 
-            if(TEMP_SYSTEM_FLAGS.NO_DOG) {
+            if(CUSTOM_FLAG.NO_DOG) {
                 if(False) {
                     FLAG.BOY_UNAVAILABLE = False;
                     FLAG.DOG_UNAVAILABLE = True;
@@ -1265,7 +1259,7 @@ group non_maps() {
                 }
 
                 teleport(DOG, 0d0, 0d0);
-            } else if(TEMP_SYSTEM_FLAGS.NO_BOY) {
+            } else if(CUSTOM_FLAG.NO_BOY) {
                 if(False) {
                     FLAG.BOY_UNAVAILABLE = True;
                     FLAG.DOG_UNAVAILABLE = False;
@@ -1327,7 +1321,7 @@ group non_maps() {
             if(index == 0x01) { // TODO: "&& (FLAG.ENERGY_CORE)" doesn't work anymore
                 drop_bomb(True);
             } else if(index == 0x02) {
-                isaac_tear(True);
+                _isaac_tear(True);
             } else if(index == 0x03) {
                 mario_yump(True);
             } else if(index == 0x04) {
@@ -1467,15 +1461,6 @@ group non_maps() {
             //     debug_subtext("Start");
             // }
 
-            if(
-                (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) ||
-                (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.NO_CLIP) ||
-                (<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)
-                // (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.LOADING_SCREEN)
-            ) {
-                end();
-            }
-
             if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
                 windwalker_rocket();
             } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
@@ -1509,7 +1494,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_market, west, NONE);
+                map_transition(pyramid, east, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -1518,8 +1503,12 @@ group non_maps() {
         @inject(ADDRESS.HOTKEY_START_R)
         @count_limit(0x20)
         fun hotkey_start_r() {
+            rocket_jump();
+            end();
+
             if(FLAG.DEBUG) {
                 debug_subtext("Start+R");
+
                 
                 if(SOULS_MEMORY.WITH_CHEATS) {
                     if(True) {
@@ -6764,7 +6753,7 @@ area altus_plateau_entry() {
 
             if((!NPC_MARIO.MARIO_TEASED) && (NPC_MARIO.PROGRESS < 0d1)) {
                 NPC_MARIO.MARIO_TEASED = True;
-                
+
                 tease_mario();
             }
         }
@@ -7324,7 +7313,7 @@ area altus_plateau_entry() {
                 }
 
                 fun trigger_enter() {
-                    TEMP_SYSTEM_FLAGS.NO_CURRENCY_DISPLAY = True; // TODO: should not discolor magmar
+                    CUSTOM_FLAG.NO_CURRENCY_DISPLAY = True; // TODO: should not discolor magmar
                     
                     add_enemy(BOY_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
                     ROOM.PALETTE_DONOR_BOY = <LAST_ENTITY>;
@@ -8764,7 +8753,7 @@ area altus_plateau_entry() {
                         // object[0x07] = 0x01; // loot gourd_hidden_2_2
                         // object[0x08] = 0x01; // loot gourd_hidden_2_3
 
-                        TEMP_SYSTEM_FLAGS.NO_DOG = True;
+                        CUSTOM_FLAG.NO_DOG = True;
 
                         default_init_room(False, False);
                     }
@@ -8953,7 +8942,7 @@ area altus_plateau_entry() {
                     fun trigger_enter() {
                         init_map(0x00, 0x30, 0x40, 0x70);
 
-                        TEMP_SYSTEM_FLAGS.NO_DOG = True;
+                        CUSTOM_FLAG.NO_DOG = True;
                         default_init_room(False, False);
 
                         walk(BOY, TILE_ABSOLUTE, 0d38, 0d84, BOY, BOY);
@@ -13628,6 +13617,10 @@ area southern_jungle() {
 
         @install()
         fun pit_triggered() {
+            if(<ACTIVE>[Z] > 0d0) {
+                end();
+            }
+            
             generic_fall(0d100, 0d1030);
 
             dust_unreachable(0d143, 0d108);
@@ -13814,14 +13807,6 @@ area southern_jungle() {
         }
 
         @install()
-        fun revealer_triggered() {
-            set(ROOM.BRIDGE_REVEALED);
-            object[0x0b] = 0x7e;
-            sleep(0x29);
-            destroy(ROOM.BRIDGE_REVEALER_ENTITY);
-        }
-
-        @install()
         fun tri_stones_triggered() {
             if!(ROOM.TRI_STONE_LOOTED) {
                 set(ROOM.TRI_STONE_LOOTED);
@@ -13840,14 +13825,26 @@ area southern_jungle() {
             object[0x09] = 0x01;
             object[0x0a] = 0x01;
 
-            if!(ROOM.BRIDGE_REVEALED) {
-                add_enemy(REVEALER_TARGET_ENTITY, 0d148, 0d119);
+            if(False) {
+                if!(ROOM.BRIDGE_REVEALED) {
+                    add_enemy(REVEALER_TARGET_ENTITY, 0d148, 0d119);
+                    ROOM.BRIDGE_REVEALER_ENTITY = <LAST_ENTITY>;
+
+                    special_script(REVEALER, reference(@install() {
+                        set(ROOM.BRIDGE_REVEALED);
+                        object[0x0b] = 0x7e;
+                        sleep(0x29);
+                        destroy(ROOM.BRIDGE_REVEALER_ENTITY);
+                    }));
+                    revealer_approached();
+                } else {
+                    revealer_triggered();
+                }
+            } else {
+                add_enemy(PLACEHOLDER, 0d148, 0d119);
                 ROOM.BRIDGE_REVEALER_ENTITY = <LAST_ENTITY>;
 
-                special_script(REVEALER, reference(revealer_triggered));
                 revealer_approached();
-            } else {
-                revealer_triggered();
             }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
@@ -13873,6 +13870,8 @@ area southern_jungle() {
                 add_enemy(PLACEHOLDER, 0d23, 0d134);
                 attach_script(LAST_ENTITY, B, reference(tri_stones_triggered));
             }
+
+            no_clip_box(0d1126, 0d892, 0d1240, 0d956);
         }
     };
 
@@ -18045,7 +18044,7 @@ area town() {
             }
 
             fun trigger_enter() {
-                TEMP_SYSTEM_FLAGS.NO_DOG = True;
+                CUSTOM_FLAG.NO_DOG = True;
                 
                 init_map(0x00, 0x30, 0x40, 0x70);
 
@@ -26778,14 +26777,14 @@ area dungeon_volcano() {
 area experimental_room() {
     fun character_selection(character:CHARACTER) {
         if(character == CHARACTER.BOY) {
-            TEMP_SYSTEM_FLAGS.NO_DOG = True;
+            CUSTOM_FLAG.NO_DOG = True;
 
             available(BOY);
             destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
             attribute(BOY, INVINCIBLE, True);
         } else if(character == CHARACTER.DOG) {
-            TEMP_SYSTEM_FLAGS.NO_BOY = True;
+            CUSTOM_FLAG.NO_BOY = True;
 
             available(DOG);
             teleport(BOY, 0x00, 0x00);
