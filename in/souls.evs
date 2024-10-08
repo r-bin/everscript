@@ -2416,6 +2416,261 @@ group non_maps() {
             }
         };
 
+        group npc_squidmar() {
+            enum NPC_SQUIDMAR {
+                DEBUG = False,
+
+                DIALOG_GREETING = memory(FLAG, SRAM),
+
+                AQUAGOTH_SEEN = memory(FLAG, SRAM),
+                DIALOG_AQUAGOTH_SEEN = memory(FLAG, SRAM),
+
+                INSANITY = memory(BYTE, SRAM),
+                INSANITY_LIMIT = 0d100,
+
+                REPUTATION = memory(WORD, SRAM),
+                REPUTATION_LIMIT = 0d10,
+            }
+
+            group squidmar_ai() {
+                fun reduce_sanity(amount, external) {
+                    NPC_SQUIDMAR.INSANITY += amount;
+
+                    if(NPC_SQUIDMAR.INSANITY > 0d50) {
+                        sfx_effect(SHAKING, True);
+                    }
+
+                    if(external !is Word) {
+                        if(NPC_SQUIDMAR.INSANITY >= NPC_SQUIDMAR.INSANITY_LIMIT) {
+                            destroy(SCRIPT_OWNER);
+
+                            conversation_end(True);
+                            end();
+                        }
+                    }
+                }
+
+                fun response_buffled() {
+                    subtext("…");
+                }
+
+                fun response_sad() {
+                    dialog("[SLOW]Poor soul… Please look after him…[B]");
+                }
+
+                fun response_lie_detected() {
+                    arg[0x10] = randrange(0d3);
+
+                    if(arg[0x10] == 0d0) {
+                        dialog("[SLOW]…lies…[B]");
+                    } else if(arg[0x10] == 0d1) {
+                        dialog("[SLOW]…the smell of lies…[B]");
+                    } else {
+                        dialog("[SLOW]…I'll squeeze the truth out of you…[B]");
+                    }
+                }
+
+                fun response_lie() {
+                    if(False) {
+                        reduce_sanity(0d50);
+
+                        arg[0x10] = randrange(0d3);
+
+                        if(arg[0x10] == 0d0) {
+                            dialog("[SLOW]…you want to investige his silence?…[B]");
+                        } else if(arg[0x10] == 0d1) {
+                            dialog("[SLOW]…you saw someone in his cave?…[B]");
+                        } else {
+                            dialog("[SLOW]…he attacked you?…[B]");
+                        }
+                    } else {
+                        question("[SLOW][CHOICE_INLINE]investige silence…[CHOICE]saw someone…[CHOICE]attacked you…");
+
+                        response_lie_detected();
+
+                        reduce_sanity(0d50);
+                    }
+                }
+
+                fun dialog_aquagoth() {
+                    dialog("[SLOW]What happened to Aquagoth? I can't feel him anymore.[B]");
+
+                    while(True) {
+                        if(NPC_SQUIDMAR.INSANITY < 0d50) {
+                            question("[SLOW]What happened to my brother?![CHOICE]tell…[CHOICE]lie…");
+                        } else {
+                            question("[SLOW]WHAT HAPPENED TO MY BROTHER?![CHOICE]tell…[CHOICE]lie…[CHOICE]run…", 0d5);
+                        }
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // tell
+                            sfx_effect(SHAKING, False);
+
+                            dialog("[SLOW]Puny mortal. My prison will be your grave.[B]");
+
+                            reduce_sanity(0d100);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // lie
+                            response_lie();
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // run
+                            arg[0x10] = randrange(0d3);
+
+                            if(arg[0x10] == 0d0) {
+                                dialog("[SLOW]The smell of guilt…[B]");
+                            } else if(arg[0x10] == 0d1) {
+                                dialog("[SLOW]You can't outrun your destiny…[B]");
+                            } else {
+                                dialog("[SLOW]…I see…[B]");
+                            }
+
+                            reduce_sanity(0d100);
+                        } else {
+                            reduce_sanity(0d20);
+                            
+                            if(NPC_SQUIDMAR.INSANITY <= 0d50) {
+                                arg[0x10] = randrange(0d3);
+
+                                if(arg[0x10] == 0d0) {
+                                    dialog("[SLOW]…mortal… tell me…[B]");
+                                } else if(arg[0x10] == 0d1) {
+                                    dialog("[SLOW]…tell me…[B]");
+                                } else {
+                                    dialog("[SLOW]…don't make me break your tiny bones…[B]");
+                                }
+                            } else {
+                                arg[0x10] = randrange(0d4);
+
+                                if(arg[0x10] == 0d0) {
+                                    dialog("[SLOW]TELL ME![B]");
+                                } else if(arg[0x10] == 0d1) {
+                                    dialog("[SLOW]Tell me![B]");
+                                } else {
+                                    dialog("[SLOW]TELL ME?![B]");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                fun dialog_aquagoth_seen() {
+                    NPC_SQUIDMAR.DIALOG_AQUAGOTH_SEEN = True;
+                    NPC_SQUIDMAR.AQUAGOTH_SEEN = False;
+
+                    reduce_sanity(0d5);
+
+                    if(NPC_SQUIDMAR.INSANITY < 0d50) {
+                        dialog("[SLOW]Mortal, I have not seen my brother in millenia. Please look after him.[B]");
+                    } else {
+                        dialog("[SLOW]You saw my brother?! Tell me more![B]");
+                    }
+
+                    if(NPC_SQUIDMAR.INSANITY < 0d50) {
+                        question("[SLOW][CHOICE_INLINE]tell…[CHOICE]lie…");
+                    } else {
+                        question("[SLOW][CHOICE_INLINE]tell…[CHOICE]lie…[CHOICE]run…");
+                    }
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // tell
+                        if((NPC_SQUIDMAR.INSANITY >= 0d50) && (NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) && !FLAG.HEAL) {
+                            dialog("[SLOW]…[B]Here - go and help him.[B]");
+
+                            reward(HEAL);
+                        }
+                        
+                        dialog("[SLOW]Leave now! Help my brother.[B]");
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // lie
+                        response_buffled();
+                        reduce_sanity(0d30);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // run
+                        response_buffled();
+                        reduce_sanity(0d10);
+
+                        conversation_end();
+                        end();
+                    } else { // cancel
+                        response_lie_detected();
+                        reduce_sanity(0d30);
+                    }
+                }
+
+                fun donate_relic(item:ITEM) {
+                    item_pay(item, 0d1, False);
+
+                    if(MEMORY.RETURN) {
+                        smart_sound(PURCHASE);
+
+                        NPC_SQUIDMAR.REPUTATION++;
+
+                        if(NPC_SQUIDMAR.REPUTATION >= NPC_SQUIDMAR.REPUTATION_LIMIT) {
+                            subtext("TODO");
+                        }
+                    } else {
+                        response_buffled();
+                        reduce_sanity(0d10);
+                    }
+                }
+
+                fun response_greeting() {
+                    dialog("I am Squidmar.[B]");
+                }
+
+                fun dialog_worship() {
+                    MEMORY.QUESTION_ANSWER = 0d0;
+                    while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                        question("[SLOW]Worship me, mortal. Bring me relics from all across the lands…[CHOICE]Jeweled Scarab…[CHOICE]Limestone Tablet…[CHOICE]Golden Jackal…", 0d7);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // scarab
+                            donate_relic(JEWELED_SCARAB);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // tablet
+                            donate_relic(LIMESTONE_TABLET);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // jackal
+                            donate_relic(GOLDEN_JACKAL);
+                        } else {
+                            response_buffled();
+                        }
+                    }
+                }
+            };
+
+            @install()
+            fun npc_squidmar_triggered() {
+                if(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+                    reduce_sanity(0d50, True);
+                }
+            }
+
+            fun aquagoth_seen() {
+                NPC_SQUIDMAR.AQUAGOTH_SEEN = True;
+                NPC_SQUIDMAR.DIALOG_AQUAGOTH_SEEN = False;
+            }
+
+            fun add_souls_npc_squidmar(x, y) {
+                add_enemy(PLACEHOLDER, x, y);
+                
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    conversation(False, {
+                        if((!NPC_SQUIDMAR.DIALOG_AQUAGOTH_SEEN) && NPC_SQUIDMAR.AQUAGOTH_SEEN) {
+                            dialog_aquagoth_seen();
+                        } else if(SOULS_MEMORY.DEAD_AQUAGOTH) {
+                            dialog_aquagoth();
+                        } else if!(NPC_SQUIDMAR.DIALOG_GREETING) {
+                            NPC_SQUIDMAR.DIALOG_GREETING = True;
+
+                            response_greeting();
+                        } else {
+                            question("[SLOW][CHOICE]talk…[CHOICE]worship…");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                                subtext("todo");
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // worship
+                                dialog_worship();
+                            } else {
+                                response_buffled();
+                            }
+                        }
+                    });
+                }));
+            }
+        };
+
         group npc_alchemists() {
             // "C"
             group npc_alchemist_corrosion() {
@@ -23732,8 +23987,6 @@ area dungeon_volcano() {
         DEFAULT_MUSIC = MUSIC.SEWER_AMBIENT_WATER,
         DEFAULT_SIDE_MUSIC = MUSIC.SEWER_AMBIENT_WATER,
 
-        AQUAGOTH_FOUND = memory(FLAG, SRAM),
-
         BRIDGE_TOP = memory(FLAG, SRAM),
         BRIDGE_CENTER_TOP = memory(FLAG, SRAM),
         BRIDGE_CENTER_BOTTOM = memory(FLAG, SRAM),
@@ -24229,24 +24482,17 @@ area dungeon_volcano() {
         }
 
         enum ROOM {
-            FAKE_EXIT_ID = memory(WORD, TEMP)
+            FAKE_EXIT_ID = memory(WORD, TEMP),
+
+            ID_NPC = memory(WORD, TEMP),
         }
 
         enum BOSS {
             DEBUG = False,
 
             ID = memory(WORD, TEMP),
-            PLACEHOLDER_ID = memory(WORD, TEMP),
 
-            QUESTION_ASKED_AQUAGOTH_SEEN = memory(FLAG, TEMP),
-
-            INSANITY = memory(BYTE, SRAM),
-            INSANITY_LIMIT = 0d100,
-
-            REPUTATION = memory(WORD, SRAM),
-            REPUTATION_LIMIT = 0d10,
-
-            PROGRESS = memory(FLAG,  TEMP),
+            PROGRESS = memory(FLAG, TEMP),
 
             HP = 0d500,
 
@@ -24309,17 +24555,6 @@ area dungeon_volcano() {
             object[0x00] = 0x00; // close door
 
             souls_boss_defeated(DEAD_SQUIDMAR, REWARD_SQUIDMAR);
-        }
-        fun start_boss() {
-            sfx_effect(SHAKING, False);
-
-            set(BOSS.PROGRESS);
-
-            destroy(BOSS.PLACEHOLDER_ID);
-
-            object[0x00] = 0x7e; // close door
-
-            push_music(BOSS);
         }
 
         fun max_energy_check() {
@@ -24457,197 +24692,47 @@ area dungeon_volcano() {
         @install()
         fun squidmar_triggered() {
             if!(BOSS.SPAWNING) {
-                set(BOSS.SPAWNING);
+                BOSS.SPAWNING = True;
                 yield();
                 yield();
                 yield();
 
-                if!(BOSS.PROGRESS) {
-                    subtext("…");
-
-                    start_boss();
+                if(dead(BOSS.ID)) {
+                    boss_defeated();
                 } else {
-                    if(dead(BOSS.ID)) {
-                        boss_defeated();
-                    } else {
-                        if(BOSS.DEBUG) {
-                            debug_memory(BOSS.ID[HP], 0d0);
-                        }
-
-                        spawn_wave();
-                    }
-                }
-
-                unset(BOSS.SPAWNING);
-            }
-        }
-
-        fun reduce_sanity(amount) {
-            BOSS.INSANITY += amount;
-
-            if(BOSS.INSANITY > 0d50) {
-                sfx_effect(SHAKING, True);
-            }
-            if(BOSS.INSANITY >= BOSS.INSANITY_LIMIT) {
-                conversation_end();
-                squidmar_triggered();
-                end();
-            }
-        }
-
-        fun response_buffled() {
-            subtext("…");
-        }
-
-        fun response_sad() {
-            dialog("[SLOW]Poor soul… Please look after him…[B]");
-        }
-
-        fun response_lie_detected() {
-            arg[0x10] = randrange(0d3);
-
-            if(arg[0x10] == 0d0) {
-                dialog("[SLOW]…lies…[B]");
-            } else if(arg[0x10] == 0d1) {
-                dialog("[SLOW]…the smell of lies…[B]");
-            } else {
-                dialog("[SLOW]…I'll squeeze the truth out of you…[B]");
-            }
-        }
-
-        fun response_lie() {
-            if(False) {
-                reduce_sanity(0d50);
-
-                arg[0x10] = randrange(0d3);
-
-                if(arg[0x10] == 0d0) {
-                    dialog("[SLOW]…you want to investige his silence?…[B]");
-                } else if(arg[0x10] == 0d1) {
-                    dialog("[SLOW]…you saw someone in his cave?…[B]");
-                } else {
-                    dialog("[SLOW]…he attacked you?…[B]");
-                }
-            } else {
-                question("[SLOW][CHOICE_INLINE]investige silence…[CHOICE]saw someone…[CHOICE]attacked you…");
-
-                response_lie_detected();
-
-                reduce_sanity(0d50);
-            }
-        }
-
-        fun dialog_aquagoth() {
-            dialog("[SLOW]What happened to Aquagoth? I can't feel him anymore.[B]");
-
-            while(True) {
-                if(BOSS.INSANITY < 0d50) {
-                    question("[SLOW]What happened to my brother?![CHOICE]tell…[CHOICE]lie…");
-                } else {
-                    question("[SLOW]WHAT HAPPENED TO MY BROTHER?![CHOICE]tell…[CHOICE]lie…[CHOICE]run…", 0d5);
-                }
-
-                if(MEMORY.QUESTION_ANSWER == 0d0) { // tell
-                    sfx_effect(SHAKING, False);
-
-                    dialog("[SLOW]Puny mortal. My prison will be your grave.[B]");
-
-                    reduce_sanity(0d100);
-                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // lie
-                    response_lie();
-                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // run
-                    arg[0x10] = randrange(0d3);
-
-                    if(arg[0x10] == 0d0) {
-                        dialog("[SLOW]The smell of guilt…[B]");
-                    } else if(arg[0x10] == 0d1) {
-                        dialog("[SLOW]You can't outrun your destiny…[B]");
-                    } else {
-                        dialog("[SLOW]…I see…[B]");
+                    if(BOSS.DEBUG) {
+                        debug_memory(BOSS.ID[HP], 0d0);
                     }
 
-                    reduce_sanity(0d100);
-                } else {
-                    reduce_sanity(0d20);
-                    
-                    if(BOSS.INSANITY <= 0d50) {
-                        arg[0x10] = randrange(0d3);
-
-                        if(arg[0x10] == 0d0) {
-                            dialog("[SLOW]…mortal… tell me…[B]");
-                        } else if(arg[0x10] == 0d1) {
-                            dialog("[SLOW]…tell me…[B]");
-                        } else {
-                            dialog("[SLOW]…don't make me break your tiny bones…[B]");
-                        }
-                    } else {
-                        arg[0x10] = randrange(0d4);
-
-                        if(arg[0x10] == 0d0) {
-                            dialog("[SLOW]TELL ME![B]");
-                        } else if(arg[0x10] == 0d1) {
-                            dialog("[SLOW]Tell me![B]");
-                        } else {
-                            dialog("[SLOW]TELL ME?![B]");
-                        }
-                    }
+                    spawn_wave();
                 }
+
+                BOSS.SPAWNING = False;
             }
         }
 
-        fun dialog_aquagoth_seen() {
-            BOSS.QUESTION_ASKED_AQUAGOTH_SEEN = True;
+        fun start_boss() {
+            destroy(ROOM.ID_NPC);
 
-            reduce_sanity(0d5);
+            BOSS.PROGRESS = True;
 
-            if(BOSS.INSANITY < 0d50) {
-                dialog("[SLOW]Mortal, I have not seen my brother in millenia. Please look after him.[B]");
-            } else {
-                dialog("[SLOW]You saw my brother?! Tell me more![B]");
-            }
+            object[0x00] = 0x7e; // close door
 
-            if(BOSS.INSANITY < 0d50) {
-                question("[SLOW][CHOICE_INLINE]tell…[CHOICE]lie…");
-            } else {
-                question("[SLOW][CHOICE_INLINE]tell…[CHOICE]lie…[CHOICE]run…");
-            }
+            push_music(BOSS);
 
-            if(MEMORY.QUESTION_ANSWER == 0d0) { // tell
-                if((BOSS.INSANITY >= 0d50) && (BOSS.INSANITY < BOSS.INSANITY_LIMIT) && !FLAG.HEAL) {
-                    dialog("[SLOW]…[B]Here - go and help him.[B]");
+            sfx_effect(SHAKING, False);
 
-                    reward(HEAL);
-                }
-                
-                dialog("[SLOW]Leave now! Help my brother.[B]");
-            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // lie
-                response_buffled();
-                reduce_sanity(0d30);
-            } else if(MEMORY.QUESTION_ANSWER == 0d2) { // run
-                response_buffled();
-                reduce_sanity(0d10);
-
-                conversation_end();
-                end();
-            } else { // cancel
-                response_lie_detected();
-                reduce_sanity(0d30);
-            }
+            attach_script(LAST_ENTITY, DAMAGE, reference(squidmar_triggered));
         }
-
-        fun donate_relic(item:ITEM) {
-            item_pay(item, 0d1, False);
-
-            if(MEMORY.RETURN) {
-                BOSS.REPUTATION++;
-
-                if(BOSS.REPUTATION >= BOSS.REPUTATION_LIMIT) {
-                    subtext("TODO");
-                }
-            } else {
-                response_buffled();
-                reduce_sanity(0d10);
+        
+        @install()
+        @async()
+        fun scan_npc_id(entity) {
+            while(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+                yield();
             }
+
+            start_boss();
         }
 
         fun trigger_enter() {
@@ -24655,41 +24740,18 @@ area dungeon_volcano() {
                 add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
                 BOSS.ID = <LAST_ENTITY>;
                 BOSS.ID[HP] = BOSS.HP;
-                attach_script(LAST_ENTITY, DAMAGE, reference(squidmar_triggered));
 
-                add_enemy(PLACEHOLDER, 0d25, 0d55);
-                BOSS.PLACEHOLDER_ID = <LAST_ENTITY>;
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    conversation(False, {
-                        if(False) {
-                            debug_memory(BOSS.QUESTION_ASKED_AQUAGOTH_SEEN, DUNGEON_VOLCANO.AQUAGOTH_FOUND);
-                            sleep(0d60);
-                        }
+                if(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+                    attach_script(BOSS.ID, DAMAGE, reference(npc_squidmar_triggered));
 
-                        if((!BOSS.QUESTION_ASKED_AQUAGOTH_SEEN) && DUNGEON_VOLCANO.AQUAGOTH_FOUND) {
-                            dialog_aquagoth_seen();
-                        } else if(SOULS_MEMORY.DEAD_AQUAGOTH) {
-                            dialog_aquagoth();
-                        } else {
-                            dialog("I'm Squidmar.[0x80][0x19][0x81]");
-
-                            MEMORY.QUESTION_ANSWER = 0d0;
-                            while(MEMORY.QUESTION_ANSWER != 0xffff) {
-                                question("[SLOW].[CHOICE]Jeweled Scarab…[CHOICE]Limestone Tablet…[CHOICE]Golden Jackal…");
-
-                                if(MEMORY.QUESTION_ANSWER == 0d0) { // scarab
-                                    donate_relic(JEWELED_SCARAB);
-                                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // tablet
-                                    donate_relic(LIMESTONE_TABLET);
-                                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // jackal
-                                    donate_relic(GOLDEN_JACKAL);
-                                } else {
-                                    response_buffled();
-                                }
-                            }
-                        }
-                    });
-                }));
+                    add_souls_npc_squidmar(0d26, 0d55);
+                    ROOM.ID_NPC = <LAST_ENTITY>;
+                    
+                    scan_npc_id(<LAST_ENTITY>);
+                } else {
+                    start_boss();
+                }
+                
             } else {
                 object[0x01] = 0x01; // hide aquagoth
             }
@@ -24804,7 +24866,7 @@ area dungeon_volcano() {
         }
 
         fun trigger_enter() {
-            DUNGEON_VOLCANO.AQUAGOTH_FOUND = True;
+            aquagoth_seen();
             
             if!(SOULS_MEMORY.DEAD_AQUAGOTH) {
                 add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
