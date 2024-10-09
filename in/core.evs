@@ -468,6 +468,8 @@ group general_enums() {
             
             Z_AFTER_TELEPORT = <0x23db>, // redundant with "entity[Z_LEVEL] = z;"
 
+            NEXT_PROJECTILE_DAMAGE = <0x23d1>, // consumed after bomb explosion
+
             // sniff spot looting
             LOOT_ITEM = <0x2391>,
             LOOT_OBJECT = <0x2395>,
@@ -4222,11 +4224,17 @@ group functions() {
                 code(0xb5, param(projectile), entity_t(entity), calculate(entity[X] + offset_x), calculate(entity[Y] + offset_y), param(overshoot), calculate(entity[X] + (offset_x + x)), calculate(entity[Y] + (offset_y + y)), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
 
-            fun bomb_absolute(entity:CHARACTER, x, y, size) {
+            fun bomb_absolute(entity:CHARACTER, x, y, size, damage) {
+                MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(x), calculate(y), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
-            fun bomb_entity(entity:CHARACTER, size) {
+            fun bomb_entity(entity:CHARACTER, size, damage) {
+                MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun bomb_entity_entity(entity:CHARACTER, entity_target:CHARACTER, size, damage) {
+                MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity_target[X]), calculate(entity_target[Y]), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
         };
 
@@ -6988,23 +6996,21 @@ group functions() {
             sound(TELEPORTER);
             _add_placeholder(TELEPORT_IN, entity[X], entity[Y], ONCE);
 
-            sleep(0d29);
+            sleep(0d30);
 
-            if(entity == <BOY>) {
-                animate(BOY, ONCE, ANIMATION_ALL.DEFAULT);
-            } else {
-                animate(DOG, ONCE, ANIMATION_ALL.DEFAULT);
-            }
+            animate(entity, ONCE, ANIMATION_ALL.DEFAULT);
         }
         fun teleporter_animation_out(entity) {
             sound(TELEPORTER);
             _add_placeholder(TELEPORT_OUT, entity[X], entity[Y], ONCE);
 
-            if(entity == <BOY>) {
-                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
-            } else {
+            if(entity == <DOG>) {
                 animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT2_TELEPORT);
+            } else {
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
             }
+
+            wait(entity);
         }
         @install()
         @async()
@@ -7203,7 +7209,20 @@ group functions() {
 
             _add_enemy(BOMB, <BOY>[X], <BOY>[Y]);
             attach_to_script(LAST_ENTITY);
-            attach_script(SCRIPT_OWNER, DEATH, ADDRESS_ID.BOMB_EXPLOSION);
+            attach_script(SCRIPT_OWNER, DEATH, reference(@install() {
+                if(script[0x9] != 0x200) {
+                    if(False) {
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                    }
+
+                    end();
+                }
+
+                sleep(0d10);
+                
+                bomb_entity(<SCRIPT_OWNER>, 0d50, 0d2000);
+                bomb_entity_entity(BOY, <SCRIPT_OWNER>, 0d50, 0d200);
+            }));
 
             <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
 
@@ -7494,7 +7513,7 @@ group functions() {
 
                 attribute(BOY, INVISIBLE, False);
 
-                bomb_entity(BOY, 0d30);
+                bomb_entity(BOY, 0d30, 0d10);
                 sound(HEAVY_IMPACT);
 
                 control(BOTH);
@@ -8003,7 +8022,7 @@ group functions() {
             arg[0x12] = target[Y];
             sleep(0d80);
 
-            bomb_absolute(entity, arg[0x10], arg[0x12], 0x60);
+            bomb_absolute(entity, arg[0x10], arg[0x12], 0x60, 0d0);
 
             _add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, arg[0x10], arg[0x12]);
             arg[0x14] = <LAST_ENTITY>;
@@ -8013,7 +8032,7 @@ group functions() {
         }
         @install()
         fun ai_move_bomb_enemy(entity) {
-            bomb_entity(entity, 0d110);
+            bomb_entity(entity, 0d110, 0d10);
 
             add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, entity[X], entity[Y]);
             arg[0x10] = <LAST_ENTITY>;
@@ -8081,7 +8100,7 @@ group functions() {
                 if(arg[0x16] >= 0d10) {
                     arg[0x16] = 0d0;
 
-                    bomb_entity(arg[0x10], 0d50);
+                    bomb_entity(arg[0x10], 0d50, 0d10);
                     // sound(GORE_EXPLOSION);
                 }
             }
@@ -8100,7 +8119,7 @@ group functions() {
             while(count > 0d0) {
                 while(entity[X] < 0x200) {
                     entity[X] += speed;
-                    bomb_entity(entity, 0d10);
+                    bomb_entity(entity, 0d10, 0d10);
 
                     yield();
                 }
@@ -8117,7 +8136,7 @@ group functions() {
 
             while(entity[X] < arg[0x10]) {
                 entity[X] += speed;
-                bomb_entity(entity, 0d10);
+                bomb_entity(entity, 0d10, 0d10);
 
                 yield();
             }
