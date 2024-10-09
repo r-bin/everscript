@@ -172,6 +172,10 @@ group non_maps() {
             error_walk_back(exit_direction);
         }
 
+        fun notification_door_opened() {
+            subtext("Somewhere a door has opened.");
+        }
+
         @install()
         fun enemy_triggered_invincible() {
             heal(SCRIPT_OWNER, 0x00, False);
@@ -200,9 +204,12 @@ group non_maps() {
 
             BOMBS = 0x01,
             AIRSHIP = 0x02,
-            ISAAC = 0x03,
-            MARIO = 0x04,
-            PUPPER = 0x05,
+            PUPPER = 0x03,
+
+            ISAAC = 0x10,
+
+            MARIO = 0x20,
+            MARIO_FIREFLOWER = 0x21,
         }
         enum DEBUG_MENU_ENTRY {
             BOMBS = 0x01,
@@ -235,7 +242,7 @@ group non_maps() {
 
             // features
             WITH_OPENING = False, // doesn't work?
-            WITH_SAVESTATE_LOAD = True, // after splash screen
+            WITH_SAVESTATE_LOAD = False, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
             WITH_INTRO = True,
@@ -765,6 +772,12 @@ group non_maps() {
 
         @install()
         fun boy_death() {
+            if(<BOY>[HP] > 0d0) {
+                CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
+
+                end();
+            }
+
             if(<SCRIPT_OWNER>[PIXIE_DUST] > 0d0) {
                 if!(SOULS_MEMORY.DUST_UNREACHABLE) {
                     while(<SCRIPT_OWNER>[HP] <= 0d0) {
@@ -1049,13 +1062,14 @@ group non_maps() {
 
                 SOULS_MEMORY.MENU_CHOICE = 0xffff;
 
-                // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+                // CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
                 if(SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
                     if(FLAG.DEBUG) {
                         SOULS_MEMORY.MENU_CHOICE = 0x01;
                         
-                        set(SOULS_MEMORY.MARIO_YUMP_ENABLED);
+                        SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
+                        // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
 
                         update_debug_menu();
                     }
@@ -1255,7 +1269,6 @@ group non_maps() {
 
             init_weather(night, rain);
 
-            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
             MEMORY.PACIFIED = False;
 
             if(CUSTOM_FLAG.NO_DOG) {
@@ -1291,7 +1304,7 @@ group non_maps() {
         }
 
         fun isaac_mode() {
-            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.ISAAC;
             MEMORY.PACIFIED = True;
         }
 
@@ -1308,7 +1321,7 @@ group non_maps() {
         }
 
         fun mario_mode() {
-            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
             MEMORY.PACIFIED = True;
         }
 
@@ -1469,18 +1482,20 @@ group non_maps() {
             //     debug_subtext("Start");
             // }
 
-            if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
+            if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.AIRSHIP) {
                 windwalker_rocket();
-            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.ISAAC) {
                 isaac_tear(False);
-            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.BOMBS) {
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.BOMBS) {
                 drop_bomb(False);
-            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.MARIO) {
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.MARIO) {
                 mario_yump(False);
-            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.PUPPER) {
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.PUPPER) {
                 MEMORY.DOG_WRITE = DOG.PUPPER; // TODO
             } else {
-                // debug_memory(SOULS_MEMORY.MENU_CHOICE, SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
+                if(False) {
+                    debug_memory(SOULS_MEMORY.MENU_CHOICE, SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
+                }
 
                 if(SOULS_MEMORY.MENU_CHOICE == 0x01) {
                     start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
@@ -1502,7 +1517,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(mario_dungeon_boss, south, NONE);
+                map_transition(mario_prison_5, pipe, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -1542,12 +1557,34 @@ group non_maps() {
             }
         }
         @install()
+        @inject(ADDRESS.HOTKEY_L)
+        @count_limit(0x20)
+        fun hotkey_l() {
+            if(False) {
+                debug_subtext("L");
+            }
+        }
+        @install()
+        @inject(ADDRESS.HOTKEY_R)
+        @count_limit(0x20)
+        fun hotkey_r() {
+            if(False) {
+                debug_subtext("R");
+            }
+
+            if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.MARIO) {
+                if(CUSTOM_FLAG.START_MARIO_FIREFLOWER) {
+                    mario_fireflower();
+                }
+            }
+        }
+        @install()
         @inject(ADDRESS.HOTKEY_B)
         @count_limit(0x20)
         fun hotkey_b() {
-            if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.AIRSHIP) {
+            if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.AIRSHIP) {
                 windwalker_rocket();
-            } else if(SOULS_MEMORY.BUTTON_MAP == BUTTON_MAP.ISAAC) {
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.ISAAC) {
                 isaac_tear(False);
             }
         }
@@ -1856,7 +1893,7 @@ group non_maps() {
                             dialog("[SLOW]This should help you navigate within the Sewers.[B]");
 
                             custom_reward(BIG_MUSHROOM);
-                            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
 
                             dialog("[SLOW]Press `Start´ to use the Big Mushroom within the Sewers.[B]");
 
@@ -6811,7 +6848,7 @@ area altus_plateau_entry() {
                 <0x4F2F> = 0x0020;
 
                 default_init_room(False, False);
-                SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.AIRSHIP;
+                CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.AIRSHIP;
 
                 press_start();
 
@@ -11530,7 +11567,7 @@ area east_inbetwixx() {
                 default_init_room(True, False);
 
                 if(SOULS_MEMORY.BIG_MUSHROOM) {
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
                 }
 
                 add_enemy(PLACEHOLDER, 0x2d, 0x16);
@@ -11564,7 +11601,7 @@ area east_inbetwixx() {
                     if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
                         sound(MAGMA_HARDENING);
 
-                        subtext("Somewhere a door has opened.");
+                        notification_door_opened();
 
                         set(PIPE_MAZE.HIDDEN_ROOM_OPEND);
                     }
@@ -11661,7 +11698,7 @@ area east_inbetwixx() {
 
             @install()
             fun debug_triggered() {
-                set(PIPE_MAZE.MARIO_BOSS_ROOM_OPEND);
+                PIPE_MAZE.MARIO_BOSS_ROOM_OPEND = True;
                 open_gate();
 
                 destroy(SCRIPT_OWNER);
@@ -11681,7 +11718,7 @@ area east_inbetwixx() {
                 default_init_room(True, False);
 
                 if(SOULS_MEMORY.BIG_MUSHROOM) {
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
                 }
             }
         };
@@ -11996,7 +12033,7 @@ area east_inbetwixx() {
                 default_init_room(True, False);
 
                 if(SOULS_MEMORY.BIG_MUSHROOM) {
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
                 }
             }
         };
@@ -12150,7 +12187,7 @@ area east_inbetwixx() {
                 default_init_room(True, False);
 
                 if(SOULS_MEMORY.BIG_MUSHROOM) {
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
                 }
             }
         };
@@ -12179,7 +12216,7 @@ area east_inbetwixx() {
             @install()
             fun debug_triggered() {
                 set(SOULS_MEMORY.BIG_MUSHROOM);
-                SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
 
                 destroy(SCRIPT_OWNER);
             }
@@ -12202,7 +12239,7 @@ area east_inbetwixx() {
                 default_init_room(True, True);
 
                 if(SOULS_MEMORY.BIG_MUSHROOM) {
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
                 }
             }
         };
@@ -12445,7 +12482,7 @@ area east_inbetwixx() {
                 default_init_room(True, False);
 
                 if(SOULS_MEMORY.BIG_MUSHROOM) {
-                    SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
                 }
 
                 // west
@@ -12488,6 +12525,7 @@ area east_inbetwixx() {
                 DEFAULT_MUSIC = MUSIC.SWAMP_AMBIENT,
 
                 ROOMS_CLEARED = memory(BYTE, SRAM),
+                ROOMS_REQUIRED = 0d5,
             }
 
             group mario_helper() {
@@ -12499,6 +12537,11 @@ area east_inbetwixx() {
                         set(flag);
 
                         MARIO.ROOMS_CLEARED++;
+
+                        if(MARIO.ROOMS_CLEARED == MARIO.ROOMS_REQUIRED) {
+                            PIPE_MAZE.MARIO_BOSS_ROOM_OPEND = True;
+                            notification_door_opened();
+                        }
                     }
                 }
 
@@ -12542,13 +12585,14 @@ area east_inbetwixx() {
                     room_cleared(room_cleared_flag);
                 }
 
-                fun door_triggered(room_cleared_flag) {
+                fun door_triggered(object_id, room_cleared_flag) {
                     if!(room_cleared_flag) {
                         error_contraption(NONE);
                         end();
                     }
 
-                    object[0x06] = 0x01; // opens door
+                    // TODO: vanilla_act3_sewer_door
+                    object[object_id] = 0x01; // opens door
 
                     exit_mario_prison();
                 }
@@ -12641,6 +12685,58 @@ area east_inbetwixx() {
                         animate(SCRIPT_OWNER, ONCE, DEFAULT);
                     }
                 }
+                fun add_mario_fireflower(x, y) {
+                    add_enemy(FLOWER_ORANGE, x, y);
+
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        destroy(SCRIPT_OWNER);
+                        fake_loot();
+
+                        CUSTOM_FLAG.START_MARIO_FIREFLOWER = True;
+                    }));
+                }
+
+                @install()
+                @async()
+                fun stack_boy_yoshi(entity) {
+                    attach_to_script(entity);
+
+                    while!(dead(<SCRIPT_OWNER>)) {
+                        <BOY>[X] = <SCRIPT_OWNER>[X];
+                        <BOY>[Y] = <SCRIPT_OWNER>[Y] - 0x0a;
+
+                        if((<BOY>[FACE_DIRECTION] != arg[0x10]) || (arg[0x12] > 0d40)) {
+                            arg[0x12] = 0d0;
+
+                            if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                                face(SCRIPT_OWNER, SOUTH);
+                                walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] - 0d64, NONE);
+                            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                                face(SCRIPT_OWNER, WEST);
+                                walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0d64, <SCRIPT_OWNER>[Y], NONE);
+                            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                                face(SCRIPT_OWNER, NORTH);
+                                walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] + 0d64, NONE);
+                            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                                face(SCRIPT_OWNER, EAST);
+                                walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] - 0d64, <SCRIPT_OWNER>[Y], NONE);
+                            }
+
+                            arg[0x10] = <BOY>[FACE_DIRECTION];
+                        } else {
+                            arg[0x12]++;
+                        }
+
+                        sleep(0x01);
+                    }
+                }
+
+                fun add_yoshi(x, y) {
+                    add_enemy(RAPTOR_GREEN, x, y);
+                    // add_enemy(RAPTOR_GREEN, 0x36, 0x30, INACTIVE);
+                    control(LAST_ENTITY, True);
+                    attribute(LAST_ENTITY, INVINCIBLE, True);
+                }
             };
 
             map mario_prison_1(IVOR_EBON_PRISON) { // goombas
@@ -12679,8 +12775,6 @@ area east_inbetwixx() {
                     CELL_5_CLEARED = memory(FLAG,  TEMP),
                     CELL_6_CLEARED = memory(FLAG,  TEMP),
                     CELL_7_CLEARED = memory(FLAG,  TEMP),
-
-                    ROOMS_TO_CLEAR = 0x07,
                 }
 
                 fun add_mario_frippo(x, y) {
@@ -12843,7 +12937,7 @@ area east_inbetwixx() {
                         switch_triggered(0x01, ROOM.CELL_1_CLEARED, 0x18, 0x1e);
                     },
                     exit_door = @install() {
-                        door_triggered(ROOM.ROOM_CLEARED);
+                        door_triggered(0x06, ROOM.ROOM_CLEARED);
                     },
                     stepon_8 = @install() {
                         debug_subtext("S=8");
@@ -13027,7 +13121,7 @@ area east_inbetwixx() {
                     exit_door = @install() {
                         room_cleared(ROOM.ROOM_CLEARED);
 
-                        door_triggered(ROOM.ROOM_CLEARED);
+                        door_triggered(0x06, ROOM.ROOM_CLEARED);
                     },
                     stepon_8 = @install() {
                         debug_subtext("S=8");
@@ -13215,7 +13309,7 @@ area east_inbetwixx() {
                     mario_init(False, False);
 
                     if!(ROOM.ROOM_CLEARED) {
-                        SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.NORMAL;
+                        CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.NORMAL;
 
                         room_condition(ROOM.ROOM_CLEARED, ROOM.GATE_COUNT, ROOM.GATES_REQUIRED, ROOM.KILL_COUNT, ROOM.KILLS_REQUIRED);
                     }
@@ -13420,7 +13514,7 @@ area east_inbetwixx() {
                         add_mario_frippo(0x18, 0x1e);
                     },
                     exit_door = @install() {
-                        door_triggered(ROOM.ROOM_CLEARED);
+                        door_triggered(0x06, ROOM.ROOM_CLEARED);
                     },
                     stepon_8 = @install() {
                         debug_subtext("S=8");
@@ -13505,57 +13599,6 @@ area east_inbetwixx() {
                     },
                 }
 
-                enum MOUNT {
-                    ID = memory(WORD, TEMP),
-
-                    WALK_DISTANCE = 0x40,
-                    WALK_TIME = 0x25,
-                    WALK_REPEAT_TIMER = memory(WORD, TEMP),
-                }
-
-                @install()
-                @async()
-                fun stack_t01_offset() {
-                    while!(dead(MOUNT.ID)) {
-                        <BOY>[X] = MOUNT.ID[X];
-                        <BOY>[Y] = MOUNT.ID[Y] - 0x0a;
-
-                        if((<BOY>[FACE_DIRECTION] != arg[0x00]) || (MOUNT.WALK_REPEAT_TIMER > MOUNT.WALK_TIME)) {
-                            MOUNT.WALK_REPEAT_TIMER = 0x00;
-
-                            if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                                face(MOUNT.ID, SOUTH);
-                                walk(MOUNT.ID, COORDINATE_ABSOLUTE, MOUNT.ID[X], MOUNT.ID[Y] - MOUNT.WALK_DISTANCE, NONE);
-                            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
-                                face(MOUNT.ID, WEST);
-                                walk(MOUNT.ID, COORDINATE_ABSOLUTE, MOUNT.ID[X] + MOUNT.WALK_DISTANCE, MOUNT.ID[Y], NONE);
-                            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
-                                face(MOUNT.ID, NORTH);
-                                walk(MOUNT.ID, COORDINATE_ABSOLUTE, MOUNT.ID[X], MOUNT.ID[Y] + MOUNT.WALK_DISTANCE, NONE);
-                            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
-                                face(MOUNT.ID, EAST);
-                                walk(MOUNT.ID, COORDINATE_ABSOLUTE, MOUNT.ID[X] - MOUNT.WALK_DISTANCE, MOUNT.ID[Y], NONE);
-                            }
-
-                            arg[0x00] = <BOY>[FACE_DIRECTION];
-                        } else {
-                            MOUNT.WALK_REPEAT_TIMER++;
-                        }
-
-                        sleep(0x01);
-                    }
-                }
-
-                fun add_yoshi(x, y) {
-                    add_enemy(RAPTOR_GREEN, x, y);
-                    // add_enemy(RAPTOR_GREEN, 0x36, 0x30, INACTIVE);
-                    control(LAST_ENTITY, True);
-                    attribute(LAST_ENTITY, INVINCIBLE, True);
-                    MOUNT.ID = <LAST_ENTITY>;
-
-                    stack_t01_offset();
-                }
-
                 fun trigger_enter() {
                     if(ROOM.ROOM_CLEARED) {
                         set(ROOM.CELL_1_CLEARED);
@@ -13584,6 +13627,7 @@ area east_inbetwixx() {
                     mario_init(False, False);
 
                     add_yoshi(0x36, 0x30);
+                    stack_boy_yoshi();
 
                     if!(ROOM.ROOM_CLEARED) {
                         room_condition(ROOM.ROOM_CLEARED, ROOM.GATE_COUNT, ROOM.GATES_REQUIRED, ROOM.KILL_COUNT, ROOM.KILLS_REQUIRED);
@@ -13627,8 +13671,6 @@ area east_inbetwixx() {
                     CELL_5_CLEARED = memory(FLAG,  TEMP),
                     CELL_6_CLEARED = memory(FLAG,  TEMP),
                     CELL_7_CLEARED = memory(FLAG,  TEMP),
-
-                    ROOMS_TO_CLEAR = 0x07,
                 }
 
                 fun add_mario_frippo(x, y) {
@@ -13791,7 +13833,7 @@ area east_inbetwixx() {
                         switch_triggered(0x01, ROOM.CELL_1_CLEARED, 0x18, 0x1e);
                     },
                     exit_door = @install() {
-                        door_triggered(ROOM.ROOM_CLEARED);
+                        door_triggered(0x06, ROOM.ROOM_CLEARED);
                     },
                     stepon_8 = @install() {
                         debug_subtext("S=8");
@@ -13923,12 +13965,30 @@ area east_inbetwixx() {
                     default = soundtrack(MARIO.DEFAULT_MUSIC, 0xff)
                 }
 
+                enum ROOM {
+                    DEBUG = False,
+
+                    ROOM_CLEARED = memory(FLAG, SRAM),
+
+                    ENEMY_COUNT = memory(WORD, TEMP),
+                    KILL_COUNT = memory(WORD, TEMP),
+                    KILLS_REQUIRED = 0d0,
+                    GATE_COUNT = memory(WORD, TEMP),
+                    GATES_REQUIRED = 0d0,
+
+                    YOSHI_ID = memory(WORD, TEMP),
+                }
+
                 enum stepon_trigger {
                     exit_pipe = @install() {
                         debug_subtext("S=0");
                     },
                     exit_door = @install() {
                         debug_subtext("S=1");
+
+                        room_cleared(ROOM.ROOM_CLEARED);
+
+                        door_triggered(0x00, ROOM.ROOM_CLEARED);
                     },
                     exit_east_2 = @install() {
                         debug_subtext("S=2");
@@ -13968,6 +14028,17 @@ area east_inbetwixx() {
                 fun trigger_enter() {
                     mario_init(False, False);
 
+                    if(False) {
+                        add_yoshi(0d72, 0d27);
+                        ROOM.YOSHI_ID = <LAST_ENTITY>;
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            stack_boy_yoshi(<SCRIPT_OWNER>);
+                            attach_script(SCRIPT_OWNER, B, reference(nop));
+                        }));
+                    }
+
+                    add_mario_fireflower(0d214, 0d111);
+
                     // object[0x00] = 0x01; // open door
                     // object[0x01] = 0x01; // open chest_4_1
                     // object[0x02] = 0x01; // open chest_4_2
@@ -13977,6 +14048,10 @@ area east_inbetwixx() {
                     // object[0x06] = 0x01; // open chest_2
                     // object[0x07] = 0x01; // open chest_1_1
                     // object[0x08] = 0x01; // open chest_1_2
+
+                    if!(ROOM.ROOM_CLEARED) {
+                        room_condition(ROOM.ROOM_CLEARED, ROOM.GATE_COUNT, ROOM.GATES_REQUIRED, ROOM.KILL_COUNT, ROOM.KILLS_REQUIRED);
+                    }
                 }
             };
 
@@ -18636,7 +18711,7 @@ area town() {
 
                 press_start();
 
-                SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+                CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
                 sleep(0d15);
                 show_bridge(False);
@@ -27379,7 +27454,7 @@ area experimental_room() {
 
             attribute(DOG, INVINCIBLE, True);
 
-            attach_script(DOG, DEATH, reference(boy_death));
+            attach_script(DOG, DAMAGE_DEATH, reference(boy_death));
         }
     }
 
@@ -27606,7 +27681,7 @@ area experimental_room() {
             attach_script(LAST_ENTITY, DAMAGE, reference(memscan));
 
             default_init_room(True, False);
-            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.BOMBS;
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
             countdown(0x03);
             // attribute(BOY, INVINCIBLE, False);
@@ -28266,7 +28341,7 @@ area experimental_room() {
             destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
             default_init_room(True, False);
-            SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.ISAAC;
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.ISAAC;
 
             close_exits(True);
 
