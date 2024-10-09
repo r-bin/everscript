@@ -221,17 +221,27 @@ group non_maps() {
         enum CUSTOM_ITEM {
             NO_ITEM = 0x0000,
 
+            // weapons
             SWORD_ORB = 0xf000, // available: 2
             SPEAR_ORB = 0xf001, // available: 3
             AXE_ORB = 0xf002, // available: 3
 
+            // quest items
             SMITH_KEY = 0xf100, // unlocks orb upgrades
             BIG_MUSHROOM = 0xf101, // unlocks jumping in the sewers
             ISAAC_LETTER = 0xf102, // unlocks isaac wanted poster
             ISAAC_WANTED_POSTER = 0xf103, // unlocks ?
             BUG_CATCHER = 0xf104, // unlocks bee collecting
 
-            RING_CAT = 0xf200, // reduces fall damage
+            // ability
+            ZELDA_POWER_GLOVE = 0xf200, // unlocks levitate stones
+            ZELDA_TITANS_MITT = 0xf201, // unlocks levitate stones
+
+            // rings
+            RING_CAT = 0xf300, // reduces fall damage
+
+            // armor
+            RED_TUNIC = 0xf400, // reduces fire damage
         }
         enum SOULS_MEMORY {
             INIT = memory(FLAG, SRAM),
@@ -296,6 +306,8 @@ group non_maps() {
             ISAAC_LETTER = memory(FLAG, SRAM),
             ISAAC_WANTED_POSTER = memory(FLAG, SRAM),
             BUG_CATCHER = memory(FLAG, SRAM),
+
+            ZELDA_POWER_GLOVE = memory(WORD, SRAM),
 
             RING_CAT = memory(FLAG, SRAM),
 
@@ -513,6 +525,18 @@ group non_maps() {
 
                 SOULS_MEMORY.ISAAC_WANTED_POSTER = True;
             } else if(item == CUSTOM_ITEM.BUG_CATCHER) {
+                subtext("Gained Bug Catcher");
+                    
+                fanfare_item(True);
+
+                SOULS_MEMORY.BUG_CATCHER = True;
+            } else if(item == CUSTOM_ITEM.ZELDA_POWER_GLOVE) {
+                subtext("Gained ");
+                    
+                fanfare_item(True);
+
+                SOULS_MEMORY.BUG_CATCHER = True;
+            } else if(item == CUSTOM_ITEM.ZELDA_TITANS_MITT) {
                 subtext("Gained Bug Catcher");
                     
                 fanfare_item(True);
@@ -1471,6 +1495,22 @@ group non_maps() {
             <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object << 0x8) + value);
             // <0x2834> = <LAST_ENTITY>;
         }
+
+        fun guard_levitate_stone() {
+            arg[0x0e] = SOULS_MEMORY.ZELDA_POWER_GLOVE;
+            if(<BOY>[BOOST_ATTACK] > 0d0) {
+                arg[0x0e]++;
+            }
+
+            zelda_power_glove(arg[0x0e]);
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+        }
+        fun add_levitate_stone(x, y, trigger) {
+            add_enemy(STONE, x, y, STONE_LEVITATE);
+            
+            attach_script(LAST_ENTITY, B, trigger);
+        }
     };
 
     group hotkeys() {
@@ -1517,7 +1557,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(mario_prison_5, pipe, NONE);
+                map_transition(castle_center, south_2, NONE);
 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -1556,14 +1596,14 @@ group non_maps() {
                 cycle_weapon();
             }
         }
-        @install()
-        @inject(ADDRESS.HOTKEY_L)
-        @count_limit(0x20)
-        fun hotkey_l() {
-            if(False) {
-                debug_subtext("L");
-            }
-        }
+        // @install()
+        // @inject(ADDRESS.HOTKEY_L)
+        // @count_limit(0x20)
+        // fun hotkey_l() {
+        //     if(False) {
+        //         debug_subtext("L");
+        //     }
+        // }
         @install()
         @inject(ADDRESS.HOTKEY_R)
         @count_limit(0x20)
@@ -4738,6 +4778,8 @@ area inbetwixx_center() {
                 set(SOULS_MEMORY.MARIO_YUMP_ENABLED);
                 set(SOULS_MEMORY.ISAAC_TEARS_ENABLED);
                 set(SOULS_MEMORY.PUPPER_ENABLED);
+
+                SOULS_MEMORY.ZELDA_POWER_GLOVE = 0d2;
             }
 
             if(SOULS_MEMORY.WITH_DEBUG_ENTITY_ALCHEMY_SELECTION) {
@@ -6221,7 +6263,15 @@ area altus_plateau_entry() {
                 }
             }
 
-            add_enemy(STONE, 0d68, 0d65, STONE_LEVITATE);
+            add_levitate_stone(0d68, 0d65, reference(@install() {
+                guard_levitate_stone();
+
+                ROOM.STONE_MOVED = True;
+            }));
+            if(ROOM.STONE_MOVED) {
+                <LAST_ENTITY>[X] += ROOM.STONE_OFFSET;
+            }
+
             special_script(LEVITATE, reference(@install() {
                 if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
                     end();
@@ -8156,19 +8206,26 @@ area altus_plateau_entry() {
                     },
                 }
 
-                fun trigger_enter() {
-                    add_enemy(STONE, 0d86, 0d20, STONE_LEVITATE);
-                    special_script(LEVITATE, reference(@install() {
-                        if!(ROOM.BEE_TRIGGERED) {
-                            ROOM.BEE_TRIGGERED = True;
+                @install()
+                fun stone_lifted() {
+                    if!(ROOM.BEE_TRIGGERED) {
+                        ROOM.BEE_TRIGGERED = True;
 
-                            if!(ROOM.BEE_COLLECTED) {
-                                add_bee(0d86, 0d20, reference(@install() {
-                                    bee_collected(ROOM.BEE_COLLECTED);
-                                }));
-                            }
+                        if!(ROOM.BEE_COLLECTED) {
+                            add_bee(0d86, 0d20, reference(@install() {
+                                bee_collected(ROOM.BEE_COLLECTED);
+                            }));
                         }
+                    }
+                }
+
+                fun trigger_enter() {
+                    add_levitate_stone(0d86, 0d20, reference(@install() {
+                        guard_levitate_stone();
+
+                        stone_lifted();
                     }));
+                    special_script(LEVITATE, reference(stone_lifted));
 
                     default_init_room(False, False);
 
@@ -16419,7 +16476,12 @@ area town() {
                         }
                     }));
 
-                    add_enemy(STONE, 0d8, 0d62, STONE_LEVITATE);
+                    add_levitate_stone(0d8, 0d62, reference(@install() {
+                        guard_levitate_stone();
+
+                        object[0x03] = 0x01; // open door_NW
+                        ROOM.DOOR_WALL_BOSS_OPENED = True;
+                    }));
                     if(ROOM.DOOR_WALL_BOSS_OPENED) {
                         <LAST_ENTITY>[X] += ROOM.STONE_OFFSET;
 
