@@ -25,6 +25,8 @@ hirom
 !HOTKEY_START_L = #$1020 ; BYs(S) ↑↓←→ AX(L)R 0123
 !HOTKEY_START_R = #$1010 ; BYs(S) ↑↓←→ AXL(R) 0123
 !HOTKEY_B = #$8000 ; (B)YsS ↑↓←→ AXLR 0123
+!HOTKEY_L = #$0020 ; BYsS ↑↓←→ AX(L)R 0123
+!HOTKEY_R = #$0010 ; BYsS ↑↓←→ AXL(R) 0123
 
 org !ROM_HOOK+!INJECT_OFFSET
   JSL start_practice_stuff
@@ -50,12 +52,21 @@ start_practice_stuff:
   CMP !HOTKEY_START : BNE .after_hotkey_start
     JSL hotkey_pressed_start
   .after_hotkey_start
+
   CMP !HOTKEY_START_L : BNE .after_hotkey_start_l
     JSL hotkey_pressed_start_l
   .after_hotkey_start_l
   CMP !HOTKEY_START_R : BNE .after_hotkey_start_r
     JSL hotkey_pressed_start_r
   .after_hotkey_start_r
+
+  CMP !HOTKEY_L : BNE .after_hotkey_l
+    JSL hotkey_pressed_l
+  .after_hotkey_l
+  CMP !HOTKEY_R : BNE .after_hotkey_r
+    JSL hotkey_pressed_r
+  .after_hotkey_r
+
   if !WITH_HOTKEY_B
   CMP !HOTKEY_B : BNE .after_hotkey_b
     LDA !WRAM_PACIFIED
@@ -109,6 +120,23 @@ hotkey_pressed_b:
 	LDA #$0080
   STA $0026
   LDA #$1583
+  STA $0027
+  JML START_SCRIPT
+  rtl
+
+; 40 bytes, script 0xfd8440
+hotkey_pressed_l:
+	LDA #$0040
+  STA $0026
+  LDA #$1584
+  STA $0027
+  JML START_SCRIPT
+  rtl
+; 40 bytes, script 0xfd8480
+hotkey_pressed_r:
+	LDA #$0080
+  STA $0026
+  LDA #$1584
   STA $0027
   JML START_SCRIPT
   rtl

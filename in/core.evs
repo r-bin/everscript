@@ -101,6 +101,8 @@ group general_enums() {
             HOTKEY_START_R = 0xfd8340, // hotkey start+R, 40 bytes
             HOTKEY_B = 0xfd8380, // hotkey B, 40 bytes
             HOOK_MENU_CLOSE = 0xfd83c0, // hook menu close, 40 bytes
+            HOTKEY_L = 0xfd8440, // hotkey L, 40 bytes
+            HOTKEY_R = 0xfd8480, // hotkey R, 40 bytes
         }
 
         enum ADDRESS_ID {
@@ -841,6 +843,17 @@ group general_enums() {
         enum CUSTOM_MEMORY {
             // <0x28f9, x>
             START_ROCKET_JUMP_COUNT = (Byte) <0x28f9>,
+
+            // <0x28f8, x>
+            HOTKEY_START = (Byte) <0x28f8>,
+            // <0x28f7, x>
+            HOTKEY_START_L = (Byte) <0x28f7>,
+            // <0x28f6, x>
+            HOTKEY_START_R = (Byte) <0x28f6>,
+            // <0x28f5, x>
+            HOTKEY_L = (Byte) <0x28f5>,
+            // <0x28f4, x>
+            HOTKEY_R = (Byte) <0x28f4>,
         }
         enum CUSTOM_FLAG {
             // <0x28fb, x>
@@ -855,6 +868,7 @@ group general_enums() {
             START_MARIO_YUMP = <0x28fa, 0x01>,
             START_ROCKET_JUMP = <0x28fa, 0x02>,
             START_ISAAC_TEAR = <0x28fa, 0x04>,
+            START_MARIO_FIREFLOWER = <0x28fa, 0x08>,
         }
     };
 
@@ -6333,6 +6347,31 @@ group functions() {
             }
         }
 
+        fun check_range_old(entity_1, entity_2, x, y, callback) {
+            if(entity_1[X] < entity_2[X]) {
+                arg[0x10] = entity_2[X] - entity_1[X];
+            } else {
+                arg[0x10] = entity_1[X] - entity_2[X];
+            }
+
+            if(entity_1[Y] < entity_2[Y]) {
+                arg[0x12] = entity_2[Y] - entity_1[Y];
+            } else {
+                arg[0x12] = entity_1[Y] - entity_2[Y];
+            }
+            
+            if(False) {
+                MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                // MEMORY.STRING_PARAMETER_3 = m3;
+
+                _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+            }
+
+            if((arg[0x10] <= x) && (arg[0x12] <= y)) {
+                callback();
+            }
+        }
         fun check_range(entity_1, entity_2, x, y, callback) {
             if!((entity_2[Z] > 0d0) || CUSTOM_FLAG.START_MARIO_YUMP || CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0) {
                 if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
@@ -6930,6 +6969,20 @@ group functions() {
             control(BOTH);
         }
 
+        @install()
+        fun vanilla_act3_sewer_door(object_id) {
+            control(NONE);
+
+            object[object_id] = 0x7e;
+            sound(DOOR);
+
+            sleep(0d30);
+
+            walk(SCRIPT_OWNER, TILE_RELATIVE, 0d0, -0d1, NONE, NONE);
+
+            sleep(0d15);
+        }
+
         fun _generic_open_doors(open, with_sound) {
             if(with_sound > 0d0) {
                 sound(DOOR);
@@ -7418,6 +7471,10 @@ group functions() {
 
         @install()
         fun mario_yump(costs_ingredients) {
+            if(CUSTOM_FLAG.START_MARIO_YUMP) {
+                end();
+            }
+
             if(CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT <= 0d0) {
                 if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
                     end();
@@ -7427,14 +7484,6 @@ group functions() {
             if(False) {
                 if(<BOY>[Z] > 0d0) {
                     end();
-                }
-            } else {
-                if(CUSTOM_FLAG.START_MARIO_YUMP) {
-                    end();
-                } else {
-                    CUSTOM_FLAG.START_MARIO_YUMP = True;
-                    CUSTOM_FLAG.NO_RUNNING = True;
-                    yield();
                 }
             }
 
@@ -7459,6 +7508,10 @@ group functions() {
 
                 MEMORY.MUSHROOM -= 0d1;
             }
+
+            CUSTOM_FLAG.START_MARIO_YUMP = True;
+            CUSTOM_FLAG.NO_RUNNING = True;
+            yield();
 
             arg[0x10] = <BOY>[X];
             arg[0x12] = <BOY>[Y];
@@ -7677,6 +7730,182 @@ group functions() {
                     MEMORY.GAIN_WEAPON = arg[0x12];
                 }
             }
+        }
+
+        fun enor_pearl() {
+            sleep(0d20);
+
+            arg[0x10] = <BOY>[X];
+            arg[0x12] = <BOY>[Y];
+            sleep(0d3);
+            arg[0x14] = <BOY>[X] - arg[0x10];
+            arg[0x16] = <BOY>[Y] - arg[0x12];
+
+            debug_memory(arg[0x14], arg[0x16]);
+
+            _add_placeholder(DIAMOND_EYE_1, <BOY>[X] - 0d10, <BOY>[Y]);
+            attach_to_script(LAST_ENTITY);
+            <SCRIPT_OWNER>[VELOCITY] = 0d50;
+
+            yield();
+            while(<SCRIPT_OWNER>[Z] > 0d0) {
+                <SCRIPT_OWNER>[X] += arg[0x14];
+                <SCRIPT_OWNER>[Y] += arg[0x16];
+
+                sleep(0d3);
+            }
+
+            teleporter_animation_out(<BOY>);
+            destroy(SCRIPT_OWNER);
+            wait(BOY);
+            _teleport(BOY, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+            teleporter_animation_in(<BOY>);
+        }
+
+        fun bone_whip() {
+            _add_enemy(BONE_SNAKE, <BOY>[X] - 0d10, <BOY>[Y], INACTIVE_IMORTAL);
+            face(LAST_ENTITY, WEST);
+            animate(LAST_ENTITY, ONCE, ANIMATION_ALL.SLASH_1);
+            sleep(0d100);
+            destroy(LAST_ENTITY);
+        }
+
+        fun dash_teleport() {
+            if(False) {
+                _add_enemy(BOY, <BOY>[X], <BOY>[Y]);
+                teleporter_animation_out(<LAST_ENTITY>);
+            } else {
+                teleporter_animation_out(<BOY>);
+            }
+
+            while((<BOY>[X] != arg[0x10]) || (<BOY>[Y] != arg[0x12])) {
+                arg[0x10] = <BOY>[X];
+                arg[0x12] = <BOY>[Y];
+
+                teleport_relative(BOY, 0d5, 0d0);
+            }
+
+            teleporter_animation_in(<BOY>);
+        }
+
+        fun hookshot() {
+            _add_enemy(SPIDER_YELLOW, <BOY>[X] - 0d10, <BOY>[Y], INACTIVE_IMORTAL);
+            face(LAST_ENTITY, WEST);
+            yield();
+
+            while((<LAST_ENTITY>[X] != arg[0x10]) || (<LAST_ENTITY>[Y] != arg[0x12])) {
+                arg[0x10] = <LAST_ENTITY>[X];
+                arg[0x12] = <LAST_ENTITY>[Y];
+
+                teleport_relative(LAST_ENTITY, -0d1, 0d0);
+
+                if(<LAST_ENTITY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    _face(<LAST_ENTITY>, EAST);
+                } else if(<LAST_ENTITY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    _face(<LAST_ENTITY>, SOUTH);
+                } else if(<LAST_ENTITY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    _face(<LAST_ENTITY>, WEST);
+                } else if(<LAST_ENTITY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    _face(<LAST_ENTITY>, NORTH);
+                }
+
+                yield();
+            }
+
+            subtext("drag");
+
+            if(True) {
+                find_all(STONE_ROUND, {
+                    if(False) {
+                        _drag(<LAST_ENTITY>, <BOY>[X], <BOY>[Y]);
+                    } else {
+                        _drag(<BOY>, <LAST_ENTITY>[X] + 0d16, <LAST_ENTITY>[Y] + 0d16);
+
+                        _teleport(BOY, <BOY>[X], <BOY>[Y]);
+
+                        destroy(LAST_ENTITY);
+                    }
+                    end();
+                });
+                
+            } if(False) {
+
+                arg[0x14]; // TODO: shouldn't use foreign memory
+                arg[0x14] = 0x3de5;
+
+                while(arg[0x14] <= 0x4DFB) {
+                    if((arg[0x14][TYPE] >= 0d51) && (arg[0x14][TYPE] < 0d141)) {
+                        if!(arg[0x14][FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                            arg[0x16]++;
+
+                            MEMORY.STRING_PARAMETER_1 = arg[0x14][TYPE];
+                            subtext("[MEM1]");
+
+                            sleep(0d60);
+
+                            _teleport(arg[0x14], <LAST_ENTITY>[X], <LAST_ENTITY>[Y]);
+                        }
+                    }
+
+                    arg[0x14] += 0x8e;
+                    yield();
+                }
+
+                MEMORY.STRING_PARAMETER_1 = arg[0x16];
+                subtext("[MEM1]");
+
+                end();
+            } else {
+                check_range_old(<LAST_ENTITY>, <DOG>, 0d25, 0d25, {
+                    subtext("dog");
+
+                    arg[0x18] = <DOG>;
+                });
+
+
+                if(arg[0x18]) {
+                    _drag(<LAST_ENTITY>, <BOY>[X], <BOY>[Y]);
+                    _teleport(LAST_ENTITY, <LAST_ENTITY>[X], <LAST_ENTITY>[Y]);
+
+                    _drag(<DOG>, <BOY>[X], <BOY>[Y]);
+                    _teleport(DOG, <DOG>[X], <DOG>[Y]);
+
+                    destroy(LAST_ENTITY);
+                } else {
+                    if(False) {
+                        _drag(<LAST_ENTITY>, <BOY>[X], <BOY>[Y]);
+                    } else {
+                        _drag(<BOY>, <LAST_ENTITY>[X] + 0d16, <LAST_ENTITY>[Y] + 0d16);
+
+                        _teleport(BOY, <BOY>[X], <BOY>[Y]);
+
+                        // destroy(LAST_ENTITY);
+                    }
+                }
+            }
+        }
+
+        fun mario_fireflower() {
+            if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                end();
+            }
+            if(<BOY>[STAMINA] < STAMINA.PERCENTAGE_50) {
+                end();
+            }
+            
+            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+
+            if(<BOY>[FACE_DIRECTION] == 0x00) {
+                shoot_entity_offset_relative(BOY, LIGHTNING_BALL, 0d0, -0d10, 0d0, -0d100, 0d40, 0x0a);
+            } else if(<BOY>[FACE_DIRECTION] == 0x04) {
+                shoot_entity_offset_relative(BOY, LIGHTNING_BALL, 0d0, -0d10, 0d100, 0d0, 0d40, 0x0a);
+            } else if(<BOY>[FACE_DIRECTION] == 0x08) {
+                shoot_entity_offset_relative(BOY, LIGHTNING_BALL, 0d0, -0d10, 0d0, 0d100, 0d40, 0x0a);
+            } else {
+                shoot_entity_offset_relative(BOY, LIGHTNING_BALL, 0d0, -0d10, -0d100, 0d0, 0d40, 0x0a);
+            }
+
+            <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
         }
     };
 
