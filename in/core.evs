@@ -7907,6 +7907,114 @@ group functions() {
 
             <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
         }
+
+        @install()
+        @async()
+        fun _zelda_power_glove(level) {
+            while(MEMORY.INPUT_P1 & 0x8000) {
+                arg[0x10]++;
+
+                _teleport(SCRIPT_OWNER, <BOY>[X], <BOY>[Y] - 0d20);
+
+                yield();
+            }
+
+            if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                _teleport(SCRIPT_OWNER, <BOY>[X], <BOY>[Y] - 0d20);
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                _teleport(SCRIPT_OWNER, <BOY>[X] + 0d20, <BOY>[Y]);
+            } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                _teleport(SCRIPT_OWNER, <BOY>[X], <BOY>[Y] + 0d20);
+            } else {
+                _teleport(SCRIPT_OWNER, <BOY>[X] - 0d20, <BOY>[Y]);
+            }
+
+            if((level >= 0d3) && (arg[0x10] < 0d10)) {
+                if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    arg[0x12] = 0d0;
+                    arg[0x14] = -0d2;
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    arg[0x12] = 0d2;
+                    arg[0x14] = 0d0;
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    arg[0x12] = 0d0;
+                    arg[0x14] = 0d2;
+                } else {
+                    arg[0x12] = -0d2;
+                    arg[0x14] = 0d0;
+                }
+
+                while((arg[0x16] != <SCRIPT_OWNER>[X]) || (arg[0x18] != <SCRIPT_OWNER>[Y])) {
+                    arg[0x16] = <SCRIPT_OWNER>[X];
+                    arg[0x18] = <SCRIPT_OWNER>[Y];
+
+                    teleport_relative(SCRIPT_OWNER, arg[0x12], arg[0x14]);
+
+                    yield();
+                }
+
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+            } else {
+                if(level < 0d3) {
+                    CUSTOM_FLAG.NO_RUNNING = False;
+                }
+                if(level == 0d1) {
+                    attribute(BOY, ROOT, False);
+                }
+
+                animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+                wait(BOY);
+
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+            }
+        }
+        fun zelda_power_glove(level) {
+            if((level <= 0d0) || (<SCRIPT_OWNER>[GENERAL_PURPOSE] != 0d0)) {
+                fake_b();
+                end();
+            }
+
+            <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
+
+            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+
+            if(level == 0d1) {
+                attribute(BOY, ROOT, True);
+            }
+            if(level < 0d3) {
+                CUSTOM_FLAG.NO_RUNNING = True;
+
+                while((MEMORY.INPUT_P1 & 0x8000) && (arg[0x10] < 0d120)) {
+                    arg[0x10]++;
+
+                    animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+
+                    yield();
+                }
+            } else {
+                arg[0x10] = 0d120;
+            }
+
+            wait(BOY);
+
+            if(False) {
+                MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+            }
+
+            if(arg[0x10] >= 0d120) {
+                _zelda_power_glove(level);
+            } else {
+                if(level < 0d3) {
+                    CUSTOM_FLAG.NO_RUNNING = False;
+                }
+                if(level == 0d1) {
+                    attribute(BOY, ROOT, False);
+                }
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                end();
+            }
+        }
     };
 
     group debug_helper() {
