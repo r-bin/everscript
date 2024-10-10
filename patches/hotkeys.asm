@@ -13,8 +13,8 @@ hirom
 
 !INJECT_OFFSET = 0 ; injected into "_hook_input"
 !WITH_HOTKEY_B = 1 ; hotkey "b" enabled
-!WITH_INPUT_P1_DUMP = 1 ; dumps inputs into $2258 space enabled
-!INPUT_P1_DUMP = $2457
+!WITH_INPUT_P1_DUMP = 1 ; dumps inputs into $28e2 space enabled
+!INPUT_P1_DUMP = $28e2
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

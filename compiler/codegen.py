@@ -444,7 +444,7 @@ allocated RAM:
                         pass
 
                     test = If(
-                            Equals(Param(None, Memory(0x2451)), Param(None, Word(map.variant))),
+                            Equals(Param(None, Memory(0x244b, size=1)), Param(None, Word(map.variant))),
                             [function],
                             [False, False]
                         )
@@ -497,7 +497,7 @@ allocated RAM:
 
                 if entrance_code:
                     code = If(
-                        Equals(Param(None, Memory(0x2453)), Param(None, Word(entrance_index))),
+                        Equals(Param(None, Memory(0x244c, size=1)), Param(None, Word(entrance_index))),
                         [entrance_code],
                         [False, False]
                     )
@@ -507,7 +507,7 @@ allocated RAM:
             code_transition_in = If_list(code_transition_in)
 
             function_enter = Function("_trigger_enter", 
-                [Asign(Memory(0x244f), Word(map.map_index)), Asign(Memory(0x2451), Word(map.variant))] + [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
+                [Asign(Memory(0x244a, size=1), Word(map.map_index)), Asign(Memory(0x244b, size=1), Word(map.variant))] + [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(output:list[str], map:Map, function:Function):
@@ -535,7 +535,7 @@ allocated RAM:
                     code = map.trigger_enter
                     code = _generate_trigger_enter(output, map, code)
                     test = If(
-                            Equals(Param(None, Memory(0x2451)), Param(None, Word(map.variant))),
+                            Equals(Param(None, Memory(0x244b, size=1)), Param(None, Word(map.variant))),
                             [Call(self, code)],
                             [False, False]
                         )
