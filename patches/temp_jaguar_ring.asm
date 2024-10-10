@@ -21,13 +21,39 @@ org $9082aa
  
 org !ROM_EXTENSION
 rom_extension:
+  TYA ; enemy_type
+
+  CMP #$4e89 : BNE .not_boy ; boy?
+
+  LDA $4F2F ; evade boost boy
+  CMP #$0000
+
+  BEQ .allow_running
+
+  ; CMP #$ffff
+  RTL
+
+  .not_boy
+
+  LDA $4FDB ; evade boost dog
+  CMP #$0000
+
+  BEQ .allow_running
+
+  ; CMP #$ffff
+  RTL
+
+
+  .allow_running
+
+
   LDA $28fb
   BIT #$0008
 
-  BEQ .no_hack ; ignore jaguar ring
+  BEQ .force_walking ; ignore jaguar ring
   CMP $28fb
   RTL
-  .no_hack
+  .force_walking
 
   LDA $2262 ; what we replaced
   BIT #$0002

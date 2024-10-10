@@ -1496,10 +1496,14 @@ group non_maps() {
             // <0x2834> = <LAST_ENTITY>;
         }
 
-        fun guard_levitate_stone() {
+        fun guard_levitate_stone(required_strength) {
             arg[0x0e] = SOULS_MEMORY.ZELDA_POWER_GLOVE;
             if(<BOY>[BOOST_ATTACK] > 0d0) {
                 arg[0x0e]++;
+            }
+
+            if(required_strength > arg[0x0e]) {
+                end();
             }
 
             zelda_power_glove(arg[0x0e]);
@@ -1511,6 +1515,64 @@ group non_maps() {
             
             attach_script(LAST_ENTITY, B, trigger);
         }
+
+        fun add_heavy_stone(x, y) {
+            add_enemy(STONE_ROUND, x, y);
+            
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_levitate_stone(0d2);
+            }));
+        }
+
+        group transforming_owls() {
+            fun transform_owls(entity_1, entity_2) {
+                control(entity_1, True);
+                control(entity_2, True);
+
+                destroy(entity_1);
+
+                attribute(entity_2, INVINCIBLE, True);
+
+                animate(entity_2, ONCE_FREEZE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
+
+                wait(entity_2);
+
+                destroy(entity_2);
+            }
+
+            fun add_transforming_owl(x, y, active) {
+                add_enemy(OWL_BLACK, x, y);
+                attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                    heal(SCRIPT_OWNER, 0d00, False);
+                    yield();
+                    damage(SCRIPT_OWNER, 0d00, True);
+
+                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                        sleep(0d50);
+                        animate(SCRIPT_OWNER, ONCE_FREEZE, SLASH_2);
+                    }
+                }));
+
+                if!(active) {
+                    control(LAST_ENTITY, True);
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = True;
+                    animate(LAST_ENTITY, ONCE_FREEZE, SLASH_2);
+                    face(LAST_ENTITY, SOUTH);
+                }
+            }
+            fun add_transforming_owls(x_1, y_1, active_1, x_2, y_2, active_2, callback2) {
+                add_transforming_owl(x_1, y_1, active_1);
+                arg[0x0e] = <LAST_ENTITY>;
+
+                add_transforming_owl(x_2, y_2, active_2);
+                arg[0x0c] = <LAST_ENTITY>;
+
+                while!(dead(arg[0x0e])) {
+                    check_range_old(arg[0x0e], arg[0x0c], 0d20, 0d20, callback2);
+                    yield();
+                }
+            }
+        };
     };
 
     group hotkeys() {
@@ -5496,69 +5558,8 @@ area west_inbetwixx() {
         }
         
         @install()
-        fun fake_slash_grass() { // unused
-            if(<0x22DA> == 0x02) {
-                // fade_out();
-                // sleep(0x20);
-
-                ROOM.FAKE_SLASH_GRASS_X = <BOY>[X];
-                ROOM.FAKE_SLASH_GRASS_Y = <BOY>[Y];
-
-                <BOY>[X] = 0x010B;
-                <BOY>[Y] = 0x0187;
-                face(BOY, EAST);
-
-                MEMORY.GAIN_WEAPON = 0x18;
-                yield();
-                // <0x0ABA> = 0x0000;
-                if(False) {
-                    attribute(BOY, INVINCIBLE_TEMP, True);
-
-                    add_enemy(BOY, 0x21, 0x30);
-                    // animate(LAST_ENTITY, LOOP, SLASH_1);
-                    attribute(LAST_ENTITY, ROOT, True);
-                    // attribute(LAST_ENTITY, INVISIBLE, True);
-                    attribute(LAST_ENTITY, MUTE, True);
-                    face(LAST_ENTITY, EAST);
-                    sleep(0x05);
-
-                    attribute(BOY, INVINCIBLE_TEMP, False);
-                } else {
-                    attribute(BOY, INVISIBLE, True);
-                    // attribute(BOY, MUTE, True);
-                    animate(BOY, ONCE, SLASH_1);
-                    yield();
-                    sound(0x01);
-                    // sound(0x0c);
-                    // sleep(0x05);
-                    animate(BOY, ONCE, DEFAULT);
-                    sleep(0x10);
-                    // attribute(BOY, MUTE, False);
-                    attribute(BOY, INVISIBLE, False);
-                }
-                MEMORY.GAIN_WEAPON = 0x02;
-                unset(<0x22DB, 0x10>);
-
-                <BOY>[X] = ROOM.FAKE_SLASH_GRASS_X;
-                <BOY>[Y] = ROOM.FAKE_SLASH_GRASS_Y;
-
-                // sound(0x01);
-
-                // sleep(0x20);
-                // fade_in();
-            }
-        }
-
-        fun init_room() {
-            init_map(0x00, 0x06, 0x6e, 0x52);
-            default_init_room(True, True);
-
-            subtext("West Inbetwixx");
-        }
-
-        @install()
         fun branch_triggered() {
-            if(MEMORY.SPOON > 0x00) {
+            if(MEMORY.SPOON > 0d0) {
                 question("[SLOW]Use Spoon[CHOICE]Yes[CHOICE]No");
 
                 if(MEMORY.QUESTION_ANSWER == 0d0) {
@@ -5579,125 +5580,36 @@ area west_inbetwixx() {
         }
 
         @install()
-        fun transform() {
-            set(BOSS.PROGRESS);
-            
-            control(BOSS.ID_OWL_1, True);
-            control(BOSS.ID_OWL_2, True);
-
-            destroy(BOSS.ID_OWL_1);
-
-            attribute(BOSS.ID_OWL_2, INVINCIBLE, True);
-
-            animate(BOSS.ID_OWL_2, ONCE_FREEZE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
-
-            sleep(0d50);
-
-            _add_enemy(BOY_BLACK, BOSS.ID_OWL_2[X], BOSS.ID_OWL_2[Y]);
-            attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
-            destroy(BOSS.ID_OWL_2);
-
-            push_music(BOSS);
-        }
-
-        @install()
-        @async()
-        fun grabby_owls() {
-            while(True) {
-                arg[0x00] = BOSS.ID_OWL_1[X];
-                arg[0x02] = BOSS.ID_OWL_1[Y];
-                arg[0x04] = BOSS.ID_OWL_2[X];
-                arg[0x06] = BOSS.ID_OWL_2[Y];
-
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if((arg[0x08] <= BOSS.TRANSFORM_DISTANCE) && (arg[0x0a] <= BOSS.TRANSFORM_DISTANCE)) {
-                    transform();
-                    end();
-                }
-                yield();
-
-                if(BOSS.DEBUG) {
-                    debug_memory(arg[0x08], arg[0x0a]);
-                    sleep(0x20);
-                }
-            }
-        }
-        
-        @install()
-        fun owl_triggered() {
-            heal(SCRIPT_OWNER, 0d00, False);
-            yield();
-            damage(SCRIPT_OWNER, 0d00, True);
-            // <SCRIPT_OWNER>[WEIRD_KNOCKBACK] = 0x1ff;
-            // animate(SCRIPT_OWNER, ONCE, KNOCKBACK);
-
-            if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
-                sleep(0d50);
-                animate(SCRIPT_OWNER, ONCE_FREEZE, SLASH_2);
-            }
-        }
-
-        @install()
-        fun quest() { // unused
-            question("[SLOW]Cut grass?[CHOICE]Yes[CHOICE]No");
-
-            if(MEMORY.QUESTION_ANSWER == 0d0) {
-                // fake_slash_grass();
-
-                sleep(0x30);
-                <0x2834> = BOSS.ID_OWL_1;
-                heel(<0x2834>, 0x00, 0x00);
-            }
-        }
-
-        fun fake_slash_grass_npc() { // unused
-            add_enemy(VILLAGER_1_1, 0x36, 0x49, INACTIVE);
-            face(LAST_ENTITY, WEST);
-            attach_script(LAST_ENTITY, B, reference(quest));
-        }
-
-        @install()
         fun message_triggered() {
             player_message_triggered();
 
             subtext("prisoner ahead and then bonfire!");
         }
 
-        fun trigger_enter() {
-            // fake_slash_grass();
-            // fake_slash_grass_npc();
+        @install()
+        @async()
+        fun grabby_owls() {
+            add_transforming_owls(0x2d, 0x21, True, 0x47, 0x42, False, {
+                transform_owls(arg[0x0e], arg[0x0c]);
 
-            add_souls_npc_alchemist_speed(0d75, 0d80, NORTH);
+                _add_enemy(BOY_BLACK, arg[0x0c][X], arg[0x0c][Y]);
+                attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+
+                BOSS.PROGRESS = True;
+                push_music(BOSS);
+
+                end();
+            });
+        }
+
+        fun trigger_enter() {
+            add_souls_npc_alchemist_speed(0d51, 0d74);
             
             if!(ROOM.BRANCH_USED) {
                 branch_lady(0x58, 0x0f, reference(branch_triggered));
             }
 
             if!(SOULS_MEMORY.DEAD_OWL_BOY) {
-                add_enemy(OWL_BLACK, 0x2d, 0x21);
-                // <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-                attach_script(LAST_ENTITY, DAMAGE, reference(owl_triggered));
-                BOSS.ID_OWL_1 = <LAST_ENTITY>;
-
-                add_enemy(OWL_BLACK, 0x47, 0x42, INACTIVE);
-                // <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-                attach_script(LAST_ENTITY, DAMAGE, reference(owl_triggered));
-                <LAST_ENTITY>[GENERAL_PURPOSE] = 0x01;
-                BOSS.ID_OWL_2 = <LAST_ENTITY>;
-                animate(LAST_ENTITY, ONCE_FREEZE, SLASH_2);
-                face(LAST_ENTITY, SOUTH);
-
                 grabby_owls();
             }
 
@@ -5717,7 +5629,9 @@ area west_inbetwixx() {
                 // add_enemy(OWL_BLACK, 0d97, 0d55, INACTIVE);
             }
 
-            init_room();
+            init_map(0x00, 0x06, 0x6e, 0x52);
+            default_init_room(True, True);
+            subtext("West Inbetwixx");
 
             player_message(0d23, 0d66, reference(message_triggered));
         }
@@ -6264,7 +6178,7 @@ area altus_plateau_entry() {
             }
 
             add_levitate_stone(0d68, 0d65, reference(@install() {
-                guard_levitate_stone();
+                guard_levitate_stone(0d1);
 
                 ROOM.STONE_MOVED = True;
             }));
@@ -8221,7 +8135,7 @@ area altus_plateau_entry() {
 
                 fun trigger_enter() {
                     add_levitate_stone(0d86, 0d20, reference(@install() {
-                        guard_levitate_stone();
+                        guard_levitate_stone(0d1);
 
                         stone_lifted();
                     }));
@@ -10501,20 +10415,24 @@ area east_inbetwixx() {
                 add_enemy(STONE_ROUND, 0x15, 0x1b);
                 attach_script(LAST_ENTITY, B, reference(stone_door_triggered));
             } else if!(ROOM.STONE_DOOR_TRIGGERED) {
-                add_enemy(STONE_ROUND, 0x00, 0x00);
-                ROOM.ID_STONE = <LAST_ENTITY>;
+                if(False) {
+                    add_enemy(STONE_ROUND, 0x00, 0x00);
+                    ROOM.ID_STONE = <LAST_ENTITY>;
 
-                add_enemy(BOMB, 0x15, 0x22);
-                attach_script(LAST_ENTITY, DAMAGE, reference(enemy_triggered_invincible_with_knockback));
-                ROOM.ID_STONE_BOMB = <LAST_ENTITY>;
-                attribute(LAST_ENTITY, INVISIBLE, True);
+                    add_enemy(BOMB, 0x15, 0x22);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(enemy_triggered_invincible_with_knockback));
+                    ROOM.ID_STONE_BOMB = <LAST_ENTITY>;
+                    attribute(LAST_ENTITY, INVISIBLE, True);
 
-                stack_stone_bomb();
+                    stack_stone_bomb();
 
-                add_enemy(PLACEHOLDER, 0x2f, 0x2e);
-                ROOM.ID_STONE_HOLE = <LAST_ENTITY>;
+                    add_enemy(PLACEHOLDER, 0x2f, 0x2e);
+                    ROOM.ID_STONE_HOLE = <LAST_ENTITY>;
+                } else {
+                    add_heavy_stone(0x15, 0x22);
+                }
 
-                stone_hole_scanner();
+                stone_hole_scanner(0x15, 0x22);
             } else {
                 tiny_bridge(True);
             }
@@ -16477,7 +16395,7 @@ area town() {
                     }));
 
                     add_levitate_stone(0d8, 0d62, reference(@install() {
-                        guard_levitate_stone();
+                        guard_levitate_stone(0d1);
 
                         object[0x03] = 0x01; // open door_NW
                         ROOM.DOOR_WALL_BOSS_OPENED = True;

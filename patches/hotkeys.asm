@@ -33,6 +33,17 @@ org !ROM_HOOK+!INJECT_OFFSET
 
 org !ROM_EXTENSION
 start_practice_stuff:
+  ; sanity check to prevent crashes
+
+  LDA $7e22eb
+  AND #$0020 ; IN_ANIMATION
+  BNE .noInput
+
+  LDA $7e0106
+  CMP #$000f ; default screen brightness
+  BNE .noInput
+
+  ; reading the first controllers inputs
   %ai16()
   
   if !WITH_INPUT_P1_DUMP
@@ -81,6 +92,8 @@ start_practice_stuff:
 
 START_SCRIPT:
   JSL $8ccf18
+
+  ; update active script pointer
   TXA
   LDX $86
   STA $7e2f28,x 
