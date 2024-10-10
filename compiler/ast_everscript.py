@@ -1653,9 +1653,9 @@ yy // linking required
             params = self.merge_params(params, call_params)
 
             code = Function_Code([
-                Asign(Memory(0x244f), Word(self.map.map_index)),
-                Asign(Memory(0x2451), Word(self.map.variant)),
-                Asign(Memory(0x2453), Word(entrance_index)),
+                Asign(Memory(0x244a, size=1), Word(self.map.map_index)),
+                Asign(Memory(0x244b, size=1), Word(self.map.variant)),
+                Asign(Memory(0x244c, size=1), Word(entrance_index)),
                 function_transition
             ], '\n').code(params)
 
