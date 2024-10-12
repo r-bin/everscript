@@ -3913,6 +3913,12 @@ group functions() {
                         } else {
                             animate(character, mode, ANIMATION_DOG.ACT1_ANGRY);
                         }
+                    } else if((id == ANIMATION_BOY.SLEEP_DOWN) || (id == ANIMATION_DOG.ACT1_SLEEP)) {
+                        if(character == <BOY>) {
+                            animate(character, mode, ANIMATION_BOY.SLEEP_DOWN);
+                        } else {
+                            animate(character, mode, ANIMATION_DOG.ACT1_SLEEP);
+                        }
                     }
                 }
             }
@@ -6225,6 +6231,55 @@ group functions() {
                 }
             }
 
+            fun _fake_pit_scanner(x_start, y_start, x_end, y_end, guard_north, guard_east, guard_south, guard_west, callback) {
+                while(True) {
+                    if(!CUSTOM_FLAG.START_MARIO_YUMP) {
+                        if(arg[0x10] != <ACTIVE>) {
+                            attribute(arg[0x10], NO_CLIP, False);
+                            arg[0x10] = False;
+                        }
+
+                        if(
+                            (<ACTIVE>[X] >= x_start) && (<ACTIVE>[X] <= x_end) &&
+                            (<ACTIVE>[Y] >= y_start) && (<ACTIVE>[Y] <= y_end)
+                        ) {
+                            if((!arg[0x10]) && !(<ACTIVE>[FLAGS_2] & ATTRIBUTE_FLAGS.NO_CLIP)) {
+                                arg[0x10] = <ACTIVE>;
+                                attribute(ACTIVE, NO_CLIP, True);
+                            } else if(
+                                (<ACTIVE>[X] >= (x_start + 0d10)) && (<ACTIVE>[X] <= (x_end - 0d10)) &&
+                                (<ACTIVE>[Y] >= (y_start + 0d10)) && (<ACTIVE>[Y] <= (y_end - 0d10))
+                            ) {
+                                callback();
+                            }
+                        } else {
+                            if((arg[0x10]) && (<ACTIVE>[FLAGS_2] & ATTRIBUTE_FLAGS.NO_CLIP)) {
+                                arg[0x10] = False;
+                                attribute(ACTIVE, NO_CLIP, False);
+
+                                if(guard_north && (<ACTIVE>[Y] <= y_start)) {
+                                    <ACTIVE>[Y] += 0d2;
+                                } else if(guard_east && (<ACTIVE>[X] >= x_end)) {
+                                    <ACTIVE>[X] -= 0d2;
+                                } else if(guard_south && (<ACTIVE>[Y] >= y_end)) {
+                                    <ACTIVE>[Y] -= 0d2;
+                                } else if(guard_west && (<ACTIVE>[X] <= x_start)) {
+                                    <ACTIVE>[X] += 0d2;
+                                }
+                            }
+                        }
+                    }
+
+                    // debug_memory(<BOY>[Z], 0d0);
+
+                    yield();
+                }
+            }
+            @install()
+            @async()
+            fun fake_pit_scanner(x_start, y_start, x_end, y_end, guard_north, guard_east, guard_south, guard_west) {
+                _fake_pit_scanner(x_start, y_start, x_end, y_end, guard_north, guard_east, guard_south, guard_west, { nop(); });
+            }
         };
 
         group sprite_stacking() {
