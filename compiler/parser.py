@@ -33,8 +33,19 @@ class Parser():
             # A list of precedence rules with ascending precedence, to
             # disambiguate ambiguous production rules.
             precedence = [
+                ('left', [',']),
+                #('right', ['=', 'OR=', '&=', '<<=', '>>=', '*=', '/=', '-=', '+=']),
+                ('left', ['OR']),
+                ('left', ['AND']),
+                ('left', ['B_OR']),
+                ('left', ['B_AND']),
+                ('left', ['==', '!=']),
+                #('left', ['<', '>', '<=', '>=']),
+                ('left', ['<<', '>>']),
                 ('left', ['+', '-']),
-                ('left', ['*', '/', 'B_AND'])
+                ('left', ['*', '/']),
+                ('right', ['++', '--', '!']),
+                #('nonassoc', ['(', ')'])
             ]
         )
         
