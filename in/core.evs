@@ -2957,6 +2957,8 @@ group general_enums() {
                 LEAVES_FALLING_1 = 0x0008,
                 LEAVES_FALLING_2 = 0x000a,
 
+                INVISIBLE_FADE = 0x000e,
+
                 // objects
                 LAVA_BLUB = 0x00b0,
 
@@ -3035,7 +3037,7 @@ group general_enums() {
                 PIGOODLE_STAND = 0x00da,
 
                 // environment
-                SANDPIT_OUT = 0x000e,
+                SANDPIT_PUKE = 0x000c,
 
                 // podunk old
                 PODUNK_VILLAGER_1 = 0x0128,
@@ -3918,6 +3920,12 @@ group functions() {
                             animate(character, mode, ANIMATION_BOY.SLEEP_DOWN);
                         } else {
                             animate(character, mode, ANIMATION_DOG.ACT1_SLEEP);
+                        }
+                    } else if((id == ANIMATION_BOY.SWIRL_EXIT) || (id == ANIMATION_BOY.SWIRL_EXIT)) { // TODO
+                        if(character == <BOY>) {
+                            animate(character, mode, ANIMATION_BOY.SWIRL_EXIT);
+                        } else {
+                            animate(character, mode, ANIMATION_BOY.SWIRL_EXIT); // TODO
                         }
                     }
                 }
@@ -6443,54 +6451,34 @@ group functions() {
             }
         }
         fun check_range(entity_1, entity_2, x, y, callback) {
-            if!((entity_2[Z] > 0d0) || CUSTOM_FLAG.START_MARIO_YUMP || CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0) {
-                if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                    if(entity_1[X] < entity_2[X]) {
-                        arg[0x10] = entity_2[X] - entity_1[X];
-                    } else {
-                        arg[0x10] = entity_1[X] - entity_2[X];
-                    }
+            if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                if(entity_1[X] < entity_2[X]) {
+                    arg[0x10] = entity_2[X] - entity_1[X];
+                } else {
+                    arg[0x10] = entity_1[X] - entity_2[X];
+                }
 
-                    if(entity_1[Y] < entity_2[Y]) {
-                        arg[0x12] = entity_2[Y] - entity_1[Y];
-                    } else {
-                        arg[0x12] = entity_1[Y] - entity_2[Y];
-                    }
-                    
-                    if(False) {
-                        MEMORY.STRING_PARAMETER_1 = arg[0x10];
-                        MEMORY.STRING_PARAMETER_2 = arg[0x12];
-                        // MEMORY.STRING_PARAMETER_3 = m3;
+                if(entity_1[Y] < entity_2[Y]) {
+                    arg[0x12] = entity_2[Y] - entity_1[Y];
+                } else {
+                    arg[0x12] = entity_1[Y] - entity_2[Y];
+                }
+                
+                if(False) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                    MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                    // MEMORY.STRING_PARAMETER_3 = m3;
 
-                        _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
-                    }
+                    _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+                }
 
-                    if((arg[0x10] <= x) && (arg[0x12] <= y)) {
-                        callback();
-                        sleep(0d300); // end();
-                    }
+                if((arg[0x10] <= x) && (arg[0x12] <= y)) {
+                    callback();
+                    sleep(0d300); // end();
                 }
             }
         }
-        fun range_checker(entity_1, entity_2, callback) {
-            attach_to_script(entity_1);
-
-            while!(dead(<SCRIPT_OWNER>)) {
-                check_range(<SCRIPT_OWNER>, entity_2, 0x20, 0x20, callback);
-
-                yield();
-            }
-        }
-        fun range_checker_square(entity_1, entity_2, range, callback) {
-            attach_to_script(entity_1);
-
-            while!(dead(<SCRIPT_OWNER>)) {
-                check_range(<SCRIPT_OWNER>, entity_2, range, range, callback);
-
-                yield();
-            }
-        }
-        fun range_checker_rect(entity_1, entity_2, x, y, callback) {
+        fun range_checker(entity_1, entity_2, x, y, callback) {
             attach_to_script(entity_1);
 
             while!(dead(<SCRIPT_OWNER>)) {
@@ -6499,15 +6487,27 @@ group functions() {
                 yield();
             }
         }
-        fun range_checker2(entity_1, entity_2, entity_3, x, y, callback) {
+        fun grounded_range_checker(entity_1, entity_2, x, y, callback) {
             attach_to_script(entity_1);
 
             while!(dead(<SCRIPT_OWNER>)) {
-                check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+                if!((entity_2[Z] > 0d0) || CUSTOM_FLAG.START_MARIO_YUMP || CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0) {
+                    check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+                }
 
                 yield();
+            }
+        }
+        fun conditional_range_checker(entity_1, entity_2, x, y, condition, callback) {
+            arg[0x00] = entity_1;
+            arg[0x02] = entity_2;
 
-                check_range(<SCRIPT_OWNER>, entity_3, x, y, callback);
+            attach_to_script(entity_1);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                if(condition) {
+                    check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+                }
 
                 yield();
             }
@@ -7292,6 +7292,93 @@ group functions() {
                 }
             }
         }
+
+        group sandpit() {
+            fun vanilla_desert_sandpit(callback) {
+                if(<ACTIVE> != <BOY>) {
+                    end();
+                }
+                if(<BOY>[GENERAL_PURPOSE] > 0d0) {
+                    end();
+                }
+                <BOY>[GENERAL_PURPOSE] = 0d1;
+
+                while((<BOY>[CURRENT_GROUND] & 0xff) != 0x10) {
+                    callback(arg[0x10]);
+
+                    yield();
+                    arg[0x10]++;
+                }
+
+                <BOY>[GENERAL_PURPOSE] = 0d0;
+            }
+            fun vanilla_desert_sandpit_in(x, y) {
+                control(NONE);
+                // <BOY>[GENERAL_PURPOSE] = 0d2;
+                face(BOY, SOUTH);
+
+                sleep(0d45);
+
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+
+                sleep(0d60);
+
+                object[0x03] = 0x7e;
+                yield();
+
+                // animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+
+                MEMORY.CAMERA_PAN_SPEED = 0d16;
+                teleport(BOY, x, y);
+                wait(CAMERA_PAN_Y);
+                wait(CAMERA_PAN_X);
+                free_camera();
+
+                animate(BOY, ONCE, DEFAULT);
+
+                control(BOY);
+            }
+
+            @install()
+            @async()
+            fun vanilla_sandpit_puke(entity) {
+                smart_animate(entity, LOOP, ANIMATION_BOY.SWIRL_EXIT);
+                face(entity, SOUTH);
+                entity[VELOCITY] = 0d50;
+
+                sleep(0d50);
+
+                smart_animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+
+                sleep(0d50);
+
+                smart_animate(entity, ONCE, ANIMATION_BOY.FALL_1);
+            }
+            
+            fun vanilla_desert_sandpit_out(x, y) {
+                add_placeholder(SANDPIT_PUKE, x, y, ONCE);
+                attach_to_script(LAST_ENTITY);
+
+                if(<BOY>[GENERAL_PURPOSE] >= 0d2) {
+                    <BOY>[GENERAL_PURPOSE] = 0d0;
+
+                    teleport(BOY, x, y);
+                    vanilla_sandpit_puke(<BOY>);
+                }
+
+                if(<DOG>[GENERAL_PURPOSE] >= 0d2) {
+                    <DOG>[GENERAL_PURPOSE] = 0d0;
+                    
+                    teleport(DOG, x, y);
+                    vanilla_sandpit_puke(<DOG>);
+                }
+
+                free_camera();
+
+                wait(SCRIPT_OWNER);
+                destroy(SCRIPT_OWNER);
+            }
+        };
     };
 
     group start_gimmicks() {
