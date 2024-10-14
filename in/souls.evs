@@ -145,6 +145,11 @@ group non_maps() {
 
             error_walk_back(exit_direction);
         }
+        fun error_switch(exit_direction:DIRECTION) {
+            subtext("Does not move.");
+
+            error_walk_back(exit_direction);
+        }
         fun error_locked(exit_direction:DIRECTION) {
             subtext("Locked.");
 
@@ -5945,7 +5950,7 @@ area altus_plateau_entry() {
                 if(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
                     map_transition(stairs, stairs_west_bottom, NORTH);
                 } else {
-                    subtext("Does not open from this side.");
+                    error_wrong_side(SOUTH);
                 }
             },
             cave_center = @install() {
@@ -6480,12 +6485,41 @@ area altus_plateau_entry() {
                 COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
             }
 
-            @install()
-            fun collectible_triggered() {
-                collectible_collected();
+            fun start_wind() {
+                while(True) {
+                    if(<ACTIVE>[Y] < 0d350) {
+                        arg[0x10] = 0d4;
+                    } else if(<ACTIVE>[Y] < 0d400) {
+                        arg[0x10] = 0d3;
+                    } else if(<ACTIVE>[Y] < 0d670) {
+                        arg[0x10] = 0d1;
+                    } else {
+                        arg[0x10] = 0d0;
+                    }
 
-                set(ROOM.COLLECTIBLE_LOOTED);
-                destroy(SCRIPT_OWNER);
+                    if(<INACTIVE>[Y] < 0d350) {
+                        arg[0x12] = 0d4;
+                    } else if(<INACTIVE>[Y] < 0d400) {
+                        arg[0x12] = 0d3;
+                    } else if(<INACTIVE>[Y] < 0d670) {
+                        arg[0x12] = 0d1;
+                    } else {
+                        arg[0x12] = 0d0;
+                    }
+
+                    // if(<BOY>[STAMINA] > STAMINA.PERCENTAGE_50) {
+
+                    if(arg[0x10] > 0d0) {
+                        CUSTOM_FLAG.NO_RUNNING = True;
+                    } else {
+                        CUSTOM_FLAG.NO_RUNNING = False;
+                    }
+
+                    teleport_relative(ACTIVE, 0d0, arg[0x10]);
+                    teleport_relative(INACTIVE, 0d0, arg[0x12]);
+
+                    sleep(0d3);
+                }
             }
 
             fun trigger_enter() {
@@ -6502,7 +6536,12 @@ area altus_plateau_entry() {
                 // object[0x0a] = 0x01; // block elevator_top
 
                 if!(ROOM.COLLECTIBLE_LOOTED) {
-                    add_collectible(0x00, 0d43, 0d10, reference(collectible_triggered));
+                    add_collectible(0x00, 0d43, 0d10, reference(@install() {
+                        collectible_collected();
+
+                        set(ROOM.COLLECTIBLE_LOOTED);
+                        destroy(SCRIPT_OWNER);
+                    }));
                 }
 
                 add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0d24, 0d109);
@@ -6533,6 +6572,10 @@ area altus_plateau_entry() {
                 default_init_room(True, True);
 
                 place_statue(GOMI, 0d24, 0d119);
+
+                if(False) {
+                    start_wind();
+                }
             }
         };
 
@@ -10206,7 +10249,7 @@ area east_inbetwixx() {
 
             exit_cave = @install() {
                 if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
-                    subtext("Does not open from this side.");
+                    error_wrong_side(SOUTH);
                 } else {
                     map_transition(radahn_exit, south_1, NORTH);
                 }
@@ -10310,7 +10353,7 @@ area east_inbetwixx() {
 
         @install()
         fun stone_door_triggered() {
-            subtext("Does not open from this side.");
+            error_wrong_side(SOUTH);
         }
 
         fun tiny_bridge(connected) {
@@ -14315,9 +14358,13 @@ area southern_jungle() {
                 },
                 switch_left = @install() {
                     debug_subtext("S=6");
+
+                    error_switch(NONE);
                 },
                 switch_right = @install() {
                     debug_subtext("S=7");
+
+                    error_switch(NONE);
                 },
                 switch_bottom_south = @install() {
                     debug_subtext("S=8");
@@ -14339,16 +14386,24 @@ area southern_jungle() {
                 },
                 door_2_1 = @install() {
                     debug_subtext("S=17");
+
+                    error_dead_end(SOUTH);
                 },
                 door_2_2 = @install() {
                     debug_subtext("S=18");
+
+                    error_dead_end(SOUTH);
                 },
                 door_3_2 = @install() {
                     debug_subtext("S=19");
+
+                    error_dead_end(EAST);
                 },
 
                 switch_bottom = @install() {
                     debug_subtext("S=20");
+
+                    error_switch(NONE);
                 },
                 stepon_21 = @install() {
                     debug_subtext("S=21");
@@ -14570,6 +14625,11 @@ area southern_jungle() {
                 }
 
                 no_clip_box(0d1126, 0d892, 0d1240, 0d956);
+
+                if(False) {
+                    fake_pit_scanner(0d512, 0d643, 0d543, 0d684, True, False, True, False);
+                    fake_pit_scanner(0d699, 0d643, 0d735, 0d691, True, False, True, False);
+                }
             }
         };
 
@@ -17968,8 +18028,6 @@ area town() {
                     map_transition(town_center, east, WEST);
                 },
                 door_1 = @install() {
-                    // subtext("Does not open from this side.");
-
                     control(NONE);
                     face(ACTIVE, NORTH);
 
