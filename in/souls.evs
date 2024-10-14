@@ -1623,7 +1623,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(bugmuck, dungeon_north, NONE);
+                map_transition(desert, north, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -4797,7 +4797,7 @@ area inbetwixx_center() {
         @install()
         @async()
         fun revealer_approached() {
-            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, { ravine_triggered(); });
+            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, 0x20, 0x20, { ravine_triggered(); });
         }
 
         @install()
@@ -6959,14 +6959,14 @@ area altus_plateau_entry() {
         @install()
         @async()
         fun fake_exit_scanner() {
-            range_checker(ROOM.ID_FAKE_EXIT, <ACTIVE>, {
+            range_checker(ROOM.ID_FAKE_EXIT, <ACTIVE>, 0x20, 0x20, {
                 map_transition(volcano, cave_2_2, SOUTH);
             });
         }
         @install()
         @async()
         fun pit_scanner() {
-            range_checker_rect(ROOM.ID_PIT, <ACTIVE>, 0d35, 0d15, {
+            range_checker(ROOM.ID_PIT, <ACTIVE>, 0d35, 0d15, {
                 generic_fall(0d100, 0d1000);
                 map_transition(volcano_tower, crash, NONE);
             });
@@ -14095,7 +14095,7 @@ area east_inbetwixx() {
                     @install()
                     @async()
                     fun koopa_collision_scanner(entity_1, entity_2) {
-                        range_checker_square(entity_1, entity_2, BOSS.SHELL_COLLISION, {
+                        range_checker(entity_1, entity_2, BOSS.SHELL_COLLISION, BOSS.SHELL_COLLISION, {
                             if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d2) {
                                 if(True) {
                                     subtext("POW");
@@ -14307,6 +14307,8 @@ area southern_jungle() {
             },
             door_tiny = @install() {
                 debug_subtext("S=1");
+
+                map_transition(pyramid_cave, south, NORTH);
             },
             pit_1 = pit_triggered(),
             pit_2 = pit_triggered(),
@@ -14475,7 +14477,7 @@ area southern_jungle() {
         @install()
         @async()
         fun revealer_approached() {
-            range_checker_square(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, ROOM.BRIDGE_SIZE, { pit_triggered(); });
+            range_checker(ROOM.BRIDGE_REVEALER_ENTITY, <ACTIVE>, ROOM.BRIDGE_SIZE, ROOM.BRIDGE_SIZE, { pit_triggered(); });
         }
 
         @install()
@@ -14544,6 +14546,30 @@ area southern_jungle() {
             }
 
             no_clip_box(0d1126, 0d892, 0d1240, 0d956);
+        }
+    };
+
+    map pyramid_cave(PYRAMID_CAVE) {
+        enum entrance {
+            south = entrance(0x15, 0x23, NORTH),
+
+            teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
+        }
+
+        enum stepon_trigger {
+            exit_south = @install() {
+                map_transition(pyramid, cave_tiny, SOUTH);
+            },
+            exit_teleporter = @install() {
+                debug_subtext("S=1");
+
+                teleporter_out(0d23, 0d17);
+                map_transition(desert_cave, teleporter, NONE);
+            },
+        }
+
+        fun trigger_enter() {
+            fade_in();
         }
     };
 
@@ -16111,7 +16137,7 @@ area town() {
                 @install()
                 @async()
                 fun revealer_approached(entity) {
-                    range_checker(entity, <ACTIVE>, { pit_triggered(); });
+                    range_checker(entity, <ACTIVE>, 0x20, 0x20, { pit_triggered(); });
                 }
 
                 fun open_doors(open) {
@@ -20552,7 +20578,7 @@ area desert_bug() {
         @install()
         @async()
         fun fake_exit_scanner(entity) {
-            range_checker(entity, <ACTIVE>, {
+            range_checker(entity, <ACTIVE>, 0x20, 0x20, {
                 map_transition(thraxx, north, SOUTH);
             });
         }
@@ -22078,13 +22104,6 @@ area desert_bug() {
     };
 
     map desert(DESERT) {
-        enum entrance {
-            test = entrance(0d60, 0d146, NONE, { desert_screen(0d4, 0d0); }),
-
-            north = entrance(0x3b, 0x19, WEST, { desert_screen(0d4, 0d17); }),
-            south = entrance(0x33, 0x9e, NORTH, { desert_screen(0d4, 0d0); }),
-        }
-
         enum ROOM {
             DEBUG = True,
             WITH_WRAP = True,
@@ -22103,6 +22122,27 @@ area desert_bug() {
             HAS_SHIP_NORTH = memory(FLAG, TEMP),
             HAS_SHIP_SOUTH = memory(FLAG, TEMP),
             HAS_ALCHEMIST = memory(FLAG, TEMP),
+        }
+
+        fun enter_sandpit() {
+            desert_screen(0d4, ROOM.Y_MAX);
+            // enter_sandpit();
+
+            <BOY>[GENERAL_PURPOSE] = 0d2;
+            <DOG>[GENERAL_PURPOSE] = 0d2;
+            object[0x03] = 0x7e;
+
+            _teleport(BOY, <BOY>[X], <BOY>[Y]);
+            _teleport(DOG, <DOG>[X], <DOG>[Y]);
+        }
+
+        enum entrance {
+            test = entrance(0d60, 0d146, NONE, { desert_screen(0d4, 0d0); }),
+
+            north = entrance(0x3b, 0x19, WEST, { desert_screen(0d4, ROOM.Y_MAX); }),
+            south = entrance(0x33, 0x9e, NORTH, { desert_screen(0d4, 0d0); }),
+
+            swirl_secret = entrance(0d28, 0d47, NONE, { enter_sandpit(); }),
         }
 
         fun show_oasis(show) {
@@ -22318,9 +22358,25 @@ area desert_bug() {
             map_transition(bugmuck, north_1, SOUTH);
         }
 
+        @install()
+        @async()
+        fun fake_exit_scanner(entity) {
+            conditional_range_checker(entity, <ACTIVE>, 0x20, 0x20, arg[0x02][GENERAL_PURPOSE] >= 0d2, {
+                vanilla_desert_sandpit_out(0d21, 0d43);
+            });
+        }
+
         enum stepon_trigger {
             sand_pit = @install() {
                 debug_subtext("S=0");
+
+                vanilla_desert_sandpit({
+                    if(arg[0x10] == 0d120) {
+                        <BOY>[GENERAL_PURPOSE] = 0d2;
+
+                        vanilla_desert_sandpit_in(0d21 + 0d1, 0d47);
+                    }
+                });
             },
             wrap_north_4 = scroll_desert_north(),
             wrap_north_3 = scroll_desert_north(),
@@ -22361,8 +22417,10 @@ area desert_bug() {
 
                 map_transition(desert_temple_main, west_2, EAST);
             },
-            stepon_18 = @install() {
+            swirl_secret = @install() {
                 debug_subtext("S=18");
+
+                map_transition(desert_cave, south, NONE);
             },
         }
 
@@ -22398,7 +22456,34 @@ area desert_bug() {
             
             update_desert();
 
+            add_enemy(PLACEHOLDER, 0d21 - 0d4, 0d47);
+            fake_exit_scanner(<LAST_ENTITY>);
+
             desert_damage();
+        }
+    };
+
+    map desert_cave(PYRAMID_CAVE) {
+        enum entrance {
+            south = entrance(0x15, 0x23, NORTH),
+
+            teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
+        }
+
+        enum stepon_trigger {
+            exit_south = @install() {
+                map_transition(desert, swirl_secret, SOUTH);
+            },
+            exit_teleporter = @install() {
+                debug_subtext("S=1");
+
+                teleporter_out(0d23, 0d17);
+                map_transition(pyramid_cave, teleporter, NONE);
+            },
+        }
+
+        fun trigger_enter() {
+            fade_in();
         }
     };
 
@@ -22511,7 +22596,7 @@ area desert_bug() {
             @install()
             @async()
             fun fake_exit_scanner(entity) {
-                range_checker(entity, <ACTIVE>, {
+                range_checker(entity, <ACTIVE>, 0x20, 0x20, {
                     map_transition(desert, north, WEST);
                 });
             }
