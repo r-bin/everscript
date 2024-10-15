@@ -115,67 +115,6 @@ group non_maps() {
             subtext("Press the [START] Button");
         }
 
-        fun error_walk_back(exit_direction:DIRECTION) {
-            if(exit_direction == DIRECTION.NORTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, BOTH);
-            } else if(exit_direction == DIRECTION.EAST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d2, 0d0, ACTIVE, BOTH);
-            } else if(exit_direction == DIRECTION.SOUTH) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, ACTIVE, BOTH);
-            } else if(exit_direction == DIRECTION.WEST) {
-                walk(ACTIVE, TILE_RELATIVE_DIRECT, -0d2, 0d0, ACTIVE, BOTH);
-            }
-        }
-        fun error_dead_end(exit_direction:DIRECTION) {
-            subtext("Does not open.");
-
-            error_walk_back(exit_direction);
-        }
-        @install()
-        fun installed_error_contraption() {
-            subtext("Locked by some contraption.");
-        }
-        fun error_contraption(exit_direction:DIRECTION) {
-            subtext("Locked by some contraption.");
-
-            error_walk_back(exit_direction);
-        }
-        fun error_wrong_side(exit_direction:DIRECTION) {
-            subtext("Does not open from this side.");
-
-            error_walk_back(exit_direction);
-        }
-        fun error_switch(exit_direction:DIRECTION) {
-            subtext("Does not move.");
-
-            error_walk_back(exit_direction);
-        }
-        fun error_locked(exit_direction:DIRECTION) {
-            subtext("Locked.");
-
-            error_walk_back(exit_direction);
-        }
-        @install()
-        fun installed_error_locked(exit_direction:DIRECTION) {
-            subtext("Locked.");
-
-            error_walk_back(exit_direction);
-        }
-        fun error_dlc(exit_direction:DIRECTION) {
-            subtext("DLC area…");
-
-            error_walk_back(exit_direction);
-        }
-        @install()
-        fun installed_error_unknown() {
-            subtext("…");
-        }
-        fun error_unknown(exit_direction:DIRECTION) {
-            subtext("…");
-
-            error_walk_back(exit_direction);
-        }
-
         fun notification_door_opened() {
             subtext("Somewhere a door has opened.");
         }
@@ -389,8 +328,6 @@ group non_maps() {
             DEAD_PIT_EGG = memory(FLAG, SRAM), // t0
             REWARD_PIT_EGG = ITEM.WINGS,
 
-            DEAD_VOLCANO_HYDRA = memory(FLAG, SRAM), // TODO: rework
-            REWARD_VOLCANO_HYDRA = ITEM.NECTAR, // TODO
             DEAD_ARENA_RADAHN = memory(FLAG, SRAM), // t?
             REWARD_ARENA_RADAHN = CUSTOM_ITEM.SPEAR_ORB,
             DEAD_STOMPY_RADAHN = memory(FLAG, SRAM), // t?
@@ -1467,12 +1404,56 @@ group non_maps() {
             }
         }
 
-        fun branch_lady(x, y, id) {
-            add_enemy(VILLAGER_2_4, x, y);
-            entity_script_controlled(LAST_ENTITY);
-            face(LAST_ENTITY, WEST);
+        @install()
+        @async()
+        fun add_palette_donor(entity) {
+            add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
+            attach_to_script(LAST_ENTITY);
+
+            arg[0x10] = entity[PALETTE];
+
+            while(entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                entity[PALETTE] = <SCRIPT_OWNER>[PALETTE];
+                
+                sleep(0d5);
+            }
+
+            entity[PALETTE] = arg[0x10];
+
+            destroy(SCRIPT_OWNER);
+        }
+        fun guard_branch_lady(flag) {
+            if(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                if(MEMORY.SPOON > 0d0) {
+                    conversation(False, {
+                        conversation_question("[SLOW]Use Spoon[CHOICE]yes…[CHOICE]no…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            MEMORY.SPOON--;
+
+                            control(SCRIPT_OWNER, False);
+                        }
+                    });
+                } else {
+                    conversation(False, {
+                        dialog("[SLOW]…[B]");
+                    });
+                }
+
+                if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    flag = True;
+                }
+
+                end();
+            }
+        }
+        fun branch_lady(x, y, direction:DIRECTION, id) {
+            add_enemy(VILLAGER_2_4, x, y, INACTIVE);
+
+            add_palette_donor(<LAST_ENTITY>);
+
+            face(LAST_ENTITY, direction);
             attach_script(LAST_ENTITY, B, id);
-            <LAST_ENTITY>[PALETTE] = 0x50;
         }
 
         @install()
@@ -5564,23 +5545,6 @@ area west_inbetwixx() {
                 _loot(0x0d, CLAY, 0d01, 0d00); // same as B=13
             },
         }
-        
-        @install()
-        fun branch_triggered() {
-            if(MEMORY.SPOON > 0d0) {
-                question("[SLOW]Use Spoon[CHOICE]Yes[CHOICE]No");
-
-                if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    MEMORY.SPOON--;
-                    set(ROOM.BRANCH_USED);
-
-                    <SCRIPT_OWNER>[PALETTE] = 0x0800;
-                    control(SCRIPT_OWNER, False);
-                }
-            } else {
-                dialog("...[0x80][0x19][0x81]");
-            }
-        }
 
         @install()
         fun boss_defeated() {
@@ -5611,10 +5575,12 @@ area west_inbetwixx() {
         }
 
         fun trigger_enter() {
-            add_souls_npc_alchemist_speed(0d51, 0d74);
+            add_souls_npc_alchemist_speed(0d91, 0d65);
             
             if!(ROOM.BRANCH_USED) {
-                branch_lady(0x58, 0x0f, reference(branch_triggered));
+                branch_lady(0x58, 0x0f, WEST, reference(@install() {
+                    guard_branch_lady(ROOM.BRANCH_USED);
+                }));
             }
 
             if!(SOULS_MEMORY.DEAD_OWL_BOY) {
@@ -6167,7 +6133,7 @@ area altus_plateau_entry() {
             grass_non_sword = @install() {
                 debug_subtext("B=32");
 
-                error_dlc(NONE);
+                vanilla_grass_cutter(0x05);
             },
         }
 
@@ -9972,23 +9938,6 @@ area east_inbetwixx() {
             }
         }
 
-        @install()
-        fun branch_triggered() {
-            if(MEMORY.SPOON > 0x00) {
-                question("[SLOW]Use Spoon[CHOICE]Yes[CHOICE]No");
-
-                if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    MEMORY.SPOON--;
-                    set(ROOM.BRANCH_USED);
-
-                    <SCRIPT_OWNER>[PALETTE] = 0x0800;
-                    control(SCRIPT_OWNER, False);
-                }
-            } else {
-                dialog("...[0x80][0x19][0x81]");
-            }
-        }
-
         fun open_sandpits(open) {
             if(open) {
                 object[0x03] = 0x04; // open sandpit_2
@@ -10116,7 +10065,7 @@ area east_inbetwixx() {
                 add_enemy(TUMBLING_WEED, 0d18, 0d90);
 
                 // center
-                add_enemy(BUZZARD_1, 0d68, 0d147);
+                add_enemy(TUMBLING_WEED, 0d68, 0d147);
 
                 // upstairs east
                 add_enemy(SLIME, 0d11, 0d109);
@@ -10127,14 +10076,16 @@ area east_inbetwixx() {
                 add_enemy(SLIME, 0d57, 0d34);
 
                 // upstairs east
-                add_enemy(BUZZARD_1, 0d76, 0d89);
+                add_enemy(TUMBLING_WEED, 0d76, 0d89);
                 add_enemy(SLIME, 0d76, 0d114);
             }
 
             init_room();
 
             if!(ROOM.BRANCH_USED) {
-                branch_lady(0d78, 0d44, reference(branch_triggered));
+                branch_lady(0d78, 0d44, NORTH, reference(@install() {
+                    guard_branch_lady(ROOM.BRANCH_USED);
+                }));
             }
 
             pit_scanner_boy();
@@ -27058,50 +27009,6 @@ area dungeon_volcano() {
             },
         }
 
-        fun boss_defeated() {
-            SOULS_MEMORY.BOSSES_DEFEATED_COUNTER++;
-            SOULS_MEMORY.PROGRESS_COUNTER++;
-
-            set(SOULS_MEMORY.DEAD_VOLCANO_HYDRA);
-
-            animate(ROOM.ID_STONE, ONCE_FREEZE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-        }
-
-        fun spawn_snake(x, y) {
-            add_enemy(BONE_SNAKE, x, y);
-            <LAST_ENTITY>[Z_LEVEL] = ROOM.Z_UPSTAIRS;
-            attach_script(LAST_ENTITY, DEATH, reference(head_killed));
-        }
-        fun spawn_salabog(x, y) {
-            add_enemy(SALABOG, x, y);
-            <LAST_ENTITY>[Z_LEVEL] = ROOM.Z_UPSTAIRS;
-            attach_script(LAST_ENTITY, DEATH, reference(head_killed));
-        }
-
-        fun spawn_1_head() {
-            spawn_snake(0x47, 0x74);
-        }
-        fun spawn_2_head() {
-            spawn_snake(0x47, 0x74);
-            spawn_snake(0x48, 0x74);
-        }
-        fun spawn_big_head() {
-            spawn_salabog(0x47, 0x74);
-        }
-
-        @install()
-        fun head_killed() {
-            if(BOSS.PHASE == 0x00) {
-                spawn_2_head();
-            } else if(BOSS.PHASE == 0x02) {
-                spawn_big_head();
-            } else if(BOSS.PHASE > 0x02) {
-                boss_defeated();
-            }
-
-            BOSS.PHASE++;
-        }
-
         @install()
         fun stone_yump() {
             fake_b();
@@ -27163,22 +27070,6 @@ area dungeon_volcano() {
             }
             if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
                 object[0x02] = 0x7e; // show bridge_north
-            }
-
-            if!(SOULS_MEMORY.DEAD_VOLCANO_HYDRA) {
-                if(<BOY>[Z_LEVEL] == ROOM.Z_UPSTAIRS) {
-                    spawn_1_head();
-                    // add_enemy(OGLIN, 0x44, 0x65);
-                    add_enemy(SLIME_PINK, 0x44, 0x65);
-                    add_enemy(SLIME_PINK, 0x51, 0x6d);
-                } else {
-                    spawn_1_head();
-                    attribute(LAST_ENTITY, INVINCIBLE, True);
-                }
-
-                add_enemy(STONE_ROUND, 0x44, 0x85);
-                ROOM.ID_STONE = <LAST_ENTITY>;
-                attach_script(LAST_ENTITY, B, reference(installed_error_contraption));
             }
 
             // start
