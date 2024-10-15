@@ -957,6 +957,8 @@ group non_maps() {
 
                     shrine_intro();
                 }
+            } else {
+                SOULS_MEMORY.BONFIRE_FIRST_TRIGGER = True;
             }
         }
 
@@ -2545,6 +2547,58 @@ group non_maps() {
             }
         };
 
+        group npc_dog_lady() {
+            enum NPC_DOG_LADY {
+                PROGRESS = memory(BYTE, SRAM),
+
+                BODY = ENEMY.VILLAGER_2_4,
+            }
+
+            group dog_lady_ai() {
+                @install()
+                fun dog_lady_dialog_0() {
+                    conversation(True, {
+                        if(NPC_DOG_LADY.PROGRESS == 0d0) {
+                            if(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
+                                conversation_question("[SLOW]What a lovely dog… Do you need help training?[CHOICE]invite…[CHOICE]leave…");
+                                
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                                    NPC_DOG_LADY.PROGRESS++;
+
+                                    conversation_dialog("[SLOW]I'll be on my way.[B]");
+                                }
+                            } else {
+                                conversation_dialog("[SLOW]I… I don't know where to go now…[B]");
+                            }
+                        } else {
+                            conversation_dialog("[SLOW]I'll be on my way.[B]");
+                        }
+                    });
+                }
+
+                @install()
+                fun dog_lady_dialog_1() {
+                    conversation(True, {
+                        conversation_dialog("[SLOW]TODO.[B]");
+                    });
+                }
+            };
+            
+            fun add_souls_npc_dog_lady(x, y, flags:FLAG_ENEMY) {
+                if(flags is Word) {
+                    add_enemy(NPC_DOG_LADY.BODY, x, y, flags);
+                } else {
+                    add_enemy(NPC_DOG_LADY.BODY, x, y);
+                }
+
+                if(NPC_DOG_LADY.PROGRESS == 0d0) {
+                    attach_script(LAST_ENTITY, B, reference(dog_lady_dialog_0));
+                } else if(NPC_DOG_LADY.PROGRESS == 0d1) {
+                    attach_script(LAST_ENTITY, B, reference(dog_lady_dialog_1));
+                }
+            }
+        };
+
         group npc_squidmar() {
             enum NPC_SQUIDMAR {
                 DEBUG = False,
@@ -3407,7 +3461,7 @@ area shrine_area() {
 
         enum stepon_trigger {
             exit_hut_1 = @install() {
-                map_transition(hut_1, door, NORTH);
+                map_transition(hut_dog_lady, door, NORTH);
             },
             exit_hut_2 = @install() {
                 map_transition(hut_2, door, NORTH);
@@ -3545,26 +3599,6 @@ area shrine_area() {
             },
         }
 
-        @install()
-        fun debug_triggered() {
-            SOULS_MEMORY.SMITH_KEY = True;
-            ROOM.SMITH_UNLOCKED = True;
-            NPC_SMITH.PROGRESS = 0d1;
-
-            MEMORY.IRON = 0d5;
-            MEMORY.METEORITE = 0d5;
-
-            SOULS_MEMORY.ORB_SWORD = 0d99;
-            SOULS_MEMORY.ORB_AXE = 0d99;
-            SOULS_MEMORY.ORB_SPEAR = 0d99;
-
-            SOULS_MEMORY.ESTUS_SHARDS = 0d99;
-
-            currency_get(TALONS, 0d1000);
-
-            destroy(SCRIPT_OWNER);
-        }
-
         fun show_bonfires() {
             object[0x11] = 0x01; // ignite fire
 
@@ -3587,7 +3621,7 @@ area shrine_area() {
 
             add_souls_npc_bee_boy(0d60, 0d60);
 
-            add_door(0d15, 0d29, True);
+            add_door(0d15, 0d29, NPC_DOG_LADY.PROGRESS < 0d1); // dog lady
             add_door(0d51, 0d47, True);
             add_door(0d83, 0d49, True);
             add_door(0d101, 0d57, True);
@@ -3596,8 +3630,6 @@ area shrine_area() {
 
             add_door(0d33, 0d62, False); // cat
             add_door(0d69, 0d85, True); // shrine maiden
-
-            add_debug_entity(0d54, 0d84, reference(debug_triggered));
 
             if(ROOM.SHRINE_BONFIRE_LIT) {
                 show_bonfires();
@@ -3619,10 +3651,29 @@ area shrine_area() {
             // object[0x11] = 0x01; // ignite fire
 
             default_init_room(False, False);
+
+            add_debug_entity(0d54, 0d84, reference(@install() {
+                SOULS_MEMORY.SMITH_KEY = True;
+                ROOM.SMITH_UNLOCKED = True;
+                NPC_SMITH.PROGRESS = 0d1;
+
+                MEMORY.IRON = 0d5;
+                MEMORY.METEORITE = 0d5;
+
+                SOULS_MEMORY.ORB_SWORD = 0d99;
+                SOULS_MEMORY.ORB_AXE = 0d99;
+                SOULS_MEMORY.ORB_SPEAR = 0d99;
+
+                SOULS_MEMORY.ESTUS_SHARDS = 0d99;
+
+                currency_get(TALONS, 0d1000);
+
+                destroy(SCRIPT_OWNER);
+            }));
         }
     };
 
-    map hut_1(VILLAGE_HUTS) { // variant 1_1
+    map hut_dog_lady(VILLAGE_HUTS) { // variant 1_1
         enum entrance {
             door = entrance(0x10, 0x23, NORTH),
         }
@@ -3704,6 +3755,10 @@ area shrine_area() {
 
             // object[0x00] = 0x01; // open gourd_1_1_1
             // object[0x01] = 0x01; // open gourd_1_1_2
+
+            if(NPC_DOG_LADY.PROGRESS >= 0d1) {
+                add_souls_npc_dog_lady(0d15, 0d16);
+            }
 
             fade_in();
         }
@@ -5580,7 +5635,11 @@ area west_inbetwixx() {
             if!(ROOM.BRANCH_USED) {
                 branch_lady(0x58, 0x0f, WEST, reference(@install() {
                     guard_branch_lady(ROOM.BRANCH_USED);
+
+                    dog_lady_dialog_0();
                 }));
+            } else if(NPC_DOG_LADY.PROGRESS == 0d0) {
+                add_souls_npc_dog_lady(0x58, 0x0f);
             }
 
             if!(SOULS_MEMORY.DEAD_OWL_BOY) {
@@ -6515,7 +6574,7 @@ area altus_plateau_entry() {
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     // level 0
-                    add_enemy(FLOWER_PURPLE, 0d81, 0d239);
+                    // add_enemy(FLOWER_PURPLE, 0d81, 0d239);
 
                     // level 1
                     add_enemy(MONK, 0d93, 0d209);
@@ -6529,8 +6588,8 @@ area altus_plateau_entry() {
 
                     // level 5
                     // add_enemy(BUZZARD_1, 0d29, 0d123);
-                    add_enemy(RAT, 0d29, 0d123);
-                    add_enemy(RAT, 0d29, 0d123);
+                    // add_enemy(RAT, 0d29, 0d123);
+                    // add_enemy(RAT, 0d29, 0d123);
                 }
 
                 bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
