@@ -504,6 +504,7 @@ group general_enums() {
             // weapons
             GAIN_WEAPON = <0x2441>,
             CURRENT_WEAPON = (Byte) <0x235F>,
+            CURRENT_WEAPON_TYPE = (Byte) <0x2360>, // see WEAPON_TYPE
 
             // vendor
 
@@ -2472,6 +2473,12 @@ group general_enums() {
                 TICKET_FOR_EXHIBITION = 0x100c,
             }
 
+            enum WEAPON_TYPE {
+                SWORD = 0x00,
+                AXE = 0x02,
+                SPEAR = 0x04,
+                BAZOOKA = 0x06,
+            }
             enum WEAPON_INDEX {
                 SWORD_1 = 0x02, // "Bone Crusher"
                 SWORD_2 = 0x04, // "Gladiator Sword"
@@ -5535,6 +5542,73 @@ group functions() {
     };
 
     group complex() {
+        group error_messages() {
+            @install()
+            fun installed_error_contraption() {
+                subtext("Locked by some contraption.");
+            }
+            @install()
+            fun installed_error_unknown() {
+                subtext("…");
+            }
+            fun error_wrong_weapon() {
+                subtext("Wrong weapon…");
+            }
+
+            fun error_walk_back(exit_direction:DIRECTION) {
+                if(exit_direction == DIRECTION.NORTH) {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, BOTH);
+                } else if(exit_direction == DIRECTION.EAST) {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d2, 0d0, ACTIVE, BOTH);
+                } else if(exit_direction == DIRECTION.SOUTH) {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, ACTIVE, BOTH);
+                } else if(exit_direction == DIRECTION.WEST) {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, -0d2, 0d0, ACTIVE, BOTH);
+                }
+            }
+            fun error_dead_end(exit_direction:DIRECTION) {
+                subtext("Does not open.");
+
+                error_walk_back(exit_direction);
+            }
+            fun error_contraption(exit_direction:DIRECTION) {
+                subtext("Locked by some contraption.");
+
+                error_walk_back(exit_direction);
+            }
+            fun error_wrong_side(exit_direction:DIRECTION) {
+                subtext("Does not open from this side.");
+
+                error_walk_back(exit_direction);
+            }
+            fun error_switch(exit_direction:DIRECTION) {
+                subtext("Does not move.");
+
+                error_walk_back(exit_direction);
+            }
+            fun error_locked(exit_direction:DIRECTION) {
+                subtext("Locked.");
+
+                error_walk_back(exit_direction);
+            }
+            @install()
+            fun installed_error_locked(exit_direction:DIRECTION) {
+                subtext("Locked.");
+
+                error_walk_back(exit_direction);
+            }
+            fun error_dlc(exit_direction:DIRECTION) {
+                subtext("DLC area…");
+
+                error_walk_back(exit_direction);
+            }
+            fun error_unknown(exit_direction:DIRECTION) {
+                subtext("…");
+
+                error_walk_back(exit_direction);
+            }
+        };
+
         group trading() {
             fun _item_pay(item_memory:MEMORY, count, dry) {
                 if(item_memory >= count) {
@@ -6041,25 +6115,38 @@ group functions() {
             }
         }
 
+        fun vanilla_grass_cutter(object_id) {
+            if(<ACTIVE> == <BOY>) {
+                animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+
+                if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) || (MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.SPEAR)) {
+
+                    object[object_id] = 0x01;
+                } else {
+                    error_wrong_weapon();
+                }
+            }
+        }
+
         fun axe2_wall_enemy(flag, enemy) {
             if(<ACTIVE> == <BOY>) {
                 animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
 
-                if(((Byte) <0x235f>) >= 0x0c) {
-                    if(((Byte) <0x2360>) == 0x02) {
-                        _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
-                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
+                    _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                        _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
-                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                    _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                        sleep(0d4);
+                    sleep(0d4);
 
-                        // sound(THRAXX_BRIDGE_COLLAPSING);
+                    // sound(THRAXX_BRIDGE_COLLAPSING);
 
-                        destroy(enemy);
-                        set(flag);
-                    }
+                    destroy(enemy);
+                    set(flag);
+                } else {
+                    error_wrong_weapon();
                 }
             }
         }
@@ -6067,21 +6154,21 @@ group functions() {
             if(<ACTIVE> == <BOY>) {
                 animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
 
-                if(((Byte) <0x235f>) >= 0x0c) {
-                    if(((Byte) <0x2360>) == 0x02) {
-                        _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
-                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
+                    _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                        _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
-                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                    _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                        sleep(0d4);
+                    sleep(0d4);
 
-                        sound(THRAXX_BRIDGE_COLLAPSING);
+                    sound(THRAXX_BRIDGE_COLLAPSING);
 
-                        object = 0x01;
-                        set(flag);
-                    }
+                    object = 0x01;
+                    set(flag);
+                } else {
+                    error_wrong_weapon();
                 }
             }
         }
