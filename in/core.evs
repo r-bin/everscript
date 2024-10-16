@@ -874,6 +874,8 @@ group general_enums() {
 
             NO_RUNNING = <0x28fb, 0x08>, // requires patch "temp_jaguar_ring"
 
+            VANILLA_BOMB_DAMAGE = <0x28fb, 0x10>,
+
             // <0x28fa, x>
             START_MARIO_YUMP = <0x28fa, 0x01>,
             START_ROCKET_JUMP = <0x28fa, 0x02>,
@@ -2768,9 +2770,9 @@ group general_enums() {
                 DRAGGED = 0x001c,
                 SWIRL_ENTER = 0x0020,
                 SWIRL_EXIT = 0x0022,
-                FALL_1 = 0x0024, // todo
-                FALL_2 = 0x0026, // arm waving
-                FALL_3 = 0x0188, // salto
+                LANDING = 0x0024, // todo
+                FALL_1 = 0x0026, // arm waving
+                FALL_2 = 0x0188, // salto
                 SLEEP_DOWN = 0x0028,
                 KNEEL = 0x002a,
                 SLEEP_WATER = 0x002C,
@@ -3913,15 +3915,15 @@ group functions() {
                 if(character is Word) {
                     animate(character, mode, id);
                 } else {
-                    if((id == ANIMATION_BOY.FALL_2) || (id == ANIMATION_DOG.ACT1_FALL2)) {
+                    if((id == ANIMATION_BOY.FALL_1) || (id == ANIMATION_DOG.ACT1_FALL2)) {
                         if(character == <BOY>) {
-                            animate(character, mode, ANIMATION_BOY.FALL_2);
+                            animate(character, mode, ANIMATION_BOY.FALL_1);
                         } else {
                             animate(character, mode, ANIMATION_DOG.ACT1_FALL2);
                         }
-                    } else if((id == ANIMATION_BOY.FALL_1) || (id == ANIMATION_DOG.ACT1_ANGRY)) {
+                    } else if((id == ANIMATION_BOY.LANDING) || (id == ANIMATION_DOG.ACT1_ANGRY)) {
                         if(character == <BOY>) {
-                            animate(character, mode, ANIMATION_BOY.FALL_1);
+                            animate(character, mode, ANIMATION_BOY.LANDING);
                         } else {
                             animate(character, mode, ANIMATION_DOG.ACT1_ANGRY);
                         }
@@ -4152,6 +4154,10 @@ group functions() {
                 }
             }
 
+            fun reset_general_purpose(entity) {
+                entity[GENERAL_PURPOSE] = 0d0;
+            }
+
             fun attribute_bit(character:CHARACTER, attribute:ATTRIBUTE_BITS) {
                 code(0xa9, entity_t(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
             }
@@ -4277,15 +4283,24 @@ group functions() {
             }
 
             fun bomb_absolute(entity:CHARACTER, x, y, size, damage) {
-                MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                if(damage is Word) {
+                    MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                }
+                
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(x), calculate(y), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun bomb_entity(entity:CHARACTER, size, damage) {
-                MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                if(damage is Word) {
+                    MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                }
+
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun bomb_entity_entity(entity:CHARACTER, entity_target:CHARACTER, size, damage) {
-                MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                if(damage is Word) {
+                    MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                }
+                
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity_target[X]), calculate(entity_target[Y]), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
         };
@@ -6125,63 +6140,87 @@ group functions() {
             }
         }
 
-        fun vanilla_grass_cutter(object_id) {
-            if(<ACTIVE> == <BOY>) {
-                animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+        group metroidvania() {
+            fun vanilla_grass_cutter(object_id) {
+                if(<ACTIVE> == <BOY>) {
+                    animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
 
-                if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) || (MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.SPEAR)) {
+                    if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) || (MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.SPEAR)) {
 
-                    object[object_id] = 0x01;
-                } else {
-                    error_wrong_weapon();
+                        object[object_id] = 0x01;
+                    } else {
+                        error_wrong_weapon();
+                    }
                 }
             }
-        }
 
-        fun axe2_wall_enemy(flag, enemy) {
-            if(<ACTIVE> == <BOY>) {
-                animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+            fun axe2_wall_enemy(flag, enemy) {
+                if(<ACTIVE> == <BOY>) {
+                    animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
 
-                if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
-                    _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                    if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
+                        _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
+                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                    _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                        _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
+                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                    sleep(0d4);
+                        sleep(0d4);
 
-                    // sound(THRAXX_BRIDGE_COLLAPSING);
+                        // sound(THRAXX_BRIDGE_COLLAPSING);
 
-                    destroy(enemy);
-                    set(flag);
-                } else {
-                    error_wrong_weapon();
+                        destroy(enemy);
+                        set(flag);
+                    } else {
+                        error_wrong_weapon();
+                    }
                 }
             }
-        }
-        fun axe2_wall(flag, object) {
-            if(<ACTIVE> == <BOY>) {
-                animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+            fun axe2_wall(flag, object) {
+                if(<ACTIVE> == <BOY>) {
+                    animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
 
-                if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
-                    _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                    if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
+                        _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
+                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                    _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                        _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
+                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
 
-                    sleep(0d4);
+                        sleep(0d4);
 
-                    sound(THRAXX_BRIDGE_COLLAPSING);
+                        sound(THRAXX_BRIDGE_COLLAPSING);
 
-                    object = 0x01;
-                    set(flag);
-                } else {
-                    error_wrong_weapon();
+                        object = 0x01;
+                        set(flag);
+                    } else {
+                        error_wrong_weapon();
+                    }
                 }
             }
-        }
+        };
+
+        group combat() {
+            @install()
+            fun vanilla_bomb_explosion() {
+                if(script[0x9] != 0x200) {
+                    if(False) {
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                    }
+
+                    end();
+                }
+
+                sleep(0d10);
+                
+                bomb_entity(<SCRIPT_OWNER>, 0d50, 0d200);
+                if(CUSTOM_FLAG.VANILLA_BOMB_DAMAGE) {
+                    bomb_entity_entity(BOY, <SCRIPT_OWNER>, 0d50, 0d2000);
+                } else {
+                    bomb_entity_entity(BOY, <SCRIPT_OWNER>, 0d50);
+                }
+            }
+        };
 
         @install()
         fun reset_alchemy_types() {
@@ -6423,7 +6462,7 @@ group functions() {
         fun crash_land(character:CHARACTER) {
             if(character == CHARACTER.BOY) {
                 <BOY>[Z] = 0x1068;
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
                 sleep(0x60);
                 <BOY>[VELOCITY] = 0x10;
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
@@ -6443,7 +6482,7 @@ group functions() {
                 animate(DOG, ONCE, ANIMATION_DOG.ACT1_SIT);
             } else if(character == CHARACTER.BOTH) {
                 <BOY>[Z] = 0x1068;
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
                 <DOG>[Z] = 0x1068;
                 animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
                 sleep(0x60);
@@ -6495,7 +6534,7 @@ group functions() {
 
         fun animate_falling(character:CHARACTER) {
             if(character == <BOY>) {
-                animate(character, LOOP, ANIMATION_BOY.FALL_2);
+                animate(character, LOOP, ANIMATION_BOY.FALL_1);
             } else {
                 animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
             }
@@ -6506,7 +6545,7 @@ group functions() {
             }
             
             if(character == <BOY>) {
-                animate(character, ONCE, ANIMATION_BOY.FALL_1);
+                animate(character, ONCE, ANIMATION_BOY.LANDING);
             } else {
                 animate(character, ONCE, DEFAULT);
             }
@@ -6637,7 +6676,7 @@ group functions() {
                 sleep(0d60);
             }
 
-            smart_animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+            smart_animate(entity, LOOP, ANIMATION_BOY.FALL_1);
 
             while(signed arg[0x10] < end) {
                 arg[0x10]++;
@@ -6649,7 +6688,7 @@ group functions() {
                 yield();
             }
 
-            smart_animate(entity, ONCE, ANIMATION_BOY.FALL_1);
+            smart_animate(entity, ONCE, ANIMATION_BOY.LANDING);
         }
 
         fun _generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step) {
@@ -6687,7 +6726,7 @@ group functions() {
         }
 
         fun _generic_act1_volcano_cave_hole_walk(entity) {
-            smart_animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+            smart_animate(entity, LOOP, ANIMATION_BOY.FALL_1);
 
             while(arg[0x10] < 0d19) {
                 arg[0x10]++;
@@ -6697,7 +6736,7 @@ group functions() {
                 yield();
             }
 
-            smart_animate(entity, ONCE, ANIMATION_BOY.FALL_1);
+            smart_animate(entity, ONCE, ANIMATION_BOY.LANDING);
 
             control(entity, False);
         }
@@ -6777,9 +6816,9 @@ group functions() {
             control(NONE);
 
             if(character == <BOY>) {
-                animate(character, LOOP, ANIMATION_BOY.FALL_1);
+                animate(character, LOOP, ANIMATION_BOY.LANDING);
                 sleep(0d05);
-                animate(character, LOOP, ANIMATION_BOY.FALL_2);
+                animate(character, LOOP, ANIMATION_BOY.FALL_1);
             } else {
                 animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
             }
@@ -6828,10 +6867,10 @@ group functions() {
         fun generic_yeet_waterfall() {
             control(NONE);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+            animate(BOY, LOOP, ANIMATION_BOY.LANDING);
             sleep(0x05);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
             <BOY>[VELOCITY] = 0x20;
 
             arg[0x00] = <BOY>[X] + 0x30;
@@ -6871,7 +6910,7 @@ group functions() {
 
             // teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
             animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
 
             arg[0x12] = <ACTIVE>[X];
@@ -7000,7 +7039,7 @@ group functions() {
                 <0x249d> = 0x0128;
                 <0x249f> = height;
 
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
                 animate(DOG, LOOP, ANIMATION_DOG.ACT2_FALL_4);
 
                 yield();
@@ -7046,7 +7085,7 @@ group functions() {
                 <0x24af> = <0x2423> << 0x04;
 
                 if(<ACTIVE> == CHARACTER.BOY) {
-                    animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+                    animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
                 } else {
                     animate(DOG, LOOP, ANIMATION_DOG.ACT3_FALL_2);
                 }
@@ -7064,7 +7103,7 @@ group functions() {
                 }
 
                 if(<ACTIVE> == CHARACTER.BOY) {
-                    animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+                    animate(BOY, LOOP, ANIMATION_BOY.LANDING);
                 } else {
                     animate(DOG, LOOP, ANIMATION_DOG.ACT3_SIT);
                 }
@@ -7082,7 +7121,7 @@ group functions() {
                 }
 
                 if(<ACTIVE> == CHARACTER.BOY) {
-                    animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
                 } else {
                     animate(DOG, ONCE, ANIMATION_DOG.ACT3_SIT);
                 }
@@ -7448,11 +7487,11 @@ group functions() {
 
                 sleep(0d50);
 
-                smart_animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+                smart_animate(entity, LOOP, ANIMATION_BOY.FALL_1);
 
                 sleep(0d50);
 
-                smart_animate(entity, ONCE, ANIMATION_BOY.FALL_1);
+                smart_animate(entity, ONCE, ANIMATION_BOY.LANDING);
             }
             
             fun vanilla_desert_sandpit_out(x, y) {
@@ -7519,20 +7558,7 @@ group functions() {
 
             _add_enemy(BOMB, <BOY>[X], <BOY>[Y]);
             attach_to_script(LAST_ENTITY);
-            attach_script(SCRIPT_OWNER, DEATH, reference(@install() {
-                if(script[0x9] != 0x200) {
-                    if(False) {
-                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
-                    }
-
-                    end();
-                }
-
-                sleep(0d10);
-                
-                bomb_entity(<SCRIPT_OWNER>, 0d50, 0d2000);
-                bomb_entity_entity(BOY, <SCRIPT_OWNER>, 0d50, 0d200);
-            }));
+            attach_script(SCRIPT_OWNER, DEATH, reference(vanilla_bomb_explosion));
 
             <BOY>[STAMINA] = STAMINA.PERCENTAGE_0;
 
@@ -7573,7 +7599,7 @@ group functions() {
                 animate(BOY, ONCE_FREEZE, DEFAULT);
             } else {
                 if(((<BOY>[STATUS_ID_1] & 0xff) != STATUS_ID.ENERGIZE) && ((<BOY>[STATUS_ID_2] & 0xff) != STATUS_ID.ENERGIZE) && ((<BOY>[STATUS_ID_3] & 0xff) != STATUS_ID.ENERGIZE) && ((<BOY>[STATUS_ID_4] & 0xff) != STATUS_ID.ENERGIZE)) {
-                    animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
                 }
             }
             
@@ -7637,7 +7663,7 @@ group functions() {
             arg[0x14] = <BOY>[Y];
 
             if(True) {
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_3);
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
             }
 
             while(True) {
@@ -7715,7 +7741,7 @@ group functions() {
                         control(BOTH);
                     }
                     
-                    animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
 
                     destroy(arg[0x10]);
                     CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT--;
@@ -7776,7 +7802,7 @@ group functions() {
             attribute(BOY, NO_CLIP, True);
 
             sleep(0d60);
-            // animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            // animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
 
             // debug_memory(<BOY>[FACE_DIRECTION], <BOY>[FACE_DIRECTION]);
 
@@ -7823,7 +7849,7 @@ group functions() {
 
                 attribute(BOY, INVISIBLE, False);
 
-                bomb_entity(BOY, 0d30, 0d10);
+                bomb_entity(BOY, 0d30);
                 sound(HEAVY_IMPACT);
 
                 control(BOTH);
@@ -7900,7 +7926,7 @@ group functions() {
                 control(NONE);
             }
 
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.FALL_1);
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.LANDING);
 
             if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
                 arg[0x12] = 0d3;
@@ -8158,7 +8184,7 @@ group functions() {
                 end();
             }
             
-            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+            animate(BOY, ONCE, ANIMATION_BOY.LANDING);
 
             if(<BOY>[FACE_DIRECTION] == 0x00) {
                 shoot_entity_offset_relative(BOY, LIGHTNING_BALL, 0d0, -0d10, 0d0, -0d100, 0d40, 0x0a);
@@ -8181,7 +8207,7 @@ group functions() {
                 attribute(BOY, ROOT, False);
             }
 
-            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+            animate(BOY, ONCE, ANIMATION_BOY.LANDING);
             wait(BOY);
 
             <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
@@ -8288,7 +8314,7 @@ group functions() {
                     attribute(BOY, ROOT, False);
                 }
 
-                animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+                animate(BOY, ONCE, ANIMATION_BOY.LANDING);
                 wait(BOY);
 
                 <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
@@ -8302,7 +8328,7 @@ group functions() {
 
             <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
 
-            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+            animate(BOY, ONCE, ANIMATION_BOY.LANDING);
 
             if(level == 0d1) {
                 attribute(BOY, ROOT, True);
@@ -8313,7 +8339,7 @@ group functions() {
                 while((CUSTOM_MEMORY.INPUT_P1 & 0x8000) && (arg[0x10] < 0d120)) {
                     arg[0x10]++;
 
-                    animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
 
                     yield();
                 }
@@ -8830,20 +8856,20 @@ group functions() {
                 debug_subtext("sterling grab");
             }
             
-            sterling[GENERAL_PURPOSE] = True;
+            control(sterling, True);
 
             if(False) {
                 <0x283d> = sterling;
                 call(0x99992d);
 
-                sterling[GENERAL_PURPOSE] = False;
+                control(sterling, False);
                 end();
             }
 
             // <0x2834> = 0xffff;
 
             if(dead(<SCRIPT_OWNER>)) {
-                sterling[GENERAL_PURPOSE] = False;
+                control(sterling, False);
                 end();
             }
             
@@ -8926,7 +8952,7 @@ group functions() {
 
             yield();
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
             arg[0x18] = 0x004b;
             arg[0x12] -= 0x10;
             arg[0x26] = 0x0010;
@@ -8995,7 +9021,7 @@ group functions() {
                 arg[0x16] = 0x0258;
             }
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
             // _teleport(<BOY>, arg[0x10], arg[0x12]);
 
             if(False) {
@@ -9015,7 +9041,7 @@ group functions() {
 
             sfx_effect(SHAKING, True);
 
-            animate(BOY, ONCE, ANIMATION_BOY.FALL_1);
+            animate(BOY, ONCE, ANIMATION_BOY.LANDING);
             attribute(BOY, ROOT, False);
             control(BOTH);
 
@@ -9044,7 +9070,7 @@ group functions() {
 
             sleep(0d120);
 
-            sterling[GENERAL_PURPOSE] = False;
+            control(sterling, False);
         }
 
         @install()
@@ -9070,7 +9096,7 @@ group functions() {
 
                 while!(dead(entity)) {
                     if((<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) == 0d0) {
-                        if(entity[GENERAL_PURPOSE] == False) {
+                        if!(entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
                             arg[0x10] = entity[X];
                             arg[0x12] = entity[Y];
                             arg[0x14] = <BOY>[X];
@@ -9094,7 +9120,8 @@ group functions() {
                                 // arg[0x20]++;
                                 // debug_memory(arg[0x20], 0x00);
 
-                                <BOY>[GENERAL_PURPOSE] = 0d1;
+                                // <BOY>[GENERAL_PURPOSE] = 0d1;
+                                control(NONE);
 
                                 if(with_roar) {
                                     call_async(ADDRESS.STERLING_ROAR);

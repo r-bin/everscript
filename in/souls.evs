@@ -195,12 +195,12 @@ group non_maps() {
 
             // features
             WITH_OPENING = False, // doesn't work?
-            WITH_SAVESTATE_LOAD = False, // after splash screen
+            WITH_SAVESTATE_LOAD = True, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
             WITH_INTRO = True,
             WITH_STARTING_CLASS = False,
-            WITH_SHRINE_INTRO = False,
+            WITH_SHRINE_INTRO = True,
             WITH_SOULS_ON_DEATH = True,
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
             WITH_TRASH_ENEMIES = True,
@@ -311,7 +311,7 @@ group non_maps() {
 
             // west
             DEAD_OWL_BOY = memory(FLAG, SRAM), // t0+
-            REWARD_OWL_BOY = ITEM.NECTAR, // TODO
+            REWARD_OWL_BOY = CUSTOM_ITEM.RED_TUNIC,
 
             DEAD_MONSTRO = memory(FLAG, SRAM), // t0
             REWARD_MONSTRO = CUSTOM_ITEM.SWORD_ORB,
@@ -1662,7 +1662,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(desert, north, NONE);
+                map_transition(gladiator_arena, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -2248,12 +2248,12 @@ group non_maps() {
                         UPGRADE_1_AMOUNT_2 = 0d0,
 
                         UPGRADE_2_TYPE_1 = ITEM.IRON,
-                        UPGRADE_2_AMOUNT_1 = 0d1,
+                        UPGRADE_2_AMOUNT_1 = 0d2,
                         UPGRADE_2_TYPE_2 = ITEM.NO_ITEM,
                         UPGRADE_2_AMOUNT_2 = 0d0,
 
                         UPGRADE_3_TYPE_1 = ITEM.IRON,
-                        UPGRADE_3_AMOUNT_1 = 0d2,
+                        UPGRADE_3_AMOUNT_1 = 0d4,
                         UPGRADE_3_TYPE_2 = ITEM.NO_ITEM,
                         UPGRADE_3_AMOUNT_2 = 0d0,
 
@@ -3281,7 +3281,7 @@ area shrine_area() {
             hut_7 = entrance(0x25, 0x5b, SOUTH),
             hut_8 = entrance(0x21, 0x3b, SOUTH),
 
-            crash = entrance(0d75, 0d95, NONE), // entrance(0d67, 0d72, NONE),
+            crash = entrance(0d75, 0d95, NONE, { crash_both(); }),
         }
 
         enum soundtrack {
@@ -5291,7 +5291,9 @@ area north_inbetwixx() {
 
             sleep(0d600);
 
-            cast(SCRIPT_OWNER, BOY, FIREBALL, 0d10);
+            if!(dead(<SCRIPT_OWNER>)) {
+                cast(SCRIPT_OWNER, BOY, FIREBALL, 0d10);
+            }
 
             destroy(SCRIPT_OWNER);
         }
@@ -13527,7 +13529,7 @@ area east_inbetwixx() {
                     mario_init(False, False);
 
                     add_yoshi(0x36, 0x30);
-                    stack_boy_yoshi();
+                    stack_boy_yoshi(<LAST_ENTITY>);
 
                     if!(ROOM.ROOM_CLEARED) {
                         room_condition(ROOM.ROOM_CLEARED, ROOM.GATE_COUNT, ROOM.GATES_REQUIRED, ROOM.KILL_COUNT, ROOM.KILLS_REQUIRED);
@@ -13845,7 +13847,7 @@ area east_inbetwixx() {
 
                     mario_init(False, False);
 
-                    add_mario_koopa(0x36, 0x35, False);
+                    add_mario_koopa(0x36, 0x30, False);
 
                     if!(ROOM.ROOM_CLEARED) {
                         room_condition(ROOM.ROOM_CLEARED, ROOM.GATE_COUNT, ROOM.GATES_REQUIRED, ROOM.KILL_COUNT, ROOM.KILLS_REQUIRED);
@@ -17023,6 +17025,8 @@ area town() {
                     SQUAD_3 = memory(WORD, TEMP),
                     SQUAD_4 = memory(WORD, TEMP),
                     SQUAD_5 = memory(WORD, TEMP),
+
+                    PALETTE_DONOR = memory(WORD, TEMP),
                 }
 
                 enum stepon_trigger {
@@ -17109,8 +17113,8 @@ area town() {
                             }
 
                             while!(dead(arg[0x12])) {
-                                if(arg[0x12][PALETTE] != 0x0000) {
-                                    arg[0x12][PALETTE] = 0x0000;
+                                if(arg[0x12][PALETTE] != BOSS.PALETTE_DONOR[PALETTE]) {
+                                    arg[0x12][PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
                                 }
                                 
                                 sleep(0d5);
@@ -17162,6 +17166,9 @@ area town() {
                 fun trigger_enter() {
                     character_selection(BOY);
                     // attribute(BOY, INVINCIBLE_TEMP, True);
+
+                    add_enemy(DOG_1_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
+                    BOSS.PALETTE_DONOR = <LAST_ENTITY>;
 
                     if!(SOULS_MEMORY.DEAD_TEMPLE_SQUAD) {
                         set(BOSS.PROGRESS);
@@ -18666,6 +18673,7 @@ area town() {
 
             fun trigger_enter() {
                 CUSTOM_FLAG.NO_DOG = True;
+                CUSTOM_FLAG.VANILLA_BOMB_DAMAGE = True;
                 
                 init_map(0x00, 0x30, 0x40, 0x70);
 
@@ -18715,7 +18723,7 @@ area town() {
                 door_2_1 = entrance(0x8e, 0x29, SOUTH, { generic_object_door(0x01, True, False); }),
                 door_2_1_back = entrance(0xb7, 0x1f, EAST),
 
-                crash = entrance(0x5d, 0x5d, NONE),
+                crash = entrance(0x5d, 0x5d, NONE, { crash_both(); }),
             }
 
             enum soundtrack {
@@ -18855,12 +18863,6 @@ area town() {
                 }
 
                 default_init_room(False, False);
-
-                if!(FLAG.IN_ANIMATION) {
-                    <DOG>[X] -= 0x20;
-                    <DOG>[Y] = <DOG>[Y];
-                    crash_land(BOTH);
-                }
             }
         };
 
@@ -19140,7 +19142,7 @@ area town() {
                 door_4 = entrance(0x2a, 0x01, SOUTH),
                 door_5 = entrance(0x2a, 0x01, SOUTH),
 
-                crash = entrance(0x6d, 0x41, NONE),
+                crash = entrance(0x6d, 0x41, NONE, { crash_both(); }),
             }
 
             enum soundtrack {
@@ -19289,12 +19291,6 @@ area town() {
                 }));
 
                 default_init_room(False, False);
-
-                if!(FLAG.IN_ANIMATION) {
-                    <DOG>[X] -= 0x20;
-                    <DOG>[Y] = <DOG>[Y];
-                    crash_land(BOTH);
-                }
             }
         };
     };
@@ -19307,7 +19303,7 @@ area town() {
                 north = entrance(0x56, 0x1f, SOUTH),
                 south = entrance(0x56, 0x45, NORTH),
 
-                crash = entrance(0x98, 0x15, NONE),
+                crash = entrance(0x98, 0x15, NONE, { crash_both(); }),
             }
 
             enum soundtrack {
@@ -19558,12 +19554,6 @@ area town() {
                 open_gate(True);
 
                 default_init_room(False, False);
-
-                if!(FLAG.IN_ANIMATION) {
-                    <DOG>[X] -= 0x20;
-                    <DOG>[Y] = <DOG>[Y];
-                    crash_land(BOTH);
-                }
 
                 if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
                     // puppet_1(0x40, 0x29);
@@ -27241,8 +27231,6 @@ area dungeon_volcano() {
         }
 
         enum ROOM {
-            FAKE_EXIT_ID = memory(WORD, TEMP),
-
             ID_NPC = memory(WORD, TEMP),
         }
 
@@ -27271,42 +27259,13 @@ area dungeon_volcano() {
         }
 
         @install()
-        fun fake_exit() {
-            fog_wall(NONE);
-
-            map_transition(dungeon_volcano, north_1, SOUTH);
-        }
-
-        @install()
         @async()
-        fun fake_exit_scanner() {
-            attach_to_script(ROOM.FAKE_EXIT_ID);
+        fun fake_exit_scanner(entity) {
+            range_checker(entity, <ACTIVE>, 0x20, 0x20, {
+                fog_wall(NONE);
 
-            while(True) {
-                arg[0x00] = <ACTIVE>[X];
-                arg[0x02] = <ACTIVE>[Y];
-                arg[0x04] = <SCRIPT_OWNER>[X];
-                arg[0x06] = <SCRIPT_OWNER>[Y];
-
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
-                    fake_exit();
-                    sleep(0d60);
-                }
-
-                yield();
-            }
+                map_transition(dungeon_volcano, north_1, SOUTH);
+            });
         }
 
         fun boss_defeated() {
@@ -27481,7 +27440,7 @@ area dungeon_volcano() {
 
             sfx_effect(SHAKING, False);
 
-            attach_script(LAST_ENTITY, DAMAGE, reference(squidmar_triggered));
+            attach_script(BOSS.ID, DAMAGE, reference(squidmar_triggered));
         }
         
         @install()
@@ -27518,9 +27477,7 @@ area dungeon_volcano() {
             default_init_room(True, False);
 
             add_enemy(PLACEHOLDER, 0x1b, 0x52);
-            ROOM.FAKE_EXIT_ID = <LAST_ENTITY>;
-            sleep(0x10);
-            fake_exit_scanner();
+            fake_exit_scanner(<LAST_ENTITY>);
         }
     };
 
@@ -30889,7 +30846,7 @@ area experimental_room() {
             // <0x24cf> += 0x05;
             // sleep(0x17);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+            animate(BOY, LOOP, ANIMATION_BOY.LANDING);
             // sleep(0x03);
             // animate(DOG, LOOP, ANIMATION_DOG.ACT1_ANGRY);
             sleep(0x05);
@@ -30897,7 +30854,7 @@ area experimental_room() {
             // call_async(0x94eb06);
             // call_async(0x94eb0c);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
             <BOY>[VELOCITY] = 0x20;
 
             while(<BOY>[X] > 0x70) {
