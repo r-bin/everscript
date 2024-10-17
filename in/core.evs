@@ -1919,8 +1919,6 @@ group general_enums() {
                 VELOCITY = 0x20, // used for wings (0xe0 signed), magmar, megataur, act2 intro, puppets, sterling flight
                 FACE_DIRECTION = 0x22, // enum FACE_DIRECTION
                 TARGET_LAST_WEAPON_DAMAGE = 0x24, // contains _entity_x
-                X_TILE = 0x26,
-                Y_TILE = 0x28,
                 HP = 0x2a,
 
                 STAMINA = 0x2e, // enum STAMINA (seems to instantly regenerate during some animations?)
@@ -1948,6 +1946,9 @@ group general_enums() {
 
                 NEXT_ENTITY = 0x5e, // ?
                 TYPE = 0x60, // see CHARACTER_TPYE
+
+                X_TILE = 0x62, // [byte, read_only]
+                Y_TILE = 0x63, // [byte, read_only]
 
                 ATTACHED_SCRIPT_ID = 0x66, // see "attach_script(…)"
                 ATTACHED_SCRIPT_TRIGGER = 0x68, // see SCRIPT_TRIGGER
@@ -6196,6 +6197,35 @@ group functions() {
                     } else {
                         error_wrong_weapon();
                     }
+                }
+            }
+
+            @install()
+            @async()
+            fun _rimsala_gate(entity) {
+                attach_to_script(entity);
+
+                arg[0x10] = <SCRIPT_OWNER>[Y];
+
+                while!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    <SCRIPT_OWNER>[Y] = arg[0x10];
+                    if(<SCRIPT_OWNER>[X] < (<ACTIVE>[X] - 0d10)) {
+                        teleport_relative(SCRIPT_OWNER, 0d5, 0d0);
+                    } else if(<SCRIPT_OWNER>[X] > (<ACTIVE>[X] + 0d10)) {
+                        teleport_relative(SCRIPT_OWNER, -0d5, 0d0);
+                    }
+
+                    yield();
+                }
+            }
+            fun rimsala_gate(x, y, deactivated, trigger) {
+                if!(deactivated) {
+                    add_enemy(RIMSALA_GOLD, x, y, BOMBABLE);
+                    attach_script(LAST_ENTITY, DAMAGE, trigger);
+
+                    _rimsala_gate(<LAST_ENTITY>);
+                } else {
+                    add_enemy(RIMSALA_GOLD, x, y, INACTIVE_IMORTAL);
                 }
             }
         };
