@@ -299,6 +299,8 @@ group non_maps() {
             // south
             BONFIRE_JUNGLE_PIT = memory(FLAG, SRAM),
 
+            BONFIRE_DESERT_BUG = memory(FLAG, SRAM),
+
             // altus
             BONFIRE_ALTUS_WELL = memory(FLAG, SRAM),
             BONFIRE_CASTLE_PIT = memory(FLAG, SRAM),
@@ -984,7 +986,6 @@ group non_maps() {
             map_transition(shrine, crash, NONE);
         }
 
-
         @install()
         fun bonfire_lit() {
             guard_boy_damage();
@@ -1003,6 +1004,8 @@ group non_maps() {
                 set(SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
             } else if(MEMORY.CURRENT_MAP == MAP.WELL) {
                 set(SOULS_MEMORY.BONFIRE_ALTUS_WELL);
+            } else if(MEMORY.CURRENT_MAP == MAP.VOLCANO_ROOMS) {
+                SOULS_MEMORY.BONFIRE_DESERT_BUG = True;
             } else if(MEMORY.CURRENT_MAP != 0x0000){
                 subtext("Game could not find bonfire #[MEM1]");
             }
@@ -1120,6 +1123,7 @@ group non_maps() {
 
                     // south
                     SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
+                    SOULS_MEMORY.BONFIRE_DESERT_BUG = True;
 
                     // altus
                     SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
@@ -3443,6 +3447,11 @@ area shrine_area() {
             } else {
                 text("[CHOICE]…");
             }
+            if(SOULS_MEMORY.BONFIRE_DESERT_BUG) {
+                text("[CHOICE]Desert…");
+            } else {
+                text("[CHOICE]…");
+            }
             await_answer();
             text_end();
             control(BOTH);
@@ -3451,6 +3460,12 @@ area shrine_area() {
                 if(SOULS_MEMORY.BONFIRE_JUNGLE_PIT) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_JUNGLE;
                     map_transition(jungle_firepit, bonfire, NONE);
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                if(SOULS_MEMORY.BONFIRE_DESERT_BUG) {
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.VOLCANO_ROOMS;
+                    SOULS_MEMORY.BONFIRE_VARIANT = 0d2;
+                    map_transition(bugmuck_cave_1, bonfire, NONE);
                 }
             }
         }
@@ -3512,7 +3527,7 @@ area shrine_area() {
 
             bonfire_portal(0d61, 0d104, (SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON || SOULS_MEMORY.BONFIRE_VOLCANO_TOWER), ((SOULS_MEMORY.BONFIRE_MAP == MAP.DARK_FOREST) || (SOULS_MEMORY.BONFIRE_MAP == MAP.STERLING)), reference(bonfire_triggered_west)); // west inbetwixx
 
-            bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_JUNGLE_PIT), (SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE), reference(bonfire_triggered_jungle)); // southern jungle
+            bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_JUNGLE_PIT || SOULS_MEMORY.BONFIRE_DESERT_BUG), ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) || (SOULS_MEMORY.BONFIRE_MAP == MAP.VOLCANO_ROOMS)), reference(bonfire_triggered_jungle)); // southern jungle
 
             bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
 
@@ -14349,7 +14364,7 @@ area southern_jungle() {
         enum AREA_PYRAMID {
             MUSIC = MUSIC.JUNGLE_AMBIENT_BIRDS,
         }
-        
+
         map pyramid(PYRAMID_EXTERIOR) {
             // sniff=vanilla
 
@@ -15945,7 +15960,7 @@ area town() {
                         set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
                         set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
 
-                        generic_switch_floor(0x00);
+                        generic_switch_floor(0x00, True);
                     }
                 }
 
@@ -16230,7 +16245,7 @@ area town() {
                         debug_subtext("S=0");
 
                         if!(ROOM.BOSS_DOOR_OPENED) {
-                            guard_spear_2(NORTH, <0x2401>, 0x0008);
+                            guard_spear_2(NORTH, MEMORY.CAMERA_X_MIN, 0x0008);
                             
                             ROOM.BOSS_DOOR_OPENED = True;
                             switch_triggered();
@@ -20491,6 +20506,7 @@ area desert_bug() {
             object[0x05] = 0x00; // raise dungeon_leg_east_3
         }
     }
+
     map bugmuck(BUGMUCK) {
         enum entrance {
             north_1 = entrance(0x0b, 0x01, SOUTH),
@@ -20540,7 +20556,11 @@ area desert_bug() {
             bbm_south = @install() {
                 debug_subtext("S=6");
 
-                map_transition(bbm_1, south, NORTH);
+                if(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
+                    map_transition(bbm_1, south, NORTH);
+                } else {
+                    error_wrong_side(SOUTH);
+                }
             },
             bbm_west_1 = @install() {
                 debug_subtext("S=7");
@@ -20773,8 +20793,48 @@ area desert_bug() {
             // object[0x0b] = 0x01; // gourd_bbm_west_2 (petal)
             // object[0x0c] = 0x01; // gourd_upstairs_2
             // object[0x0d] = 0x01; // gourd_upstairs_1
+
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // top-south
+                add_enemy(BUZZARD_1, 0d35, 0d49);
+
+                // top-north
+                add_enemy(MAGGOT_RED, 0d54, 0d15);
+                add_enemy(MAGGOT_RED, 0d87, 0d12);
+
+                // north-west
+                add_enemy(MAGGOT_RED, 0d22, 0d50);
+
+                // south-west
+                add_enemy(BUZZARD_1, 0d40, 0d108);
+
+                // east
+                add_enemy(BUZZARD_1, 0d158, 0d96);
+
+                // south
+                add_enemy(BUZZARD_1, 0d56, 0d133);
+
+                // center
+                add_enemy(BUZZARD_1, 0d57, 0d42);
+
+                add_enemy(MAGGOT_RED, 0d97, 0d38);
+
+                // dungeon-south
+                add_enemy(SPIDER_YELLOW, 0d122, 0d126);
+                add_enemy(SPIDER_YELLOW, 0d133, 0d134);
+
+                // dungeon-east
+                add_enemy(SPIDER_YELLOW, 0d162, 0d51);
+
+                // dungeon-west
+                add_enemy(MAGGOT_RED, 0d76, 0d45);
+
+                add_enemy(SPIDER_YELLOW, 0d73, 0d73);
+
+                add_enemy(SPIDER_YELLOW, 0d71, 0d93);
+            }
             
-            fade_in();
+            default_init_room(False, False);
 
             add_enemy(PLACEHOLDER, 0d124, 0d18);
             fake_exit_scanner(<LAST_ENTITY>);
@@ -20790,6 +20850,8 @@ area desert_bug() {
             enum entrance {
                 north = entrance(0x1c, 0x3d, SOUTH),
                 south = entrance(0x22, 0x7b, NORTH),
+
+                bonfire = entrance(0d34, 0d100, NONE, { bonfire_wakeup(-0d24, 0d0, 0d0, 0d8); }),
             }
 
             enum soundtrack {
@@ -20897,8 +20959,10 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                bonfire(0d34, 0d100, SOULS_MEMORY.BONFIRE_DESERT_BUG);
+
                 init_room(0d4);
-                fade_in();
+                default_init_room(False, False);
             }
         };
         map bugmuck_cave_2_6(VOLCANO_ROOMS) { // variant: main
@@ -21022,9 +21086,23 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // center
+                    add_enemy(MAGGOT, 0d214, 0d106);
+
+                    // west
+                    add_enemy(MAGGOT, 0d183, 0d125);
+
+                    // top-north
+                    add_enemy(MAGGOT, 0d214, 0d88);
+
+                    // top-east
+                    add_enemy(MAGGOT, 0d224, 0d102);
+                }
+
                 init_room(0d7);
                 // init_room(0d10);
-                fade_in();
+                default_init_room(False, False);
             }
         };
         map bugmuck_cave_3(VOLCANO_ROOMS) { // variant: room_es
@@ -21132,8 +21210,13 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // south
+                    add_enemy(LIZARD, 0d67, 0d39);
+                }
+
                 init_room(0d1);
-                fade_in();
+                default_init_room(False, False);
             }
         };
         map bugmuck_cave_4(VOLCANO_ROOMS) { // variant: room_sw
@@ -21244,8 +21327,16 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // east
+                    add_enemy(LIZARD, 0d36, 0d35);
+
+                    // south
+                    add_enemy(MAGGOT, 0d18, 0d45);
+                }
+
                 init_room(0d0);
-                fade_in();
+                default_init_room(False, False);
             }
         };
         map bugmuck_cave_5(VOLCANO_ROOMS) { // variant: room_nw
@@ -21353,8 +21444,19 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // north
+                    add_enemy(LIZARD, 0d18, 0d153);
+
+                    // east
+                    add_enemy(MAGGOT, 0d37, 0d166);
+
+                    // south
+                    add_enemy(MAGGOT, 0d24, 0d171);
+                }
+
                 init_room(0d8);
-                fade_in();
+                default_init_room(False, False);
             }
         };
         map bugmuck_cave_7(VOLCANO_ROOMS) { // variant: room_nne
@@ -21470,8 +21572,19 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // north
+                    add_enemy(MAGGOT, 0d84, 0d85);
+
+                    // east
+                    add_enemy(MAGGOT, 0d107, 0d84);
+
+                    // west
+                    add_enemy(LIZARD, 0d74, 0d92);
+                }
+
                 init_room(0d5);
-                fade_in();
+                default_init_room(False, False);
             }
         };
 
@@ -21587,7 +21700,9 @@ area desert_bug() {
                 control(INACTIVE, True);
                 spider_trap(<INACTIVE>);
 
-                object[object_id] = 0x7e;
+                if(object_id is Word) {
+                    object[object_id] = 0x7e;
+                }
 
                 yield();
                 while(<ACTIVE>[GENERAL_PURPOSE]) {
@@ -21688,7 +21803,12 @@ area desert_bug() {
                 },
                 exit_south = @install() {
                     debug_subtext("S=24");
-                    map_transition(bugmuck, dungeon_south, SOUTH);
+
+                    if(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
+                        map_transition(bugmuck, dungeon_south, SOUTH);
+                    } else {
+                        error_wrong_side(NORTH);
+                    }
                 },
                 exit_north = @install() {
                     debug_subtext("S=25");
@@ -21880,7 +22000,42 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
-                fade_in();
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // north
+                    add_enemy(SPIDER_YELLOW, 0d51, 0d33);
+
+                    // center
+                    add_enemy(SPIDER_YELLOW, 0d47, 0d94);
+
+                    add_enemy(SPIDER_YELLOW, 0d73, 0d86);
+
+                    // south
+                    add_enemy(MAGGOT, 0d52, 0d129);
+
+                    add_enemy(MAGGOT, 0d36, 0d126);
+
+                    add_enemy(SPIDER_YELLOW, 0d70, 0d124);
+                }
+
+                if!(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
+                    add_enemy(LANTERN_LIGHT, 0d49, 0d159, INACTIVE);
+                    attribute(LAST_ENTITY, ROOT, True);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                        if(<ACTIVE> != <BOY>) {
+                            end();
+                        }
+                        
+                        // fake_b();
+
+                        if!(<BOY>[FLAGS_4] & ATTRIBUTE_FLAGS.ROOT) {
+                            // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                            collapse_bridge();
+                        }
+                    }));
+                }
+
+                default_init_room(False, False);
             }
         };
 
@@ -21992,7 +22147,23 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
-                fade_in();
+                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                    // north-lvl3
+                    add_enemy(SPIDER_YELLOW, 0d13, 0d20);
+
+                    // south-lvl3
+                    add_enemy(MAGGOT_RED, 0d14, 0d57);
+
+                    add_enemy(SPIDER_YELLOW, 0d28, 0d68);
+
+                    // center-lvl2
+                    add_enemy(SPIDER_YELLOW, 0d22, 0d50);
+
+                    // north-lvl1
+                    add_enemy(MAGGOT_RED, 0d27, 0d33);
+                }
+
+                default_init_room(False, False);
             }
         };
 
@@ -22224,8 +22395,12 @@ area desert_bug() {
                 exit_north = @install() {
                     debug_subtext("S=0");
 
-                    fog_wall(SOUTH);
-                    map_transition(bugmuck, dungeon_north, NORTH);
+                    if(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
+                        // fog_wall(SOUTH);
+                        map_transition(bugmuck, dungeon_north, NORTH);
+                    } else {
+                        error_wrong_side(SOUTH);
+                    }
                 },
                 trigger_boss = @install() {
                     debug_subtext("S=1");
@@ -22324,7 +22499,7 @@ area desert_bug() {
                 test = entrance(0d60, 0d146, NONE, { desert_screen(0d4, 0d0); }),
 
                 north = entrance(0x3b, 0x19, WEST, { desert_screen(0d4, ROOM.Y_MAX); }),
-                south = entrance(0x33, 0x9e, NORTH, { desert_screen(0d4, 0d0); }),
+                south = entrance(0x49, 0xc7, NORTH, { desert_screen(0d4, 0d0); }),
 
                 swirl_secret = entrance(0d28, 0d47, NONE, { enter_sandpit(); }),
             }
@@ -22636,7 +22811,7 @@ area desert_bug() {
 
                 init_map(0x02, 0x00, 0xa6, 0xd8);
 
-                fade_in();
+                default_init_room(False, False);
                 
                 update_desert();
 
@@ -22677,7 +22852,7 @@ area desert_bug() {
 
         area desert_temple() {
             enum AREA_DESERT_TEMPLE {
-                MUSIC = MUSIC.BUGMUCK_AMBIENT_MELODY,
+                MUSIC = MUSIC.HALLS_3,
             }
             
             map desert_temple_main(HALLS_NE) {
@@ -22697,11 +22872,48 @@ area desert_bug() {
 
                     SECRET_PASSAGE_1_OPENED = memory(FLAG, SRAM),
                     SECRET_PASSAGE_2_OPENED = memory(FLAG, SRAM),
+
+                    SWITCH_1_ACTIVE = memory(FLAG, TEMP),
+                    SWITCH_2_ACTIVE = memory(FLAG, SRAM),
+                    
+                    BRIDGE_ACTIVE = memory(FLAG, SRAM),
+
+                    BRIDGE_REVEALED = memory(FLAG, SRAM),
+                }
+
+                fun times_gate_switch(flag, switch_id, gate_id, time) {
+                    object_animator(SWITCH_GROUND_HALLS, False, switch_id, True, False);
+                    object_animator(GATE_HALLS, False, gate_id, True, False);
+                    flag = True;
+
+                    if(time is Word) {
+                        while(arg[0x10] < time) {
+                            arg[0x10]++;
+
+                            yield();
+                        }
+
+                        object_animator(SWITCH_GROUND_HALLS, False, switch_id, False, False);
+                        object_animator(GATE_HALLS, False, gate_id, False, False);
+                        flag = False;
+                    }
+                }
+                fun spear_switch_triggered() {
+                    ROOM.BRIDGE_ACTIVE = True;
+
+                    object_animator(SWITCH_SPEAR_HALLS, False, 0x00, True, False);
+                    object_animator(BRIDGE_HALLS, False, 0x01, True, False);
                 }
 
                 enum stepon_trigger {
-                    stepon_0 = @install() {
+                    spear_check = @install() {
                         debug_subtext("S=0");
+
+                        if!(ROOM.BRIDGE_ACTIVE) {
+                            guard_spear_2(SOUTH);
+
+                            spear_switch_triggered();
+                        }
                     },
                     pit_left_3 = @install() {
                         debug_subtext("S=1");
@@ -22728,9 +22940,13 @@ area desert_bug() {
                     },
                     switch_ground_1 = @install() {
                         debug_subtext("S=8");
+
+                        times_gate_switch(ROOM.SWITCH_1_ACTIVE, 0x05, 0x07, 0d0012 * 0d60);
                     },
                     switch_ground_2 = @install() {
                         debug_subtext("S=9");
+
+                        times_gate_switch(ROOM.SWITCH_2_ACTIVE, 0x04, 0x06);
                     },
 
                     approach_bridge = @install() {
@@ -22778,6 +22994,12 @@ area desert_bug() {
                     },
                     bridge_switch = @install() {
                         debug_subtext("B=4");
+
+                        if!(ROOM.BRIDGE_ACTIVE) {
+                            fake_b();
+
+                            spear_switch_triggered();
+                        }
                     },
                 }
 
@@ -22788,7 +23010,13 @@ area desert_bug() {
                         map_transition(desert, north, WEST);
                     });
                 }
-
+                @install()
+                @async()
+                fun revealer_approached(entity) {
+                    range_checker(entity, <ACTIVE>, 0d45, 0d45, {
+                        subtext("!");
+                    });
+                }
 
                 fun vanishing_stone_triggered(flag) {
                     flag = True;
@@ -22816,10 +23044,34 @@ area desert_bug() {
                     // object[0x0c] = 0x01; // loot gourd_center
                     // object[0x0d] = 0x01; // loot gourd_north
 
+                    if(ROOM.BRIDGE_REVEALED) {
+                        object_animator(REVEALER, False, 0x08, 0d2, True);
+                    } else {
+                        add_enemy(REVEALER_TARGET_ENTITY, 0d122, 0d82);
+
+                        special_script(REVEALER, reference(@install() {
+                            object_animator(REVEALER, False, 0x08, 0d2, False);
+
+                            destroy(SCRIPT_OWNER);
+
+                            ROOM.BRIDGE_REVEALED = True;
+                        }));
+
+                        revealer_approached(<LAST_ENTITY>);
+                    }
+
+                    if(True) {
+                        restore_object_animator(SWITCH_SPEAR_HALLS, ROOM.BRIDGE_ACTIVE, 0x00);
+                        restore_object_animator(BRIDGE_HALLS, ROOM.BRIDGE_ACTIVE, 0x01);
+
+                        restore_object_animator(SWITCH_GROUND_HALLS, ROOM.SWITCH_2_ACTIVE, 0x04);
+                        restore_object_animator(GATE_HALLS, ROOM.SWITCH_2_ACTIVE, 0x06);
+                    }
+
                     add_enemy(PLACEHOLDER, 0d4, 0d46);
                     fake_exit_scanner(<LAST_ENTITY>);
 
-                    fade_in();
+                    default_init_room(False, False);
 
                     if!(ROOM.SECRET_PASSAGE_1_OPENED) {
                         add_vanishing_rock(0d42, 0d145, reference(@install() {
@@ -22856,6 +23108,19 @@ area desert_bug() {
                         
                         animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.KING_ROCKING);
                     }));
+
+                    if(True) {
+                        while(True) {
+                            if!(<BOY>[CURRENT_GROUND] & 0xff) {
+                                damage(BOY, 0d999, True);
+                            }
+                            if!(<DOG>[CURRENT_GROUND] & 0xff) {
+                                damage(DOG, 0d999, True);
+                            }
+
+                            sleep(0d5);
+                        }
+                    }
                 }
             };
 

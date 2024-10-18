@@ -30,7 +30,15 @@ class Is(Function_Base):
         
         match self.type:
             case "Word":
-                is_type_of = isinstance(value, Word)
+                if value != None:
+                    if isinstance(value, BinaryOp) and isinstance(value.left, Word) and isinstance(value.right, Word):
+                        value_evaluated = value.eval([])
+
+                        is_type_of = isinstance(value_evaluated, int) or isinstance(value, Word)
+                    else:
+                        is_type_of = isinstance(value, Word)
+                else:
+                    is_type_of = False
             case "Memory":
                 is_type_of = isinstance(value, Memory)
             case "Arg":
