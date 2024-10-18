@@ -13999,8 +13999,14 @@ area east_inbetwixx() {
                     RNG = memory(WORD, TEMP),
                     ENEMY_COUNT = memory(WORD, TEMP),
 
+                    HIT_COUNTER = memory(WORD, TEMP), // TODO: byte
+                    HIT_COUNTER_KOOPA_THRESHOLD = 0d3,
+
                     SHELL_COLLISION = 0d15,
-                    SHELL_DAMAGE = 0x30,
+                    SHELL_DAMAGE = 0d50,
+
+                    HP = 0d500,
+                    P0_HP_THRESHOLD = 0d300,
                 }
 
                 enum stepon_trigger {
@@ -14011,14 +14017,6 @@ area east_inbetwixx() {
                     }
                 }
 
-                group koopa_ai() {
-                    @install()
-                    fun boss_hit() {
-                        // subtext("bang");
-                        damage(BOSS.ID, BOSS.SHELL_DAMAGE, True);
-                    }
-                };
-
                 group boss_ai() {
                     fun boss_defeated() {
                         souls_boss_defeated(DEAD_BOWSER, REWARD_BOWSER);
@@ -14026,32 +14024,51 @@ area east_inbetwixx() {
                         unset(BOSS.PROGRESS);
                     }
 
-                    fun shoot_boss(x, y) {
-                        shoot_entity_absolute(BOSS.ID, SPEAR, x, y, 0x30, 0x00);
+                    fun check_phase() {
+                        if(dead(BOSS.ID)) {
+                            BOSS.PHASE = 0d10;
+                        } else if(BOSS.PHASE == 0d0) {
+                            debug_memory(BOSS.ID[HP], BOSS.P0_HP_THRESHOLD);
+
+                            if(BOSS.ID[HP] < BOSS.P0_HP_THRESHOLD) {
+                                BOSS.PHASE = 0d1;
+                            }
+                        }
                     }
 
                     @install()
-                    fun fireball() {
-                        animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
-                        face(BOSS.ID, SOUTH);
-
-                        shoot_entity_entity(BOSS.ID, ONION, BOY, 0x10, 0xff);
+                    fun boss_hit() {
+                        // subtext("bang");
+                        damage(BOSS.ID, BOSS.SHELL_DAMAGE, True);
+                        check_phase();
                     }
-
                     @install()
                     @async()
                     fun koopa_collision_scanner(entity_1, entity_2) {
                         range_checker(entity_1, entity_2, BOSS.SHELL_COLLISION, BOSS.SHELL_COLLISION, {
                             if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d2) {
-                                if(True) {
+                                if(False) {
                                     subtext("POW");
                                 }
 
-                                boss_hit();
                                 BOSS.ENEMY_COUNT--;
                                 destroy(<SCRIPT_OWNER>);
+                                boss_hit();
                             }
                         });
+                    }
+                    fun spawn_koopa() {
+                        if(BOSS.ENEMY_COUNT <= 0d0) {
+                            BOSS.ENEMY_COUNT++;
+
+                            add_mario_koopa(0d24, 0d46, True);
+                            koopa_collision_scanner(<LAST_ENTITY>, BOSS.ID);
+                        }
+                    }
+
+                    fun boss_cast() {
+                        animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+                        face(BOSS.ID, SOUTH);
                     }
                     @install()
                     @async()
@@ -14062,23 +14079,20 @@ area east_inbetwixx() {
                         
                         while(BOSS.PHASE <= 0d0) {
                             BOSS.RNG = randrange(0d4);
-                            if(BOSS.DEBUG) {
+                            if(False && BOSS.DEBUG) {
                                 subtext("rng");
                             }
                             
                             if(BOSS.RNG == 0d0) {
-                                if(BOSS.ENEMY_COUNT <= 0d0) {
-                                    BOSS.ENEMY_COUNT++;
-
-                                    add_mario_koopa(0d24, 0d46, True);
-                                    koopa_collision_scanner(<LAST_ENTITY>, BOSS.ID);
-                                }
+                                spawn_koopa();
                             } else if(BOSS.RNG == 0d1) {
-                                animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+                                boss_cast();
                                 
                                 ai_move_projectile_toss(BOSS.ID, SPEAR, <BOY>, 0d1);
                             } else if(BOSS.RNG == 0d2) {
-                                fireball();
+                                boss_cast();
+
+                                shoot_entity_entity(BOSS.ID, ONION, BOY, 0x10, 0xff);
                             } else if(BOSS.RNG == 0d3) {
                                 nop();
                             }
@@ -14089,9 +14103,31 @@ area east_inbetwixx() {
                         if(BOSS.DEBUG) {
                             subtext("phase 1");
                         }
+
+                        add_mario_fireflower(0d8, 0d31);
+                        add_mario_fireflower(0d38, 0d31);
                         
                         while(BOSS.PHASE <= 0d1) {
-                            yield();
+                            BOSS.RNG = randrange(0d3);
+                            if(False && BOSS.DEBUG) {
+                                subtext("rng");
+                            }
+                            
+                            if(BOSS.RNG == 0d0) {
+                                boss_cast();
+                                
+                                ai_move_projectile_toss(BOSS.ID, SPEAR, <BOY>, 0d3 + randrange(0d3));
+                            } else if(BOSS.RNG == 0d1) {
+                                boss_cast();
+
+                                shoot_entity_entity(BOSS.ID, ONION, BOY, 0d20, 0xff);
+                                sleep(0d10);
+                                shoot_entity_entity(BOSS.ID, ONION, BOY, 0d10, 0xff);
+                            } else if(BOSS.RNG == 0d2) {
+                                nop();
+                            }
+
+                            sleep(0d180); // TODO
                         }
 
                         if(BOSS.DEBUG) {
@@ -14103,14 +14139,23 @@ area east_inbetwixx() {
 
                     @install()
                     fun boss_damage() {
-                        if(dead(BOSS.ID)) {
-                            BOSS.PHASE = 0d10;
+                        check_phase();
+
+                        BOSS.HIT_COUNTER++;
+                        if(BOSS.DEBUG) {
+                            debug_memory(BOSS.HIT_COUNTER, BOSS.HIT_COUNTER_KOOPA_THRESHOLD);
+                        }
+                        if(BOSS.HIT_COUNTER >= BOSS.HIT_COUNTER_KOOPA_THRESHOLD) {
+                            BOSS.HIT_COUNTER = 0d0;
+                            
+                            spawn_koopa();
                         }
                     }
-
+                    
                     fun add_mario_enemy_bowser(x, y) {
                         add_enemy(LIZARD_BLACK, x, y);
                         BOSS.ID = <LAST_ENTITY>;
+                        <LAST_ENTITY>[HP] = BOSS.HP;
                         attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
 
                         boss_ai();
