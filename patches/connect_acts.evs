@@ -1,10 +1,24 @@
 #memory(
     0x3c0000..0x3fffff, // extension 0x3f0000++
 
-    function_key(0x1710)..function_key(0x1716) // 0x1719 seems to be used by the engine
+    function_key(0x17d6),
+    function_key(0x17d9),
+    function_key(0x17dc)
+)
+
+#patch(
+    "free_graveyard_ids", // frees up: id:17d6/0x93d577, id:17d9/0x93d58e, id:17dc/0x93d5a5
 )
 
 group import_copies() {
+    enum DOG {
+        WOLF = 0x2,
+        WOLF2 = 0x4,
+        GREYHOUND = 0x6,
+        POODLE = 0x8,
+        PUPPER = 0xa,
+        TOASTER = 0xc
+    }
     enum SCRIPT_TRIGGER {
         B = 0x0040, // talk/loot
         DAMAGE = 0x0100, // <SCRIPT_OWNER>[HP] shows previous hp, script[0x9]=0x100, dead(<SCRIPT_OWNER>) shows 1->0
@@ -1495,30 +1509,101 @@ group import_copies() {
             }
         }
     }
+    fun subtext(id) {
+        code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
+    }
 
 };
 
-@install()
-@inject(0x958464) // [0x958464] (76) MAKE $283b FACE WEST // [0x95859b] (42) Teleport dog to fb, 01
-fun test() {
-    // teleport(DOG, 0xfb, 0x01);
-    face(<0x283b>, WEST);
-
-    add_placeholder(SHELL_BOAT, 0d65, 0d96);
-
-    attach_script(LAST_ENTITY, B, reference(@install() {
-        transition(MAP.MAGMAR, 0d24, 0d23, NONE, SOUTH, True);
-    }));
+enum CONNECT_ACTS {
+    A2_A1_MODE = 0d3, // 0 = vanilla, 1 = boss room, 2 = pre boss room, 3 = pre volcano
+    A4_A3_MODE = 0d1, // 0 = vanilla, 1 = tinker outside, 2 = tinker inside
 }
 
 @install()
+fun travel_acts_trigger() {
+    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x12) { // volcano machine
+        transition(MAP.CRUSTICIA, 0d65, 0d96, NONE, NORTH, True);
+    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x21) { // shell boat
+        if(CONNECT_ACTS.A2_A1_MODE == 0d1) {
+            transition(MAP.MAGMAR, 0d24, 0d23, NONE, SOUTH, True);
+        } else if(CONNECT_ACTS.A2_A1_MODE == 0d2) {
+            nop();
+        } else if(CONNECT_ACTS.A2_A1_MODE == 0d3) {
+            transition(MAP.NORTH_JUNGLE, 0x48, 0x13, NONE, SOUTH, True);
+        }
+    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x34) { // rocket silo
+        transition(OMNITOPIA_JUNKYARD, 0d67, 0d81, NONE, NORTH, True);
+    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x43) { // rocket
+        if(CONNECT_ACTS.A4_A3_MODE == 0d1) {
+            transition(TINKER_EXTERIOR, 0d63, 0d58, NONE, WEST, True);
+        } else if(CONNECT_ACTS.A4_A3_MODE == 0d2) {
+            nop();
+        }
+    }
+}
+fun prepare_teleporter(id, x, y, animation) {
+    if(animation is Word) {
+        add_placeholder(SHELL_BOAT, x, y);
+    } else {
+        add_enemy(PLACEHOLDER, x, y);
+    }
+    <LAST_ENTITY>[GENERAL_PURPOSE] = id;
+
+    attach_script(LAST_ENTITY, B, reference(travel_acts_trigger));
+}
+
+// act 2 -> act 1
+@install()
+@inject(0x958464) // [0x958464] (76) MAKE $283b FACE WEST // [0x95859b] (42) Teleport dog to fb, 01
+fun portal_a2_a1_boat() {
+    face(<0x283b>, WEST); // og
+
+    if(CONNECT_ACTS.A2_A1_MODE > 0d0) {
+        prepare_teleporter(0x21, 0d65, 0d96, ANIMATION_PLACEHOLDER.SHELL_BOAT);
+    }
+}
+
+// act 1 -> act 2
+@install()
 @inject(0x94bd8f) // [0x94bd8f] (18) WRITE $23bf = 0x0000
-fun test() {
+fun portal_a1_a2_boss_room() {
+    <0x23bf> = 0x0000; // og
+
+    if(CONNECT_ACTS.A2_A1_MODE == 0d1) {
+        prepare_teleporter(0x12, 0d24, 0d18);
+    }
+}
+@install()
+@inject(0x94b071) // [0x94b071] (22) CHANGE MAP = 0x3f @ [ 0x00c0 | 0x0238 ]: "Prehistoria - Volcano Boss Room"
+fun portal_a1_a2_pipe_maze() {
     <0x23bf> = 0x0000;
 
-    add_enemy(PLACEHOLDER, 0d24, 0d18);
+    if(CONNECT_ACTS.A2_A1_MODE == 0d2) {
+        load_map(MAP.CUTSCENE_WATERFALL, 0x18, 0x47);
+    } else {
+        load_map(MAP.MAGMAR, 0x11, 0x00); // og
+    }
+}
 
-    attach_script(LAST_ENTITY, B, reference(@install() {
-        transition(MAP.CRUSTICIA, 0d65, 0d96, NONE, NORTH, True);
-    }));
+// act 4 -> act 3
+@install()
+@inject(0x9be2b4) // [0x9be2b4] (18) WRITE CHANGE DOGGO ($2443) = Toaster (0x0C)
+fun test() {
+    MEMORY.DOG_WRITE = DOG.TOASTER;
+
+    if(CONNECT_ACTS.A4_A3_MODE > 0d0) {
+        prepare_teleporter(0x43, 0d67, 0d81);
+    }
+}
+
+// act 3 -> act 4
+@install()
+@inject(0x9acfb1) // [0x9acfb1] (18) WRITE $23bf = 0x0001
+fun test() {
+    <0x23bf> = 0x0001;
+
+    if(CONNECT_ACTS.A4_A3_MODE == 0d1) {
+        prepare_teleporter(0x34, 0d63, 0d58);
+    }
 }
