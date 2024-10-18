@@ -1597,8 +1597,8 @@ group general_enums() {
                 UNKNOWN_CAST = 0x38, // during cast on boy? (CRUSH, EXPLOSION, FLASH, FIREBALL)
 
                 // ATTRIBUTE.FLAGS_4 (character+0x13
-                ROOT = 0x01, // see ATTRIBUTE_BITS.ROOT
                 UNKNOWN_CAST = 0x04, // during cast on boy? (CRUSH, EXPLOSION)
+                ROOT = 0x10, // see ATTRIBUTE_BITS.ROOT
                 SHIELD = 0x20, // shield halves damage
                 UNKNOWN_1_2 = 0x40, // see ATTRIBUTE_BITS.UNKNOWN_1_2
                 INVISIBLE = 0xc0, // see ATTRIBUTE_BITS.INVISIBLE
@@ -3256,7 +3256,7 @@ group functions() {
                 code(0x30, sound_effect, "// (30) PLAY SOUND EFFECT 0x58 ??");
             }
             @install()
-            fun smart_sound(sound_effect:SOUND) {
+            fun _smart_sound(sound_effect:SOUND) {
                 if(sound_effect == SOUND.PURCHASE) {
                     if(MEMORY.CURRENT_MUSIC == MUSIC.SEWER_AMBIENT_WATER) {
                         nop();
@@ -3271,6 +3271,13 @@ group functions() {
                     MEMORY.STRING_PARAMETER_2 = MEMORY.CURRENT_MUSIC;
                     _subtext("invalid sound [MEM1] for map [MEM2]");
                     sleep(0d60);
+                }
+            }
+            fun smart_sound(sound_effect:SOUND) {
+                if(sound_effect == SOUND.PURCHASE) {
+                    _smart_sound(sound_effect);
+                } else {
+                    sound(sound_effect);
                 }
             }
             fun music(music:MUSIC) {
@@ -5578,7 +5585,7 @@ group functions() {
                 subtext("…");
             }
             fun error_wrong_weapon() {
-                subtext("Wrong weapon…");
+                subtext("(Wrong weapon…)");
             }
 
             fun error_walk_back(exit_direction:DIRECTION) {
@@ -6155,6 +6162,38 @@ group functions() {
                 }
             }
 
+            fun guard_spear_2(direction:DIRECTION, x, y) {
+                if(False) {
+                    call(0x9793ad);
+                } else {
+                    if(<ACTIVE> == <DOG>) {
+                        end();
+                    }
+
+                    face(BOY, direction);
+                    animate(BOY, ONCE, ANIMATION_ALL.SLASH_1_3);
+
+                    if(MEMORY.CURRENT_WEAPON_TYPE != WEAPON_TYPE.SPEAR) {
+                        if(x is Word || x is Memory || y is Word || y is Memory) {
+                            set_camera(COORDINATE_CORNER, x, y, 0x80 >> 0d2);
+
+                            wait(CAMERA_PAN_Y);
+
+                            MEMORY.CAMERA_PAN_SPEED = 0x80;
+                            free_camera();
+                        }
+
+                        error_wrong_weapon();
+                        end();
+                    }
+
+                    if(MEMORY.CURRENT_WEAPON < WEAPON_INDEX.SPEAR_2) {
+                        error_wrong_weapon();
+                        end();
+                    }
+                }
+            }
+
             fun axe2_wall_enemy(flag, enemy) {
                 if(<ACTIVE> == <BOY>) {
                     animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
@@ -6474,6 +6513,162 @@ group functions() {
     };
 
     group cutscenes() {
+        group object_interaction() {
+            enum OBJECT_ANIMATOR_MODE {
+                BRIDGE_HALLS = 0d0,
+                SWITCH_GROUND_HALLS = 0d1,
+                SWITCH_SPEAR_HALLS = 0d2,
+                GATE_HALLS = 0d3,
+                REVEALER = 0d4,
+            }
+
+            fun _object_animator_simple(object_id, value_active, value_inactive, sound_id:SOUND, active, delay, instant) {
+                if!((instant is Word) && instant) {
+                    smart_sound(sound_id);
+
+                    if(active) {
+                        object[object_id] = value_active;
+                    } else {
+                        object[object_id] = value_inactive;
+                    }
+
+                    sleep(0d10);
+                } else {
+                    if(active) {
+                        object[object_id] = value_active;
+                    } else {
+                        object[object_id] = value_inactive;
+                    }
+                }
+            }
+            fun _object_animator(object_id, from, to, sound_id:SOUND, delay, instant) {
+                if!((instant is Word) && instant) {
+                    if(from < to) {
+                        while(arg[0x10] <= to) {
+                            arg[0x10]++;
+
+                            sleep(delay);
+                            smart_sound(sound_id);
+
+                            object[object_id] = arg[0x10];
+                        }
+                    } else {
+                        arg[0x10] = from;
+
+                        while(arg[0x10] > to) {
+                            arg[0x10]--;
+
+                            sleep(delay);
+                            smart_sound(sound_id);
+
+                            object[object_id] = arg[0x10];
+                        }
+
+                        sleep(delay);
+                        smart_sound(sound_id);
+
+                        object[object_id] = arg[0x10];
+                    }
+                } else {
+                    object[object_id] = to;
+                }
+            }
+            fun _object_animator_revealer(object_id, count, delay, instant) {
+                while(arg[0x10] < count) {
+                    object[object_id + arg[0x10]] = 0x7e;
+                    arg[0x10]++;
+
+                    if!((instant is Word) && instant) {
+                        if(arg[0x10] < count) {
+                            sleep(delay);
+                        }
+                    }
+                }
+            }
+            fun object_animator(mode:OBJECT_ANIMATOR_MODE, flag, object_id, value, instant) {
+                if(mode == OBJECT_ANIMATOR_MODE.SWITCH_GROUND_HALLS) {
+                    _object_animator_simple(object_id, 0x7e, 0x00, MAGMA_HARDENING, value, 0d10, instant);
+                    
+                    if(flag is Memory) {
+                        flag = True;
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.SWITCH_SPEAR_HALLS) {
+                    _object_animator_simple(object_id, 0x01, 0x00, MECHANICAL_MOVEMENT, value, 0d10, instant);
+                    
+                    if(flag is Memory) {
+                        flag = True;
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.BRIDGE_HALLS) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator(object_id, 0d1, 0d8, MECHANICAL_MOVEMENT, 0d8, instant);
+                    } else {
+                        _object_animator(object_id, 0d7, 0d0, MECHANICAL_MOVEMENT, 0d8, instant);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.GATE_HALLS) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator(object_id, 0d1, 0d3, ELEVATOR_DOOR, 0d20, instant);
+                    } else {
+                        _object_animator(object_id, 0d2, 0d0, ELEVATOR_DOOR, 0d20, instant);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.REVEALER) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator_revealer(object_id, value, 0d30, instant);
+                    } else {
+                        _object_animator_revealer(object_id, value, 0d30, instant);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
+                }
+            }
+            fun restore_object_animator(mode:OBJECT_ANIMATOR_MODE, flag, object_id) {
+                if(mode == OBJECT_ANIMATOR_MODE.SWITCH_GROUND_HALLS) {
+                    _object_animator_simple(object_id, 0x7e, 0x00, MAGMA_HARDENING, flag, 0d10, True);
+                } else if(mode == OBJECT_ANIMATOR_MODE.SWITCH_SPEAR_HALLS) {
+                    _object_animator_simple(object_id, 0x01, 0x00, MECHANICAL_MOVEMENT, flag, 0d10, True);
+                } else if(mode == OBJECT_ANIMATOR_MODE.BRIDGE_HALLS) {
+                    if(flag) {
+                        _object_animator(object_id, 0d1, 0d8, MECHANICAL_MOVEMENT, 0d8, True);
+                    } else {
+                        _object_animator(object_id, 0d7, 0d0, MECHANICAL_MOVEMENT, 0d8, True);
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.GATE_HALLS) {
+                    if(flag) {
+                        _object_animator(object_id, 0d1, 0d3, ELEVATOR_DOOR, 0d20, True);
+                    } else {
+                        _object_animator(object_id, 0d2, 0d0, ELEVATOR_DOOR, 0d20, True);
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.REVEALER) {
+                    if(flag) {
+                        _object_animator_revealer(object_id, value, 0d30, True);
+                    } else {
+                        _object_animator_revealer(object_id, value, 0d30, True);
+                    }
+                }
+            }
+        };
+
         fun fake_loot() {
             animate(BOY, ONCE, ANIMATION_BOY.LOOT);
             sleep(0d15);
@@ -6682,11 +6877,14 @@ group functions() {
             }
         }
 
-        @install()
-        fun generic_switch_floor(object_id) {
+        fun generic_switch_floor(object_id, active) {
             sound(MAGMA_HARDENING);
 
-            object[object_id] = 0x0b;
+            if(active) {
+                object[object_id] = 0x7e;
+            } else {
+                object[object_id] = 0x00;
+            }
         }
 
         @install()
@@ -7428,38 +7626,6 @@ group functions() {
 
         fun dog_fountain() {
             call(0x96d5d7);
-        }
-
-        fun guard_spear_2(direction:DIRECTION, x, y) {
-            if(False) {
-                call(0x9793ad);
-            } else {
-                if(<ACTIVE> == <DOG>) {
-                    end();
-                }
-
-                face(BOY, direction);
-                animate(BOY, ONCE, ANIMATION_ALL.SLASH_1_3);
-
-                if((<0x2360> & 0xff) != 0d4) {
-                    if(x is Word || x is Memory || y is Word || y is Memory) {
-                        set_camera(COORDINATE_CORNER, x, y, 0x80 >> 0d2);
-
-                        wait(CAMERA_PAN_Y);
-
-                        MEMORY.CAMERA_PAN_SPEED = 0x80;
-                        free_camera();
-                    }
-
-                    debug_subtext("no spear?");
-                    end();
-                }
-
-                if((<0x235f> & 0xff) < 0d20) {
-                    debug_subtext("wrong spear?");
-                    end();
-                }
-            }
         }
 
         group sandpit() {
