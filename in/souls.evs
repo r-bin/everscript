@@ -20,7 +20,6 @@
     "assassin_bazooka_charge",
     "save_file_growth",
     "no_alchemy_xp",
-    "five_status_effects_fix",
 
     // asm
     "temp_jaguar_ring(!ROM_EXTENSION=$FE6000)",
@@ -351,7 +350,7 @@ group non_maps() {
 
             DEAD_TAVERN_BOXERS = memory(FLAG, SRAM), // t0
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
-            DEAD_TOWN_PUPPETS = memory(FLAG, SRAM), // TODO: rework
+            DEAD_TOWN_PUPPETS = memory(FLAG, SRAM),
             REWARD_TOWN_PUPPETS = CUSTOM_ITEM.RED_TUNIC,
 
             DEAD_TEMPLE_MINITAUR = memory(FLAG, SRAM),
@@ -377,6 +376,9 @@ group non_maps() {
             REWARD_GIDEON = ITEM.NOTHING,
 
             // southern jungle
+
+            DEAD_UNNAMED_SOUTHERN_JUNGLE_BOSS = memory(FLAG, SRAM), // TODO
+            REWARD_UNNAMED_SOUTHERN_JUNGLE_BOSS = ITEM.NECTAR, // TODO
 
             DEAD_DOUBLE_THRAXX = memory(FLAG, SRAM),
             REWARD_DOUBLE_THRAXX = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
@@ -1674,7 +1676,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(mario_dungeon_boss, south, NONE);
+                map_transition(town_level_3, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -19407,7 +19409,6 @@ area town() {
 
             enum BOSS {
                 DEBUG = False,
-
                 PROGRESS = memory(FLAG, TEMP),
 
                 PHASE = memory(WORD, TEMP),
@@ -19423,7 +19424,7 @@ area town() {
                 P1_SPELL = DISRUPT,
                 P1_SPELL_LEVEL = 0d15,
 
-                P2_TIMER_THRARSHOLD = 0d600
+                P2_TIMER_THRESHOLD = 0d600
             }
 
             enum stepon_trigger {
@@ -19523,44 +19524,39 @@ area town() {
                 }
             }
 
-            fun puppet_damaged(self, other, boss_id, dance_animation) {
+            fun boss_defeated() {
+                souls_boss_defeated(DEAD_TOWN_PUPPETS, REWARD_TOWN_PUPPETS);
+
+                BOSS.PROGRESS = False;
+            }
+
+            fun puppet_damaged(other, dance_animation) {
                 if!(BOSS.PROGRESS) {
                     BOSS.PROGRESS = True;
 
                     push_music(BOSS);
                 }
 
-                if(BOSS.PHASE == 0x00) {
-                    BOSS.PHASE = 0x01;
+                if(BOSS.PHASE == 0d0) {
+                    BOSS.PHASE = 0d1;
 
-                    // if(<SCRIPT_OWNER>[HP] > 0x00) {
-                        cast(SCRIPT_OWNER, SCRIPT_OWNER, FORCE_FIELD, 0x00);
-                    // }
-                } else if(BOSS.PHASE == 0x01) {
-                    if(BOSS.LAST_DAMAGED == boss_id) {
-                        sleep(0x05);
+                    cast(SCRIPT_OWNER, SCRIPT_OWNER, FORCE_FIELD, 0d1);
+                } else if(BOSS.PHASE == 0d1) {
+                    if(BOSS.LAST_DAMAGED == <SCRIPT_OWNER>) {
+                        sleep(0d5);
                         animate(SCRIPT_OWNER, LOOP, dance_animation);
-                        sleep(0x20);
+                        sleep(0d30);
                         cast(SCRIPT_OWNER, BOY, BOSS.P1_SPELL, BOSS.P1_SPELL_LEVEL);
                         animate(SCRIPT_OWNER, ONCE, DEFAULT);
                     }
                     
-                    BOSS.LAST_DAMAGED = boss_id;
+                    BOSS.LAST_DAMAGED = <SCRIPT_OWNER>;
 
                     if(dead(<SCRIPT_OWNER>)) {
                         BOSS.BOSS_REMAINING_ID = other;
-                        BOSS.PHASE = 0x02;
+                        BOSS.PHASE = 0d2;
                     }
                 }
-            }
-
-            @install()
-            fun damage_1() {
-                puppet_damaged(BOSS.BOSS_1_ID, BOSS.BOSS_2_ID, 0x11, ANIMATION_ENEMY.PUPPET_1_DANCE);
-            }
-            @install()
-            fun damage_2() {
-                puppet_damaged(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, 0x22, ANIMATION_ENEMY.PUPPET_2_DANCE);
             }
 
             @install()
@@ -19570,7 +19566,7 @@ area town() {
                     subtext("phase 0");
                 }
                 
-                while(BOSS.PHASE == 0x00) {
+                while(BOSS.PHASE == 0d0) {
                     yield();
                 }
 
@@ -19578,7 +19574,7 @@ area town() {
                     subtext("phase 1");
                 }
                 
-                while(BOSS.PHASE == 0x01) {
+                while(BOSS.PHASE == 0d1) {
                     yield();
                 }
 
@@ -19589,36 +19585,36 @@ area town() {
                 BOSS.TIMER = 0x0000;
 
                 while!(dead(BOSS.BOSS_REMAINING_ID)) {
-                    if(BOSS.TIMER > BOSS.P2_TIMER_THRARSHOLD) {
-                        BOSS.TIMER = 0x0000;
-                        BOSS.RNG = randrange(0x03);
+                    if(BOSS.TIMER > BOSS.P2_TIMER_THRESHOLD) {
+                        BOSS.TIMER = 0d0;
+                        BOSS.RNG = randrange(0d3);
 
                         if(BOSS.BOSS_REMAINING_ID == BOSS.BOSS_1_ID) {
-                            if(BOSS.RNG == 0x00) {
+                            if(BOSS.RNG == 0d0) {
                                 animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
 
-                                cast(BOSS.BOSS_REMAINING_ID, BOY, COROSION, 0x10);
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0x00);
-                            } else if(BOSS.RNG == 0x01) {
+                                cast(BOSS.BOSS_REMAINING_ID, BOY, COROSION, 0d0);
+                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
+                            } else if(BOSS.RNG == 0d1) {
                                 animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
 
-                                cast(BOSS.BOSS_REMAINING_ID, BOY, CONFOUND, 0x10);
-                            } else if(BOSS.RNG == 0x02) {
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0x00);
+                                cast(BOSS.BOSS_REMAINING_ID, BOY, CONFOUND, 0d0);
+                            } else if(BOSS.RNG == 0d2) {
+                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
                                 animate(BOSS.BOSS_REMAINING_ID, LOOP, ANIMATION_ENEMY.PUPPET_1_DANCE);
                             }
                         } else {
-                            if(BOSS.RNG == 0x00) {
+                            if(BOSS.RNG == 0d0) {
                                 animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
 
-                                cast(BOY, BOY, COROSION, 0x10);
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0x00);
-                            } else if(BOSS.RNG == 0x01) {
+                                cast(BOY, BOY, COROSION, 0d0);
+                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
+                            } else if(BOSS.RNG == 0d1) {
                                 animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
 
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, HEAL, 0x10);
-                            } else if(BOSS.RNG == 0x02) {
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0x00);
+                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, HEAL, 0d15);
+                            } else if(BOSS.RNG == 0d2) {
+                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
                                 animate(BOSS.BOSS_REMAINING_ID, LOOP, ANIMATION_ENEMY.PUPPET_2_DANCE);
                             }
                         }
@@ -19632,6 +19628,8 @@ area town() {
                 if(BOSS.DEBUG) {
                     subtext("yatta");
                 }
+
+                boss_defeated();
             }
 
             fun puppet_1(x, y) {
@@ -19651,16 +19649,16 @@ area town() {
                 default_init_room(False, False);
 
                 if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
-                    // puppet_1(0x40, 0x29);
-                    // puppet_1(0x6c, 0x29);
-                    // puppet_2(0x56, 0x30);
-
                     puppet_1(0d75, 0d41);
-                    attach_script(LAST_ENTITY, DAMAGE, reference(damage_1));
+                    attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                        puppet_damaged(BOSS.BOSS_2_ID, ANIMATION_ENEMY.PUPPET_1_DANCE);
+                    }));
                     BOSS.BOSS_1_ID = <LAST_ENTITY>;
 
                     puppet_2(0d97, 0d41);
-                    attach_script(LAST_ENTITY, DAMAGE, reference(damage_2));
+                    attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                        puppet_damaged(BOSS.BOSS_1_ID, ANIMATION_ENEMY.PUPPET_2_DANCE);
+                    }));
                     BOSS.BOSS_2_ID = <LAST_ENTITY>;
 
                     boss_ai();

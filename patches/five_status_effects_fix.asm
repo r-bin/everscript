@@ -115,8 +115,18 @@ fix_status_effects:
   ; IN: A=??, X=0, Y=4e89=target(BOY)
 
   PHA
+
+  TXA ; character type
+  CMP #$4e89 : BEQ .boy_or_dog
+  CMP #$4f37 : BEQ .boy_or_dog
+
+  JMP .not_boy_or_dog
+
+  .boy_or_dog
   
   %fix_all_status_effects()
+
+  .not_boy_or_dog
 
   PLA
 
