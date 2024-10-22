@@ -406,7 +406,7 @@ class Function(Function_Base):
             self.script += [ End() ]
 
     def __repr__(self):
-        return f"Function('name={self.name}', address={self.address}, install={self.install}, key={self.key}, map_key={self.map_key}, weak={self.weak}, args={self.args})"
+        return f"Function(name={self.name}, address={self.address}, install={self.install}, key={self.key}, map_key={self.map_key}, weak={self.weak}, args={self.args})"
         
     def _code(self, params:list[Param]):
         out_params = []
