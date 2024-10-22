@@ -374,6 +374,9 @@ class Parser():
                 case ["install", 2]:
                     return Annotation_Install(params[0], params[1].eval([]) > 0)
                 
+                case ["weak", _]:
+                    return Annotation_Weak()
+                
                 case ["inject", 1]:
                     return Annotation_Inject(params[0], False)
                 case ["inject", 2]:
