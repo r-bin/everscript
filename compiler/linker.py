@@ -258,7 +258,7 @@ class MapDataHandler():
             self.MapData(0x1e, 0xacde7c, 0x01, 0x09, "Antiqua - Nobilia, Arena Holding Room"),
             self.MapData(0x1f, 0xa8d4ca, 0x02, 0x00, "Gothica - Doubles room in forest"),
             self.MapData(0x20, 0xace592, 0x02, 0x00, "Gothica - Timberdrake room in forest"),
-            self.MapData(0x21, 0xacf37c, 0x03, 0x00, "Gothica - Dark forest entrance (save point)"),
+            self.MapData(0x21, 0xacf37c, 0x02, 0x00, "Gothica - Dark forest entrance (save point)"),
             self.MapData(0x22, 0xa1c650, 0x11, 0x09, "Gothica - Dark Forest"),
             self.MapData(0x23, 0xacb96b, 0x06, 0x03, "Antiqua - Halls SW"),
             self.MapData(0x24, 0xa3bc84, 0x1d, 0x07, "Antiqua - Halls NW"),
@@ -419,11 +419,21 @@ unallocated RAM:
         self.memory_manager.add(memory)
 
     def link_function(self, function:Function):
-        if function.install and function.address == None:
+        if not function.install:
+            raise  Exception(f"function '{function.name}' cannot be linked")
+    
+        function.weak = False
+        
+        if not function.address:
             count = function.count([])
             address = self.memory_manager.allocate_script(count)
 
             function.address = address
+    def link_dependency(self, function:Function):
+        if not function.install:
+            raise  Exception(f"dependency '{function.name}' cannot be linked")
+
+        self.link_function(function)
     
     def link_function_key(self, function:Function):
         if function.key == None:
@@ -464,29 +474,6 @@ unallocated RAM:
         entrance:MapEntrance = entrance[0].value
         
         map_transition.link(map, entrance)
-
-    def link_call_in_code(self, code:list, all_code=[]):
-        for function in code:
-            for expression in function.script:
-                if isinstance(expression, Call) and not isinstance(expression.function, Identifier):
-                    self.link_call(expression, all_code)
-                    if expression.function != None:
-                        self.link_call_in_code([expression.function], all_code)
-
-    def link_call(self, call:Call, all_code=[]):
-        if call.function != None:
-            call.address = call.function.address
-
-
-        if call.function and call.function.install and call.address == None:
-            #TODO: workaround because of diverging id()s
-            for c in all_code:
-                if call.function != None and call.function.name == c.name:
-                    call.address = c.address
-                    break
-
-        if call.function and call.function.install and call.address == None:
-            raise Exception(f"{call} could not be linked")
 
     def link_goto(self, function):
         code = function.script

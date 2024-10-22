@@ -338,6 +338,28 @@ class FunctionKey(Function_Base):
 
         return code
 
+class MapKey(Function_Base):
+    def __init__(self, address, indirect_call=False):
+        self.indirect_call = indirect_call
+        self.address = address
+        if indirect_call:
+            self._value_count = 2
+        else:
+            self._value_count = 3
+
+    def __repr__(self):
+        return f"MapKey({'{:06X}'.format(self.address, 'x')})"
+        
+    def eval(self):
+        return Range(self.address, self.address + (self.value_count() - 1))
+
+    def _code(self, params:list[Param]):
+        code = Word(self.index)
+        code._value_count = self.value_count()
+        code = code.code()
+
+        return code
+
 class Function(Function_Base):
     key:FunctionKey = None
 
@@ -349,6 +371,9 @@ class Function(Function_Base):
         self.script = list(filter(lambda item: item is not None, self.script))
         self.args = args
         self.install = False
+        self.key = None
+        self.map_key = None
+        self.weak = None
         self.address = None
         self.inject = []
         self.terminate = True
@@ -371,6 +396,8 @@ class Function(Function_Base):
                     self.terminate = annotation.terminate
                 case Annotation_CountLimit():
                     self.count_limit = annotation.count_limit.eval([])
+                case Annotation_Weak():
+                    self.weak = True
                 case _:
                     TODO()
         
@@ -379,7 +406,7 @@ class Function(Function_Base):
             self.script += [ End() ]
 
     def __repr__(self):
-        return f"Function('name={self.name}', address={self.address}, install={self.install}, args={self.args})"
+        return f"Function('name={self.name}', address={self.address}, install={self.install}, key={self.key}, map_key={self.map_key}, weak={self.weak}, args={self.args})"
         
     def _code(self, params:list[Param]):
         out_params = []
@@ -399,6 +426,10 @@ class Annotation_Install(BaseBox):
             return self.address.eval([])
         else:
             return None
+        
+class Annotation_Weak(BaseBox):
+    def __init__(self):
+        pass
     
 class Annotation_Inject(BaseBox):
     def __init__(self, address, terminate=False):
@@ -696,8 +727,9 @@ class Call(Function_Base, Calculatable):
     async_call = False
     
     def __init__(self, generator, function, params=[]):
-        self.generator = generator
+        self._generator = generator
         self.params = self._paramify(params)
+        self.address = None
 
         match function:
             case Function():
@@ -770,7 +802,7 @@ class Call(Function_Base, Calculatable):
                 if p.name == None:
                     continue
                 
-                value = Enum_Call(self.generator, f"{a.enum_base}.{p.name}", False)
+                value = Enum_Call(self._generator, f"{a.enum_base}.{p.name}", False)
 
                 if value.value == None:
                     continue
@@ -811,7 +843,9 @@ class Call(Function_Base, Calculatable):
 
         if function == None or function.install:
             address = "xx xx xx"
-            if self.address == None and function != None: #TODO: should be done by the linker
+            if self.address == None and function != None:
+                self._generator.add_dependency(function)
+
                 self.address = function.address
             if self.address != None:
                 address = Address(self.address)
@@ -893,7 +927,6 @@ class Function_Goto(Function_Base):
 class If_list(Function_Base, Memorable):
     def __init__(self, if_list):
         self.if_list = if_list
-
 
     def is_memory(self, params:list[Param]):
         is_memory = False
@@ -1791,15 +1824,13 @@ class Reference(Function_Base):
 
         self._value_count = None
 
-        self.update_reference(name)
-
     def __repr__(self):
         return f"Reference(name={self.name}, value={self.value})"
     
     def update_reference(self, name:str):
         if not self.value:
             self.value = self._generator.get_function(name, self._scope)
-            if self.value:
+            if self.value and self.value.install:
                 self._generator.reference_function(self.value)
 
     def eval(self, params:list[Param]):
