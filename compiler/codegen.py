@@ -348,13 +348,13 @@ allocated RAM:
         self.linker.link_map_variants(self.maps)
         self.linker.link_map_transitions(self.maps, self.map_transitions)
         
-        output.append("\n// map variants")
         variants = self.get_map_variants()
         if variants:
             self._generate_map()
 
         # link functions
         installed_functions = [function for function in self.code if function.install and not function.weak]
+        installed_functions = list(set(installed_functions) - set(self.map_code))
         for function in installed_functions:
             self.linker.link_function(function)
 
@@ -362,6 +362,7 @@ allocated RAM:
             self.linker.link_function(function)
 
         self.dependencies = list(set(self.dependencies) - set(installed_functions))
+        self.dependencies = list(set(self.dependencies) - set(self.map_code))
         for function in self.dependencies:
             self.linker.link_dependency(function)
 
@@ -478,6 +479,11 @@ allocated RAM:
                         case _:
                             TODO()
 
+                    if isinstance(function, Function):
+                        function.name = f"maps[{map_data.index}, {map.name}].trigger[{index}]"
+                        function.install = True
+                        self.add_map_function(function)
+
                     if not isinstance(function, Call):
                         function = Call(self, function)
                     else:
@@ -506,13 +512,14 @@ allocated RAM:
             objects = [object for object in map.objects]
             soundtrack = map.soundtrack()
 
-            entrances = [e.value for e in map.enum_entrance.values]
             code_transition_in = []
-            for entrance in entrances:
+            for entrance in map.enum_entrance.values:
                 entrance_index = [e.value for e in map.enum_entrance.values]
-                entrance_index = entrance_index.index(entrance)
+                entrance_index = entrance_index.index(entrance.value)
 
-                entrance_code = entrance.enter_code
+                #entrance.enter_code.name = f""
+
+                entrance_code = entrance.value.enter_code
 
                 if entrance_code:
                     code = If(
@@ -531,6 +538,7 @@ allocated RAM:
             return function_enter
         def _generate_trigger_enter(map:Map, function:Function, name):
             function.map_key = MapKey(map.map_data.trigger_enter)
+            function.name = name
             self.linker.link_function_key(function)
 
             self.add_map_function(function)
@@ -548,6 +556,10 @@ allocated RAM:
 
                 for map in maps:
                     function_enter = _prepare_trigger_enter(map, map.trigger_enter)
+                    function_enter.name = f"maps[{map_data.index}, {map.name}].trigger_enter()"
+                    function_enter.install = True
+                    self.add_map_function(function_enter)
+
                     test = If(
                             Equals(Param(None, Memory(0x244b, size=1)), Param(None, Word(map.variant))),
                             [Call(self, function_enter)],
@@ -559,7 +571,7 @@ allocated RAM:
                 code_enter = [code_enter]
 
                 function_enter = Function("test", code_enter, [], [Annotation_Install()])
-                _generate_trigger_enter(map, function_enter, f"test")
+                _generate_trigger_enter(map, function_enter, name)
 
             triggers = [map.enum_b_trigger for map in maps]
             triggers = [len(enum.values) if enum != None else 0 for enum in triggers]
@@ -600,7 +612,7 @@ allocated RAM:
 
         address = self.correct_address(address)
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name='{name}'"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // text_key='{name}'->string='{string.value}', count='{count}'"]
         footer = []
 
         list += header + [code] + footer
@@ -613,7 +625,7 @@ allocated RAM:
 
         address = self.correct_address(address)
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={name}"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // string='{name}', count='{count}'"]
         footer = []
 
         list += header + [code] + footer
@@ -634,7 +646,7 @@ allocated RAM:
 
         address = self.correct_address(address)
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // count='{count}' function='{function}'"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // function='{function}', count='{count}'"]
         footer = []
 
         list += header + [code] + footer
@@ -652,7 +664,7 @@ allocated RAM:
 
         address = self.correct_address(address)
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // count={count} name='{function.key}->{function}'"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // function_key='{function.key}->{function}', count='{count}'"]
         footer = []
 
         list += header + [e.code([]) for e in code] + footer
@@ -681,11 +693,11 @@ allocated RAM:
         address = self.correct_address(address)
 
         if indirect:
-            comment = f"function='{function.map_key}->{function.key}->{function}'"
+            comment = f"'{function.map_key}'->'{function.key}'->'{function}'"
         else:
-            comment = f"function='{function.map_key}->{function}'"
+            comment = f"'{function.map_key}'->'{function}'"
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // count={count} {comment}'"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // function={comment}, count='{count}'"]
         footer = []
 
         list += header + [e.code([]) for e in code] + footer
@@ -720,7 +732,7 @@ allocated RAM:
 
         address = self.correct_address(address)
 
-        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // address={address} count={count} name={function.name}"]
+        header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // inject='{function}', count='{count}'"]
         footer = []
 
         return '\n'.join(header + code + footer)
