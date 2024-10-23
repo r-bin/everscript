@@ -354,15 +354,15 @@ allocated RAM:
 
         # link functions
         installed_functions = [function for function in self.code if function.install and not function.weak]
-        installed_functions = list(set(installed_functions) - set(self.map_code))
+        installed_functions = [function for function in installed_functions if function not in self.map_code]
         for function in installed_functions:
             self.linker.link_function(function)
 
         for function in self.map_code:
             self.linker.link_function(function)
 
-        self.dependencies = list(set(self.dependencies) - set(installed_functions))
-        self.dependencies = list(set(self.dependencies) - set(self.map_code))
+        self.dependencies = [function for function in self.dependencies if function not in installed_functions]
+        self.dependencies = [function for function in self.dependencies if function not in self.map_code]
         for function in self.dependencies:
             self.linker.link_dependency(function)
 
