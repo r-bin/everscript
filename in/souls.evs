@@ -1676,7 +1676,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(town_level_3, south, NONE);
+                map_transition(bugmuck, north_2, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -22238,9 +22238,10 @@ area desert_bug() {
 
             group boss_ai() {
                 enum BOSS {
-                    DEBUG = False,
+                    DEBUG = True,
+                    DEBUG_CAGE = False,
 
-                    PROGRESS = memory(FLAG, TEMP),
+                    // PROGRESS = memory(FLAG, TEMP),
 
                     ARM_LEFT_X = 0d152,
                     ARM_LEFT_Y = 0d112,
@@ -22257,26 +22258,23 @@ area desert_bug() {
                     ARM_RIGHT_ID = memory(WORD, TEMP),
                     ARM_RIGHT_2_ID = memory(WORD, TEMP),
 
-                    KNOCKBACK_DAMAGE = 0d05,
+                    KNOCKBACK_DAMAGE = 0d3,
+
+                    CAGE_OPEN = memory(FLAG, TEMP),
+                    CAGE_BROKEN = memory(FLAG, TEMP),
+                    CAGE_B_DAMAGE = 0d2 + randrange(0d2),
+                    CAGE_OPEN_THRESHOLD = 0d10,
+                    CAGE_BROKEN_THRESHOLD = 0d100,
+
+                    CAGE_DAMAGE = memory(WORD, TEMP),
+                    CAGE_DAMAGE_TOTAL = memory(WORD, TEMP),
+                    CAGE_OPEN_TIMER = memory(WORD, TEMP),
                 }
 
                 fun fog_wall(exit_direction:DIRECTION) {
                     fog_wall_inside((!SOULS_MEMORY.DEAD_DOUBLE_THRAXX) && SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX, exit_direction);
                 }
 
-                fun show_thraxx(show) {
-                    if(show) {
-                        object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
-                        object[0x01] = 0x00; // change body (0=present, 1=cocoon, 2=gone)
-                        object[0x02] = 0x00; // change rip_entrance_right (0=present, 1=gone)
-                        object[0x03] = 0x00; // change rip_entrance_left (0=present, 1=gone)
-                    } else {
-                        object[0x00] = 0x02; // change rip_entrance (0=open, 1=closed, 2=gone)
-                        object[0x01] = 0x02; // change body (0=present, 1=cocoon, 2=gone)
-                        object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
-                        object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
-                    }
-                }
                 fun open_thraxx_mouth(open) {
                     if(open) {
                         tile_animate(0x02, 0xff, 0x01);
@@ -22294,11 +22292,57 @@ area desert_bug() {
                     sound(THRAXX_DAMAGE);
                 }
 
+                fun open_cage(open) {
+                    if(BOSS.DEBUG && BOSS.DEBUG_CAGE) {
+                        MEMORY.STRING_PARAMETER_1 = open;
+                        subtext("cage = [MEM1]");
+                    }
+                    BOSS.CAGE_OPEN = open;
+
+                    if(open) {
+                        object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+                        open_thraxx_rip_cage(0d3);
+                    } else {
+                        object[0x00] = 0x01; // change rip_entrance (0=open, 1=closed, 2=gone)
+                        open_thraxx_rip_cage(0d1);
+                    }
+                }
+
+                fun show_thraxx(show) {
+                    if(show) {
+                        object[0x00] = 0x00; // change rip_entrance (0=open, 1=closed, 2=gone)
+                        object[0x01] = 0x00; // change body (0=present, 1=cocoon, 2=gone)
+                        object[0x02] = 0x00; // change rip_entrance_right (0=present, 1=gone)
+                        object[0x03] = 0x00; // change rip_entrance_left (0=present, 1=gone)
+                    } else {
+                        object[0x00] = 0x02; // change rip_entrance (0=open, 1=closed, 2=gone)
+                        object[0x01] = 0x02; // change body (0=present, 1=cocoon, 2=gone)
+                        object[0x02] = 0x01; // change rip_entrance_right (0=present, 1=gone)
+                        object[0x03] = 0x01; // change rip_entrance_left (0=present, 1=gone)
+                    }
+                }
+
+                fun boss_defeated() {
+                    SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX = False;
+                    // yield();
+
+                    destroy(BOSS.HEART_ID);
+                    destroy(BOSS.HEART_2_ID);
+
+                    destroy(BOSS.ARM_LEFT_ID);
+                    destroy(BOSS.ARM_LEFT_2_ID);
+
+                    destroy(BOSS.ARM_RIGHT_ID);
+                    destroy(BOSS.ARM_RIGHT_2_ID);
+                    
+                    souls_boss_defeated(DEAD_DOUBLE_THRAXX, REWARD_DOUBLE_THRAXX);
+                }
+
                 @install()
                 @async()
                 fun double_hit_check() {
                     while!(dead(BOSS.HEART_ID)) {
-                        if((BOSS.HEART_ID[GENERAL_PURPOSE] > 0x00) && (BOSS.HEART_2_ID[GENERAL_PURPOSE] > 0x00)) {
+                        if((BOSS.HEART_ID[GENERAL_PURPOSE] > 0d0) && (BOSS.HEART_2_ID[GENERAL_PURPOSE] > 0d0)) {
                             if(BOSS.DEBUG) {
                                 subtext("double hit");
                             }
@@ -22314,12 +22358,14 @@ area desert_bug() {
                 }
 
                 @install()
-                fun knockback(heart:CHARACTER, entity:CHARACTER, with_sound) {
+                fun knockback(heart:CHARACTER, entity:CHARACTER, damage, with_sound) {
                     if(BOSS.DEBUG) {
                         debug_subtext("heart triggered");
                     }
 
                     open_thraxx_mouth(True);
+                    // open_thraxx_rip_cage(0d3);
+                    BOSS.CAGE_OPEN_TIMER = 0d75;
 
                     control(entity, True);
 
@@ -22357,7 +22403,7 @@ area desert_bug() {
                         attribute(entity, ROOT, False);
                         attribute(entity, UNKNOWN_2_1, False);
 
-                        damage(entity, 0d5, True);
+                        damage(entity, damage, True);
                         // control(BOTH);
 
                         if(with_sound) {
@@ -22368,6 +22414,8 @@ area desert_bug() {
                     control(BOTH);
 
                     open_thraxx_mouth(False);
+
+                    // open_thraxx_rip_cage(0d1);
                 }
 
                 @install()
@@ -22388,7 +22436,11 @@ area desert_bug() {
                     BOSS.ARM_RIGHT_ID[X] = BOSS.ARM_RIGHT_X;
                     BOSS.ARM_RIGHT_ID[Y] = BOSS.ARM_RIGHT_Y;
 
-                    knockback(<SCRIPT_OWNER>, <ACTIVE>);
+                    if!(dead(<SCRIPT_OWNER>)) {
+                        knockback(<SCRIPT_OWNER>, <ACTIVE>, BOSS.KNOCKBACK_DAMAGE);
+                    } else {
+                        boss_defeated();
+                    }
                 }
                 @install()
                 fun thraxx2_trigger() {
@@ -22410,7 +22462,57 @@ area desert_bug() {
 
                     debug_memory(BOSS.HEART_2_ID[GENERAL_PURPOSE], BOSS.HEART_ID[GENERAL_PURPOSE]);
 
-                    knockback(<SCRIPT_OWNER>, <ACTIVE>);
+                    knockback(<SCRIPT_OWNER>, <ACTIVE>, BOSS.KNOCKBACK_DAMAGE);
+                }
+
+
+                @install()
+                @async()
+                fun cage_tracker() {
+                    open_cage(False);
+
+                    while!(BOSS.CAGE_BROKEN) {
+                        if!(SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX) {
+                            show_thraxx(False);
+                            end();
+                        }
+
+                        if(BOSS.CAGE_OPEN_TIMER > 0d0) {
+                            BOSS.CAGE_OPEN_TIMER--;
+
+                            if!(BOSS.CAGE_OPEN) {
+                                open_cage(True);
+                            }
+                        } else {
+                            if(BOSS.CAGE_OPEN) {
+                                open_cage(False);
+                            }
+                        }
+                        
+                        yield();
+                    }
+
+                    open_cage(True);
+                }
+
+                fun cage_triggered() {
+                    arg[0x10] = BOSS.CAGE_B_DAMAGE;
+                    BOSS.CAGE_DAMAGE += arg[0x10];
+                    BOSS.CAGE_DAMAGE_TOTAL += arg[0x10];
+
+                    if(MEMORY.MAP_PALETTE == 0d0) {
+                        damage(BOSS.HEART_ID, arg[0x10], True);
+                    } else {
+                        damage(BOSS.HEART_2_ID, arg[0x10], True);
+                    }
+
+                    if(BOSS.CAGE_DAMAGE_TOTAL > BOSS.CAGE_BROKEN_THRESHOLD) {
+                        BOSS.CAGE_BROKEN = True;
+                    } else if(BOSS.CAGE_DAMAGE > BOSS.CAGE_OPEN_THRESHOLD) {
+                        BOSS.CAGE_DAMAGE = 0d0;
+
+                        BOSS.CAGE_OPEN_TIMER = 0d200;
+                    }
                 }
                 
                 fun add_boss() {
@@ -22420,11 +22522,11 @@ area desert_bug() {
                     // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
                     add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
                     <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
-                    attach_script(LAST_ENTITY, DAMAGE, reference(thraxx2_trigger));
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(thraxx2_trigger));
                     BOSS.HEART_2_ID = <LAST_ENTITY>;
                     add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
                     <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
-                    attach_script(LAST_ENTITY, DAMAGE, reference(thraxx_trigger));
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(thraxx_trigger));
                     BOSS.HEART_ID = <LAST_ENTITY>;
 
                     add_enemy(ENEMY.THRAXX_LEFT_ARM, 0d19, 0d14);
@@ -22437,7 +22539,7 @@ area desert_bug() {
                     add_enemy(ENEMY.THRAXX2_RIGHT_ARM, 0d0, 0d0);
                     BOSS.ARM_RIGHT_2_ID = <LAST_ENTITY>;
 
-                    default_init_room(False, False);
+                    cage_tracker();
 
                     // double_hit_check();
 
@@ -22451,7 +22553,7 @@ area desert_bug() {
                     debug_subtext("S=0");
 
                     if(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
-                        // fog_wall(SOUTH);
+                        fog_wall(SOUTH);
                         map_transition(bugmuck, dungeon_north, NORTH);
                     } else {
                         error_wrong_side(SOUTH);
@@ -22488,6 +22590,8 @@ area desert_bug() {
                 },
                 rip_cage = @install() {
                     debug_subtext("B=1");
+
+                    cage_triggered();
                 }
             }
 
@@ -22500,10 +22604,10 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
+                CUSTOM_FLAG.NO_DOG = True;
                 show_thraxx(False);
-                // show_cocoon();
 
-                fade_in();
+                default_init_room(False, False);
             }
         };
     };
