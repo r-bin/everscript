@@ -325,7 +325,7 @@ group non_maps() {
 
             // altus
             DEAD_SIDESCROLLER = memory(FLAG, SRAM), // t0
-            REWARD_SIDESCROLLER = ITEM.NECTAR, // TODO
+            REWARD_SIDESCROLLER = CUSTOM_ITEM.SPEAR_ORB,
 
             DEAD_CHESS = memory(FLAG, SRAM), // t0
             REWARD_CHESS = CUSTOM_ITEM.AXE_ORB,
@@ -391,6 +391,13 @@ group non_maps() {
             // quests
             ///////////////////////////////////////////////////////
 
+            REWARD_ARENA_BOMB_1 = ITEM.LEVITATE,
+            REWARD_ARENA_BOMB_2 = ITEM.NECTAR, // TODO
+            REWARD_ARENA_BOMB_3 = ITEM.NECTAR, // TODO
+            REWARD_ARENA_BOMB_4 = ITEM.NECTAR, // TODO
+
+            REWARD_ARENA_DUEL = ITEM.ATLAS,
+
             REWARD_BEE_BOY_QUEST_1 = ITEM.FLASH,
             REWARD_BEE_BOY_QUEST_2 = ITEM.NECTAR, // TODO
             REWARD_BEE_BOY_QUEST_3 = ITEM.NECTAR, // TODO
@@ -454,7 +461,9 @@ group non_maps() {
             }
         }
         fun custom_reward(item:CUSTOM_ITEM) {
-            if(item == CUSTOM_ITEM.SWORD_ORB) { // weapons
+            if(item < 0xf000) {
+                reward(item);
+            } else if(item == CUSTOM_ITEM.SWORD_ORB) { // weapons
                 subtext("Sword Orb");
                     
                 fanfare_item();
@@ -1474,9 +1483,14 @@ group non_maps() {
 
         @install()
         @async()
-        fun add_palette_donor(entity) {
-            add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
-            attach_to_script(LAST_ENTITY);
+        fun add_palette_donor(entity, mode) {
+            if(mode == 0d0) {
+                add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
+                attach_to_script(LAST_ENTITY);
+            } else if(mode == 0d1) {
+                add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
+                attach_to_script(DOG);
+            }
 
             arg[0x10] = entity[PALETTE];
 
@@ -1488,7 +1502,9 @@ group non_maps() {
 
             entity[PALETTE] = arg[0x10];
 
-            destroy(SCRIPT_OWNER);
+            if(mode == 0d0) {
+                destroy(SCRIPT_OWNER);
+            } 
         }
         fun guard_branch_lady(flag) {
             if(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
@@ -1518,7 +1534,7 @@ group non_maps() {
         fun branch_lady(x, y, direction:DIRECTION, id) {
             add_enemy(VILLAGER_2_4, x, y, INACTIVE);
 
-            add_palette_donor(<LAST_ENTITY>);
+            add_palette_donor(<LAST_ENTITY>, 0d1);
 
             face(LAST_ENTITY, direction);
             attach_script(LAST_ENTITY, B, id);
@@ -9318,7 +9334,7 @@ area altus_plateau_entry() {
                     fun dialog_reward() {
                         control(NONE);
 
-                        custom_reward(SPEAR_ORB);
+                        reward(SOULS_MEMORY.REWARD_ARENA_DUEL);
                         
                         dialog("[SLOW]…Um, you actually won…?[B]Well fought. Don't just gamble your reward away.[B]");
 
@@ -18657,20 +18673,13 @@ area town() {
                 destroy(SCRIPT_OWNER);
             }
 
-            fun learn_levitate() {
-                set(FLAG.LEVITATE);
-                subtext("Levitate learned.");
-                sleep(0x20);
-                select_alchemy(LEVITATE);
-            }
-
             fun claim_reward() {
                 if((ROOM.PROGRESS >= ROOM.REWARD_1_KILLS) && !ROOM.REWARD_1_CLAIMED) {
                     set(ROOM.REWARD_1_CLAIMED);
                     
                     dialog("[SLOW]Let me teach you my secret formula.[B]");
 
-                    learn_levitate();
+                    reward(SOULS_MEMORY.REWARD_ARENA_BOMB_1);
 
                     dialog("[SLOW]This technique has been passed down for generations.[B]");
 
@@ -18678,19 +18687,19 @@ area town() {
                 } else if((ROOM.PROGRESS >= ROOM.REWARD_2_KILLS) && !ROOM.REWARD_2_CLAIMED) {
                     set(ROOM.REWARD_2_CLAIMED);
                     
-                    reward(NECTAR);
+                    reward(SOULS_MEMORY.REWARD_ARENA_BOMB_2);
 
                     end();
                 } else if((ROOM.PROGRESS >= ROOM.REWARD_3_KILLS) && !ROOM.REWARD_3_CLAIMED) {
                     set(ROOM.REWARD_3_CLAIMED);
                     
-                    reward(NECTAR);
+                    reward(SOULS_MEMORY.REWARD_ARENA_BOMB_3);
 
                     end();
                 } else if((ROOM.PROGRESS >= ROOM.REWARD_4_KILLS) && !ROOM.REWARD_4_CLAIMED) {
                     set(ROOM.REWARD_4_CLAIMED);
                     
-                    reward(NECTAR);
+                    reward(SOULS_MEMORY.REWARD_ARENA_BOMB_4);
 
                     end();
                 }
@@ -18761,24 +18770,11 @@ area town() {
                 destroy(SCRIPT_OWNER);
             }
 
-            @install()
-            fun debug_triggered() {
-                learn_levitate();
-
-                destroy(SCRIPT_OWNER);
-            }
-
             fun trigger_enter() {
                 CUSTOM_FLAG.NO_DOG = True;
                 CUSTOM_FLAG.VANILLA_BOMB_DAMAGE = True;
                 
                 init_map(0x00, 0x30, 0x40, 0x70);
-
-                if(FLAG.DEBUG) {
-                    if!(FLAG.LEVITATE) {
-                        add_debug_entity(0x24, 0x47, reference(debug_triggered));
-                    }
-                }
 
                 add_enemy(TINY, 0x20, 0x42, INACTIVE);
                 ROOM.MANAGER_ID = <LAST_ENTITY>;
@@ -20600,7 +20596,6 @@ area desert_bug() {
             exit_north_2 = @install() {
                 debug_subtext("S=4");
 
-                fog_wall_outside((!SOULS_MEMORY.DEAD_DOUBLE_THRAXX) && SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX, NORTH);
                 map_transition(bugmuck_cave_7, north_1, NORTH);
             },
             exit_cave = @install() {
@@ -20828,8 +20823,14 @@ area desert_bug() {
         @install()
         @async()
         fun fake_exit_scanner(entity) {
-            range_checker(entity, <ACTIVE>, 0x20, 0x20, {
-                map_transition(thraxx, north, SOUTH);
+            range_checker(entity, <ACTIVE>, 0x20, 0x20, @install() {
+                fog_wall_outside((!SOULS_MEMORY.DEAD_DOUBLE_THRAXX) && SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX, NORTH);
+                
+                if!(SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX) {
+                    map_transition(thraxx, north, SOUTH);
+                } else {
+                    map_transition(thraxx, spider, SOUTH);
+                }
             });
         }
 
@@ -21767,6 +21768,30 @@ area desert_bug() {
                 map_transition(thraxx, south, NONE);
             }
 
+            @install()
+            @async()
+            fun spider_drop(entity, x, y) {
+                control(entity, True);
+                entity[Z] = 0d10000 + randrange(0d500);
+
+                _add_enemy(SPIDER, entity[X], entity[Y], INACTIVE_IMORTAL);
+                attach_to_script(LAST_ENTITY);
+                <SCRIPT_OWNER>[Z] = 0d10000 + randrange(0d500);
+
+                smart_animate(entity, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+
+                while(entity[Z] > 0d0) {
+                    yield();
+                }
+
+                control(entity, False);
+                animate(entity, ONCE, ANIMATION_ALL.DEFAULT);
+                subtext("now");
+
+                walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER, NONE);
+
+                destroy(<SCRIPT_OWNER>);
+            }
         };
 
         map bbm_1(BBM_1) {
@@ -22224,12 +22249,19 @@ area desert_bug() {
 
         map thraxx(THRAXX) {
             enum ROOM {
-                ENTER_FROM_SOUTH = memory(FLAG, TEMP),
+                TRIGGER_BOSS = memory(FLAG, TEMP),
             }
 
             enum entrance {
                 north = entrance(0x18, 0x10, SOUTH),
-                south = entrance(0x17, 0x3f, NORTH, { ROOM.ENTER_FROM_SOUTH = True; }),
+                south = entrance(0x17, 0x3f, NORTH, { ROOM.TRIGGER_BOSS = True; }),
+                
+                spider = entrance(0d22, 0d56, NONE, {
+                    ROOM.TRIGGER_BOSS = True;
+
+                    spider_drop(<BOY>, 0d1, 0d63);
+                    spider_drop(<DOG>, 0d46, 0d63);
+                }),
             }
 
             enum soundtrack {
@@ -22563,7 +22595,7 @@ area desert_bug() {
                     debug_subtext("S=1");
 
                     if!(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
-                        if(ROOM.ENTER_FROM_SOUTH && (!SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX)) {
+                        if(ROOM.TRIGGER_BOSS && (!SOULS_MEMORY.DEAD_DOUBLE_THRAXX)) {
                             SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX = True;
                             push_music(BOSS_DRUMS);
 
