@@ -372,7 +372,7 @@ class Function(Function_Base):
         self.args = args
         self.install = False
         self.key = None
-        self.map_key = None
+        self.map_key = []
         self.weak = None
         self.address = None
         self.inject = []
