@@ -1824,6 +1824,8 @@ class Reference(Function_Base):
 
         self._value_count = None
 
+        self.update_reference(self.name)
+
     def __repr__(self):
         return f"Reference(name={self.name}, value={self.value})"
     
