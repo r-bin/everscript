@@ -9,7 +9,8 @@
     // <0x2379>..<0x237C>, // landing spots
     <0x253d>..<0x2558>, // sliver extension "save_file_growth" (excluded string params)
 
-    <0x2834>..<0x28fb> // 199 room specific bytes
+    <0x2834>..<0x2884>
+    // <0x2834>..<0x28fb> // 199 room specific bytes
 )
 #include("in/core.evs")
 
@@ -221,7 +222,7 @@ group non_maps() {
             WITH_BOAT_RIDE = False,
 
             // boy dust
-            DUST_ENTITY = memory(WORD, TEMP),
+            DUST_ENTITY = memory(WORD, TEMP_RESERVED),
             DUST_DROP_X = memory(WORD, SRAM),
             DUST_DROP_Y = memory(WORD, SRAM),
             DUST_DROP_MAP = memory(BYTE, SRAM),
@@ -1692,7 +1693,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(bugmuck, north_2, NONE);
+                map_transition(basement_2_boss, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -11181,7 +11182,7 @@ area east_inbetwixx() {
             },
             spawn_boss = @install() {
                 if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
-                    if(BOSS.IN_PROGRESS == 0x00) {
+                    if!(BOSS.IN_PROGRESS) {
                         push_music(BOSS);
                         spawn_boss(0x39, 0x23);
                         control(BOSS.MOUNT_ID, True);
@@ -11192,7 +11193,7 @@ area east_inbetwixx() {
                         walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, BOTH);
                         free_camera();
 
-                        BOSS.IN_PROGRESS = 0x01;
+                        BOSS.IN_PROGRESS = True;
                         object[0x1f] = 0x7e;
                         
                         control(BOSS.MOUNT_ID, False);
@@ -11715,6 +11716,7 @@ area east_inbetwixx() {
             }
 
             enum BOSS {
+                PROGRESS = memory(FLAG, TEMP),
                 BOSS_ID = memory(WORD, TEMP),
 
                 BOSS_START_X = memory(WORD, TEMP),
@@ -11745,41 +11747,40 @@ area east_inbetwixx() {
 
             @install()
             fun boss_defeated() {
+                BOSS.PROGRESS = False;
+
                 souls_boss_defeated(DEAD_ARENA_MOSQUITO, REWARD_ARENA_MOSQUITO);
 
                 close_exits(False);
 
-                attach_script(BOSS.MOSQUITO_1_ID, DEATH, reference(nop));
-                attach_script(BOSS.MOSQUITO_2_ID, DEATH, reference(nop));
-                attach_script(BOSS.MOSQUITO_3_ID, DEATH, reference(nop));
-                attach_script(BOSS.MOSQUITO_4_ID, DEATH, reference(nop));
-
-                damage(BOSS.MOSQUITO_1_ID, 0xff, True);
-                damage(BOSS.MOSQUITO_2_ID, 0xff, True);
-                damage(BOSS.MOSQUITO_3_ID, 0xff, True);
-                damage(BOSS.MOSQUITO_4_ID, 0xff, True);
+                damage(BOSS.MOSQUITO_1_ID, 0d999, True);
+                damage(BOSS.MOSQUITO_2_ID, 0d999, True);
+                damage(BOSS.MOSQUITO_3_ID, 0d999, True);
+                damage(BOSS.MOSQUITO_4_ID, 0d999, True);
             }
 
             fun mosquito_dead(id, x, y) {
-                // yield();
-                animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GORE);
-                attribute(SCRIPT_OWNER, INVINCIBLE, True);
+                if(BOSS.PROGRESS) {
+                    // yield();
+                    animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GORE);
+                    attribute(SCRIPT_OWNER, INVINCIBLE, True);
 
-                if((BOSS.BOSS_ID[X] >= MEMORY.CAMERA_X_MIN) && ((BOSS.BOSS_ID[X] <= MEMORY.CAMERA_X_MAX)) && (BOSS.BOSS_ID[Y] >= MEMORY.CAMERA_Y_MIN) && ((BOSS.BOSS_ID[Y] <= MEMORY.CAMERA_Y_MAX))) {
-                    cast(id, BOSS.BOSS_ID, FIREBALL, 0d250);
-                } else {
-                    cast(id, BOY, FIREBALL, 0d10);
+                    if((BOSS.BOSS_ID[X] >= MEMORY.CAMERA_X_MIN) && ((BOSS.BOSS_ID[X] <= MEMORY.CAMERA_X_MAX)) && (BOSS.BOSS_ID[Y] >= MEMORY.CAMERA_Y_MIN) && ((BOSS.BOSS_ID[Y] <= MEMORY.CAMERA_Y_MAX))) {
+                        cast(id, BOSS.BOSS_ID, FIREBALL, 0d250);
+                    } else {
+                        cast(id, BOY, FIREBALL, 0d10);
+                    }
+
+                    sleep(0d30);
+                    animate(SCRIPT_OWNER, ONCE_FREEZE, INVISIBLE);
+                    teleport(id, x, y);
+                    sleep(0d90);
+
+                    // full_heal(SCRIPT_OWNER, 0x10, False);
+                    animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                    <SCRIPT_OWNER>[PALETTE] = 0x0a00;
+                    attribute(SCRIPT_OWNER, INVINCIBLE, False);
                 }
-
-                sleep(0d30);
-                animate(SCRIPT_OWNER, ONCE_FREEZE, INVISIBLE);
-                teleport(id, x, y);
-                sleep(0d90);
-
-                // full_heal(SCRIPT_OWNER, 0x10, False);
-                animate(SCRIPT_OWNER, ONCE, DEFAULT);
-                <SCRIPT_OWNER>[PALETTE] = 0x0a00;
-                attribute(SCRIPT_OWNER, INVINCIBLE, False);
             }
 
             @install()
@@ -11841,8 +11842,10 @@ area east_inbetwixx() {
                     attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
                     lock_temporary();
 
+                    CUSTOM_FLAG.NO_DOG = True;
                     init_room();
-                    character_selection(BOY); // TODO
+
+                    BOSS.PROGRESS = True;
 
                     spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
                     sleep(0x40);
@@ -16553,8 +16556,6 @@ area town() {
 
                     open_doors(True);
 
-                    default_init_room(True, False);
-
                     if!(ROOM.FIREPIT_UNLOCKED) {
                         add_enemy(PLACEHOLDER, 0d77, 0d92);
                         attach_script(LAST_ENTITY, B, reference(@install() {
@@ -16571,6 +16572,8 @@ area town() {
                     } else {
                         object[0x08] = 0x01; // open door_SE
                     }
+
+                    default_init_room(True, False);
                 }
             };
 
@@ -24703,7 +24706,7 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE, {
-                    crash_land(BOTH);
+                    crash_both();
                     subtext("Basement Level 2");
                 }),
             }
@@ -25387,7 +25390,7 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE, {
-                    crash_land(BOTH);
+                    crash_both();
 
                     subtext("Basement Level 3");
                 }),
@@ -26167,13 +26170,6 @@ area dungeon_isaac() {
                 }
             };
 
-            @install()
-            fun trap_door_interacted() {
-                if!(BOSS.PROGRESS) {
-                    map_transition(basement_3_start, center, NONE);
-                }
-            }
-
             fun trigger_enter() {
                 if!(SOULS_MEMORY.DEAD_MONSTRO) {
                     spawn_boss(0x10, 0x13);
@@ -26185,7 +26181,11 @@ area dungeon_isaac() {
                 // destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
                 add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
-                attach_script(LAST_ENTITY, B, reference(trap_door_interacted));
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    if!(BOSS.PROGRESS) {
+                        map_transition(basement_3_start, center, NONE);
+                    }
+                }));
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
@@ -26206,7 +26206,7 @@ area dungeon_isaac() {
                 west = entrance(0x00, 0x38, EAST),
 
                 center = entrance(0x12, 0x38, NONE, {
-                    crash_land(BOTH);
+                    crash_both();
 
                     subtext("Basement Level 4");
                 }),

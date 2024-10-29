@@ -170,7 +170,7 @@ class MemoryManager():
                     m2 = m
                     continue
                 else:
-                    if m2.address == m.address - 1:
+                    if (m2.address == m.address - 1) or (m2.address == m.address + 1): # TODO
                         del memory_list[i + 1]
                         del memory_list[i]
 
