@@ -1832,7 +1832,7 @@ class Reference(Function_Base):
     def update_reference(self, name:str):
         if not self.value:
             self.value = self._generator.get_function(name, self._scope)
-            if self.value and self.value.install:
+            if self.value and self.value.install and not self.value.weak:
                 self._generator.reference_function(self.value)
 
     def eval(self, params:list[Param]):
