@@ -14,7 +14,12 @@ hirom
 !INJECT_OFFSET = 0 ; injected into "_hook_input"
 !WITH_HOTKEY_B = 1 ; hotkey "b" enabled
 !WITH_INPUT_P1_DUMP = 1 ; dumps inputs into $28e2 space enabled
+!WITH_ARMOR_DUMP = 1 ; dumps inputs into $28e2 space enabled
 !INPUT_P1_DUMP = $28e2
+!CURRENT_ARMOR_COLLAR_DUMP = $28e0
+!CURRENT_ARMOR_CHEST_DUMP = $28ce
+!CURRENT_ARMOR_HELM_DUMP = $28cc
+!CURRENT_ARMOR_ARMLET_DUMP = $28ca
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -49,6 +54,20 @@ start_practice_stuff:
   if !WITH_INPUT_P1_DUMP
     LDA $4218 ; "JOY1L"
     STA $7e0000+!INPUT_P1_DUMP
+  endif
+
+  if !WITH_ARMOR_DUMP
+    LDA $0ABE ; current armor collar
+    STA $7e0000+!CURRENT_ARMOR_COLLAR_DUMP
+    
+    LDA $0AC0 ; current armor chest
+    STA $7e0000+!CURRENT_ARMOR_CHEST_DUMP
+    
+    LDA $0AC2 ; current armor helm
+    STA $7e0000+!CURRENT_ARMOR_HELM_DUMP
+    
+    LDA $0AC4 ; current armor armlet
+    STA $7e0000+!CURRENT_ARMOR_ARMLET_DUMP
   endif
   
   ldx !PREV_INPUT
