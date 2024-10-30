@@ -1,6 +1,6 @@
 hirom
 
-!RING_MENU_MEMORY = $FE7000
+!RING_MENU_MEMORY = $FE6200
 
 ; Hook into the routine that loads the config ring.
 ;ORG $8EE524
