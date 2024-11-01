@@ -1671,7 +1671,6 @@ group non_maps() {
                 add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
                 attach_to_script(LAST_ENTITY);
             } else if(mode == 0d1) {
-                add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
                 attach_to_script(DOG);
             }
 
@@ -1880,7 +1879,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(basement_2_boss, south, NONE);
+                map_transition(stone_room_top, east, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -8002,8 +8001,195 @@ area altus_plateau_entry() {
                     },
                 }
 
+                enum BOSS {
+                    DEBUG = True,
+
+                    ID_RIDER = memory(WORD, TEMP),
+                    ID_MOUNT = memory(WORD, TEMP),
+
+                    ID_PROJECTILE = memory(WORD, TEMP),
+
+                    STACKING = memory(FLAG, TEMP),
+
+                    CRATES_X = 0d22,
+                    CRATES_Y = 0d12,
+
+                    CHEESE_RANGE = 0d3,
+
+                    RNG = memory(WORD, TEMP),
+                }
+
+                fun prepare_rat(entity) {
+                    entity[HP] = 0d1;
+                    attach_script(entity, DAMAGE, reference(@install() {
+                        if(script[0x9] == 0x100) {
+                            heal(SCRIPT_OWNER, 0d0, False);
+                            yield();
+                            damage(SCRIPT_OWNER, 0d0, True);
+
+                            control(SCRIPT_OWNER, True);
+
+                            if(BOSS.DEBUG) {
+                                subtext("stunned");
+                            }
+                        }
+                    }));
+                }
+
+                @install()
+                @async()
+                fun cheese_protection(entity_mount) {
+                    while!(dead(entity_mount)) {
+                        if(entity_mount[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                            arg[0x10] = entity_mount[X];
+                            arg[0x12] = entity_mount[Y];
+
+                            while(entity_mount[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                                yield();
+                            }
+
+                            if(entity_mount[X] < arg[0x10]) {
+                                arg[0x10] = arg[0x10] - entity_mount[X];
+                            } else {
+                                arg[0x10] = entity_mount[X] - arg[0x10];
+                            }
+
+                            if(entity_mount[Y] < arg[0x12]) {
+                                arg[0x12] = arg[0x12] - entity_mount[Y];
+                            } else {
+                                arg[0x12] = entity_mount[Y] - arg[0x12];
+                            }
+
+                            if((arg[0x10] == arg[0x14]) && (arg[0x12] == arg[0x16])) {
+                                arg[0x18]++;
+                            } else {
+                                arg[0x18] = 0d0;
+                            }
+
+                            if(BOSS.DEBUG && False) {
+                                debug_memory(arg[0x10], arg[0x12], arg[0x18]);
+                            }
+
+                            if(
+                                ((arg[0x10] <= BOSS.CHEESE_RANGE) && (arg[0x12] <= BOSS.CHEESE_RANGE)) ||
+                                (arg[0x18] >= 0d2)
+                            ) {
+                                BOSS.STACKING = False;
+                            }
+
+                            arg[0x14] = arg[0x10];
+                            arg[0x16] = arg[0x12];
+                        }
+
+                        yield();
+                    }
+                }
+
+                // @install()
+                // @async()
+                fun ride_rat(entity_mount, entity_rider, offset_x, offset_y) {
+                    BOSS.STACKING = True;
+                    arg[0x10] = entity_mount[Z_LEVEL];
+
+                    _add_enemy(MEGATAUR, entity_mount[X], entity_mount[Y]);
+                    destroy(entity_mount);
+                    entity_mount = <LAST_ENTITY>;
+                    animate(entity_mount, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+
+                    animate(entity_rider, ONCE, ANIMATION_ALL.CAST);
+                    wait(entity_rider);
+
+                    // entity_rider[VELOCITY] = 0d30;
+                    _drag(entity_rider, entity_mount[X] + offset_x, entity_mount[Y] - offset_y);
+                    entity_rider[Z_LEVEL] = arg[0x10];
+
+                    entity_rider[VELOCITY] = 0d20;
+                    sleep(0d50);
+                    entity_rider[Z] = 0d0;
+
+                    animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+
+                    cheese_protection(entity_mount);
+
+                    while(BOSS.STACKING) {
+                        entity_rider[X] = entity_mount[X] + offset_x;
+                        entity_rider[Y] = entity_mount[Y] - offset_y;
+
+                        yield();
+                    }
+
+                    attribute(entity_mount, INVINCIBLE_TEMP, True);
+                    animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+                    animate(entity_mount, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+
+                    drag(entity_rider, BOSS.CRATES_X, BOSS.CRATES_Y);
+                    entity_rider[Z_LEVEL] = arg[0x10];
+
+                    wait(entity_mount);
+                    _add_enemy(RAT_RED, entity_mount[X], entity_mount[Y]);
+                    prepare_rat(<LAST_ENTITY>);
+                    destroy(entity_mount);
+                    entity_mount = <LAST_ENTITY>;
+                }
+
                 fun trigger_enter() {
+                    object[0x00] = 0x7e; // close gate
+
                     default_init_room(True, False);
+
+                    add_enemy(RAT, 0d29, 0d14);
+                    BOSS.ID_PROJECTILE = <LAST_ENTITY>;
+                    prepare_rat(<LAST_ENTITY>);
+
+                    add_enemy(RAT_RED, 0d12, 0d18);
+                    BOSS.ID_MOUNT = <LAST_ENTITY>;
+                    prepare_rat(<LAST_ENTITY>);
+
+                    add_enemy(VERMINATOR, BOSS.CRATES_X, BOSS.CRATES_Y);
+                    BOSS.ID_RIDER = <LAST_ENTITY>;
+
+                    while(True) {
+                        sleep(0d300);
+
+                        BOSS.RNG = randrange(0d5);
+
+
+                        if(BOSS.RNG == 0d0) {
+                            if!(BOSS.STACKING) {
+                                ride_rat(BOSS.ID_MOUNT, BOSS.ID_RIDER, 0d0, 0d40);
+                            }
+                        } else if(BOSS.RNG == 0d1) {
+                            arg[0x10] = <ACTIVE>[X];
+                            arg[0x12] = <ACTIVE>[Y];
+
+                            shoot_entity_absolute(BOSS.ID_RIDER, BOTTLE, arg[0x10], arg[0x12] - 0d50, 0d20, 0d0);
+                            shoot_entity_absolute(BOSS.ID_RIDER, BOTTLE_BROKEN, arg[0x10], arg[0x12], 0d20, 0d10);
+                            shoot_entity_absolute(BOSS.ID_RIDER, BOTTLE, arg[0x10], arg[0x12] + 0d50, 0d20, 0d50);
+                            shoot_entity_absolute(BOSS.ID_RIDER, BOTTLE, arg[0x10], arg[0x12] + 0d100, 0d20, 0d100);
+                        } else if(BOSS.RNG == 0d2) {
+                            arg[0x10] = <ACTIVE>[X];
+                            arg[0x12] = <ACTIVE>[Y];
+
+                            shoot_entity_absolute(BOSS.ID_RIDER, ROCK, arg[0x10], arg[0x12], 0d50, 0d0);
+                            sleep(0d30);
+                            shoot_entity_absolute(BOSS.ID_RIDER, ROCK, arg[0x10], arg[0x12], 0d50, 0d10);
+                            sleep(0d30);
+                            shoot_entity_absolute(BOSS.ID_RIDER, ROCK, arg[0x10], arg[0x12], 0d50, 0d50);
+                            sleep(0d30);
+                            shoot_entity_absolute(BOSS.ID_RIDER, ROCK, arg[0x10], arg[0x12], 0d50, 0d100);
+                        } else {
+                            cast(BOSS.ID_RIDER, BOSS.ID_MOUNT, HEAL, 0d1);
+                            control(BOSS.ID_MOUNT, False);
+                            cast(BOSS.ID_RIDER, BOSS.ID_PROJECTILE, HEAL, 0d1);
+                            control(BOSS.ID_PROJECTILE, False);
+                        }
+                    }
+
+                    end();
+
+                    while(True) {
+                        sleep(0d180);
+                    }
                 }
             };
 
@@ -29273,6 +29459,10 @@ area dungeon_volcano() {
                     default = soundtrack(DUNGEON_VOLCANO.DEFAULT_SIDE_MUSIC, 0xff)
                 }
 
+                enum ROOM {
+                    STONE_MOVED = memory(FLAG, SRAM),
+                }
+
                 enum stepon_trigger {
                     exit_room_side_south = nop(),
                     exit_room_4_south_2 = nop(),
@@ -29351,8 +29541,10 @@ area dungeon_volcano() {
                     teleporter = @install() {
                         debug_subtext("S=48");
 
-                        teleporter_out(0d23, 0d14);
-                        map_transition(bugmuck_cave_portal, teleporter, NONE);
+                        if(ROOM.STONE_MOVED) {
+                            teleporter_out(0d23, 0d14);
+                            map_transition(bugmuck_cave_portal, teleporter, NONE);
+                        }
                     },
                     exit_north = @install() {
                         debug_subtext("S=49");
@@ -29446,6 +29638,19 @@ area dungeon_volcano() {
                         // north
                         add_enemy(LIZARD, 0d50, 0d16);
                     }
+
+                    if!(ROOM.STONE_MOVED) {
+                        add_enemy(STONE_ROUND, 0d23, 0d15);
+                        
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            guard_levitate_stone(0d2);
+
+                            ROOM.STONE_MOVED = True;
+                        }));
+                    } else {
+                        add_heavy_stone(0d17, 0d17);
+                    }
+                    // add_palette_donor(<LAST_ENTITY>, 0d0);
 
                     init_room(0d6);
                     default_init_room(False, False);

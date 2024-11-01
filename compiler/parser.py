@@ -10,7 +10,7 @@ class Parser():
             # A list of all token names accepted by the parser.
             [
                 'VAL', 'VAR',
-                'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_ARG',
+                'T_NONE', 'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_ARG',
                 'IS', '!IS',
                 'SIGNED',
                 '..',
@@ -610,6 +610,7 @@ class Parser():
 
             return Deref(self.generator, expression, offset)
 
+        @self.pg.production('type : T_NONE')
         @self.pg.production('type : T_BYTE')
         @self.pg.production('type : T_WORD')
         @self.pg.production('type : T_MEMORY')

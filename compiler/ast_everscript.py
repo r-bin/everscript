@@ -29,6 +29,8 @@ class Is(Function_Base):
         is_type_of = False
         
         match self.type:
+            case "None":
+                is_type_of = value == None
             case "Word":
                 if value != None:
                     if isinstance(value, BinaryOp) and isinstance(value.left, Word) and isinstance(value.right, Word):
