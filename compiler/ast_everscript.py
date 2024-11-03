@@ -1706,6 +1706,14 @@ yy // linking required
 
 # unary operators
 
+class Alive(UnaryOp):
+    def _calculate(self, value:any, params:list[Param]):
+        code = []
+
+        code = value + [Operand("dead"), Operand("!")]
+
+        return code
+    
 class Dead(UnaryOp):
     def _calculate(self, value:any, params:list[Param]):
         code = []

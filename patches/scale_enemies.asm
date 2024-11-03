@@ -450,11 +450,11 @@ org !MEMORY_TABLE_ATTACK
   dw #10, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; ""(spark) (75) = 32
   %default_stats(86) ; "Timberdrake" (76) = 86
   %default_stats(71) ; "Sterling" (77) = 71
-  %default_stats(55) ; "FootKnight" (78) = 55
+  dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "FootKnight" (78) = 55
   %default_stats(0) ; "Verminator" (79) = 0
   %default_stats(30) ; "Rat" (80) = 30
   %default_stats(35) ; "Rat" (81) = 35
-  %default_stats(53) ; "Vigor" (82) = 53
+  dw #15, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Vigor" (82) = 53
   %default_stats(0) ; "Rimsala" (83) = 0
   %default_stats(40) ; "Rimsala" (84) = 40
   %default_stats(145) ; "Rimsala" (85) = 145
@@ -544,11 +544,11 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(0) ; ""(spark) (75) = 0
   %default_stats(120) ; "Timberdrake" (76) = 120
   %default_stats(160) ; "Sterling" (77) = 160
-  %default_stats(200) ; "FootKnight" (78) = 200
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "FootKnight" (78) = 200
   %default_stats(0) ; "Verminator" (79) = 0
   %default_stats(120) ; "Rat" (80) = 120
   %default_stats(120) ; "Rat" (81) = 120
-  %default_stats(100) ; "Vigor" (82) = 100
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Vigor" (82) = 100
   %default_stats(0) ; "Rimsala" (83) = 0
   %default_stats(80) ; "Rimsala" (84) = 80
   %default_stats(80) ; "Rimsala" (85) = 80
