@@ -88,6 +88,9 @@ class Parser():
 
             # unary operators
             "dead": (lambda p: Dead(p[2][0])),
+            "_dead": (lambda p: Alive(p[2][0])),
+            "alive": (lambda p: Alive(p[2][0])),
+            "_alive": (lambda p: Dead(p[2][0])),
             "rand": (lambda p: Rand(p[2][0])),
             "randrange": (lambda p: RandRange(p[2][0])),
         }
