@@ -32,6 +32,7 @@
     "menu_close",
     "five_status_effects_fix(!ROM_EXTENSION=$FE7000)",
     "scale_enemies(!ROM_EXTENSION=$FE8000, !WITH_DEBUG_PALETTE=0)",
+    "scale_boy(!BOY_HP_INCREMENT=3, !DOG_HP_INCREMENT=3)",
 )
 
 group non_maps() {
@@ -523,7 +524,7 @@ group non_maps() {
             REWARD_DOUBLE_THRAXX = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
             PROGRESS_DOUBLE_THRAXX = memory(FLAG, SRAM),
 
-            DEAD_UNNAMED_DESERT_TEMPLE_BOSS = memory(FLAG, SRAM), // TODO
+            DEAD_UNNAMED_DESERT_TEMPLE_BOSS = memory(FLAG, SRAM),
             REWARD_UNNAMED_DESERT_TEMPLE_BOSS = ITEM.NECTAR, // TODO
 
             ///////////////////////////////////////////////////////
@@ -2059,8 +2060,8 @@ group non_maps() {
     group souls_npcs() {
         group npc_shrine_maiden() {
             enum NPC_SHRINE_MAIDEN {
-                PROGRESS = memory(WORD, SRAM),
-                SUB_PROGRESS = memory(WORD, SRAM),
+                PROGRESS = memory(BYTE, SRAM),
+                SUB_PROGRESS = memory(BYTE, SRAM),
 
                 // ID = memory(WORD, SRAM),
                 BODY = ENEMY.FIRE_EYES,
@@ -2079,6 +2080,21 @@ group non_maps() {
                     dialog("[SLOW]If you find an Estus Shard, bring it to me.[LF]So that I may ease your burden.[B]");
                 }
 
+                fun upgrade_boy() {
+                    full_heal(BOTH, True);
+                    yield();
+                    
+                    _level_up(MEMORY.STRING_PARAMETER_1, 0d3);
+                    question("[SLOW]Level up for [MEM1] Souls?[CHOICE]yes…[CHOICE]no…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        level_up(BOY, 0d3);
+
+                        yield();
+                        MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+                    }
+                }
+
                 fun upgrade_estus() {
                     if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
                         question("[SLOW]estus upgrade?[CHOICE]yes[CHOICE]no");
@@ -2092,75 +2108,71 @@ group non_maps() {
                 }
 
                 @install()
-                fun shrine_maiden_triggered() {
-                    if(SOULS_MEMORY.ESTUS_SHARDS > 0d00) {
-                        greeting_estus_shard();
-                    } else {
-                        greeting_default();
-                    }
-
-                    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
-                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade…");
-                    } else {
-                        question("[SLOW]How can I help you?[CHOICE]talk…");
-                    }
-
-                    if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
-                        story_estus_shard();
-                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // upgrade
-                        upgrade_estus();
-                    }
-                }
-                @install()
                 fun shrine_maiden_triggered__first_bonfire() {
-                    if(NPC_SHRINE_MAIDEN.PROGRESS == 0x00) {
-                        if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x00) {
+                    if(NPC_SHRINE_MAIDEN.PROGRESS == 0d0) {
+                        if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d0) {
                             NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
                         
                             dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
-                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x01) {
+                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d1) {
                             NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
                         
                             dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
-                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x02) {
+                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d2) {
                             NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
                         
                             dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
                         } else {
                             dialog("[SLOW]Ignite the first bonfire.[B]");
                         }
-                    } else if(NPC_SHRINE_MAIDEN.PROGRESS == 0x01) {
+                    } else if(NPC_SHRINE_MAIDEN.PROGRESS >= 0d1) {
+                        NPC_SHRINE_MAIDEN.PROGRESS = 0d2;
+                        NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0d0;
+
                         dialog("[SLOW]Bearer of the curse, seek misery.[LF]For misery will lead you to greater, stronger souls.[LF]You will never meet the King with a soul so frail and pallid.[B]");
+                    }
+                }
+                @install()
+                fun shrine_maiden_triggered() {
+                    if(NPC_SHRINE_MAIDEN.PROGRESS == 0d2) {
+                        if(SOULS_MEMORY.ESTUS_SHARDS > 0d00) {
+                            greeting_estus_shard();
+                        } else {
+                            greeting_default();
+                        }
+
+                        if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
+                            question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…[CHOICE]upgrade…");
+                        } else {
+                            question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…");
+                        }
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                            story_estus_shard();
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // level up
+                            upgrade_boy();
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // upgrade
+                            upgrade_estus();
+                        }
                     }
                 }
             };
 
-            enum SHRINE_MAIDEN_VARIANT {
-                AUTO = 0x00,
-
-                FIRST_BONFIRE = 0x01,
-                DEFAULT = 0x02,
-            }
-
-            fun add_souls_npc_shrine_maiden(variant:SHRINE_MAIDEN_VARIANT, x, y) {
+            fun add_souls_npc_shrine_maiden(x, y) {
                 add_enemy(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
 
-                if(variant == SHRINE_MAIDEN_VARIANT.AUTO) {
-                    if(NPC_SHRINE_MAIDEN.PROGRESS < 0d01) {
-                        attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered__first_bonfire));
-                    } else {
-                        attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered));
-                    }
+                if(NPC_SHRINE_MAIDEN.PROGRESS < 0d2) {
+                    attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered__first_bonfire));
                 } else {
-                    nop();
+                    attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered));
                 }
             }
         };
 
         group npc_mario() {
             enum NPC_MARIO {
-                PROGRESS = memory(WORD, SRAM),
-                SUB_PROGRESS = memory(WORD, SRAM),
+                PROGRESS = memory(BYTE, SRAM),
+                SUB_PROGRESS = memory(BYTE, SRAM),
 
                 MARIO_TEASED = memory(FLAG, SRAM),
 
@@ -2887,7 +2899,7 @@ group non_maps() {
                 INSANITY = memory(BYTE, SRAM),
                 INSANITY_LIMIT = 0d100,
 
-                REPUTATION = memory(WORD, SRAM),
+                REPUTATION = memory(BYTE, SRAM),
                 REPUTATION_LIMIT = 0d10,
             }
 
@@ -3924,7 +3936,7 @@ area shrine_area() {
                 show_bonfires();
             }
 
-            add_souls_npc_shrine_maiden(AUTO, 0d71, 0d88);
+            add_souls_npc_shrine_maiden(0d71, 0d88);
             if(NPC_SMITH.PROGRESS == 0d0) {
                 add_door(0d37, 0d93, True); // smith
                 add_souls_npc_smith(0d42, 0d93);
@@ -9436,7 +9448,7 @@ area altus_plateau_entry() {
                     chest_east_3__1_roots = nop(), // east room 3
                     chest_west_1__1_wax = @install() { // west room 1
                         debug_subtext("B=15");
-                        _loot_chest(0x07, WAX, 0d01);
+                        _loot_chest(0x07, MUD_PEPPER, 0d01);
                     },
                     chest_x__1_water = @install() { // ???
                         debug_subtext("B=16");
@@ -16120,14 +16132,8 @@ area town() {
                 }
 
                 enum b_trigger {
-                    gourd_1__2_VINEGAR = @install() {
-                        debug_subtext("B=0");
-                        // _loot_chest(0x02, VINEGAR, 0d02);
-                    },
-                    gourd_2__1_NECTAR = @install() {
-                        debug_subtext("B=1");
-                        // _loot_chest(0x01, NECTAR, 0d01);
-                    },
+                    gourd_1__2_VINEGAR = nop(),
+                    gourd_2__1_NECTAR = nop(),
                 }
 
                 fun open_doors(open) {
@@ -16267,7 +16273,7 @@ area town() {
                 enum b_trigger {
                     gourd_2__3_brimstone = @install() {
                         debug_subtext("B=0");
-                        _loot_chest(0x08, BRIMSTONE, 0d03);
+                        _loot_chest(0x08, LIMESTONE_TABLET, 0d01);
                     },
                     gourd_1_2__1_nectar = @install() {
                         debug_subtext("B=1");
@@ -16767,12 +16773,12 @@ area town() {
                     gourd_1__2_VINEGAR = @install() {
                         debug_subtext("B=0");
                         
-                        _loot_chest(0x02, VINEGAR, 0d02);
+                        _loot_chest(0x02, LIMESTONE_TABLET, 0d01);
                     },
                     gourd_2__1_NECTAR = @install() {
                         debug_subtext("B=1");
                         
-                        _loot_chest(0x01, NECTAR, 0d01);
+                        _loot_chest(0x01, MUD_PEPPER, 0d01);
                     },
                 }
 
@@ -21029,11 +21035,11 @@ area desert_bug() {
             },
             gourd__glove_1_2 = @install() {
                 debug_subtext("B=1");
-                _loot_chest(0x0c, GLOVE_1_2, 0d01);
+                _loot_chest(0x0c, JEWELED_SCARAB, 0d01);
             },
             gourd__1_petal = @install() {
                 debug_subtext("B=2");
-                _loot_chest(0x0b, PETAL, 0d01);
+                _loot_chest(0x0b, JEWELED_SCARAB, 0d01);
             },
             gourd__4_water = @install() {
                 debug_subtext("B=3");
@@ -21045,7 +21051,7 @@ area desert_bug() {
             },
             gourd__1_biscuit = @install() {
                 debug_subtext("B=5");
-                _loot_chest(0x07, BISCUIT, 0d01);
+                _loot_chest(0x07, JEWELED_SCARAB, 0d01);
             },
             gourd__1_clay = @install() {
                 debug_subtext("B=6");
@@ -21053,7 +21059,7 @@ area desert_bug() {
             },
             gourd__1_petal = @install() {
                 debug_subtext("B=7");
-                _loot_chest(0x06, PETAL, 0d01);
+                _loot_chest(0x06, JEWELED_SCARAB, 0d01);
             },
             sniff__1_oil = @install() {
                 debug_subtext("B=8");
@@ -23546,7 +23552,7 @@ area desert_bug() {
                 enum b_trigger {
                     gourd_north__4_wax = @install() {
                         debug_subtext("B=0");
-                        _loot_chest(0x0d, WAX, 0d04);
+                        _loot_chest(0x0d, LIMESTONE_TABLET, 0d01);
                     },
                     gourd_center__6_ash = @install() {
                         debug_subtext("B=1");
@@ -23554,11 +23560,11 @@ area desert_bug() {
                     },
                     gourd_alchemist_2__5_wax = @install() {
                         debug_subtext("B=2");
-                        _loot_chest(0x0b, WAX, 0d05);
+                        _loot_chest(0x0b, LIMESTONE_TABLET, 0d01);
                     },
                     gourd_alchemist_1__4_brimstone = @install() {
                         debug_subtext("B=3");
-                        _loot_chest(0x0a, BRIMSTONE, 0d04);
+                        _loot_chest(0x0a, LIMESTONE_TABLET, 0d01);
                     },
                     bridge_switch = @install() {
                         debug_subtext("B=4");
@@ -30806,7 +30812,7 @@ area dungeon_volcano() {
                     },
                     gourd__3_ash = @install() {
                         debug_subtext("B=8");
-                        _loot_chest(0x00, ASH, 0d03);
+                        _loot_chest(0x00, MUD_PEPPER, 0d01);
                     },
                     gourd_alchemist_hidden_2__5_wax = nop(),
                     gourd_alchemist_hidden_1__6_water = nop(),

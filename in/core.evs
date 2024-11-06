@@ -445,6 +445,12 @@ group general_enums() {
         }
 
         enum MEMORY {
+            // boy
+            BOY_MAX_HP = <0x0a35>,
+
+            // dog
+            DOG_MAX_HP = <0x0a7f>,
+
             // currency
             TALONS = <0x0ac6>,
             JEWELS = <0x0ac9>,
@@ -4285,6 +4291,9 @@ group functions() {
         };
 
         group sprite() {
+            fun animate_boy(mode:ANIMATION_MODE, id:ANIMATION_BOY) {
+                code(0x78, entity_t(CHARACTER.BOY), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+            }
             fun animate(character:CHARACTER, mode:ANIMATION_MODE, id:ANIMATION_ALL) {
                 code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
             }
@@ -6672,6 +6681,59 @@ group functions() {
                         MEMORY.STRING_PARAMETER_1 = out_type;
                         debug_subtext("unknown item #[MEM1]");
                     }
+                }
+            }
+        };
+
+        group level_up() {
+            fun _level_up(memory, hp_per_level) {
+                if(False) {
+                    memory = (<0x23e5>[0x0f] - 0d30) / hp_per_level + 0d1;
+                } else {
+                    memory = (<BOY>[HP] - 0d30) / hp_per_level + 0d1;
+                }
+
+                if(FLAG.CHOCOBO_EGG && (memory > 0d5)) {
+                    memory -= 0d5;
+                }
+
+                memory *= 0d500;
+            }
+
+            @install()
+            @weak()
+            fun level_up(character:CHARACTER, hp_per_level) {
+                if!(hp_per_level) {
+                    hp_per_level = 0d9;
+                }
+
+                _level_up(arg[0x10], hp_per_level); // calculate MEMORY.BOY_LEVEL
+                
+                item_pay(MONEY, arg[0x10], False);
+
+                if(False) {
+                    debug_memory(CUSTOM_MEMORY.RETURN, arg[0x10]);
+                }
+
+                if(CUSTOM_MEMORY.RETURN) {
+                    if((character == CHARACTER.BOY) || (character == CHARACTER.BOTH)) {
+                        MEMORY.BOY_XP_REQUIRED = 0d1;
+                    }
+
+                    if((character == CHARACTER.DOG) || (character == CHARACTER.BOTH)) {
+                        MEMORY.DOG_XP_REQUIRED = 0d1;
+                    }
+
+                    _add_enemy(ENEMY.MOSQUITO, <ACTIVE>[X], <ACTIVE>[Y], INACTIVE_INVISIBLE);
+                    attach_to_script(LAST_ENTITY);
+                    attribute(SCRIPT_OWNER, MUTE, True);
+
+                    damage(SCRIPT_OWNER, 0x03e8, False);
+                    teleport(SCRIPT_OWNER, 0d0, 0d0);
+                    
+                    sleep(0d60);
+
+                    destroy(SCRIPT_OWNER);
                 }
             }
         };
