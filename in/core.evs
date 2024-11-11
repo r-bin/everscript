@@ -1254,7 +1254,7 @@ group general_enums() {
                 ACT4_SWITCH = 0x9c,
                 UNKNOWN_ALCHEMY_9 = 0x9e, // not alchemy?
 
-                ACT4_DOOR_OPENING = 0xb2, // used: boss rush fan pushing
+                ACT4_DOOR_OPENING = 0xb0, // used: boss rush fan pushing
                 FAN_ACTIVATED = 0xb2, // used: boss rush fan pushing
                 CLICKING = 0xc6,
 
@@ -7352,6 +7352,64 @@ group functions() {
             }
         };
 
+        group act_4() {
+            @install()
+            @async()
+            fun door_act4_beam_in() {
+                control(NONE);
+
+                <ACTIVE>[X] -= 0d8;
+                <INACTIVE>[X] += 0d8;
+
+                arg[0x10] = 0x0400;
+
+                while(arg[0x10] > 0d0) {
+                    <ACTIVE>[Z] = arg[0x10];
+                    <INACTIVE>[Z] = arg[0x10];
+
+                    yield();
+
+                    arg[0x10] -= 0x10;
+                }
+
+                walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, NONE, NONE);
+                walk(INACTIVE, TILE_RELATIVE, 0d0, 0d1, BOTH, BOTH);
+            }
+
+            @install()
+            @async()
+            fun _door_act4_beam_out(z) {
+                while(True) {
+                    z += 0x10;
+
+                    <ACTIVE>[Z] = z;
+                    <INACTIVE>[Z] = z;
+                    
+                    yield();
+                }
+            }
+            @install()
+            fun door_act4_beam_out(x, y) {
+                control(NONE);
+
+                walk(ACTIVE, TILE_ABSOLUTE, x - 0d1, y, NONE, NONE);
+                walk(INACTIVE, TILE_ABSOLUTE, x + 0d1, y, BOTH, NONE);
+
+                walk(INACTIVE, COORDINATE_ABSOLUTE, <ACTIVE>[X] - 0d8, <ACTIVE>[Y], INACTIVE, NONE);
+
+                while(arg[0x10] < 0x470) {
+                    <ACTIVE>[Z] = arg[0x10];
+                    <INACTIVE>[Z] = arg[0x10];
+
+                    yield();
+
+                    arg[0x10] += 0x10;
+                }
+
+                _door_act4_beam_out(arg[0x10]);
+            }
+        };
+
         fun fake_loot() {
             animate(BOY, ONCE, ANIMATION_BOY.LOOT);
             sleep(0d15);
@@ -8049,7 +8107,7 @@ group functions() {
             }
         }
 
-        fun door_act4_airlock(x, y, door) {
+        fun door_act4_airlock_out(x, y, door) {
             control(NONE);
 
             walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, ACTIVE);
@@ -8057,7 +8115,7 @@ group functions() {
 
             face(ACTIVE, SOUTH);
             door = 0x7e;
-            sound(0xb0);
+            sound(ACT4_DOOR_OPENING);
 
             sleep(0x14);
 
@@ -8068,34 +8126,38 @@ group functions() {
             }
 
             door = 0x00;
-            sound(0xb0);
+            sound(ACT4_DOOR_OPENING);
 
             sleep(0x10);
         }
         @install()
         @weak()
         @async()
-        fun door_act4_airlock_reverse(x, y, door) {
+        fun door_act4_airlock_in(door) {
             control(NONE);
             face(ACTIVE, SOUTH);
+            face(INACTIVE, SOUTH);
 
             arg[0x10] = <ACTIVE>[Y];
             <ACTIVE>[Y] += 0d40;
+            <INACTIVE>[Y] += 0d40;
 
             object[door] = 0x7e;
-            sound(0xb0);
+            sound(ACT4_DOOR_OPENING);
 
             sleep(0x14);
 
             while(<ACTIVE>[Y] > arg[0x10]) {
-                <ACTIVE>[Y] -= 0x02;
+                <ACTIVE>[Y] -= 0d2;
+                <INACTIVE>[Y] -= 0d2;
+
                 yield();
             }
 
             sleep(0x10);
 
             object[door] = 0x00;
-            sound(0xb0);
+            sound(ACT4_DOOR_OPENING);
 
             control(BOTH);
         }
