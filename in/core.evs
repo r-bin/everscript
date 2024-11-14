@@ -7356,6 +7356,90 @@ group functions() {
 
         group act_4() {
             @install()
+            fun door_act4_airlock_out(x, y, door_id, wait_for_inactive) {
+                control(NONE);
+
+                if!(wait_for_inactive) {
+                    walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, ACTIVE, NONE);
+
+                    face(ACTIVE, SOUTH);
+                } else {
+                    walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, NONE, NONE);
+                    walk(INACTIVE, TILE_ABSOLUTE_DIRECT, x, y, NONE, NONE);
+                    // walk(ACTIVE, COORDINATE_ABSOLUTE, (x << 0d0003) - 0d8, y << 0d0003, NONE, NONE);
+                    // walk(INACTIVE, COORDINATE_ABSOLUTE, (x << 0d0003) + 0d8, y << 0d0003, NONE, NONE);
+
+                    wait(ACTIVE);
+                    face(ACTIVE, SOUTH);
+                    yield();
+
+                    wait(INACTIVE);
+                    face(INACTIVE, SOUTH);
+
+                    set_camera(TILE_CENTER, x, y, 0x18);
+                }
+
+                object[door_id] = 0x7e;
+                sound(ACT4_DOOR_OPENING);
+
+                sleep(0d20);
+
+                arg[0x00] = <ACTIVE>[Y] + 0d40;
+                while(<ACTIVE>[Y] < arg[0x00]) {
+                    <ACTIVE>[Y] += 0x02;
+                    if(wait_for_inactive) {
+                        <INACTIVE>[Y] += 0x02;
+                    }
+                    yield();
+                }
+
+                animate(ACTIVE, ONCE_FREEZE, INVISIBLE);
+                animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+
+                object[door_id] = 0x00;
+                sound(ACT4_DOOR_OPENING);
+
+                sleep(0d16);
+            }
+            @install()
+            @weak()
+            @async()
+            fun door_act4_airlock_in(door_id) {
+                control(NONE);
+                face(ACTIVE, SOUTH);
+                face(INACTIVE, SOUTH);
+
+                arg[0x10] = <ACTIVE>[Y];
+                <ACTIVE>[Y] += 0d40;
+                <INACTIVE>[Y] += 0d40;
+
+                animate(ACTIVE, ONCE_FREEZE, INVISIBLE);
+                animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+
+                object[door_id] = 0x7e;
+                sound(ACT4_DOOR_OPENING);
+
+                sleep(0d20);
+
+                animate(ACTIVE, ONCE_FREEZE, DEFAULT);
+                animate(INACTIVE, ONCE_FREEZE, DEFAULT);
+
+                while(<ACTIVE>[Y] > arg[0x10]) {
+                    <ACTIVE>[Y] -= 0d2;
+                    <INACTIVE>[Y] -= 0d2;
+
+                    yield();
+                }
+
+                sleep(0d16);
+
+                object[door_id] = 0x00;
+                sound(ACT4_DOOR_OPENING);
+
+                control(BOTH);
+            }
+            
+            @install()
             @async()
             fun door_act4_beam_in() {
                 control(NONE);
@@ -7409,6 +7493,14 @@ group functions() {
                 }
 
                 _door_act4_beam_out(arg[0x10]);
+            }
+
+            fun door_act4_passage(object_id, flag) {
+                if!(flag) {
+                    sound(ACT4_DOOR_OPENING);
+
+                    object[object_id] = 0x7e;
+                }
             }
 
             @install()
@@ -8120,61 +8212,6 @@ group functions() {
                     animate(DOG, ONCE, ANIMATION_DOG.ACT3_SIT);
                 }
             }
-        }
-
-        fun door_act4_airlock_out(x, y, door) {
-            control(NONE);
-
-            walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, ACTIVE);
-            control(NONE);
-
-            face(ACTIVE, SOUTH);
-            door = 0x7e;
-            sound(ACT4_DOOR_OPENING);
-
-            sleep(0x14);
-
-            arg[0x00] = <ACTIVE>[Y] + 0d40;
-            while(<ACTIVE>[Y] < arg[0x00]) {
-                <ACTIVE>[Y] += 0x02;
-                yield();
-            }
-
-            door = 0x00;
-            sound(ACT4_DOOR_OPENING);
-
-            sleep(0x10);
-        }
-        @install()
-        @weak()
-        @async()
-        fun door_act4_airlock_in(door) {
-            control(NONE);
-            face(ACTIVE, SOUTH);
-            face(INACTIVE, SOUTH);
-
-            arg[0x10] = <ACTIVE>[Y];
-            <ACTIVE>[Y] += 0d40;
-            <INACTIVE>[Y] += 0d40;
-
-            object[door] = 0x7e;
-            sound(ACT4_DOOR_OPENING);
-
-            sleep(0x14);
-
-            while(<ACTIVE>[Y] > arg[0x10]) {
-                <ACTIVE>[Y] -= 0d2;
-                <INACTIVE>[Y] -= 0d2;
-
-                yield();
-            }
-
-            sleep(0x10);
-
-            object[door] = 0x00;
-            sound(ACT4_DOOR_OPENING);
-
-            control(BOTH);
         }
 
         @install()
