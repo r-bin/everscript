@@ -5141,27 +5141,45 @@ map metro(OMNITOPIA_METROPLEX) {
 
 map shopping_district(OMNITOPIA_SHOPPING) {
     enum entrance {
-        test = entrance(0x10, 0x10, NONE),
+        east = entrance(0d110, 0d19, NONE, { door_act4_beam_in(); }),
+        west = entrance(0d10, 0d81, NONE, { door_act4_beam_in(); }),
+    }
+
+    enum ROOM {
+        DOOR_PASSAGE_SOUTH_OPEN = memory(FLAG, TEMP),
+        DOOR_PASSAGE_NORTH_OPEN = memory(FLAG, TEMP),
     }
 
     enum stepon_trigger {
         exit_west = @install() {
             debug_subtext("S=0");
+
+            door_act4_beam_out(0d10, 0d81);
         },
         exit_east = @install() {
             debug_subtext("S=1");
+
+            door_act4_beam_out(0d110, 0d19);
         },
-        door_1_1 = @install() {
+        door_passage_south_south = @install() {
             debug_subtext("S=2");
+
+            door_act4_passage(0x01, ROOM.DOOR_PASSAGE_SOUTH_OPEN);
         },
-        door_1_2 = @install() {
+        door_passage_south_north = @install() {
             debug_subtext("S=3");
+
+            door_act4_passage(0x01, ROOM.DOOR_PASSAGE_SOUTH_OPEN);
         },
-        door_2_1 = @install() {
+        door_passage_north_south = @install() {
             debug_subtext("S=4");
+
+            door_act4_passage(0x00, ROOM.DOOR_PASSAGE_NORTH_OPEN);
         },
-        door_2_2 = @install() {
+        door_passage_north_north = @install() {
             debug_subtext("S=5");
+
+            door_act4_passage(0x00, ROOM.DOOR_PASSAGE_NORTH_OPEN);
         },
         inn = @install() {
             debug_subtext("S=6");
@@ -5181,8 +5199,8 @@ map shopping_district(OMNITOPIA_SHOPPING) {
     }
 
     fun trigger_enter() {
-        // object[0x00] = 0x7e; // open door_2
-        // object[0x01] = 0x7e; // open door_1
+        // object[0x00] = 0x7e; // open door_passage_north
+        // object[0x01] = 0x7e; // open door_passage_south
         // object[0x02] = 0x7e; // open shop_1
         // object[0x03] = 0x7e; // open shop_2
         // object[0x04] = 0x7e; // open shop_3
@@ -5201,6 +5219,35 @@ map reactor_room(OMNITOPIA_REACTOR) {
 
     enum ROOM {
         VENTILATION_ON = False,
+
+        SWITCH = memory(FLAG, TEMP),
+    }
+
+    fun update_switch() {
+        if(ROOM.SWITCH) {
+            object[0x1e] = 0x01; // toggle lever
+
+            object[0x13] = 0x01; // activate machine_top_1
+
+            object[0x1a] = 0x01; // activate machine_top_8
+            object[0x1b] = 0x01; // activate machine_front_1
+            object[0x1c] = 0x01; // activate machine_front_2
+            object[0x1d] = 0x01; // activate machine_front_3
+        } else {
+            object[0x1e] = 0x00; // toggle lever
+
+            object[0x13] = 0x00; // activate machine_top_1
+
+            object[0x1a] = 0x00; // activate machine_top_8
+            object[0x1b] = 0x00; // activate machine_front_1
+            object[0x1c] = 0x00; // activate machine_front_2
+            object[0x1d] = 0x00; // activate machine_front_3
+        }
+    }
+    fun toggle_switch() {
+        ROOM.SWITCH = !ROOM.SWITCH;
+
+        update_switch(ROOM.SWITCH);
     }
 
     enum stepon_trigger {
@@ -5343,13 +5390,16 @@ map reactor_room(OMNITOPIA_REACTOR) {
         heater_4_1_2_north = @install() {
             debug_subtext("S=27");
 
-            act4_heater_touched(SOUTH);
+            // act4_heater_touched(SOUTH);
+            act4_heater_touched(NONE);
         },
     }
 
     enum b_trigger {
         lever = @install() {
             debug_subtext("B=0");
+
+            toggle_switch();
         },
         gourd = @install() {
             debug_subtext("B=1");
@@ -5368,7 +5418,25 @@ map reactor_room(OMNITOPIA_REACTOR) {
         // object[0x08] = 0x01; // deactivate heater_3_4
         // object[0x09] = 0x01; // deactivate heater_4_1
         // object[0x0a] = 0x01; // deactivate heater_4_2
-        // b-1d ?
+        // object[0x0b] = 0x01; // activate fan_heater_1
+        // object[0x0c] = 0x01; // activate fan_heater_2
+        // object[0x0d] = 0x01; // activate fan_heater_3
+        // object[0x0e] = 0x01; // activate fan_heater_4
+        // object[0x0f] = 0x01; // activate fan_lever_1
+        // object[0x10] = 0x01; // activate fan_lever_2
+        // object[0x11] = 0x01; // activate fan_lever_3
+        // object[0x12] = 0x01; // activate fan_lever_4
+        // object[0x13] = 0x01; // activate machine_top_1
+        // object[0x14] = 0x01; // activate machine_top_2
+        // object[0x15] = 0x01; // activate machine_top_3
+        // object[0x16] = 0x01; // activate machine_top_4
+        // object[0x17] = 0x01; // activate machine_top_5
+        // object[0x18] = 0x01; // activate machine_top_6
+        // object[0x19] = 0x01; // activate machine_top_7
+        // object[0x1a] = 0x01; // activate machine_top_8
+        // object[0x1b] = 0x01; // activate machine_front_1
+        // object[0x1c] = 0x01; // activate machine_front_2
+        // object[0x1d] = 0x01; // activate machine_front_3
         // object[0x1e] = 0x01; // toggle lever
         // object[0x1f] = 0x01; // loot gourd
 
@@ -5378,12 +5446,14 @@ map reactor_room(OMNITOPIA_REACTOR) {
 
 map control_room(OMNITOPIA_CONTROL) {
     enum entrance {
-        north = entrance(0x1c, 0x0a, NONE),
-        east = entrance(0x54, 0x12, NONE),
+        north = entrance(0x1c, 0x0a, NONE, { door_act4_airlock_in(); }),
+        east = entrance(0x54, 0x12, NONE, { door_act4_beam_in(); }),
     }
 
     enum stepon_trigger {
         exit_east = @install() {
+            door_act4_beam_out(0d85, 0d19);
+
             debug_subtext("S=0");
         },
     }
@@ -5412,7 +5482,7 @@ map control_room(OMNITOPIA_CONTROL) {
     fun trigger_enter() {
         // object[0x00] = 0x01; // toggle lever_1
         // object[0x01] = 0x01; // toggle lever_2
-        // object[0x02] = 0x7e; // change layout_hidden_door (?)
+        // object[0x02] = 0x7e; // change layout_hidden_door (0-9 = open space, 10-12 = open door)
         // object[0x03] = 0x01; // toggle lever_3_1
         // object[0x04] = 0x01; // toggle lever_3_2
         // object[0x05] = 0x01; // toggle lever_3_3
@@ -5559,6 +5629,10 @@ map storage_room(OMNITOPIA_STORAGE) {
         fade_in();
 
         objects.gourd_2_1 = OBJECT_GOURD_ACT4.LOOTED;
+
+        if(False) {
+            MEMORY.MAP_PALETTE = MAP_PALETTE.STORAGE_ROOM_DARK;
+        }
     }
 };
 
@@ -5610,6 +5684,8 @@ map professors_lab(OMNITOPIA_PROFESSOR) {
     enum b_trigger {
         gourd = @install() {
             debug_subtext("B=0");
+
+            // _loot_chest(0x01, SPEAR_4, 0d01);
         },
         door_north = @install() {
             debug_subtext("B=1");
@@ -5623,6 +5699,37 @@ map professors_lab(OMNITOPIA_PROFESSOR) {
 
     fun trigger_enter() {
         fade_in();
+
+        // objects[0x00] = 0x7e; // open door_passage_south
+        // objects[0x01] = 0x7e; // open gourd
+        // objects[0x02] = 0x7e; // open door_floor_left
+        // objects[0x03] = 0x7e; // open door_floor_left
+        // objects[0x04] = 0x7e; // open door_passage_north
+
+        // objects[0x05] = 0x01; // remove machine_wood_west
+        // objects[0x06] = 0x01; // remove machine_wood_south
+        // objects[0x07] = 0x01; // remove machine_wood_east
+        // objects[0x08] = 0x02; // change vent_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x09] = 0x02; // change vent_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x0a] = 0x02; // change vent_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x0b] = 0x02; // change vent_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x0c] = 0x01; // activate bulb_left
+        // objects[0x0d] = 0x01; // activate bulb_right
+        // objects[0x0e] = 0x01; // activate lights_right
+        // objects[0x0f] = 0x02; // change vent_floor_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x10] = 0x02; // change vent_floor_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x11] = 0x02; // change vent_floor_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x12] = 0x02; // change vent_floor_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // objects[0x13] = 0x01; // hide leaves_1
+        // objects[0x14] = 0x01; // hide leaves_2
+        // objects[0x15] = 0x01; // hide leaves_3
+        // objects[0x16] = 0x01; // hide leaves_4
+        // objects[0x17] = 0x01; // change machine_1 (0 = brown, 1 = grey)
+        // objects[0x18] = 0x01; // change machine_2 (0 = brown, 1 = grey)
+        // objects[0x19] = 0x01; // activate lights_left
+
+        // objects[0x1a] = 0x7e; // open door_north
+        // objects[0x1b] = 0x7e; // activate switch
     }
 };
 
@@ -5669,37 +5776,6 @@ map carltron(CARLTRON) {
 
     fun trigger_enter() {
         fade_in();
-
-        // objects[0x00] = 0x7e; // open door_passage_south
-        // objects[0x01] = 0x7e; // open gourd
-        // objects[0x02] = 0x7e; // open door_floor_left
-        // objects[0x03] = 0x7e; // open door_floor_left
-        // objects[0x04] = 0x7e; // open door_passage_north
-
-        // objects[0x05] = 0x01; // remove machine_wood_west
-        // objects[0x06] = 0x01; // remove machine_wood_south
-        // objects[0x07] = 0x01; // remove machine_wood_east
-        // objects[0x08] = 0x02; // change vent_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x09] = 0x02; // change vent_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x0a] = 0x02; // change vent_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x0b] = 0x02; // change vent_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x0c] = 0x01; // activate bulb_left
-        // objects[0x0d] = 0x01; // activate bulb_right
-        // objects[0x0e] = 0x01; // activate lights_right
-        // objects[0x0f] = 0x02; // change vent_floor_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x10] = 0x02; // change vent_floor_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x11] = 0x02; // change vent_floor_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x12] = 0x02; // change vent_floor_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
-        // objects[0x13] = 0x01; // hide leaves_1
-        // objects[0x14] = 0x01; // hide leaves_2
-        // objects[0x15] = 0x01; // hide leaves_3
-        // objects[0x16] = 0x01; // hide leaves_4
-        // objects[0x17] = 0x01; // change machine_1 (0 = brown, 1 = grey)
-        // objects[0x18] = 0x01; // change machine_2 (0 = brown, 1 = grey)
-        // objects[0x19] = 0x01; // activate lights_left
-
-        // objects[0x1a] = 0x7e; // open door_north
-        // objects[0x1b] = 0x7e; // activate switch
     }
 };
 
