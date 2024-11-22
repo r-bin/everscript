@@ -1880,7 +1880,7 @@ group non_maps() {
 
                 // return_to_bonfire();
                 
-                map_transition(metro, door_b3, NONE);
+                map_transition(metro, door_d1, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -22870,7 +22870,10 @@ area desert_bug() {
                 fun thraxx_trigger() {
                     // <SCRIPT_OWNER>[GENERAL_PURPOSE]++;
 
-                    MEMORY.MAP_PALETTE = 0x00;
+                    MEMORY.MAP_PALETTE = MAP_PALETTE.THRAXX_ORANGE;
+
+                    animate(BOSS.ARM_LEFT_ID, ONCE, DEFAULT);
+                    animate(BOSS.ARM_RIGHT_ID, ONCE, DEFAULT);
 
                     BOSS.ARM_LEFT_2_ID[X] = 0d00;
                     BOSS.ARM_LEFT_2_ID[Y] = 0d00;
@@ -22894,7 +22897,10 @@ area desert_bug() {
                 fun thraxx2_trigger() {
                     // <SCRIPT_OWNER>[GENERAL_PURPOSE]++;
 
-                    MEMORY.MAP_PALETTE = 0x07;
+                    MEMORY.MAP_PALETTE = MAP_PALETTE.THRAXX_WHITE;
+
+                    animate(BOSS.ARM_LEFT_2_ID, ONCE, DEFAULT);
+                    animate(BOSS.ARM_RIGHT_2_ID, ONCE, DEFAULT);
                     
                     BOSS.ARM_LEFT_ID[X] = 0d00;
                     BOSS.ARM_LEFT_ID[Y] = 0d00;
@@ -22962,6 +22968,57 @@ area desert_bug() {
                         BOSS.CAGE_OPEN_TIMER = 0d200;
                     }
                 }
+
+                fun throw_rock(entity) {
+                    animate(entity, ONCE, DEFAULT);
+                    animate(entity, ONCE, SLASH_1_3);
+                    sleep(0d25);
+                }
+
+                @install()
+                @async()
+                fun boss_tracker() {
+                    while(True) {
+                        sleep(0d300);
+
+                        arg[0x10] = randrange(0d3);
+                        debug_memory(arg[0x10], MEMORY.MAP_PALETTE);
+
+                        if(arg[0x10] == 0d0) {
+                            arg[0x12] = 0d20;
+
+                            while(arg[0x12] > 0d0) {
+                                arg[0x12]--;
+                                
+                                if(MEMORY.MAP_PALETTE != MAP_PALETTE.THRAXX_WHITE) {
+                                    throw_rock(BOSS.ARM_LEFT_ID);
+
+                                    shoot_entity_offset_relative(BOSS.ARM_LEFT_ID, ONION, -0d50, 0d10, randrange(0d100) - 0d20, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                } else {
+                                    throw_rock(BOSS.ARM_LEFT_2_ID);
+
+                                    shoot_entity_offset_relative(BOSS.ARM_LEFT_2_ID, ROCK, -0d50, 0d10, randrange(0d100) - 0d20, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                }
+                            }
+                        } else if(arg[0x10] == 0d1) {
+                            arg[0x12] = 0d20;
+
+                            while(arg[0x12] > 0d0) {
+                                arg[0x12]--;
+                                
+                                if(MEMORY.MAP_PALETTE != MAP_PALETTE.THRAXX_WHITE) {
+                                    throw_rock(BOSS.ARM_RIGHT_ID);
+
+                                    shoot_entity_offset_relative(BOSS.ARM_RIGHT_ID, ONION, 0d50, 0d10, randrange(0d100) - 0d120, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                } else {
+                                    throw_rock(BOSS.ARM_RIGHT_2_ID);
+
+                                    shoot_entity_offset_relative(BOSS.ARM_RIGHT_2_ID, ROCK, 0d50, 0d10, randrange(0d100) - 0d120, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 fun add_boss() {
                     show_thraxx(True);
@@ -22993,6 +23050,8 @@ area desert_bug() {
 
                     // sleep(0d30);
                     // debug_memory(BOSS.HEART_ID[GENERAL_PURPOSE], BOSS.HEART_2_ID[GENERAL_PURPOSE]);
+                    
+                    boss_tracker();
                 }
             };
 
@@ -24408,12 +24467,25 @@ area metro() {
             }
 
             if!(dead(entity)) {
-                damage(ANIMATION_ENEMY.GATE_BOT_DEAD, 0d999, False);
+                damage(entity, 0d999, False);
+            }
+        }
+        @install()
+        fun gate_bot_killed() {
+            <SCRIPT_OWNER>[Y] += 0d8;
 
-                animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
-                // attribute(entity, INVINCIBLE_TEMP, True);
+            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+        }
+        fun add_gate_bot(id, x, y, condition, object_door) {
+            add_enemy(GATE_BOT, x, y);
+            <LAST_ENTITY>[Z_LEVEL] = 0d0;
+            <LAST_ENTITY>[HP] = 0d200;
+            id = <LAST_ENTITY>;
+            attach_script(LAST_ENTITY, DEATH, reference(gate_bot_killed));
 
-                entity[Y] += 0d8;
+            if(condition) {
+                destroy_gate_bot(<LAST_ENTITY>);
+                object[object_door] = 0x7e;
             }
         }
 
@@ -24792,20 +24864,8 @@ area metro() {
             b_trigger_52 = @install() {
                 debug_subtext("B=52");
             },
-        }
-        
+        }        
 
-        fun add_gate_bot(id, x, y, condition, object_door) {
-            add_enemy(GATE_BOT, x, y);
-            <LAST_ENTITY>[Z_LEVEL] = 0d0;
-            id = <LAST_ENTITY>;
-
-            if(condition) {
-                destroy_gate_bot(<LAST_ENTITY>);
-                object[object_door] = 0x7e;
-            }
-        }
-        
         fun trigger_enter() {
             fade_in();
 

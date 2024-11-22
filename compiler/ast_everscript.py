@@ -1839,14 +1839,15 @@ class Reference(Function_Base):
     def __repr__(self):
         return f"Reference(name={self.name}, value={self.value})"
     
-    def update_reference(self, name:str):
+    def update_reference(self, name:str, runtime:bool=False):
         if not self.value:
             self.value = self._generator.get_function(name, self._scope)
-            if self.value and self.value.install and not self.value.weak:
-                self._generator.reference_function(self.value)
+
+        if self.value and self.value.install and (runtime or not self.value.weak):
+            self._generator.reference_function(self.value)
 
     def eval(self, params:list[Param]):
-        self.update_reference(self.name)
+        self.update_reference(self.name, runtime=True)
 
         match self.value:
             case Function():
@@ -1859,7 +1860,7 @@ class Reference(Function_Base):
                 return index
             case None:
                 self._value_count = 2
-                self.update_reference(self.name)
+                self.update_reference(self.name, runtime=True)
 
                 return 0xffff
             case _:
