@@ -509,7 +509,7 @@ group general_enums() {
 
             // weapons
             GAIN_WEAPON = <0x2441>,
-            CURRENT_WEAPON = (Byte) <0x235F>,
+            CURRENT_WEAPON = (Byte) <0x235F>, // see WEAPON_INDEX
             CURRENT_WEAPON_TYPE = (Byte) <0x2360>, // see WEAPON_TYPE
 
             // vendor
@@ -2157,7 +2157,7 @@ group general_enums() {
                 SPEAR = 0x04,
                 MISSILE_2 = 0x06,
                 LIGHTNING_BALL = 0x08, // salabog
-                BIDENT = 0x0a, // vigor
+                BIDENT = 0x0a, // direction: EAST, WEST, usage: vigor
                 BOOMERANG = 0x0c, // vigor
 
                 ONION = 0x0e,
@@ -2167,8 +2167,8 @@ group general_enums() {
                 CITRON = 0x16,
                 ROCK = 0x18,
 
-                LIGHTNING = 0x1a, // no damage
-                BOMB_EXPLOSION = 0x1c, // piercing
+                LIGHTNING = 0x1a, // no damage, usage: evermore machine, aegis, metal magmar
+                BOMB_EXPLOSION = 0x1c, // piercing, usage: bombs, carltron
                 MISSILE = 0x1e, // carltron
                 // CRASH: 20, 22, …
             }
@@ -2605,6 +2605,10 @@ group general_enums() {
                 SPEAR_4 = 0x18, // "Laser Lance"
 
                 BAZOOKA = 0x1a, // "Bazooka"
+
+                // weird
+                UNKNOWN = 0x00,
+                BAZOOKA_TEMP = 0x1c, // only temporary
             }
             enum GAIN_WEAPON {
                 SWORD_1 = 0x02,
@@ -2626,7 +2630,7 @@ group general_enums() {
 
                 // weird
                 UNKNOWN = 0x00,
-                BAZOOKA = 0x1c, // only temporary
+                BAZOOKA_TEMP = 0x1c, // only temporary
             }
 
             enum ARMOR_STATS {
@@ -3141,9 +3145,9 @@ group general_enums() {
 
                 SPACESHIP_IDLE = 0x0144,
                 SPACESHIP_BACK = 0x0146,
-                SPACESHIP_TOP = 0x0148,
-                SPACESHIP_FIRE_PARTS_1 = 0x014a,
-                SPACESHIP_FIRE_PARTS_2 = 0x014c,
+                SPACESHIP_BACK_FIRE = 0x014a,
+                SPACESHIP_TOP = 0x0148, // does not load the palette
+                SPACESHIP_TOP_FIRE = 0x014c,
 
                 ROCKET_IDLE = 0x0198,
 
@@ -3151,7 +3155,7 @@ group general_enums() {
 
                 PILLAR_VIGOR = 0x009a,
 
-                SKELETON_SHIP_1 = 0x009c,
+                SKELETON_SHIP_1 = 0x009c, // south
                 SKELETON_SHIP_2 = 0x009e,
                 SKELETON_SHIP_3 = 0x00a0,
                 SKELETON_SHIP_ROW_1 = 0x00a2,
@@ -3984,330 +3988,6 @@ group functions() {
             }
         };
 
-        group map_manipulation() {
-            fun fade_out() {
-                code(0x27, "// (27) Fade-out screen (WRITE $0b83=0x8000)");
-            }
-            fun fade_out_black() {
-                code(0x82, "// (82) Also change visible layers?");
-            }
-            fun load_map(map:MAP, x, y) {
-                code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
-            }
-            fun prepare_transition(direction_in, direction_out) {
-                // MEMORY.TRANSITION_ENTER_DIRECTION = 0x03;
-                fade_out();
-                call_id(direction_out); // TODO: 4x4 combinations, not 4
-                sleep(0x10);
-            }
-
-            fun transition(map:MAP, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music, new_music:MUSIC) {
-                if(False) {
-                    if(<ACTIVE>[Z] > 0d0) {
-                        end();
-                    }
-                }
-
-                if(False) {
-                    if(change_music) {
-                        music_fade(False);
-
-                        MEMORY.CHANGE_MUSIC = 0x01;
-                    }
-                } else {
-                    if(new_music is Word) {
-                        if(MEMORY.CURRENT_MUSIC != new_music) {
-                            music_fade(False);
-                        }
-                    }
-                }
-
-                attach_to_script(<ACTIVE>);
-
-                if(direction_in == direction_out) {
-                    if(direction_out != DIRECTION.NONE) {
-                        call_id(direction_out); // TODO: 4x4 combinations, not 4
-                    }
-                } else {
-                    if(direction_out != DIRECTION.NONE) {
-                        if(direction_out == DIRECTION.NORTH) {
-                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.NORTH;
-                        } else if(direction_out == DIRECTION.EAST) {
-                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.EAST;
-                        } else if(direction_out == DIRECTION.SOUTH) {
-                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.SOUTH;
-                        } else if(direction_out == DIRECTION.WEST) {
-                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.WEST;
-                        }
-                    }
-
-                    if(direction_in != DIRECTION.NONE) {
-                        if(direction_in == DIRECTION.NORTH) {
-                            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, NONE, NONE);
-                        } else if(direction_in == DIRECTION.EAST) {
-                            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, NONE, NONE);
-                        } else if(direction_in == DIRECTION.SOUTH) {
-                            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, NONE, NONE);
-                        } else if(direction_in == DIRECTION.WEST) {
-                            walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, NONE, NONE);
-                        }
-                        sleep(0d20);
-                    }
-                }
-
-                if(False) {
-                    if(direction_out == DIRECTION.NONE) {
-                        FLAG.IN_ANIMATION = False;
-                    } else {
-                        FLAG.IN_ANIMATION = True;
-                    }
-                } else {
-                    FLAG.IN_ANIMATION = True;
-                }
-
-                load_map(map, x, y);
-            }
-
-            fun _teleport(character:CHARACTER, x, y) {
-                if(character == CHARACTER.BOTH) {
-                    code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                    code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                } else {
-                    code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                }
-            }
-            fun teleport(character:CHARACTER, x, y) {
-                if((x is Word) && (y is Word)) {
-                    if(x > 0xff) {
-                        throw("teleport.x > 0xff");
-                    } else if(y > 0xff) {
-                        throw("teleport.y > 0xff");
-                    }
-
-                    if(character == CHARACTER.BOTH) {
-                        code(0x20, x, y, "// (20) Teleport both to 43 93");
-                    } else {
-                        code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
-                    }
-                } else {
-                    if(character == CHARACTER.BOTH) {
-                        code(0x43, entity_t(BOY), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
-                        code(0x43, entity_t(DOG), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
-                    } else {
-                        code(0x43, entity_t(character), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
-                    }
-                }
-            }
-            fun teleport_relative(character:CHARACTER, x, y) {
-                code(0xb9, entity_t(character), calculate(x), calculate(y), "// (b9) Teleport $2835 by x:signed arg9, y:signed arg3 - signed arg5");
-            }
-
-            fun teleport_screen(dx, dy) { // scren=0d512/0d512
-                code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
-            }
-            
-            fun change_z(entity:CHARACTER, z) { // redundant: same as entity[Z_LEVEL]=z
-                MEMORY.Z_AFTER_TELEPORT = z;
-                teleport(entity, entity[X], entity[Y]);
-            }
-
-            fun _init_map(x_start, y_start, x_end, y_end) {
-                MEMORY.CAMERA_BOUNDRY_X_START = x_start;
-                MEMORY.CAMERA_BOUNDRY_X_END = x_end;
-                MEMORY.CAMERA_BOUNDRY_Y_START = y_start;
-                MEMORY.CAMERA_BOUNDRY_Y_END = y_end;
-            }
-            fun init_map(x_start, y_start, x_end, y_end) {
-                code(0x1b, address(0x23e9), address(0x23eb), x_start, y_start, "// (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0010");
-                code(0x1b, address(0x23ed), address(0x23ef), x_end, y_end, "// (1b) WRITE MAP X end   ($23ed) = 0x0400  (1b) WRITE MAP Y end   ($23ef) = 0x04b0");
-            }
-
-            fun set_args(arg1, arg2, value1, value2) {
-                code(0xae, arg1, arg2, value1, value2, "// (ae) UNTRACED INSTR, vals 00 02 1b 1b modifies current script");
-            }
-
-            fun tile_flashing(p1, p2, p3, p4) {
-                // p1=0 -> rain is black
-                code(0xb6, param(p1), param(p2), param(p3), param(p4), "// (b6) START TILE FLASHING 10 1 15 0");
-            }
-
-            fun price(index, rate, drop, quantity) {
-                if(index == 0x1) {
-                    <0x239b> = rate;
-                    <0x23a1> = drop;
-                    <0x23a7> = quantity;
-                } else if(index == 0x2) {
-                    <0x239d> = rate;
-                    <0x23a3> = drop;
-                    <0x23a9> = quantity;
-                } else if(index == 0x3) {
-                    <0x239f> = rate;
-                    <0x23a5> = drop;
-                    <0x23ab> = quantity;
-                }
-            }
-
-            fun color_filter(color, saturation) {
-                if(False) {
-                    code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92d93e), "// (b4) CALL Absolute (24bit) script 0x92d93e ('Unnamed ABS script 0x92d93e')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
-                } else {
-                    // code(0x97, param(0x00), param(0x00), param(0x00), param(saturation), param(color), param(0x00), param(0x01), "// (97) UNTRACED INSTR 0x97, 7 sub-instrs: signed arg0, signed arg2, signed arg4, signed arg8, signed arg6, 0, 1");
-                    code(0x97, param(0x00), param(0x00), param(0x00), param(saturation), param(color), param(0x11), param(0xef), "// (97) UNTRACED INSTR 0x97, 7 sub-instrs: signed arg0, signed arg2, signed arg4, signed arg8, signed arg6, 17, 0xef");
-                }
-            }
-            fun color_filter_fade_to(color, saturation) { // creates a lot of lag
-                code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92da2d), "// (b4) CALL Absolute (24bit) script 0x92da2d ('Unnamed ABS script 0x92da2d')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
-            }
-            fun color_filter_fade_from(color, saturation) { // creates a lot of lag
-                code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92d9a4), "// (b4) CALL Absolute (24bit) script 0x92d9a4 ('Unnamed ABS script 0x92d9a4')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
-            }
-
-            fun brightness(brightness) {
-                code(0x91, param(brightness), "// (91) Sets brightness to 0");
-            }
-
-            fun sfx_effect(effect:SFX_EFFECT, on) {
-                if(effect == SFX_EFFECT.RAIN) {
-                    if(on) {
-                        if(False) {
-                            call(ADDRESS.RAIN);
-                        } else {
-                            <0x23c9> = 0x01;
-                            <0x23cb> = 0x20;
-
-                            tile_flashing(0x0a, 0x01, 0x0f, 0x00);
-                        }
-                    } else {
-                        nop();
-                    }
-                } else if(effect == SFX_EFFECT.NIGHT) {
-                    if(on == True) {
-                        color_filter(0x2000, 0x90);
-                    } else {
-                        color_filter(0x00, 0x00);
-                    }
-                } else if(effect == SFX_EFFECT.SHAKING) {
-                    if(on == True) {
-                        code(0x8d, 0x01, "// (8d) 01 Start screen shaking");
-                        <0x2409> = 0x0001; // (18) WRITE SCREEN SHAKING MAGNITUDE X
-                        <0x240b> = 0x0001; // (18) WRITE SCREEN SHAKING MAGNITUDE Y
-                    } else {
-                        code(0x8d, 0x00, "// (8d) 01 Start screen shaking");
-                    }
-                } else if(effect == SFX_EFFECT.SEPIA) {
-                    if(on == True) {
-                        color_filter(0x84, 0x90);
-                    } else {
-                        color_filter(0x00, 0x00);
-                    }
-                }
-            }
-
-            fun object(index, value) {
-                code(0x5c, param(index), param(value), "// (5c) SET OBJ 5 STATE = val:1 (load/unload)");
-            }
-
-            fun special_script(script:SPECIAL_SCRIPTS, id) {
-                if(script == SPECIAL_SCRIPTS.LOOTING) {
-                    code(0x3f, param(0x01), 0x0040, 0x0000 + id, "// (3f) WRITE $0ea2+0=0x40, $0eac+0=0x172b (unknown): Unknown 0eac+0 (set in lots of places)?");
-                } else if(script == SPECIAL_SCRIPTS.REVEALER) {
-                    code(0x3f, param(0x02), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+2=0x01, $0eac+2=0x1959 (unknown): Unnamed Short script 0x1959?");
-                } else if(script == SPECIAL_SCRIPTS.LEVITATE) {
-                    code(0x3f, param(0x03), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+4=0x01, $0eac+4=0x17b5 (unknown): Unnamed Short script 0x17b5?");
-                } else if(script == SPECIAL_SCRIPTS.SELECT_PRESSED) {
-                    code(0x3f, param(0x04), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+6=0x01, $0eac+6=0x1878 (unknown): Unnamed Short script 0x1878?");
-                } else if(script == SPECIAL_SCRIPTS.WINGS) {
-                    code(0x3f, param(0x05), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+8=0x01, $0eac+8=0x178e (unknown): BBM Wings?");
-                }
-            }
-
-            fun _fade_in() {
-                code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
-            }
-            fun fade_in() {
-                // handles default loot script
-                // handles transition animation (walk x/y into direction z)
-                // enables/disables BOY/DOG, based on BOY_UNAVAILABLE/DOG_UNAVAILABLE
-                // fades in bridghtness
-
-                if(False) {
-                    call(ADDRESS.FADE_IN_AND_DEFAULT_LOOT_DUST_REWARD);
-                } else if(True) {
-                    special_script(LOOTING, ADDRESS_ID.LOOT_DUST_REWARD);
-                    call_id(FADE_IN);
-                } else if(False) {
-                    _fade_in();
-                } else {
-                    call_id(FADE_IN);
-                }
-
-                if(True) {
-                    FLAG.IN_ANIMATION = False;
-                }
-            }
-
-            fun show_hud(show) {
-                if(show == True) {
-                    if(False) {
-                        call(ADDRESS.STATUS_BAR_SHOW);
-                    } else {
-                        set(FLAG.SHOW_HUD);
-                        update_ui();
-                    }
-                } else {
-                    if(False) {
-                        call(ADDRESS.STATUS_BAR_HIDE);
-                    } else {
-                        unset(FLAG.SHOW_HUD);
-                        update_ui();
-                    }
-                }
-            }
-
-            fun save_dialog(slot, vanilla_location_id) { // buggy
-                <0x2449> = slot; // ?
-                code(0xa3, vanilla_location_id, "// (a3) CALL 'Actual save dialog' (0x4e)");
-            }
-            fun save(id) {
-                code(0x8c, install_string(id), "// (a3) CALL 'Actual save dialog' (0x4e)");
-            }
-
-            enum CAMERA_PAN_TYPE {
-                COORDINATE_CORNER = 0d0,
-                COORDINATE_CENTER = 0d1,
-                
-                TILE_CENTER = 0d2,
-            }
-
-            fun set_camera(type:CAMERA_PAN_TYPE, x, y, speed) {
-                if(type == CAMERA_PAN_TYPE.COORDINATE_CORNER) {
-                    MEMORY.CAMERA_PAN_X = x;
-                    MEMORY.CAMERA_PAN_Y = y;
-                    MEMORY.CAMERA_PAN_SPEED = speed;
-                } else if(type == CAMERA_PAN_TYPE.COORDINATE_CENTER) {
-                    MEMORY.CAMERA_PAN_X = x - (0d256 / 0d2);
-                    MEMORY.CAMERA_PAN_Y = y - (0d224 / 0d2);
-                    MEMORY.CAMERA_PAN_SPEED = speed;
-                } else if(type == CAMERA_PAN_TYPE.TILE_CENTER) {
-                    MEMORY.CAMERA_PAN_X = (x << 0d3) - (0d256 / 0d2 - 0d4);
-                    MEMORY.CAMERA_PAN_Y = (y << 0d3) - (0d224 / 0d2 - 0d4);
-                    MEMORY.CAMERA_PAN_SPEED = speed;
-                }
-            }
-            fun set_camera_entity(entity, speed) {
-                set_camera(COORDINATE_CENTER, entity[X], entity[Y], speed);
-            }
-            fun free_camera() {
-                MEMORY.CAMERA_PAN_X = 0xffff;
-                MEMORY.CAMERA_PAN_SPEED = 0x80;
-            }
-
-            fun desert_screen(x, y) {
-                MEMORY.DESERT_X = x;
-                MEMORY.DESERT_Y = y;
-            }
-        };
-
         group sprite() {
             fun animate_boy(mode:ANIMATION_MODE, id:ANIMATION_BOY) {
                 code(0x78, entity_t(CHARACTER.BOY), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
@@ -4650,6 +4330,359 @@ group functions() {
                 } else {
                     code(0xaf, 0x04, entity_t(enemy), calculate(x << 0d0003), calculate(y << 0d0003), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
                 }
+            }
+        };
+
+        group map_manipulation() {
+            fun fade_out() {
+                code(0x27, "// (27) Fade-out screen (WRITE $0b83=0x8000)");
+            }
+            fun fade_out_black() {
+                code(0x82, "// (82) Also change visible layers?");
+            }
+            fun load_map(map:MAP, x, y) {
+                code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
+            }
+            fun prepare_transition(direction_in, direction_out) {
+                // MEMORY.TRANSITION_ENTER_DIRECTION = 0x03;
+                fade_out();
+                call_id(direction_out); // TODO: 4x4 combinations, not 4
+                sleep(0x10);
+            }
+
+            fun transition(map:MAP, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music, new_music:MUSIC) {
+                if(False) {
+                    if(<ACTIVE>[Z] > 0d0) {
+                        end();
+                    }
+                }
+
+                if(False) {
+                    if(change_music) {
+                        music_fade(False);
+
+                        MEMORY.CHANGE_MUSIC = 0x01;
+                    }
+                } else {
+                    if(new_music is Word) {
+                        if(MEMORY.CURRENT_MUSIC != new_music) {
+                            music_fade(False);
+                        }
+                    }
+                }
+
+                attach_to_script(<ACTIVE>);
+
+                if(direction_in == direction_out) {
+                    if(direction_out != DIRECTION.NONE) {
+                        call_id(direction_out); // TODO: 4x4 combinations, not 4
+                    }
+                } else {
+                    if(direction_out != DIRECTION.NONE) {
+                        if(direction_out == DIRECTION.NORTH) {
+                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.NORTH;
+                        } else if(direction_out == DIRECTION.EAST) {
+                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.EAST;
+                        } else if(direction_out == DIRECTION.SOUTH) {
+                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.SOUTH;
+                        } else if(direction_out == DIRECTION.WEST) {
+                            MEMORY.TRANSITION_ENTER_DIRECTION = TRANSITION_DIRECTION.WEST;
+                        }
+                    }
+
+                    if(direction_in != DIRECTION.NONE) {
+                        if(direction_in == DIRECTION.NORTH) {
+                            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, -0x02, NONE, NONE);
+                        } else if(direction_in == DIRECTION.EAST) {
+                            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x02, 0x00, NONE, NONE);
+                        } else if(direction_in == DIRECTION.SOUTH) {
+                            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0x00, 0x02, NONE, NONE);
+                        } else if(direction_in == DIRECTION.WEST) {
+                            walk(ACTIVE, TILE_RELATIVE_DIRECT, -0x02, 0x00, NONE, NONE);
+                        }
+                        sleep(0d20);
+                    }
+                }
+
+                if(False) {
+                    if(direction_out == DIRECTION.NONE) {
+                        FLAG.IN_ANIMATION = False;
+                    } else {
+                        FLAG.IN_ANIMATION = True;
+                    }
+                } else {
+                    FLAG.IN_ANIMATION = True;
+                }
+
+                load_map(map, x, y);
+            }
+
+            fun _teleport(character:CHARACTER, x, y) {
+                if(character == CHARACTER.BOTH) {
+                    code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                    code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                } else {
+                    code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                }
+            }
+            fun teleport(character:CHARACTER, x, y) {
+                if((x is Word) && (y is Word)) {
+                    if(x > 0xff) {
+                        throw("teleport.x > 0xff");
+                    } else if(y > 0xff) {
+                        throw("teleport.y > 0xff");
+                    }
+
+                    if(character == CHARACTER.BOTH) {
+                        code(0x20, x, y, "// (20) Teleport both to 43 93");
+                    } else {
+                        code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
+                    }
+                } else {
+                    if(character == CHARACTER.BOTH) {
+                        code(0x43, entity_t(BOY), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                        code(0x43, entity_t(DOG), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                    } else {
+                        code(0x43, entity_t(character), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                    }
+                }
+            }
+            fun teleport_relative(character:CHARACTER, x, y) {
+                code(0xb9, entity_t(character), calculate(x), calculate(y), "// (b9) Teleport $2835 by x:signed arg9, y:signed arg3 - signed arg5");
+            }
+
+            fun teleport_screen(dx, dy) { // scren=0d512/0d512
+                code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
+            }
+            
+            fun change_z(entity:CHARACTER, z) { // redundant: same as entity[Z_LEVEL]=z
+                MEMORY.Z_AFTER_TELEPORT = z;
+                teleport(entity, entity[X], entity[Y]);
+            }
+
+            fun _init_map(x_start, y_start, x_end, y_end) {
+                MEMORY.CAMERA_BOUNDRY_X_START = x_start;
+                MEMORY.CAMERA_BOUNDRY_X_END = x_end;
+                MEMORY.CAMERA_BOUNDRY_Y_START = y_start;
+                MEMORY.CAMERA_BOUNDRY_Y_END = y_end;
+            }
+            fun init_map(x_start, y_start, x_end, y_end) {
+                code(0x1b, address(0x23e9), address(0x23eb), x_start, y_start, "// (1b) WRITE MAP X start ($23e9) = 0x0000  (1b) WRITE MAP Y start ($23eb) = 0x0010");
+                code(0x1b, address(0x23ed), address(0x23ef), x_end, y_end, "// (1b) WRITE MAP X end   ($23ed) = 0x0400  (1b) WRITE MAP Y end   ($23ef) = 0x04b0");
+            }
+
+            fun set_args(arg1, arg2, value1, value2) {
+                code(0xae, arg1, arg2, value1, value2, "// (ae) UNTRACED INSTR, vals 00 02 1b 1b modifies current script");
+            }
+
+            fun tile_flashing(p1, p2, p3, p4) {
+                // p1=0 -> rain is black
+                code(0xb6, param(p1), param(p2), param(p3), param(p4), "// (b6) START TILE FLASHING 10 1 15 0");
+            }
+
+            fun price(index, rate, drop, quantity) {
+                if(index == 0x1) {
+                    <0x239b> = rate;
+                    <0x23a1> = drop;
+                    <0x23a7> = quantity;
+                } else if(index == 0x2) {
+                    <0x239d> = rate;
+                    <0x23a3> = drop;
+                    <0x23a9> = quantity;
+                } else if(index == 0x3) {
+                    <0x239f> = rate;
+                    <0x23a5> = drop;
+                    <0x23ab> = quantity;
+                }
+            }
+
+            fun color_filter(color, saturation) {
+                if(False) {
+                    code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92d93e), "// (b4) CALL Absolute (24bit) script 0x92d93e ('Unnamed ABS script 0x92d93e')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
+                } else {
+                    // code(0x97, param(0x00), param(0x00), param(0x00), param(saturation), param(color), param(0x00), param(0x01), "// (97) UNTRACED INSTR 0x97, 7 sub-instrs: signed arg0, signed arg2, signed arg4, signed arg8, signed arg6, 0, 1");
+                    code(0x97, param(0x00), param(0x00), param(0x00), param(saturation), param(color), param(0x11), param(0xef), "// (97) UNTRACED INSTR 0x97, 7 sub-instrs: signed arg0, signed arg2, signed arg4, signed arg8, signed arg6, 17, 0xef");
+                }
+            }
+            fun color_filter_fade_to(color, saturation) { // creates a lot of lag
+                code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92da2d), "// (b4) CALL Absolute (24bit) script 0x92da2d ('Unnamed ABS script 0x92da2d')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
+            }
+            fun color_filter_fade_from(color, saturation) { // creates a lot of lag
+                code(0xb4, 0x05, param(0x00), param(0x00), param(0x00), param(color), param(saturation), address(0x92d9a4), "// (b4) CALL Absolute (24bit) script 0x92d9a4 ('Unnamed ABS script 0x92d9a4')  WITH 5 ARGS 0, 0, 0, 0x84, 0x90");
+            }
+
+            fun brightness(brightness) {
+                code(0x91, param(brightness), "// (91) Sets brightness to 0");
+            }
+
+            fun sfx_effect(effect:SFX_EFFECT, on) {
+                if(effect == SFX_EFFECT.RAIN) {
+                    if(on) {
+                        if(False) {
+                            call(ADDRESS.RAIN);
+                        } else {
+                            <0x23c9> = 0x01;
+                            <0x23cb> = 0x20;
+
+                            tile_flashing(0x0a, 0x01, 0x0f, 0x00);
+                        }
+                    } else {
+                        nop();
+                    }
+                } else if(effect == SFX_EFFECT.NIGHT) {
+                    if(on == True) {
+                        color_filter(0x2000, 0x90);
+                    } else {
+                        color_filter(0x00, 0x00);
+                    }
+                } else if(effect == SFX_EFFECT.SHAKING) {
+                    if(on == True) {
+                        code(0x8d, 0x01, "// (8d) 01 Start screen shaking");
+                        <0x2409> = 0x0001; // (18) WRITE SCREEN SHAKING MAGNITUDE X
+                        <0x240b> = 0x0001; // (18) WRITE SCREEN SHAKING MAGNITUDE Y
+                    } else {
+                        code(0x8d, 0x00, "// (8d) 01 Start screen shaking");
+                    }
+                } else if(effect == SFX_EFFECT.SEPIA) {
+                    if(on == True) {
+                        color_filter(0x84, 0x90);
+                    } else {
+                        color_filter(0x00, 0x00);
+                    }
+                }
+            }
+
+            fun object(index, value) {
+                code(0x5c, param(index), param(value), "// (5c) SET OBJ 5 STATE = val:1 (load/unload)");
+            }
+
+            fun special_script(script:SPECIAL_SCRIPTS, id) {
+                if(script == SPECIAL_SCRIPTS.LOOTING) {
+                    code(0x3f, param(0x01), 0x0040, 0x0000 + id, "// (3f) WRITE $0ea2+0=0x40, $0eac+0=0x172b (unknown): Unknown 0eac+0 (set in lots of places)?");
+                } else if(script == SPECIAL_SCRIPTS.REVEALER) {
+                    code(0x3f, param(0x02), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+2=0x01, $0eac+2=0x1959 (unknown): Unnamed Short script 0x1959?");
+                } else if(script == SPECIAL_SCRIPTS.LEVITATE) {
+                    code(0x3f, param(0x03), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+4=0x01, $0eac+4=0x17b5 (unknown): Unnamed Short script 0x17b5?");
+                } else if(script == SPECIAL_SCRIPTS.SELECT_PRESSED) {
+                    code(0x3f, param(0x04), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+6=0x01, $0eac+6=0x1878 (unknown): Unnamed Short script 0x1878?");
+                } else if(script == SPECIAL_SCRIPTS.WINGS) {
+                    code(0x3f, param(0x05), 0x0001, 0x0000 + id, "// (3f) WRITE $0ea2+8=0x01, $0eac+8=0x178e (unknown): BBM Wings?");
+                }
+            }
+
+            fun _fade_in() {
+                code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
+            }
+            fun fade_in() {
+                // handles default loot script
+                // handles transition animation (walk x/y into direction z)
+                // enables/disables BOY/DOG, based on BOY_UNAVAILABLE/DOG_UNAVAILABLE
+                // fades in bridghtness
+
+                if(CUSTOM_FLAG.NO_DOG) {
+                    if(False) {
+                        FLAG.BOY_UNAVAILABLE = False;
+                        FLAG.DOG_UNAVAILABLE = True;
+                    } else {
+                        available(BOY);
+                    }
+
+                    teleport(DOG, 0d0, 0d0);
+                } else if(CUSTOM_FLAG.NO_BOY) {
+                    if(False) {
+                        FLAG.BOY_UNAVAILABLE = True;
+                        FLAG.DOG_UNAVAILABLE = False;
+                    } else {
+                        available(DOG);
+                    }
+
+                    teleport(BOY, 0d0, 0d0);
+
+                    attach_script(DOG, DEATH, reference(boy_death));
+                } else {
+                    if(False) {
+                        FLAG.BOY_UNAVAILABLE = False;
+                        FLAG.DOG_UNAVAILABLE = False;
+                    } else {
+                        available(BOTH);
+                    }
+                }
+
+                if(False) {
+                    call(ADDRESS.FADE_IN_AND_DEFAULT_LOOT_DUST_REWARD);
+                } else if(True) {
+                    special_script(LOOTING, ADDRESS_ID.LOOT_DUST_REWARD);
+                    call_id(FADE_IN);
+                } else if(False) {
+                    _fade_in();
+                } else {
+                    call_id(FADE_IN);
+                }
+
+                if(True) {
+                    FLAG.IN_ANIMATION = False;
+                }
+            }
+
+            fun show_hud(show) {
+                if(show == True) {
+                    if(False) {
+                        call(ADDRESS.STATUS_BAR_SHOW);
+                    } else {
+                        set(FLAG.SHOW_HUD);
+                        update_ui();
+                    }
+                } else {
+                    if(False) {
+                        call(ADDRESS.STATUS_BAR_HIDE);
+                    } else {
+                        unset(FLAG.SHOW_HUD);
+                        update_ui();
+                    }
+                }
+            }
+
+            fun save_dialog(slot, vanilla_location_id) { // buggy
+                <0x2449> = slot; // ?
+                code(0xa3, vanilla_location_id, "// (a3) CALL 'Actual save dialog' (0x4e)");
+            }
+            fun save(id) {
+                code(0x8c, install_string(id), "// (a3) CALL 'Actual save dialog' (0x4e)");
+            }
+
+            enum CAMERA_PAN_TYPE {
+                COORDINATE_CORNER = 0d0,
+                COORDINATE_CENTER = 0d1,
+                
+                TILE_CENTER = 0d2,
+            }
+
+            fun set_camera(type:CAMERA_PAN_TYPE, x, y, speed) {
+                if(type == CAMERA_PAN_TYPE.COORDINATE_CORNER) {
+                    MEMORY.CAMERA_PAN_X = x;
+                    MEMORY.CAMERA_PAN_Y = y;
+                    MEMORY.CAMERA_PAN_SPEED = speed;
+                } else if(type == CAMERA_PAN_TYPE.COORDINATE_CENTER) {
+                    MEMORY.CAMERA_PAN_X = x - (0d256 / 0d2);
+                    MEMORY.CAMERA_PAN_Y = y - (0d224 / 0d2);
+                    MEMORY.CAMERA_PAN_SPEED = speed;
+                } else if(type == CAMERA_PAN_TYPE.TILE_CENTER) {
+                    MEMORY.CAMERA_PAN_X = (x << 0d3) - (0d256 / 0d2 - 0d4);
+                    MEMORY.CAMERA_PAN_Y = (y << 0d3) - (0d224 / 0d2 - 0d4);
+                    MEMORY.CAMERA_PAN_SPEED = speed;
+                }
+            }
+            fun set_camera_entity(entity, speed) {
+                set_camera(COORDINATE_CENTER, entity[X], entity[Y], speed);
+            }
+            fun free_camera() {
+                MEMORY.CAMERA_PAN_X = 0xffff;
+                MEMORY.CAMERA_PAN_SPEED = 0x80;
+            }
+
+            fun desert_screen(x, y) {
+                MEMORY.DESERT_X = x;
+                MEMORY.DESERT_Y = y;
             }
         };
 
@@ -8907,7 +8940,16 @@ group functions() {
                 end();
             }
 
-            shoot_entity_offset_relative(BOY, ONION, 0x10, 0x00, 0x00ff, 0x00, 0x10, 0xff);
+            shoot_entity_offset_relative(BOY, ONION, 0d16, 0d0, 0d256, 0d0, 0x10, 0xff);
+            sound(PROJECTILE_SHOOTING);
+        }
+        fun spaceship_rocket() {
+            if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                end();
+            }
+
+            face(BOY, NORTH);
+            shoot_entity_offset_relative(BOY, MISSILE, 0d0, -0d10, 0d0, -0d300, 0x10, 0xff);
             sound(PROJECTILE_SHOOTING);
         }
 
@@ -9753,10 +9795,10 @@ group functions() {
 
         @install()
         @weak()
-        fun ai_move_bomb_toss(entity, projectile:THROWABLE, target) {
-            shoot_entity_entity(entity, ONION, target, 0x2a, 0x1a);
-            arg[0x10] = target[X];
-            arg[0x12] = target[Y];
+        fun ai_move_bomb_toss(entity, projectile:THROWABLE, target, offset_x, offset_y) {
+            shoot_entity_entity_offset(entity, ONION, target, offset_x, offset_y, 0x2a, 0x1a);
+            arg[0x10] = target[X] + offset_x;
+            arg[0x12] = target[Y] + offset_y;
             sleep(0d80);
 
             bomb_absolute(entity, arg[0x10], arg[0x12], 0x60, 0d0);
