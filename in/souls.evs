@@ -527,6 +527,17 @@ group non_maps() {
             DEAD_UNNAMED_DESERT_TEMPLE_BOSS = memory(FLAG, SRAM),
             REWARD_UNNAMED_DESERT_TEMPLE_BOSS = ITEM.NECTAR, // TODO
 
+            // metro
+
+            DEAD_TOASTER_ARENA = memory(FLAG, SRAM),
+            REWARD_TOASTER_ARENA = ITEM.NECTAR, // TODO
+
+            DEAD_TURRET_ARENA = memory(FLAG, SRAM),
+            REWARD_TURRET_ARENA = ITEM.NECTAR, // TODO
+
+            DEAD_ABOMINATION = memory(FLAG, SRAM),
+            REWARD_ABOMINATION = ITEM.NECTAR, // TODO
+
             ///////////////////////////////////////////////////////
             // quests
             ///////////////////////////////////////////////////////
@@ -979,7 +990,7 @@ group non_maps() {
 
         @install()
         fun boy_death() {
-            if(<BOY>[HP] > 0d0) {
+            if((<SCRIPT_OWNER> == <BOY>) && (<BOY>[HP] > 0d0)) {
                 CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
 
                 end();
@@ -1493,41 +1504,16 @@ group non_maps() {
 
         fun default_init_room(night, rain) {
             init_hack();
+
+            if((!FLAG.BAZOOKA) && (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.BAZOOKA_TEMP)) {
+                MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
+            }
             
             MEMORY.DOG_WRITE = DOG.WOLF;
 
             init_weather(night, rain);
 
             MEMORY.PACIFIED = False;
-
-            if(CUSTOM_FLAG.NO_DOG) {
-                if(False) {
-                    FLAG.BOY_UNAVAILABLE = False;
-                    FLAG.DOG_UNAVAILABLE = True;
-                } else {
-                    available(BOY);
-                }
-
-                teleport(DOG, 0d0, 0d0);
-            } else if(CUSTOM_FLAG.NO_BOY) {
-                if(False) {
-                    FLAG.BOY_UNAVAILABLE = True;
-                    FLAG.DOG_UNAVAILABLE = False;
-                } else {
-                    available(DOG);
-                }
-
-                teleport(BOY, 0d0, 0d0);
-
-                attach_script(DOG, DEATH, reference(boy_death));
-            } else {
-                if(False) {
-                    FLAG.BOY_UNAVAILABLE = False;
-                    FLAG.DOG_UNAVAILABLE = False;
-                } else {
-                    available(BOTH);
-                }
-            }
 
             fade_in();
         }
@@ -1894,16 +1880,16 @@ group non_maps() {
                 
                 if(SOULS_MEMORY.WITH_CHEATS) {
                     if(True) {
-                        if((<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.NO_CLIP) == 0d0) {
-                            attribute(BOY, NO_CLIP, True);
+                        if((<ACTIVE>[FLAGS_2] & ATTRIBUTE_FLAGS.NO_CLIP) == 0d0) {
+                            attribute(ACTIVE, NO_CLIP, True);
                         } else {
-                            attribute(BOY, NO_CLIP, False);
+                            attribute(ACTIVE, NO_CLIP, False);
                         }
                     }
-                    if(True) {
-                        attribute(BOY, INVINCIBLE_TEMP, True);
+                    if(False) {
+                        attribute(ACTIVE, INVINCIBLE_TEMP, True);
                     }
-                    <BOY>[HP] = SYSTEM.HP_MAX;
+                    <ACTIVE>[HP] = SYSTEM.HP_MAX;
                 }
                 
                 debug_boy();
@@ -24108,6 +24094,8 @@ area desert_bug() {
 
 area metro() {
     enum AREA_METRO {
+        MUSIC_DEFAULT = MUSIC.SPACE,
+
         LEVER_REACTOR_ROOM = memory(FLAG, SRAM), // light on
         LEVER_CONTROL_ROOM_LEFT = memory(FLAG, SRAM),
         LEVER_CONTROL_ROOM_RIGHT = memory(FLAG, SRAM),
@@ -24201,6 +24189,10 @@ area metro() {
             door_d1 = entrance(ROOM.COLUMN_1, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x16); }),
             door_d3 = entrance(ROOM.COLUMN_3, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x15); }),
             door_d4 = entrance(ROOM.COLUMN_4, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x14); }),
+        }
+        
+        enum soundtrack {
+            default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
         }
 
         fun open_cell_exit(door_id, flag) {
@@ -24760,9 +24752,13 @@ area metro() {
                 map_transition(junkyard_south, north, NONE);
             },
             door_d3_center = @install() {
-                door_act4_airlock_out(ROOM.COLUMN_3, ROOM.ROW_4, 0x15);
-
                 debug_subtext("B=34");
+
+                if!(SOULS_MEMORY.DEAD_TURRET_ARENA) {
+                    door_act4_airlock_out(ROOM.COLUMN_3, ROOM.ROW_4, 0x15);
+
+                    map_transition(turret_arena, center, NONE);
+                }
             },
             door_b3_center = @install() {
                 door_act4_airlock_out(ROOM.COLUMN_3, ROOM.ROW_2, 0x0f);
@@ -24772,11 +24768,13 @@ area metro() {
                 map_transition(junkyard_northeast, north, NONE);
             },
             door_c4_center = @install() {
-                door_act4_airlock_out(ROOM.COLUMN_4, ROOM.ROW_3, 0x13);
-
                 debug_subtext("B=36");
 
-                map_transition(reactor_room, east, NONE);
+                if!(SOULS_MEMORY.DEAD_TOASTER_ARENA) {
+                    door_act4_airlock_out(ROOM.COLUMN_4, ROOM.ROW_3, 0x13);
+
+                    map_transition(toaster_arena, center, NONE);
+                }
             },
             door_b4_center = @install() {
                 door_act4_airlock_out(ROOM.COLUMN_4, ROOM.ROW_2, 0x0e);
@@ -24867,8 +24865,6 @@ area metro() {
         }        
 
         fun trigger_enter() {
-            fade_in();
-
             add_gate_bot(ROOM.GATE_ID_A1_A2, 0d50, 0d13, ROOM.GATE_OPENED_A1_A2, 0x2e);
             add_gate_bot(ROOM.GATE_ID_A1_B1, 0d18, 0d34, ROOM.GATE_OPENED_A1_B1, 0x20);
             add_gate_bot(ROOM.GATE_ID_A2_B2, 0d82, 0d34, ROOM.GATE_OPENED_A2_B2, 0x01);
@@ -24887,6 +24883,8 @@ area metro() {
             add_gate_bot(ROOM.GATE_ID_D1_D2, 0d50, 0d145, ROOM.GATE_OPENED_D1_D2, 0x2b);
             add_gate_bot(ROOM.GATE_ID_D2_D3, 0d114, 0d145, ROOM.GATE_OPENED_D2_D3, 0x2a);
             add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29);
+
+            fade_in();
         }
     };
 
@@ -24899,6 +24897,10 @@ area metro() {
                 crash_north = entrance(0x58, 0x1c, NONE),
                 crash_south = entrance(0x5f, 0x4f, NONE),
                 crash_west = entrance(0x0a, 0x3a, NONE),
+            }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
             enum stepon_trigger {
@@ -24965,6 +24967,10 @@ area metro() {
             enum entrance {
                 east = entrance(0d110, 0d19, NONE, { door_act4_beam_in(); }),
                 west = entrance(0d10, 0d81, NONE, { door_act4_beam_in(); }),
+            }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -25038,6 +25044,10 @@ area metro() {
         map storage_room(OMNITOPIA_STORAGE) {
             enum entrance {
                 west = entrance(0x10, 0x1a, NONE),
+            }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
             enum OBJECT_DEFAULT {
@@ -25129,6 +25139,10 @@ area metro() {
                 north = entrance(0x1c, 0x0a, NONE),
                 east = entrance(0x54, 0x12, NONE),
             }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+            }
 
             enum ROOM {
                 SWITCH_LEFT = AREA_METRO.LEVER_CONTROL_ROOM_LEFT,
@@ -25207,6 +25221,10 @@ area metro() {
                 crash_south = entrance(0x5f, 0x4f, NONE),
                 crash_west = entrance(0x0a, 0x3a, NONE),
             }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+            }
 
             enum stepon_trigger {
                 stepon_0 = @install() {
@@ -25274,6 +25292,10 @@ area metro() {
                 east = entrance(0x3e, 0x3b, NONE, { door_act4_beam_in(); }),
 
                 lever_room = entrance(0x52, 0x0d, NONE, { door_act4_beam_in(); }),
+            }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -25521,6 +25543,10 @@ area metro() {
                 crash_south = entrance(0x5f, 0x4f, NONE),
                 crash_west = entrance(0x0a, 0x3a, NONE),
             }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+            }
 
             enum stepon_trigger {
                 stepon_0 = @install() {
@@ -25582,6 +25608,199 @@ area metro() {
             }
         };
 
+        map toaster_arena(RAPTORS) {
+            enum entrance {
+                left = entrance(0x15, 0x1c, NONE),
+                center = entrance(0x1e, 0x21, NONE),
+                right = entrance(0x2a, 0x23, NONE)
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+            }
+
+            enum stepon_trigger {
+                exit_north = nop(),
+                exit_south = nop(),
+                center = nop(),
+            }
+
+            fun close_exits(close) {
+                if(close) {
+                    object[0x04] = 0x04;
+                } else {
+                    object[0x05] = 0x04;
+                }
+            }
+
+            group boss_ai() {
+                enum BOSS {
+                    HEAL_AMOUNT = 0d15,
+
+                    HIT_COUNT_MEMORY = memory(WORD, TEMP),
+                    HIT_COUNT = 0d10,
+
+                    DELAY = 0d60,
+                }
+
+                fun boss_defeated() {
+                    control(NONE);
+
+                    souls_boss_defeated(DEAD_TOASTER_ARENA, REWARD_TOASTER_ARENA);
+
+                    map_transition(metro, door_c4, NONE);
+                }
+
+                fun boss_hit() {
+                    BOSS.HIT_COUNT_MEMORY--;
+
+                    if(BOSS.HIT_COUNT_MEMORY <= 0d0) {
+                        boss_defeated();
+                    } else {
+                        MEMORY.STRING_PARAMETER_1 = BOSS.HIT_COUNT_MEMORY;
+                        MEMORY.STRING_PARAMETER_2 = BOSS.HIT_COUNT;
+
+                        subtext("[MEM1]/[MEM2]");
+                    }
+                }
+
+                fun spawn_guardbot(x, y) {
+                    add_enemy(GATE_BOT, x, y);
+                    <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                        boss_hit();
+
+                        yield();
+                        attribute(SCRIPT_OWNER, INVINCIBLE, True);
+
+                        animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+
+                        sleep(0d500);
+
+                        cast(SCRIPT_OWNER, SCRIPT_OWNER, HEAL, BOSS.HEAL_AMOUNT);
+                        sleep(0d250);
+
+                        animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                        attribute(SCRIPT_OWNER, INVINCIBLE, False);
+                    }));
+                }
+
+                fun add_boss() {
+                    BOSS.HIT_COUNT_MEMORY = BOSS.HIT_COUNT;
+
+                    spawn_guardbot(0x29, 0x2b);
+                    spawn_guardbot(0x13, 0x29);
+                    spawn_guardbot(0x29, 0x1b);
+                    spawn_guardbot(0x13, 0x19);
+                }
+            };
+
+            fun trigger_enter() {
+                close_exits(True);
+
+                CUSTOM_FLAG.NO_BOY = True;
+                default_init_room(True, False);
+                attach_script(DOG, DEATH, reference(boy_death));
+                MEMORY.DOG_WRITE = DOG.TOASTER;
+
+                attribute(DOG, INVINCIBLE_TEMP, True);
+
+                add_boss();
+
+                sleep(0d120);
+                attribute(DOG, INVINCIBLE_TEMP, False);
+            }
+        };
+
+        map turret_arena(RAPTORS) {
+            enum entrance {
+                left = entrance(0x15, 0x1c, NONE),
+                center = entrance(0x1e, 0x21, NONE),
+                right = entrance(0x2a, 0x23, NONE)
+            }
+
+            enum stepon_trigger {
+                exit_north = nop(),
+                exit_south = nop(),
+                center = nop(),
+            }
+
+            fun close_exits(close) {
+                if(close) {
+                    object[0x04] = 0x04;
+                } else {
+                    object[0x05] = 0x04;
+                }
+            }
+
+            group boss_ai() {
+                enum BOSS {
+                    RIDER_1_ID = memory(WORD, TEMP),
+                    MOUNT_1_ID = memory(WORD, TEMP),
+
+                    RIDER_2_ID = memory(WORD, TEMP),
+                    MOUNT_2_ID = memory(WORD, TEMP),
+
+                    PHASE = memory(WORD, TEMP),
+                    TIMER = memory(WORD, TEMP),
+                }
+
+                @install()
+                @async()
+                fun stack_t01_t23() {
+                    while(True) {
+                        if(alive(BOSS.RIDER_1_ID)) {
+                            BOSS.RIDER_1_ID[X] = BOSS.MOUNT_1_ID[X];
+                            BOSS.RIDER_1_ID[Y] = BOSS.MOUNT_1_ID[Y] - 0x15;
+                            yield();
+                        }
+                        if(alive(BOSS.RIDER_2_ID)) {
+                            BOSS.RIDER_2_ID[X] = BOSS.MOUNT_2_ID[X];
+                            BOSS.RIDER_2_ID[Y] = BOSS.MOUNT_2_ID[Y] - 0x15;
+                            yield();
+                        }
+
+                        yield();
+                    }
+                }
+
+                fun turret(id_1, id_2, mount_type) {
+                    add_enemy(GATE_BOT, 0d29, 0d29);
+                    teleport(LAST_ENTITY, 0d19, 0d29);
+                    id_1 = <LAST_ENTITY>;
+
+                    add_enemy(mount_type, 0d29, 0d29);
+                    teleport(LAST_ENTITY, 0d40, 0d33);
+                    id_2 = <LAST_ENTITY>;
+                    attribute(LAST_ENTITY, INVISIBLE, True);
+                    attribute(LAST_ENTITY, INVINCIBLE, True);
+                    attribute(LAST_ENTITY, MUTE, True);
+                }
+
+                fun spawn_boss() {
+                    turret(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, ENEMY.MOSQUITO);
+                    turret(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, ENEMY.BEE);
+
+                    stack_t01_t23();
+                }
+            };
+
+            fun trigger_enter() {
+                close_exits(True);
+
+                CUSTOM_FLAG.NO_DOG = True;
+                default_init_room(True, False);
+                MEMORY.AMMO_1 = 0d100;
+                MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_TEMP;
+
+                attribute(BOY, INVINCIBLE_TEMP, True);
+                spawn_boss();
+
+                sleep(0d120);
+                attribute(BOY, INVINCIBLE_TEMP, False);
+            }
+        };
+
         map ar_lab(OMNITOPIA_PROFESSOR) {
             enum entrance {
                 north = entrance(0x3e, 0x14, NONE, { door_act4_airlock_in(0x1a); }),
@@ -25590,6 +25809,10 @@ area metro() {
                 
                 cutscene_1 = entrance(0x34, 0x59, NONE), // in front of computer
                 cutscene_2 = entrance(0x3e, 0x25, NONE), // intro fight
+            }
+        
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
             enum ROOM {
@@ -25678,7 +25901,6 @@ area metro() {
                 // objects[0x1b] = 0x7e; // activate switch
             }
         };
-
     };
 };
 
@@ -32500,102 +32722,6 @@ area experimental_room() {
         }
     }
 
-    map toaster_arena(RAPTORS) {
-        enum entrance {
-            left = entrance(0x15, 0x1c, NONE),
-            center = entrance(0x1e, 0x21, NONE),
-            right = entrance(0x2a, 0x23, NONE)
-        }
-
-        enum soundtrack {
-            default = soundtrack(SPACE, 0xff)
-        }
-
-        enum stepon_trigger {
-            exit_north = nop(),
-            exit_south = nop(),
-            center = nop(),
-        }
-
-        fun close_exits(close) {
-            if(close) {
-                object[0x04] = 0x04;
-            } else {
-                object[0x05] = 0x04;
-            }
-        }
-
-        enum BOSS {
-            HEAL_AMOUNT = 0x0f,
-
-            HIT_COUNT_MEMORY = <0x2834>,
-            HIT_COUNT = 0x0a,
-
-            COUNTDOWN = 0x03
-        }
-
-        fun boss_defeated() {
-            general_boss_defeated();
-
-            map_transition(toaster_arena, center, NONE);
-        }
-
-        fun boss_hit() {
-            BOSS.HIT_COUNT_MEMORY--;
-
-            if(BOSS.HIT_COUNT_MEMORY <= 0x00) {
-                boss_defeated();
-            } else {
-                MEMORY.STRING_PARAMETER_1 = BOSS.HIT_COUNT_MEMORY;
-                MEMORY.STRING_PARAMETER_2 = BOSS.HIT_COUNT;
-
-                subtext("[MEM1]/[MEM2]");
-            }
-        }
-
-        @install()
-        fun guardbot_down() {
-            boss_hit();
-
-            yield();
-            attribute(SCRIPT_OWNER, INVINCIBLE, True);
-
-            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
-
-            sleep(0d250);
-            sleep(0d250);
-
-            cast(SCRIPT_OWNER, SCRIPT_OWNER, HEAL, BOSS.HEAL_AMOUNT);
-            sleep(0d250);
-
-            animate(SCRIPT_OWNER, ONCE, DEFAULT);
-            attribute(SCRIPT_OWNER, INVINCIBLE, False);
-        }
-
-        fun spawn_guardbot(x, y) {
-            add_enemy(GATE_BOT, x, y);
-            <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
-            attach_script(LAST_ENTITY, DAMAGE, reference(guardbot_down));
-        }
-
-        fun trigger_enter() {
-            default_init_room(True, False);
-            character_selection(DOG);
-
-            close_exits(True);
-
-            BOSS.HIT_COUNT_MEMORY = BOSS.HIT_COUNT;
-
-            spawn_guardbot(0x29, 0x2b);
-            spawn_guardbot(0x13, 0x29);
-            spawn_guardbot(0x29, 0x1b);
-            spawn_guardbot(0x13, 0x19);
-
-            countdown(BOSS.COUNTDOWN);
-            attribute(DOG, INVINCIBLE, False);
-        }
-    };
-
     map invisible_arena(RAPTORS) {
         enum entrance {
             left = entrance(0x15, 0x1c, NONE),
@@ -32668,92 +32794,6 @@ area experimental_room() {
             countdown(0x03);
             attribute(BOY, INVINCIBLE, False);
 
-        }
-    };
-
-    map drone_arena(RAPTORS) {
-        enum entrance {
-            left = entrance(0x15, 0x1c, NONE),
-            center = entrance(0x1e, 0x21, NONE),
-            right = entrance(0x2a, 0x23, NONE)
-        }
-
-        enum stepon_trigger {
-            exit_north = nop(),
-            exit_south = nop(),
-            center = nop(),
-        }
-
-        enum BOSS {
-            RIDER_1_ID = memory(WORD, TEMP),
-            MOUNT_1_ID = memory(WORD, TEMP),
-
-            RIDER_2_ID = memory(WORD, TEMP),
-            MOUNT_2_ID = memory(WORD, TEMP),
-
-            PHASE = memory(WORD, TEMP),
-            TIMER = memory(WORD, TEMP),
-
-            COUNTDOWN = 0x03,
-        }
-
-        fun close_exits(close) {
-            if(close) {
-                object[0x04] = 0x04;
-            } else {
-                object[0x05] = 0x04;
-            }
-        }
-
-        @install()
-        @async()
-        fun stack_t01_t23() {
-            while(True) {
-                if(alive(BOSS.RIDER_1_ID)) {
-                    BOSS.RIDER_1_ID[X] = BOSS.MOUNT_1_ID[X];
-                    BOSS.RIDER_1_ID[Y] = BOSS.MOUNT_1_ID[Y] - 0x15;
-                    yield();
-                }
-                if(alive(BOSS.RIDER_2_ID)) {
-                    BOSS.RIDER_2_ID[X] = BOSS.MOUNT_2_ID[X];
-                    BOSS.RIDER_2_ID[Y] = BOSS.MOUNT_2_ID[Y] - 0x15;
-                    yield();
-                }
-
-                yield();
-            }
-        }
-
-        fun turret(id_1, id_2, x, y, mount_type) {
-            add_enemy(GATE_BOT, x, y);
-            id_1 = <LAST_ENTITY>;
-
-            add_enemy(mount_type, x, y);
-            id_2 = <LAST_ENTITY>;
-            attribute(LAST_ENTITY, INVISIBLE, True);
-            attribute(LAST_ENTITY, INVINCIBLE, True);
-            attribute(LAST_ENTITY, MUTE, True);
-        }
-
-        fun spawn_boss(x, y) {
-            turret(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, x, y, ENEMY.MOSQUITO);
-            turret(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, x, y, ENEMY.BEE);
-        }
-
-        fun trigger_enter() {
-            default_init_room(True, False);
-
-            close_exits(True);
-
-            spawn_boss(0x10, 0x20);
-            stack_t01_t23();
-            // boss_watcher();
-
-            character_selection(BOY);
-            // character_selection(DOG);
-            countdown(BOSS.COUNTDOWN);
-            attribute(BOY, INVINCIBLE, False);
-            // attribute(DOG, INVINCIBLE, False);
         }
     };
 
