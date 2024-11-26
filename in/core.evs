@@ -6298,6 +6298,11 @@ group functions() {
 
                 error_walk_back(exit_direction);
             }
+            fun error_low_power(exit_direction:DIRECTION) {
+                subtext("Not enough power.");
+
+                error_walk_back(exit_direction);
+            }
         };
 
         group trading() {
@@ -7243,6 +7248,8 @@ group functions() {
                 SWITCH_SPEAR_HALLS = 0d2,
                 GATE_HALLS = 0d3,
                 REVEALER = 0d4,
+                SECRET_OPEN = 0d5,
+                SECRET_ACTIVE = 0d6,
             }
 
             fun _object_animator_simple(object_id, value_active, value_inactive, sound_id:SOUND, active, delay, instant) {
@@ -7267,6 +7274,8 @@ group functions() {
             fun _object_animator(object_id, from, to, sound_id:SOUND, delay, instant) {
                 if!((instant is Word) && instant) {
                     if(from < to) {
+                        arg[0x10] = from;
+
                         while(arg[0x10] <= to) {
                             arg[0x10]++;
 
@@ -7363,6 +7372,34 @@ group functions() {
                             flag = False;
                         }
                     }
+                } else if(mode == OBJECT_ANIMATOR_MODE.SECRET_OPEN) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator(object_id, 0d1, 0d8, NONE, 0d8, instant);
+                    } else {
+                        _object_animator(object_id, 0d7, 0d0, NONE, 0d8, instant);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.SECRET_ACTIVE) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator(object_id, 0d10, 0d12, NONE, 0d8, instant);
+                    } else {
+                        _object_animator(object_id, 0d11, 0d09, NONE, 0d8, instant);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
                 }
             }
             fun restore_object_animator(mode:OBJECT_ANIMATOR_MODE, flag, object_id) {
@@ -7388,6 +7425,18 @@ group functions() {
                     } else {
                         _object_animator_revealer(object_id, value, 0d30, True);
                     }
+                } else if(mode == OBJECT_ANIMATOR_MODE.SECRET_OPEN) {
+                    if(flag) {
+                        _object_animator(object_id, 0d1, 0d9, NONE, 0d8, True);
+                    } else {
+                        _object_animator(object_id, 0d8, 0d0, NONE, 0d8, True);
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.SECRET_ACTIVE) {
+                    if(flag) {
+                        _object_animator(object_id, 0d10, 0d12, NONE, 0d8, True);
+                    } else {
+                        _object_animator(object_id, 0d11, 0d09, NONE, 0d8, True);
+                    }
                 }
             }
         };
@@ -7412,6 +7461,7 @@ group functions() {
 
         group act_4() {
             @install()
+            @weak()
             fun door_act4_airlock_out(x, y, door_id, wait_for_inactive) {
                 control(NONE);
 
@@ -7495,6 +7545,91 @@ group functions() {
                 control(BOTH);
             }
             
+            @install()
+            @weak()
+            fun door_act4_airlock_secret_out(x, y, wait_for_inactive) {
+                control(NONE);
+
+                if!(wait_for_inactive) {
+                    walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, ACTIVE, NONE);
+
+                    face(ACTIVE, SOUTH);
+                } else {
+                    walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, NONE, NONE);
+                    walk(INACTIVE, TILE_ABSOLUTE_DIRECT, x, y, NONE, NONE);
+                    // walk(ACTIVE, COORDINATE_ABSOLUTE, (x << 0d0003) - 0d8, y << 0d0003, NONE, NONE);
+                    // walk(INACTIVE, COORDINATE_ABSOLUTE, (x << 0d0003) + 0d8, y << 0d0003, NONE, NONE);
+
+                    wait(ACTIVE);
+                    face(ACTIVE, SOUTH);
+                    yield();
+
+                    wait(INACTIVE);
+                    face(INACTIVE, SOUTH);
+
+                    set_camera(TILE_CENTER, x, y, 0x18);
+                }
+
+                object_animator(SECRET_ACTIVE, False, 0x02, True, False);
+                sound(ACT4_DOOR_OPENING);
+
+                sleep(0d20);
+
+                arg[0x00] = <ACTIVE>[Y] + 0d32;
+                while(<ACTIVE>[Y] < arg[0x00]) {
+                    <ACTIVE>[Y] += 0x02;
+                    if(wait_for_inactive) {
+                        <INACTIVE>[Y] += 0x02;
+                    }
+                    yield();
+                }
+
+                animate(ACTIVE, ONCE_FREEZE, INVISIBLE);
+                animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+
+                object_animator(SECRET_ACTIVE, False, 0x02, False, False);
+                sound(ACT4_DOOR_OPENING);
+
+                sleep(0d16);
+            }
+            @install()
+            @weak()
+            @async()
+            fun door_act4_airlock_secret_in() {
+                control(NONE);
+                face(ACTIVE, SOUTH);
+                face(INACTIVE, SOUTH);
+
+                arg[0x10] = <ACTIVE>[Y];
+                <ACTIVE>[Y] += 0d32;
+                <INACTIVE>[Y] += 0d32;
+
+                animate(ACTIVE, ONCE_FREEZE, INVISIBLE);
+                animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+
+                object_animator(SECRET_ACTIVE, False, 0x02, True, False);
+                sound(ACT4_DOOR_OPENING);
+
+                sleep(0d20);
+
+                animate(ACTIVE, ONCE_FREEZE, DEFAULT);
+                animate(INACTIVE, ONCE_FREEZE, DEFAULT);
+
+                while(<ACTIVE>[Y] > arg[0x10]) {
+                    <ACTIVE>[Y] -= 0d2;
+                    <INACTIVE>[Y] -= 0d2;
+
+                    yield();
+                }
+
+                sleep(0d16);
+
+                object_animator(SECRET_ACTIVE, False, 0x02, False, False);
+                sound(ACT4_DOOR_OPENING);
+
+                control(BOTH);
+            }
+
             @install()
             @async()
             fun door_act4_beam_in() {

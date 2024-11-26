@@ -24099,12 +24099,45 @@ area desert_bug() {
 
 area metro() {
     enum AREA_METRO {
+        DEBUG_CODE = True,
+        
         MUSIC_DEFAULT = MUSIC.SPACE,
 
-        LEVER_REACTOR_ROOM = memory(FLAG, SRAM), // light on
-        LEVER_CONTROL_ROOM_LEFT = memory(FLAG, SRAM),
-        LEVER_CONTROL_ROOM_RIGHT = memory(FLAG, SRAM),
+        LEVER_REACTOR_ROOM = memory(FLAG, SRAM), // generator on (light on, computers active)
+
+        SECRET_CODE = memory(BYTE, SRAM), // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
     }
+
+    group helper_metro() {
+        fun plot_code() {
+            arg[0x10] = (AREA_METRO.SECRET_CODE >> 0d0) & 0x3; // rgb_1
+            arg[0x12] = (AREA_METRO.SECRET_CODE >> 0d2) & 0x3; // rgb_2
+            arg[0x14] = (AREA_METRO.SECRET_CODE >> 0d4) & 0x3; // rgb_3
+            arg[0x16] = (AREA_METRO.SECRET_CODE >> 0d6) & 0x1; // right
+            arg[0x18] = (AREA_METRO.SECRET_CODE >> 0d7) & 0x1; // left
+
+            if(AREA_METRO.DEBUG_CODE) {
+                debug_memory(arg[0x18], arg[0x16]);
+                sleep(0d120);
+                debug_memory(arg[0x10], arg[0x12], arg[0x14]);
+                sleep(0d120);
+                debug_memory(AREA_METRO.SECRET_CODE);
+            }
+        }
+        fun create_code() {
+            // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
+            
+            arg[0x10] = randrange(0d3); // rgb_1
+            arg[0x12] = randrange(0d3); // rgb_2
+            arg[0x14] = randrange(0d3); // rgb_3
+            arg[0x16] = randrange(0d2); // right
+            arg[0x18] = randrange(0d2); // left
+            
+            AREA_METRO.SECRET_CODE = (arg[0x18] << 0d7) + (arg[0x16] << 0d6) + (arg[0x14] << 0d4) + (arg[0x12] << 0d2) + (arg[0x10] << 0d0);
+
+            plot_code();
+        }
+    };
 
     map metro(OMNITOPIA_METROPLEX) {
         enum ROOM {
@@ -24995,6 +25028,10 @@ area metro() {
             add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29);
 
             fade_in();
+
+            while!(AREA_METRO.SECRET_CODE) {
+                create_code();
+            }
         }
     };
 
@@ -25246,7 +25283,7 @@ area metro() {
 
         map control_room(OMNITOPIA_CONTROL) {
             enum entrance {
-                north = entrance(0x1c, 0x0a, NONE),
+                north = entrance(0x1c, 0x0a, NONE, { door_act4_airlock_secret_in(); }),
                 east = entrance(0x54, 0x12, NONE),
             }
         
@@ -25255,20 +25292,109 @@ area metro() {
             }
 
             enum ROOM {
-                SWITCH_LEFT = AREA_METRO.LEVER_CONTROL_ROOM_LEFT,
-                SWITCH_RIGHT = AREA_METRO.LEVER_CONTROL_ROOM_RIGHT,
+                SWITCH_LEFT = memory(FLAG, TEMP),
+                SWITCH_RIGHT = memory(FLAG, TEMP),
+
+                SWITCH_RGB_1 = memory(WORD, TEMP),
+                SWITCH_RGB_2 = memory(WORD, TEMP),
+                SWITCH_RGB_3 = memory(WORD, TEMP),
+
+                CODE_SOLVED = memory(FLAG, SRAM),
+
+                CODE_1 = (AREA_METRO.SECRET_CODE >> 0d7) & 0x1, // left
+                CODE_2 = (AREA_METRO.SECRET_CODE >> 0d6) & 0x1, // right
+                CODE_3 = (AREA_METRO.SECRET_CODE >> 0d0) & 0x3, // rgb_1
+                CODE_4 = (AREA_METRO.SECRET_CODE >> 0d2) & 0x3, // rgb_2
+                CODE_5 = (AREA_METRO.SECRET_CODE >> 0d4) & 0x3, // rgb_3
             }
 
-            fun update_switches() {
+            fun check_code() {
+                arg[0x10] = ROOM.CODE_3;
+                arg[0x12] = ROOM.CODE_4;
+                arg[0x14] = ROOM.CODE_5;
+                arg[0x16] = ROOM.CODE_2;
+                arg[0x18] = ROOM.CODE_1;
+
+                if!(ROOM.SWITCH_LEFT == arg[0x18]) {
+                    if(AREA_METRO.DEBUG_CODE) {
+                        debug_subtext("lever left wrong");
+                        sleep(0d60);
+                        debug_memory(ROOM.SWITCH_LEFT, arg[0x18]);
+                        sleep(0d60);
+                    }
+
+                    end();
+                }
+                if!(ROOM.SWITCH_RIGHT == arg[0x16]) {
+                    if(AREA_METRO.DEBUG_CODE) {
+                        debug_subtext("lever right wrong");
+                        sleep(0d60);
+                        debug_memory(ROOM.SWITCH_RIGHT, arg[0x16]);
+                        sleep(0d60);
+                    }
+
+                    end();
+                }
+
+                if!(ROOM.SWITCH_RGB_1 == arg[0x10]) {
+                    if(AREA_METRO.DEBUG_CODE) {
+                        debug_subtext("lever code_3 wrong");
+                        sleep(0d60);
+                        debug_memory(ROOM.SWITCH_RGB_1, arg[0x10]);
+                        sleep(0d60);
+                    }
+
+                    end();
+                }
+                if!(ROOM.SWITCH_RGB_2 == arg[0x12]) {
+                    if(AREA_METRO.DEBUG_CODE) {
+                        debug_subtext("lever code_4 wrong");
+                        sleep(0d60);
+                        debug_memory(ROOM.SWITCH_RGB_2, arg[0x12]);
+                        sleep(0d60);
+                    }
+
+                    end();
+                }
+                if!(ROOM.SWITCH_RGB_3 == arg[0x14]) {
+                    if(AREA_METRO.DEBUG_CODE) {
+                        debug_subtext("lever code_5 wrong");
+                        sleep(0d60);
+                        debug_memory(ROOM.SWITCH_RGB_3, arg[0x14]);
+                        sleep(0d60);
+                    }
+
+                    end();
+                }
+
+                object_animator(SECRET_OPEN, ROOM.CODE_SOLVED, 0x02, True, False);
+            }
+
+            @install()
+            fun update_switches(only_visual) {
                 object[0x00] = ROOM.SWITCH_LEFT; // toggle lever_1
                 object[0x01] = ROOM.SWITCH_RIGHT; // toggle lever_2
 
-                // object[0x03] = 0x01; // toggle lever_3_1
-                // object[0x04] = 0x01; // toggle lever_3_2
-                // object[0x05] = 0x01; // toggle lever_3_3
+                object[0x03] = ROOM.SWITCH_RGB_1; // toggle lever_3_1
+                object[0x04] = ROOM.SWITCH_RGB_2; // toggle lever_3_2
+                object[0x05] = ROOM.SWITCH_RGB_3; // toggle lever_3_3
+
+                if(only_visual) {
+                    end();
+                }
+
+                if!(ROOM.CODE_SOLVED) {
+                    check_code();
+                }
             }
             fun toggle_switch(flag_switch) {
                 flag_switch = !flag_switch;
+
+                if(flag_switch) {
+                    subtext("ON");
+                } else {
+                    subtext("OFF");
+                }
 
                 update_switches();
             }
@@ -25281,24 +25407,57 @@ area metro() {
                 },
             }
 
+            fun guard_power() {
+                if!(AREA_METRO.LEVER_REACTOR_ROOM) {
+                    error_low_power(NONE);
+                    end();
+                }
+            }
+
             enum b_trigger {
                 exit_hidden_door = @install() {
                     debug_subtext("B=0");
+
+                    door_act4_airlock_secret_out(0d28, 0d10, True);
                 },
                 b_trigger_1 = @install() {
                     debug_subtext("B=1");
                 },
                 lever_3 = @install() {
                     debug_subtext("B=2");
+
+                    guard_power();
+
+                    question("[SLOW]Code 3[CHOICE]RED[CHOICE]YELLOW[CHOICE]GREEN");
+                    if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
+                        ROOM.SWITCH_RGB_1 = MEMORY.QUESTION_ANSWER;
+                        update_switches(True);
+                    }
+
+                    question("[SLOW]Code 4[CHOICE]RED[CHOICE]YELLOW[CHOICE]GREEN");
+                    if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
+                        ROOM.SWITCH_RGB_2 = MEMORY.QUESTION_ANSWER;
+                        update_switches(True);
+                    }
+
+                    question("[SLOW]Code 5[CHOICE]RED[CHOICE]YELLOW[CHOICE]GREEN");
+                    if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
+                        ROOM.SWITCH_RGB_3 = MEMORY.QUESTION_ANSWER;
+                    }
+                    update_switches();
                 },
                 lever_2 = @install() {
                     debug_subtext("B=3");
+
+                    guard_power();
 
                     toggle_switch(ROOM.SWITCH_RIGHT);
                 },
                 lever_1 = @install() {
                     debug_subtext("B=4");
 
+                    guard_power();
+                    
                     toggle_switch(ROOM.SWITCH_LEFT);
                 },
                 b_trigger_5 = @install() {
@@ -25315,8 +25474,11 @@ area metro() {
                 // object[0x05] = 0x01; // toggle lever_3_3
 
                 update_switches();
+                restore_object_animator(SECRET_OPEN, ROOM.CODE_SOLVED, 0x02);
 
                 fade_in();
+
+                plot_code();
             }
         };
     };
@@ -25420,7 +25582,7 @@ area metro() {
                 HEATER_OFFSET_END = 0d80,
             }
 
-            fun update_switch() {
+            fun update_switch(with_text) {
                 if(ROOM.SWITCH) {
                     object[0x1e] = 0x01; // toggle lever
 
@@ -25430,6 +25592,10 @@ area metro() {
                     object[0x1b] = 0x01; // activate machine_front_1
                     object[0x1c] = 0x01; // activate machine_front_2
                     object[0x1d] = 0x01; // activate machine_front_3
+
+                    if(with_text) {
+                        subtext("Generator ON");
+                    }
                 } else {
                     object[0x1e] = 0x00; // toggle lever
 
@@ -25439,12 +25605,16 @@ area metro() {
                     object[0x1b] = 0x00; // activate machine_front_1
                     object[0x1c] = 0x00; // activate machine_front_2
                     object[0x1d] = 0x00; // activate machine_front_3
+
+                    if(with_text) {
+                        subtext("Generator OFF");
+                    }
                 }
             }
             fun toggle_switch() {
                 ROOM.SWITCH = !ROOM.SWITCH;
 
-                update_switch();
+                update_switch(True);
             }
 
             fun heater_touched(direction:FACE_DIRECTION) {
@@ -25616,7 +25786,7 @@ area metro() {
             }
 
             fun trigger_enter() {
-                update_switch();
+                update_switch(False);
 
                 fade_in();
 
