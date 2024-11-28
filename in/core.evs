@@ -3989,6 +3989,12 @@ group functions() {
         };
 
         group sprite() {
+            fun destroy(character:CHARACTER) {
+                if(character > 0x00) {
+                    code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
+                }
+            }
+
             fun animate_boy(mode:ANIMATION_MODE, id:ANIMATION_BOY) {
                 code(0x78, entity_t(CHARACTER.BOY), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
             }
@@ -4048,6 +4054,17 @@ group functions() {
                         code(0xa2, 0x0000 + enemy * 0x02, 0x0000, calculate(x * 0x0008), calculate(y * 0x0008), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
                     }
                 }
+            }
+
+            fun replace_enemy(entity, enemy:ENEMY, flags:FLAG_ENEMY) {
+                if(flags is Word) {
+                    _add_enemy(enemy, entity[X], entity[Y], flags);
+                } else {
+                    _add_enemy(enemy, entity[X], entity[Y]);
+                }
+
+                animate(entity, ONCE, DEFAULT);
+                destroy(entity);
             }
 
             fun _add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y, mode:ANIMATION_MODE) {
@@ -4207,12 +4224,6 @@ group functions() {
                     } else {
                         code(0x3f, entity_t(character), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
                     }
-                }
-            }
-
-            fun destroy(character:CHARACTER) {
-                if(character > 0x00) {
-                    code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
                 }
             }
 
@@ -10437,6 +10448,44 @@ group functions() {
                         debug_memory(arg[0x18], arg[0x1a]);
                         sleep(0d60);
                     }
+                }
+            }
+        }
+
+        @install()
+        @async()
+        @weak()
+        fun hatch_enemy(entity, enemy:ENEMY) {
+            while(alive(entity)) {
+
+                sleep(0d300 + randrange(0d300));
+
+                debug_memory(entity, alive(entity), False);
+                animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+
+                arg[0x10] = 0d0;
+                arg[0x12] = False;
+                while((arg[0x10] < 0d20) && (!arg[0x12])) {
+                    arg[0x10]++;
+
+                    if(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                        arg[0x12] = True;
+                    }
+
+                    sleep(0d20);
+
+                    if(dead(entity)) {
+                        end();
+                    }
+                }
+
+                if!(arg[0x12]) {
+                    if(enemy == ENEMY.MINITAUR) {
+                        replace_enemy(entity, MINITAUR);
+                    } else {
+                        nop(); // TODO
+                    }
+                    end();
                 }
             }
         }
