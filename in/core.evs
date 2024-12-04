@@ -1653,7 +1653,7 @@ group general_enums() {
                 // ATTRIBUTE.FLAGS_2 (character+0x11)
                 UNKNOWN = 0x01, // always set?
                 LOADING_SCREEN = 0x08, // also ai following quickly?
-                HEALED = 0x10, // examples: PETAL (Blue glow)
+                HEALED = 0x10, // examples: PETAL (Blue glow), STOP (greyed out)
                 NO_CLIP = 0x04, // see ATTRIBUTE_BITS.NO_CLIP
                 INVINCIBLE_TEMP = 0x40, // see ATTRIBUTE_BITS.INVINCIBLE_TEMP
 
@@ -3995,6 +3995,44 @@ group functions() {
                 }
             }
 
+            fun _teleport(character:CHARACTER, x, y) {
+                if(character == CHARACTER.BOTH) {
+                    code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                    code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                } else {
+                    code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+                }
+            }
+            fun teleport(character:CHARACTER, x, y) {
+                if((x is Word) && (y is Word)) {
+                    if(x > 0xff) {
+                        throw("teleport.x > 0xff");
+                    } else if(y > 0xff) {
+                        throw("teleport.y > 0xff");
+                    }
+
+                    if(character == CHARACTER.BOTH) {
+                        code(0x20, x, y, "// (20) Teleport both to 43 93");
+                    } else {
+                        code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
+                    }
+                } else {
+                    if(character == CHARACTER.BOTH) {
+                        code(0x43, entity_t(BOY), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                        code(0x43, entity_t(DOG), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                    } else {
+                        code(0x43, entity_t(character), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                    }
+                }
+            }
+            fun teleport_relative(character:CHARACTER, x, y) {
+                code(0xb9, entity_t(character), calculate(x), calculate(y), "// (b9) Teleport $2835 by x:signed arg9, y:signed arg3 - signed arg5");
+            }
+
+            fun teleport_screen(dx, dy) { // scren=0d512/0d512
+                code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
+            }
+            
             fun animate_boy(mode:ANIMATION_MODE, id:ANIMATION_BOY) {
                 code(0x78, entity_t(CHARACTER.BOY), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
             }
@@ -4065,6 +4103,16 @@ group functions() {
 
                 animate(entity, ONCE, DEFAULT);
                 destroy(entity);
+            }
+
+            @install()
+            @weak()
+            fun swap_enemies(entity1, entity2) {
+                arg[0x10] = entity1[X];
+                arg[0x12] = entity1[Y];
+
+                _teleport(entity1, entity2[X], entity2[Y]);
+                _teleport(entity2, arg[0x10], arg[0x12]);
             }
 
             fun _add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y, mode:ANIMATION_MODE) {
@@ -4327,7 +4375,7 @@ group functions() {
             fun _drag(enemy:CHARACTER, x, y, z) {
                 // eval("af 04 8d 02 00 88 61 01 88 63 01 e0 1e cc 03 // (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
 
-                if(z is Word) {
+                if(z !is None) {
                     code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), calculate(z), address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
                 } else {
                     code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
@@ -4428,44 +4476,6 @@ group functions() {
                 load_map(map, x, y);
             }
 
-            fun _teleport(character:CHARACTER, x, y) {
-                if(character == CHARACTER.BOTH) {
-                    code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                    code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                } else {
-                    code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
-                }
-            }
-            fun teleport(character:CHARACTER, x, y) {
-                if((x is Word) && (y is Word)) {
-                    if(x > 0xff) {
-                        throw("teleport.x > 0xff");
-                    } else if(y > 0xff) {
-                        throw("teleport.y > 0xff");
-                    }
-
-                    if(character == CHARACTER.BOTH) {
-                        code(0x20, x, y, "// (20) Teleport both to 43 93");
-                    } else {
-                        code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
-                    }
-                } else {
-                    if(character == CHARACTER.BOTH) {
-                        code(0x43, entity_t(BOY), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
-                        code(0x43, entity_t(DOG), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
-                    } else {
-                        code(0x43, entity_t(character), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
-                    }
-                }
-            }
-            fun teleport_relative(character:CHARACTER, x, y) {
-                code(0xb9, entity_t(character), calculate(x), calculate(y), "// (b9) Teleport $2835 by x:signed arg9, y:signed arg3 - signed arg5");
-            }
-
-            fun teleport_screen(dx, dy) { // scren=0d512/0d512
-                code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
-            }
-            
             fun change_z(entity:CHARACTER, z) { // redundant: same as entity[Z_LEVEL]=z
                 MEMORY.Z_AFTER_TELEPORT = z;
                 teleport(entity, entity[X], entity[Y]);
@@ -4733,21 +4743,21 @@ group functions() {
             }
 
             fun bomb_absolute(entity:CHARACTER, x, y, size, damage) {
-                if(damage is Word) {
+                if(damage !is None) {
                     MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
                 }
                 
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(x), calculate(y), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun bomb_entity(entity:CHARACTER, size, damage) {
-                if(damage is Word) {
+                if(damage !is None) {
                     MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
                 }
 
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun bomb_entity_entity(entity:CHARACTER, entity_target:CHARACTER, size, damage) {
-                if(damage is Word) {
+                if(damage !is None) {
                     MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
                 }
                 
@@ -10005,13 +10015,13 @@ group functions() {
 
         @install()
         @weak()
-        fun ai_move_bomb_toss(entity, projectile:THROWABLE, target, offset_x, offset_y) {
-            shoot_entity_entity_offset(entity, ONION, target, offset_x, offset_y, 0x2a, 0x1a);
+        fun ai_move_bomb_toss(entity, projectile:THROWABLE, target, offset_x, offset_y, damage) {
+            shoot_entity_entity_offset(entity, projectile, target, offset_x, offset_y, 0x2a, 0x1a);
             arg[0x10] = target[X] + offset_x;
             arg[0x12] = target[Y] + offset_y;
             sleep(0d80);
 
-            bomb_absolute(entity, arg[0x10], arg[0x12], 0x60, 0d0);
+            bomb_absolute(entity, arg[0x10], arg[0x12], 0x60, 0d0, damage);
 
             _add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_1, arg[0x10], arg[0x12]);
             arg[0x14] = <LAST_ENTITY>;
