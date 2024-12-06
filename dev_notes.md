@@ -23,7 +23,7 @@
 
 # important
 ## every any door can be opened by a bomb
-## complete bosses (naris, stairs)
+## complete bosses (naris)
 ## improve bosses (double thraxx)
 ## balance bosses (radahn)
 ## basement lvl4 has a weird mosquito north
@@ -35,7 +35,10 @@
 
 
 
-
+# act4
+## inn: heals once, afterwards knockback
+## storage chests: disabled in the dark
+## killing guard bots opens door
 
 
 
