@@ -482,9 +482,9 @@ group non_maps() {
             REWARD_PIT_EGG = ITEM.WINGS,
 
             DEAD_ARENA_RADAHN = memory(FLAG, SRAM), // t?
-            REWARD_ARENA_RADAHN = CUSTOM_ITEM.SPEAR_ORB,
+            REWARD_ARENA_RADAHN = CUSTOM_ITEM.ROCKET_JUMP,
             DEAD_STOMPY_RADAHN = memory(FLAG, SRAM), // t?
-            REWARD_STOMPY_RADAHN = CUSTOM_ITEM.ROCKET_JUMP,
+            REWARD_STOMPY_RADAHN = ITEM.NECTAR,
             
             DEAD_ARENA_MOSQUITO = memory(FLAG, SRAM), // t0
             REWARD_ARENA_MOSQUITO = ITEM.PIXIE_DUST,
@@ -539,7 +539,7 @@ group non_maps() {
             DEAD_SPACESHIP_DESERT = memory(FLAG, SRAM),
             REWARD_SPACESHIP_DESERT = ITEM.NECTAR, // TODO
             DEAD_ABOMINATION = memory(FLAG, SRAM),
-            REWARD_ABOMINATION = ITEM.NECTAR, // TODO
+            REWARD_ABOMINATION = ITEM.ENERGY_CORE,
 
             ///////////////////////////////////////////////////////
             // quests
@@ -1558,11 +1558,19 @@ group non_maps() {
         @install()
         fun start_feature_selected(index) {
             if(index == 0x01) { // TODO: "&& (FLAG.ENERGY_CORE)" doesn't work anymore
-                drop_bomb(True);
+                if(FLAG.ENERGY_CORE) {
+                    drop_bomb(False);
+                } else {
+                    drop_bomb(True);
+                }
             } else if(index == 0x02) {
                 _isaac_tear(True);
             } else if(index == 0x03) {
-                mario_yump(True);
+                if(FLAG.ENERGY_CORE) {
+                    mario_yump(False);
+                } else {
+                    mario_yump(True);
+                }
             } else if(index == 0x04) {
                 MEMORY.DOG_WRITE = DOG.PUPPER; // TODO
             }
@@ -1740,7 +1748,7 @@ group non_maps() {
             // <0x2834> = <LAST_ENTITY>;
         }
 
-        fun guard_levitate_stone(required_strength) {
+        fun guard_levitate_stone(required_strength, callback_error) {
             if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_2_3) {
                 arg[0x0e] = 0d1;
             } else if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_2_2) {
@@ -1752,7 +1760,11 @@ group non_maps() {
             }
 
             if(required_strength > arg[0x0e]) {
-                fake_b();
+                if(callback_error !is None) {
+                    callback_error();
+                } else {
+                    fake_b();
+                }
                 end();
             }
 
@@ -1873,7 +1885,7 @@ group non_maps() {
                 
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(metro, door_d1, NONE);
+                map_transition(east_crossing, north, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -1882,7 +1894,19 @@ group non_maps() {
         @inject(ADDRESS.HOTKEY_START_R)
         @count_limit(0x20)
         fun hotkey_start_r() {
-            if(FLAG.DEBUG) {
+            if(SOULS_MEMORY.MARIO_YUMP_ENABLED && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0)) {
+                if(FLAG.ENERGY_CORE) {
+                    mario_yump(False);
+                } else {
+                    mario_yump(True);
+                }
+            } else if(SOULS_MEMORY.ROCKET_JUMP_ENABLED && CUSTOM_FLAG.START_MARIO_YUMP) {
+                if(FLAG.ENERGY_CORE) {
+                    rocket_jump(False);
+                } else {
+                    rocket_jump(True);
+                }
+            } else if(FLAG.DEBUG) {
                 debug_subtext("Start+R");
                 
                 if(SOULS_MEMORY.WITH_CHEATS) {
@@ -10852,9 +10876,20 @@ area east_inbetwixx() {
         // chests=vanilla
         // sniff=vanilla
 
+        enum ROOM {
+            DEBUG = True,
+
+            STONE_TRIGGERED = memory(FLAG, SRAM),
+            RADAHN_EXIT_OPENED = memory(FLAG, SRAM),
+            BRIDGE_RESTORED = memory(FLAG, SRAM),
+
+            ID_STONE = memory(WORD, TEMP),
+            ID_STONE_HOLE = memory(WORD, TEMP),
+        }
+
         enum entrance {
             north = entrance(0x27, 0x01, SOUTH),
-            cave = entrance(0x15, 0x1a, SOUTH),
+            cave = entrance(0x15, 0x1a, SOUTH, { ROOM.RADAHN_EXIT_OPENED = True; }),
             east = entrance(0x3f, 0x4b, WEST),
             west = entrance(0x01, 0x4b, EAST),
 
@@ -10867,17 +10902,6 @@ area east_inbetwixx() {
 
         enum soundtrack {
             default = soundtrack(SEWER_AMBIENT_WATER, 0xff)
-        }
-
-        enum ROOM {
-            DEBUG = False,
-
-            STONE_TRIGGERED = memory(FLAG, SRAM),
-            STONE_DOOR_TRIGGERED = memory(FLAG, SRAM),
-
-            ID_STONE = memory(WORD, TEMP),
-            ID_STONE_BOMB = memory(WORD, TEMP),
-            ID_STONE_HOLE = memory(WORD, TEMP),
         }
 
         @install()
@@ -10927,10 +10951,10 @@ area east_inbetwixx() {
             },
 
             exit_cave = @install() {
-                if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
-                    error_wrong_side(SOUTH);
-                } else {
+                if(ROOM.RADAHN_EXIT_OPENED) {
                     map_transition(radahn_exit, south_1, NORTH);
+                } else {
+                    error_wrong_side(SOUTH);
                 }
             },
             exit_west = @install() {
@@ -11030,11 +11054,6 @@ area east_inbetwixx() {
             }
         }
 
-        @install()
-        fun stone_door_triggered() {
-            error_wrong_side(SOUTH);
-        }
-
         fun tiny_bridge(connected) {
             if(connected) {
                 object[0x11] = 0x01;
@@ -11045,60 +11064,36 @@ area east_inbetwixx() {
 
         @install()
         fun stone_hole_triggered() {
-            set(ROOM.STONE_DOOR_TRIGGERED);
+            ROOM.BRIDGE_RESTORED = True;
 
             destroy(ROOM.ID_STONE);
-            destroy(ROOM.ID_STONE_BOMB);
             destroy(ROOM.ID_STONE_HOLE);
 
             tiny_bridge(True);
-        }
-
-        @install()
-        @async()
-        fun stack_stone_bomb() {
-            while(alive(ROOM.ID_STONE)) {
-                ROOM.ID_STONE[X] = ROOM.ID_STONE_BOMB[X];
-                ROOM.ID_STONE[Y] = ROOM.ID_STONE_BOMB[Y];
-                yield();
-            }
         }
         
         @install()
         @async()
         fun stone_hole_scanner() {
-            while(True) {
-                arg[0x00] = ROOM.ID_STONE[X];
-                arg[0x02] = ROOM.ID_STONE[Y];
-                arg[0x04] = ROOM.ID_STONE_HOLE[X];
-                arg[0x06] = ROOM.ID_STONE_HOLE[Y];
-
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if((arg[0x08] <= 0x0a) && (arg[0x0a] <= 0x0a)) {
-                    stone_hole_triggered();
-                    end();
-                }
-
-                yield();
-
-                if(ROOM.DEBUG) {
-                    debug_memory(arg[0x08], arg[0x0a]);
-                    sleep(0x20);
-                }
-            }
+            range_checker(ROOM.ID_STONE_HOLE, ROOM.ID_STONE, 0d10, 0d30, {
+                stone_hole_triggered();
+                end();
+            });
         }
         
+        @install()
+        fun stone_door_triggered() {
+            if!(ROOM.RADAHN_EXIT_OPENED) {
+                ROOM.RADAHN_EXIT_OPENED = True;
+
+                guard_levitate_stone(0d2, {
+                    error_wrong_side(SOUTH);
+                });
+            } else {
+                guard_levitate_stone(0d2);
+            }
+        }
+
         fun init_room() {
             default_init_room(True, True);
         }
@@ -11136,30 +11131,21 @@ area east_inbetwixx() {
 
             bonfire(0d45, 0d68, SOULS_MEMORY.BONFIRE_EAST_CROSSING);
 
-            if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
-                add_enemy(STONE_ROUND, 0x15, 0x1b);
-                attach_script(LAST_ENTITY, B, reference(stone_door_triggered));
-            } else if!(ROOM.STONE_DOOR_TRIGGERED) {
-                if(False) {
-                    add_enemy(STONE_ROUND, 0x00, 0x00);
-                    ROOM.ID_STONE = <LAST_ENTITY>;
-
-                    add_enemy(BOMB, 0x15, 0x22);
-                    attach_script(LAST_ENTITY, DAMAGE, reference(enemy_triggered_invincible_with_knockback));
-                    ROOM.ID_STONE_BOMB = <LAST_ENTITY>;
-                    attribute(LAST_ENTITY, INVISIBLE, True);
-
-                    stack_stone_bomb();
-
-                    add_enemy(PLACEHOLDER, 0x2f, 0x2e);
-                    ROOM.ID_STONE_HOLE = <LAST_ENTITY>;
-                } else {
-                    add_heavy_stone(0x15, 0x22);
-                }
-
-                stone_hole_scanner(0x15, 0x22);
-            } else {
+            if(ROOM.BRIDGE_RESTORED) {
                 tiny_bridge(True);
+            } else {
+                add_enemy(STONE_ROUND, 0x15, 0x1b);
+                ROOM.ID_STONE = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, B, reference(stone_door_triggered));
+
+                if(ROOM.RADAHN_EXIT_OPENED) {
+                    ROOM.ID_STONE[Y] += 0d7 * 0d8;
+                }
+                
+                add_enemy(PLACEHOLDER, 0d49, 0d46);
+                ROOM.ID_STONE_HOLE = <LAST_ENTITY>;
+
+                stone_hole_scanner();
             }
 
             default_init_room(True, False);
@@ -15128,17 +15114,17 @@ area southern_jungle() {
                 door_2_1 = @install() {
                     debug_subtext("S=17");
 
-                    error_dead_end(SOUTH);
+                    error_dlc(SOUTH);
                 },
                 door_2_2 = @install() {
                     debug_subtext("S=18");
 
-                    error_dead_end(SOUTH);
+                    error_dlc(SOUTH);
                 },
                 door_3_2 = @install() {
                     debug_subtext("S=19");
 
-                    error_dead_end(EAST);
+                    error_dlc(EAST);
                 },
 
                 switch_bottom = @install() {
