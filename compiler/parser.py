@@ -25,7 +25,7 @@ class Parser():
                 'ELSEIF!', 'ELSEIF', 'IF_CURRENCY', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                '@', ':', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
+                '@', ':', '?', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 'MEMORY', 'OBJECT', 'ARG', 'SCRIPT', 'TIME', 'IDENTIFIER',
             ],
@@ -63,7 +63,7 @@ class Parser():
             "eval": (lambda p: Function_Eval(p[2][0])),
             "goto": (lambda p: Function_Goto(p[2][0])),
             "code": (lambda p: Function_Code(p[2])),
-            "calculate": (lambda p: Function_Calculate(p[2])),
+            "calculate": (lambda p: Function_Calculate(p[2], raw=p)),
             "set": (lambda p: Set(p[2][0])),
             "unset": (lambda p: Unset(p[2][0])),
             "len": (lambda p: Len(p[2][0]).eval()),
@@ -481,7 +481,7 @@ class Parser():
             condition = p[2]
             script = p[5]
 
-            return If_list([If(condition, script, if_properties)])
+            return If_list([If(condition, script, if_properties)], raw=p)
         @self.pg.production('expression_entry : if ( expression ) { expression_list } else_list')
         def parse(p):
             if_properties = p[0]
@@ -489,7 +489,7 @@ class Parser():
             script = p[5]
             list = p[7]
 
-            return If_list([If(condition, script, if_properties)] + list)
+            return If_list([If(condition, script, if_properties)] + list, raw=p)
         @self.pg.production('else_list : elseif ( expression ) { expression_list }')
         def parse(p):
             if_properties = p[0]
@@ -554,12 +554,24 @@ class Parser():
         @self.pg.production('arg_list : arg_list , arg')
         def parse(p):
             return p[0] + [ p[2] ]
+        @self.pg.production('arg : arg : IDENTIFIER')
+        def parse(p):
+            arg: FunctionArg = p[0]
+            base: str = p[2]
+
+            arg.enum_base = base
+
+            return arg
+        @self.pg.production('arg : arg ?')
+        def parse(p):
+            arg = p[0]
+
+            arg.nullable = True
+
+            return arg
         @self.pg.production('arg : IDENTIFIER')
         def parse(p):
-            return FunctionArg(p[0].value)
-        @self.pg.production('arg : IDENTIFIER : IDENTIFIER')
-        def parse(p):
-            return FunctionArg(p[0].value, p[2].value)
+            return FunctionArg(p[0])
 
         @self.pg.production('param_list : param')
         def parse(p):
@@ -645,7 +657,7 @@ class Parser():
         def parse(p):
             character = p[1]
 
-            address = Enum_Call(self.generator, f"CHARACTER.{character.value}")
+            address = Enum_Call(self.generator, character, "CHARACTER")
             address = address.value
 
             return Memory(address)

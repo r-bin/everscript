@@ -5,6 +5,7 @@ from rply import Token
 import re
 from textwrap import wrap
 from enum import IntEnum
+from typing import Any
 
 def TODO(message = ""):
     raise Exception(message)
@@ -108,6 +109,7 @@ class Resolvable():
         if value:
             return value.resolve(params)
         elif with_exception:
+            value = self.resolve_param(self, params)
             raise Exception(f"{self} could not be resolved with params: {params}")
         else:
             return None
@@ -119,7 +121,7 @@ class Resolvable():
         out = None
 
         for p in params:
-            if p.name == identifier.name:
+            if p.name == identifier:
                 out = p.value
                 break
             
@@ -139,14 +141,19 @@ class Resolvable():
         return None
 
 class Param(BaseBox, Resolvable):
-    def __init__(self, name, value):
-        self.name = None
-        if isinstance(name, str):
-            self.name = name
-        elif isinstance(name, Identifier):
-            self.name = name.name
+    name: Identifier|None
+    value: Any
+    nullable: bool
 
+    def __init__(self, name:Identifier, value:Any, nullable:bool=False):
+        name = name
+        if isinstance(name, Token):
+            name = name.value
+        self.name = name
+        
         self.value = value
+
+        self.nullable = nullable
 
     def __repr__(self):
         return f"Param(name={self.name}, value={self.value})"
@@ -158,9 +165,30 @@ class Param(BaseBox, Resolvable):
             return self.value.eval(params)
 
 class Identifier(BaseBox, Resolvable):
-    def __init__(self, name):
+    def __init__(self, name, nullable=False):
         self.name = name.value
+        self.nullable = nullable
 
+    def __eq__(self, other):
+        match other:
+            case None:
+                return False
+            case str():
+                return self.name == other
+            case Token():
+                return self.name == other.value
+            case Identifier():
+                #return super().__eq__(other)
+                return self.name == other.name
+        
+        raise Exception("invalid Identifier comparison")
+
+    def __contains__(self, key):
+        return key in self.numbers
+    
+    def __hash__(self):
+        return hash(self.name)
+    
     def __repr__(self):
         return f"Identifier({self.name})"
 
@@ -180,25 +208,40 @@ class Enum_Entry(BaseBox):
         return self.value.value
 
 class Enum_Call(BaseBox):
-    def __init__(self, generator:any, identifier, with_exception=True):
+    def __init__(self, generator:any, identifier, base=None, with_exception=True):
         self._generator = generator
 
-        self.identifier = identifier
-        if isinstance(self.identifier, Token):
-            self.identifier = self.identifier.value
+        identifier = identifier
+        if isinstance(identifier, Token):
+            identifier = identifier.value
+        elif isinstance(identifier, Param):
+            identifier = identifier.name
+        if isinstance(identifier, Identifier):
+            identifier = identifier.name
 
-        enum_identifier = re.sub("\..*", "",  self.identifier)
-        enum = self._generator.get_identifier(enum_identifier)
+        if isinstance(base, Token):
+            base = base.value
 
-        enum_value = re.sub(".*\.", "",  self.identifier)
+        if "." in identifier:
+            if base:
+                raise Exception(f"invalid enum call: {identifier} + {base}")
+            
+            self.base = re.sub("\..*", "",  identifier)
+            self.identifier = re.sub(".*\.", "",  identifier)
+        else:
+            self.base = base
+            self.identifier = identifier
+
+        enum = self._generator.get_identifier(self.base)
+
         value = None
         for v in enum.values:
-            if v.name == enum_value:
+            if v.name == self.identifier:
                 value = v.value
                 break
 
         if with_exception and value == None:
-            error = f"Enum value '{enum_value}' does not exist in '{enum_identifier}' ({[entry.name for entry in enum.values]})"
+            error = f"Enum value '{self.identifier}' does not exist in '{self.base}' ({[entry.name for entry in enum.values]})"
             raise Exception(error)
         
         self.value = value
@@ -212,11 +255,16 @@ class Function_Base(BaseBox, Resolvable):
     #cache_code:str = None
     #cache_code_clean:str = None
 
+    def __init__(self, raw=None):
+        self.raw = raw
+
     def parse_argument_with_type(self, generator:any, argument:any, enum_base:str):
         if isinstance(argument, Param) or isinstance(argument, Identifier):
             if argument.name != None:
                 value = argument.name
-                value = Enum_Call(generator, f"{enum_base}.{value}")
+                if isinstance(value, Identifier):
+                    value = value.name
+                value = Enum_Call(generator, value, enum_base)
                 value = value.value
             else:
                 argument = argument.value
@@ -633,7 +681,9 @@ class Function_Code(Function_Base):
 {code}
         """
 class Function_Calculate(Function_Base, Calculatable):
-    def __init__(self, script, delimiter=' '):
+    def __init__(self, script, delimiter=' ', raw=None):
+        self.raw = raw
+        
         self.script = script
         self.delimiter = delimiter
 
