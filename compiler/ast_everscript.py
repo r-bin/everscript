@@ -702,10 +702,18 @@ class RawString(Function_Base):
         return code
         
 class FunctionArg(BaseBox):
-    def __init__(self, name, enum_base = None):
+    name: Identifier
+    enum_base: str|None
+    nullable: bool
+
+    def __init__(self, name:Identifier, enum_base:str|None=None, nullable:bool=False):
+        name = name
+        if isinstance(name, Token):
+            name = name.value
         self.name = name
 
         self.enum_base = enum_base
+        self.nullable = nullable
 
     def eval(self):
         return self.name
@@ -798,13 +806,18 @@ class Call(Function_Base, Calculatable):
 
         if self.params and self.function:
             for p, a in zip(self.params, function.args):
+                p:Param
+                a:FunctionArg
+
                 if a.enum_base == None:
                     continue
 
                 if p.name == None:
                     continue
                 
-                value = Enum_Call(self._generator, f"{a.enum_base}.{p.name}", False)
+                value = Enum_Call(self._generator, p, a.enum_base, with_exception=False)
+
+                p.nullable = a.nullable
 
                 if value.value == None:
                     continue
@@ -816,7 +829,7 @@ class Call(Function_Base, Calculatable):
 
         # TODO: should be done for all elements
         for param in self.params:
-            param = param.resolve(params)
+            param = param.resolve(params, with_exception=not param.nullable)
             
             if isinstance(param, Deref):
                 param.update(params)
@@ -839,6 +852,9 @@ class Call(Function_Base, Calculatable):
             #params = self.handle_params(params, self.params)
 
             for p, a in zip(out_params, function.args):
+                p: Param
+                a: FunctionArg
+
                 if p.name != a.name:
                     pass
                 p.name = a.name
@@ -927,7 +943,9 @@ class Function_Goto(Function_Base):
         """
 
 class If_list(Function_Base, Memorable):
-    def __init__(self, if_list):
+    def __init__(self, if_list, raw=None):
+        self.raw = raw
+        
         self.if_list = if_list
 
     def is_memory(self, params:list[Param]):
@@ -1600,7 +1618,11 @@ class MapTransition(Function_Base):
         self._generator = generator
 
         self.map_name = map_name.name
+        if isinstance(self.map_name, Identifier):
+            self.map_name = self.map_name.name
         self.entrance_name = entrance_name.name
+        if isinstance(self.entrance_name, Identifier):
+            self.entrance_name = self.entrance_name.name
         self.direction = self.parse_argument_with_type(self._generator, direction, "DIRECTION")
 
         generator.add_map_transition(self)

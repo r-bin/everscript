@@ -1218,7 +1218,7 @@ group general_enums() {
                 FLOWER_VORE = 0x1c,
 
                 SPEAR_ATTACK = 0x20, // same as sword?
-                DOG_ATTACK = 0x24,
+                DOG_ATTACK = 0x24, // bark
 
                 AXE_ATTACK = 0x20, // ?
                 SWORD_ATTACK = 0x2a,
@@ -1704,6 +1704,44 @@ group general_enums() {
                 PIXIE_DUST = 0x0200,
                 REGROWTH = 0x0400,
             }
+            enum CHARACTER_ADDRESS {
+                BOY = 0x4E89,
+                DOG = 0x4F37,
+
+                ENTITY_1 = 0x3de5,
+                ENTITY_2 = 0x3e73,
+                ENTITY_3 = 0x3f01,
+                ENTITY_4 = 0x3f8f,
+                ENTITY_5 = 0x401d,
+                ENTITY_6 = 0x40ab,
+                ENTITY_7 = 0x4139,
+                ENTITY_8 = 0x41fd,
+                ENTITY_9 = 0x4255,
+                ENTITY_10 = 0x42E3,
+                ENTITY_11 = 0x4371,
+                ENTITY_12 = 0x43FF,
+                ENTITY_13 = 0x448D,
+                ENTITY_14 = 0x451B,
+                ENTITY_15 = 0x45A9,
+                ENTITY_16 = 0x4637,
+                ENTITY_17 = 0x46C5,
+                ENTITY_18 = 0x4753,
+                ENTITY_19 = 0x47E1,
+                ENTITY_20 = 0x486F,
+                ENTITY_21 = 0x48FD,
+                ENTITY_22 = 0x498B,
+                ENTITY_23 = 0x4A19,
+                ENTITY_24 = 0x4AA7,
+                ENTITY_25 = 0x4B35,
+                ENTITY_26 = 0x4BC3,
+                ENTITY_27 = 0x4C51,
+                ENTITY_28 = 0x4CDF,
+                ENTITY_29 = 0x4DFB,
+
+                // special
+
+                UNKNOWN = 0x0000, // damage source: magic, projectile
+            }
             enum CHARACTER_TPYE {
                 // npc - act 1
                 FIRE_EYES = 0xB9F0,
@@ -1991,7 +2029,7 @@ group general_enums() {
                 STAMINA = 0x2e, // enum STAMINA (seems to instantly regenerate during some animations?)
                 GENERAL_PURPOSE = 0x30, // DOES NOT RESET WHEN THE SPRITE CHANGES! used for secret boss bombs (set to 0 for exploded bombs) and speakers (indexed from 2^0 to 2^8)
                 UNKNOWN = 0x32, // TODO: used for secret boss and boss rush fans
-                DAMAGE_TYPE = 0x36, // used for vigor (weapon: 0x4e89, dog: 0x4F37, magic and default: 0x0000)
+                DAMAGE_SOURCE = 0x36, // used for vigor (weapon: 0x4e89, dog: 0x4F37, magic and default: 0x0000)
                 CURRENT_GROUND = 0x3c, // good: 10 (80?, 28?, 23?, 24?, 48) bad: 31 (22?, 26?, 63?) TODO: used in ebon keep sewers (seems to be based on the tile the character stands on)
 
                 // status effect #1
@@ -2142,13 +2180,6 @@ group general_enums() {
                 TURN_WEST_3 = 0x0e
 
                 // CRASH: 38, 3a, …
-            }
-
-            enum DAMAGE_TYPE {
-                BOY_ATTACK = 0x4e89,
-                DOG_ATTACK = 0x4F37,
-                MAGIC = 0x00,
-                DEFAULT = 0x00,
             }
 
             enum THROWABLE {
@@ -3886,15 +3917,15 @@ group functions() {
                 if(control is Word) {
                     if(character == CHARACTER.BOY) {
                         if(control) {
-                            code(0xbd, "// (bd) BOY = Player controlled");
-                        } else {
                             code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                        } else {
+                            code(0xbd, "// (bd) BOY = Player controlled");
                         }
                     } else if(character == CHARACTER.DOG) {
                         if(control) {
-                            code(0xbf, "// (bf) DOG = Player controlled");
-                        } else {
                             code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+                        } else {
+                            code(0xbf, "// (bf) DOG = Player controlled");
                         }
                     } else {
                         if(control) {
@@ -4250,6 +4281,9 @@ group functions() {
                 }
             }
 
+            fun _face_each(character:CHARACTER, character2:CHARACTER) {
+                code(0x71, calculate(character), calculate(character2), "// (71) Make $2835 and controlled char face each other");
+            }
             fun face_each(character:CHARACTER, character2:CHARACTER) {
                 code(0x71, entity_t(character), entity_t(character2), "// (71) Make $2835 and controlled char face each other");
             }
@@ -4897,7 +4931,7 @@ group functions() {
                 control(BOTH);
             }
 
-            fun conversation_start(face_each_other) {
+            fun conversation_start(face?:CHARACTER) {
                 if(False) {
                     if(<ACTIVE>[Z_LEVEL] != npc[Z_LEVEL]) {
                         end();
@@ -4911,35 +4945,43 @@ group functions() {
 
                 control(NONE); // TODO: ACTIVE only?
                 
-                if(face_each_other is Word) {
-                    if(face_each_other) {
-                        // arg[0x0e] = entity[FACE_DIRECTION];
-
+                if(face is Word) {
+                    if(face == CHARACTER.NONE) {
+                        nop();
+                    } else {
                         control(SCRIPT_OWNER, True);
 
-                        face_each(ACTIVE, SCRIPT_OWNER);
-                    } else {
-                        face_target(ACTIVE, SCRIPT_OWNER);
+                        face_each(face, SCRIPT_OWNER);
                     }
+                } else if(face !is None) {
+                    control(SCRIPT_OWNER, True);
+
+                    _face_each(face, <SCRIPT_OWNER>);
                 } else {
-                    face_target(ACTIVE, SCRIPT_OWNER);
+                    control(SCRIPT_OWNER, True);
+
+                    face_each(ACTIVE, SCRIPT_OWNER);
                 }
             }
-            fun conversation_end(face_each_other) {
+            fun conversation_end(face?:CHARACTER) {
                 control(BOTH);
 
-                if(face_each_other is Word) {
-                    if(face_each_other) {
+                if(face is Word) {
+                    if(face == CHARACTER.NONE) {
+                        nop();
+                    } else {
                         control(SCRIPT_OWNER, False);
                     }
+                } else {
+                    control(SCRIPT_OWNER, False);
                 }
             }
-            fun conversation(face_each_other, callback) {
-                conversation_start(face_each_other);
+            fun conversation(callback, face?:CHARACTER) {
+                conversation_start(face);
 
                 callback();
 
-                conversation_end(face_each_other);
+                conversation_end(face);
             }
             fun conversation_dialog(id, lines) {
                 if(lines is Word) {
