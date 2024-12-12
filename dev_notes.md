@@ -22,16 +22,18 @@
 
 
 # important
+## true ending boss?
 ## every any door can be opened by a bomb
-## complete bosses (naris)
-## improve bosses (double thraxx)
-## balance bosses (radahn)
 ## basement lvl4 has a weird mosquito north
 
 # nice to have
+## balance bosses (radahn)
+## improve bosses (double thraxx)
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
 ## "jump into volcano" animation
 ## make mario prison less boring
+## populate non barricaded town house
+## mushroom armor crafting
 
 
 

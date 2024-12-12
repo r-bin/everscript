@@ -391,6 +391,7 @@ class Function(Function_Base):
                     self.async_call = True
                 case Annotation_Install():
                     self.install = True
+                    self.cacheable = True
                     self.address = annotation.eval()
                     self.terminate = annotation.terminate
                 case Annotation_Inject():

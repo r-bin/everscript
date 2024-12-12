@@ -250,15 +250,15 @@ class Enum_Call(BaseBox):
         return self.value
 
 class Function_Base(BaseBox, Resolvable):
-    _value_count:int = None
+    _value_count:int|None = None
 
-    #cache_code:str = None
-    #cache_code_clean:str = None
+    cacheable:bool = False
+    cache_code:str|None = None
 
     def __init__(self, raw=None):
         self.raw = raw
 
-    def parse_argument_with_type(self, generator:any, argument:any, enum_base:str):
+    def parse_argument_with_type(self, generator:Any, argument:Param|Identifier, enum_base:str):
         if isinstance(argument, Param) or isinstance(argument, Identifier):
             if argument.name != None:
                 value = argument.name
@@ -278,19 +278,20 @@ class Function_Base(BaseBox, Resolvable):
         return value
 
     def code(self, params):
-        if True: # self.cache_code == None:
+        if self.cacheable and self.cache_code != None:
+            return self.cache_code
+        else:
             #self.handle_params(params)
 
             code = self._code(params)
             code = re.sub("\n\s*\n", "", code)
             code = code.strip()
 
-            #if self._valid_code(code):
-            #    self.cache_code = code
+            if self._valid_code(code):
+                self.cache_code = code
 
             return code
-        else:
-            return self.cache_code
+            
         
     def _valid_code(self, code:str) -> bool:
         code = self._clean_code(code)
