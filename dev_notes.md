@@ -22,18 +22,27 @@
 
 
 # important
+## pyramid stone missing
+## castle bonfire is used over temple2
 ## true ending boss?
+## bombs are way too expensive
 ## every any door can be opened by a bomb
 ## basement lvl4 has a weird mosquito north
+## fan boss too easy
 
 # nice to have
 ## balance bosses (radahn)
 ## improve bosses (double thraxx)
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
 ## "jump into volcano" animation
+## isaac slime knockback = no shot
 ## make mario prison less boring
 ## populate non barricaded town house
 ## mushroom armor crafting
+## monstro p2
+## town tavern door does not control active
+## town arena bin contains hidden ticket
+## no music after levitate+revealer
 
 
 
@@ -235,3 +244,20 @@ todo defensive:
 ## stop (vanilla) -> too cheap?
 ## barrier (vanilla) -> dry ice
 ## escape (vanilla) -> metro?
+
+
+
+
+
+# armor effects
+
+crafting:
+## hit% boost ("grass vest", "grass hat", "vine bracelet")
+
+bosses:
+## low fall damage ("magician's ring")
+## heat resistant ("centurion cape")
+## power gloves ("gloves of ra", "bronze gauntlet")
+
+todo:
+## boy poison attacks ("serpent bracer")

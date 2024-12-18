@@ -258,12 +258,24 @@ magic_defend_calculation:
 
   JML magic_defend_calculation_return ; TODO: JSL and RTL instead of JML and JML back
 experience_calculation:
+  LDA $28fb
+  BIT #$0020
+  
+  BEQ .withXp ; 
+
+  LDA #$0000
+  BRA .doneModifying
+
+  .withXp
+
   TXA ; transfer "source type"
 
   CMP !ID_BOY : BEQ .skipBoyDog
   CMP !ID_DOG : BEQ .skipBoyDog
 
   PHX ; push "source type"
+
+
   
   %get_scaled_value(!MEMORY_TABLE_EXPERIENCE, 0)
 
@@ -279,6 +291,16 @@ experience_calculation:
 
   RTL
 money_calculation:
+  LDA $28fb
+  BIT #$0020
+  
+  BEQ .withMoney ; 
+
+  LDA #$0000
+  BRA .doneModifying
+
+  .withMoney
+
   TXA
   CMP !ID_BOY : BEQ .skipBoyDog
   CMP !ID_DOG : BEQ .skipBoyDog
@@ -804,7 +826,7 @@ org !MEMORY_TABLE_MONEY
   %default_stats(20) ; "Will o' the Wisp" (53) = 20
   %default_stats(10) ; "Stone Cobra" (54) = 10
   %default_stats(10) ; "Stone Cobra" (55) = 10
-  %default_stats(100) ; "Oglin" (56) = 100
+  dw #10, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Oglin" (56) = 100
   %default_stats(10) ; "Hedgeadillo" (57) = 10
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Bad Boy" (58) = 333
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Tumble Weed" (59) = 40
@@ -835,8 +857,8 @@ org !MEMORY_TABLE_MONEY
   %default_stats(1000) ; "Rimsala" (84) = 1000
   %default_stats(1000) ; "Rimsala" (85) = 1000
   %default_stats(4) ; "Will o' the Wisp" (86) = 4
-  dw #200, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Magmar" (87) = 900
-  dw #200, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Megataur" (88) = 3000
+  dw #100, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Magmar" (87) = 900
+  dw #100, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Megataur" (88) = 3000
   %default_stats(48) ; "Raptor" (89) = 48
   %default_stats(48) ; "Raptor" (90) = 48
   %default_stats(200) ; "Viper Commander" (91) = 200
@@ -866,7 +888,7 @@ org !MEMORY_TABLE_MONEY
   %default_stats(0) ; "Mungola" (115) = 0
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Old Nick" (116) = 250
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Mephista" (117) = 250
-  %default_stats(750) ; "Thraxx's Heart" (118) = 750
+  dw #50, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ;  "Thraxx's Heart" (118) = 750
   %default_stats(4000) ; "Coleoptera's Heart" (119) = 4000
   %default_stats(400) ; "Right Claw" (120) = 400
   %default_stats(400) ; "Left Claw" (121) = 400
