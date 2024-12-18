@@ -10,7 +10,7 @@ class Parser():
             # A list of all token names accepted by the parser.
             [
                 'VAL', 'VAR',
-                'T_NONE', 'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_ARG',
+                'T_NONE', 'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_FUNCTION', 'T_ARG',
                 'IS', '!IS',
                 'SIGNED',
                 '..',
@@ -629,6 +629,7 @@ class Parser():
         @self.pg.production('type : T_BYTE')
         @self.pg.production('type : T_WORD')
         @self.pg.production('type : T_MEMORY')
+        @self.pg.production('type : T_FUNCTION')
         @self.pg.production('type : T_ARG')
         def parse(p):
             return p[0]

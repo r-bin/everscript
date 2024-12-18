@@ -10,6 +10,7 @@ class Lexer():
         self.lexer.add('T_BYTE', 'Byte')
         self.lexer.add('T_WORD', 'Word')
         self.lexer.add('T_MEMORY', 'Memory')
+        self.lexer.add('T_FUNCTION', 'Function')
         self.lexer.add('T_ARG', 'Arg')
         self.lexer.add('IS', 'is(?=\ )')
         self.lexer.add('!IS', '!is(?=\ )')

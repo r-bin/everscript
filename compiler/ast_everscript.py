@@ -43,6 +43,8 @@ class Is(Function_Base):
                     is_type_of = False
             case "Memory":
                 is_type_of = isinstance(value, Memory)
+            case "Function":
+                is_type_of = isinstance(value, Function)
             case "Arg":
                 is_type_of = isinstance(value, Arg)
             case _:

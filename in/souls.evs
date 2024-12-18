@@ -80,7 +80,7 @@ group non_maps() {
     };
 
     // group alchemy_ingredients() {
-    //     @install(ARMOR_DATA.POINTER + ALCHEMY_COST_DATA.SIZE * (ALCHEMY_INDEX.BARRIER / 0d02))
+    //     @install(ALCHEMY_COST_DATA.POINTER + ALCHEMY_COST_DATA.SIZE * (ALCHEMY_INDEX.BARRIER / 0d02))
     //     fun barrier() {
     //         code(INGREDIENT.DRY_ICE, INGREDIENT.DRY_ICE, 0d01, 0d01, "// barrier ingredients");
     //     }
@@ -88,7 +88,7 @@ group non_maps() {
 
     group alchemy_target() {
         @install(ALCHEMY_TARGET.POINTER + ALCHEMY_TARGET.SIZE * (ALCHEMY_INDEX.HEAL / 0d02))
-        fun barrier() {
+        fun alchemy_target_heal() {
             code(ALCHEMY_TARGET.BOY_DOG_ALL_ENEMY, "// heal (boy, dog, enemy or all)");
         }
     };
@@ -336,15 +336,15 @@ group non_maps() {
             INIT = memory(FLAG, SRAM),
             INTRO_WATCHED = memory(FLAG, SRAM),
             // debug
-            DEBUG = True,
+            DEBUG = False,
             DEBUG_BOMBABLE_WALLS = False,
 
             // features
             WITH_OPENING = False, // doesn't work?
-            WITH_SAVESTATE_LOAD = False, // after splash screen
+            WITH_SAVESTATE_LOAD = True, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
-            WITH_INTRO = False,
+            WITH_INTRO = True,
             WITH_STARTING_CLASS = False,
             WITH_SHRINE_INTRO = True,
             WITH_SOULS_ON_DEATH = True,
@@ -356,6 +356,7 @@ group non_maps() {
             WITH_CHEAP_SWORD2 = True,
             WITH_WEATHER = False, // TODO: has to be persistent to be playable
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
+            WITH_AREA_NAMES = False,
             // cheats
             WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
@@ -460,7 +461,11 @@ group non_maps() {
 
             // west
             DEAD_OWL_BOY = memory(FLAG, SRAM), // t0+
-            REWARD_OWL_BOY = ITEM.DRY_ICE,
+            REWARD_OWL_BOY = {
+                subtext("Gained 3 Iron");
+
+                MEMORY.IRON += 0d3;
+            },
 
             DEAD_MONSTRO = memory(FLAG, SRAM), // t0
             REWARD_MONSTRO = CUSTOM_ITEM.SWORD_ORB,
@@ -774,11 +779,15 @@ group non_maps() {
 
             _souls_boss_defeated();
 
-            if(reward_item != ITEM.NO_ITEM) {
-                if(reward_item < 0xf000) {
-                    reward(reward_item);
-                } else {
-                    custom_reward(reward_item);
+            if(reward_item is Function) {
+                reward_item();
+            } else {
+                if(reward_item != ITEM.NO_ITEM) {
+                    if(reward_item < 0xf000) {
+                        reward(reward_item);
+                    } else {
+                        custom_reward(reward_item);
+                    }
                 }
             }
 
@@ -5101,7 +5110,9 @@ area inbetwixx_center() {
         fun init_room() {
             default_init_room(True, True);
 
-            subtext("Inbetwixx");
+            if(SOULS_MEMORY.WITH_AREA_NAMES) {
+                subtext("Inbetwixx");
+            }
         }
 
         fun intro() {
@@ -5983,7 +5994,9 @@ area west_inbetwixx() {
 
             init_map(0x00, 0x06, 0x6e, 0x52);
             default_init_room(True, True);
-            subtext("West Inbetwixx");
+            if(SOULS_MEMORY.WITH_AREA_NAMES) {
+                subtext("West Inbetwixx");
+            }
 
             player_message(0d23, 0d66, reference(message_triggered));
         }
@@ -10075,6 +10088,7 @@ area altus_plateau_entry() {
                         init_map(0x00, 0x30, 0x40, 0x70);
 
                         CUSTOM_FLAG.NO_DOG = True;
+                        CUSTOM_FLAG.NO_XP_MONEY = True;
                         default_init_room(False, False);
 
                         walk(BOY, TILE_ABSOLUTE, 0d38, 0d84, BOY, BOY);
@@ -10375,7 +10389,9 @@ area northwest_inbetwixx() {
 
             default_init_room(True, True);
 
-            subtext("North West Inbetwixx");
+            if(SOULS_MEMORY.WITH_AREA_NAMES) {
+                subtext("North West Inbetwixx");
+            }
 
             add_enemy(PLACEHOLDER, 0x17, 0x00);
             ROOM.SECRET_PASSAGE_TRIGGER = <LAST_ENTITY>;
@@ -17239,7 +17255,7 @@ area town() {
                 enum entrance {
                     test = entrance(0x21, 0x95, NORTH),
                     
-                    fake_lift = entrance(0d76, 0d66, NONE, { crash_both(); }),
+                    fake_lift = entrance(0d78, 0d68, NONE, { crash_both(); }),
                 }
 
                 enum soundtrack {
@@ -17414,7 +17430,11 @@ area town() {
                     },
                     gourd__3_honey = @install() {
                         debug_subtext("B=1");
-                        _loot_chest(0x20, HONEY, 0d03);
+                        if!(SOULS_MEMORY.DEAD_WALL) {
+                            loot(LOOT_SNIFF, False, 0xff, MUD_PEPPER, 0d01, 0d0); // inifinite refill
+                        } else {
+                            _loot_chest(0x20, MUD_PEPPER, 0d01);
+                        }
                     },
                 }
 
@@ -17572,7 +17592,9 @@ area town() {
                         sleep(0d2);
 
                         punish_position(<BOY>, 0d50);
+                        yield();
                         punish_position(<DOG>, 0d20);
+                        yield();
                     }
                 }
 
@@ -17631,15 +17653,13 @@ area town() {
                         attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
                         // add_placeholder(SKELETON_SHIP_1, 0d41, 0d131);
 
-                        walk(BOY, TILE_ABSOLUTE, 0d30, 0d133, BOY, BOY);
+                        walk(BOY, TILE_ABSOLUTE, 0d30, 0d133, BOY, BOTH);
                         face(BOY, EAST);
 
                         stack_t0123();
                         update_camera_limit(<LAST_ENTITY>[X]);
 
                         movement_watcher();
-
-                        teleport(DOG, 0d0, 0d0);
 
                         push_music(BOSS);
 
@@ -17749,38 +17769,36 @@ area town() {
 
                 @install()
                 fun squad_death() {
-                    if((BOSS.SQUAD_CHARGED == 0d0) || (BOSS.SQUAD_CHARGED == <SCRIPT_OWNER>[GENERAL_PURPOSE])) {
-                        BOSS.SQUAD_CHARGED = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+                    if((BOSS.SQUAD_CHARGED == 0d0) || (BOSS.SQUAD_CHARGED == <SCRIPT_OWNER>)) {
+                        BOSS.SQUAD_CHARGED = <SCRIPT_OWNER>;
 
                         squad_killed();
 
                         yield();
 
-                        while(arg[0x14] == 0d0) {
+                        while((arg[0x14] == 0x0000) || (arg[0x14] == <SCRIPT_OWNER>)) {
                             arg[0x10] = randrange(BOSS.SQUAD_COUNT) + 0d1;
 
-                            if(arg[0x10] != <SCRIPT_OWNER>[GENERAL_PURPOSE]) {
-                                if(arg[0x10] == 0d1) {
-                                    arg[0x12] = BOSS.SQUAD_1;
-                                } else if(arg[0x10] == 0d2) {
-                                    arg[0x12] = BOSS.SQUAD_2;
-                                } else if(arg[0x10] == 0d3) {
-                                    arg[0x12] = BOSS.SQUAD_3;
-                                } else if(arg[0x10] == 0d4) {
-                                    arg[0x12] = BOSS.SQUAD_4;
-                                } else if(arg[0x10] == 0d5) {
-                                    arg[0x12] = BOSS.SQUAD_5;
-                                }
+                            if(arg[0x10] == 0d1) {
+                                arg[0x12] = BOSS.SQUAD_1;
+                            } else if(arg[0x10] == 0d2) {
+                                arg[0x12] = BOSS.SQUAD_2;
+                            } else if(arg[0x10] == 0d3) {
+                                arg[0x12] = BOSS.SQUAD_3;
+                            } else if(arg[0x10] == 0d4) {
+                                arg[0x12] = BOSS.SQUAD_4;
+                            } else if(arg[0x10] == 0d5) {
+                                arg[0x12] = BOSS.SQUAD_5;
+                            }
 
-                                if(_alive(arg[0x12])) {
-                                    arg[0x14] = arg[0x10];
-                                }
+                            if(alive(arg[0x12])) {
+                                arg[0x14] = arg[0x12];
                             }
 
                             yield();
                         }
 
-                        BOSS.SQUAD_CHARGED = arg[0x10];
+                        BOSS.SQUAD_CHARGED = arg[0x14];
                         // BOSS.SQUAD_CHARGED = 0d0;
 
                         attribute(BOY, INVINCIBLE_TEMP, True);
@@ -17792,17 +17810,17 @@ area town() {
                         attribute(BOY, INVINCIBLE_TEMP, False);
                         sleep(0d100);
 
-                        if(_alive(arg[0x12])) {
-                            attribute(arg[0x12], ROOT, False);
-                            animate(arg[0x12], ONCE, DEFAULT);
+                        if(alive(arg[0x14])) {
+                            attribute(arg[0x14], ROOT, False);
+                            animate(arg[0x14], ONCE, DEFAULT);
 
                             if(BOSS.DEBBUG) {
                                 debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], arg[0x14]);
                             }
 
-                            while(_alive(arg[0x12])) {
-                                if(arg[0x12][PALETTE] != BOSS.PALETTE_DONOR[PALETTE]) {
-                                    arg[0x12][PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
+                            while(alive(arg[0x14])) {
+                                if(arg[0x14][PALETTE] != BOSS.PALETTE_DONOR[PALETTE]) {
+                                    arg[0x14][PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
                                 }
                                 
                                 sleep(0d5);
@@ -19723,6 +19741,7 @@ area town() {
 
             fun trigger_enter() {
                 CUSTOM_FLAG.NO_DOG = True;
+                CUSTOM_FLAG.NO_XP_MONEY = True;
                 CUSTOM_FLAG.VANILLA_BOMB_DAMAGE = True;
                 
                 init_map(0x00, 0x30, 0x40, 0x70);
@@ -29681,7 +29700,7 @@ area dungeon_isaac() {
                     attribute(BOSS.ID, INVISIBLE, False);
                     animate(BOSS.ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
 
-                    if(_dead(BOSS.ID)) {
+                    if(dead(BOSS.ID)) {
                         boss_defeated();
                     }
                 }
@@ -31241,7 +31260,7 @@ area dungeon_volcano() {
 
             PROGRESS = memory(FLAG, TEMP),
 
-            HP = 0d500,
+            HP = 0d400,
 
             ENERGY_LEVEL = memory(WORD, TEMP),
             ENERGY_LEVEL_THRESHOLD = 0d15,
