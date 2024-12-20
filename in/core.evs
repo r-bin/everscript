@@ -896,6 +896,13 @@ group general_enums() {
             CURRENT_ARMOR_HELM = <0x28cc>, // see ARMOR_STATS
             // <0x28ca>
             CURRENT_ARMOR_ARMLET = <0x28ca>, // see ARMOR_STATS
+
+            BOMBABLE_OBJECT_1 = <0x28b0>,
+            BOMBABLE_OBJECT_2 = <0x28b2>,
+            BOMBABLE_OBJECT_3 = <0x28b4>,
+            BOMBABLE_OBJECT_4 = <0x28b6>,
+            BOMBABLE_OBJECT_5 = <0x28b8>,
+            BOMBABLE_OBJECT_6 = <0x28ba>,
         }
         enum CUSTOM_FLAG {
             // <0x28fb, x>
@@ -1655,7 +1662,7 @@ group general_enums() {
                 // ATTRIBUTE.FLAGS_2 (character+0x11)
                 UNKNOWN = 0x01, // always set?
                 LOADING_SCREEN = 0x08, // also ai following quickly?
-                HEALED = 0x10, // examples: PETAL (Blue glow), STOP (greyed out)
+                HEALED = 0x10, // can't be targetted by items and spells, examples: PETAL (Blue glow), STOP (greyed out)
                 NO_CLIP = 0x04, // see ATTRIBUTE_BITS.NO_CLIP
                 INVINCIBLE_TEMP = 0x40, // see ATTRIBUTE_BITS.INVINCIBLE_TEMP
 
@@ -2811,7 +2818,7 @@ group general_enums() {
                 STING = 0x0a,
                 LIGHTNING_STORM = 0x0c,
                 EXPLOSION = 0x0e,
-                COROSION = 0x10,
+                CORROSION = 0x10,
                 NITRO = 0x12,
                 SLOW_BURN = 0x22,
                 HEAT_WAVE = 0x26,
@@ -7069,6 +7076,68 @@ group functions() {
         group combat() {
             @install()
             @weak()
+            fun add_bombable_entity(entity) {
+                attribute(entity, INVINCIBLE_TEMP, True);
+
+                if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_1) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_1 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_2) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_2 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_3) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_3 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_4) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_4 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_5) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_5 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_6) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_6 = entity;
+                }
+            }
+
+            fun _vanilla_bomb_explosion(invincible) {
+                if(invincible) {
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_1)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_1 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_2)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_2 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_3)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_3 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_4)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_4 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_5)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_5 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_6)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_6 = 0x0000;
+                    }
+                }
+
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_1) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_1, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_2) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_2, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_3) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_3, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_4) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_4, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_5) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_5, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_6) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_6, INVINCIBLE_TEMP, invincible);
+                }
+            }
+
+            @install()
+            @weak()
             fun vanilla_bomb_explosion() {
                 if(script[0x9] != 0x200) {
                     if(False) {
@@ -7079,6 +7148,8 @@ group functions() {
                 }
 
                 sleep(0d10);
+
+                _vanilla_bomb_explosion(False);
                 
                 bomb_entity(<SCRIPT_OWNER>, 0d50, 0d200);
                 if(CUSTOM_FLAG.VANILLA_BOMB_DAMAGE) {
@@ -7086,6 +7157,9 @@ group functions() {
                 } else {
                     bomb_entity_entity(BOY, <SCRIPT_OWNER>, 0d50);
                 }
+
+                yield();
+                _vanilla_bomb_explosion(True);
             }
         };
 
@@ -7352,28 +7426,28 @@ group functions() {
                         arg[0x10] = from;
 
                         while(arg[0x10] <= to) {
-                            arg[0x10]++;
+                            smart_sound(sound_id);
+                            object[object_id] = arg[0x10];
 
                             sleep(delay);
-                            smart_sound(sound_id);
 
-                            object[object_id] = arg[0x10];
+                            arg[0x10]++;
                         }
                     } else {
                         arg[0x10] = from;
 
                         while(arg[0x10] > to) {
-                            arg[0x10]--;
+                            smart_sound(sound_id);
+                            object[object_id] = arg[0x10];
 
                             sleep(delay);
-                            smart_sound(sound_id);
 
-                            object[object_id] = arg[0x10];
+                            arg[0x10]--;
                         }
 
-                        sleep(delay);
-                        smart_sound(sound_id);
+                        // sleep(delay);
 
+                        smart_sound(sound_id);
                         object[object_id] = arg[0x10];
                     }
                 } else {

@@ -447,6 +447,7 @@ group non_maps() {
 
             // altus
             BONFIRE_ALTUS_WELL = memory(FLAG, SRAM),
+            BONFIRE_ALTUS_STAIRS = memory(FLAG, TEMP), // TODO
             BONFIRE_CASTLE_PIT = memory(FLAG, SRAM),
 
             // omnitopia
@@ -1017,7 +1018,7 @@ group non_maps() {
                     while(<SCRIPT_OWNER>[HP] <= 0d0) {
                         yield();
                     }
-                    attach_script(BOY, DEATH, reference(boy_death));
+                    attach_script(BOY, DAMAGE_DEATH, reference(boy_death));
                     end();
                 } else {
                     <SCRIPT_OWNER>[PIXIE_DUST] = False;
@@ -1126,10 +1127,14 @@ group non_maps() {
                     save("Basement Lvl.1");
                 } else if(MEMORY.CURRENT_MAP == MAP.STERLING) {
                     save("Volcano Tower");
-                } else if(MEMORY.CURRENT_MAP == MAP.WELL) {
+                } else if(MEMORY.CURRENT_MAP == MAP.WELL) { // altus
                     save("Plateau");
+                } else if(MEMORY.CURRENT_MAP == MAP.CHESSBOARD_STAIRS) {
+                    save("Stairs");
                 } else if((MEMORY.CURRENT_MAP == MAP.FIREPIT_NOBILIA) && (MEMORY.CURRENT_MAP_VARIANT == 0d0)) {
                     save("Castle");
+                } else if(MEMORY.CURRENT_MAP == MAP.FIREPIT_JUNGLE) { // south
+                    save("Southern Jungle");
                 } else if(MEMORY.CURRENT_MAP != 0x0000){
                     subtext("Game could not find bonfire #[MEM1]");
                 }
@@ -1195,19 +1200,21 @@ group non_maps() {
             guard_boy_damage();
 
             if(MEMORY.CURRENT_MAP == MAP.CROSSING) { // center
-                set(SOULS_MEMORY.BONFIRE_INBETWIXX);
+                SOULS_MEMORY.BONFIRE_INBETWIXX = True;
             } else if(MEMORY.CURRENT_MAP == MAP.BLIMP_EXTERIOR) { // east
-                set(SOULS_MEMORY.BONFIRE_EAST_CROSSING);
+                SOULS_MEMORY.BONFIRE_EAST_CROSSING = True;
             } else if(MEMORY.CURRENT_MAP == MAP.PIPEMAZE_ROOMS) {
-                set(SOULS_MEMORY.BONFIRE_PIPES);
+                SOULS_MEMORY.BONFIRE_PIPES = True;
             } else if(MEMORY.CURRENT_MAP == MAP.NOBILIA_SQUARE) {
-                set(SOULS_MEMORY.BONFIRE_TOWN_CENTER);
+                SOULS_MEMORY.BONFIRE_TOWN_CENTER = True;
             } else if(MEMORY.CURRENT_MAP == MAP.DARK_FOREST) { // west
-                set(SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON);
+                SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON = True;
             } else if(MEMORY.CURRENT_MAP == MAP.STERLING) {
-                set(SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
+                SOULS_MEMORY.BONFIRE_VOLCANO_TOWER = True;
             } else if(MEMORY.CURRENT_MAP == MAP.WELL) {
-                set(SOULS_MEMORY.BONFIRE_ALTUS_WELL);
+                SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
+            } else if(MEMORY.CURRENT_MAP == MAP.CHESSBOARD_STAIRS) {
+                SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
             } else if(MEMORY.CURRENT_MAP == MAP.VOLCANO_ROOMS) {
                 SOULS_MEMORY.BONFIRE_DESERT_BUG = True;
             } else if(MEMORY.CURRENT_MAP != 0x0000){
@@ -1347,6 +1354,7 @@ group non_maps() {
 
                     // altus
                     SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
+                    SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
                     SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
                 }
             }
@@ -1394,7 +1402,7 @@ group non_maps() {
             // cast(BOY, BOTH, CURE, 0x01);
 
             if(SOULS_MEMORY.WITH_RETURN_TO_BONFIRE_ON_DEATH) {
-                attach_script(BOY, DEATH, reference(boy_death));
+                attach_script(BOY, DAMAGE_DEATH, reference(boy_death));
             }
 
             if!(SOULS_MEMORY.WINGS_BLOCKED) {
@@ -1752,6 +1760,7 @@ group non_maps() {
                 add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
             }
 
+            add_bombable_entity(<LAST_ENTITY>);
         }
         fun bomb_wall_trigger(object, value, x, y) {
             add_bombable_entity(x, y);
@@ -3729,6 +3738,11 @@ area shrine_area() {
             } else {
                 text("[CHOICE]…");
             }
+            if(SOULS_MEMORY.BONFIRE_ALTUS_STAIRS) {
+                text("[CHOICE]Stairs…");
+            } else {
+                text("[CHOICE]…");
+            }
             if(SOULS_MEMORY.BONFIRE_CASTLE_PIT) {
                 text("[CHOICE]Castle Pit…");
             } else {
@@ -3744,6 +3758,11 @@ area shrine_area() {
                     map_transition(well, bonfire, NONE);
                 }
             } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                if(SOULS_MEMORY.BONFIRE_ALTUS_STAIRS) {
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.CHESSBOARD_STAIRS;
+                    map_transition(stairs, bonfire, NONE);
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
                 if(SOULS_MEMORY.BONFIRE_CASTLE_PIT) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_NOBILIA;
                     SOULS_MEMORY.BONFIRE_VARIANT = 0d0;
@@ -3778,7 +3797,7 @@ area shrine_area() {
 
             bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_JUNGLE_PIT || SOULS_MEMORY.BONFIRE_DESERT_BUG), ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) || (SOULS_MEMORY.BONFIRE_MAP == MAP.VOLCANO_ROOMS)), reference(bonfire_triggered_jungle)); // southern jungle
 
-            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
+            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_ALTUS_STAIRS || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || (SOULS_MEMORY.BONFIRE_MAP == MAP.CHESSBOARD_STAIRS) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
 
             // bonfire_portal(0d59, 0d88, …); // omnitopia
         }
@@ -7533,6 +7552,8 @@ area altus_plateau_entry() {
                     stairs_east_top = entrance(0x43, 0x03, SOUTH),
                     stairs_west_top = entrance(0x15, 0x05, SOUTH),
                     stairs_west_bottom = entrance(0x5f, 0xa1, NORTH),
+
+                    bonfire = entrance(0d108, 0d100, NONE, { bonfire_wakeup(0d0, -0d8, 0d32, 0d0); }),
                 }
 
                 enum soundtrack {
@@ -7562,6 +7583,8 @@ area altus_plateau_entry() {
 
                 fun trigger_enter() {
                     object[0x00] = 0x7e; // remove energy_core_hitbox
+
+                    bonfire(0d108, 0d100, SOULS_MEMORY.BONFIRE_ALTUS_STAIRS);
 
                     fade_in();
                 }
@@ -10051,7 +10074,7 @@ area altus_plateau_entry() {
                         hit();
                         
                         if((<BOY>[HP] <= 0d0) || (ROOM.HIT_COUNT_BOY >= ROOM.HIT_COUNT_KILL)) {
-                            attach_script(BOY, DEATH, reference(boy_death));
+                            attach_script(BOY, DAMAGE_DEATH, reference(boy_death));
                             damage(BOY, 0d999, True);
                         } else {
                             reset();
@@ -14622,10 +14645,12 @@ area east_inbetwixx() {
                     }
 
                     fun check_phase() {
-                        if(_dead(BOSS.ID)) {
+                        if(dead(BOSS.ID)) {
                             BOSS.PHASE = 0d10;
                         } else if(BOSS.PHASE == 0d0) {
-                            debug_memory(BOSS.ID[HP], BOSS.P0_HP_THRESHOLD);
+                            if(BOSS.DEBUG) {
+                                debug_memory(BOSS.ID[HP], BOSS.P0_HP_THRESHOLD);
+                            }
 
                             if(BOSS.ID[HP] < BOSS.P0_HP_THRESHOLD) {
                                 BOSS.PHASE = 0d1;
@@ -17262,6 +17287,22 @@ area town() {
                     default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
+                fun lift_east_switch_triggered() {
+                    object_animator(SWITCH_SPEAR_HALLS, False, 0x04, True, False);
+                    object_animator(GATE_HALLS, False, 0x03, True, False);
+                }
+                fun lift_east_triggered() {
+                    control(NONE);
+
+                    walk(INACTIVE, COORDINATE_ABSOLUTE_DIRECT, <ACTIVE>[X], <ACTIVE>[Y], INACTIVE, NONE);
+
+                    face(ACTIVE, SOUTH);
+                    face(INACTIVE, SOUTH);
+
+                    object_animator(GATE_HALLS, False, 0x03, False, False);
+                    sleep(0d10);
+                }
+
                 enum BOSS {
                     DEBUG = False,
 
@@ -17313,8 +17354,12 @@ area town() {
                 }
 
                 enum stepon_trigger {
-                    stepon_0 = @install() {
+                    lift_east = @install() {
                         debug_subtext("S=0");
+
+                        lift_east_triggered();
+
+                        map_transition(town_temple_underground, east_1, NONE);
                     },
                     gate_lift = @install() {
                         debug_subtext("S=1");
@@ -17427,6 +17472,8 @@ area town() {
                         if!(SOULS_MEMORY.DEAD_WALL) {
                             boss_defeated();
                         }
+                        
+                        lift_east_switch_triggered();
                     },
                     gourd__3_honey = @install() {
                         debug_subtext("B=1");
@@ -17653,8 +17700,10 @@ area town() {
                         attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
                         // add_placeholder(SKELETON_SHIP_1, 0d41, 0d131);
 
-                        walk(BOY, TILE_ABSOLUTE, 0d30, 0d133, BOY, BOTH);
+                        walk(BOY, TILE_ABSOLUTE, 0d30, 0d133, NONE, NONE);
+                        walk(DOG, TILE_ABSOLUTE, 0d25, 0d119, BOTH, BOTH);
                         face(BOY, EAST);
+                        teleport(DOG, 0d6, 0d117);
 
                         stack_t0123();
                         update_camera_limit(<LAST_ENTITY>[X]);
@@ -17704,6 +17753,10 @@ area town() {
 
                             special_script(LEVITATE, reference(levitate_triggered));
                         }
+                    } else {
+                        BOSS.BRIDGE_3_RESTORED = True;
+                        BOSS.BRIDGE_6_RESTORED = True;
+                        BOSS.BRIDGE_12_RESTORED = True;
                     }
                 }
             };
@@ -18060,7 +18113,10 @@ area town() {
                     test = entrance(0x10, 0x10, NONE),
 
                     north_1 = entrance(0x14, 0x4b, SOUTH),
-                    north_2 = entrance(0x40, 0x11, SOUTH),
+                    north_2 = entrance(0x40, 0x11, SOUTH, {
+                        object[0x03] = 0x01;
+                        object[0x04] = 0x01;
+                    }),
                     south = entrance(0x25, 0x75, NORTH),
                     west = entrance(0x07, 0x53, EAST),
                 }
@@ -18109,24 +18165,11 @@ area town() {
                 }
 
                 fun trigger_enter() {
-                    // object[0x00] = 0x7e; // enroll bridge
-                    // object[0x01] = 0x01; // open gourde_2
-                    // object[0x02] = 0x01; // open gourde_1
-                    // object[0x03] = 0x01; // open door_NW
-                    // object[0x04] = 0x04; // open door_boss
-                    // object[0x05] = 0x7e; // open elevator
-                    // object[0x06] = 0x01; // activate bridge_switch
-                    // object[0x07] = 0x01; // open door_SW
-                    // object[0x08] = 0x01; // open door_SE
-                    // object[0x09] = 0x01; // open door_NE
-                    // object[0x0a] = 0x01; // activate switch
-                    // object[0x0b] = 0x01; // show bridge_left_1
-                    // object[0x0c] = 0x01; // show bridge_left_2
-                    // object[0x0d] = 0x01; // show bridge_left_3
-                    // object[0x0e] = 0x01; // show bridge_right_1
-                    // object[0x0f] = 0x01; // show bridge_right_2
-                    // object[0x10] = 0x01; // show bridge_right_3
-                    // object[0x11] = 0x01; // show bridge_right_4
+                    // object[0x00] = 0x01; // hide statue
+                    // object[0x01] = 0x01; // hide rubble
+                    // 2-4 ?
+                    // object[0x05] = 0x01; // open door
+                    // >5 ?
 
                     default_init_room(True, False);
                 }
@@ -18805,7 +18848,7 @@ area town() {
                     // object[0x0a] = 0x01; // change mungola_5 (mouth_left - 0:hidden, 2:shown, 3:shown_teeth, 4:dead)
                     // object[0x0b] = 0x01; // change mungola_6 (chin - 0:hidden, 1:shown, 2:dead)
                     // object[0x0c] = 0x01; // open hole
-                    // object[0x0d] = 0x01; // unblock stairs
+                    object[0x0d] = 0x01; // unblock stairs
                     // object[0x0e] = 0x01; // close exit_east_2
 
                     default_init_room(True, False);            
@@ -20387,12 +20430,13 @@ area town() {
                 BOSS_REMAINING_ID = memory(WORD, TEMP),
 
                 LAST_DAMAGED = memory(WORD, TEMP),
-                RNG = memory(WORD, TEMP),
+                NOT_LAST_DAMAGED = memory(WORD, TEMP),
 
                 P1_SPELL = DISRUPT,
                 P1_SPELL_LEVEL = 0d15,
 
-                P2_TIMER_THRESHOLD = 0d600
+                P1_TIMER_THRESHOLD = 0d600,
+                P2_TIMER_THRESHOLD = 0d600,
             }
 
             enum stepon_trigger {
@@ -20509,7 +20553,14 @@ area town() {
                     BOSS.PHASE = 0d1;
 
                     cast(SCRIPT_OWNER, SCRIPT_OWNER, FORCE_FIELD, 0d1);
-                } else if(BOSS.PHASE == 0d1) {
+                }
+                if(BOSS.PHASE == 0d1) {
+                    if(dead(<SCRIPT_OWNER>)) {
+                        BOSS.BOSS_REMAINING_ID = other;
+
+                        BOSS.PHASE = 0d2;
+                    }
+
                     if(BOSS.LAST_DAMAGED == <SCRIPT_OWNER>) {
                         sleep(0d5);
                         animate(SCRIPT_OWNER, LOOP, dance_animation);
@@ -20519,10 +20570,11 @@ area town() {
                     }
                     
                     BOSS.LAST_DAMAGED = <SCRIPT_OWNER>;
-
-                    if(_dead(<SCRIPT_OWNER>)) {
-                        BOSS.BOSS_REMAINING_ID = other;
-                        BOSS.PHASE = 0d2;
+                    BOSS.NOT_LAST_DAMAGED = other;
+                }
+                if(BOSS.PHASE == 0d2) {
+                    if(_dead(<SCRIPT_OWNER>) && _dead(other)) {
+                        BOSS.PHASE = 0d3;
                     }
                 }
             }
@@ -20543,6 +20595,35 @@ area town() {
                 }
                 
                 while(BOSS.PHASE == 0d1) {
+                    if(BOSS.TIMER > BOSS.P1_TIMER_THRESHOLD) {
+                        BOSS.TIMER = 0d0;
+                        arg[0x10] = randrange(0d5);
+
+                        if(BOSS.NOT_LAST_DAMAGED == BOSS.BOSS_1_ID) {
+                            animate(BOSS.BOSS_1_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
+
+                            if(arg[0x10] == 0d0) {
+                                cast(BOSS.BOSS_1_ID, BOSS.BOSS_2_ID, FORCE_FIELD, 0d0);
+                            } else if(arg[0x10] == 0d1) {
+                                cast(BOSS.BOSS_1_ID, BOY, CONFOUND, 0d0);
+                            } else {
+                                cast(BOSS.BOSS_1_ID, BOY, FLASH, 0d5);
+                            }
+                        } else if(BOSS.NOT_LAST_DAMAGED == BOSS.BOSS_2_ID) {
+                            animate(BOSS.BOSS_2_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
+
+                            if(arg[0x10] == 0d0) {
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, FORCE_FIELD, 0d0);
+                            } else if(arg[0x10] == 0d1) {
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_2_ID, HEAL, 0d15);
+                            } else {
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, HEAL, 0d15);
+                            }
+                        }
+                    } else {
+                        BOSS.TIMER++;
+                    }
+
                     yield();
                 }
 
@@ -20552,38 +20633,34 @@ area town() {
 
                 BOSS.TIMER = 0x0000;
 
-                while(alive(BOSS.BOSS_REMAINING_ID)) {
+                while(BOSS.PHASE == 0d2) {
                     if(BOSS.TIMER > BOSS.P2_TIMER_THRESHOLD) {
                         BOSS.TIMER = 0d0;
-                        BOSS.RNG = randrange(0d3);
+                        arg[0x10] = randrange(0d5);
 
                         if(BOSS.BOSS_REMAINING_ID == BOSS.BOSS_1_ID) {
-                            if(BOSS.RNG == 0d0) {
-                                animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
+                            animate(BOSS.BOSS_1_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
 
-                                cast(BOSS.BOSS_REMAINING_ID, BOY, COROSION, 0d0);
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
-                            } else if(BOSS.RNG == 0d1) {
-                                animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
-
-                                cast(BOSS.BOSS_REMAINING_ID, BOY, CONFOUND, 0d0);
-                            } else if(BOSS.RNG == 0d2) {
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
-                                animate(BOSS.BOSS_REMAINING_ID, LOOP, ANIMATION_ENEMY.PUPPET_1_DANCE);
+                            if(arg[0x10] == 0d0) {
+                                cast(BOSS.BOSS_1_ID, BOY, CORROSION, 0d0);
+                            } else if(arg[0x10] == 0d1) {
+                                cast(BOSS.BOSS_1_ID, BOY, DISRUPT, 0d5);
+                            } else {
+                                cast(BOSS.BOSS_1_ID, BOY, FLASH, 0d5);
+                                cast(BOSS.BOSS_1_ID, BOY, FLASH, 0d5);
+                                cast(BOSS.BOSS_1_ID, BOSS.BOSS_1_ID, FORCE_FIELD, 0d0);
                             }
-                        } else {
-                            if(BOSS.RNG == 0d0) {
-                                animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
+                        } else if(BOSS.BOSS_REMAINING_ID == BOSS.BOSS_2_ID) {
+                            animate(BOSS.BOSS_2_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
 
-                                cast(BOY, BOY, COROSION, 0d0);
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
-                            } else if(BOSS.RNG == 0d1) {
-                                animate(BOSS.BOSS_REMAINING_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
-
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, HEAL, 0d15);
-                            } else if(BOSS.RNG == 0d2) {
-                                cast(BOSS.BOSS_REMAINING_ID, BOSS.BOSS_REMAINING_ID, FORCE_FIELD, 0d0);
-                                animate(BOSS.BOSS_REMAINING_ID, LOOP, ANIMATION_ENEMY.PUPPET_2_DANCE);
+                            if(arg[0x10] == 0d0) {
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, ONE_UP, 0d0);
+                            } else if(arg[0x10] == 0d1) {
+                                cast(BOSS.BOSS_1_ID, BOY, DISRUPT, 0d5);
+                            } else {
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, HEAL, 0d15);
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, CURE, 0d0);
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, FORCE_FIELD, 0d0);
                             }
                         }
                     } else {
