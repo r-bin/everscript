@@ -29,6 +29,10 @@
 ## every any door can be opened by a bomb
 ## basement lvl4 has a weird mosquito north
 ## fan boss too easy
+## scale enemies: before puppets, before pyramid
+## stairs
+### walk in is required
+### every second rat in p2 has no death trigger
 
 # nice to have
 ## balance bosses (radahn)
