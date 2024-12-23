@@ -8097,6 +8097,8 @@ area altus_plateau_entry() {
                         DEBUG = True,
                         PROGRESS = memory(FLAG, TEMP),
 
+                        HP = 0d600,
+
                         ID_RIDER = memory(WORD, TEMP),
                         ID_MOUNT = memory(WORD, TEMP),
                         ID_MOUNT_MUTATION = memory(WORD, TEMP),
@@ -8115,15 +8117,22 @@ area altus_plateau_entry() {
                         TIMER_T2 = 0d300,
 
                         STACKING = memory(FLAG, TEMP),
+                        STACK_ROLL = memory(WORD, TEMP),
+                        STACK_ROLL_COUNT = 0d4,
 
                         CRATES_X = 0d22,
                         CRATES_Y = 0d12,
 
-                        CHEESE_RANGE = 0d3,
+                        CHEESE_RANGE = 0d10,
                     }
 
                     fun boss_killed() {
-                        subtext("yatta!");
+                        destroy(BOSS.ID_MOUNT);
+                        destroy(BOSS.ID_MOUNT_MUTATION);
+
+                        souls_boss_defeated(DEAD_UNNAMED_STAIRWELL_BOSS, REWARD_UNNAMED_STAIRWELL_BOSS);
+
+                        object[0x00] = 0x00; // close gate
                     }
 
                     fun prepare_rat(entity) {
@@ -8179,11 +8188,27 @@ area altus_plateau_entry() {
                                     debug_memory(arg[0x10], arg[0x12], arg[0x18]);
                                 }
 
-                                if(
+                                BOSS.STACK_ROLL++;
+                                if(BOSS.STACK_ROLL >= BOSS.STACK_ROLL_COUNT) {
+                                    if(BOSS.DEBUG) {
+                                        MEMORY.STRING_PARAMETER_1 = BOSS.STACK_ROLL;
+                                        debug_subtext("cheese: roll=[MEM1]");
+                                    }
+
+                                    BOSS.STACKING = False;
+                                    end();
+                                } else if(
                                     ((arg[0x10] <= BOSS.CHEESE_RANGE) && (arg[0x12] <= BOSS.CHEESE_RANGE)) ||
                                     (arg[0x18] >= 0d2)
                                 ) {
+                                    if(BOSS.DEBUG) {
+                                        MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                                        MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                                        debug_subtext("cheese: dx=[MEM1] dy=[MEM2]");
+                                    }
+
                                     BOSS.STACKING = False;
+                                    end();
                                 }
 
                                 arg[0x14] = arg[0x10];
@@ -8225,7 +8250,8 @@ area altus_plateau_entry() {
                         animate(entity_mount_mutation, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
 
                         cheese_protection(entity_mount_mutation);
-
+                        
+                        BOSS.STACK_ROLL = 0d0;
                         while(BOSS.STACKING) {
                             entity_rider[X] = entity_mount_mutation[X] + offset_x;
                             entity_rider[Y] = entity_mount_mutation[Y] - offset_y;
@@ -8309,7 +8335,7 @@ area altus_plateau_entry() {
                             replace_enemy(arg[0x10], RAT_RED);
                             BOSS.ID_MOUNT = <LAST_ENTITY>;
                             <LAST_ENTITY>[HP] = BOSS.BOSS_RAT_HP;
-                            attach_script(LAST_ENTITY, DEATH,  reference(@install() {
+                            attach_script(LAST_ENTITY, DEATH, reference(@install() {
                                 BOSS.BOSS_RAT_KILL_COUNT++;
 
                                 if(BOSS.PHASE == 0d0) {
@@ -8438,6 +8464,14 @@ area altus_plateau_entry() {
                     fun add_boss(x, y) {
                         add_enemy(VERMINATOR, x, y);
                         BOSS.ID_RIDER = <LAST_ENTITY>;
+                        <LAST_ENTITY>[HP] = BOSS.HP;
+                        attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                            if(BOSS.PHASE == 0d1) {
+                                if(script[0x9] == 0x200) {
+                                    BOSS.PHASE = 0d2;
+                                }
+                            }
+                        }));
 
                         add_enemy(MEGATAUR, 0d0, 0d0);
                         BOSS.ID_MOUNT_MUTATION = <LAST_ENTITY>;
