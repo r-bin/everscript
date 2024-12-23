@@ -33,6 +33,7 @@
 ## stairs
 ### walk in is required
 ### every second rat in p2 has no death trigger
+### looting the rat = crash
 
 # nice to have
 ## balance bosses (radahn)
