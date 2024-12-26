@@ -169,7 +169,7 @@ metro:
 ## turret_arena (reward)
 ## toaster_arena (reward)
 
-# muchroom (7-24+x)
+# mushroom (7-24+x)
 
 nothing:
 ## chessboard (1-5 vanilla)
