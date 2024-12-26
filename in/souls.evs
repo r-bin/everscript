@@ -560,9 +560,9 @@ group non_maps() {
             REWARD_ARENA_DUEL = ITEM.ATLAS,
 
             REWARD_BEE_BOY_QUEST_1 = ITEM.FLASH,
-            REWARD_BEE_BOY_QUEST_2 = ITEM.NECTAR, // TODO
-            REWARD_BEE_BOY_QUEST_3 = ITEM.NECTAR, // TODO
-            REWARD_BEE_BOY_QUEST_4 = ITEM.NECTAR, // TODO
+            REWARD_BEE_BOY_QUEST_2 = ITEM.FORCE_FIELD,
+            REWARD_BEE_BOY_QUEST_3 = ITEM.GLOVE_1_3,
+            REWARD_BEE_BOY_QUEST_4 = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
 
             REWARD_SQUIDMAR_QUEST = ITEM.NECTAR, // TODO
 
@@ -832,6 +832,7 @@ group non_maps() {
             // POWER = GLOVE_2_3 (+1), GLOVE_2_2 (+2)
             // fall damage = GLOVE_3_2
             // heat = CHEST_2_3
+            // thorne = GLOVE_1_3
 
             <BOY>[BOOST_HIT] = 0d0;
             if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_1_1) {
@@ -1009,6 +1010,15 @@ group non_maps() {
         fun boy_death() {
             if((<SCRIPT_OWNER> == <BOY>) && (<BOY>[HP] > 0d0)) {
                 CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
+
+                if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_1_3) {
+                    arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
+                    arg[0x12] = !randrange(0d5);
+
+                    if(arg[0x12] && arg[0x10]) {
+                        damage(arg[0x10], 0d10, True);
+                    }
+                }
 
                 end();
             }
@@ -10986,7 +10996,7 @@ area east_inbetwixx() {
             generic_fall(0d100, 0d170);
 
             if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
-                damage(BOTH, 0d20, True);
+                damage(BOTH, 0d30, True);
             } else {
                 damage(BOTH, 0d80, True);
             }
@@ -11237,9 +11247,9 @@ area east_inbetwixx() {
                 north = entrance(0x1b, 0x03, SOUTH),
                 south = entrance(0x1d, 0x33, NORTH),
 
-                left = entrance(0x15, 0x1c, NONE),
-                center = entrance(0x1e, 0x21, NONE),
-                right = entrance(0x2a, 0x23, NONE)
+                left = entrance(0x15, 0x1c, NONE, { crash_both(); }),
+                center = entrance(0x1e, 0x21, NONE, { crash_both(); }),
+                right = entrance(0x2a, 0x23, NONE, { crash_both(); }),
             }
 
             enum soundtrack {
@@ -11289,7 +11299,7 @@ area east_inbetwixx() {
                 MOUNT_ID = memory(WORD, TEMP),
 
                 PHASE = memory(WORD, TEMP),
-                TIMER = memory(WORD, TEMP),
+                COOLDOWN = memory(WORD, TEMP),
 
                 HP = 0d1000,
 
@@ -11316,46 +11326,65 @@ area east_inbetwixx() {
             }
 
             @install()
-            @async()
-            fun stack_t01_offset() {
-                while(alive(BOSS.MOUNT_ID)) {
-                    BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-                    BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
-                    yield();
+            fun reset_cooldown() {
+                if(BOSS.PHASE == 0d0) {
+                    BOSS.COOLDOWN = BOSS.P1_THRESHOLD;
+                } else {
+                    BOSS.COOLDOWN = BOSS.P2_THRESHOLD;
                 }
             }
 
             fun cast_salvage(target:CHARACTER, count, level) {
-                // TODO: flash/fireball, depending whether or not it's dodgeable?
+                arg[0x10] = 0d0;
+                while(arg[0x10] < count) {
+                    arg[0x10]++;
 
-                animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+                    animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1); // blocks cast() for whatever reason
 
-                if(count > 0d2) {
-                    cast(BOSS.RIDER_ID, target, FIREBALL, level);
+                    cast(BOSS.RIDER_ID, target, FLASH, level);
+                    cast(BOSS.RIDER_ID, target, FLASH, level);
+
+                    BOSS.COOLDOWN += 0d120;
+
+                    if(arg[0x10] < count) {
+                        if(False) {
+                            debug_memory(arg[0x10], count);
+                        }
+
+                        sleep(0d60);
+                        animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+                        yield();
+                    }
                 }
-                cast(BOSS.RIDER_ID, target, FLASH, level);
-                if(count > 0d2) {
-                    cast(BOSS.RIDER_ID, target, FIREBALL, level);
-                }
-                cast(BOSS.RIDER_ID, target, FLASH, level);
+            }
+            fun cast_spells(callback2) {
+                animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1); // blocks cast() for whatever reason
+
+                BOSS.COOLDOWN += 0d120;
+
+                callback2();
             }
 
             @install()
             fun boss_damage() {
                 // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
 
-                if(BOSS.PHASE == 0x00) {
-                    BOSS.TIMER = 0x00;
+                reset_cooldown();
 
+                if(BOSS.PHASE == 0d0) {
                     if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
-                        BOSS.PHASE = 0x01;
+                        BOSS.PHASE++;
                     }
-                } else if(BOSS.PHASE == 0x01) {
+                }
+                if(BOSS.PHASE == 0d1) {
                     if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
-                        BOSS.PHASE = 0x02;
+                        BOSS.PHASE++;
                     }
-                } else if(BOSS.PHASE == 0x02) {
-                    BOSS.TIMER -= 0x60;
+                }
+                if(BOSS.PHASE == 0d2) {
+                    if(dead(BOSS.RIDER_ID)) {
+                        BOSS.PHASE = 0xffff;
+                    }
                 }
 
                 if(BOSS.DEBUG) {
@@ -11366,6 +11395,23 @@ area east_inbetwixx() {
                 }
             }
 
+            fun handle_cast_cooldown(callback) {
+                if(BOSS.RIDER_ID[PALETTE] == 0x0400) { // TODO: buggy, since menu resets paletts
+                    nop();
+                } if(BOSS.COOLDOWN == 0d0) {
+                    callback();
+
+                    reset_cooldown();
+                } else {
+                    BOSS.COOLDOWN--;
+                }
+
+                if(False) {
+                    debug_memory(BOSS.COOLDOWN, BOSS.RIDER_ID[PALETTE]);
+                    sleep(0d60);
+                }
+            }
+
             @install()
             @async()
             fun boss_watcher() {
@@ -11373,21 +11419,12 @@ area east_inbetwixx() {
                     subtext("phase 0");
                 }
 
-                while(BOSS.PHASE == 0x00) {
-                    if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                        cast_salvage(ACTIVE, 0d2, 0x00);
+                reset_cooldown();
 
-                        BOSS.TIMER = 0x00;
-                    }
-                
-                    if(BOSS.RIDER_ID[PALETTE] != 0x0400) { // TODO: buggy, since menu resets paletts
-                        BOSS.TIMER++;
-                    }
-
-                    if(False) {
-                        debug_memory(BOSS.TIMER, BOSS.RIDER_ID[PALETTE]);
-                        sleep(0d60);
-                    }
+                while(BOSS.PHASE == 0d0) {
+                    handle_cast_cooldown({
+                        cast_salvage(ACTIVE, 0d1, 0d0);
+                    });
 
                     yield();
                 }
@@ -11396,44 +11433,38 @@ area east_inbetwixx() {
                     subtext("phase 1");
                 }
 
-                BOSS.TIMER = 0x0000;
+                reset_cooldown();
                 cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
                 cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
-                while(BOSS.PHASE == 0x01) {
-                    if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                        cast_salvage(ACTIVE, 0d4, 0x00);
+                while(BOSS.PHASE == 0d1) {
+                    handle_cast_cooldown({
+                        cast_salvage(ACTIVE, 0d2, 0d0);
+                    });
 
-                        BOSS.TIMER = 0x00;
-                    }
-                
-                    if(BOSS.RIDER_ID[PALETTE] != 0x0400) { // TODO: buggy, since menu resets paletts
-                        BOSS.TIMER++;
-                    }
                     yield();
                 }
 
-                BOSS.TIMER = 0x0000;
+                reset_cooldown();
                 cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
                 cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
-                while(BOSS.PHASE == 0x01) {
-                    BOSS.TIMER++;
+                while(BOSS.PHASE == 0d2) {
+                    handle_cast_cooldown({
+                        cast_spells({
+                            BOSS.RANDOM_SPELL = randrange(0d3);
 
-                    if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
-                        BOSS.TIMER = 0x0000;
-
-                        BOSS.RANDOM_SPELL = randrange(0x03);
-
-                        if(BOSS.RANDOM_SPELL == 0x00) {
-                            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-                            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
-                        } else if(BOSS.RANDOM_SPELL == 0x01) {
-                            cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0x30);
-                        } else if(BOSS.RANDOM_SPELL == 0x02) {
-                            cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0x01);
-                        } 
-                    }
+                            if(BOSS.RANDOM_SPELL == 0d0) {
+                                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                            } else if(BOSS.RANDOM_SPELL == 0d1) {
+                                cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d20);
+                            } else if(BOSS.RANDOM_SPELL == 0d2) {
+                                cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
+                            }
+                        });
+                    });
+                    
                     yield();
                 }
 
@@ -11457,18 +11488,14 @@ area east_inbetwixx() {
             }
 
             fun trigger_enter() {
-                if!(FLAG.IN_ANIMATION) {
-                    crash_both();
-                }
-
                 default_init_room(True, False);
                 character_selection(BOY);
 
                 if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
                     close_exits(True);
 
-                    spawn_boss(0x10, 0x13);
-                    stack_t01_offset();
+                    spawn_boss(0d16, 0d19);
+                    stack_sprite(BOSS.MOUNT_ID, BOSS.RIDER_ID, 0d0, 0d20);
                     boss_watcher();
                 }
             }
@@ -21462,7 +21489,6 @@ area ship_caves() {
 
         enum ROOM {
             PILLAR_CLEARED = memory(FLAG, SRAM),
-            PILLAR_ID = memory(WORD, TEMP),
         }
 
         fun trigger_enter() {
@@ -21482,9 +21508,8 @@ area ship_caves() {
 
             if!(ROOM.PILLAR_CLEARED) {
                 add_pillar(0d19, 0d14);
-                ROOM.PILLAR_ID = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, B, reference(@install() {
-                    axe2_wall_enemy(ROOM.PILLAR_CLEARED, ROOM.PILLAR_ID);
+                    guard_axe2_wall_enemy(ROOM.PILLAR_CLEARED);
                 }));
             }
 
@@ -28895,6 +28920,9 @@ area dungeon_isaac() {
 
             enum ROOM {
                 CLEAR_FLAG = memory(FLAG, SRAM),
+
+                BEE_COLLECTED = memory(FLAG, TEMP), // TODO
+                BRIDGE_BLOCKER = memory(FLAG, TEMP), // TODO
             }
 
             enum stepon_trigger {
@@ -28927,6 +28955,8 @@ area dungeon_isaac() {
             }
 
             fun trigger_enter() {
+                object[0x00] = 0x02; // close exit_west
+
                 add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0d89, 0d29);
                 attach_script(LAST_ENTITY, B, reference(trap_door_interacted));
 
@@ -28940,7 +28970,22 @@ area dungeon_isaac() {
                     }
                 }
 
+                if!(ROOM.BEE_COLLECTED) {
+                    add_bee(0d16, 0d27, reference(@install() {
+                        bee_collected(ROOM.BEE_COLLECTED);
+                    }));
+                }
+
                 isaac_init(False, False);
+
+                if!(ROOM.BRIDGE_BLOCKER) {
+                    add_enemy(PLACEHOLDER, 0d42, 0d30);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        guard_axe2_wall_enemy(ROOM.BRIDGE_BLOCKER);
+
+                        object[0x07] = 0x01; // remove base
+                    }));
+                }
             }
         };
 
@@ -32074,6 +32119,9 @@ area dungeon_volcano() {
                     room_4_teleporter_south_west = nop(),
                     teleporter_east = @install() {
                         debug_subtext("S=36");
+
+                        teleporter_out(0x39, 0xb4);
+                        map_transition(cave_left_south_east, teleporter, NONE);
                     },
                     teleporter_west = @install() {
                         debug_subtext("S=37");
@@ -32083,7 +32131,6 @@ area dungeon_volcano() {
                     },
                     teleporter_north = @install() {
                         debug_subtext("S=38");
-
 
                         teleporter_out(0x2d, 0x9e);
                         map_transition(cave_left_entrance, teleporter_west, NONE);
@@ -32251,6 +32298,9 @@ area dungeon_volcano() {
                     exit_room_2_teleporter = nop(),
                     teleporter = @install() {
                         debug_subtext("S=34");
+
+                        teleporter_out(0x89, 0xe0);
+                        map_transition(cave_left_entrance, teleporter_east, NONE);
                     },
                     room_4_teleporter_south_west = nop(),
                     room_1_teleporter_east = nop(),
