@@ -336,7 +336,7 @@ group non_maps() {
             INIT = memory(FLAG, SRAM),
             INTRO_WATCHED = memory(FLAG, SRAM),
             // debug
-            DEBUG = False,
+            DEBUG = True,
             DEBUG_BOMBABLE_WALLS = False,
 
             // features
@@ -1917,7 +1917,7 @@ group non_maps() {
                 
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(east_crossing, north, NONE);
+                map_transition(pyramid, north, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             }
@@ -15054,7 +15054,9 @@ area southern_jungle() {
                     }));
 
                     add_debug_entity(0x5b, 0x23, reference(@install() {
-                        revealer_triggered();
+                        remove_water(True);
+
+                        AREA_SOUTHERN_JUNGLE.WATER_REMOVED = True;
 
                         destroy(SCRIPT_OWNER);
                     }));
@@ -15095,6 +15097,18 @@ area southern_jungle() {
 
         map pyramid(PYRAMID_EXTERIOR) {
             // sniff=vanilla
+
+            enum ROOM {
+                DEBUG = False,
+
+                BRIDGE_SIZE = 0d45,
+                BRIDGE_REVEALED = memory(FLAG, SRAM),
+                BRIDGE_REVEALER_ENTITY = memory(WORD, TEMP),
+
+                TRI_STONE_LOOTED = memory(FLAG, SRAM),
+
+                CAVE_OPENED = memory(FLAG, TEMP), // TODO
+            }
 
             @install()
             @async()
@@ -15145,7 +15159,9 @@ area southern_jungle() {
                 north = entrance(0x66, 0x04, SOUTH),
                 east = entrance(0xa3, 0x71, WEST),
 
-                cave_tiny = entrance(0x87, 0x84, SOUTH),
+                cave_tiny = entrance(0x87, 0x84, SOUTH, {
+                    ROOM.CAVE_OPENED = True;
+                }),
 
                 pyramid_1_1 = entrance(0x4c, 0x6b, SOUTH),
                 pyramid_2_1 = entrance(0x46, 0x4e, SOUTH),
@@ -15181,7 +15197,9 @@ area southern_jungle() {
                 door_tiny = @install() {
                     debug_subtext("S=1");
 
-                    map_transition(pyramid_cave, south, NORTH);
+                    if(ROOM.CAVE_OPENED) {
+                        map_transition(pyramid_cave, south, NORTH);
+                    }
                 },
                 pit_1 = pit_triggered(),
                 pit_2 = pit_triggered(),
@@ -15342,16 +15360,6 @@ area southern_jungle() {
                 },
             }
 
-            enum ROOM {
-                DEBUG = False,
-
-                BRIDGE_SIZE = 0d45,
-                BRIDGE_REVEALED = memory(FLAG, SRAM),
-                BRIDGE_REVEALER_ENTITY = memory(WORD, TEMP),
-
-                TRI_STONE_LOOTED = memory(FLAG, SRAM),
-            }
-
             @install()
             fun message_triggered() {
                 player_message_triggered();
@@ -15420,6 +15428,15 @@ area southern_jungle() {
                     ROOM.BRIDGE_REVEALER_ENTITY = <LAST_ENTITY>;
 
                     revealer_approached();
+                }
+
+                if!(ROOM.CAVE_OPENED) {
+                    add_enemy(STONE_ROUND, 0d135, 0d136);
+                    <LAST_ENTITY>[Z_LEVEL] = 0x30; // the water seems to linger for a few frames
+
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        error_wrong_side(NONE);
+                    }));
                 }
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {

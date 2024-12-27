@@ -22,20 +22,19 @@
 
 
 # important
-## pyramid stone missing
 ## castle bonfire is used over temple2
 ## true ending boss?
 ## bombs are way too expensive
 ## every any door can be opened by a bomb
 ## basement lvl4 has a weird mosquito north
-## fan boss too easy
-## scale enemies: before puppets, before pyramid
 ## stairs
 ### walk in is required
 ### every second rat in p2 has no death trigger
 ### looting the rat = crash
 
 # nice to have
+## scale enemies: before puppets, before pyramid
+## fan boss too easy
 ## balance bosses (radahn)
 ## improve bosses (double thraxx)
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
@@ -229,6 +228,7 @@ spoon:
 
 bee quest (1):
 ## flash (vanilla)
+## force field (vanilla)
 
 weapons:
 ## revealer (vanilla)
@@ -245,7 +245,6 @@ todo defensive:
 ## revive (vanilla)
 ## defend (vanilla)
 ## cure (vanilla)
-## force field (vanilla)
 ## stop (vanilla) -> too cheap?
 ## barrier (vanilla) -> dry ice
 ## escape (vanilla) -> metro?
@@ -258,6 +257,9 @@ todo defensive:
 
 crafting:
 ## hit% boost ("grass vest", "grass hat", "vine bracelet")
+
+bee quest:
+## thorns ("claw guard")
 
 bosses:
 ## low fall damage ("magician's ring")
