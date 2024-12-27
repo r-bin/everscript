@@ -499,7 +499,7 @@ allocated RAM:
                         pass
 
                     test = If(
-                            Equals(Param(None, Memory(0x244b, size=1)), Param(None, Word(map.variant))),
+                            Equals(Param(None, Memory(0x2266, size=1)), Param(None, Word(map.variant))),
                             [function],
                             [False, False]
                         )
@@ -542,7 +542,7 @@ allocated RAM:
             code_transition_in = If_list(code_transition_in)
 
             function_enter = Function("_trigger_enter", 
-                [Asign(Memory(0x244a, size=1), Word(map.map_index)), Asign(Memory(0x244b, size=1), Word(map.variant))] + [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
+                [Asign(Memory(0x2265, size=1), Word(map.map_index)), Asign(Memory(0x2266, size=1), Word(map.variant))] + [soundtrack] + objects + [code_transition_in] + [Call(self, function)], [], [Annotation_Install()])
             
             return function_enter
         def _generate_trigger_enter(map:Map, function:Function, name):
@@ -570,7 +570,7 @@ allocated RAM:
                     self.add_map_function(function_enter)
 
                     test = If(
-                            Equals(Param(None, Memory(0x244b, size=1)), Param(None, Word(map.variant))),
+                            Equals(Param(None, Memory(0x2266, size=1)), Param(None, Word(map.variant))),
                             [Call(self, function_enter)],
                             [False, False]
                         )
