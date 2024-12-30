@@ -34528,6 +34528,277 @@ group gourd_trap() {
             spawn_rat(BOSS.RAT_4_X, BOSS.RAT_4_Y, reference(rat_4_dead));
         }
     };
+
+    map gourd_trap_poodle(IVOR_MARKET) {
+        enum entrance {
+            north = entrance(0x2a, 0x01, SOUTH),
+            east = entrance(0x39, 0xc3, WEST),
+        }
+
+        enum soundtrack {
+            default = soundtrack(PIG_RACE, 0xff)
+        }
+
+        enum stepon_trigger {
+            exit_north = @install() {
+                debug_subtext("S=0");
+            },
+            exit_east = @install() {
+                debug_subtext("S=1");
+            },
+        }
+
+        enum ROOM {
+            DEBUG = False,
+            DEBUG_RUNNING = False,
+
+            WITH_MASK = True,
+
+            BARRIER_1 = memory(WORD, TEMP),
+            BARRIER_2 = memory(WORD, TEMP),
+            BARRIER_3 = memory(WORD, TEMP),
+            BARRIER_4 = memory(WORD, TEMP),
+
+            WAYPOINT_X_1 = memory(WORD, TEMP),
+            WAYPOINT_X_2 = memory(WORD, TEMP),
+            WAYPOINT_X_3 = memory(WORD, TEMP),
+            WAYPOINT_X_4 = memory(WORD, TEMP),
+
+            WAYPOINT_Y_1 = memory(WORD, TEMP),
+            WAYPOINT_Y_2 = memory(WORD, TEMP),
+            WAYPOINT_Y_3 = memory(WORD, TEMP),
+            WAYPOINT_Y_4 = memory(WORD, TEMP),
+
+            Y_1 = 0d0029,
+            Y_2 = 0d0077,
+            Y_3 = 0d0125,
+            Y_4 = 0d0189,
+
+            PIG_COUNT = memory(WORD, TEMP),
+            PIG_COUNT_MAX = 0d2, // 0d4,
+        }
+
+        @install()
+        fun add_barrier(x_side, y) {
+            add_enemy(FACE_ENTITY, x_side, y);
+            attribute(LAST_ENTITY, INVINCIBLE, True);
+            add_enemy(FACE_ENTITY, x_side + 0d4, y);
+            attribute(LAST_ENTITY, INVINCIBLE, True);
+            add_enemy(FACE_ENTITY, x_side - 0d4, y);
+            attribute(LAST_ENTITY, INVINCIBLE, True);
+
+            add_enemy(VILLAGER_3_1, x_side + 0d2, y, INACTIVE);
+            face(LAST_ENTITY, NORTH);
+            add_enemy(VILLAGER_3_2, x_side - 0d2, y, INACTIVE);
+            face(LAST_ENTITY, NORTH);
+        }
+
+        fun randomize_x(barrier, waypoint) {
+            if(randrange(0d2)) {
+                barrier = 0d13;
+                waypoint = 0d42;
+            } else {
+                waypoint = 0d13;
+                barrier = 0d42;
+            }
+        }
+
+        @install()
+        @async()
+        fun pigface(entity) {
+            if(ROOM.WITH_MASK) {
+                attribute(entity, INVISIBLE, True);
+            }
+
+            add_enemy(PLACEHOLDER, 0d0, 0d0);
+            attach_to_script(LAST_ENTITY);
+
+            // stack_sprite(entity, <LAST_ENTITY>);
+
+            while(alive(entity)) {
+                if(False) {
+                    <SCRIPT_OWNER>[X] = entity[X];
+                    <SCRIPT_OWNER>[Y] = entity[Y] - 0d10;
+                    <SCRIPT_OWNER>[Z_LEVEL] = entity[Z_LEVEL];
+                } else {
+                    _teleport(SCRIPT_OWNER, entity[X], entity[Y]);
+                }
+
+                if(ROOM.WITH_MASK) {
+                    if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.PIGOODLE_RUNNING_SOUTH);
+                    } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.PIGOODLE_RUNNING_EAST);
+                    } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.PIGOODLE_RUNNING_SOUTH);
+                    } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.PIGOODLE_RUNNING_WEST);
+                    }
+                }
+
+                yield();
+            }
+
+            destroy(<SCRIPT_OWNER>);
+        }
+
+        fun remove_pig() {
+            destroy(arg[0x10]);
+            destroy(<SCRIPT_OWNER>);
+
+            yield();
+            
+            ROOM.PIG_COUNT--;
+            end();
+        }
+        @install()
+        @async()
+        fun add_pig() {
+            if(ROOM.PIG_COUNT >= ROOM.PIG_COUNT_MAX) {
+                end();
+            }
+            ROOM.PIG_COUNT++;
+
+            if(ROOM.DEBUG) {
+                // debug_memory(ROOM.PIG_COUNT);
+                debug_subtext("+pig");
+            }
+
+            if(<ACTIVE>[X] < 0d200) {
+                arg[0x12] = 0d117;
+            } else {
+                arg[0x12] = 0d335;
+            }
+
+            _add_enemy(SKELESNAIL, arg[0x12], MEMORY.CAMERA_Y_MAX + 0d20, INACTIVE);
+            arg[0x10] = <LAST_ENTITY>;
+
+            while(arg[0x10][CURRENT_GROUND] != 0x10) {
+                // remove_pig();
+
+                arg[0x10][Y] += 0d40;
+                yield();
+            }
+
+
+            add_enemy(PLACEHOLDER, 0d0, 0d0);
+            attach_to_script(LAST_ENTITY);
+            if(ROOM.WITH_MASK) {
+                attribute(arg[0x10], INVISIBLE, True);
+                animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.PIG_RUNNING);
+            }
+
+            // stack_sprite(entity, <LAST_ENTITY>);
+
+            walk(arg[0x10], TILE_ABSOLUTE, 0d60, 0d191, NONE, NONE);
+
+            while(alive(arg[0x10])) {
+                if(False) {
+                    <SCRIPT_OWNER>[X] = arg[0x10][X];
+                    <SCRIPT_OWNER>[Y] = arg[0x10][Y] - 0d10;
+                    <SCRIPT_OWNER>[Z_LEVEL] = arg[0x10][Z_LEVEL];
+                } else {
+                    _teleport(SCRIPT_OWNER, arg[0x10][X], arg[0x10][Y]);
+                }
+
+
+                if(arg[0x10][Y] < MEMORY.CAMERA_Y_MIN - 0d20) {
+                    if(ROOM.DEBUG) {
+                        // debug_memory(ROOM.PIG_COUNT);
+                        debug_subtext("-pig");
+                    }
+
+                    remove_pig();
+                }
+
+                sleep(0d5);
+            }
+        }
+
+        @install()
+        @async()
+        fun pig_spawner() {
+            while(MEMORY.CAMERA_Y_MAX < 0d1400) {
+                sleep(randrange(0d60));
+
+                add_pig(0d38 + 0d2, 0d5);
+
+                sleep(randrange(0d120));
+            }
+        }
+
+        fun trigger_enter() {
+            // init_map(0x0, 0x0, 0x39, 0xc3); // cutscene: pig race
+            init_map(0x0, 0x0, 0x3a, 0xcc);
+
+            randomize_x(ROOM.BARRIER_1, ROOM.WAYPOINT_X_1);
+            randomize_x(ROOM.BARRIER_2, ROOM.WAYPOINT_X_2);
+            randomize_x(ROOM.BARRIER_3, ROOM.WAYPOINT_X_3);
+            randomize_x(ROOM.BARRIER_4, ROOM.WAYPOINT_X_4);
+
+            ROOM.WAYPOINT_Y_1 = ROOM.Y_1 + 0d0;
+            ROOM.WAYPOINT_Y_2 = ROOM.Y_2 + 0d0;
+            ROOM.WAYPOINT_Y_3 = ROOM.Y_3 + 0d0;
+            ROOM.WAYPOINT_Y_4 = ROOM.Y_4 + 0d0;
+
+            add_barrier(ROOM.BARRIER_1, ROOM.Y_1);
+            add_barrier(ROOM.BARRIER_2, ROOM.Y_2);
+            add_barrier(ROOM.BARRIER_3, ROOM.Y_3);
+            add_barrier(ROOM.BARRIER_4, ROOM.Y_4);
+
+            MEMORY.DOG_WRITE = DOG.POODLE;
+
+            fade_in();
+            available(DOG);
+
+            pig_spawner();
+
+            add_enemy(PUPPET_1, 0d38 + 0d2, 0d5, INACTIVE);
+            arg[0x10] = <LAST_ENTITY>;
+            pigface(arg[0x10]);
+            // walk(arg[0x10], TILE_RELATIVE_DIRECT, 0d0, 0d5, arg[0x10], NONE);
+
+            if(True) {
+                walk(arg[0x10], TILE_ABSOLUTE, ROOM.WAYPOINT_X_1, ROOM.WAYPOINT_Y_2 - 0d15, arg[0x10], NONE);
+                if(ROOM.DEBUG && ROOM.DEBUG_RUNNING) {
+                    debug_memory(ROOM.WAYPOINT_X_1, ROOM.WAYPOINT_Y_1);
+                    sleep(0d120);
+                }
+
+                yield();
+
+                walk(arg[0x10], TILE_ABSOLUTE, ROOM.WAYPOINT_X_2, ROOM.WAYPOINT_Y_3 - 0d15, arg[0x10], NONE);
+                if(ROOM.DEBUG && ROOM.DEBUG_RUNNING) {
+                    debug_memory(ROOM.WAYPOINT_X_2, ROOM.WAYPOINT_Y_2);
+                    sleep(0d120);
+                }
+                
+                yield();
+
+                walk(arg[0x10], TILE_ABSOLUTE, ROOM.WAYPOINT_X_3, ROOM.WAYPOINT_Y_4 - 0d15, arg[0x10], NONE);
+                if(ROOM.DEBUG && ROOM.DEBUG_RUNNING) {
+                    debug_memory(ROOM.WAYPOINT_X_3, ROOM.WAYPOINT_Y_3);
+                    sleep(0d120);
+                }
+
+                yield();
+
+                walk(arg[0x10], TILE_ABSOLUTE, ROOM.WAYPOINT_X_4, ROOM.WAYPOINT_Y_4, arg[0x10], NONE);
+                if(ROOM.DEBUG && ROOM.DEBUG_RUNNING) {
+                    debug_memory(ROOM.WAYPOINT_X_4, ROOM.WAYPOINT_Y_4);
+                    sleep(0d120);
+                }
+
+                yield();
+
+                walk(arg[0x10], TILE_ABSOLUTE, 0d59, 0d191, arg[0x10], NONE);
+
+                subtext("?");
+
+                destroy(arg[0x10]);
+            }
+        }
+    };
 };
 
 // experimental
