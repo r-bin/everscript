@@ -22,15 +22,8 @@
 
 
 # important
-## castle bonfire is used over temple2
 ## true ending boss?
-## bombs are way too expensive
 ## every any door can be opened by a bomb
-## basement lvl4 has a weird mosquito north
-## stairs
-### walk in is required
-### every second rat in p2 has no death trigger
-### looting the rat = crash
 
 # nice to have
 ## scale enemies: before puppets, before pyramid
