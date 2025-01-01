@@ -25,13 +25,13 @@ hirom
 !BUTTON_7_TITLE_MEMORY = $c46671 ; "Debug: Show both backgrounds[END]" (29 bytes)
 !BUTTON_7_TITLE = "Start = 3"
 !BUTTON_8_TITLE_MEMORY = $c466a6 ; "Debug: Select map[END]" (18 bytes)
-!BUTTON_8_TITLE = "Unlock Items"
+!BUTTON_8_TITLE = "Start = 4"
 !BUTTON_9_TITLE_MEMORY = $c466b8 ; "Debug: Mode 7 Flight[END]" (21 bytes)
-!BUTTON_9_TITLE = "Windwalker"
+!BUTTON_9_TITLE = "Start = 5"
 !BUTTON_10_TITLE_MEMORY = $c46e07 ; "Alchemist[END]" (10 bytes)
 !BUTTON_10_TITLE = "Alchemy"
 !BUTTON_11_TITLE_MEMORY = $c46771 ; "ROM Creation Date[END]" (18 bytes)
-!BUTTON_11_TITLE = "Brian's Test Room"
+!BUTTON_11_TITLE = "Start = 6"
 
 
 ; NOP-out a RTS that that makes it impossible to access the debug ring.
@@ -66,11 +66,11 @@ LOAD_DEBUG_RING:
     STA $0F62    ;  |
     LDA #$000c   ;  |
     STA $0F64    ;  |
-    LDA #$0008   ;  | Load the debug ring items.
+    LDA #$000e   ;  | Load the debug ring items.
     STA $0F66    ;  |
-    LDA #$000A   ;  |
+    LDA #$0010   ;  |
     STA $0F68    ;  |
-    LDA #$000C   ;  |
+    LDA #$0014   ;  |
     STA $0F6A    ;  |
     LDA #$000E   ;  |
     STA $0F6C    ;  |

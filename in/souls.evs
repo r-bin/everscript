@@ -7,6 +7,7 @@
 
     // <0x2265>..<0x2266>, // reserved: map+variant
     <0x2267>..<0x22D9>, // vanilla sniff spots
+    <0x22dd>..<0x22e9>, // experimental
     <0x236D>..<0x2378>, // act4 codes
     // <0x2379>..<0x237C>, // landing spots
     <0x253d>..<0x2558>, // sliver extension "save_file_growth" (excluded string params)
@@ -301,10 +302,14 @@ group non_maps() {
             MARIO_FIREFLOWER = 0x21,
         }
         enum DEBUG_MENU_ENTRY {
-            BOMBS = 0x01,
-            ISAAC = 0x02,
-            MARIO = 0x03,
-            PUPPER = 0x04,
+            BOMBS = 0d1,
+            ISAAC = 0d2,
+            MARIO = 0d3,
+            PUPPER = 0d4,
+            ROCKET_JUMP = 0d5,
+            QUANTUM_JUMP = 0d6,
+
+            NONE = 0d0,
         }
 
         enum CUSTOM_ITEM {
@@ -320,7 +325,8 @@ group non_maps() {
             BIG_MUSHROOM = 0xf101, // unlocks jumping in the sewers
             ISAAC_LETTER = 0xf102, // unlocks isaac wanted poster
             ISAAC_WANTED_POSTER = 0xf103, // unlocks ?
-            BUG_CATCHER = 0xf104, // unlocks bee collecting
+            BUG_CATCHER_BROKEN = 0xf104, // unlocks bee collecting
+            BUG_CATCHER = 0xf105, // unlocks bee collecting
 
             // active abilities
             ZELDA_POWER_GLOVE = 0xf200, // unlocks levitate stones
@@ -398,6 +404,7 @@ group non_maps() {
             BIG_MUSHROOM = memory(FLAG, SRAM),
             ISAAC_LETTER = memory(FLAG, SRAM),
             ISAAC_WANTED_POSTER = memory(FLAG, SRAM),
+            BUG_CATCHER_BROKEN = memory(FLAG, SRAM),
             BUG_CATCHER = memory(FLAG, SRAM),
 
             // button map
@@ -408,12 +415,19 @@ group non_maps() {
             DEBUG_MENU_BUTTON_2 = memory(BYTE, SRAM),
             DEBUG_MENU_BUTTON_3 = memory(BYTE, SRAM),
             DEBUG_MENU_BUTTON_4 = memory(BYTE, SRAM),
+            DEBUG_MENU_BUTTON_5 = memory(BYTE, SRAM),
+            DEBUG_MENU_BUTTON_6 = memory(BYTE, SRAM),
+            DEBUG_MENU_BUTTON_7 = memory(BYTE, SRAM),
+
+            WEAPON_CYCLE_ENABLED = memory(FLAG, SRAM),
+            CHARACTER_SWITCH_ENABLED = memory(FLAG, SRAM),
 
             BOMB_ENABLED = memory(FLAG, SRAM),
             MARIO_YUMP_ENABLED = memory(FLAG, SRAM),
-            PUPPER_ENABLED = memory(FLAG, SRAM),
             ISAAC_TEARS_ENABLED = memory(FLAG, SRAM),
+            PUPPER_ENABLED = memory(FLAG, SRAM),
             ROCKET_JUMP_ENABLED = memory(FLAG, SRAM),
+            QUANTUM_JUMP_ENABLED = memory(FLAG, SRAM),
 
             ///////////////////////////////////////////////////////
             // bonfire
@@ -591,15 +605,24 @@ group non_maps() {
                     && (SOULS_MEMORY.DEBUG_MENU_BUTTON_2 != feature)
                     && (SOULS_MEMORY.DEBUG_MENU_BUTTON_3 != feature)
                     && (SOULS_MEMORY.DEBUG_MENU_BUTTON_4 != feature)
+                    && (SOULS_MEMORY.DEBUG_MENU_BUTTON_5 != feature)
+                    && (SOULS_MEMORY.DEBUG_MENU_BUTTON_6 != feature)
+                    && (SOULS_MEMORY.DEBUG_MENU_BUTTON_7 != feature)
                 ) {
-                    if(SOULS_MEMORY.DEBUG_MENU_BUTTON_1 == 0x0000) {
+                    if(SOULS_MEMORY.DEBUG_MENU_BUTTON_1 == 0d0) {
                         SOULS_MEMORY.DEBUG_MENU_BUTTON_1 = feature;
-                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_2 == 0x0000) {
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_2 == 0d0) {
                         SOULS_MEMORY.DEBUG_MENU_BUTTON_2 = feature;
-                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_3 == 0x0000) {
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_3 == 0d0) {
                         SOULS_MEMORY.DEBUG_MENU_BUTTON_3 = feature;
-                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_4 == 0x0000) {
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_4 == 0d0) {
                         SOULS_MEMORY.DEBUG_MENU_BUTTON_4 = feature;
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_5 == 0d0) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_5 = feature;
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_6 == 0d0) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_6 = feature;
+                    } else if(SOULS_MEMORY.DEBUG_MENU_BUTTON_7 == 0d0) {
+                        SOULS_MEMORY.DEBUG_MENU_BUTTON_7 = feature;
                     }
                 }
             }
@@ -608,16 +631,21 @@ group non_maps() {
         @install()
         fun update_debug_menu() {
             if(False) {
-                SOULS_MEMORY.DEBUG_MENU_BUTTON_1 = 0x0000;
-                SOULS_MEMORY.DEBUG_MENU_BUTTON_2 = 0x0000;
-                SOULS_MEMORY.DEBUG_MENU_BUTTON_3 = 0x0000;
-                SOULS_MEMORY.DEBUG_MENU_BUTTON_4 = 0x0000;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_1 = 0d0;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_2 = 0d0;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_3 = 0d0;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_4 = 0d0;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_5 = 0d0;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_6 = 0d0;
+                SOULS_MEMORY.DEBUG_MENU_BUTTON_7 = 0d0;
             }
 
             asign_debug_button_function(SOULS_MEMORY.BOMB_ENABLED, DEBUG_MENU_ENTRY.BOMBS);
             asign_debug_button_function(SOULS_MEMORY.ISAAC_TEARS_ENABLED, DEBUG_MENU_ENTRY.ISAAC);
             asign_debug_button_function(SOULS_MEMORY.MARIO_YUMP_ENABLED, DEBUG_MENU_ENTRY.MARIO);
             asign_debug_button_function(SOULS_MEMORY.PUPPER_ENABLED, DEBUG_MENU_ENTRY.PUPPER);
+            asign_debug_button_function(SOULS_MEMORY.ROCKET_JUMP_ENABLED, DEBUG_MENU_ENTRY.ROCKET_JUMP);
+            asign_debug_button_function(SOULS_MEMORY.QUANTUM_JUMP_ENABLED, DEBUG_MENU_ENTRY.QUANTUM_JUMP);
 
             MEMORY.RING_MENU_DEBUG = arg[0x00];
         }
@@ -683,6 +711,12 @@ group non_maps() {
                 fanfare_item(push_music);
 
                 SOULS_MEMORY.ISAAC_WANTED_POSTER = True;
+            } else if(item == CUSTOM_ITEM.BUG_CATCHER_BROKEN) {
+                subtext("Gained Broken Bug Catcher");
+                    
+                fanfare_item(push_music);
+
+                SOULS_MEMORY.BUG_CATCHER_BROKEN = True;
             } else if(item == CUSTOM_ITEM.BUG_CATCHER) {
                 subtext("Gained Bug Catcher");
                     
@@ -706,7 +740,7 @@ group non_maps() {
                 SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
                 update_debug_menu();
 
-                dialog("[SLOW]Press [START] to yump.");
+                dialog("[SLOW]Press [START] to yump.[B]");
             } else if(item == CUSTOM_ITEM.ISAAC_TEARS) {
                 subtext("Unlocked Tears");
                     
@@ -719,6 +753,9 @@ group non_maps() {
                 fanfare_item(push_music);
 
                 SOULS_MEMORY.ROCKET_JUMP_ENABLED = True;
+                update_debug_menu();
+
+                dialog("[SLOW]Press [START] to rocket jump.[B]");
             } else if(item == CUSTOM_ITEM.ZELDA_POWER_GLOVE) { // passive abilties
                 if(MEMORY.GLOVE_2_3 == 0d0) {
                     subtext("Gained Power Gloves");
@@ -1408,8 +1445,8 @@ group non_maps() {
                         sleep(0d200);
                     }
                 } else {
-                    teleport(BOY, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
-                    teleport(DOG, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
+                    _teleport(BOY, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
+                    _teleport(DOG, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
                 }
                 
 
@@ -1604,22 +1641,26 @@ group non_maps() {
 
         @install()
         fun start_feature_selected(index) {
-            if(index == 0x01) { // TODO: "&& (FLAG.ENERGY_CORE)" doesn't work anymore
+            if(index == 0d1) { // TODO: "&& (FLAG.ENERGY_CORE)" doesn't work anymore
                 if(FLAG.ENERGY_CORE) {
                     drop_bomb(False);
                 } else {
                     drop_bomb(True);
                 }
-            } else if(index == 0x02) {
+            } else if(index == 0d2) {
                 _isaac_tear(True);
-            } else if(index == 0x03) {
+            } else if(index == 0d3) {
                 if(FLAG.ENERGY_CORE) {
                     mario_yump(False);
                 } else {
                     mario_yump(True);
                 }
-            } else if(index == 0x04) {
-                MEMORY.DOG_WRITE = DOG.PUPPER; // TODO
+            } else if(index == 0d4) {
+                MEMORY.DOG_WRITE = DOG.PUPPER;
+            } else if(index == 0d5) {
+                rocket_jump();
+            } else if(index == 0d6) {
+                quantum_jump();
             }
         }
 
@@ -1924,14 +1965,18 @@ group non_maps() {
                     debug_memory(SOULS_MEMORY.MENU_CHOICE, SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
                 }
 
-                if(SOULS_MEMORY.MENU_CHOICE == 0x01) {
+                if(SOULS_MEMORY.MENU_CHOICE == 0d1) {
                     start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_1);
-                } else if(SOULS_MEMORY.MENU_CHOICE == 0x02) {
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0d2) {
                     start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_2);
-                } else if(SOULS_MEMORY.MENU_CHOICE == 0x03) {
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0d3) {
                     start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_3);
-                } else if(SOULS_MEMORY.MENU_CHOICE == 0x04) {
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0d4) {
                     start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_4);
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0d5) {
+                    start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_5);
+                } else if(SOULS_MEMORY.MENU_CHOICE == 0d6) {
+                    start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_6);
                 }
             }
         }
@@ -1949,6 +1994,10 @@ group non_maps() {
                 map_transition(hidden_castle_entry, stairs, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
+            } else {
+                if(SOULS_MEMORY.CHARACTER_SWITCH_ENABLED) {
+                    swap_characters();
+                }
             }
         }
         @install()
@@ -1994,7 +2043,9 @@ group non_maps() {
 
                 // debug_tile();
             } else {
-                cycle_weapon();
+                if(SOULS_MEMORY.WEAPON_CYCLE_ENABLED) {
+                    cycle_weapon();
+                }
             }
         }
         // @install()
@@ -2890,21 +2941,31 @@ group non_maps() {
                 }
 
                 @install()
-                fun bee_boy_triggered() {
+                fun bee_boy_triggered_initial() {
                     conversation({
-                        if!(SOULS_MEMORY.BUG_CATCHER) {
-                            question("[SLOW]Can you help me to find more bees?[CHOICE]help…[CHOICE]leave…");
-                            
+                        if!(SOULS_MEMORY.BUG_CATCHER_BROKEN) {
+                            conversation_dialog("[SLOW]Something is missing in my life…[B]");
+                        } else if!(SOULS_MEMORY.BUG_CATCHER) {
+                            conversation_question("[SLOW]Can you help me to find more bees?[CHOICE]help…[CHOICE]leave…");
+
                             if(MEMORY.QUESTION_ANSWER == 0d0) { // help
                                 custom_reward(BUG_CATCHER, True);
 
-                                dialog("[SLOW]I attached it to your bone, so use it to collect them![B]");
+                                conversation_dialog("[SLOW]I attached it to your bone, so use it to collect them![B]");
                             } else if(MEMORY.QUESTION_ANSWER == 0d1) { // leave
                                 response_negative();
                             } else {
                                 response_negative();
                             }   
-                        } else if(NPC_BEE_BOY.PROGRESS < SOULS_MEMORY.COST_BEE_BOY_QUEST_4) {
+                        } else {
+                            response_negative();
+                        }
+                    });
+                }
+                @install()
+                fun bee_boy_triggered() {
+                    conversation({
+                        if(NPC_BEE_BOY.PROGRESS < SOULS_MEMORY.COST_BEE_BOY_QUEST_4) {
                             arg[0x10] = SOULS_MEMORY.BEES - NPC_BEE_BOY.PROGRESS;
 
                             if(arg[0x10] > 0d0) {
@@ -2937,7 +2998,12 @@ group non_maps() {
                 add_enemy(VILLAGER_1_2, x, y);
                 arg[0x10] = <LAST_ENTITY>;
                 <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
-                attach_script(LAST_ENTITY, B, reference(bee_boy_triggered));
+
+                if!(SOULS_MEMORY.BUG_CATCHER) {
+                    attach_script(LAST_ENTITY, B, reference(bee_boy_triggered_initial));
+                } else {
+                    attach_script(LAST_ENTITY, B, reference(bee_boy_triggered));
+                }
 
                 if(NPC_BEE_BOY.REWARD_1_COLLECTED) {
                     add_following_bee(arg[0x10]);
@@ -4893,6 +4959,12 @@ area inbetwixx_center() {
             FLOWER_GATE = memory(WORD, TEMP),
 
             WITH_FLOWER_TRIGGER = False,
+
+            WITH_ILLUSORY_WALL = True,
+            ILLUSORY_WALL_REVEALED = memory(FLAG, SRAM),
+
+            WITH_CUSTOM_GOURD = True,
+            CUSTOM_GOURD_LOOTED = memory(FLAG, SRAM),
         }
 
         @install()
@@ -4964,14 +5036,29 @@ area inbetwixx_center() {
 
         enum b_trigger {
             wall_2 = @install() {
-                _axe2_wall(0x00);
+                if!(ROOM.WITH_ILLUSORY_WALL) {
+                    _axe2_wall(0x00);
+                } else {
+                    ROOM.ILLUSORY_WALL_REVEALED = True;
+                    object[0x00] = 0x01; // open wall_2
+
+                    sound(WEIRD_SOUND);
+                }
             },
             wall_1 = @install() {
                 _axe2_wall(0x01);
             },
             gourd_2_1__3_water = @install() {
                 debug_subtext("B=2");
-                _loot_chest(0x06, WATER, 0d03);
+
+                if!(ROOM.WITH_CUSTOM_GOURD) {
+                    _loot_chest(0x06, WATER, 0d03);
+                } else {
+                    ROOM.CUSTOM_GOURD_LOOTED = True;
+                    object[0x06] = 0x01; // block gourd_2_1
+
+                    custom_reward(BUG_CATCHER_BROKEN, True);
+                }
             },
             gourd_1_1__2_water = @install() {
                 debug_subtext("B=3");
@@ -5154,6 +5241,8 @@ area inbetwixx_center() {
                 SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
                 SOULS_MEMORY.ISAAC_TEARS_ENABLED = True;
                 SOULS_MEMORY.PUPPER_ENABLED = True;
+                SOULS_MEMORY.ROCKET_JUMP_ENABLED = True;
+                SOULS_MEMORY.QUANTUM_JUMP_ENABLED = True;
                 update_debug_menu();
             }
 
@@ -5232,6 +5321,18 @@ area inbetwixx_center() {
             // object[0x08] = 0x01; // block gourd_1_3
             // object[0x06] = 0x01; // block gourd_2_1
             // sniff spots
+
+            if(ROOM.WITH_ILLUSORY_WALL) {
+                if(ROOM.ILLUSORY_WALL_REVEALED) {
+                    object[0x00] = 0x01; // open wall_2
+                }
+            }
+
+            if(ROOM.WITH_CUSTOM_GOURD) {
+                if(ROOM.CUSTOM_GOURD_LOOTED) {
+                    object[0x06] = 0x01; // block gourd_2_1
+                }
+            }
 
             player_message(0d30, 0d75, reference(@install() {
                 player_message_triggered();
