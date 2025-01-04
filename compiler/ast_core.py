@@ -204,6 +204,9 @@ class Enum_Entry(BaseBox):
         self.name = name.value
         self.value = value
 
+        if isinstance(value, Memory):
+            value.hint.append(self.name)
+
     def eval(self):
         return self.value.value
 
@@ -497,6 +500,8 @@ class Memory(Function_Base, Calculatable, Memorable):
         self.inverted = False
         self.handle_type()
 
+        self.hint = []
+
     def handle_type(self):
         if self.address >= 0x2834:
             self.type = "28"
@@ -504,14 +509,15 @@ class Memory(Function_Base, Calculatable, Memorable):
         #    self.type = "22"
         elif self.address >= 0x2258:
             self.type = "22"
-            self.sram = True
+            if not self.address in range(0x2463, 0x2512):
+                self.sram = True
         elif self.address <= 0xff:
             self.type = "char"
         else:
             self.type = "xx"
 
     def __repr__(self):
-        return f"Memory(address={'{:02X}'.format(self.address, 'x')}/{self.type}, flag={self.flag}, size={self.value_count()}, offset={self.offset})"
+        return f"Memory(address={'{:02X}'.format(self.address, 'x')}/{self.type}, flag={self.flag}, size={self.value_count()}, offset={self.offset}, hint={self.hint})"
     
     def is_memory(self, params:list[Param]):
         return True
@@ -845,7 +851,7 @@ class BinaryOp(Operator):
         else:
             return [x]
 
-    def operator(self, inverted=False):
+    def operator(self, inverted=False) -> Operand:
         TODO()
 
 class Operand():

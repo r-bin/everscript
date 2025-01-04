@@ -1276,7 +1276,7 @@ class Asign(BinaryOp):
 
         return code
     
-    def _calculate(self, left:any, right:any, params:list[Param]):
+    def _calculate(self, left:Any, right:Any, params:list[Param]):
         code = []
         if not isinstance(right, list):
             calculated_right = right.calculate(params)
@@ -1802,6 +1802,7 @@ class Loot(Function_Base):
         self.next = Word(next)
     
         flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, Memory_Alloc.MemoryType.SRAM)
+        flag.hint.append(f"loot(reward={self.reward}, amount={self.amount})")
 
         self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)
@@ -1823,6 +1824,7 @@ class Axe2Wall(Function_Base):
         self.object = object
     
         flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, Memory_Alloc.MemoryType.SRAM)
+        flag.hint.append("axe2 wall")
 
         self.object = Object(self._generator, object, flag)
         self._generator.add_object(self.object)

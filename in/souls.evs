@@ -5,6 +5,7 @@
 
     0x300000..0x3fffff, // extension
 
+    // SRAM
     // <0x2265>..<0x2266>, // reserved: map+variant
     <0x2267>..<0x22D9>, // vanilla sniff spots
     <0x22dd>..<0x22e9>, // experimental
@@ -12,6 +13,10 @@
     // <0x2379>..<0x237C>, // landing spots
     <0x253d>..<0x2558>, // sliver extension "save_file_growth" (excluded string params)
 
+    // RAM
+    <0x2463>..<0x2512>, // experimental
+
+    // TEMP RAM
     <0x2834>..<0x2884>
     // <0x2834>..<0x28fb> // 199 room specific bytes
 )
@@ -79,6 +84,11 @@ group non_maps() {
         // fun thraxx_hit() {
         //     code(0d10, "// thraxx damage");
         // }
+
+        @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.SPARK * CHARACTER_DATA.SIZE) + CHARACTER_DATA.EVADE, False)
+        fun flower_purple_proc() {
+            code(0x0000, "// spark evade");
+        }
     };
 
     // group alchemy_ingredients() {
@@ -341,6 +351,7 @@ group non_maps() {
         }
         enum SOULS_MEMORY {
             INIT = memory(FLAG, SRAM),
+            INIT_SESSION = memory(FLAG, RAM),
             INTRO_WATCHED = memory(FLAG, SRAM),
             // debug
             DEBUG = True,
@@ -1367,6 +1378,10 @@ group non_maps() {
                 FLAG.DEBUG = True;
             }
 
+            if!(SOULS_MEMORY.INIT_SESSION) {
+                update_debug_menu();
+            }
+
             if!(SOULS_MEMORY.INIT) {
                 SOULS_MEMORY.INIT = True;
 
@@ -1948,6 +1963,17 @@ group non_maps() {
             //     debug_subtext("Start");
             // }
 
+            if(CUSTOM_FLAG.START_COOLDOWN) {
+                end();
+            }
+
+            sleep(0d5);
+            if(CUSTOM_MEMORY.INPUT_P1 != 0x1000) {
+                end();
+            }
+
+            CUSTOM_FLAG.START_COOLDOWN = True;
+
             if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.AIRSHIP) {
                 windwalker_rocket();
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.SPACESHIP) {
@@ -1979,16 +2005,30 @@ group non_maps() {
                     start_feature_selected(SOULS_MEMORY.DEBUG_MENU_BUTTON_6);
                 }
             }
+
+            if(CUSTOM_FLAG.START_COOLDOWN) {
+                while(CUSTOM_MEMORY.INPUT_P1 & 0x1000) {
+                    yield();
+                }
+
+                CUSTOM_FLAG.START_COOLDOWN = False;
+            }
         }
         @install()
         @inject(ADDRESS.HOTKEY_START_L)
         @count_limit(0x20)
         fun hotkey_start_l() {
-            if(FLAG.DEBUG) {
+            sleep(0d5);
+            if(CUSTOM_MEMORY.INPUT_P1 != 0x1020) {
+                end();
+            }
+
+            if(SOULS_MEMORY.MARIO_YUMP_ENABLED && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0)) {
+                rocket_jump();
+            } else if(FLAG.DEBUG) {
                 debug_subtext("Start+L");
 
                 // return_to_bonfire();
-                
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 map_transition(hidden_castle_entry, stairs, NONE);
@@ -2004,6 +2044,11 @@ group non_maps() {
         @inject(ADDRESS.HOTKEY_START_R)
         @count_limit(0x20)
         fun hotkey_start_r() {
+            sleep(0d5);
+            if(CUSTOM_MEMORY.INPUT_P1 != 0x1010) {
+                end();
+            }
+
             if(SOULS_MEMORY.MARIO_YUMP_ENABLED && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0)) {
                 if(FLAG.ENERGY_CORE) {
                     mario_yump(False);
@@ -2011,11 +2056,7 @@ group non_maps() {
                     mario_yump(True);
                 }
             } else if(SOULS_MEMORY.ROCKET_JUMP_ENABLED && CUSTOM_FLAG.START_MARIO_YUMP) {
-                if(FLAG.ENERGY_CORE) {
-                    rocket_jump(False);
-                } else {
-                    rocket_jump(True);
-                }
+                rocket_jump();
             } else if(FLAG.DEBUG) {
                 debug_subtext("Start+R");
                 
@@ -2099,7 +2140,7 @@ group non_maps() {
 
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_1)
-        fun menu_presets() {
+        fun menu_0() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=1");
             }
@@ -2107,7 +2148,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_2)
-        fun menu_dog() {
+        fun menu_1() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=2");
             }
@@ -2115,7 +2156,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_3)
-        fun menu_atlas() {
+        fun menu_2() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=3");
             }
@@ -2123,7 +2164,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_4)
-        fun menu_noclip() {
+        fun menu_3() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=4");
             }
@@ -2131,7 +2172,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_5)
-        fun menu_available() {
+        fun menu_4() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=5");
             }
@@ -2139,7 +2180,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_6)
-        fun menu_memory_flags() {
+        fun menu_5() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=6");
             }
@@ -2147,7 +2188,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_7)
-        fun menu_enemy() {
+        fun menu_6() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=7");
             }
@@ -2155,7 +2196,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_8)
-        fun menu_unlock() {
+        fun menu_7() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=8");
             }
@@ -2163,14 +2204,14 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_9)
-        fun menu_windwalker() {
+        fun menu_8() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=9");
             }
             SOULS_MEMORY.MENU_CHOICE = 0x09;
         }
         @install(ADDRESS.DEBUG_MENU_BUTTON_10)
-        fun debug_menu_10_alchemy() {
+        fun debug_9() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=10");
             }
@@ -2178,7 +2219,7 @@ group non_maps() {
         }
         @install()
         @inject(ADDRESS.DEBUG_MENU_BUTTON_11)
-        fun menu_brians_room() {
+        fun menu_10() {
             if(FLAG.DEBUG) {
                 debug_subtext("M=11");
             }
@@ -5297,7 +5338,7 @@ area inbetwixx_center() {
 
                     intro();
 
-                    subtext("v0.7.0 - by r.bin");
+                    subtext("v0.8.0 - by r.bin");
                 }
                 
                 // code(0xa3, 0x18, "// (a3) CALL 'Prepare room change? North exit/south entrance outdoor-indoor?' (0x26)"); // TODO: 4x4 combinations, not 4
@@ -11464,8 +11505,8 @@ area east_inbetwixx() {
                 }
 
                 reset_cooldown();
-                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                // cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
 
                 while(BOSS.PHASE == 0d1) {
                     handle_cast_cooldown({
@@ -11476,8 +11517,8 @@ area east_inbetwixx() {
                 }
 
                 reset_cooldown();
-                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
 
                 while(BOSS.PHASE == 0d2) {
                     handle_cast_cooldown({
@@ -12362,9 +12403,9 @@ area east_inbetwixx() {
                 north = entrance(0x1b, 0x03, SOUTH),
                 south = entrance(0x1d, 0x33, NORTH),
 
-                left = entrance(0x15, 0x1c, NONE),
-                center = entrance(0x1e, 0x21, NONE),
-                right = entrance(0x2a, 0x23, NONE)
+                left = entrance(0x15, 0x1c, NONE, { crash_both(); }),
+                center = entrance(0x1e, 0x21, NONE, { crash_both(); }),
+                right = entrance(0x2a, 0x23, NONE, { crash_both(); }),
             }
 
             enum soundtrack {
@@ -12513,10 +12554,6 @@ area east_inbetwixx() {
             }
 
             fun trigger_enter() {
-                if!(FLAG.IN_ANIMATION) {
-                    crash_both();
-                }
-                
                 if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
                     push_music(BOSS_JUNGLE);
 
@@ -13280,6 +13317,7 @@ area east_inbetwixx() {
                 fun add_mario_koopa(x, y, crash) {
                     add_enemy(LIZARD, x, y);
                     attach_to_script(LAST_ENTITY);
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0x0000;
                     attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
                         if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d1) { // make koopa roll
                             <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d2;
@@ -17436,6 +17474,8 @@ area town() {
                     BRIDGE_6_RESTORED = memory(FLAG, TEMP),
                     BRIDGE_12 = memory(WORD, TEMP),
                     BRIDGE_12_RESTORED = memory(FLAG, TEMP),
+
+                    STEP_SIZE = 0d60,
                 }
 
                 fun bridge_triggered(flag) {
@@ -17714,17 +17754,17 @@ area town() {
                             debug_memory(<SCRIPT_OWNER>[HP], arg[0x12]);
                         }
 
-                        sound(0x76);
+                        sound(ELEVATOR_DOOR);
                         sleep(0d30);
 
                         if(arg[0x12] == 0d0) {
-                            move_left(0d40);
+                            move_left(BOSS.STEP_SIZE);
                         } else if(arg[0x12] > 0d80) {
-                            move_right(0d80);
+                            move_right(BOSS.STEP_SIZE * 0d2);
                         } else if(arg[0x12] > 0d10) {
-                            move_right(0d40);
+                            move_right(BOSS.STEP_SIZE);
                         }
-                        sound(0x76);
+                        sound(ELEVATOR_DOOR);
 
                         if(arg[0x14] > 0d0) {
                             arg[0x14]--;
@@ -20122,6 +20162,8 @@ area town() {
 
             enum ROOM {
                 CHEST_LOOTED = memory(FLAG, SRAM),
+
+                WITH_ARMOR_TRIGGER = False,
             }
 
             enum stepon_trigger {
@@ -20213,11 +20255,6 @@ area town() {
                 },
             }
 
-            @install()
-            fun armor_triggered() {
-                subtext("TODO");
-            }
-
             fun trigger_enter() {
                 if(ROOM.CHEST_LOOTED) {
                     object[0x1f] = 0x01; // open gourd_inn_1
@@ -20225,8 +20262,12 @@ area town() {
 
                 default_init_room(False, False);
 
-                add_enemy(PLACEHOLDER, 0d63, 0d93);
-                attach_script(LAST_ENTITY, B, reference(armor_triggered));
+                if(ROOM.WITH_ARMOR_TRIGGER) {
+                    add_enemy(PLACEHOLDER, 0d63, 0d93);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        subtext("TODO");
+                    }));
+                }
             }
         };
 
@@ -33300,11 +33341,26 @@ area dungeon_volcano() {
         };
 
         group cave_right() {
+            enum AREA_CAVE_RIGHT {
+                STONE_MOVED = memory(FLAG, SRAM),
+                STONE_OFFSET = 0d8 * 0d4,
+            }
+
             map cave_right_entrance(OGLIN_CAVE) { // variant room_4
+                @install()
+                @async()
+                fun shift_camera(x) {
+                    set_camera(COORDINATE_CORNER, x, MEMORY.CAMERA_PAN_Y, 0x80 << 0d0002);
+
+                    wait(CAMERA_PAN_X);
+
+                    free_camera();
+                }
+
                 enum entrance {
                     north_1 = entrance(0x5e, 0x6f, SOUTH),
                     north_2 = entrance(0x7c, 0x6f, SOUTH),
-                    north_3 = entrance(0x98, 0x6f, SOUTH),
+                    north_3 = entrance(0x98, 0x6f, SOUTH, { shift_camera(0d1000); }),
                     south_1 = entrance(0x96, 0xc3, NORTH),
                     south_2 = entrance(0x6c, 0xc3, NORTH),
                     south_3 = entrance(0x5c, 0xc3, NORTH),
@@ -33399,8 +33455,10 @@ area dungeon_volcano() {
                     teleporter_north = @install() {
                         debug_subtext("S=39");
 
-                        teleporter_out(0x81, 0x7e);
-                        map_transition(cave_right_side, teleporter_south, NONE);
+                        if(AREA_CAVE_RIGHT.STONE_MOVED) {
+                            teleporter_out(0x81, 0x7e);
+                            map_transition(cave_right_side, teleporter_south, NONE);
+                        }
                     },
 
                     room_side_teleporter_south = nop(),
@@ -33513,6 +33571,57 @@ area dungeon_volcano() {
                         add_enemy(FLOWER_PURPLE, 0d121, 0d122);
 
                         add_enemy(RAPTOR_PURPLE, 0d131, 0d161);
+                    }
+
+                    special_script(LEVITATE, reference(@install() {
+                        if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                            end();
+                        }
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                        if!(AREA_CAVE_RIGHT.STONE_MOVED) {
+                            sleep(0d60);
+
+                            AREA_CAVE_RIGHT.STONE_MOVED = True;
+
+                            sleep(0d60);
+
+                            while(arg[0x10] < AREA_CAVE_RIGHT.STONE_OFFSET) {
+                                arg[0x10]++;
+
+                                <SCRIPT_OWNER>[X]++;
+
+                                sleep(0d3);
+                            }
+
+                            sleep(0d360 - 0d3 * AREA_CAVE_RIGHT.STONE_OFFSET);
+                        } else {
+                            sleep(0d120);
+
+                            while(arg[0x10] < AREA_CAVE_RIGHT.STONE_OFFSET) {
+                                arg[0x10]++;
+
+                                <SCRIPT_OWNER>[X]--;
+
+                                sleep(0d3);
+                            }
+
+                            sleep(0d360 - 0d3 * AREA_CAVE_RIGHT.STONE_OFFSET);
+
+                            AREA_CAVE_RIGHT.STONE_MOVED = False;
+                        }
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    }));
+
+                    add_levitate_stone(0x81, 0x7e, reference(@install() {
+                        guard_levitate_stone(0d1);
+
+                        AREA_CAVE_RIGHT.STONE_MOVED = True;
+                    }));
+                    if(AREA_CAVE_RIGHT.STONE_MOVED) {
+                        <LAST_ENTITY>[X] += AREA_CAVE_RIGHT.STONE_OFFSET;
                     }
 
                     init_room(0d4);
@@ -33747,8 +33856,12 @@ area dungeon_volcano() {
                     teleporter_south = @install() {
                         debug_subtext("S=40");
 
-                        teleporter_out(0xc1, 0x64);
-                        map_transition(cave_right_entrance, teleporter_north, NONE);
+                        if(AREA_CAVE_RIGHT.STONE_MOVED) {
+                            teleporter_out(0xc1, 0x64);
+                            map_transition(cave_right_entrance, teleporter_north, NONE);
+                        } else {
+                            error_contraption(NONE);
+                        }
                     },
                     teleporter_north = @install() {
                         debug_subtext("S=41");
