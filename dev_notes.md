@@ -24,8 +24,10 @@
 # important
 ## true ending boss?
 ## every any door can be opened by a bomb
+## no sound after levitate (and revealer?)
 
 # nice to have
+## projectiles with entity targets should check range (and not shoot off screen)
 ## scale enemies: before puppets, before pyramid
 ## fan boss too easy
 ## balance bosses (radahn)
@@ -40,6 +42,15 @@
 ## town tavern door does not control active
 ## town arena bin contains hidden ticket
 ## no music after levitate+revealer
+## basement - door unlock sounds
+## fog wall - remove walk back (at least for dark forest maps)
+## sound - falling transition
+## basement + sidescroller + bowser + bowser dungeons - dog is available
+## stats menu - armor name incorrect
+## raptor arena - don't reuse enemies
+## raptor arena - bushes are not hidden on enter
+## monstro - does not explode
+## pressure plate - no sound
 
 
 
@@ -150,7 +161,7 @@ yump:
 ## volcano (gauge chest)
 
 yump/bomb + bomb:
-## town_temple_underground_castle_south_east (500 money chest)
+## town_temple_underground_castle_south_east (oil chest)
 
 # meteorite (3, used: 3 for weapons, 7 for metro shared with dry ice)
 
@@ -261,3 +272,17 @@ bosses:
 
 todo:
 ## boy poison attacks ("serpent bracer")
+
+
+
+
+
+
+
+
+
+
+
+# dark forest
+## available: ═, ║, ╔, ╗, ╚, ╝, ╠, ╣, ╦, ╩, ╬, ╞, ╡, ╥, ╨
+## not available: ?
