@@ -276,7 +276,8 @@ class Function_Base(BaseBox, Resolvable):
         elif isinstance(argument, Word):
             value = argument
         else:
-            TODO()
+            value = argument
+            # TODO("this does not seem to work")
 
         return value
 
@@ -602,17 +603,17 @@ class Memory(Function_Base, Calculatable, Memorable):
                 code = [Operand("read word"), self.code(params)]
 
             case ["char", _, _, _]:
-                code = [self.eval(params), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
+                code = [self.eval(params), Operand("push")] + offset.calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
             case ["28", _, _, _]:
-                code = [Operand("read temp word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
+                code = [Operand("read temp word"), self.code(params), Operand("push")] + offset.calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
             case ["22"|"xx", _, _, _]:
-                code = [Operand("read word"), self.code(params), Operand("push")] + Word(offset, 1).calculate([]) + [Operand("+")]
+                code = [Operand("read word"), self.code(params), Operand("push")] + offset.calculate([]) + [Operand("+")]
                 if deref:
                     code += [Operand("deref")]
 
