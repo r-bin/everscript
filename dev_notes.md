@@ -22,9 +22,9 @@
 
 
 # important
+## naris not reachable
 ## true ending boss?
 ## every any door can be opened by a bomb
-## no sound after levitate (and revealer?)
 
 # nice to have
 ## projectiles with entity targets should check range (and not shoot off screen)
