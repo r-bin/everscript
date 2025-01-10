@@ -140,7 +140,7 @@ group general_enums() {
             LOOT_SNIFF = 0x39,
             LOOT_GOURD = 0x3a,
 
-            LOOT_DUST_REWARD = 0x172b, // includes the rng etc.
+            LOOT_DUST_REWARD = 0x172b, // default loot script: includes the rng etc. (resets ATTACHED_SCRIPT_TRIGGER after looting)
 
             LOOT_DIALOG_CURRENCY = 0x42, // reads: LOOT_AMOUNT_CURRENCY+CURRENCY_CURRENT, does: plots money lootet and currency
             LOOT_DIALOG_ITEM = 0x40, // reads: LOOT_ITEM, does: loot item with quantity 1(?)
@@ -579,7 +579,7 @@ group general_enums() {
             CLAY = (Byte) <0x230f>,
             BRIMSTONE = (Byte) <0x2310>,
             BONE = (Byte) <0x2311>,
-            ATLAS_AMULET = (Byte) <0x2312>,
+            ATLAS_MEDALLION = (Byte) <0x2312>,
             ASH = (Byte) <0x2313>,
             ACORN = (Byte) <0x2314>,
 
@@ -866,6 +866,12 @@ group general_enums() {
             GOURD_1 = <0x2268, 0x40>,
         }
 
+        enum BOMBABLE_STATE {
+            DEFAULT = 0x00,
+
+            DOORS_LOCKED = 0x01,
+            DOORS_UNLOCKED = 0x02,
+        }
         enum CUSTOM_MEMORY {
             // <0x28f9>
             START_ROCKET_JUMP_COUNT = (Byte) <0x28f9>,
@@ -904,12 +910,20 @@ group general_enums() {
             // <0x28ca>
             CURRENT_ARMOR_ARMLET = <0x28ca>, // see ARMOR_STATS
 
-            BOMBABLE_OBJECT_1 = <0x28b0>,
-            BOMBABLE_OBJECT_2 = <0x28b2>,
-            BOMBABLE_OBJECT_3 = <0x28b4>,
-            BOMBABLE_OBJECT_4 = <0x28b6>,
-            BOMBABLE_OBJECT_5 = <0x28b8>,
-            BOMBABLE_OBJECT_6 = <0x28ba>,
+            // <0x28a0>…<0x28c8>
+            BOMBABLE_OBJECT_1 = <0x28a0>,
+            BOMBABLE_OBJECT_2 = <0x28a2>,
+            BOMBABLE_OBJECT_3 = <0x28a4>,
+            BOMBABLE_OBJECT_4 = <0x28a6>,
+            BOMBABLE_OBJECT_5 = <0x28a8>,
+            BOMBABLE_OBJECT_6 = <0x28aa>,
+            BOMBABLE_OBJECT_7 = <0x28ac>,
+            BOMBABLE_OBJECT_8 = <0x28ae>,
+            BOMBABLE_OBJECT_9 = <0x28c0>,
+            BOMBABLE_OBJECT_10 = <0x28c2>,
+            BOMBABLE_OBJECT_11 = <0x28c4>,
+            BOMBABLE_OBJECT_12 = <0x28c6>,
+            BOMBABLE_STATE = (Byte) <0x28c8>, // see BOMBABLE_STATE
         }
         enum CUSTOM_FLAG {
             // <0x28fb, x>
@@ -931,6 +945,29 @@ group general_enums() {
             START_ROCKET_JUMP = <0x28fa, 0x02>,
             START_ISAAC_TEAR = <0x28fa, 0x04>,
             START_MARIO_FIREFLOWER = <0x28fa, 0x08>,
+        }
+    };
+
+    group debug_helper() {
+        fun _subtext(id) {
+            code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
+        }
+
+        fun _debug_memory(m1, m2, m3) {
+            MEMORY.STRING_PARAMETER_1 = m1;
+
+            if(m2 is None) {
+                _subtext("memory = [MEM1]");
+            } else if(m3 is None) {
+                MEMORY.STRING_PARAMETER_2 = m2;
+
+                _subtext("memory = [MEM1] / [MEM2]");
+            } else {
+                MEMORY.STRING_PARAMETER_2 = m2;
+                MEMORY.STRING_PARAMETER_3 = m3;
+
+                _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+            }
         }
     };
 
@@ -1580,6 +1617,12 @@ group general_enums() {
                 STONE_LEVITATE_INVISIBLE = 0x0005,
                 BOMBABLE = 0x0004,
             }
+            enum SCRIPT9 {
+                ALIVE = 0x0000,
+
+                DYING = 0x0100,
+                DEAD = 0x0200,
+            }
             enum SCRIPT_TRIGGER {
                 B = 0x0040, // talk/loot
                 DAMAGE = 0x0100, // <SCRIPT_OWNER>[HP] shows previous hp, script[0x9]=0x100, dead(<SCRIPT_OWNER>) shows 1->0
@@ -1588,6 +1631,7 @@ group general_enums() {
                 // groups
                 DAMAGE_DEATH = 0x0300, // <SCRIPT_OWNER>[HP] shows previous hp -> 0, script[0x9]=0x100->0x200, dead(<SCRIPT_OWNER>) shows 1->0 (used: Vigor, Rimsala statues, Sterling, green house black flowers)
                 ALL = 0x0340,
+                B_DEATH = 0x0240,
 
                 // unknown
                 UNKNOWN_1 = 0x0000, // TODO (used: default loot script, boss rush dust loot)
@@ -1663,14 +1707,17 @@ group general_enums() {
 
             enum ATTRIBUTE_FLAGS {
                 // ATTRIBUTE.FLAGS_1 (character+0x10)
+                UNKNOWN = 0x01, // dead?
                 INVINCIBLE = 0x02, // see ATTRIBUTE_BITS.INVINCIBLE
                 UNKNOWN = 0x04, // always set?
+                UNKNOWN = 0x08, // same as FLAGS_2.DEAD?
                 DISABLED = 0x20, // examples: "control(NONE)", "walk(…)"
                 IN_ANIMATION = 0x40, // examples: ANIMATION_ALL.SLASH_1, "animate(…)"
                 UNKNOWN_2_1 = 0x80, // see ATTRIBUTE_BITS.UNKNOWN_2_1
 
                 // ATTRIBUTE.FLAGS_2 (character+0x11)
-                UNKNOWN = 0x01, // always set?
+                ALIVE = 0x01, // alive (or dust)
+                DEAD = 0x02, // and invisible
                 LOADING_SCREEN = 0x08, // also ai following quickly?
                 HEALED = 0x10, // can't be targetted by items and spells, examples: PETAL (Blue glow), STOP (greyed out)
                 NO_CLIP = 0x04, // see ATTRIBUTE_BITS.NO_CLIP
@@ -1678,7 +1725,7 @@ group general_enums() {
 
                 // ATTRIBUTE.FLAGS_3 (character+0x12)
                 UNKNOWN = 0x02, // briefly active during megataur roll
-                AI_FOLLOWING = 0x04, // ai following?
+                AI_FOLLOWING = 0x04, // walking to waypoint? (alsp ai following)
                 UNKNOWN_CAST = 0x38, // during cast on boy? (CRUSH, EXPLOSION, FLASH, FIREBALL)
 
                 // ATTRIBUTE.FLAGS_4 (character+0x13
@@ -1704,9 +1751,10 @@ group general_enums() {
 
                 // ATTRIBUTE.FLAGS_7 (character+0x16)
                 KNOCKBACK = 0x01, // also sets WALKING and DEAD?
+                UNKNOWN = 0x02, // dead?
                 WALKING = 0x04,
                 RUNNING = 0x08,
-                IN_ANIMATION = 0x10,
+                IN_ANIMATION = 0x10, // attacking?
                 CASTING = 0x20, // also dodging?
             }
             enum OUTLINE {
@@ -2392,7 +2440,7 @@ group general_enums() {
                 CLAY = 0x510,
                 BRIMSTONE = 0x511,
                 BONE = 0x512,
-                ATLAS_AMULET = 0x513,
+                ATLAS_MEDALLION = 0x513,
                 ASH = 0x514,
                 ACORN = 0x515,
 
@@ -2432,7 +2480,7 @@ group general_enums() {
                 CLAY = 0x10,
                 BRIMSTONE = 0x11,
                 BONE = 0x12,
-                ATLAS_AMULET = 0x13,
+                ATLAS_MEDALLION = 0x13,
                 ASH = 0x14,
                 ACORN = 0x15,
             }
@@ -2513,7 +2561,7 @@ group general_enums() {
                 CLAY = 0x40,
                 BRIMSTONE = 0x41,
                 BONE = 0x42,
-                ATLAS_AMULET = 0x43,
+                ATLAS_MEDALLION = 0x43,
                 ASH = 0x44,
                 ACORN = 0x45,
 
@@ -3450,7 +3498,7 @@ group general_enums() {
                 INGREDIENT_FEATHER = 0x0126,
                 INGREDIENT_GREASE = 0x0128,
                 INGREDIENT_GUNPOWDER = 0x012a,
-                INGREDIENT_ATLAS_AMULET = 0x012c,
+                INGREDIENT_ATLAS_MEDALLION = 0x012c,
                 INGREDIENT_IRON = 0x012e,
                 INGREDIENT_LIMESTONE = 0x0130,
                 INGREDIENT_METEORITE = 0x0132,
@@ -5467,7 +5515,7 @@ group functions() {
                 MEMORY.CLAY = amount;
                 MEMORY.BRIMSTONE = amount;
                 MEMORY.BONE = amount;
-                MEMORY.ATLAS_AMULET = amount;
+                MEMORY.ATLAS_MEDALLION = amount;
                 MEMORY.ASH = amount;
                 MEMORY.ACORN = amount;
             }
@@ -6485,8 +6533,8 @@ group functions() {
                     _item_pay(BRIMSTONE, count, dry);
                 } else if(type == ITEM.BONE) {
                     _item_pay(BONE, count, dry);
-                } else if(type == ITEM.ATLAS_AMULET) { // tradables
-                    _item_pay(ATLAS_AMULET, count, dry);
+                } else if(type == ITEM.ATLAS_MEDALLION) { // tradables
+                    _item_pay(ATLAS_MEDALLION, count, dry);
                 } else if(type == ITEM.ASH) {
                     _item_pay(ASH, count, dry);
                 } else if(type == ITEM.ACORN) {
@@ -6580,7 +6628,7 @@ group functions() {
                     text("Brimstone");
                 } else if(type == ITEM.BONE) {
                     text("Bone");
-                } else if(type == ITEM.ATLAS_AMULET) {
+                } else if(type == ITEM.ATLAS_MEDALLION) {
                     text("Atlas Amulet");
                 } else if(type == ITEM.ASH) {
                     text("Ash");
@@ -6792,8 +6840,8 @@ group functions() {
                     } else if(out_type == ITEM.BONE) {
                         MEMORY.BONE += out_count;
                         subtext("Gained [MEM1] Bone");
-                    } else if(out_type == ITEM.ATLAS_AMULET) {
-                        MEMORY.ATLAS_AMULET += out_count;
+                    } else if(out_type == ITEM.ATLAS_MEDALLION) {
+                        MEMORY.ATLAS_MEDALLION += out_count;
                         subtext("Gained [MEM1] Atlas Amulet");
                     } else if(out_type == ITEM.ASH) {
                         MEMORY.ASH += out_count;
@@ -7119,11 +7167,12 @@ group functions() {
             }
         };
 
-        group combat() {
+        group bombs() {
             @install()
             @weak()
-            fun add_bombable_entity(entity) {
+            fun prepare_bombable_entity(entity) {
                 attribute(entity, INVINCIBLE_TEMP, True);
+                entity[HP] = 0d1;
 
                 if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_1) {
                     CUSTOM_MEMORY.BOMBABLE_OBJECT_1 = entity;
@@ -7137,6 +7186,18 @@ group functions() {
                     CUSTOM_MEMORY.BOMBABLE_OBJECT_5 = entity;
                 } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_6) {
                     CUSTOM_MEMORY.BOMBABLE_OBJECT_6 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_7) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_7 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_8) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_8 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_9) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_9 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_10) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_10 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_11) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_11 = entity;
+                } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_12) {
+                    CUSTOM_MEMORY.BOMBABLE_OBJECT_12 = entity;
                 }
             }
 
@@ -7160,6 +7221,24 @@ group functions() {
                     if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_6)) {
                         CUSTOM_MEMORY.BOMBABLE_OBJECT_6 = 0x0000;
                     }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_7)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_7 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_8)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_8 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_9)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_9 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_10)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_10 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_11)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_11 = 0x0000;
+                    }
+                    if(dead(CUSTOM_MEMORY.BOMBABLE_OBJECT_12)) {
+                        CUSTOM_MEMORY.BOMBABLE_OBJECT_12 = 0x0000;
+                    }
                 }
 
                 if(CUSTOM_MEMORY.BOMBABLE_OBJECT_1) {
@@ -7179,6 +7258,24 @@ group functions() {
                 }
                 if(CUSTOM_MEMORY.BOMBABLE_OBJECT_6) {
                     attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_6, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_7) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_7, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_8) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_8, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_9) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_9, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_10) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_10, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_11) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_11, INVINCIBLE_TEMP, invincible);
+                }
+                if(CUSTOM_MEMORY.BOMBABLE_OBJECT_12) {
+                    attribute(CUSTOM_MEMORY.BOMBABLE_OBJECT_12, INVINCIBLE_TEMP, invincible);
                 }
             }
 
@@ -7206,6 +7303,143 @@ group functions() {
 
                 yield();
                 _vanilla_bomb_explosion(True);
+            }
+
+            @install()
+            @weak()
+            fun bombable_triggered() {
+                arg[0x12] = 0x8 * 0x4;
+
+                if(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.INVINCIBLE) {
+                    if(False) {
+                        while(arg[0x12] > 0d0) {
+                            arg[0x12]--;
+
+                            <SCRIPT_OWNER>[X]++;
+
+                            yield();
+                        }
+                    } else {
+                        animate(ACTIVE, ONCE, SLASH_1); // fake_b();
+                    }
+
+                    end();
+                }
+                attribute(SCRIPT_OWNER, INVINCIBLE, True);
+
+                if(False) {
+                    heal(SCRIPT_OWNER, 0d0, False);
+                }
+                
+                if(script[0x9] == SCRIPT9.ALIVE) {
+                    if(CUSTOM_MEMORY.BOMBABLE_STATE == BOMBABLE_STATE.DOORS_UNLOCKED) {
+                        nop(); // smart_sound(DOOR);
+                    } else if(CUSTOM_MEMORY.BOMBABLE_STATE == BOMBABLE_STATE.DOORS_LOCKED) {
+                        subtext("locked");
+                        end();
+                    } else {
+                        animate(ACTIVE, ONCE, SLASH_1); // fake_b();
+                        end();
+                    }
+                } else {
+                    if(False) {
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+                        sleep(0d80);
+
+                        destroy(SCRIPT_OWNER);
+                    }
+                }
+
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] != 0xffff) {
+                    arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                    object[<SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
+
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_1) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_1[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_1);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_2) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_2[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_2);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_3) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_3[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_3);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_4) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_4[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_4);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_5) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_5[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_5);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_6) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_6[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_6);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_7) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_7[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_7);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_8) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_8[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_8);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_9) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_9[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_9);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_10) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_10[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_10);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_11) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_11[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_11);
+                    }
+                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_12) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_12[GENERAL_PURPOSE] == arg[0x10])) {
+                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_12);
+                    }
+                } else {
+                    if(CUSTOM_MEMORY.BOMBABLE_STATE != BOMBABLE_STATE.DEFAULT) {
+                        while(arg[0x12] > 0d0) {
+                            arg[0x12]--;
+
+                            <SCRIPT_OWNER>[X]--;
+
+                            yield();
+                        }
+                    }
+                }
+            }
+
+            fun add_bombable(x, y, trigger, entity_sprite) {
+                if(False) {
+                    add_enemy(THRAXX2_HEART, x, y, BOMBABLE);
+                } else {
+                    if(entity_sprite !is None) {
+                        add_enemy(entity_sprite, x, y, BOMBABLE);
+                        attribute(LAST_ENTITY, INVINCIBLE, False);
+                    } else {
+                        add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
+                    }
+                }
+
+                prepare_bombable_entity(<LAST_ENTITY>);
+                
+                if(CUSTOM_MEMORY.BOMBABLE_STATE == BOMBABLE_STATE.DEFAULT) {
+                    attach_script(LAST_ENTITY, DEATH, trigger);
+                } else {
+                    attach_script(LAST_ENTITY, ALL, trigger);
+                }
+            }
+
+            fun add_bombable_object(object_id, value, x, y) {
+                add_bombable(x, y, reference(bombable_triggered));
+
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object_id << 0x8) + value);
+            }
+            fun add_bombable_entity(enemy_id:ENEMY, x, y) {
+                add_bombable(x, y, reference(bombable_triggered), enemy_id);
+
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0xffff;
+            }
+            fun add_bombable_locked_door(x, y, door_width, object_id) {
+                add_bombable_object(object_id, 0d0, x, y + 0d1);
+
+                add_bombable_object(object_id, 0d0, x, y + door_width - 0d1);
             }
         };
 

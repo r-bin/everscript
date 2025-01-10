@@ -1823,35 +1823,6 @@ group non_maps() {
             attach_script(LAST_ENTITY, B, id);
         }
 
-        @install()
-        fun bomb_wall_triggered() {
-            heal(SCRIPT_OWNER, 0d0, False);
-            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-
-            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-            object[<SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
-
-            sleep(0d80);
-
-            destroy(SCRIPT_OWNER);
-        }
-        fun add_bombable_entity(x, y) {
-            if(SOULS_MEMORY.DEBUG_BOMBABLE_WALLS) {
-                add_enemy(THRAXX2_HEART, x, y, BOMBABLE);
-            } else {
-                add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
-            }
-
-            add_bombable_entity(<LAST_ENTITY>);
-        }
-        fun bomb_wall_trigger(object, value, x, y) {
-            add_bombable_entity(x, y);
-            
-            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(bomb_wall_triggered));
-            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object << 0x8) + value);
-            // <0x2834> = <LAST_ENTITY>;
-        }
-
         fun guard_levitate_stone(required_strength, callback_error) {
             if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_2_3) {
                 arg[0x0e] = 0d1;
@@ -2031,7 +2002,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(hidden_castle_entry, stairs, NONE);
+                map_transition(town_temple_underground_castle_south_east, west, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -3588,6 +3559,59 @@ group non_maps() {
                             reward_formula(STOP, STOP, STOP);
                         });
                     }));
+                }
+            };
+        };
+
+        group npc_dealer() {
+            enum NPC_DEALER {
+                PRICE_ATLAS = 0d100,
+            }
+
+            group dealer_ai() {
+                fun response_positive() {
+                    if(MEMORY.ATLAS_MEDALLION == 0d1) {
+                        dialog("[SLOW]The first one is free they say… I don't think they mean that literally.[B]");
+                    } else {
+                        dialog("[SLOW]He he he…[B]");
+                    }
+                }
+                fun response_negative() {
+                    if(randrange(0x02) == 0x00) {
+                        dialog("[SLOW]Sooner or later you'll need me…[B]");
+                    } else {
+                        dialog("[SLOW]Sooner or later you'll need me… They all do…[B]");
+                    }
+                }
+                fun response_cancel() {
+                    dialog("[SLOW]Oh my, haste makes waste. Hee hee hee…[B]");
+                }
+
+                @install()
+                fun dealer_triggered() {
+                    dialog("[SLOW]Sorry, you ran into my ellbow…[B]");
+
+                    question("[SLOW]Are you with the guards? I heard they have to answer that truthfully![CHOICE]yes…[CHOICE]no…", 0d6);
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                        dialog("[SLOW]There's nothing to see here… Keep moving…[B]");
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // no
+                        arg[0x10] = (NPC_DEALER.PRICE_ATLAS * (MEMORY.ATLAS_MEDALLION + 0d1)) - 0d1;
+
+                        CUSTOM_MEMORY.RETURN = False;
+                        MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                        question("[SLOW]Do you need something… Performance enhancing…?[CHOICE][MEM1] Souls…");
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // Souls
+                            trade_items(ATLAS_MEDALLION, 0d1, MONEY, arg[0x10]);
+                        }
+
+                        if(CUSTOM_MEMORY.RETURN) {
+                            response_positive();
+                        } else {
+                            response_negative();
+                        }
+                    } else {
+                        response_cancel();
+                    }
                 }
             };
         };
@@ -5349,8 +5373,8 @@ area inbetwixx_center() {
             }
 
             bonfire(0d49, 0d53, SOULS_MEMORY.BONFIRE_INBETWIXX);
-            bomb_wall_trigger(0x01, 0x01, 0d63, 0d63);
-            bomb_wall_trigger(0x00, 0x10, 0d64, 0d99);
+            add_bombable_object(0x01, 0x01, 0d63, 0d63);
+            add_bombable_object(0x00, 0x10, 0d64, 0d99);
 
             // object[0x02] = 0x01; // show bridge
             // object[0x01] = 0x01; // open wall_1
@@ -10536,7 +10560,7 @@ area northwest_inbetwixx() {
                 hidden_exit_check();
             }
 
-            bomb_wall_trigger(0x00, 0x01, 0d64, 0d17);
+            add_bombable_object(0x00, 0x01, 0d64, 0d17);
         }
     };
 
@@ -11618,7 +11642,7 @@ area east_inbetwixx() {
 
             default_init_room(True, True);
 
-            bomb_wall_trigger(0x00, 0x01, 0d20, 0x8); // TODO: has a hitbox that blocks the player
+            add_bombable_object(0x00, 0x01, 0d20, 0x8); // TODO: has a hitbox that blocks the player
         }
     };
 
@@ -18951,6 +18975,16 @@ area town() {
                 }
 
                 fun trigger_enter() {
+                    CUSTOM_MEMORY.BOMBABLE_STATE = BOMBABLE_STATE.DOORS_UNLOCKED;
+
+                    add_bombable_locked_door(0d30, 0d21, 0d9, 0x04);
+                    add_bombable_locked_door(0d64, 0d21, 0d9, 0x05);
+                    add_bombable_locked_door(0d96, 0d21, 0d9, 0x06);
+
+                    add_bombable_locked_door(0d30, 0d57, 0d13, 0x00);
+                    add_bombable_locked_door(0d64, 0d57, 0d13, 0x01);
+                    add_bombable_locked_door(0d96, 0d57, 0d13, 0x02);
+
                     // object[0x03] = 0x01; // open gourd_south
                     object[0x02] = 0x01; // close door_south_1
                     object[0x01] = 0x01; // close door_south_2
@@ -19691,6 +19725,12 @@ area town() {
                 }
             }
 
+            enum ROOM {
+                TICKET_PRICE = 0x05,
+
+                DAMAGE_ELLBOW = 0d30,
+            }
+
             enum stepon_trigger {
                 exit_south_2 = @install() {
                     map_transition(town_market, door_1, SOUTH);
@@ -19698,6 +19738,19 @@ area town() {
                 exit_inn_south = nop(),
                 atlas = @install() {
                     debug_subtext("S=2");
+
+                    if(<ACTIVE> != <BOY>) {
+                        end();
+                    }
+
+                    control(NONE);
+
+                    face(ACTIVE, EAST);
+                    damage(ACTIVE, ROOM.DAMAGE_ELLBOW, True);
+
+                    dealer_triggered();
+
+                    control(BOTH);
                 },
                 exit_south_1 = @install() {
                     guard_dog_interaction();
@@ -19718,12 +19771,8 @@ area town() {
                 },
             }
 
-            enum ROOM {
-                TICKET_PRICE = 0x05,
-            }
-
             enum b_trigger {
-                b_trigger_0 = @install() {
+                vendor = @install() {
                     guard_dog_interaction();
 
                     show_currency(True);
@@ -19753,7 +19802,7 @@ area town() {
                     sleep(0d16);
                     show_currency(False);
                 },
-                b_trigger_1 = nop(),
+                vendor_inn = nop(),
             }
 
             fun init_room(index) {
@@ -19974,8 +20023,7 @@ area town() {
                 show_bridge(False);
 
                 if!(ROOM.COLLECTIBLE_LOOTED) {
-                    add_bombable_entity(0d53, 0d74);
-                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(pillar_triggered));
+                    add_bombable(0d53, 0d74, reference(pillar_triggered));
                 } else {
                     object[0x01] = 0x01;
                 }
