@@ -270,7 +270,7 @@ group general_enums() {
             UNKNOWN = 0x01, // invisible, follows after hit
         }
         enum CHARACTER_FLAG_SPECIAL { // Character->"Flags"
-            STONE_LEVITATE = 0x0002,
+            STONE_LEVITATE = 0x0002, // does not qualify as levitate target
             STONE_LEVITATE_INVISIBLE = 0x0005,
             BOMBABLE = 0x0004, // BOY_DOG (can be healed, buffed, only attacked by enemies, can only be attacked by enemies, still attacks boy and dog)
         }
@@ -1614,8 +1614,12 @@ group general_enums() {
 
                 // special
                 STONE_LEVITATE = 0x0002,
-                STONE_LEVITATE_INVISIBLE = 0x0005,
                 BOMBABLE = 0x0004,
+
+                // combined
+                STONE_LEVITATE_INVISIBLE = 0x0005,
+                BOMBABLE_INACTIVE_IMORTAL = 0x0026,
+                BOMBABLE_INACTIVE = 0x0024,
             }
             enum SCRIPT9 {
                 ALIVE = 0x0000,
@@ -1717,7 +1721,7 @@ group general_enums() {
 
                 // ATTRIBUTE.FLAGS_2 (character+0x11)
                 ALIVE = 0x01, // alive (or dust)
-                DEAD = 0x02, // and invisible
+                DEAD = 0x02, // and invisible? and off screen?
                 LOADING_SCREEN = 0x08, // also ai following quickly?
                 HEALED = 0x10, // can't be targetted by items and spells, examples: PETAL (Blue glow), STOP (greyed out)
                 NO_CLIP = 0x04, // see ATTRIBUTE_BITS.NO_CLIP
@@ -4092,9 +4096,9 @@ group functions() {
 
         group sprite() {
             fun destroy(character:CHARACTER) {
-                if(character > 0x00) {
-                    code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
-                }
+                // if(character > 0x00) {
+                code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
+                // }
             }
 
             fun _teleport(character:CHARACTER, x, y) {
@@ -7068,44 +7072,78 @@ group functions() {
                 }
             }
 
-            fun guard_axe2_wall_enemy(flag) {
+            enum RETAINABLE_OBJECT {
+                DEFAULT = 0x00,
+
+                WALL_AXE2 = 0x01,
+                WALL_AXE2_FAKE = 0x11,
+                WALL_AXE3 = 0x02,
+                WALL_AXE3_FAKE = 0x12,
+
+                DOOR = 0x03,
+                DOOR_FAKE = 0x14,
+
+                ILLUSION = 0x15,
+            }
+
+            @install()
+            @async()
+            fun explode_barrier(entity, sound_id:SOUND) {
+                if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    _add_enemy(PLACEHOLDER, entity[X] - 0x10, entity[Y] - 0x10);
+                    arg[0x10] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+                    _add_enemy(PLACEHOLDER, entity[X] + 0x20, entity[Y] - 0x20);
+                    arg[0x12] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    _add_enemy(PLACEHOLDER, entity[X] + 0x10, entity[Y] - 0x10);
+                    arg[0x10] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+                    _add_enemy(PLACEHOLDER, entity[X] + 0x20, entity[Y] + 0x20);
+                    arg[0x12] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    _add_enemy(PLACEHOLDER, entity[X] + 0x10, entity[Y] + 0x10);
+                    arg[0x10] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+                    _add_enemy(PLACEHOLDER, entity[X] - 0x20, entity[Y] + 0x20);
+                    arg[0x12] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                } else {
+                    _add_enemy(PLACEHOLDER, entity[X] - 0x20, entity[Y] - 0x20);
+                    arg[0x10] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+                    _add_enemy(PLACEHOLDER, entity[X] - 0x10, entity[Y] + 0x10);
+                    arg[0x12] = <LAST_ENTITY>;
+                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                }
+                
+                if(sound_id > 0d0) {
+                    sleep(0d4);
+                    // sound(THRAXX_BRIDGE_COLLAPSING);
+                }
+
+                if(arg[0x10]) {
+                    wait(arg[0x10]);
+                    destroy(arg[0x10]);
+                }
+
+                if(arg[0x12]) {
+                    wait(arg[0x12]);
+                    destroy(arg[0x12]);
+                }
+            }
+
+            fun _guard_weapon(weapon_check) {
                 if(<ACTIVE> == <BOY>) {
                     animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
-
-                    if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
-                        if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                            _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                            _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-                        } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
-                            _add_enemy(PLACEHOLDER, <BOY>[X] + 0x10, <BOY>[Y] - 0x10);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                            _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] + 0x20);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-                        } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
-                            _add_enemy(PLACEHOLDER, <BOY>[X] + 0x10, <BOY>[Y] + 0x10);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                            _add_enemy(PLACEHOLDER, <BOY>[X] - 0x20, <BOY>[Y] + 0x20);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-                        } else {
-                            _add_enemy(PLACEHOLDER, <BOY>[X] - 0x20, <BOY>[Y] - 0x20);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                            _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] + 0x10);
-                            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-                        }
-
-                        sleep(0d4);
-
-                        // sound(THRAXX_BRIDGE_COLLAPSING);
-
-                        destroy(SCRIPT_OWNER);
-                        set(flag);
-                    } else {
+                    
+                    if!(weapon_check) {
                         error_wrong_weapon();
                         end();
                     }
@@ -7113,26 +7151,11 @@ group functions() {
                     end();
                 }
             }
-            fun axe2_wall(flag, object) {
-                if(<ACTIVE> == <BOY>) {
-                    animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
-
-                    if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) && (MEMORY.CURRENT_WEAPON >= WEAPON_INDEX.AXE_2)) {
-                        _add_enemy(PLACEHOLDER, <BOY>[X] - 0x10, <BOY>[Y] - 0x10);
-                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                        _add_enemy(PLACEHOLDER, <BOY>[X] + 0x20, <BOY>[Y] - 0x20);
-                        animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
-
-                        sleep(0d4);
-
-                        sound(THRAXX_BRIDGE_COLLAPSING);
-
-                        object = 0x01;
-                        set(flag);
-                    } else {
-                        error_wrong_weapon();
-                    }
+            fun guard_weapon(weapon:WEAPON_INDEX, weapon_type:WEAPON_TYPE) {
+                if(weapon_type !is None) {
+                    _guard_weapon((MEMORY.CURRENT_WEAPON_TYPE == weapon_type) && (MEMORY.CURRENT_WEAPON >= weapon));
+                } else {
+                    _guard_weapon(MEMORY.CURRENT_WEAPON >= weapon);
                 }
             }
 
@@ -7198,6 +7221,42 @@ group functions() {
                     CUSTOM_MEMORY.BOMBABLE_OBJECT_11 = entity;
                 } else if!(CUSTOM_MEMORY.BOMBABLE_OBJECT_12) {
                     CUSTOM_MEMORY.BOMBABLE_OBJECT_12 = entity;
+                }
+            }
+            fun _unprepare_bombable_entity(entity) {
+                if((entity) && (entity[ATTACHED_SCRIPT_ID] == arg[0x10])) {
+                    destroy(entity);
+                    entity = 0x0000;
+
+                    if(False) {
+                        MEMORY.STRING_PARAMETER_1 = entity;
+                        debug_subtext("removed entity [MEM1]");
+                    }
+                }
+            }
+            @install()
+            @weak()
+            fun unprepare_bombable_entity(entity) { // TODO: the entity still gets damage, which should not happen
+                if(entity != <BOY>) {
+                    heal(entity, 0d0, False);
+                    attribute(entity, INVINCIBLE, True);
+                    attribute(entity, INVINCIBLE_TEMP, True);
+                    destroy(entity);
+
+                    arg[0x10] = entity[ATTACHED_SCRIPT_ID];
+
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_1);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_2);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_3);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_4);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_5);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_6);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_7);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_8);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_9);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_10);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_11);
+                    _unprepare_bombable_entity(CUSTOM_MEMORY.BOMBABLE_OBJECT_12);
                 }
             }
 
@@ -7304,142 +7363,145 @@ group functions() {
                 yield();
                 _vanilla_bomb_explosion(True);
             }
+            
+
+            fun _fake_b() { // TODO: remove
+                code(0x78, entity_t(CHARACTER.ACTIVE), 0x0000 + ANIMATION_ALL.SLASH_1, param(ANIMATION_MODE.ONCE), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+            }
 
             @install()
             @weak()
-            fun bombable_triggered() {
-                arg[0x12] = 0x8 * 0x4;
-
-                if(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.INVINCIBLE) {
-                    if(False) {
-                        while(arg[0x12] > 0d0) {
-                            arg[0x12]--;
-
-                            <SCRIPT_OWNER>[X]++;
-
-                            yield();
-                        }
-                    } else {
-                        animate(ACTIVE, ONCE, SLASH_1); // fake_b();
-                    }
-
-                    end();
-                }
-                attribute(SCRIPT_OWNER, INVINCIBLE, True);
+            fun _bombable_object(type:RETAINABLE_OBJECT, permission) {
+                CUSTOM_MEMORY.RETURN = False;
 
                 if(False) {
-                    heal(SCRIPT_OWNER, 0d0, False);
+                    debug_memory(<SCRIPT_OWNER>);
+                    sleep(0d60);
                 }
-                
-                if(script[0x9] == SCRIPT9.ALIVE) {
-                    if(CUSTOM_MEMORY.BOMBABLE_STATE == BOMBABLE_STATE.DOORS_UNLOCKED) {
-                        nop(); // smart_sound(DOOR);
-                    } else if(CUSTOM_MEMORY.BOMBABLE_STATE == BOMBABLE_STATE.DOORS_LOCKED) {
-                        subtext("locked");
-                        end();
+
+                if(<SCRIPT_OWNER> == <ACTIVE>) {
+                    if(False) {
+                        subtext("object");
+                    }
+
+                    if((type == RETAINABLE_OBJECT.WALL_AXE2) || (type == RETAINABLE_OBJECT.WALL_AXE3)) {
+                        if(type == RETAINABLE_OBJECT.WALL_AXE2) {
+                            guard_weapon(AXE_2, AXE);
+                        } else if(type == RETAINABLE_OBJECT.WALL_AXE3) {
+                            guard_weapon(AXE_3, AXE);
+                        }
+
+                        explode_barrier(<BOY>);
+                    } else if(type == RETAINABLE_OBJECT.DOOR) {
+                        if!(permission) {
+                            subtext("locked");
+                            end();
+                        } else {
+                            nop(); // smart_sound(DOOR);
+                        }
+                    } else if(type == RETAINABLE_OBJECT.ILLUSION) {
+                        if!(permission) {
+                            end();
+                        } else {
+                            sound(WEIRD_SOUND);
+                        }
                     } else {
-                        animate(ACTIVE, ONCE, SLASH_1); // fake_b();
+                        end();
+                    }
+                } else if(<SCRIPT_OWNER>[HP] > 0d0) { // if(script[0x9] == SCRIPT9.ALIVE)
+                    if(False) {
+                        subtext("bombable-b");
+                    }
+                    
+                    if((type == RETAINABLE_OBJECT.WALL_AXE2_FAKE) || (type == RETAINABLE_OBJECT.WALL_AXE3_FAKE)) {
+                        if(type == RETAINABLE_OBJECT.WALL_AXE2_FAKE) {
+                            guard_weapon(AXE_2, AXE);
+                        } else if(type == RETAINABLE_OBJECT.WALL_AXE3_FAKE) {
+                            guard_weapon(AXE_3, AXE);
+                        }
+
+                        destroy(SCRIPT_OWNER);
+
+                        explode_barrier(<BOY>);
+                    } else if(type == RETAINABLE_OBJECT.DOOR_FAKE) {
+                        if!(permission) {
+                            subtext("locked");
+                            end();
+                        } else {
+                            nop(); // smart_sound(DOOR);
+                        }
+                    } else 
+                    {
+                        _fake_b();
                         end();
                     }
                 } else {
                     if(False) {
-                        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+                        subtext("bombable-damage");
+                    }
 
-                        sleep(0d80);
-
+                    if((type == RETAINABLE_OBJECT.WALL_AXE2_FAKE) || (type == RETAINABLE_OBJECT.WALL_AXE3_FAKE)) {
                         destroy(SCRIPT_OWNER);
                     }
                 }
 
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] != 0xffff) {
-                    arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+                CUSTOM_MEMORY.RETURN = True;
+            }
+            fun bombable_object(type:RETAINABLE_OBJECT, permission, flag, object_id, value) {
+                if(flag) {
+                    if((<SCRIPT_OWNER> != <BOY>) & (<SCRIPT_OWNER>[HP] > 0d0)) {
+                        _fake_b();
+                    }
+                    
+                    unprepare_bombable_entity(<SCRIPT_OWNER>);
+                    end();
+                }
 
-                    object[<SCRIPT_OWNER>[GENERAL_PURPOSE] >> 0x08] = <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff;
+                _bombable_object(type, permission);
 
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_1) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_1[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_1);
+                if(CUSTOM_MEMORY.RETURN) {
+                    if(flag is Memory) {
+                        flag = True;
                     }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_2) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_2[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_2);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_3) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_3[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_3);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_4) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_4[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_4);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_5) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_5[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_5);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_6) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_6[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_6);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_7) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_7[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_7);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_8) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_8[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_8);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_9) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_9[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_9);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_10) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_10[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_10);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_11) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_11[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_11);
-                    }
-                    if((CUSTOM_MEMORY.BOMBABLE_OBJECT_12) && (CUSTOM_MEMORY.BOMBABLE_OBJECT_12[GENERAL_PURPOSE] == arg[0x10])) {
-                        destroy(CUSTOM_MEMORY.BOMBABLE_OBJECT_12);
-                    }
-                } else {
-                    if(CUSTOM_MEMORY.BOMBABLE_STATE != BOMBABLE_STATE.DEFAULT) {
-                        while(arg[0x12] > 0d0) {
-                            arg[0x12]--;
 
-                            <SCRIPT_OWNER>[X]--;
-
-                            yield();
+                    if(object_id !is None) {
+                        if(value !is None) {
+                            object[object_id] = value;
+                        } else {
+                            object[object_id] = 0d0;
                         }
                     }
+                } else {
+                    end();
                 }
             }
-
-            fun add_bombable(x, y, trigger, entity_sprite) {
-                if(False) {
-                    add_enemy(THRAXX2_HEART, x, y, BOMBABLE);
-                } else {
-                    if(entity_sprite !is None) {
-                        add_enemy(entity_sprite, x, y, BOMBABLE);
-                        attribute(LAST_ENTITY, INVINCIBLE, False);
+            
+            fun add_bombable(x, y, flag, trigger, entity_sprite:ENEMY, entity_animation:ANIMATION_PLACEHOLDER) {
+                if!(flag) {
+                    if(False) {
+                        add_enemy(THRAXX2_HEART, x, y, BOMBABLE);
                     } else {
-                        add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
+                        if(entity_sprite !is None) {
+                            add_enemy(entity_sprite, x, y, BOMBABLE);
+                            if(entity_animation !is None) {
+                                animate(LAST_ENTITY, LOOP, entity_animation);
+                            }
+                            attribute(LAST_ENTITY, INVINCIBLE, False);
+                        } else {
+                            add_enemy(RIMSALA_STATUTE_ENTITY, x, y, BOMBABLE);
+                        }
                     }
-                }
 
-                prepare_bombable_entity(<LAST_ENTITY>);
-                
-                if(CUSTOM_MEMORY.BOMBABLE_STATE == BOMBABLE_STATE.DEFAULT) {
-                    attach_script(LAST_ENTITY, DEATH, trigger);
-                } else {
-                    attach_script(LAST_ENTITY, ALL, trigger);
+                    prepare_bombable_entity(<LAST_ENTITY>);
+                    
+                    attach_script(LAST_ENTITY, B_DEATH, trigger);
                 }
             }
 
-            fun add_bombable_object(object_id, value, x, y) {
-                add_bombable(x, y, reference(bombable_triggered));
+            fun add_bombable_double_door(x, y, flag, trigger, door_width) {
+                add_bombable(x, y + 0d1, flag, trigger);
 
-                <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000 + ((object_id << 0x8) + value);
-            }
-            fun add_bombable_entity(enemy_id:ENEMY, x, y) {
-                add_bombable(x, y, reference(bombable_triggered), enemy_id);
-
-                <LAST_ENTITY>[GENERAL_PURPOSE] = 0xffff;
-            }
-            fun add_bombable_locked_door(x, y, door_width, object_id) {
-                add_bombable_object(object_id, 0d0, x, y + 0d1);
-
-                add_bombable_object(object_id, 0d0, x, y + door_width - 0d1);
+                add_bombable(x, y + door_width - 0d1, flag, trigger);
             }
         };
 

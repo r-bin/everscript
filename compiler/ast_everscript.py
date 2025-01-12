@@ -1836,6 +1836,18 @@ class Axe2Wall(Function_Base):
 
         return Call(self._generator, self.function, call_params).code(params)
     
+class RetainedObject():
+    def __init__(self, generator, object):
+        self._generator = generator
+        self.object = object
+        
+        self.flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, Memory_Alloc.MemoryType.SRAM)
+
+        self.object = Object(self._generator, object, self.flag)
+        self._generator.add_object(self.object)
+
+        self.flag.hint.append("retained object = {self.object}")
+    
 class Reference(Function_Base):
     def __init__(self, generator, name:any):
         self._generator = generator

@@ -5017,6 +5017,9 @@ area inbetwixx_center() {
 
         enum ROOM {
             DEBUG = False,
+
+            WALL_1 = retained_object(0x01),
+            WALL_2 = retained_object(0x00),
             
             BRIDGE_REVEALED = memory(FLAG, SRAM),
             BRIDGE_REVEALER_ENTITY = memory(WORD, TEMP),
@@ -5026,7 +5029,6 @@ area inbetwixx_center() {
             WITH_FLOWER_TRIGGER = False,
 
             WITH_ILLUSORY_WALL = True,
-            ILLUSORY_WALL_REVEALED = memory(FLAG, SRAM),
 
             WITH_CUSTOM_GOURD = True,
             CUSTOM_GOURD_LOOTED = memory(FLAG, SRAM),
@@ -5100,18 +5102,15 @@ area inbetwixx_center() {
         }
 
         enum b_trigger {
-            wall_2 = @install() {
+            wall_2 = @install() fun trigger_wall_2() {
                 if!(ROOM.WITH_ILLUSORY_WALL) {
-                    _axe2_wall(0x00);
+                    bombable_object(WALL_AXE2, True, ROOM.WALL_2, 0x00, 0x01);
                 } else {
-                    ROOM.ILLUSORY_WALL_REVEALED = True;
-                    object[0x00] = 0x01; // open wall_2
-
-                    sound(WEIRD_SOUND);
+                    bombable_object(ILLUSION, True, ROOM.WALL_2, 0x00, 0x01);
                 }
             },
-            wall_1 = @install() {
-                _axe2_wall(0x01);
+            wall_1 = @install() fun trigger_wall_1() {
+                bombable_object(WALL_AXE2, True, ROOM.WALL_1, 0x01, 0x01);
             },
             gourd_2_1__3_water = @install() {
                 debug_subtext("B=2");
@@ -5373,8 +5372,9 @@ area inbetwixx_center() {
             }
 
             bonfire(0d49, 0d53, SOULS_MEMORY.BONFIRE_INBETWIXX);
-            add_bombable_object(0x01, 0x01, 0d63, 0d63);
-            add_bombable_object(0x00, 0x10, 0d64, 0d99);
+
+            add_bombable(0d63, 0d63, ROOM.WALL_1, reference(trigger_wall_1));
+            add_bombable(0d64, 0d99, ROOM.WALL_2, reference(trigger_wall_2));
 
             // object[0x02] = 0x01; // show bridge
             // object[0x01] = 0x01; // open wall_1
@@ -5386,12 +5386,6 @@ area inbetwixx_center() {
             // object[0x08] = 0x01; // block gourd_1_3
             // object[0x06] = 0x01; // block gourd_2_1
             // sniff spots
-
-            if(ROOM.WITH_ILLUSORY_WALL) {
-                if(ROOM.ILLUSORY_WALL_REVEALED) {
-                    object[0x00] = 0x01; // open wall_2
-                }
-            }
 
             if(ROOM.WITH_CUSTOM_GOURD) {
                 if(ROOM.CUSTOM_GOURD_LOOTED) {
@@ -10289,6 +10283,8 @@ area northwest_inbetwixx() {
 
             SECRET_PASSAGE_TRIGGER = memory(WORD, TEMP),
             SECRET_PASSAGE_DISTANCE = 0x10,
+
+            WALL = retained_object(0x00),
         }
 
         fun init_lift(position) {
@@ -10487,8 +10483,8 @@ area northwest_inbetwixx() {
                 debug_subtext("B=11");
                 _loot(0x01, ETHANOL, 0d01, 0d01);
             },
-            axe2_wall = @install() {
-                _axe2_wall(0x00);
+            axe2_wall = @install() fun trigger_wall() {
+                bombable_object(WALL_AXE2, True, ROOM.WALL, 0x00, 0x01);
             }
         }
 
@@ -10560,7 +10556,7 @@ area northwest_inbetwixx() {
                 hidden_exit_check();
             }
 
-            add_bombable_object(0x00, 0x01, 0d64, 0d17);
+            add_bombable(0d64, 0d17, ROOM.WALL, reference(trigger_wall));
         }
     };
 
@@ -11608,6 +11604,10 @@ area east_inbetwixx() {
             default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
         }
 
+        enum ROOM {
+            WALL = retained_object(0x00),
+        }
+
         enum stepon_trigger {
             exit_west = @install() {
                 map_transition(east_inbetwixx, east, WEST);
@@ -11626,8 +11626,8 @@ area east_inbetwixx() {
         }
 
         enum b_trigger {
-            barrier = @install() {
-                _axe2_wall(0x00);
+            barrier = @install() fun trigger_wall() {
+                bombable_object(WALL_AXE3, True, ROOM.WALL, 0x00, 0x01);
             },
         }
 
@@ -11642,7 +11642,7 @@ area east_inbetwixx() {
 
             default_init_room(True, True);
 
-            add_bombable_object(0x00, 0x01, 0d20, 0x8); // TODO: has a hitbox that blocks the player
+            add_bombable(0d18, 0d11, ROOM.WALL, reference(trigger_wall));
         }
     };
 
@@ -18371,6 +18371,13 @@ area town() {
 
                 enum ROOM {
                     BEE_COLLECTED = memory(FLAG, SRAM),
+
+                    DOOR_NORTH_1 = memory(FLAG, TEMP),
+                    DOOR_NORTH_2 = memory(FLAG, TEMP),
+                    DOOR_NORTH_3 = memory(FLAG, TEMP),
+                    DOOR_SOUTH_1 = memory(FLAG, TEMP),
+                    DOOR_SOUTH_2 = memory(FLAG, TEMP),
+                    DOOR_SOUTH_3 = memory(FLAG, TEMP),
                 }
 
                 group boss_ai() {
@@ -18977,14 +18984,6 @@ area town() {
                 fun trigger_enter() {
                     CUSTOM_MEMORY.BOMBABLE_STATE = BOMBABLE_STATE.DOORS_UNLOCKED;
 
-                    add_bombable_locked_door(0d30, 0d21, 0d9, 0x04);
-                    add_bombable_locked_door(0d64, 0d21, 0d9, 0x05);
-                    add_bombable_locked_door(0d96, 0d21, 0d9, 0x06);
-
-                    add_bombable_locked_door(0d30, 0d57, 0d13, 0x00);
-                    add_bombable_locked_door(0d64, 0d57, 0d13, 0x01);
-                    add_bombable_locked_door(0d96, 0d57, 0d13, 0x02);
-
                     // object[0x03] = 0x01; // open gourd_south
                     object[0x02] = 0x01; // close door_south_1
                     object[0x01] = 0x01; // close door_south_2
@@ -18994,6 +18993,26 @@ area town() {
                     object[0x04] = 0x01; // close door_north_1
                     object[0x05] = 0x01; // close door_north_2
                     object[0x06] = 0x01; // close door_north_3
+
+                    add_bombable_double_door(0d30, 0d21, ROOM.DOOR_NORTH_1, reference(@install() {
+                        bombable_object(DOOR_FAKE, False, ROOM.DOOR_NORTH_1, 0x04);
+                    }), 0d9);
+                    add_bombable_double_door(0d64, 0d21, ROOM.DOOR_NORTH_2, reference(@install() {
+                        bombable_object(DOOR_FAKE, False, ROOM.DOOR_NORTH_2, 0x05);
+                    }), 0d9);
+                    add_bombable_double_door(0d96, 0d21, ROOM.DOOR_NORTH_3, reference(@install() {
+                        bombable_object(DOOR_FAKE, False, ROOM.DOOR_NORTH_3, 0x06);
+                    }), 0d9);
+
+                    add_bombable_double_door(0d30, 0d57, ROOM.DOOR_SOUTH_3, reference(@install() {
+                        bombable_object(DOOR_FAKE, False, ROOM.DOOR_SOUTH_3, 0x00);
+                    }), 0d13);
+                    add_bombable_double_door(0d64, 0d57, ROOM.DOOR_SOUTH_2, reference(@install() {
+                        bombable_object(DOOR_FAKE, False, ROOM.DOOR_SOUTH_2, 0x01);
+                    }), 0d13);
+                    add_bombable_double_door(0d96, 0d57, ROOM.DOOR_SOUTH_1, reference(@install() {
+                        bombable_object(DOOR_FAKE, False, ROOM.DOOR_SOUTH_1, 0x02);
+                    }), 0d13);
 
                     add_bee(0d63, 0d13, reference(@install() {
                         bee_collected(ROOM.BEE_COLLECTED);
@@ -19975,30 +19994,6 @@ area town() {
                 }
             }
 
-            @install()
-            fun collectible_triggered() {
-                set(ROOM.COLLECTIBLE_LOOTED);
-
-                collectible_collected();
-            }
-
-            @install()
-            fun pillar_triggered() {
-                heal(SCRIPT_OWNER, 0d0, False);
-                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-
-                set(ROOM.PILLAR_OPENED);
-
-                object[0x01] = 0x01;
-
-                animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
-
-                add_collectible(0x00, 0x36, 0x48, reference(collectible_triggered));
-
-                sleep(0d30);
-                destroy(SCRIPT_OWNER);
-            }
-
             fun trigger_enter() {
                 CUSTOM_FLAG.NO_DOG = True;
                 CUSTOM_FLAG.NO_XP_MONEY = True;
@@ -20022,11 +20017,15 @@ area town() {
                 sleep(0d15);
                 show_bridge(False);
 
-                if!(ROOM.COLLECTIBLE_LOOTED) {
-                    add_bombable(0d53, 0d74, reference(pillar_triggered));
-                } else {
-                    object[0x01] = 0x01;
-                }
+                add_bombable(0d53, 0d74, ROOM.COLLECTIBLE_LOOTED, reference(@install() {
+                    bombable_object(DEFAULT, True, ROOM.PILLAR_OPENED, 0x01, 0x01);
+
+                    add_collectible(0x00, 0x36, 0x48, reference(@install() {
+                        ROOM.COLLECTIBLE_LOOTED = True;
+
+                        collectible_collected();
+                    }));
+                }));
             }
         };
     };
@@ -21287,6 +21286,9 @@ map bog_crossing(CROSSING) {
     enum ROOM {
         FAKE_EXIT_ID = memory(WORD, TEMP),
 
+        WALL_1 = retained_object(0x01),
+        WALL_2 = retained_object(0x00),
+
         COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
     }
 
@@ -21355,11 +21357,11 @@ map bog_crossing(CROSSING) {
     }
 
     enum b_trigger {
-        wall_2 = @install() {
-            debug_subtext("B=0");
+        wall_2 = @install() fun trigger_wall_2() {
+            bombable_object(WALL_AXE2, True, ROOM.WALL_2, 0x00, 0x01);
         },
-        wall_1 = @install() {
-            debug_subtext("B=1");
+        wall_1 = @install() fun trigger_wall_1() {
+            bombable_object(WALL_AXE2, True, ROOM.WALL_1, 0x01, 0x01);
         },
         gourd_2_1__3_water = @install() {
             debug_subtext("B=2");
@@ -21503,6 +21505,9 @@ map bog_crossing(CROSSING) {
         if!(ROOM.COLLECTIBLE_LOOTED) {
             add_collectible(0x01, 0x5e, 0x4d, reference(collectible_triggered));
         }
+
+        add_bombable(0d63, 0d63, ROOM.WALL_1, reference(trigger_wall_1));
+        add_bombable(0d64, 0d99, ROOM.WALL_2, reference(trigger_wall_2));
 
         init_map(0x00, 0x1e, 0xff, 0xff);
 
@@ -21656,6 +21661,10 @@ area ship_caves() {
         }
 
         fun trigger_enter() {
+            add_bombable(0d19, 0d14, ROOM.PILLAR_CLEARED, reference(@install() {
+                bombable_object(WALL_AXE2_FAKE, True, ROOM.PILLAR_CLEARED);
+            }), STONE_ROUND, PILLAR_VIGOR);
+
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // north
                 add_enemy(RAPTOR_GREEN, 0d45, 0d21);
@@ -21668,13 +21677,6 @@ area ship_caves() {
 
                 // south-west
                 add_enemy(RAPTOR_GREEN, 0d41, 0d78);
-            }
-
-            if!(ROOM.PILLAR_CLEARED) {
-                add_pillar(0d19, 0d14);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    guard_axe2_wall_enemy(ROOM.PILLAR_CLEARED);
-                }));
             }
 
             default_init_room(True, True);
@@ -29084,7 +29086,7 @@ area dungeon_isaac() {
                 CLEAR_FLAG = memory(FLAG, SRAM),
 
                 BEE_COLLECTED = memory(FLAG, SRAM),
-                BRIDGE_BLOCKER = memory(FLAG, SRAM),
+                BRIDGE_BLOCKER = retained_object(0x07),
             }
 
             enum stepon_trigger {
@@ -29140,14 +29142,9 @@ area dungeon_isaac() {
 
                 isaac_init(False, False);
 
-                if!(ROOM.BRIDGE_BLOCKER) {
-                    add_enemy(PLACEHOLDER, 0d42, 0d30);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        guard_axe2_wall_enemy(ROOM.BRIDGE_BLOCKER);
-
-                        object[0x07] = 0x01; // remove base
-                    }));
-                }
+                add_bombable(0d42, 0d30, ROOM.BRIDGE_BLOCKER, reference(@install() {
+                    bombable_object(WALL_AXE2_FAKE, True, ROOM.BRIDGE_BLOCKER, 0x07, 0x01);
+                }));
             }
         };
 

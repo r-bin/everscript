@@ -1,3 +1,6 @@
+# bugs
+## if(…) {} turns into  while(true) {} (endless loop)
+
 
 # enemies
 ## rogue enemy needs to be scaled down
