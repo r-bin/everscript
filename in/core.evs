@@ -6381,18 +6381,18 @@ group functions() {
 
     group complex() {
         group error_messages() {
-            @install()
-            @weak()
-            fun installed_error_contraption() {
-                subtext("Locked by some contraption.");
-            }
-            @install()
-            @weak()
-            fun installed_error_unknown() {
-                subtext("…");
-            }
-            fun error_wrong_weapon() {
-                subtext("(Wrong weapon…)");
+            enum ERROR_TYPE {
+                UNKNOWN = 0x00,
+                DLC = 0x01,
+                WRONG_WEAPON = 0x02,
+
+                DOOR_LOCKED = 0x10,
+                DOOR_CONTRAPTION = 0x11,
+                DOOR_WRONG_SIDE = 0x12,
+                DOOR_COMPLETED = 0x13,
+
+                SWITCH_STUCK = 0x20,
+                SWITCH_ENERGY = 0x21,
             }
 
             fun error_walk_back(exit_direction:DIRECTION) {
@@ -6406,57 +6406,38 @@ group functions() {
                     walk(ACTIVE, TILE_RELATIVE_DIRECT, -0d2, 0d0, ACTIVE, BOTH);
                 }
             }
-            fun error_dead_end(exit_direction:DIRECTION) {
-                subtext("Does not open.");
 
-                error_walk_back(exit_direction);
-            }
-            fun error_contraption(exit_direction:DIRECTION) {
-                subtext("Locked by some contraption.");
-
-                error_walk_back(exit_direction);
-            }
-            fun error_wrong_side(exit_direction:DIRECTION) {
-                subtext("Does not open from this side.");
-
-                error_walk_back(exit_direction);
-            }
-            fun error_switch(exit_direction:DIRECTION) {
-                subtext("Does not move.");
-
-                error_walk_back(exit_direction);
-            }
-            fun error_locked(exit_direction:DIRECTION) {
-                subtext("Locked.");
-
-                error_walk_back(exit_direction);
-            }
             @install()
             @weak()
-            fun installed_error_locked(exit_direction:DIRECTION) {
-                subtext("Locked.");
+            fun error_message(error:ERROR_TYPE, direction:DIRECTION) {
+                if(error > 0xff) {
+                    direction = (error >> 0x8);
+                    error &= 0xff;
+                }
+                
+                if(error == ERROR_TYPE.DLC) {
+                    subtext("DLC content…");
+                } else if(error == ERROR_TYPE.WRONG_WEAPON) {
+                    subtext("(Wrong weapon…)");
+                } else if(error == ERROR_TYPE.DOOR_LOCKED) {
+                    subtext("Locked.");
+                } else if(error == ERROR_TYPE.DOOR_CONTRAPTION) {
+                    subtext("Locked by some contraption.");
+                } else if(error == ERROR_TYPE.DOOR_WRONG_SIDE) {
+                    subtext("Does not open from this side.");
+                } else if(error == ERROR_TYPE.DOOR_COMPLETED) {
+                    subtext("Does not open anymore.");
+                } else if(error == ERROR_TYPE.SWITCH_STUCK) {
+                    subtext("Does not move.");
+                } else if(error == ERROR_TYPE.SWITCH_ENERGY) {
+                    subtext("Not enough power.");
+                } else {
+                    subtext("…");
+                }
 
-                error_walk_back(exit_direction);
-            }
-            fun error_dlc(exit_direction:DIRECTION) {
-                subtext("DLC area…");
-
-                error_walk_back(exit_direction);
-            }
-            fun error_unknown(exit_direction:DIRECTION) {
-                subtext("…");
-
-                error_walk_back(exit_direction);
-            }
-            fun error_completed(exit_direction:DIRECTION) {
-                subtext("Does not open anymore.");
-
-                error_walk_back(exit_direction);
-            }
-            fun error_low_power(exit_direction:DIRECTION) {
-                subtext("Not enough power.");
-
-                error_walk_back(exit_direction);
+                if(direction) {
+                    error_walk_back(direction);
+                }
             }
         };
 
@@ -7035,7 +7016,7 @@ group functions() {
 
                         object[object_id] = 0x01;
                     } else {
-                        error_wrong_weapon();
+                        error_message(WRONG_WEAPON);
                     }
                 }
             }
@@ -7061,12 +7042,12 @@ group functions() {
                             free_camera();
                         }
 
-                        error_wrong_weapon();
+                        error_message(WRONG_WEAPON);
                         end();
                     }
 
                     if(MEMORY.CURRENT_WEAPON < WEAPON_INDEX.SPEAR_2) {
-                        error_wrong_weapon();
+                        error_message(WRONG_WEAPON);
                         end();
                     }
                 }
@@ -7075,15 +7056,16 @@ group functions() {
             enum RETAINABLE_OBJECT {
                 DEFAULT = 0x00,
 
-                WALL_AXE2 = 0x01,
+                WALL_AXE2 = 0x10,
                 WALL_AXE2_FAKE = 0x11,
-                WALL_AXE3 = 0x02,
-                WALL_AXE3_FAKE = 0x12,
+                WALL_AXE3 = 0x12,
+                WALL_AXE3_FAKE = 0x13,
 
-                DOOR = 0x03,
-                DOOR_FAKE = 0x14,
+                DOOR = 0x20,
+                DOOR_FAKE = 0x21,
+                DOOR_TRIGGER = 0x22,
 
-                ILLUSION = 0x15,
+                ILLUSION = 0x30,
             }
 
             @install()
@@ -7144,7 +7126,7 @@ group functions() {
                     animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
                     
                     if!(weapon_check) {
-                        error_wrong_weapon();
+                        error_message(WRONG_WEAPON);
                         end();
                     }
                 } else {
@@ -7364,14 +7346,20 @@ group functions() {
                 _vanilla_bomb_explosion(True);
             }
             
-
             fun _fake_b() { // TODO: remove
                 code(0x78, entity_t(CHARACTER.ACTIVE), 0x0000 + ANIMATION_ALL.SLASH_1, param(ANIMATION_MODE.ONCE), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
             }
 
+            fun _bombable_object_error(error:ERROR_TYPE) {
+                if(error) {
+                    error_message(error);
+                } else {
+                    error_message(DOOR_LOCKED);
+                }
+            }
             @install()
             @weak()
-            fun _bombable_object(type:RETAINABLE_OBJECT, permission) {
+            fun _bombable_object(type:RETAINABLE_OBJECT, permission, error:ERROR_TYPE) {
                 CUSTOM_MEMORY.RETURN = False;
 
                 if(False) {
@@ -7392,9 +7380,9 @@ group functions() {
                         }
 
                         explode_barrier(<BOY>);
-                    } else if(type == RETAINABLE_OBJECT.DOOR) {
+                    } else if((type == RETAINABLE_OBJECT.DOOR_TRIGGER) || (type == RETAINABLE_OBJECT.DOOR)) {
                         if!(permission) {
-                            subtext("locked");
+                            _bombable_object_error(error);
                             end();
                         } else {
                             nop(); // smart_sound(DOOR);
@@ -7423,15 +7411,14 @@ group functions() {
                         destroy(SCRIPT_OWNER);
 
                         explode_barrier(<BOY>);
-                    } else if(type == RETAINABLE_OBJECT.DOOR_FAKE) {
+                    } else if(RETAINABLE_OBJECT.DOOR_FAKE) {
                         if!(permission) {
-                            subtext("locked");
+                            _bombable_object_error(error);
                             end();
                         } else {
                             nop(); // smart_sound(DOOR);
                         }
-                    } else 
-                    {
+                    } else {
                         _fake_b();
                         end();
                     }
@@ -7448,13 +7435,29 @@ group functions() {
                 CUSTOM_MEMORY.RETURN = True;
             }
             fun bombable_object(type:RETAINABLE_OBJECT, permission, flag, object_id, value) {
-                if(flag) {
-                    if((<SCRIPT_OWNER> != <BOY>) & (<SCRIPT_OWNER>[HP] > 0d0)) {
-                        _fake_b();
+                if(flag !is None) {
+                    if(flag) {
+                        if(type != RETAINABLE_OBJECT.DOOR_TRIGGER) {
+                            if((<SCRIPT_OWNER> != <BOY>) && (<SCRIPT_OWNER>[HP] > 0d0)) {
+                                _fake_b();
+                            }
+
+                            unprepare_bombable_entity(<SCRIPT_OWNER>);
+                            end();
+                        } else {
+                            if((<SCRIPT_OWNER> != <BOY>) && (<SCRIPT_OWNER>[HP] > 0d0)) {
+                                _fake_b();
+
+                                unprepare_bombable_entity(<SCRIPT_OWNER>);
+                                end();
+                            } else if(type == RETAINABLE_OBJECT.DOOR_TRIGGER) {
+                                if(object_id is Function) {
+                                    object_id();
+                                    end();
+                                }
+                            }
+                        }
                     }
-                    
-                    unprepare_bombable_entity(<SCRIPT_OWNER>);
-                    end();
                 }
 
                 _bombable_object(type, permission);
@@ -7463,13 +7466,47 @@ group functions() {
                     if(flag is Memory) {
                         flag = True;
                     }
-
-                    if(object_id !is None) {
+                    
+                    if(object_id is Function) {
+                        if(type == RETAINABLE_OBJECT.DOOR_TRIGGER) {
+                            if(<SCRIPT_OWNER> == <ACTIVE>) {
+                                object_id();
+                            }
+                        }
+                    } else if(object_id !is None) {
                         if(value !is None) {
                             object[object_id] = value;
                         } else {
                             object[object_id] = 0d0;
                         }
+                    }
+                } else {
+                    end();
+                }
+            }
+            fun bombable_trigger(permission, flag, error:ERROR_TYPE, callback) {
+                if(flag !is None) {
+                    if(flag) {
+                        if((<SCRIPT_OWNER> != <BOY>) && (<SCRIPT_OWNER>[HP] > 0d0)) {
+                            _fake_b();
+
+                            unprepare_bombable_entity(<SCRIPT_OWNER>);
+                        } else {
+                            callback();
+                        }
+                        end();
+                    }
+                }
+
+                _bombable_object(DOOR_TRIGGER, permission, error);
+
+                if(CUSTOM_MEMORY.RETURN) {
+                    if(flag is Memory) {
+                        flag = True;
+                    }
+                    
+                    if(<SCRIPT_OWNER> == <ACTIVE>) {
+                        callback();
                     }
                 } else {
                     end();

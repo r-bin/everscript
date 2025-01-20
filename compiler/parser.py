@@ -747,9 +747,9 @@ class Parser():
                 case '+=':
                     return Asign(left, Add(left, right))
                 case 'OR=':
-                    return Asign(left, Or(left, right))
+                    return Asign(left, BinaryOr(left, right))
                 case '&=':
-                    return Asign(left, And(left, right))
+                    return Asign(left, BinaryAnd(left, right))
                 
                 case '+':
                     return Add(left, right)
