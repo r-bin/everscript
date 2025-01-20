@@ -822,11 +822,11 @@ class BinaryOp(Operator):
 
         estimated_size = None
         match [left, right]:
-            case [Memory()|Word(), Memory()|Word()]:
+            case [Memory()|Word()|BinaryOp(), Memory()|Word()|BinaryOp()]:
                 estimated_size = max(left.value_count(), right.value_count())
-            case [Memory()|Word(), _]:
+            case [Memory()|Word()|BinaryOp(), _]:
                 estimated_size = left.value_count()
-            case [_, Memory()|Word()]:
+            case [_, Memory()|Word()|BinaryOp()]:
                 estimated_size = right.value_count()
 
         if isinstance(self, Memorable) and not self.is_memory(params):
