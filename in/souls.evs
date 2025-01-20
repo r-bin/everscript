@@ -20066,6 +20066,8 @@ area town() {
 
             enum ROOM {
                 BEE_COLLECTED = memory(FLAG, SRAM),
+
+                HOUSE_2_1_DOOR_OPENED = memory(FLAG, SRAM),
             }
 
             enum stepon_trigger {
@@ -20102,15 +20104,13 @@ area town() {
 
                     error_message(DOOR_LOCKED, SOUTH);
                 },
-                door_2_1 = @install() {
+                door_2_1 = @install() fun trigger_door_house_2_1() {
                     debug_subtext("S=5");
 
-                    if(True) {
-                        error_message(DOOR_LOCKED, SOUTH);
-                    } else {
+                    bombable_trigger(FLAG.QUEENS_KEY, ROOM.HOUSE_2_1_DOOR_OPENED, ((DIRECTION.SOUTH << 0x0008) | ERROR_TYPE.DOOR_LOCKED), {
                         generic_object_door(0x01, False, False);
                         map_transition(house_2_1, door, NORTH);
-                    }
+                    }, 0x01, 0x01);
                 },
                 exit_south = @install() {
                     debug_subtext("S=6");
@@ -20128,7 +20128,11 @@ area town() {
                 door_2_1_back = @install() {
                     debug_subtext("S=9");
 
-                    error_message(DOOR_LOCKED, EAST);
+                    if(True) {
+                        error_message(DOOR_WRONG_SIDE, EAST);
+                    } else {
+                        map_transition(house_2_1, door_backroom, NONE);
+                    }
                 },
 
                 door_1_3_back = @install() {
@@ -20145,6 +20149,8 @@ area town() {
             }
 
             fun trigger_enter() {
+                add_bombable(0d142, 0d46, ROOM.HOUSE_2_1_DOOR_OPENED, reference(trigger_door_house_2_1));
+
                 object[0x00] = 0x7e; // open gate
                 // object[0x01] = 0x01; // open door_2_1
                 // object[0x02] = 0x01; // open door_1_1_right
@@ -20205,6 +20211,8 @@ area town() {
                 add_bee(0d94, 0d76, reference(@install() {
                     bee_collected(ROOM.BEE_COLLECTED);
                 }));
+
+
 
                 default_init_room(False, False);
             }
@@ -20331,146 +20339,209 @@ area town() {
             }
         };
 
-        map house_2_1(IVOR_EBON_HOUSES) {
-            enum entrance {
-                door = entrance(0x72, 0x79, NORTH),
-                stairs = entrance(0x58, 0x67, SOUTH),
-            }
+        area town_house() {
+            map house_2_1(IVOR_EBON_HOUSES) {
+                enum entrance {
+                    door = entrance(0x70, 0x47, NORTH),
+                    stairs = entrance(0x56, 0x35, SOUTH),
 
-            enum stepon_trigger {
-                exit_backroom_3chests = nop(),
-                exit_inn_2_left = nop(),
-                exit_inn_2_right = nop(),
-                exit_stairs_house_3 = nop(),
-                exit_door_house_3 = nop(),
-                exit_stairs_upstairs = nop(),
-                exit_house_1 = nop(),
-                exit_door = @install() {
-                    debug_subtext("S=7");
-                    map_transition(town_level_1, door_2_1, SOUTH);
-                },
-                exit_stairs = @install() {
-                    debug_subtext("S=8");
-                    map_transition(house_2_1__upstairs, stairs_upstairs, NORTH);
-                },
-                exit_backroom_2chests = nop(),
+                    door_backroom = entrance(0x8c, 0x10, SOUTH),
+                }
 
-                exit_inn_1_left = nop(),
-                exit_inn_1_right = nop(),
-            }
+                enum stepon_trigger {
+                    exit_backroom_3chests = nop(),
+                    exit_inn_2_left = nop(),
+                    exit_inn_2_right = nop(),
+                    exit_stairs_house_3 = @install() {
+                        debug_subtext("S=3");
 
-            enum b_trigger {
-                gourd_backroom_3chests_3 = nop(),
-                gourd_backroom_3chests_2 = nop(),
-                gourd_backroom_3chests_1 = nop(),
-                gourd_inn_2 = nop(),
-                gourd = @install() {
-                    debug_subtext("B=4");
-                },
-                gourd_house_3_north = nop(),
-                gourd_house_3_east = nop(),
-                gourd_backroom_2chests_2 = nop(),
-                gourd_backroom_2chests_1 = nop(),
-                gourd_upstairs_1 = nop(),
+                        map_transition(house_2_1_upstairs, stairs, NORTH);
+                    },
+                    exit_door_house_3 = @install() {
+                        debug_subtext("S=4");
 
-                gourd_upstairs_2 = nop(),
-                b_trigger_11 = @install() {
-                    debug_subtext("B=11");
-                },
-                b_trigger_12 = @install() {
-                    debug_subtext("B=12");
-                },
-                inn_inn_2_south = nop(),
-                inn_inn_2_east = nop(),
-                inn_inn_1_east = nop(),
-                inn_inn_1_south = nop(),
-                gourd_inn_1 = nop(),
-                vendor_inn_1_south = nop(),
-                vendor_inn_1_east = nop(),
+                        map_transition(town_level_1, door_2_1, SOUTH);
+                    },
+                    exit_stairs_upstairs = nop(),
+                    exit_house_1 = nop(),
+                    exit_door_house_2 = nop(),
+                    exit_stairs_house_2 = nop(),
+                    exit_backroom = @install() {
+                        debug_subtext("S=9");
 
-                b_trigger_20 = @install() {
-                    debug_subtext("B=20");
-                },
-            }
+                        map_transition(town_level_1, door_2_1_back, NORTH);
+                    },
 
-            fun trigger_enter() {
-                // object[0x0c] = 0x01; // open gourd_house_2
+                    exit_inn_1_left = nop(),
+                    exit_inn_1_right = nop(),
+                }
 
-                fade_in();
-            }
-        };
+                enum b_trigger {
+                    gourd_backroom_3chests_3 = nop(),
+                    gourd_backroom_3chests_2 = nop(),
+                    gourd_backroom_3chests_1 = nop(),
+                    gourd_inn_2 = nop(),
+                    gourd_house_2 = nop(),
+                    gourd_north = @install() {
+                        debug_subtext("B=5");
+                    },
+                    gourd_east = @install() {
+                        debug_subtext("B=6");
+                    },
+                    gourd_backroom_2chests_2 = nop(),
+                    gourd_backroom_2chests_1 = nop(),
+                    gourd_upstairs_1 = nop(),
 
-        map house_2_1__upstairs(IVOR_EBON_HOUSES) {
-            enum entrance {
-                stairs_upstairs = entrance(0xaa, 0x23, NORTH),
-            }
+                    gourd_upstairs_2 = nop(),
+                    b_trigger_11 = @install() {
+                        debug_subtext("B=11");
+                    },
+                    b_trigger_12 = @install() {
+                        debug_subtext("B=12");
+                    },
+                    inn_inn_2_south = nop(),
+                    inn_inn_2_east = nop(),
+                    inn_inn_1_east = nop(),
+                    inn_inn_1_south = nop(),
+                    gourd_inn_1 = nop(),
+                    vendor_inn_1_south = nop(),
+                    vendor_inn_1_east = nop(),
 
-            enum stepon_trigger {
-                exit_backroom_3chests = nop(),
-                exit_inn_2_left = nop(),
-                exit_inn_2_right = nop(),
-                exit_stairs_house_3 = nop(),
-                exit_door_house_3 = nop(),
-                exit_stairs = @install() {
-                    debug_subtext("S=5");
-                    map_transition(house_2_1, stairs, SOUTH);
-                },
-                exit_house_1 = nop(),
-                exit_door_house_2 = nop(),
-                exit_stairs_house_2 = nop(),
-                exit_backroom_2chests = nop(),
+                    b_trigger_20 = @install() {
+                        debug_subtext("B=20");
+                    },
+                }
 
-                exit_inn_1_left = nop(),
-                exit_inn_1_right = nop(),
-            }
+                fun init_room(index) {
+                    if(index == 0x00) {
+                        init_map(0xa2, 0x24, 0xd8, 0x54); // house_1
+                    } else if(index == 0x01) {
+                        init_map(0x4a, 0x48, 0x9c, 0x7a); // house_2
+                    } else if(index == 0x02) {
+                        init_map(0x48, 0x08, 0x9a, 0x48); // house_3
+                    } else if(index == 0x03) {
+                        init_map(0x02, 0x4c, 0x46, 0x8c); // inn_1
+                    } else if(index == 0x04) {
+                        init_map(0x02, 0x08, 0x46, 0x48); // inn_2
+                    } else if(index == 0x05) {
+                        init_map(0xa2, 0x08, 0xd4, 0x24); // upstairs
+                    }
+                }
 
-            enum b_trigger {
-                gourd_backroom_3chests_3 = nop(),
-                gourd_backroom_3chests_2 = nop(),
-                gourd_backroom_3chests_1 = nop(),
-                gourd_inn_2 = nop(),
-                gourd_house_2 = nop(),
-                gourd_house_3_north = nop(),
-                gourd_house_3_east = nop(),
-                gourd_backroom_2chests_2 = nop(),
-                gourd_backroom_2chests_1 = nop(),
-                gourd_1 = @install() {
-                    debug_subtext("B=9");
-                },
+                fun trigger_enter() {
+                    init_room(0x02);
 
-                gourd_2 = @install() {
-                    debug_subtext("B=10");
-                },
-                b_trigger_11 = @install() {
-                    debug_subtext("B=11");
-                },
-                b_trigger_12 = @install() {
-                    debug_subtext("B=12");
-                },
-                inn_inn_2_south = nop(),
-                inn_inn_2_east = nop(),
-                inn_inn_1_east = nop(),
-                inn_inn_1_south = nop(),
-                gourd_inn_1 = nop(),
-                vendor_inn_1_south = nop(),
-                vendor_inn_1_east = nop(),
+                    // object[0x04] = 0x01; // open gourd_house_3_north
+                    // object[0x0b] = 0x01; // open gourd_house_3_east
 
-                b_trigger_20 = @install() {
-                    debug_subtext("B=20");
-                },
-            }
+                    fade_in();
+                }
+            };
 
-            fun trigger_enter() {
-                // object[0x07] = 0x01; // open gourd_upstairs_1
-                // object[0x08] = 0x01; // open gourd_upstairs_2
-                // object[0x1a] = 0x01; // change upstairs_layout (0 = bed, 1 = chest closed, wall pass through 2 = chest open, wall closed)
-                // object[0x1b] = 0x01; // show wall_upstairs
-                // object[0x1c] = 0x01; // show cosmetic_upstairs_1 (crate instead of bed)
-                // object[0x1d] = 0x01; // show cosmetic_upstairs_2 (fruit bowl)
-                // object[0x1e] = 0x01; // hide cosmetic_upstairs_2 (clock)
+            map house_2_1_upstairs(IVOR_EBON_HOUSES) {
+                enum entrance {
+                    stairs = entrance(0xaa, 0x23, NORTH),
+                }
 
-                fade_in();
-            }
+                enum stepon_trigger {
+                    exit_backroom_3chests = nop(),
+                    exit_inn_2_left = nop(),
+                    exit_inn_2_right = nop(),
+                    exit_stairs_house_3 = nop(),
+                    exit_door_house_3 = nop(),
+                    exit_stairs = @install() {
+                        debug_subtext("S=5");
+
+                        map_transition(house_2_1, stairs, SOUTH);
+                    },
+                    exit_house_1 = nop(),
+                    exit_door_house_2 = nop(),
+                    exit_stairs_house_2 = nop(),
+                    exit_backroom_2chests = nop(),
+
+                    exit_inn_1_left = nop(),
+                    exit_inn_1_right = nop(),
+                }
+
+                enum b_trigger {
+                    gourd_backroom_3chests_3 = nop(),
+                    gourd_backroom_3chests_2 = nop(),
+                    gourd_backroom_3chests_1 = nop(),
+                    gourd_inn_2 = nop(),
+                    gourd_house_2 = nop(),
+                    gourd_house_3_north = nop(),
+                    gourd_house_3_east = nop(),
+                    gourd_backroom_2chests_2 = nop(),
+                    gourd_backroom_2chests_1 = nop(),
+                    gourd_2_1 = @install() {
+                        debug_subtext("B=9");
+                    },
+
+                    gourd_2_2 = @install() {
+                        debug_subtext("B=10");
+                    },
+                    b_trigger_11 = @install() {
+                        debug_subtext("B=11");
+                    },
+                    b_trigger_12 = @install() {
+                        debug_subtext("B=12");
+                    },
+                    inn_inn_2_south = nop(),
+                    inn_inn_2_east = nop(),
+                    inn_inn_1_east = nop(),
+                    inn_inn_1_south = nop(),
+                    gourd_inn_1 = nop(),
+                    vendor_inn_1_south = nop(),
+                    vendor_inn_1_east = nop(),
+
+                    gourd_1 = @install() {
+                        debug_subtext("B=20");
+
+                        error_message(SWITCH_STUCK);
+                    },
+                }
+
+                fun init_room(index) {
+                    if(index == 0x00) {
+                        init_map(0xa2, 0x24, 0xd8, 0x54); // house_1
+                    } else if(index == 0x01) {
+                        init_map(0x4a, 0x48, 0x9c, 0x7a); // house_2
+                    } else if(index == 0x02) {
+                        init_map(0x48, 0x08, 0x9a, 0x48); // house_3
+                    } else if(index == 0x03) {
+                        init_map(0x02, 0x4c, 0x46, 0x8c); // inn_1
+                    } else if(index == 0x04) {
+                        init_map(0x02, 0x08, 0x46, 0x48); // inn_2
+                    } else if(index == 0x05) {
+                        init_map(0xa2, 0x08, 0xd4, 0x24); // upstairs
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0x05);
+
+                    // object[0x07] = 0x01; // open gourd_upstairs_1
+                    // object[0x08] = 0x01; // open gourd_upstairs_2
+                    object[0x1a] = 0x02; // change upstairs_layout (0 = bed, 1 = chest closed, wall pass through 2 = chest open, wall closed)
+                    object[0x1b] = 0x01; // show wall_upstairs
+                    // object[0x1c] = 0x01; // show cosmetic_upstairs_1 (crate instead of bed)
+                    // object[0x1d] = 0x01; // show cosmetic_upstairs_2 (fruit bowl)
+                    // object[0x1e] = 0x01; // hide cosmetic_upstairs_2 (clock)
+
+                    add_enemy(PLACEHOLDER, 0d183, 0d18);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        if(False) {
+                            fake_b();
+                        } else {
+                            object[0x1a] = 0x01; // change upstairs_layout (0 = bed, 1 = chest closed, wall pass through 2 = chest open, wall closed)
+
+                            destroy(SCRIPT_OWNER);
+                        }
+                    }));
+
+                    fade_in();
+                }
+            };
         };
     };
 
