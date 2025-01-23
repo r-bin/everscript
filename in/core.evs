@@ -940,6 +940,7 @@ group general_enums() {
             NO_XP_MONEY = <0x28fb, 0x20>,
 
             START_COOLDOWN = <0x28fb, 0x40>,
+            NO_START = <0x28fb, 0x80>,
 
             // <0x28fa, x>
             START_MARIO_YUMP = <0x28fa, 0x01>,
@@ -2334,6 +2335,7 @@ group general_enums() {
                 SPEAR_2 = 0x0221,
                 SPEAR_3 = 0x0222,
                 SPEAR_4 = 0x0223,
+                BAZOOKA = 0x0224,
 
                 CHEST_1_1 = 0x0230,
                 CHEST_1_2 = 0x0231,
@@ -2683,6 +2685,8 @@ group general_enums() {
                 SPOON = 0x100a,
                 TAPESTRY = 0x100b,
                 TICKET_FOR_EXHIBITION = 0x100c,
+                
+                BAZOOKA = 0x1010,
             }
 
             enum WEAPON_TYPE {
@@ -2731,7 +2735,9 @@ group general_enums() {
                 SPEAR_3 = 0x16,
                 SPEAR_4 = 0x18,
 
-                BAZOOKA = 0x1a,
+                BAZOOKA_1 = 0x1a, // "Bazooka" (red)
+                BAZOOKA_2 = 0x1c, // "Bazooka" (green)
+                BAZOOKA_3 = 0x1e, // "Bazooka" (blue)
 
                 // weird
                 UNKNOWN = 0x00,
@@ -5661,6 +5667,8 @@ group functions() {
                     MEMORY.GAIN_WEAPON = GAIN_WEAPON.SPEAR_3;
                 } else if(item == ITEM.SPEAR_4) {
                     MEMORY.GAIN_WEAPON = GAIN_WEAPON.SPEAR_4;
+                } else if(item == ITEM.BAZOOKA) {
+                    MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_1;
                 } else if(item == ITEM.CHEST_1_1) { // armor
                     MEMORY.CHEST_1_1++;
                 } else if(item == ITEM.CHEST_1_2) {
@@ -5958,6 +5966,14 @@ group functions() {
                     MEMORY.GAIN_WEAPON = GAIN_WEAPON.SPEAR_4;
                     
                     subtext("Spear 4"); // ?
+                } else if(item == ITEM.BAZOOKA) {
+                    MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_1;
+
+                    if!(MEMORY.AMMO_1) {
+                        MEMORY.AMMO_1 = 0d1;
+                    }
+                    
+                    subtext("Bazooka"); // ?
                 } else if(item == ITEM.CHEST_1_1) { // armor
                     unlock(item);
 
@@ -6986,24 +7002,39 @@ group functions() {
 
                     if(flag is Memory) {
                         if(FLAG.LOOT_SUCCESSFUL) {
-                            set(flag);
+                            flag = True;
                         }
                     }
                 } else {
-                    if(reward == LOOT_REWARD.SPOON) {
-                        MEMORY.SPOON++;
+                    MEMORY.LOOT_ITEM = LOOT_REWARD.NOTHING;
+                    MEMORY.LOOT_OBJECT = object_id;
 
-                        subtext("Found a spoon");
-                    } else if(reward == LOOT_REWARD.TICKET_FOR_EXHIBITION) {
-                        MEMORY.TICKET_FOR_EXHIBITION++;
+                    enable_subtext(False);
+                    call_id(animation);
+                    enable_subtext(True);
 
-                        subtext("Found a ticket");
+                    if(next > 0d0) {
+                        MEMORY.LOOT_AMOUNT = next;
                     }
 
-                    call_id(LOOT_GOURD);
-                    object[object_id] = 0x01;
-                    if(flag is Memory) {
-                        set(flag);
+                    if(FLAG.LOOT_SUCCESSFUL) {
+                        if(reward == LOOT_REWARD.SPOON) {
+                            MEMORY.SPOON += amount;
+
+                            subtext("Found a Spoon");
+                        } else if(reward == LOOT_REWARD.TICKET_FOR_EXHIBITION) {
+                            MEMORY.TICKET_FOR_EXHIBITION += amount;
+
+                            subtext("Found a Ticket");
+                        } else if(reward == LOOT_REWARD.BAZOOKA) {
+                            MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_1;
+
+                            subtext("Found a Bazooka");
+                        }
+
+                        if(flag is Memory) {
+                            flag = True;
+                        }
                     }
                 }
             }
