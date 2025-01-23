@@ -1905,6 +1905,9 @@ class Reference(Function_Base):
             case _:
                 raise Exception(f"invalid reference {self.value}")
     
+    def _code(self, params:list[Param]):
+        return self.calculate(params)
+    
     def calculate(self, params:list[Param]):
         code = Word(self.eval(params)).code(params)
         
