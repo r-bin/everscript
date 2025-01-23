@@ -259,6 +259,19 @@ group non_maps() {
         fun bone_crusher_attack() {
             code(0d0010 + 0d2, "// bone crusher attack"); // compensates for fixed silver sheath
         }
+
+        @install(WEAPON_DATA.POINTER + WEAPON_DATA.SIZE * (WEAPON_INDEX.BAZOOKA_1 / 0d02 - 0d01), False)
+        fun bone_crusher_attack() {
+            code(0d0020, "// bazooka (red) attack");
+        }
+        @install(WEAPON_DATA.POINTER + WEAPON_DATA.SIZE * (WEAPON_INDEX.BAZOOKA_2 / 0d02 - 0d01), False)
+        fun bone_crusher_attack() {
+            code(0d0030, "// bazooka (green) attack");
+        }
+        @install(WEAPON_DATA.POINTER + WEAPON_DATA.SIZE * (WEAPON_INDEX.BAZOOKA_3 / 0d02 - 0d01), False)
+        fun bone_crusher_attack() {
+            code(0d0040, "// bazooka (blue) attack");
+        }
     };
 
     group helper() {
@@ -359,12 +372,12 @@ group non_maps() {
 
             // features
             WITH_OPENING = False, // doesn't work?
-            WITH_SAVESTATE_LOAD = True, // after splash screen
+            WITH_SAVESTATE_LOAD = False, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
             WITH_INTRO = True,
             WITH_STARTING_CLASS = False,
-            WITH_SHRINE_INTRO = True,
+            WITH_SHRINE_INTRO = False,
             WITH_SOULS_ON_DEATH = True,
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
             WITH_TRASH_ENEMIES = True,
@@ -2003,7 +2016,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(temple_underground_castle_south_east, west, NONE);
+                map_transition(metro, door_a1, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -25108,6 +25121,9 @@ area metro() {
             COLUMN_3 = 0d146,
             COLUMN_4 = 0d210,
 
+            WITH_BROKEN_GATE_BOT = False, // TODO: buggy, also weird in vanilla
+            GUARD_BOT_HP = 0d20,
+
             DOOR_OPENED_A1_SOUTH = memory(FLAG, TEMP),
             DOOR_OPENED_A2_SOUTH = memory(FLAG, TEMP),
             DOOR_OPENED_A3_SOUTH = memory(FLAG, TEMP),
@@ -25448,31 +25464,45 @@ area metro() {
             },
         }
 
-        fun destroy_gate_bot(entity, flag) {
-            if(flag is Memory) {
-                flag = True;
-            }
-
+        fun destroy_gate_bot(entity) {
             if!(dead(entity)) {
                 damage(entity, 0d999, False);
             }
         }
-        @install()
-        fun gate_bot_killed() {
-            <SCRIPT_OWNER>[Y] += 0d8;
+        fun _gate_bot_killed(entity) {
+            heal(entity, 0d0, False);
+            attribute(entity, INVINCIBLE, True);
 
-            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+            entity[Y] += 0d8;
+
+            animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+
+            arg[0x10] = entity[GENERAL_PURPOSE] >> 0x0008;
+            arg[0x12] = entity[GENERAL_PURPOSE] & 0xff;
+
+            object[arg[0x10]] = arg[0x12];
         }
-        fun add_gate_bot(id, x, y, condition, object_door) {
+        fun gate_bot_killed(flag) {
+            flag = True;
+
+            _gate_bot_killed(<SCRIPT_OWNER>);
+        }
+        fun _add_gate_bot(id, x, y, object_door, trigger_death) {
             add_enemy(GATE_BOT, x, y);
             <LAST_ENTITY>[Z_LEVEL] = 0d0;
-            <LAST_ENTITY>[HP] = 0d200;
+            <LAST_ENTITY>[HP] = ROOM.GUARD_BOT_HP;
             id = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DEATH, reference(gate_bot_killed));
+            <LAST_ENTITY>[GENERAL_PURPOSE] = (object_door << 0x0008) | 0x7e;
+            attach_script(LAST_ENTITY, DEATH, trigger_death);
+        }
+        fun add_gate_bot(id, x, y, condition, object_door, trigger_death) {
+            _add_gate_bot(id, x, y, object_door, trigger_death);
 
             if(condition) {
-                destroy_gate_bot(<LAST_ENTITY>);
-                object[object_door] = 0x7e;
+                if!(ROOM.WITH_BROKEN_GATE_BOT) {
+                    attribute(<LAST_ENTITY>, INVISIBLE, True);
+                }
+                _gate_bot_killed(<LAST_ENTITY>);
             }
         }
 
@@ -25502,175 +25532,129 @@ area metro() {
             arg[0x12] = <LAST_ENTITY>;
 
             if((cell_x == ROOM.COLUMN_1) && (cell_y == ROOM.ROW_1)) { // a1
-                destroy_gate_bot(ROOM.GATE_ID_A1_A2, ROOM.GATE_OPENED_A1_A2);
-                destroy_gate_bot(ROOM.GATE_ID_A1_B1, ROOM.GATE_OPENED_A1_B1);
+                destroy_gate_bot(ROOM.GATE_ID_A1_A2);
+                destroy_gate_bot(ROOM.GATE_ID_A1_B1);
 
                 arg[0x14] = ROOM.GATE_ID_A1_A2;
                 arg[0x16] = ROOM.GATE_ID_A1_B1;
 
                 object[0x2f] = 0x7e; // open door_a1_up
-
-                object[0x2e] = 0d01; // open door_a1_a2
-                object[0x20] = 0x7e; // open door_a1_b1
             } else if((cell_x == ROOM.COLUMN_2) && (cell_y == ROOM.ROW_1)) { // a2
-                destroy_gate_bot(ROOM.GATE_ID_A1_A2, ROOM.GATE_OPENED_A1_A2);
-                destroy_gate_bot(ROOM.GATE_ID_A2_B2, ROOM.GATE_OPENED_A2_B2);
+                destroy_gate_bot(ROOM.GATE_ID_A1_A2);
+                destroy_gate_bot(ROOM.GATE_ID_A2_B2);
 
                 arg[0x14] = ROOM.GATE_ID_A1_A2;
                 arg[0x16] = ROOM.GATE_ID_A2_B2;
 
                 object[0x30] = 0x7e; // open door_a2_up
-
-                object[0x2e] = 0d01; // open door_a1_a2
-                object[0x01] = 0x7e; // open door_a2_b2
             } else if((cell_x == ROOM.COLUMN_3) && (cell_y == ROOM.ROW_1)) { // a3
-                destroy_gate_bot(ROOM.GATE_ID_A3_A4, ROOM.GATE_OPENED_A3_A4);
+                destroy_gate_bot(ROOM.GATE_ID_A3_A4);
 
                 arg[0x14] = ROOM.GATE_ID_A3_A4;
 
                 object[0x31] = 0x7e; // open door_a3_up
-
-                object[0x26] = 0d01; // open door_a3_a4
             } else if((cell_x == ROOM.COLUMN_4) && (cell_y == ROOM.ROW_1)) { // a4
-                destroy_gate_bot(ROOM.GATE_ID_A3_A4, ROOM.GATE_OPENED_A3_A4);
+                destroy_gate_bot(ROOM.GATE_ID_A3_A4);
 
                 arg[0x14] = ROOM.GATE_ID_A3_A4;
 
                 object[0x31] = 0x7e; // open door_a3_up
-
-                object[0x26] = 0d01; // open door_a3_a4
             } else if((cell_x == ROOM.COLUMN_1) && (cell_y == ROOM.ROW_2)) { // b1
-                destroy_gate_bot(ROOM.GATE_ID_A1_B1, ROOM.GATE_OPENED_A1_B1);
-                destroy_gate_bot(ROOM.GATE_ID_B1_B2, ROOM.GATE_OPENED_B1_B2);
-                destroy_gate_bot(ROOM.GATE_ID_B1_C1, ROOM.GATE_OPENED_B1_C1);
+                destroy_gate_bot(ROOM.GATE_ID_A1_B1);
+                destroy_gate_bot(ROOM.GATE_ID_B1_B2);
+                destroy_gate_bot(ROOM.GATE_ID_B1_C1);
 
                 arg[0x14] = ROOM.GATE_ID_A1_B1;
                 arg[0x16] = ROOM.GATE_ID_B1_B2;
                 arg[0x18] = ROOM.GATE_ID_B1_C1;
 
                 object[0x36] = 0x7e; // open door_b1_up
-
-                object[0x20] = 0x7e; // open door_a1_b1
-                object[0x2d] = 0d01; // open door_b1_b2
-                object[0x21] = 0x7e; // open door_b1_c1
             } else if((cell_x == ROOM.COLUMN_2) && (cell_y == ROOM.ROW_2)) { // b2
-                destroy_gate_bot(ROOM.GATE_ID_B2_C2, ROOM.GATE_OPENED_B2_C2);
-                destroy_gate_bot(ROOM.GATE_ID_B1_B2, ROOM.GATE_OPENED_B1_B2);
-                destroy_gate_bot(ROOM.GATE_ID_A2_B2, ROOM.GATE_OPENED_A2_B2);
+                destroy_gate_bot(ROOM.GATE_ID_B2_C2);
+                destroy_gate_bot(ROOM.GATE_ID_B1_B2);
+                destroy_gate_bot(ROOM.GATE_ID_A2_B2);
 
                 arg[0x14] = ROOM.GATE_ID_B2_C2;
                 arg[0x16] = ROOM.GATE_ID_B1_B2;
                 arg[0x18] = ROOM.GATE_ID_A2_B2;
 
                 object[0x35] = 0x7e; // open door_b2_up
-
-                object[0x22] = 0x7e; // open door_b2_c2
-                object[0x2d] = 0d01; // open door_b1_b2
-                object[0x01] = 0x7e; // open door_a2_b2
             } else if((cell_x == ROOM.COLUMN_3) && (cell_y == ROOM.ROW_2)) { // b3
-                destroy_gate_bot(ROOM.GATE_ID_B3_B4, ROOM.GATE_OPENED_B3_B4);
+                destroy_gate_bot(ROOM.GATE_ID_B3_B4);
 
                 arg[0x14] = ROOM.GATE_ID_B3_B4;
 
                 object[0x34] = 0x7e; // open door_b3_up
-
-                object[0x27] = 0d01; // open door_b3_b4
             } else if((cell_x == ROOM.COLUMN_4) && (cell_y == ROOM.ROW_2)) { // b4
-                destroy_gate_bot(ROOM.GATE_ID_B3_B4, ROOM.GATE_OPENED_B3_B4);
+                destroy_gate_bot(ROOM.GATE_ID_B3_B4);
 
                 arg[0x14] = ROOM.GATE_ID_B3_B4;
 
                 object[0x33] = 0x7e; // open door_b4_up
-
-                object[0x27] = 0d01; // open door_b3_b4
             } else if((cell_x == ROOM.COLUMN_1) && (cell_y == ROOM.ROW_3)) { // c1
-                destroy_gate_bot(ROOM.GATE_ID_C1_C2, ROOM.GATE_OPENED_C1_C2);
-                destroy_gate_bot(ROOM.GATE_ID_B1_C1, ROOM.GATE_OPENED_B1_C1);
+                destroy_gate_bot(ROOM.GATE_ID_C1_C2);
+                destroy_gate_bot(ROOM.GATE_ID_B1_C1);
 
                 arg[0x14] = ROOM.GATE_ID_C1_C2;
                 arg[0x16] = ROOM.GATE_ID_B1_C1;
 
                 object[0x37] = 0x7e; // open door_c1_up
-
-                object[0x2c] = 0d01; // open door_c1_c2
-                object[0x21] = 0x7e; // open door_b1_c1
             } else if((cell_x == ROOM.COLUMN_2) && (cell_y == ROOM.ROW_3)) { // c2
-                destroy_gate_bot(ROOM.GATE_ID_C1_C2, ROOM.GATE_OPENED_C1_C2);
-                destroy_gate_bot(ROOM.GATE_ID_B2_C2, ROOM.GATE_OPENED_B2_C2);
+                destroy_gate_bot(ROOM.GATE_ID_C1_C2);
+                destroy_gate_bot(ROOM.GATE_ID_B2_C2);
 
                 arg[0x14] = ROOM.GATE_ID_C1_C2;
                 arg[0x16] = ROOM.GATE_ID_B2_C2;
 
                 object[0x38] = 0x7e; // open door_c2_up
-
-                object[0x2c] = 0d01; // open door_c1_c2
-                object[0x22] = 0x7e; // open door_b2_c2
             } else if((cell_x == ROOM.COLUMN_3) && (cell_y == ROOM.ROW_3)) { // c3
-                destroy_gate_bot(ROOM.GATE_ID_C3_C4, ROOM.GATE_OPENED_C3_C4);
-                destroy_gate_bot(ROOM.GATE_ID_C3_D3, ROOM.GATE_OPENED_C3_D3);
+                destroy_gate_bot(ROOM.GATE_ID_C3_C4);
+                destroy_gate_bot(ROOM.GATE_ID_C3_D3);
 
                 arg[0x14] = ROOM.GATE_ID_C3_C4;
                 arg[0x16] = ROOM.GATE_ID_C3_D3;
 
                 object[0x39] = 0x7e; // open door_c3_up
-
-                object[0x28] = 0d01; // open door_c3_c4
-                object[0x23] = 0x7e; // open door_c3_d3
             } else if((cell_x == ROOM.COLUMN_4) && (cell_y == ROOM.ROW_3)) { // c4
-                destroy_gate_bot(ROOM.GATE_ID_C4_D4, ROOM.GATE_OPENED_C4_D4);
-                destroy_gate_bot(ROOM.GATE_ID_C3_C4, ROOM.GATE_OPENED_C3_C4);
+                destroy_gate_bot(ROOM.GATE_ID_C4_D4);
+                destroy_gate_bot(ROOM.GATE_ID_C3_C4);
 
                 arg[0x14] = ROOM.GATE_ID_C4_D4;
                 arg[0x16] = ROOM.GATE_ID_C3_C4;
 
                 object[0x3a] = 0x7e; // open door_c4_up
-
-                object[0x24] = 0x7e; // open door_c4_d4
-                object[0x28] = 0d01; // open door_c3_c4
             } else if((cell_x == ROOM.COLUMN_1) && (cell_y == ROOM.ROW_4)) { // d1
-                destroy_gate_bot(ROOM.GATE_ID_D1_D2, ROOM.GATE_OPENED_D1_D2);
+                destroy_gate_bot(ROOM.GATE_ID_D1_D2);
 
                 arg[0x14] = ROOM.GATE_ID_D1_D2;
 
                 object[0x3e] = 0x7e; // open door_d1_up
-
-                object[0x2b] = 0d01; // open door_d1_d2
             } else if((cell_x == ROOM.COLUMN_2) && (cell_y == ROOM.ROW_4)) { // d2
-                destroy_gate_bot(ROOM.GATE_ID_D2_D3, ROOM.GATE_OPENED_D2_D3);
-                destroy_gate_bot(ROOM.GATE_ID_D1_D2, ROOM.GATE_OPENED_D1_D2);
+                destroy_gate_bot(ROOM.GATE_ID_D2_D3);
+                destroy_gate_bot(ROOM.GATE_ID_D1_D2);
 
                 arg[0x14] = ROOM.GATE_ID_D2_D3;
                 arg[0x16] = ROOM.GATE_ID_D1_D2;
 
                 object[0x3d] = 0x7e; // open door_d2_up
-
-                object[0x2a] = 0d01; // open door_d2_d3
-                object[0x2b] = 0d01; // open door_d1_d2
             } else if((cell_x == ROOM.COLUMN_3) && (cell_y == ROOM.ROW_4)) { // d3
-                destroy_gate_bot(ROOM.GATE_ID_D3_D4, ROOM.GATE_OPENED_D3_D4);
-                destroy_gate_bot(ROOM.GATE_ID_C3_D3, ROOM.GATE_OPENED_C3_D3);
-                destroy_gate_bot(ROOM.GATE_ID_D2_D3, ROOM.GATE_OPENED_D2_D3);
+                destroy_gate_bot(ROOM.GATE_ID_D3_D4);
+                destroy_gate_bot(ROOM.GATE_ID_C3_D3);
+                destroy_gate_bot(ROOM.GATE_ID_D2_D3);
 
                 arg[0x14] = ROOM.GATE_ID_D3_D4;
                 arg[0x16] = ROOM.GATE_ID_C3_D3;
                 arg[0x18] = ROOM.GATE_ID_D2_D3;
 
                 object[0x3c] = 0x7e; // open door_d3_up
-
-                object[0x29] = 0d01; // open door_d3_d4
-                object[0x23] = 0x7e; // open door_c3_d3
-                object[0x2a] = 0d01; // open door_d2_d3
             } else if((cell_x == ROOM.COLUMN_4) && (cell_y == ROOM.ROW_4)) { // d4
-                destroy_gate_bot(ROOM.GATE_ID_D3_D4, ROOM.GATE_OPENED_D3_D4);
-                destroy_gate_bot(ROOM.GATE_ID_C4_D4, ROOM.GATE_OPENED_C4_D4);
+                destroy_gate_bot(ROOM.GATE_ID_D3_D4);
+                destroy_gate_bot(ROOM.GATE_ID_C4_D4);
 
                 arg[0x14] = ROOM.GATE_ID_D3_D4;
                 arg[0x16] = ROOM.GATE_ID_C4_D4;
 
                 object[0x3b] = 0x7e; // open door_d4_up
-
-                object[0x29] = 0d01; // open door_d3_d4
-                object[0x24] = 0x7e; // open door_c4_d4
             }
 
             sleep(0d30);
@@ -25969,24 +25953,24 @@ area metro() {
         }        
 
         fun trigger_enter() {
-            add_gate_bot(ROOM.GATE_ID_A1_A2, 0d50, 0d13, ROOM.GATE_OPENED_A1_A2, 0x2e);
-            add_gate_bot(ROOM.GATE_ID_A1_B1, 0d18, 0d34, ROOM.GATE_OPENED_A1_B1, 0x20);
-            add_gate_bot(ROOM.GATE_ID_A2_B2, 0d82, 0d34, ROOM.GATE_OPENED_A2_B2, 0x01);
-            add_gate_bot(ROOM.GATE_ID_A3_A4, 0d178, 0d13, ROOM.GATE_OPENED_A3_A4, 0x26);
+            add_gate_bot(ROOM.GATE_ID_A1_A2, 0d50, 0d13, ROOM.GATE_OPENED_A1_A2, 0x2e, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A1_A2); }));
+            add_gate_bot(ROOM.GATE_ID_A1_B1, 0d18, 0d34, ROOM.GATE_OPENED_A1_B1, 0x20, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A1_B1); }));
+            add_gate_bot(ROOM.GATE_ID_A2_B2, 0d82, 0d34, ROOM.GATE_OPENED_A2_B2, 0x01, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A2_B2); }));
+            add_gate_bot(ROOM.GATE_ID_A3_A4, 0d178, 0d13, ROOM.GATE_OPENED_A3_A4, 0x26, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A3_A4); }));
 
-            add_gate_bot(ROOM.GATE_ID_B1_B2, 0d50, 0d57, ROOM.GATE_OPENED_B1_B2, 0x2d);
-            add_gate_bot(ROOM.GATE_ID_B1_C1, 0d18, 0d78, ROOM.GATE_OPENED_B1_C1, 0x21);
-            add_gate_bot(ROOM.GATE_ID_B2_C2, 0d82, 0d78, ROOM.GATE_OPENED_B2_C2, 0x22);
-            add_gate_bot(ROOM.GATE_ID_B3_B4, 0d178, 0d57, ROOM.GATE_OPENED_B3_B4, 0x27);
+            add_gate_bot(ROOM.GATE_ID_B1_B2, 0d50, 0d57, ROOM.GATE_OPENED_B1_B2, 0x2d, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_B1_B2); }));
+            add_gate_bot(ROOM.GATE_ID_B1_C1, 0d18, 0d78, ROOM.GATE_OPENED_B1_C1, 0x21, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_B1_C1); }));
+            add_gate_bot(ROOM.GATE_ID_B2_C2, 0d82, 0d78, ROOM.GATE_OPENED_B2_C2, 0x22, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_B2_C2); }));
+            add_gate_bot(ROOM.GATE_ID_B3_B4, 0d178, 0d57, ROOM.GATE_OPENED_B3_B4, 0x27, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_B3_B4); }));
             
-            add_gate_bot(ROOM.GATE_ID_C1_C2, 0d50, 0d101, ROOM.GATE_OPENED_C1_C2, 0x2c);
-            add_gate_bot(ROOM.GATE_ID_C3_C4, 0d178, 0d101, ROOM.GATE_OPENED_C3_C4, 0x28);
-            add_gate_bot(ROOM.GATE_ID_C3_D3, 0d146, 0d122, ROOM.GATE_OPENED_C3_D3, 0x23);
-            add_gate_bot(ROOM.GATE_ID_C4_D4, 0d210, 0d122, ROOM.GATE_OPENED_C4_D4, 0x24);
+            add_gate_bot(ROOM.GATE_ID_C1_C2, 0d50, 0d101, ROOM.GATE_OPENED_C1_C2, 0x2c, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_C1_C2); }));
+            add_gate_bot(ROOM.GATE_ID_C3_C4, 0d178, 0d101, ROOM.GATE_OPENED_C3_C4, 0x28, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_C3_C4); }));
+            add_gate_bot(ROOM.GATE_ID_C3_D3, 0d146, 0d122, ROOM.GATE_OPENED_C3_D3, 0x23, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_C3_D3); }));
+            add_gate_bot(ROOM.GATE_ID_C4_D4, 0d210, 0d122, ROOM.GATE_OPENED_C4_D4, 0x24, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_C4_D4); }));
 
-            add_gate_bot(ROOM.GATE_ID_D1_D2, 0d50, 0d145, ROOM.GATE_OPENED_D1_D2, 0x2b);
-            add_gate_bot(ROOM.GATE_ID_D2_D3, 0d114, 0d145, ROOM.GATE_OPENED_D2_D3, 0x2a);
-            add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29);
+            add_gate_bot(ROOM.GATE_ID_D1_D2, 0d50, 0d145, ROOM.GATE_OPENED_D1_D2, 0x2b, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D1_D2); }));
+            add_gate_bot(ROOM.GATE_ID_D2_D3, 0d114, 0d145, ROOM.GATE_OPENED_D2_D3, 0x2a, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D2_D3); }));
+            add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D3_D4); }));
 
             fade_in();
 

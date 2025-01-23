@@ -25,7 +25,6 @@
 
 
 # important
-## naris not reachable
 ## true ending boss?
 ## every any door can be opened by a bomb
 
