@@ -539,7 +539,7 @@ group non_maps() {
             DEAD_TAVERN_BOXERS = memory(FLAG, SRAM), // t0
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
             DEAD_TOWN_PUPPETS = memory(FLAG, SRAM),
-            REWARD_TOWN_PUPPETS = ITEM.NECTAR, // TODO
+            REWARD_TOWN_PUPPETS = CUSTOM_ITEM.SPEAR_ORB,
 
             DEAD_TEMPLE_MINITAUR = memory(FLAG, SRAM),
             REWARD_TEMPLE_MINITAUR = CUSTOM_ITEM.SPEAR_ORB,
@@ -1309,7 +1309,7 @@ group non_maps() {
 
             subtext("Bonfire Lit");
 
-            if(SOULS_MEMORY.WITH_SHRINE_INTRO) {
+            if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_SHRINE_INTRO) {
                 if!(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
                     SOULS_MEMORY.BONFIRE_FIRST_TRIGGER = True;
 
@@ -1412,7 +1412,7 @@ group non_maps() {
 
                 // CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
-                if(SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
                     if(FLAG.DEBUG) {
                         SOULS_MEMORY.MENU_CHOICE = 0x01;
                         
@@ -1423,7 +1423,7 @@ group non_maps() {
                     }
                 }
 
-                if(SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_ALL_BONFIRES) {
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_ALL_BONFIRES) {
                     // center
                     SOULS_MEMORY.BONFIRE_INBETWIXX = True;
 
@@ -3744,10 +3744,10 @@ area intro_screens() {
                     call(0x92e0ca);
                 }
             } else {
-                if(SOULS_MEMORY.WITH_SAVESTATE_LOAD) {
-                    boot_into_loading_screen();
-                } else {
+                if(SOULS_MEMORY.DEBUG && !SOULS_MEMORY.WITH_SAVESTATE_LOAD) {
                     intro_skip();
+                } else {
+                    boot_into_loading_screen();
                 }
             }
         }
@@ -4087,23 +4087,24 @@ area shrine_area() {
 
         @install()
         fun first_bonfire_triggered() {
-            if(SOULS_MEMORY.WITH_SHRINE_INTRO) {
+            if(SOULS_MEMORY.DEBUG && !(SOULS_MEMORY.WITH_SHRINE_INTRO)) {
+                bonfire_triggered_first_bonfire();
+            } else {
                 if(
-                    (NPC_SHRINE_MAIDEN.PROGRESS == 0x00) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0x03) &&
+                    (NPC_SHRINE_MAIDEN.PROGRESS == 0d0) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d3) &&
                     !(ROOM.SHRINE_BONFIRE_LIT)
                 ) {
+                    ROOM.SHRINE_BONFIRE_LIT = True;
+                    
                     NPC_SHRINE_MAIDEN.PROGRESS++;
                     NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0x00;
 
-                    set(ROOM.SHRINE_BONFIRE_LIT);
                     object[0x11] = 0x1; // ignite fire
 
                     add_bonfire();
                 } else if(ROOM.SHRINE_BONFIRE_LIT) {
                     bonfire_triggered_first_bonfire();
                 }
-            } else {
-                bonfire_triggered_first_bonfire();
             }
         }
 
@@ -4191,7 +4192,7 @@ area shrine_area() {
         fun add_door(x, y, locked) {
             if(locked) {
                 add_enemy(STONE_ROUND, x, y);
-                attach_script(LAST_ENTITY, B, reference(installed_error_locked));
+                attach_script(LAST_ENTITY, B, reference(@install() { error_message(DOOR_LOCKED); }));
             } else {
                 add_enemy(STONE_ROUND, x - 0d4, y);
             }
@@ -4216,7 +4217,7 @@ area shrine_area() {
 
             if(ROOM.SHRINE_BONFIRE_LIT) {
                 show_bonfires();
-            } else if!(SOULS_MEMORY.WITH_SHRINE_INTRO) {
+            } else if(SOULS_MEMORY.DEBUG && !(SOULS_MEMORY.WITH_SHRINE_INTRO)) {
                 show_bonfires();
             }
 
@@ -7426,6 +7427,10 @@ area altus_plateau_entry() {
             south = entrance(0d42, 0d140, NORTH),
             west = entrance(0d24, 0d115, EAST),
             east = entrance(0d59, 0d115, WEST),
+        }
+
+        enum soundtrack {
+            default = soundtrack(SWAMP_AMBIENT, 0xff)
         }
 
         enum ROOM {
@@ -12868,7 +12873,7 @@ area east_inbetwixx() {
             @install()
             fun stone_locked() {
                 add_enemy(STONE_ROUND, 0d222, 0d39);
-                attach_script(LAST_ENTITY, B, reference(installed_error_unknown));
+                attach_script(LAST_ENTITY, B, reference(@install() { error_message(); }));
 
                 init_map(0xb4, 0x04, 0xe0, 0x36); // room_alchemist
             }
@@ -12973,6 +12978,11 @@ area east_inbetwixx() {
 
             enum soundtrack {
                 default = soundtrack(PIPE_MAZE.MUSIC_MAZE, 0xff)
+            }
+
+            enum ROOM {
+                WITH_STERLING_RATS = True,
+                DEBUG_STERLING_RATS = False,
             }
 
             fun pit_west_1_triggered() {
@@ -13210,7 +13220,7 @@ area east_inbetwixx() {
                 add_enemy(FRIPPO, 0d91, 0d125);
 
                 // east
-                if(True) {
+                if(ROOM.WITH_STERLING_RATS) {
                     // south west
                     add_enemy(RAT_RED, 0d103, 0d120);
                     attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d130, 0d85, 0d784, 0d999);
@@ -13228,7 +13238,9 @@ area east_inbetwixx() {
                     <BOY>[GENERAL_PURPOSE] = 0d0;
                     while(True) {
                         if(<BOY>[GENERAL_PURPOSE] > 0d0) {
-                            // debug_subtext("boy grabbed");
+                            if(ROOM.DEBUG_STERLING_RATS) {
+                                debug_subtext("boy grabbed");
+                            }
 
                             dust_unreachable(0d103, 0d136);
 
@@ -13236,6 +13248,11 @@ area east_inbetwixx() {
                         }
 
                         sleep(0d10);
+
+                        if(ROOM.DEBUG_STERLING_RATS) {
+                            debug_subtext("boy NOT grabbed");
+                            sleep(0d60);
+                        }
                     }
                 }
             }
@@ -16268,6 +16285,8 @@ area town() {
         SECRET_PASSAGE_OPENED = memory(FLAG, SRAM),
         SECRET_PASSAGE_2_OPENED = memory(FLAG, SRAM),
 
+        GATE_OPENED = memory(FLAG, SRAM),
+
         MUSIC_TOWN = 0x42,
     }
 
@@ -16611,9 +16630,9 @@ area town() {
 
                 @install()
                 fun debug_triggered() {
-                    set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
-                    set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
-                    set(AREA_TEMPLE.UNLOCKED_LEVEL_2);
+                    AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED = True;
+                    AREA_TEMPLE.UNLOCKED_LEVEL_1 = True;
+                    AREA_TEMPLE.UNLOCKED_LEVEL_2 = True;
 
                     destroy(SCRIPT_OWNER);
                 }
@@ -16858,8 +16877,8 @@ area town() {
                 }
                 fun switch_activated() {
                     if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
-                        set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED);
-                        set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
+                        AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED = True;
+                        AREA_TEMPLE.UNLOCKED_LEVEL_1 = True;
 
                         generic_switch_floor(0x00, True);
                     }
@@ -18951,7 +18970,7 @@ area town() {
                         attach_script(LAST_ENTITY, B, reference(naris_opening));
                         <LAST_ENTITY>[HP] = BOSS.BOSS_HP; 
 
-                        if!(BOSS.PROGRESS && AREA_TEMPLE.BOSS_KEY) {
+                        if!(BOSS.PROGRESS) {
                             teleport(LAST_ENTITY, 0d96, 0d76);
 
                             start_boss(True);
@@ -18974,7 +18993,7 @@ area town() {
 
                         fog_wall_inside(BOSS.PROGRESS, WEST);
 
-                        set(AREA_TOWN_TEMPLE.SECRET_PASSAGE_2_OPENED);
+                        AREA_TOWN_TEMPLE.SECRET_PASSAGE_2_OPENED = True;
                         map_transition(town_level_1, door_1_3_back, EAST);
                     },
                 }
@@ -19002,19 +19021,9 @@ area town() {
 
                 @install()
                 fun debug_triggered() {
-                    set(AREA_TEMPLE.BOSS_KEY);
+                    unlock(QUEENS_KEY);
 
                     destroy(SCRIPT_OWNER);
-                }
-
-                @install()
-                fun door_triggered() {
-                    if(AREA_TEMPLE.BOSS_KEY) {
-                        open_boss_door(True);
-                        sound(DOOR);
-                    } else {
-                        error_message(DOOR_LOCKED, NORTH);
-                    }
                 }
 
                 fun trigger_enter() {
@@ -19056,10 +19065,7 @@ area town() {
 
                     default_init_room(True, False);
 
-                    add_enemy(PLACEHOLDER, 0d64, 0d60);
-                    attach_script(LAST_ENTITY, B, reference(door_triggered));
-
-                    if!(AREA_TEMPLE.BOSS_KEY) {
+                    if!(ROOM.DOOR_PERMISSION) {
                         add_debug_entity(0d69, 0d47, reference(debug_triggered));
                     }
 
@@ -20088,6 +20094,9 @@ area town() {
             }
 
             enum ROOM {
+                GATE_OPENED = AREA_TOWN_TEMPLE.GATE_OPENED,
+                WITH_CLOSED_GATE = True,
+
                 BEE_COLLECTED = memory(FLAG, SRAM),
 
                 HOUSE_2_1_DOOR_OPENED = memory(FLAG, SRAM),
@@ -20096,6 +20105,12 @@ area town() {
             enum stepon_trigger {
                 gate = @install() {
                     debug_subtext("S=0");
+
+                    if(ROOM.WITH_CLOSED_GATE) {
+                        if!(ROOM.GATE_OPENED) {
+                            error_message(DOOR_WRONG_SIDE, SOUTH);
+                        }
+                    }
                 },
                 door_1_1_left = @install() {
                     debug_subtext("S=1");
@@ -20174,7 +20189,13 @@ area town() {
             fun trigger_enter() {
                 add_bombable(0d142, 0d46, ROOM.HOUSE_2_1_DOOR_OPENED, reference(trigger_door_house_2_1));
 
-                object[0x00] = 0x7e; // open gate
+                if(ROOM.WITH_CLOSED_GATE) {
+                    if(ROOM.GATE_OPENED) {
+                        object[0x00] = 0x7e; // open gate
+                    }
+                } else {
+                    object[0x00] = 0x7e; // open gate
+                }
                 // object[0x01] = 0x01; // open door_2_1
                 // object[0x02] = 0x01; // open door_1_1_right
                 // object[0x03] = 0x01; // open door_1_1_left
@@ -20234,8 +20255,6 @@ area town() {
                 add_bee(0d94, 0d76, reference(@install() {
                     bee_collected(ROOM.BEE_COLLECTED);
                 }));
-
-
 
                 default_init_room(False, False);
             }
@@ -20588,6 +20607,11 @@ area town() {
                 default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
             }
 
+            enum ROOM {
+                STONE_MOVED = memory(FLAG, SRAM),
+                STONE_OFFSET = 0d8 * 0d4,
+            }
+
             enum stepon_trigger {
                 door_1_1_back = @install() {
                     debug_subtext("S=0");
@@ -20664,6 +20688,59 @@ area town() {
             }
 
             fun trigger_enter() {
+                AREA_TOWN_TEMPLE.GATE_OPENED = True;
+                
+                add_levitate_stone(0d31, 0d9, reference(@install() {
+                    guard_levitate_stone(0d1);
+
+                    ROOM.STONE_MOVED = True;
+                }));
+                if(ROOM.STONE_MOVED) {
+                    <LAST_ENTITY>[X] -= ROOM.STONE_OFFSET;
+                }
+
+                special_script(LEVITATE, reference(@install() {
+                    if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                        end();
+                    }
+
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                    if!(ROOM.STONE_MOVED) {
+                        sleep(0d60);
+
+                        ROOM.STONE_MOVED = True;
+
+                        sleep(0d60);
+
+                        while(arg[0x10] < ROOM.STONE_OFFSET) {
+                            arg[0x10]++;
+
+                            <SCRIPT_OWNER>[X]--;
+
+                            sleep(0d3);
+                        }
+
+                        sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+                    } else {
+                        sleep(0d120);
+
+                        while(arg[0x10] < ROOM.STONE_OFFSET) {
+                            arg[0x10]++;
+
+                            <SCRIPT_OWNER>[X]++;
+
+                            sleep(0d3);
+                        }
+
+                        sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                        ROOM.STONE_MOVED = False;
+                    }
+
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                }));
+
                 if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
                     block_market(True);
                 }
