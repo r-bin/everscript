@@ -2260,7 +2260,7 @@ group general_enums() {
                 SPOON = 0x02,
                 SPEAR = 0x04,
                 MISSILE_2 = 0x06,
-                LIGHTNING_BALL = 0x08, // salabog
+                LIGHTNING_BALL = 0x08, // has a sound attached, used: salabog
                 BIDENT = 0x0a, // direction: EAST, WEST, usage: vigor
                 BOOMERANG = 0x0c, // vigor
 
@@ -4862,6 +4862,40 @@ group functions() {
             fun shoot_entity_entity_offset(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, offset_x, offset_y, z, overshoot) { // TODO: target=BOY crashes
                 code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X] + offset_x), calculate(target[Y] + offset_y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
+            enum SCALED_VECTOR {
+                DEFAULT = 0d0,
+
+                DEFAULT_HALF = 0d10,
+                DEFAULT_QUARTER = 0d11,
+
+                TARGET_PLUS_QUARTER = 0d20,
+                TARGET_PLUS_HALF = 0d21,
+                TARGET_MINUS_QUARTER = 0d22,
+                TARGET_MINUS_HALF = 0d23,
+            }
+            fun shoot_entity_entity_scaled(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot, factor:SCALED_VECTOR) { // TODO: target=BOY crashes
+                if(factor == SCALED_VECTOR.DEFAULT_HALF) {            
+                    arg[0x10] = entity[X] + ((target[X] - entity[X]) >> 0d1);
+                    arg[0x12] = entity[Y] + ((target[Y] - entity[Y]) >> 0d1);
+                } else if(factor == SCALED_VECTOR.DEFAULT_QUARTER) {
+                    arg[0x10] = entity[X] + ((target[X] - entity[X]) >> 0d2);
+                    arg[0x12] = entity[Y] + ((target[Y] - entity[Y]) >> 0d2);
+                } else if(factor == SCALED_VECTOR.TARGET_PLUS_HALF) {            
+                    arg[0x10] = target[X] + ((target[X] - entity[X]) >> 0d1);
+                    arg[0x12] = target[Y] + ((target[Y] - entity[Y]) >> 0d1);
+                } else if(factor == SCALED_VECTOR.TARGET_PLUS_QUARTER) {
+                    arg[0x10] = target[X] + ((target[X] - entity[X]) >> 0d2);
+                    arg[0x12] = target[Y] + ((target[Y] - entity[Y]) >> 0d2);
+                } else if(factor == SCALED_VECTOR.TARGET_MINUS_HALF) {            
+                    arg[0x10] = target[X] - ((target[X] - entity[X]) >> 0d1);
+                    arg[0x12] = target[Y] - ((target[Y] - entity[Y]) >> 0d1);
+                } else if(factor == SCALED_VECTOR.TARGET_MINUS_QUARTER) {
+                    arg[0x10] = target[X] - ((target[X] - entity[X]) >> 0d2);
+                    arg[0x12] = target[Y] - ((target[Y] - entity[Y]) >> 0d2);
+                }
+                
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(arg[0x10]), calculate(arg[0x12]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
 
             fun shoot_entity_offset_relative(entity:CHARACTER, projectile:THROWABLE, offset_x, offset_y, x, y, z, overshoot) {
                 code(0xb5, param(projectile), entity_t(entity), calculate(entity[X] + offset_x), calculate(entity[Y] + offset_y), param(overshoot), calculate(entity[X] + (offset_x + x)), calculate(entity[Y] + (offset_y + y)), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
@@ -6914,7 +6948,7 @@ group functions() {
                     memory -= 0d5;
                 }
 
-                memory *= 0d500;
+                memory *= 0d200;
             }
 
             @install()
@@ -11006,7 +11040,7 @@ group functions() {
                                 // arg[0x20]++;
                                 // debug_memory(arg[0x20], 0x00);
 
-                                // <BOY>[GENERAL_PURPOSE] = 0d1;
+                                <BOY>[GENERAL_PURPOSE] = 0d1; // required to detect a grab
                                 control(NONE);
 
                                 if(with_roar) {
@@ -11069,6 +11103,61 @@ group functions() {
                     end();
                 }
             }
+        }
+
+        @install()
+        @async()
+        @weak()
+        fun pit_projectile(entity) {
+            _add_enemy(RIMSALA_STATUTE_ENTITY, entity[X], entity[Y]);
+            attach_to_script(LAST_ENTITY);
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+
+            sleep(0d5);
+            animate(SCRIPT_OWNER, ONCE, DEFAULT);
+
+            sleep(0d5);
+            animate(SCRIPT_OWNER, ONCE, DEFAULT);
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+            
+            sleep(0d10);
+            animate(SCRIPT_OWNER, ONCE, DEFAULT);
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+            
+            sleep(0d30);
+
+            shoot_entity_absolute(<SCRIPT_OWNER>, ONION, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] + randrange(0d30), 0d50 + randrange(0d10), 0d0);
+            sleep(0d5);
+            shoot_entity_absolute(<SCRIPT_OWNER>, ONION, <SCRIPT_OWNER>[X] + randrange(0d30), <SCRIPT_OWNER>[Y] - randrange(0d30), 0d40 + randrange(0d10), 0d0);
+            sleep(0d10);
+            shoot_entity_absolute(<SCRIPT_OWNER>, ONION, <SCRIPT_OWNER>[X] - randrange(0d10), <SCRIPT_OWNER>[Y] - randrange(0d10), 0d30, 0d0);
+
+            wait(SCRIPT_OWNER);
+            destroy(SCRIPT_OWNER);
+        }
+
+        @install()
+        @async()
+        @weak()
+        fun volcano_toss_projectile(entity, repeat) {
+            repeat++;
+
+            while(repeat > 0d0) {
+                repeat--;
+
+                shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+                sleep(0d10);
+                shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+                sleep(0d10);
+                shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+                sleep(0d10);
+                shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+
+                if(repeat > 0d0) {
+                    sleep(0d40);
+                }
+            }
+            
         }
     };
 

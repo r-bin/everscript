@@ -26,9 +26,14 @@
 
 # important
 ## true ending boss?
+## cutscene: big pressure plate -> altus no intro 
+## cutscene: enter duel arena
+## any% only has 500 talons (200 for a level, 100 for atlas amulet, no cat ring)
 ## every any door can be opened by a bomb
 
 # nice to have
+## loot: nothing (says invalid item)
+## minitaur anti cheese + megataur anti cheese (horizontal rolling)
 ## projectiles with entity targets should check range (and not shoot off screen)
 ## scale enemies: before puppets, before pyramid
 ## fan boss too easy
@@ -288,3 +293,35 @@ todo:
 # dark forest
 ## available: ═, ║, ╔, ╗, ╚, ╝, ╠, ╣, ╦, ╩, ╬, ╞, ╡, ╥, ╨
 ## not available: ?
+
+
+
+
+
+
+# gideon abilities:
+
+expected:
+## 2x flask
+## poise break (todo)
+## heart splash (todo)
+## pit projectiles (todo)
+
+optional:
+## flare (todo)
+## fireball mosquito (too spamy)
+## energy spark (too spamy)
+
+hidden - spoon:
+## vent spit
+## vent circle
+
+hidden - isaac quest:
+## monstro splash
+## dark one charge (?)
+## dark one +X (?)
+## dark one * (?)
+
+hidden - mario quest:
+## spear toss
+## minitaur egg rats (todo)
