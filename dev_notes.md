@@ -301,14 +301,17 @@ todo:
 
 # gideon abilities:
 
-expected:
+base:
 ## 2x flask
-## poise break (todo)
+## diablo beam (todo)
+
+expected:
+## poise break (todo -> owl boy?)
 ## heart splash (todo)
 ## pit projectiles (todo)
 
 optional:
-## flare (todo)
+## flare (todo -> no projectile?)
 ## fireball mosquito (too spamy)
 ## energy spark (too spamy)
 
