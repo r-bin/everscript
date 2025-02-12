@@ -303,15 +303,15 @@ todo:
 
 base:
 ## 2x flask
-## diablo beam (todo)
+## diablo beam
 
 expected:
-## poise break (todo -> owl boy?)
-## heart splash (todo)
-## pit projectiles (todo)
+## poise break
+## heart splash
+## pit projectiles
 
 optional:
-## flare (todo -> no projectile?)
+## flare
 ## fireball mosquito (too spamy)
 ## energy spark (too spamy)
 
@@ -321,9 +321,9 @@ hidden - spoon:
 
 hidden - isaac quest:
 ## monstro splash
-## dark one charge (?)
-## dark one +X (?)
-## dark one * (?)
+## dark one charge
+## dark one +X
+## dark one *
 
 hidden - mario quest:
 ## spear toss

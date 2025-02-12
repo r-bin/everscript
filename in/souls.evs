@@ -5477,6 +5477,7 @@ area north_inbetwixx() {
 
         enum BOSS {
             DEBUG = False,
+            DEBUG_ABILITIES = True,
 
             ID = memory(WORD, TEMP),
             PROGRESS = memory(FLAG, TEMP),
@@ -5485,12 +5486,18 @@ area north_inbetwixx() {
 
             RNG = memory(WORD, TEMP),
             CASTING = memory(FLAG, TEMP),
+            CAST_DEPLETED = memory(FLAG, TEMP),
 
             ESTUS_FLASK = memory(WORD, TEMP),
             ESTUS_FLASK_TILT = memory(FLAG, TEMP),
             ESTUS_CHARGES = 0d2,
             HEAL_THRESHOLD = 0d20,
             ESTUS_HEAL = 0d20,
+
+            POISE_DECAY = 0d1,
+            POISE = 0d20,
+
+            LEVEL_FLASH = 0d5,
         }
 
         enum stepon_trigger {
@@ -5582,6 +5589,16 @@ area north_inbetwixx() {
             },
         }
 
+        @install()
+        fun prepare_casting() {
+            BOSS.CASTING = True;
+
+            animate(BOSS.ID, ONCE, DEFAULT);
+            sleep(0d10);
+            animate(BOSS.ID, ONCE, CAST);
+            sleep(0d30);
+        }
+
         fun stagger() {
             animate(<0x2834>, ONCE_FREEZE, ANIMATION_BOY.LOOT);
             sleep(0d10);
@@ -5607,7 +5624,7 @@ area north_inbetwixx() {
         @install()
         fun cast_small() {
             if(BOSS.DEBUG) {
-                debug_subtext("cast");
+                debug_subtext("cast small");
             }
 
             animate(BOSS.ID, ONCE, DEFAULT);
@@ -5630,16 +5647,6 @@ area north_inbetwixx() {
 
             cast_team(BOSS.ID, spell_id, 0d1);
 
-            sleep(0d30);
-        }
-
-        @install()
-        fun prepare_casting() {
-            BOSS.CASTING = True;
-
-            animate(BOSS.ID, ONCE, DEFAULT);
-            sleep(0d10);
-            animate(BOSS.ID, ONCE, CAST);
             sleep(0d30);
         }
 
@@ -5694,12 +5701,37 @@ area north_inbetwixx() {
         }
 
         @install()
+        fun cast_beam() {
+            if(BOSS.DEBUG) {
+                debug_subtext("cast: beam");
+            }
+
+            prepare_casting();
+
+            control(BOSS.ID, True);
+            attribute(BOSS.ID, ROOT, True);
+
+            projectile_beam(<ACTIVE>, 0d5);
+            
+            control(BOSS.ID, False);
+            attribute(BOSS.ID, ROOT, False);
+
+            BOSS.CAST_DEPLETED = True;
+        }
+
+        @install()
         fun choose_move_set() {
+            if(BOSS.DEBUG) {
+                debug_subtext("cast: random");
+            }
+
             BOSS.RNG = 0d0;
             BOSS.CASTING = False;
+            
+            arg[0x10] = randrange(0d3);
 
             while!(BOSS.CASTING) {
-                BOSS.RNG = randrange(0d6);
+                BOSS.RNG = randrange(0d9);
 
                 if((BOSS.RNG == 0d0) && (SOULS_MEMORY.DEAD_MONSTRO)) {
                     prepare_casting();
@@ -5716,11 +5748,13 @@ area north_inbetwixx() {
                 } else if((BOSS.RNG == 0d1) && (SOULS_MEMORY.DEAD_DARK_ONE)) {
                     prepare_casting();
 
-                    arg[0x10] = randrange(0d3);
+                    arg[0x10] = randrange(0d4);
 
                     if(arg[0x10] == 0d0) {
                         animate(BOSS.ID, ONCE, ANIMATION_ENEMY.MAGMAR_ENTER);
                         ai_move_charge_right(BOSS.ID, <BOY>, 0d8, 0d2);
+                    } else if(arg[0x10] == 0d1) {
+                        ai_move_projectile_star(BOSS.ID, ONION, 0d70);
                     } else {
                         control(BOSS.ID, True);
                         face(BOSS.ID, SOUTH);
@@ -5757,18 +5791,43 @@ area north_inbetwixx() {
 
                     animate(BOSS.ID, ONCE, ANIMATION_BOY.KNEEL);
                     place_mosquito();
+                } else if((BOSS.RNG == 0d6) && (SOULS_MEMORY.DEAD_HEART)) {
+                    prepare_casting();
+                    
+                    sound(GORE_MOSQUITO);
+                    sleep(0d10);
+                    sound(GORE_MOSQUITO);
+                    
+                    ai_move_projectile_puke(BOSS.ID, ONION, <BOY>, 0d4); // TODO: same as monstro
+                } else if((BOSS.RNG == 0d7) && (SOULS_MEMORY.DEAD_PIT_EGG)) {
+                    prepare_casting();
+
+                    if(randrange(0d2)) {
+                        pit_projectile(BOSS.ID, <ACTIVE>);
+                    } else {
+                        pit_projectile(BOSS.ID, <INACTIVE>);
+                    }
+                } else if((BOSS.RNG == 0d8) && (FLAG.FLASH) && (arg[0x10] == 0d0)) {
+                    prepare_casting();
+
+                    cast(BOSS.ID, <ACTIVE>, FLASH, BOSS.LEVEL_FLASH);
                 } else {
                     if(BOSS.DEBUG) {
                         // debug_memory(BOSS.RNG, 0d0);
                         // debug_subtext("reroll");
                         nop();
                     }
+
                     yield();
                 }
             }
         }
 
         fun use_estus() {
+            if(BOSS.DEBUG) {
+                debug_subtext("estus");
+            }
+
             control(BOSS.ID, True);
             face(BOSS.ID, SOUTH);
 
@@ -5789,6 +5848,7 @@ area north_inbetwixx() {
             control(BOSS.ID, False);
         }
 
+        @install()
         fun random_cast() {
             if(BOSS.DEBUG) {
                 debug_subtext("start cast");
@@ -5802,17 +5862,22 @@ area north_inbetwixx() {
                 }
             }
 
-            // cast_small();
-            choose_move_set();
+            BOSS.CAST_DEPLETED = False;
 
-            if(rand(0x1) > 0d0) {
-                // cast_small();
-                choose_move_set();
+            if(randrange(0d5) == 0d0) {
+                cast_beam();
+            } else {
+                while!(BOSS.CAST_DEPLETED) {
+                    choose_move_set();
+
+                    if(rand(0x1) > 0d0) {
+                        end();
+                    }
+                }
             }
         }
 
-        @install()
-        fun boss_triggered() {
+        fun boss_defeated() {
             BOSS.PROGRESS = False;
 
             souls_boss_defeated(DEAD_GIDEON, REWARD_GIDEON);
@@ -5823,12 +5888,29 @@ area north_inbetwixx() {
             if!(BOSS.PROGRESS) {
                 BOSS.PROGRESS = True;
 
-                attach_script(BOSS.ID, DEATH, reference(boss_triggered));
+                if(SOULS_MEMORY.DEAD_OWL_BOY) {
+                    poise_break_decay(<LAST_ENTITY>, BOSS.POISE_DECAY, 0d120);
+                }
+                attach_script(BOSS.ID, DAMAGE, reference(@install() {
+                    if(dead(<SCRIPT_OWNER>)) {
+                        boss_defeated();
+                    } else if(SOULS_MEMORY.DEAD_OWL_BOY) {
+                        poise_break(BOSS.POISE);
+                    }
+                }));
                 push_music(BOSS);
 
                 while(alive(BOSS.ID)) {
                     while((BOSS.ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) > 0d0) {
                         yield();
+                    }
+
+                    while!((BOSS.ID[X] >= MEMORY.CAMERA_X_MIN) && ((BOSS.ID[X] <= MEMORY.CAMERA_X_MAX)) && (BOSS.ID[Y] >= MEMORY.CAMERA_Y_MIN) && ((BOSS.ID[Y] <= MEMORY.CAMERA_Y_MAX))) {
+                        sleep(0d10);
+
+                        if(BOSS.DEBUG) {
+                            debug_subtext("not on screen");
+                        }
                     }
                     
                     if(True) {
@@ -5844,7 +5926,7 @@ area north_inbetwixx() {
                         ai_move_projectile_splash(BOSS.ID, ONION);
                     }
 
-                    sleep(randrange(0d300));
+                    sleep(randrange(0d600));
                 }
             }
         }
@@ -5895,14 +5977,18 @@ area north_inbetwixx() {
             if!(SOULS_MEMORY.DEAD_GIDEON) {
                 // attribute(BOY, INVINCIBLE_TEMP, True);
 
-                if(False) {
+                if(BOSS.DEBUG_ABILITIES) {
                     <BOY>[HP] = SYSTEM.HP_MAX;
                     
                     // SOULS_MEMORY.DEAD_MONSTRO = True;
                     // SOULS_MEMORY.DEAD_DARK_ONE = True;
                     // SOULS_MEMORY.DEAD_BOWSER = True;
                     // SOULS_MEMORY.DEAD_SQUIDMAR = True;
-                    SOULS_MEMORY.DEAD_ARENA_MOSQUITO = True;
+                    // SOULS_MEMORY.DEAD_ARENA_MOSQUITO = True;
+                    SOULS_MEMORY.DEAD_OWL_BOY = True;
+                    SOULS_MEMORY.DEAD_HEART = True;
+                    SOULS_MEMORY.DEAD_PIT_EGG = True;
+                    FLAG.FLASH = True;
                 }
 
                 add_boss(0d66, 0d35);
