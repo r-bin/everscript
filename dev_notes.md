@@ -246,7 +246,6 @@ weapons:
 
 
 todo offensive:
-## flash (vanilla)
 ## acid rain (vanilla)
 ## drain (vanilla)
 ## fireball (vanilla)
