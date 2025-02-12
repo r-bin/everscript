@@ -4873,28 +4873,51 @@ group functions() {
                 TARGET_MINUS_QUARTER = 0d22,
                 TARGET_MINUS_HALF = 0d23,
             }
-            fun shoot_entity_entity_scaled(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot, factor:SCALED_VECTOR) { // TODO: target=BOY crashes
-                if(factor == SCALED_VECTOR.DEFAULT_HALF) {            
-                    arg[0x10] = entity[X] + ((target[X] - entity[X]) >> 0d1);
-                    arg[0x12] = entity[Y] + ((target[Y] - entity[Y]) >> 0d1);
+            fun _calculate_scaled_vector(entity, x, y, factor:SCALED_VECTOR) {
+                if(factor == SCALED_VECTOR.DEFAULT_HALF) {
+                    arg[0x10] = (x - entity[X]) >> 0d1;
+                    arg[0x12] = (y - entity[Y]) >> 0d1;
+                    arg[0x14] = entity[X] + arg[0x10];
+                    arg[0x16] = entity[Y] + arg[0x12];
                 } else if(factor == SCALED_VECTOR.DEFAULT_QUARTER) {
-                    arg[0x10] = entity[X] + ((target[X] - entity[X]) >> 0d2);
-                    arg[0x12] = entity[Y] + ((target[Y] - entity[Y]) >> 0d2);
-                } else if(factor == SCALED_VECTOR.TARGET_PLUS_HALF) {            
-                    arg[0x10] = target[X] + ((target[X] - entity[X]) >> 0d1);
-                    arg[0x12] = target[Y] + ((target[Y] - entity[Y]) >> 0d1);
+                    arg[0x10] = (x - entity[X]) >> 0d2;
+                    arg[0x12] = (y - entity[Y]) >> 0d2;
+                    arg[0x14] = entity[X] + arg[0x10];
+                    arg[0x16] = entity[Y] + arg[0x12];
+                } else if(factor == SCALED_VECTOR.TARGET_PLUS_HALF) {
+                    arg[0x10] = (x - entity[X]) >> 0d1;
+                    arg[0x12] = (y - entity[Y]) >> 0d1;
+                    arg[0x14] = x + arg[0x10];
+                    arg[0x16] = y + arg[0x12];
                 } else if(factor == SCALED_VECTOR.TARGET_PLUS_QUARTER) {
-                    arg[0x10] = target[X] + ((target[X] - entity[X]) >> 0d2);
-                    arg[0x12] = target[Y] + ((target[Y] - entity[Y]) >> 0d2);
-                } else if(factor == SCALED_VECTOR.TARGET_MINUS_HALF) {            
-                    arg[0x10] = target[X] - ((target[X] - entity[X]) >> 0d1);
-                    arg[0x12] = target[Y] - ((target[Y] - entity[Y]) >> 0d1);
+                    arg[0x10] = (x - entity[X]) >> 0d2;
+                    arg[0x12] = (y - entity[Y]) >> 0d2;
+                    arg[0x14] = x + arg[0x10];
+                    arg[0x16] = y + arg[0x12];
+                } else if(factor == SCALED_VECTOR.TARGET_MINUS_HALF) {
+                    arg[0x10] = (x - entity[X]) >> 0d1;
+                    arg[0x12] = (y - entity[Y]) >> 0d1;
+                    arg[0x14] = x - arg[0x10];
+                    arg[0x16] = y - arg[0x12];
                 } else if(factor == SCALED_VECTOR.TARGET_MINUS_QUARTER) {
-                    arg[0x10] = target[X] - ((target[X] - entity[X]) >> 0d2);
-                    arg[0x12] = target[Y] - ((target[Y] - entity[Y]) >> 0d2);
+                    arg[0x10] = (x - entity[X]) >> 0d2;
+                    arg[0x12] = (y - entity[Y]) >> 0d2;
+                    arg[0x14] = x - arg[0x10];
+                    arg[0x16] = y - arg[0x12];
                 }
+            }
+            fun calculate_scaled_vector(entity, target, factor:SCALED_VECTOR) {
+                _calculate_scaled_vector(entity, target[X], target[Y], factor);
+            }
+            fun shoot_entity_entity_scaled(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot, factor:SCALED_VECTOR) { // TODO: target=BOY crashes
+                calculate_scaled_vector(entity, target, factor);
                 
-                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(arg[0x10]), calculate(arg[0x12]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(arg[0x14]), calculate(arg[0x16]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_absolute_scaled(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot, factor:SCALED_VECTOR) { // TODO: target=BOY crashes
+                _calculate_scaled_vector(entity, x, y, factor);
+                
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(arg[0x14]), calculate(arg[0x16]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
 
             fun shoot_entity_offset_relative(entity:CHARACTER, projectile:THROWABLE, offset_x, offset_y, x, y, z, overshoot) {
@@ -4907,6 +4930,11 @@ group functions() {
                 }
                 
                 code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(x), calculate(y), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun bomb_absolute_scaled(entity:CHARACTER, x, y, size, damage, factor:SCALED_VECTOR) {
+                _calculate_scaled_vector(entity, x, y, factor);
+
+                bomb_absolute(entity, arg[0x14], arg[0x16], size, damage);
             }
             fun bomb_entity(entity:CHARACTER, size, damage) {
                 if(damage !is None) {
@@ -10616,6 +10644,70 @@ group functions() {
             damage(target, 0d10, True);
         }
 
+        @install()
+        @weak()
+        fun _projectile_beam(entity, x, y, tick) {
+            // shoot_entity_absolute(entity, LIGHTNING, x, y, 0d10, 0d0);
+            if(tick < 0d2) {
+                shoot_entity_absolute_scaled(entity, LIGHTNING, x, y, 0d10, 0d0, DEFAULT_QUARTER);
+
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_QUARTER);
+            } else if(tick < 0d3) {
+                shoot_entity_absolute_scaled(entity, LIGHTNING, x, y, 0d10, 0d0, DEFAULT_HALF);
+
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_QUARTER);
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_HALF);
+            } else if(tick < 0d5) {
+                shoot_entity_absolute(entity, LIGHTNING, x, y, 0d10, 0d0);
+
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_QUARTER);
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_HALF);
+                bomb_absolute(entity, x, y, 0d15, 0d5);
+            } else {
+                shoot_entity_absolute_scaled(entity, LIGHTNING, x, y, 0d10, 0d0, TARGET_PLUS_HALF);
+
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_QUARTER);
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, DEFAULT_HALF);
+                bomb_absolute(entity, x, y, 0d15, 0d5);
+                bomb_absolute_scaled(entity, x, y, 0d15, 0d5, TARGET_PLUS_HALF);
+            }
+        }
+        @install()
+        @async()
+        @weak()
+        fun projectile_beam(entity, ticks) {
+            arg[0x10] = entity[X];
+            arg[0x12] = entity[Y];
+            sleep(0d15);
+
+            arg[0x14] = entity[X];
+            arg[0x16] = entity[Y];
+            sleep(0d15);
+
+            arg[0x18] = entity[X];
+            arg[0x1a] = entity[Y];
+            sleep(0d15);
+
+            while(arg[0x0e] < ticks) {
+                arg[0x0e]++;
+
+                _projectile_beam(<SCRIPT_OWNER>, arg[0x10], arg[0x12], arg[0x0e]);
+                sleep(0d15);
+                arg[0x10] = entity[X];
+                arg[0x12] = entity[Y];
+                
+                _projectile_beam(<SCRIPT_OWNER>, arg[0x14], arg[0x16], arg[0x0e]);
+                sleep(0d15);
+                arg[0x14] = entity[X];
+                arg[0x16] = entity[Y];
+
+                _projectile_beam(<SCRIPT_OWNER>, arg[0x18], arg[0x1a], arg[0x0e]);
+                sleep(0d15);
+                arg[0x18] = entity[X];
+                arg[0x1a] = entity[Y];
+            }
+        }
+
         // bombs
 
         @install()
@@ -11158,6 +11250,128 @@ group functions() {
                 }
             }
             
+        }
+        
+        @install()
+        @async()
+        @weak()
+        fun poise_break_decay(entity, decay, time) {
+            while!(dead(entity)) {
+                sleep(time);
+
+                if(entity[GENERAL_PURPOSE] != 0xffff) {
+                    if(entity[GENERAL_PURPOSE] > decay) {
+                        entity[GENERAL_PURPOSE] -= decay;
+                    } else {
+                        entity[GENERAL_PURPOSE] = 0d0;
+                    }
+                }
+
+                if(False) {
+                    debug_memory(entity[GENERAL_PURPOSE]);
+                }
+            }
+        }
+        @install()
+        @weak()
+        fun poise_break(threshold) {
+            if((<SCRIPT_OWNER>[DAMAGE_SOURCE] > 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != 0xffff)) {
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] += <SCRIPT_OWNER>[LAST_DAMAGE];
+
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > threshold) {
+                    while(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                        yield();
+                    }
+                    yield();
+
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0xffff;
+
+                    // sound?
+
+                    animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_BOY.KNEEL);
+                    yield();
+                    animate(SCRIPT_OWNER, PAUSE, DEFAULT);
+
+                    _add_enemy(PLACEHOLDER, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        arg[0x00] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                        if(<ACTIVE>[X] > <SCRIPT_OWNER>[X]) {
+                            arg[0x02] = <ACTIVE>[X] - <SCRIPT_OWNER>[X];
+                        } else {
+                            arg[0x02] = <SCRIPT_OWNER>[X] - <ACTIVE>[X];
+                        }
+                        if(<ACTIVE>[Y] > <SCRIPT_OWNER>[Y]) {
+                            arg[0x04] = <ACTIVE>[Y] - <SCRIPT_OWNER>[Y];
+                        } else {
+                            arg[0x04] = <SCRIPT_OWNER>[Y] - <ACTIVE>[Y];
+                        }
+
+                        if!(((arg[0x02] == 0d16) & (arg[0x04] <= 0d8)) ^ ((arg[0x04] == 0d8) && (arg[0x02] <= 0d8))) {
+                            if(False) {
+                                debug_memory(arg[0x02], arg[0x04]);
+                            }
+                            fake_b();
+
+                            end();
+                        } else {
+                            if(False) {
+                                subtext("bam");
+                            }
+                        }
+
+                        face_target(arg[0x00], <ACTIVE>);
+                        damage(arg[0x00], 0d10, True);
+                        animate(ACTIVE, ONCE, SLASH_1_3);
+
+                        if(False) {
+                            debug_memory(0d3, _dead(arg[0x00]));
+                        }
+                        destroy(SCRIPT_OWNER);
+
+                        sleep(0d60);
+
+                        while(arg[0x00][FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                            yield();
+                        }
+
+                        arg[0x00][GENERAL_PURPOSE] = 0d0;
+                    }));
+                    arg[0x00] = <LAST_ENTITY>;
+                    arg[0x02] = 0d180;
+
+                    while(arg[0x02] > 0d0) {
+                        arg[0x02]--;
+
+                        if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                            if!(dead(arg[0x00])) {
+                                if(False) {
+                                    debug_memory(0d1, dead(arg[0x00]), 0d1);
+                                }
+
+                                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                                destroy(arg[0x00]);
+                            }
+
+                            end();
+                        } else {
+                            yield();
+                        }
+                    }
+
+                    if!(dead(arg[0x00])) {
+                        if(False) {
+                            debug_memory(0d2, dead(arg[0x00]), 0d1);
+                        }
+
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                        animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                        destroy(arg[0x00]);
+                    }
+                }
+            }
         }
     };
 

@@ -5946,7 +5946,10 @@ area west_inbetwixx() {
             ID_OWL_1 = memory(WORD, TEMP),
             ID_OWL_2 = memory(WORD, TEMP),
 
-            TRANSFORM_DISTANCE = 0x10
+            TRANSFORM_DISTANCE = 0d16,
+
+            POISE_DECAY = 0d1,
+            POISE = 0d20,
         }
 
         fun fog_wall(exit_direction:DIRECTION) {
@@ -6055,16 +6058,8 @@ area west_inbetwixx() {
             },
         }
 
-        @install()
         fun boss_defeated() {
             souls_boss_defeated(DEAD_OWL_BOY, REWARD_OWL_BOY);
-        }
-
-        @install()
-        fun message_triggered() {
-            player_message_triggered();
-
-            subtext("prisoner ahead and then bonfire!");
         }
 
         @install()
@@ -6074,7 +6069,14 @@ area west_inbetwixx() {
                 transform_owls(arg[0x0e], arg[0x0c]);
 
                 _add_enemy(BOY_BLACK, arg[0x0c][X], arg[0x0c][Y]);
-                attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+                poise_break_decay(<LAST_ENTITY>, BOSS.POISE_DECAY, 0d120);
+                attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                    if(dead(<SCRIPT_OWNER>)) {
+                        boss_defeated();
+                    } else {
+                        poise_break(BOSS.POISE);
+                    }
+                }));
 
                 BOSS.PROGRESS = True;
                 push_music(BOSS);
@@ -6122,7 +6124,11 @@ area west_inbetwixx() {
                 subtext("West Inbetwixx");
             }
 
-            player_message(0d23, 0d66, reference(message_triggered));
+            player_message(0d23, 0d66, reference(@install() {
+                player_message_triggered();
+
+                subtext("prisoner ahead and then bonfire!");
+            }));
         }
     };
 
@@ -16338,7 +16344,6 @@ area town() {
 
             // level 2
             UNLOCKED_LEVEL_2 = memory(FLAG, SRAM),
-            BOSS_KEY = memory(FLAG, SRAM),
         }
 
         group temple_helper() {
@@ -35467,16 +35472,16 @@ area experimental_room() {
 
             // p1
 
-            P1_THRESHOLD = 0x320, // 800
-            P1_TIME_BEFORE_SALVAGE = 0x500,
+            P1_THRESHOLD = 0d800,
+            P1_TIME_BEFORE_SALVAGE = 0d1200,
 
             // p2
 
-            P2_THRESHOLD = 0x1f4, // 500
-            P2_TIME_BEFORE_SALVAGE = 0x300,
+            P2_THRESHOLD = 0d500,
+            P2_TIME_BEFORE_SALVAGE = 0d780,
 
             RANDOM_SPELL = memory(WORD, TEMP),
-            TIME_BEFORE_RANDOM_SPELL = 0x300,
+            TIME_BEFORE_RANDOM_SPELL = 0d780,
         }
 
         fun boss_killed() {
@@ -35488,7 +35493,7 @@ area experimental_room() {
         fun stack_t01_offset() {
             while(alive(BOSS.MOUNT_ID)) {
                 BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
+                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d20;
                 BOSS.RIDER_ID[VELOCITY] = BOSS.MOUNT_ID[VELOCITY];
                 
                 sleep(0d2);
