@@ -13,7 +13,7 @@ class Parser():
                 'T_NONE', 'T_BYTE', 'T_WORD', 'T_MEMORY', 'T_FUNCTION', 'T_ARG',
                 'IS', '!IS',
                 'SIGNED',
-                '..',
+                '..', 'IN',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '~', '!', 'AND', 'OR',
                 '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '<<=', '>>=', '*=', '/=', '-=', '+=', '++', '--',
@@ -23,7 +23,7 @@ class Parser():
                 'WORD', 'WORD_DECIMAL', 'ENUM', 'ENUM_CALL', 'STRING', 'STRING_RAW',
                 'LABEL_DESTINATION', # 'END',
                 'ELSEIF!', 'ELSEIF', 'IF_CURRENCY', 'IF!', 'IF', 'ELSE',
-                'WHILE', 'WHILE!',
+                'WHILE', 'WHILE!', 'FOR',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', '?', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
@@ -779,6 +779,14 @@ class Parser():
         @self.pg.production('expression : FALSE')
         def parse(p):
             return Word(0)
+        
+        @self.pg.production('expression_entry : FOR ( expression IN expression ) { expression_list }')
+        def parse(p):
+            iterator = p[2]
+            iterator_range = p[4]
+            script = p[7]
+
+            return For(iterator, iterator_range, script)
 
         @self.pg.production('while : WHILE')
         def parse(p):
