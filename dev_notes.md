@@ -20,9 +20,6 @@
 # castle
 ## no music after formula
 
-# bosses
-## way too much money for arena
-
 
 # important
 ## true ending boss?
@@ -43,7 +40,6 @@
 ## "jump into volcano" animation
 ## isaac slime knockback = no shot
 ## make mario prison less boring
-## populate non barricaded town house
 ## mushroom armor crafting
 ## monstro p2
 ## town tavern door does not control active
@@ -63,8 +59,6 @@
 
 # act4
 ## inn: heals once, afterwards knockback
-## storage chests: disabled in the dark
-## killing guard bots opens door
 
 
 
