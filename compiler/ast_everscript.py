@@ -1407,7 +1407,7 @@ class Rnd(Function_Base):
         return Word(rnd)
 
 class While(Function_Base):
-    def __init__(self, condition, script, inverted):
+    def __init__(self, condition, script, inverted=False):
         self.script = script
         self.inverted = inverted
 
@@ -1426,6 +1426,18 @@ class While(Function_Base):
     def _code(self, params:list[Param]):
         self._update_condition(params)
 
+        code = self.list
+        code = Function_Code(code, '\n').code(params)
+
+        return code
+    
+class For(Function_Base):
+    def __init__(self, iterator, iterator_range, script):
+        self.script = script
+
+        self.list = [Asign(iterator, Word(iterator_range.start)), While(LowerEquals(iterator, Word(iterator_range.end)), script + [Asign(iterator, Add(iterator, Word(1)))])]
+
+    def _code(self, params:list[Param]):
         code = self.list
         code = Function_Code(code, '\n').code(params)
 

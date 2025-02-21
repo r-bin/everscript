@@ -25,6 +25,8 @@ class Lexer():
         self.lexer.add(';', ';')
         self.lexer.add('..', '\.\.')
 
+        self.lexer.add('IN', 'in(?=\ )')
+
         self.lexer.add('AND', '\&\&')
         self.lexer.add('OR', '\|\|')
 
@@ -94,6 +96,7 @@ class Lexer():
         
         self.lexer.add('WHILE!', 'while!(?=\()')
         self.lexer.add('WHILE', 'while(?=\()')
+        self.lexer.add('FOR', 'for(?=\()')
 
         self.lexer.add('@', '@')
         self.lexer.add(':', ':')
