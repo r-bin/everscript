@@ -385,6 +385,10 @@ group general_enums() {
             // …
             THRAXX_HEART = 0d118,
             // …
+            RAPTOR_TEAL = 0d136,
+            // …
+            RIMSALA_2 = 0d138,
+            // …
             CARLTRON_ROBOT = 0d141,
         }
 
@@ -400,6 +404,7 @@ group general_enums() {
             // …
             ATTACK_PROC = 0x30, // -> ATTACK_PROC
             // …
+            PRIZE_CHANCE = 0x29, // 0…100% = 0…128
 
             // special
             POINTER = 0x0EB678,
@@ -1254,6 +1259,7 @@ group general_enums() {
                 BOSS_MINI = 0x5a, // used: graveyard, minitaur, monk (bronze spear), pyramid (bronze axe), DE, doubles, hallway, mungola
                 BOSS_ARENA = 0x54, // used: vigor
                 BOSS_DRUMS = 0x04, // used: thraxx
+                BOSS_BOSSRUSH = 0x8a, // used: carltron
                 PIG_RACE = 0x80, // used: pig race
 
                 // effect
@@ -2224,7 +2230,7 @@ group general_enums() {
                 ROOT = 0x1a,
 
                 UNKNOWN_1_1 = 0x1c,
-                UNKNOWN_1_2 = 0x1e, // used for: dog enter/exit the upper level of act4
+                UNKNOWN_1_2 = 0x1e, // used for: dog enter/exit the upper level of act4, boss rush bomb
 
                 NO_CLIP = 0x20,
                 CLIP = 0x22,
@@ -2240,6 +2246,9 @@ group general_enums() {
                 
                 AI_RUN = 0x34,
                 AI_WALK = 0x36,
+
+                UNKNOWN_3_1 = 0x30, // used for: boss rush bomb
+                UNKNOWN_3_2 = 0x32,
 
                 // unknown/weird (used for vigor)
 
@@ -3028,6 +3037,8 @@ group general_enums() {
                 CAST = 0x8014,
                 BLOCK = 0x8016,
 
+                INVISIBLE_FADE = 0x000e,
+
                 SMALL = 0x001e, // unused/buggy
 
                 // ENEMIES ONLY: 8010, 8012
@@ -3234,8 +3245,6 @@ group general_enums() {
 
                 LEAVES_FALLING_1 = 0x0008,
                 LEAVES_FALLING_2 = 0x000a,
-
-                INVISIBLE_FADE = 0x000e,
 
                 // objects
                 LAVA_BLUB = 0x00b0,
@@ -3899,6 +3908,8 @@ group functions() {
                         music(BOSS_ARENA);
                     } else if(music == MUSIC.BOSS_DRUMS) {
                         music(BOSS_DRUMS);
+                    } else if(music == MUSIC.BOSS_BOSSRUSH) {
+                        music(BOSS_BOSSRUSH);
                     } else if(music == MUSIC.FANFARE) { // effect
                         music(FANFARE);
                     } else if(music == MUSIC.FANFARE_ITEM) {
@@ -7439,6 +7450,9 @@ group functions() {
 
                 yield();
                 _vanilla_bomb_explosion(True);
+
+                sleep(0d60);
+                destroy(<SCRIPT_OWNER>);
             }
             
             fun _fake_b() { // TODO: remove
@@ -8370,7 +8384,7 @@ group functions() {
                     yield();
                 }
 
-                animate(BOY, ONCE_FREEZE, ANIMATION_PLACEHOLDER.INVISIBLE_FADE);
+                animate(BOY, ONCE_FREEZE, INVISIBLE_FADE);
 
                 _act4_evermoremachine_in(arg[0x10]);
             }
@@ -10745,6 +10759,129 @@ group functions() {
             }
         }
 
+        fun _beam_wall(condition, vertical_direction, positive_direction, entity, x_1, y_1, x_2, y_2, delta) {
+            while(condition) {
+                sound(TESLA);
+                
+                if(vertical_direction) {
+                    projectile(entity, LIGHTNING, x_1, y_1, x_2, y_1, 0d2, 0d0);
+
+                    if(positive_direction) {
+                        y_1 += delta;
+                    } else {
+                        y_1 -= delta;
+                    }
+                } else {
+                    projectile(entity, LIGHTNING, x_1, y_1, x_1, y_2, 0d2, 0d0);
+
+                    if(positive_direction) {
+                        x_1 += delta;
+                    } else {
+                        x_1 -= delta;
+                    }
+                }
+
+                if(<ACTIVE>[Z] == 0d0) {
+                    if(vertical_direction) {
+                        if((<ACTIVE>[Y] >= (y_1 - 0d20)) && (<ACTIVE>[Y] <= (y_1 + 0d20)) && (<ACTIVE>[X] >= x_1) && (<ACTIVE>[X] <= x_2)) {
+                            arg[0x10] = True;
+                        }
+                    } else {
+                        if((<ACTIVE>[X] >= (x_1 - 0d20)) && (<ACTIVE>[X] <= (x_1 + 0d20)) && (<ACTIVE>[Y] >= y_1) && (<ACTIVE>[Y] <= y_2)) {
+                            arg[0x10] = True;
+                        }
+                    }
+                }
+
+                if((arg[0x10] > 0d0) && (arg[0x12] == 0d0)) {
+                    arg[0x10] = False;
+                    arg[0x12] = 0d3;
+
+                    MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
+                    damage(ACTIVE, 0d5, True);
+                } else if(arg[0x12] > 0d0){
+                    arg[0x12]--;
+                }
+
+                sleep(0d10);
+            }
+        }
+        @install()
+        @weak()
+        fun beam_wall(direction:DIRECTION, entity, x_1, y_1, x_2, y_2, delta) {
+            if(direction == DIRECTION.NORTH) {
+                _beam_wall(y_2 > y_1, True, False, entity, x_1, y_2, x_2, y_1, delta);
+            } else if(direction == DIRECTION.EAST) {
+                _beam_wall(x_1 < x_2, False, True, entity, x_1, y_1, x_2, y_2, delta);
+            } else if(direction == DIRECTION.SOUTH) {
+                _beam_wall(y_1 < y_2, True, True, entity, x_1, y_1, x_2, y_2, delta);
+            } else {
+                _beam_wall(x_2 > x_1, False, False, entity, x_2, y_1, x_1, y_2, delta);
+            }
+}
+
+        // delayed
+
+        @install()
+        @async()
+        @weak()
+        fun _projectile_delayed(target, height) {
+            _add_placeholder(LEAVES_FALLING_2, target[X], target[Y], LOOP);
+            attach_to_script(LAST_ENTITY);
+            <SCRIPT_OWNER>[Z] = height;
+
+            yield();
+            while(<SCRIPT_OWNER>[Z] > 0d0) {
+                yield();
+            }
+            animate(SCRIPT_OWNER, PAUSE, DEFAULT);
+
+            shoot_entity_entity(SCRIPT_OWNER, BOOMERANG, BOY, 0d10, 0d100);
+
+            sleep(0d60);
+
+            animate(SCRIPT_OWNER, ONCE_FREEZE, INVISIBLE_FADE);
+            wait(<SCRIPT_OWNER>);
+
+            destroy(<SCRIPT_OWNER>);
+        }
+        @install()
+        @weak()
+        fun projectile_delayed(target, height, repeat) {
+            repeat++;
+
+            while(repeat > 0d0) {
+                repeat--;
+
+                _projectile_delayed(target, height);
+
+                if(repeat > 0d0) {
+                    sleep(0d20);
+                }
+            }
+        }
+
+        @install()
+        @async()
+        @weak()
+        fun projectile_barage_delayed(target, height) {
+            _add_placeholder(LEAVES_FALLING_1, target[X], target[Y], LOOP);
+            attach_to_script(LAST_ENTITY);
+            <SCRIPT_OWNER>[Z] = height;
+            
+            yield();
+            while(<SCRIPT_OWNER>[Z] > 0d0) {
+                yield();
+            }
+            animate(SCRIPT_OWNER, PAUSE, DEFAULT);
+
+            ai_move_projectile_puke(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d4);
+
+            sleep(0d60);
+
+            destroy(<SCRIPT_OWNER>);
+        }
+
         // bombs
 
         @install()
@@ -11286,7 +11423,6 @@ group functions() {
                     sleep(0d40);
                 }
             }
-            
         }
         
         @install()

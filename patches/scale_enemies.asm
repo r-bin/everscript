@@ -437,9 +437,9 @@ org !MEMORY_TABLE_HP
   %default_stats(400) ; "Tentacle" (133) = 400
   %default_stats(200) ; "Tiny Tentacle" (134) = 200
   %default_stats(200) ; "Bomb" (135) = 200
-  %default_stats(4000) ; "Raptor" (136) = 4000
+  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Raptor" (136) = 4000
   %default_stats(6000) ; "Death Spider" (137) = 6000
-  %default_stats(6000) ; "Eye of Rimsala" (138) = 6000
+  dw #300, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Eye of Rimsala" (138) = 6000
   %default_stats(10000) ; "Dark Toaster" (139) = 10000
   %default_stats(25000) ; "Magmar" (140) = 25000
   %default_stats(30000) ; "Carltron's Robot" (141) = 30000
@@ -530,12 +530,12 @@ org !MEMORY_TABLE_ATTACK
   %default_stats(105) ; "Tentacle" (133) = 105
   %default_stats(85) ; "Tiny Tentacle" (134) = 85
   %default_stats(0) ; "Bomb" (135) = 0
-  %default_stats(225) ; "Raptor" (136) = 225
+  dw #10, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Raptor" (136) = 225
   %default_stats(325) ; "Death Spider" (137) = 325
   %default_stats(175) ; "Eye of Rimsala" (138) = 175
   %default_stats(175) ; "Dark Toaster" (139) = 175
   %default_stats(170) ; "Magmar" (140) = 170
-  %default_stats(220) ; "Carltron's Robot" (141) = 220
+  dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Carltron's Robot" (141) = 220
 
 org !MEMORY_TABLE_DEFEND
   skip 51*!SIZE_MONSTER_BLOCK
@@ -624,12 +624,12 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(280) ; "Tentacle" (133) = 280
   %default_stats(240) ; "Tiny Tentacle" (134) = 240
   %default_stats(800) ; "Bomb" (135) = 800
-  %default_stats(400) ; "Raptor" (136) = 400
+  dw #150, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Raptor" (136) = 400
   %default_stats(400) ; "Death Spider" (137) = 400
-  %default_stats(400) ; "Eye of Rimsala" (138) = 400
+  dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Eye of Rimsala" (138) = 400
   %default_stats(240) ; "Dark Toaster" (139) = 240
   %default_stats(360) ; "Magmar" (140) = 360
-  %default_stats(360) ; "Carltron's Robot" (141) = 360
+  dw #50, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Carltron's Robot" (141) = 360
 
 org !MEMORY_TABLE_MAGIC_DEFEND
   skip 51*!SIZE_MONSTER_BLOCK
