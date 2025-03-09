@@ -103,6 +103,11 @@ group non_maps() {
         fun rimsala_2_prize_chance() {
             code(0x0000, "// rimsala 2 prize chance");
         }
+
+        @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.DOG_4_BLACK * CHARACTER_DATA.SIZE) + CHARACTER_DATA.PRIZE_CHANCE, False)
+        fun dog_4_black_prize_chance() {
+            code(0x0000, "// DOG_4_BLACK prize chance");
+        }
     };
 
     // group alchemy_ingredients() {
@@ -28230,7 +28235,7 @@ area metro() {
             }
         };
     };
-
+    
     map metro_rooms_true_ending(CARLTRON) {
         enum entrance {
             center = entrance(0x14, 0x25, NONE)
@@ -28241,6 +28246,8 @@ area metro() {
         }
 
         enum ROOM {
+            DEBUG = False,
+            
             SWITCH_1 = memory(WORD, TEMP),
             SWITCH_2 = memory(WORD, TEMP),
             SWITCH_3 = memory(WORD, TEMP),
@@ -28252,10 +28259,11 @@ area metro() {
 
             SWITCH_TIMEOUT = 0d10 * 0d0060,
             SWITCH_TILT_SPEED = 0d20,
+            SWITCH_VENT_MODE = memory(FLAG, TEMP),
 
             SWITCH_AREA = memory(FLAG, TEMP),
             SWITCH_AREA_TILT = memory(FLAG, TEMP),
-            SWITCH_AREA_TILT_THRESHOLD = 0d180,
+            SWITCH_AREA_TILT_THRESHOLD = 0d2 * 0d0060,
             SWITCH_AREA_TIMER = memory(WORD, TEMP),
 
             SQUARE_1_X = 0d10,
@@ -28268,12 +28276,6 @@ area metro() {
             SQUARE_4_Y = 0d46,
             SQUARE_5_X = 0d32,
             SQUARE_5_Y = 0d26,
-
-            SQUARE_1_ID = memory(WORD, TEMP),
-            SQUARE_2_ID = memory(WORD, TEMP),
-            SQUARE_3_ID = memory(WORD, TEMP),
-            SQUARE_4_ID = memory(WORD, TEMP),
-            SQUARE_5_ID = memory(WORD, TEMP),
         }
 
         enum stepon_trigger {
@@ -28352,6 +28354,40 @@ area metro() {
             }
         }
 
+        fun _switch_vent_mode(switch_id, state, on) {
+            if!(state) {
+                if(on) {
+                    object[switch_id] = 0x00;
+                } else {
+                    object[switch_id] = 0x01;
+                }
+            }
+
+            if(False && ROOM.DEBUG) {
+                debug_memory(switch_id, state, on);
+                sleep(0d60);
+            }
+        }
+
+        @install()
+        fun switch_vent_mode(on) {
+            if(ROOM.DEBUG) {
+                MEMORY.STRING_PARAMETER_1 = on;
+                debug_subtext("ventmode = [MEM1]");
+            }
+
+            ROOM.SWITCH_VENT_MODE = on;
+
+            // _switch_vent_mode(0x00, ROOM.SWITCH_1, on);
+            _switch_vent_mode(0x01, ROOM.SWITCH_2, on);
+            // _switch_vent_mode(0x02, ROOM.SWITCH_3, on);
+            _switch_vent_mode(0x03, ROOM.SWITCH_4, on);
+            _switch_vent_mode(0x04, ROOM.SWITCH_5, on);
+            // _switch_vent_mode(0x05, ROOM.SWITCH_6, on);
+            _switch_vent_mode(0x06, ROOM.SWITCH_7, on);
+            // _switch_vent_mode(0x07, ROOM.SWITCH_8, on);
+        }
+
         fun switch_triggered(switch_id, state) {
             if(state == 0d0) {
                 state = True;
@@ -28372,7 +28408,12 @@ area metro() {
                     arg[0x10]--;
                 }
 
-                object[switch_id] = 0d1;
+                
+                if(ROOM.SWITCH_VENT_MODE && ((switch_id != 0d2) && (switch_id != 0d5))) {
+                    object[switch_id] = 0d0;
+                } else {
+                    object[switch_id] = 0d1;
+                }
                 
                 state = False;
             }
@@ -28424,8 +28465,9 @@ area metro() {
         group carltron_ai() {
             enum BOSS {
                 DEBUG = True,
-                DEBUG_PHASE = True,
+                DEBUG_PHASE = False,
                 DEBUG_AI = False,
+                DEBUG_RIMSALA = True,
 
                 ID = memory(WORD, TEMP),
                 TRASH_ID = memory(WORD, TEMP),
@@ -28438,8 +28480,9 @@ area metro() {
 
                 WITH_BUNNY_HOP = True,
                 WITH_BOY = False,
-                WITH_DOG = False,
+                WITH_DOG = True,
 
+                SHIELD_PHASE_THRESHOLD = 0d3,
                 SHIELD_HITS = memory(WORD, TEMP),
                 SHIELD_HITS_REQUIRED = 0d100,
                 SHIELD_HITS_BOY = 0d1,
@@ -28447,27 +28490,37 @@ area metro() {
                 SHIELD_HIT_RAPTOR = 0d20,
                 SHIELD_HIT_RIMSALA = 0d20,
 
+                BOMB_RESPAWN = 0d300,
+
+                RAPTOR_RESPAWN = 0d300,
+
+                RIMSALA_RESPAWN = 0d300,
+
                 THRESHOLD_RIMSALA = 0d80,
 
                 TIMER_RAW = memory(WORD, TEMP),
                 TIMER_COUNTER = memory(WORD, TEMP),
-                TIMER_P1 = 0d5000,
-                TIMER_P2 = 0d5000,
-                TIMER_P3 = 0d5000,
-                TIMER_P4 = 0d5000,
-                TIMER_P5 = 0d5000,
-                TIMER_P6 = 0d5000,
+                TIMER_P1 = 0d500, // bombs
+                TIMER_P2 = 0d500, // raptors
+                TIMER_P3 = 0d5000, // rimsala
+                TIMER_P4 = 0d5000, // boy
+                TIMER_P5 = 0d500, // toaster
+                TIMER_P6 = 0d5000, // carltron
             }
 
             fun boss_defeated() {
                 attribute(BOY, INVINCIBLE_TEMP, True);
+                CUSTOM_FLAG.NO_RUNNING = True;
 
                 subtext("yatta");
+            }
+            fun outro() {
+                nop();
             }
 
             @install()
             fun shield_hit(amount:BOSS, plonk) {
-                if(BOSS.SHIELD_HITS < BOSS.SHIELD_HITS_REQUIRED) {
+                if((BOSS.SHIELD_HITS < BOSS.SHIELD_HITS_REQUIRED) || (BOSS.PHASE < BOSS.SHIELD_PHASE_THRESHOLD)) {
                     sound(WEIRD_SOUND); // TODO
 
                     if(plonk) {
@@ -28520,11 +28573,11 @@ area metro() {
                         }
 
                         add_enemy(BOMB, arg[0x12], arg[0x14]);
+                        attach_to_script(<LAST_ENTITY>);
                         attach_script(SCRIPT_OWNER, DEATH, reference(vanilla_bomb_explosion));
                         <LAST_ENTITY>[Z] = 0d2000;
                         // <LAST_ENTITY>[HP] = 0d2;
                         BOSS.TRASH_ID = <LAST_ENTITY>;
-                        attach_to_script(<LAST_ENTITY>);
 
                         arg[0x10] = 0d300;
                         while((_alive(<SCRIPT_OWNER>)) && (arg[0x10] > 0d0)) {
@@ -28566,7 +28619,7 @@ area metro() {
                             damage(SCRIPT_OWNER, 0d9999, False);
                         }
 
-                        sleep(0d300);
+                        sleep(BOSS.BOMB_RESPAWN);
                     } else {
                         sleep(0d60);
                     }
@@ -28619,14 +28672,17 @@ area metro() {
                         yield();
                     }
 
-                    sleep(0d600);
+                    sleep(BOSS.RAPTOR_RESPAWN);
                 }
             }
             fun _add_rimsala() {
-                add_enemy(RIMSALA_2, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, INACTIVE);
+                if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                    subtext("+rimsala");
+                }
 
+                add_enemy(RIMSALA_2, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, INACTIVE);
+                attach_to_script(LAST_ENTITY);
                 BOSS.TRASH_ID = <LAST_ENTITY>;
-                attach_to_script(<LAST_ENTITY>);
 
                 attach_script(LAST_ENTITY, DEATH, reference(@install() {
                     for(arg[0x10] in 0d0..0d5) {
@@ -28644,7 +28700,14 @@ area metro() {
             @install()
             @async()
             fun add_rimsala() {
+                if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                    subtext("++rimsala");
+                }
+
                 arg[0x0e] = BOSS.PHASE;
+
+                debug_memory(BOSS.PHASE, arg[0x0e]);
+                sleep(0d60);
 
                 while(BOSS.PHASE == arg[0x0e]) {
                     _add_rimsala();
@@ -28678,29 +28741,100 @@ area metro() {
                         }
                     }
 
+                    if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                        subtext("rimsala hit");
+                    }
+
                     control(SCRIPT_OWNER, False);
                     while(alive(<SCRIPT_OWNER>)) {
                         yield();
                     }
 
-                    sleep(0d600);
+                    if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                        subtext("-rimsala");
+                    }
+
+                    sleep(BOSS.RIMSALA_RESPAWN);
                 }
+
+                if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                    subtext("--rimsala");
+                }
+
+                debug_memory(BOSS.PHASE, arg[0x0e]);
             }
             @install()
             @async()
             fun add_boy() {
-                BOSS.TRASH_ID = 0x0000;
-                subtext("+boy");
+                add_enemy(BOY_BLACK, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, INACTIVE);
+                BOSS.TRASH_ID = <LAST_ENTITY>;
+                attach_to_script(LAST_ENTITY);
+
+                <LAST_ENTITY>[HP] = 0d1;
             }
             @install()
             @async()
             fun add_dog() {
-                add_enemy(DOG_4_BLACK, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y);
+                add_enemy(DOG_4_BLACK, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, INACTIVE);
                 BOSS.TRASH_ID = <LAST_ENTITY>;
                 attach_to_script(LAST_ENTITY);
 
-                while(True) {
+                while(alive(<SCRIPT_OWNER>)) {
+                    arg[0x14]++;
+
                     <SCRIPT_OWNER>[Y] = 0d190;
+                    
+                    arg[0x12] = <SCRIPT_OWNER>[X];
+
+                    if!(arg[0x10]) {
+                        teleport_relative(SCRIPT_OWNER, 0d1, 0d0);
+
+                        if(<SCRIPT_OWNER>[X] == arg[0x12]) {
+                            arg[0x10] = True;
+                        }
+                    } else {
+                        arg[0x12] = <SCRIPT_OWNER>[X];
+                        teleport_relative(SCRIPT_OWNER, -0d1, 0d0);
+
+                        if(<SCRIPT_OWNER>[X] == arg[0x12]) {
+                            arg[0x10] = False;
+                        }
+                    }
+
+                    if!(<SCRIPT_OWNER>[Z]) {
+                        <SCRIPT_OWNER>[VELOCITY] = 0d20;
+                    }
+
+                    if(False) {
+                        control(SCRIPT_OWNER, False);
+                        yield();
+                        control(SCRIPT_OWNER, True);
+                    } else {
+                        if((<SCRIPT_OWNER>[Y] > (MEMORY.CAMERA_Y_MIN + 0d20)) && (!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION))) {
+                            if(arg[0x14] > 0d300) {
+                                arg[0x14] = 0d0;
+
+                                arg[0x16] = randrange(0d3);
+
+                                if(arg[0x16] == 0d0) {
+                                    animate(SCRIPT_OWNER, ONCE, SLASH_1_3);
+                                } else {
+                                    arg[0x16] = randrange(0d3);
+
+                                    if(arg[0x16] == 0d0) {
+                                        beam_wall(SOUTH, <BOY>, 0d40, 0d190, 0d140, 0d440, 0d20);
+                                    } else if(arg[0x16] == 0d1) {
+                                        beam_wall(SOUTH, <BOY>, 0d110, 0d190, 0d210, 0d440, 0d20);
+                                    } else {
+                                        beam_wall(SOUTH, <BOY>, 0d190, 0d190, 0d280, 0d440, 0d20);
+                                    }
+                                }
+                            } else if((<BOY>[X] > <SCRIPT_OWNER>[X] - 0d20) && ((<BOY>[X] < <SCRIPT_OWNER>[X] + 0d20))) {
+                                animate(SCRIPT_OWNER, ONCE, SLASH_1);
+                            }
+                        }
+                    }
+
                     face(SCRIPT_OWNER, SOUTH);
 
                     teleport_relative(BOY, 0d0, 0d1);
@@ -28720,13 +28854,13 @@ area metro() {
                         arg[0x10] = randrange(0d4);
 
                         if(arg[0x10] == 0d0) {
-                            beam_link(BOSS.ID, ROOM.SQUARE_1_ID, 0d30);
+                            beam_link_absolute(BOSS.ID, ROOM.SQUARE_1_X, ROOM.SQUARE_1_Y, 0d30);
                         } else if(arg[0x10] == 0d1) {
-                            beam_link(BOSS.ID, ROOM.SQUARE_2_ID, 0d30);
+                            beam_link_absolute(BOSS.ID, ROOM.SQUARE_2_X, ROOM.SQUARE_2_Y, 0d30);
                         } else if(arg[0x10] == 0d2) {
-                            beam_link(BOSS.ID, ROOM.SQUARE_3_ID, 0d30);
+                            beam_link_absolute(BOSS.ID, ROOM.SQUARE_3_X, ROOM.SQUARE_3_Y, 0d30);
                         } else {
-                            beam_link(BOSS.ID, ROOM.SQUARE_4_ID, 0d30);
+                            beam_link_absolute(BOSS.ID, ROOM.SQUARE_4_X, ROOM.SQUARE_4_Y, 0d30);
                         }
 
                         sleep(0d600);
@@ -28759,7 +28893,7 @@ area metro() {
                             }
                         }
 
-                        sleep(0d300);
+                        sleep(0d600);
                     }
                 }
             }
@@ -28775,11 +28909,12 @@ area metro() {
                 }
             }
 
-            fun show_boss(show) {
+            fun show_boss(show, x, y) {
                 if(show) {
                     BOSS.ID[Z] = 0d1000;
 
                     animate(BOSS.ID, ONCE, DEFAULT);
+                    _teleport(BOSS.ID, x, y);
 
                     while(BOSS.ID[Z] > 0d0) {
                         yield();
@@ -28788,6 +28923,7 @@ area metro() {
                     control(BOSS.ID, False);
                     attribute(BOSS.ID, INVINCIBLE_TEMP, False);
                 } else {
+
                     control(BOSS.ID, True);
                     attribute(BOSS.ID, INVINCIBLE_TEMP, True);
 
@@ -28796,6 +28932,7 @@ area metro() {
                     sleep(0d30);
 
                     animate(BOSS.ID, ONCE_FREEZE, INVISIBLE);
+                    _teleport(BOSS.ID, x, y);
                 }
             }
 
@@ -28820,7 +28957,7 @@ area metro() {
                                 sleep(0d10);
                             }
 
-                            next_phase();
+                            next_phase(); // phase 1
 
                             add_raptors();
                         }
@@ -28830,39 +28967,32 @@ area metro() {
                                 sleep(0d10);
                             }
 
-                            next_phase();
+                            next_phase(); // phase 2
 
                             add_rimsala();
                         }
                     } else if(BOSS.PHASE == 0d2) {
-                        if!(BOSS.WITH_BOY) {
-                            next_phase();
-                        } else {
-                            if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P3) {
-                                while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                    sleep(0d10);
-                                }
-
-                                next_phase();
-
-                                BOSS.BOSS_HIDDEN = True;
-                                add_boy();
+                        if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P3) {
+                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                sleep(0d10);
                             }
+
+                            next_phase();
+
+                            BOSS.BOSS_HIDDEN = True;
+                            add_boy();
                         }
                     } else if(BOSS.PHASE == 0d3) {
-                        if!(BOSS.WITH_DOG) {
-                            next_phase();
-                        } else {
-                            if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P4) {
-                                while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                    sleep(0d10);
-                                }
-
-                                next_phase();
-
-                                BOSS.BOSS_HIDDEN = True;
-                                add_dog();
+                        if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P4) {
+                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                sleep(0d10);
                             }
+
+                            next_phase();
+
+                            switch_vent_mode(True);
+                            BOSS.BOSS_HIDDEN = True;
+                            add_dog();
                         }
                     } else if(BOSS.PHASE == 0d4) {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P5) {
@@ -28872,6 +29002,7 @@ area metro() {
 
                             next_phase();
 
+                            switch_vent_mode(False);
                             BOSS.BOSS_HIDDEN = False;
                             enrage_carltron();
                         }
@@ -28882,9 +29013,33 @@ area metro() {
                             }
 
                             next_phase();
+                            
+                            object[0x00] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x01] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x02] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x03] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x04] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x05] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x06] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            object[0x07] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+
                             boss_defeated();
 
-                            end();
+                            while(True) {
+                                if(<BOY>[Y] <= 0d51) {
+                                    walk(BOY, TILE_ABSOLUTE, 0d20, 0d6, BOY, NONE);
+
+                                    fade_out();
+
+                                    walk(BOY, TILE_RELATIVE_DIRECT, 0d0, -0d1, BOY, NONE);
+
+                                    outro();
+
+                                    end();
+                                }
+
+                                yield();
+                            }
                         }
                     }
 
@@ -29008,13 +29163,16 @@ area metro() {
                     arg[0x16] = <BOY>[Y];
 
                     if(BOSS.BOSS_HIDDEN) {
-                        show_boss(False);
+                        arg[0x18] = BOSS.ID[X];
+                        arg[0x1a] = BOSS.ID[Y];
+
+                        show_boss(False, 0d0, 0d0);
 
                         while(BOSS.BOSS_HIDDEN) {
                             yield();
                         }
 
-                        show_boss(True);
+                        show_boss(True, arg[0x18], arg[0x1a]);
                     }
                 }
             }
@@ -29025,23 +29183,12 @@ area metro() {
             default_init_room(False, False);
 
             add_carltron();
-
-            // cause lag?
-            add_enemy(PLACEHOLDER, ROOM.SQUARE_1_X, ROOM.SQUARE_1_Y);
-            ROOM.SQUARE_1_ID = <LAST_ENTITY>;
-            add_enemy(PLACEHOLDER, ROOM.SQUARE_2_X, ROOM.SQUARE_2_Y);
-            ROOM.SQUARE_2_ID = <LAST_ENTITY>;
-            add_enemy(PLACEHOLDER, ROOM.SQUARE_3_X, ROOM.SQUARE_3_Y);
-            ROOM.SQUARE_3_ID = <LAST_ENTITY>;
-            add_enemy(PLACEHOLDER, ROOM.SQUARE_4_X, ROOM.SQUARE_4_Y);
-            ROOM.SQUARE_4_ID = <LAST_ENTITY>;
-            add_enemy(PLACEHOLDER, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y);
-            ROOM.SQUARE_5_ID = <LAST_ENTITY>;
             
             add_bombs(); // phase 0
-            // add_raptor(); // phase 1
+            // add_raptors(); // phase 1
             // add_rimsala(); // phase 2
-            // enrage_carltron();
+            // add_dog(); // phase 4
+            // enrage_carltron(); // phase 5
 
             object[0x00] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
             object[0x01] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
