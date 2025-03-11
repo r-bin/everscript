@@ -299,10 +299,6 @@ group non_maps() {
             animate(LAST_ENTITY, LOOP, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
         }
 
-        fun press_start() {
-            subtext("Press the [START] Button");
-        }
-
         fun notification_door_opened() {
             subtext("Somewhere a door has opened.");
         }
@@ -605,6 +601,8 @@ group non_maps() {
             REWARD_SPACESHIP_DESERT = ITEM.NECTAR, // TODO
             DEAD_ABOMINATION = memory(FLAG, SRAM),
             REWARD_ABOMINATION = ITEM.ENERGY_CORE,
+
+            DEAD_FINAL_BOSS = memory(FLAG, SRAM),
 
             ///////////////////////////////////////////////////////
             // quests
@@ -1062,6 +1060,24 @@ group non_maps() {
             }
 
             map_transition(inbetwixx, center, NONE);
+        }
+
+        fun show_credits() {
+            control(NONE);
+
+            outro_stats(SOULS_MEMORY.PROGRESS_COUNTER, SOULS_MEMORY.BOSSES_DEFEATED_COUNTER, SOULS_MEMORY.COLLECTIBLE_COUNTER);
+            
+            outro_text_box("Created by", "[LF][LF]twitch.tv/ps3003");
+
+            outro_text_box("Shoutouts Devs/Designers", "[LF][LF]twitch.tv/Black_Sliver[LF](evermizer.com)[LF][LF]twitch.tv/skarsnikus[LF](Evermore hacking)[LF][LF]twitch.tv/BarbarousKing[LF](Lunar Magic Streams)[LF][LF]twitch.tv/Dennsen86[LF](Lunar Magic Streams)");
+
+            outro_text_box("Shoutouts Players", "[LF][LF]twitch.tv/its_cliqz[LF][LF]twitch.tv/solarcell007");
+
+            outro_text_box("", "[LF][LF]The End", True);
+
+            sleep(0d3600);
+
+            return_to_bonfire();
         }
 
         @install()
@@ -5532,23 +5548,6 @@ area north_inbetwixx() {
             default = soundtrack(WIND_AMBIENT_BIRDS_2, 0xff),
         }
 
-        fun show_credits() {
-            control(NONE);
-
-            outro_stats(SOULS_MEMORY.PROGRESS_COUNTER, SOULS_MEMORY.BOSSES_DEFEATED_COUNTER, SOULS_MEMORY.COLLECTIBLE_COUNTER);
-            
-            outro_text_box("Created by", "[LF][LF]twitch.tv/ps3003");
-
-            outro_text_box("Shoutouts Devs/Designers", "[LF][LF]twitch.tv/Black_Sliver[LF](evermizer.com)[LF][LF]twitch.tv/skarsnikus[LF](Evermore hacking)[LF][LF]twitch.tv/BarbarousKing[LF](Lunar Magic Streams)[LF][LF]twitch.tv/Dennsen86[LF](Lunar Magic Streams)");
-
-            outro_text_box("Shoutouts Players", "[LF][LF]twitch.tv/its_cliqz[LF][LF]twitch.tv/solarcell007");
-
-            outro_text_box("", "[LF][LF]The End", True);
-
-            sleep(0d600);
-
-            return_to_bonfire();
-        }
         fun outro_triggered() {
             question("[SLOW]I'm afraid there is no final boss, yet.[B]After starting the credits you can't return back to the game.[B]Exit the games and roll the credits?[CHOICE]credits…[CHOICE]leave…");
 
@@ -7535,7 +7534,7 @@ area altus_plateau_entry() {
                 default_init_room(False, False);
                 CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.AIRSHIP;
 
-                press_start();
+                hint(PRESS_START);
 
                 add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x10, 0x10);
                 ROOM.SHIP_ID = <LAST_ENTITY>;
@@ -20270,7 +20269,7 @@ area town() {
                 show_bridge(True);
                 default_init_room(False, False);
 
-                press_start();
+                hint(PRESS_START);
 
                 CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
@@ -25431,15 +25430,17 @@ area metro() {
 
     map metro(OMNITOPIA_METROPLEX) {
         enum ROOM {
-            ROW_1 = 0d18,
-            ROW_2 = 0d62,
-            ROW_3 = 0d106,
-            ROW_4 = 0d150,
-
             COLUMN_1 = 0d18,
             COLUMN_2 = 0d82,
             COLUMN_3 = 0d146,
             COLUMN_4 = 0d210,
+            COLUMN_CENTER = 0d84,
+
+            ROW_1 = 0d18,
+            ROW_2 = 0d62,
+            ROW_3 = 0d106,
+            ROW_4 = 0d150,
+            ROW_CENTER = 0d114,
 
             WITH_BROKEN_GATE_BOT = False, // TODO: buggy, also weird in vanilla
             GUARD_BOT_HP = 0d20,
@@ -26013,6 +26014,15 @@ area metro() {
 
                 if!(SOULS_MEMORY.WITH_SATURN_ROOM) {
                     error_message(DLC);
+                    end();
+                }
+
+                if!(SOULS_MEMORY.DEAD_FINAL_BOSS) {
+                    door_act4_airlock_out(ROOM.ROW_CENTER, ROOM.COLUMN_CENTER, 0x25);
+
+                    map_transition(metro_rooms_true_ending, center, NONE);
+                } else {
+                    error_message(DOOR_COMPLETED);
                 }
             },
             door_d1_down = @install() {
@@ -28464,7 +28474,7 @@ area metro() {
 
         group carltron_ai() {
             enum BOSS {
-                DEBUG = True,
+                DEBUG = False,
                 DEBUG_PHASE = False,
                 DEBUG_AI = False,
                 DEBUG_RIMSALA = True,
@@ -28512,10 +28522,10 @@ area metro() {
                 attribute(BOY, INVINCIBLE_TEMP, True);
                 CUSTOM_FLAG.NO_RUNNING = True;
 
-                subtext("yatta");
+                SOULS_MEMORY.DEAD_FINAL_BOSS = True;
             }
             fun outro() {
-                nop();
+                show_credits();
             }
 
             @install()
@@ -29179,7 +29189,7 @@ area metro() {
         };
 
         fun trigger_enter() {
-            CUSTOM_FLAG.NO_DOG;
+            CUSTOM_FLAG.NO_DOG = True;
             default_init_room(False, False);
 
             add_carltron();
@@ -29205,7 +29215,7 @@ area metro() {
                 unlock(JAGUAR_RING);
                 // unlock(WEAPONS);
                 <BOY>[HP] = SYSTEM.HP_MAX;
-                // attribute(BOY, INVINCIBLE_TEMP, True);
+                attribute(BOY, INVINCIBLE_TEMP, True);
 
                 MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
             }
@@ -29546,7 +29556,7 @@ area dungeon_isaac() {
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
 
-                press_start();
+                hint(PRESS_START);
             }
         };
 
