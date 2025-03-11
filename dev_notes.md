@@ -22,38 +22,37 @@
 
 
 # important
-## true ending boss?
+## improve bosses (double thraxx)
 ## cutscene: big pressure plate -> altus no intro 
 ## cutscene: enter duel arena
 ## any% only has 500 talons (200 for a level, 100 for atlas amulet, no cat ring)
 ## every any door can be opened by a bomb
+## fog wall - remove walk back (at least for dark forest maps)
+## basement + sidescroller + bowser + bowser dungeons - dog is available
 
 # nice to have
 ## loot: nothing (says invalid item)
+## isaac slime knockback = no shot
 ## minitaur anti cheese + megataur anti cheese (horizontal rolling)
 ## projectiles with entity targets should check range (and not shoot off screen)
+## no music after levitate+revealer
 ## scale enemies: before puppets, before pyramid
+## raptor arena - don't reuse enemies
+## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
 ## balance bosses (radahn)
-## improve bosses (double thraxx)
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
 ## "jump into volcano" animation
-## isaac slime knockback = no shot
 ## make mario prison less boring
 ## mushroom armor crafting
 ## monstro p2
 ## town tavern door does not control active
-## town arena bin contains hidden ticket
-## no music after levitate+revealer
 ## basement - door unlock sounds
-## fog wall - remove walk back (at least for dark forest maps)
 ## sound - falling transition
-## basement + sidescroller + bowser + bowser dungeons - dog is available
 ## stats menu - armor name incorrect
-## raptor arena - don't reuse enemies
-## raptor arena - bushes are not hidden on enter
 ## monstro - does not explode
 ## pressure plate - no sound
+## town arena bin contains hidden ticket
 
 
 
