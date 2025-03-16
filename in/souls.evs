@@ -90,6 +90,11 @@ group non_maps() {
             code(0x0000, "// spark evade");
         }
 
+        @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.BOY_BLACK * CHARACTER_DATA.SIZE) + CHARACTER_DATA.EVADE, False)
+        fun boy_black_evade() {
+            code(0x0009, "// BOY_BLACK evade");
+        }
+
         @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.RAPTOR_TEAL * CHARACTER_DATA.SIZE) + CHARACTER_DATA.EVADE, False)
         fun raptor_teal_evade() {
             code(0x0009, "// raptor teal evade");
@@ -328,16 +333,17 @@ group non_maps() {
     group souls_helper() {
         enum BUTTON_MAP {
             NORMAL = 0x00,
-
-            BOMBS = 0x01,
-            AIRSHIP = 0x02,
-            SPACESHIP = 0x03,
-            PUPPER = 0x04,
+            PUPPER = 0x01,
+            SPEAR_TOSS = 0x02,
 
             ISAAC = 0x10,
+            BOMBS = 0x11,
 
             MARIO = 0x20,
             MARIO_FIREFLOWER = 0x21,
+
+            AIRSHIP = 0x30,
+            SPACESHIP = 0x31,
         }
         enum DEBUG_MENU_ENTRY {
             BOMBS = 0d1,
@@ -446,6 +452,12 @@ group non_maps() {
             ISAAC_WANTED_POSTER = memory(FLAG, SRAM),
             BUG_CATCHER_BROKEN = memory(FLAG, SRAM),
             BUG_CATCHER = memory(FLAG, SRAM),
+
+            // custom item helper
+
+            HIT_BONUS_HELM = memory(FLAG, SRAM),
+            HIT_BONUS_CHEST = memory(FLAG, SRAM),
+            HIT_BONUS_ARMLET = memory(FLAG, SRAM),
 
             // button map
             BUTTON_MAP = memory(BYTE, SRAM), // TODO: should be memory(WORD, TEMP)
@@ -918,6 +930,21 @@ group non_maps() {
             }
         }
 
+        fun _update_armor_effects(armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS, flag:SOULS_MEMORY, bonus) {
+            if(armor_slot == armor) {
+                if!(flag) {
+                    flag = True;
+
+                    <BOY>[BOOST_HIT] += bonus;
+                }
+            } else {
+                if(flag) {
+                    flag = False;
+
+                    <BOY>[BOOST_HIT] -= bonus;
+                }
+            }
+        }
         @install()
         fun update_armor_effects() {
             // BOOST_HIT = CHEST_1_1, HELM_1_1, GLOVE_1_1
@@ -926,16 +953,9 @@ group non_maps() {
             // heat = CHEST_2_3
             // thorne = GLOVE_1_3
 
-            <BOY>[BOOST_HIT] = 0d0;
-            if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_1_1) {
-                <BOY>[BOOST_HIT] += 0d5;
-            }
-            if(CUSTOM_MEMORY.CURRENT_ARMOR_HELM == ARMOR_STATS.HELM_1_1) {
-                <BOY>[BOOST_HIT] += 0d5;
-            }
-            if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_1_1) {
-                <BOY>[BOOST_HIT] += 0d5;
-            }
+            _update_armor_effects(CURRENT_ARMOR_CHEST, CHEST_1_1, HIT_BONUS_CHEST, 0d15);
+            _update_armor_effects(CURRENT_ARMOR_HELM, HELM_1_1, HIT_BONUS_HELM, 0d15);
+            _update_armor_effects(CURRENT_ARMOR_ARMLET, GLOVE_1_1, HIT_BONUS_ARMLET, 0d15);
         }
 
         @install()
@@ -1440,8 +1460,8 @@ group non_maps() {
                 SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
                 SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
 
-                MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
-                MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
+                // MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
+                // MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
                 // MEMORY.ALCHEMY_LEVEL_SPEED = 0d1;
 
                 SOULS_MEMORY.MENU_CHOICE = 0xffff;
@@ -2148,6 +2168,8 @@ group non_maps() {
 
                     drop_bomb(False);
                 }
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.SPEAR_TOSS) {
+                spear_toss();
             }
         }
         @install()
@@ -2266,6 +2288,8 @@ group non_maps() {
                 PROGRESS = memory(BYTE, SRAM),
                 SUB_PROGRESS = memory(BYTE, SRAM),
 
+                PRICE_LEVEL_UP = 0d100,
+
                 // ID = memory(WORD, SRAM),
                 BODY = ENEMY.FIRE_EYES,
             }
@@ -2287,11 +2311,11 @@ group non_maps() {
                     full_heal(BOTH, True);
                     yield();
                     
-                    _level_up(MEMORY.STRING_PARAMETER_1, 0d3);
+                    _level_up(MEMORY.STRING_PARAMETER_1, 0d3, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
                     question("[SLOW]Level up for [MEM1] Souls?[CHOICE]yes…[CHOICE]no…");
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
-                        level_up(BOY, 0d3);
+                        level_up(BOY, 0d3, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
 
                         yield();
                         MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
@@ -2898,6 +2922,105 @@ group non_maps() {
                     attach_script(LAST_ENTITY, B, reference(smith_0_triggered));
                 } else {
                     attach_script(LAST_ENTITY, B, reference(smith_1_triggered));
+                }
+            }
+        };
+
+        group npc_crafter() {
+            enum NPC_CRAFTER {
+                PROGRESS = memory(BYTE, SRAM),
+
+                BODY = ENEMY.VILLAGER_1_4,
+
+                PRICE_MUSHROM_HELMET = 0d5,
+                PRICE_MUSHROM_CHEST = 0d8,
+                PRICE_MUSHROM_GLOVE = 0d5,
+            }
+
+            group crafter_ai() {
+                group crafting() {
+                    fun _craft_armor(armor:ITEM, price) {
+                        trade_items(NO_ITEM, 0d0, TAPESTRY, 0d1, MUSHROOM, price);
+                            
+                        if(CUSTOM_MEMORY.RETURN) {
+                            reward(armor);
+                        }
+
+                        control(BOTH);
+                    }
+                    
+                    fun craft_armor() {
+                        MEMORY.STRING_PARAMETER_1 = NPC_CRAFTER.PRICE_MUSHROM_HELMET;
+                        MEMORY.STRING_PARAMETER_2 = NPC_CRAFTER.PRICE_MUSHROM_CHEST;
+                        MEMORY.STRING_PARAMETER_3 = NPC_CRAFTER.PRICE_MUSHROM_GLOVE;
+                        question("This is what I can offer for a tapestry and some mushrooms…[CHOICE]Helm ([MEM1])[CHOICE]Chest ([MEM2])[CHOICE]Glove ([MEM3])", 0d6);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            _craft_armor(HELM_1_1, MEMORY.STRING_PARAMETER_1);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                            _craft_armor(CHEST_1_1, MEMORY.STRING_PARAMETER_2);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                            _craft_armor(GLOVE_1_1, MEMORY.STRING_PARAMETER_3);
+                        }
+                    }
+                };
+
+                fun response_greeting() {
+                    arg[0x00] = randrange(0x04);
+
+                    if(arg[0x00] == 0d0) {
+                        dialog("[SLOW]If you bring me the right material I can craft you almost anything. Preferably mushrooms based armor, though.[B]");
+                    } else if(arg[0x00] == 0d1) {
+                        dialog("[SLOW]Do you have spare mushrooms? I can make them more useful for you.[B]");
+                    } else if(arg[0x00] == 0d2) {
+                        dialog("[SLOW]Are you in the need of some crafting?[B]");
+                    } else {
+                        dialog("[SLOW]People usually underestimate the usefulness of agility items.[B]");
+                    }
+                }
+
+                fun response_positive() {
+                    arg[0x00] = randrange(0x03);
+
+                    if(arg[0x00] == 0x00) {
+                        dialog("[SLOW]Go and slay some big game with that armor.[B]");
+                    } else if(arg[0x00] == 0x01) {
+                        dialog("[SLOW]Go and hunt some monster with that armor.[B]");
+                    } else {
+                        dialog("[SLOW]That armor really suits you.[B]");
+                    }
+                }
+                fun response_negative() {
+                    dialog("[SLOW]I assume you're not into crafting.[B]");
+                }
+
+                @install()
+                fun crafter_0_triggered() {
+                    conversation({
+                        response_greeting();
+
+                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]craft…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                            subtext("todo");
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // craft
+                            craft_armor();
+                        } else {
+                            response_negative();
+                        }
+                    });
+                }
+            };
+            
+            fun add_souls_npc_crafter(x, y, flags:FLAG_ENEMY) {
+                if(flags is Word) {
+                    add_enemy(NPC_CRAFTER.BODY, x, y, flags);
+                } else {
+                    add_enemy(NPC_CRAFTER.BODY, x, y, 0d0);
+                }
+
+                if(NPC_CRAFTER.PROGRESS == 0d0) {
+                    attach_script(LAST_ENTITY, B, reference(crafter_0_triggered));
                 }
             }
         };
@@ -3882,7 +4005,7 @@ area shrine_area() {
             hut_1 = entrance(0x0f, 0x1b, SOUTH),
             hut_2 = entrance(0x33, 0x2d, SOUTH),
             hut_3 = entrance(0x53, 0x2f, SOUTH),
-            hut_4 = entrance(0x65, 0x36, SOUTH),
+            hut_4 = entrance(0x65, 0x35, SOUTH),
             hut_5 = entrance(0x6f, 0x49, SOUTH),
             hut_6 = entrance(0x45, 0x53, SOUTH),
             hut_7 = entrance(0x25, 0x5b, SOUTH),
@@ -4155,7 +4278,7 @@ area shrine_area() {
                 map_transition(hut_3, door, NORTH);
             },
             exit_hut_4 = @install() {
-                map_transition(hut_4, door, NORTH);
+                map_transition(hut_crafter, door, NORTH);
             },
             exit_hut_5 = @install() {
                 map_transition(hut_5, door, NORTH);
@@ -4310,7 +4433,7 @@ area shrine_area() {
             add_door(0d15, 0d29, NPC_DOG_LADY.PROGRESS < 0d1); // dog lady
             add_door(0d51, 0d47, True);
             add_door(0d83, 0d49, True);
-            add_door(0d101, 0d57, True);
+            add_door(0d101, 0d57, False); // NPC_CRAFTER.PROGRESS < 0d2); // crafter
             add_door(0d111, 0d75, True);
 
 
@@ -4630,7 +4753,7 @@ area shrine_area() {
         }
     };
 
-    map hut_4(VILLAGE_HUTS) { // variant 1_3
+    map hut_crafter(VILLAGE_HUTS) { // variant 1_3
         enum entrance {
             door = entrance(0x32, 0x23, NORTH),
         }
@@ -4716,6 +4839,8 @@ area shrine_area() {
             // object[0x02] = 0x01; // open gourd_1_2_1
             // object[0x03] = 0x01; // open gourd_1_2_2
             // object[0x04] = 0x01; // open gourd_1_2_3
+
+            add_souls_npc_crafter(0d57, 0d23);
 
             fade_in();
         }
@@ -5427,6 +5552,8 @@ area inbetwixx_center() {
                 MEMORY.SELECTED_ALCHEMY_4 = ALCHEMY_INDEX.DEFEND;
                 set(FLAG.FLASH);
                 MEMORY.SELECTED_ALCHEMY_5 = ALCHEMY_INDEX.FLASH;
+                set(FLAG.SPEED);
+                MEMORY.SELECTED_ALCHEMY_6 = ALCHEMY_INDEX.SPEED;
 
                 SOULS_MEMORY.BOMB_ENABLED = True;
                 SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
@@ -28477,7 +28604,7 @@ area metro() {
                 DEBUG = False,
                 DEBUG_PHASE = False,
                 DEBUG_AI = False,
-                DEBUG_RIMSALA = True,
+                DEBUG_RIMSALA = False,
 
                 ID = memory(WORD, TEMP),
                 TRASH_ID = memory(WORD, TEMP),
@@ -29002,6 +29129,10 @@ area metro() {
 
                             switch_vent_mode(True);
                             BOSS.BOSS_HIDDEN = True;
+                            
+                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPEAR_TOSS;
+                            hint(PRESS_R);
+
                             add_dog();
                         }
                     } else if(BOSS.PHASE == 0d4) {
@@ -29009,6 +29140,8 @@ area metro() {
                             while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
                                 sleep(0d10);
                             }
+
+                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.NORMAL;
 
                             next_phase();
 
