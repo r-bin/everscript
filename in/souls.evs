@@ -90,10 +90,10 @@ group non_maps() {
             code(0x0000, "// spark evade");
         }
 
-        @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.BOY_BLACK * CHARACTER_DATA.SIZE) + CHARACTER_DATA.EVADE, False)
-        fun boy_black_evade() {
-            code(0x0009, "// BOY_BLACK evade");
-        }
+        // @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.BOY_BLACK * CHARACTER_DATA.SIZE) + CHARACTER_DATA.EVADE, False)
+        // fun boy_black_evade() {
+        //     code(0x0009, "// BOY_BLACK evade");
+        // }
 
         @install(CHARACTER_DATA.POINTER + (CHARACTER_INDEX.RAPTOR_TEAL * CHARACTER_DATA.SIZE) + CHARACTER_DATA.EVADE, False)
         fun raptor_teal_evade() {
@@ -2997,6 +2997,34 @@ group non_maps() {
                 @install()
                 fun crafter_0_triggered() {
                     conversation({
+                        if(NPC_CRAFTER.PROGRESS == 0d0) {
+                            dialog("[SLOW]I'm trying to find some limestone tablets in the temple… Wish me luck…[B]");
+
+                            NPC_CRAFTER.PROGRESS = 0d1;
+                        } else {
+                            dialog("[SLOW]Wish me luck…[B]");
+                        }
+                    });
+                }
+                @install()
+                fun crafter_1_triggered() {
+                    conversation({
+                        if(NPC_CRAFTER.PROGRESS == 0d1) {
+                            question("[SLOW]I don't think I'll get out of here alive…[CHOICE]invite…[CHOICE]leave…");
+                                 
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                                NPC_CRAFTER.PROGRESS = 0d2;
+
+                                dialog("[SLOW]Let me know when you need some crafting…[B]");
+                            }
+                        } else {
+                            dialog("[SLOW]Let me know when you need some crafting…[B]");
+                        }
+                    });
+                }
+                @install()
+                fun crafter_2_triggered() {
+                    conversation({
                         response_greeting();
 
                         question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]craft…");
@@ -3021,6 +3049,10 @@ group non_maps() {
 
                 if(NPC_CRAFTER.PROGRESS == 0d0) {
                     attach_script(LAST_ENTITY, B, reference(crafter_0_triggered));
+                } else if(NPC_CRAFTER.PROGRESS == 0d1) {
+                    attach_script(LAST_ENTITY, B, reference(crafter_1_triggered));
+                } else if(NPC_CRAFTER.PROGRESS == 0d2) {
+                    attach_script(LAST_ENTITY, B, reference(crafter_2_triggered));
                 }
             }
         };
@@ -4433,7 +4465,7 @@ area shrine_area() {
             add_door(0d15, 0d29, NPC_DOG_LADY.PROGRESS < 0d1); // dog lady
             add_door(0d51, 0d47, True);
             add_door(0d83, 0d49, True);
-            add_door(0d101, 0d57, False); // NPC_CRAFTER.PROGRESS < 0d2); // crafter
+            add_door(0d101, 0d57, NPC_CRAFTER.PROGRESS < 0d2); // crafter
             add_door(0d111, 0d75, True);
 
 
@@ -4840,7 +4872,9 @@ area shrine_area() {
             // object[0x03] = 0x01; // open gourd_1_2_2
             // object[0x04] = 0x01; // open gourd_1_2_3
 
-            add_souls_npc_crafter(0d57, 0d23);
+            if(NPC_CRAFTER.PROGRESS == 0d2) {
+                add_souls_npc_crafter(0d57, 0d23);
+            }
 
             fade_in();
         }
@@ -18245,6 +18279,10 @@ area town() {
                 }
 
                 fun trigger_enter() {
+                    if(NPC_CRAFTER.PROGRESS == 0d1) {
+                        add_souls_npc_crafter(0d97, 0d82);
+                    }
+
                     // object[0x00] = 0x7e; // light arena_spawn_left
                     // object[0x01] = 0x7e; // light arena_spawn_right
                     object[0x02] = 0x7e; // open arena_lift_gate
@@ -20065,6 +20103,10 @@ area town() {
                     crash_both();
                 }
 
+                if(NPC_CRAFTER.PROGRESS == 0d0) {
+                    add_souls_npc_crafter(0d83, 0d143);
+                }
+
                 object[0x00] = 0x01; // remove vendor_1_1 (spice guy)
                 object[0x01] = 0x01; // remove vendor_1_2 (rice lady)
                 object[0x02] = 0x01; // remove guard_1_1 (next to rice lady)
@@ -21145,6 +21187,18 @@ area town() {
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) { // ethanol
                         trade_items(OIL, 0d1, ETHANOL, 0d1);
+                    }
+
+                    control(BOTH);
+                }));
+
+                add_enemy(VILLAGER_1_3, 0d60, 0d77, INACTIVE);
+                face(LAST_ENTITY, SOUTH);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    question("[SLOW]Do you want to trade for Tapestry?[CHOICE]10 Iron…", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // iron
+                        trade_items(TAPESTRY, 0d1, IRON, 0d10);
                     }
 
                     control(BOTH);
