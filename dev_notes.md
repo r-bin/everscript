@@ -22,15 +22,17 @@
 
 
 # important
+## acid rain + raptor = sound glitch
 ## improve bosses (double thraxx)
-## cutscene: big pressure plate -> altus no intro 
-## cutscene: enter duel arena
 ## any% only has 500 talons (200 for a level, 100 for atlas amulet, no cat ring)
-## every any door can be opened by a bomb
+## any door can be opened with a bomb
 ## fog wall - remove walk back (at least for dark forest maps)
 ## basement + sidescroller + bowser + bowser dungeons - dog is available
+## dog trap (cat) - dog can walk while gaining items
 
 # nice to have
+## cutscene: big pressure plate -> altus no intro 
+## cutscene: enter duel arena
 ## loot: nothing (says invalid item)
 ## isaac slime knockback = no shot
 ## minitaur anti cheese + megataur anti cheese (horizontal rolling)
