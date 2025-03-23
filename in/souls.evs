@@ -1670,6 +1670,7 @@ group non_maps() {
             }
         }
 
+        @install()
         fun default_init_room(night, rain) {
             init_hack();
 
@@ -1686,6 +1687,8 @@ group non_maps() {
             init_weather(night, rain);
 
             MEMORY.PACIFIED = False;
+
+            show_currency(False);
 
             fade_in();
         }
@@ -1995,6 +1998,75 @@ group non_maps() {
                 }
             }
         };
+
+        group helper_market() {
+            enum MARKET {
+                DEBUG = True,
+
+                START = 0x7fff,
+                END = 0xffff,
+            }
+
+            @install()
+            fun chicken_triggered() {
+                nop();
+            }
+
+            @install()
+            fun goat_triggered() {
+                nop();
+            }
+
+            @install()
+            fun guard_triggered() {
+                MEMORY.STRING_PARAMETER_1 = time[0d0];
+
+                if(time[0d0] < MARKET.START) {
+                    MEMORY.STRING_PARAMETER_2 = ((MARKET.START - time[0d0]) / 0d60) / 0d60;
+
+                    if(MEMORY.STRING_PARAMETER_2 > 0d1) {
+                        dialog("[SLOW]Next market will be in [MEM2] minutes.[B]");
+                    } else {
+                        dialog("[SLOW]Next market will be soon.[B]");
+                    }
+                } else {
+                    MEMORY.STRING_PARAMETER_2 = ((MARKET.END - time[0d0]) / 0d60) / 0d60;
+
+                    if(MEMORY.STRING_PARAMETER_2 > 0d1) {
+                        dialog("[SLOW]Next break will be in [MEM2] minutes.[B]");
+                    } else {
+                        dialog("[SLOW]Next break will be soon.[B]");
+                    }
+                }
+            }
+
+            fun guard_market_break(inverted) {
+                if(inverted is None) {
+                    if(time[0d0] < MARKET.START) {
+                        dialog("[SLOW]See me after my break.[B]");
+
+                        end();
+                    }
+                } else {
+                    if(time[0d0] >= MARKET.START) {
+                        dialog("[SLOW]See me after my break.[B]");
+
+                        end();
+                    }
+                }
+            }
+            fun prepare_market_trade() {
+                guard_market_break();
+
+                if(False) {
+                    set_camera(COORDINATE_CENTER, <ACTIVE>[X], <ACTIVE>[Y] - 0d30, 0x18);
+                    wait(CAMERA_PAN_X);
+                    wait(CAMERA_PAN_Y);
+
+                    free_camera();
+                }
+            }
+        };
     };
 
     group hotkeys() {
@@ -2084,7 +2156,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(metro, door_d4, NONE);
+                map_transition(town_market, west, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -9483,45 +9555,61 @@ area altus_plateau_entry() {
                 }
 
                 fun trigger_enter() {
-                    add_enemy(VILLAGER_3_6, 0d9, 0d31, INACTIVE);
-                    face(LAST_ENTITY, EAST);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        question("[SLOW]Do you want to trade for iron?[CHOICE]5 Limestone…[CHOICE]5 Vinegar…[CHOICE]3 Bones…", 0d5);
-
-                        if(MEMORY.QUESTION_ANSWER == 0d0) { // limestone
-                            trade_items(IRON, 0d1, LIMESTONE, 0d5);
-                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // vinegar
-                            trade_items(IRON, 0d1, VINEGAR, 0d5);
-                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // bone
-                            trade_items(IRON, 0d1, BONE, 0d3);
+                    if(time[0d0] < MARKET.START) {
+                        if(MARKET.DEBUG) {
+                            debug_subtext("market not empty");
                         }
 
-                        control(BOTH);
-                    }));
+                        add_enemy(VILLAGER_3_6, 0d9, 0d31, INACTIVE);
+                        face(LAST_ENTITY, EAST);
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            guard_market_break(True);
 
-                    add_enemy(VILLAGER_3_5, 0d9, 0d58, INACTIVE);
-                    face(LAST_ENTITY, EAST);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        question("[SLOW]Do you want to trade for mushrooms?[CHOICE]1 Water…");
+                            question("[SLOW]Do you want to trade for iron?[CHOICE]5 Limestone…[CHOICE]5 Vinegar…[CHOICE]3 Bones…", 0d5);
 
-                        if(MEMORY.QUESTION_ANSWER == 0d0) { // water
-                            dialog("[SLOW]Sorry, I'm all out for today…[B]");
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // limestone
+                                trade_items(IRON, 0d1, LIMESTONE, 0d5);
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // vinegar
+                                trade_items(IRON, 0d1, VINEGAR, 0d5);
+                            } else if(MEMORY.QUESTION_ANSWER == 0d2) { // bone
+                                trade_items(IRON, 0d1, BONE, 0d3);
+                            }
+
+                            control(BOTH);
+                        }));
+
+                        add_enemy(VILLAGER_3_5, 0d9, 0d58, INACTIVE);
+                        face(LAST_ENTITY, EAST);
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            guard_market_break(True);
+
+                            question("[SLOW]Do you want to trade for mushrooms?[CHOICE]1 Water…");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // water
+                                dialog("[SLOW]Sorry, I'm all out for today…[B]");
+                            }
+
+                            control(BOTH);
+                        }));
+
+                        add_enemy(VILLAGER_2_1, 0d9, 0d116, INACTIVE);
+                        face(LAST_ENTITY, EAST);
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            guard_market_break(True);
+
+                            question("[SLOW]TICKETS… TICKETS…[CHOICE]100 Souls…");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // Souls
+                                trade_items(TICKET_FOR_EXHIBITION, 0d1, MONEY, 0d100);
+                            }
+
+                            control(BOTH);
+                        }));
+                    } else {
+                        if(MARKET.DEBUG) {
+                            debug_subtext("market empty");
                         }
-
-                        control(BOTH);
-                    }));
-
-                    add_enemy(VILLAGER_2_1, 0d9, 0d116, INACTIVE);
-                    face(LAST_ENTITY, EAST);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        question("[SLOW]TICKETS… TICKETS…[CHOICE]100 Souls…");
-
-                        if(MEMORY.QUESTION_ANSWER == 0d0) { // Souls
-                            trade_items(TICKET_FOR_EXHIBITION, 0d1, MONEY, 0d100);
-                        }
-
-                        control(BOTH);
-                    }));
+                    }
 
                     init_map(0x0, 0x0, 0x3a, 0xcc);
                     default_init_room(False, False);
@@ -19540,18 +19628,14 @@ area town() {
             }
 
             enum b_trigger {
-                guard_south = @install() {
-                    debug_subtext("B=0");
-                },
+                guard_south = guard_triggered(),
                 guard_center_1 = @install() {
                     debug_subtext("B=1");
                 },
                 guard_center_2 = @install() {
                     debug_subtext("B=2");
                 },
-                guard_north = @install() {
-                    debug_subtext("B=3");
-                },
+                guard_north = guard_triggered(),
                 b_trigger_4 = @install() {
                     debug_subtext("B=4");
                 },
@@ -19841,6 +19925,11 @@ area town() {
                 // default = soundtrack(WIND_AMBIENT_BIRDS_2, 0xff)
             }
 
+            enum ROOM {
+                CONVERTION_SCAM = memory(FLAG, SRAM),
+                CONVERTION_REWARD = ITEM.RICE,
+            }
+
             enum stepon_trigger {
                 prophet_south = @install() {
                     debug_subtext("S=0");
@@ -19890,12 +19979,8 @@ area town() {
                 person_4_1__chicken_feeding = @install() {
                     debug_subtext("B=0");
                 },
-                chicken_xx = @install() {
-                    debug_subtext("B=1");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=2");
-                },
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
                 prophet = @install() {
                     debug_subtext("B=3");
                 },
@@ -19949,15 +20034,98 @@ area town() {
                 },
                 vendor_8_2__jade_disk = @install() {
                     debug_subtext("B=13");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Meteorite?[CHOICE]Rice 1:10[CHOICE]Spice 1:10", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d10, METEORITE, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d10, METEORITE, 0d1);
+                    }
                 },
                 vendor_8_1__beads = @install() {
                     debug_subtext("B=14");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Dry Ice?[CHOICE]Rice 1:10[CHOICE]Spice 1:10", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d10, DRY_ICE, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d10, DRY_ICE, 0d1);
+                    }
                 },
                 vendor_6_1__beads = @install() {
                     debug_subtext("B=15");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Lime Tablets?[CHOICE]Rice 1:2[CHOICE]Spice 1:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d2, LIMESTONE_TABLET, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, LIMESTONE_TABLET, 0d1);
+                    }
                 },
                 vendor_5_4__currency = @install() {
                     debug_subtext("B=16");
+
+                    prepare_market_trade();
+
+                    show_currency(True);
+                    question("[SLOW]Do you want to trade me your Lime Tablets?[CHOICE]Gold Coins 1:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // convert to gold
+                        if_currency(MEMORY.CURRENCY_CURRENT < 0d1) {
+                            show_currency(False);
+
+                            dialog("[SLOW]I sense dishonisty, you don't have any money.[B]");
+                        }
+
+                        ROOM.CONVERTION_SCAM = True;
+                        control(NONE);
+
+                        show_currency(False);
+                        _dialog("[SLOW]Visit us again soon. Your hard earned money is safe with us.[B]As a first time customer you earned yourself a reward![B]");
+
+                        reward(ROOM.CONVERTION_REWARD);
+
+                        animate(ACTIVE, LOOP, DEFAULT);
+                        animate(INACTIVE, LOOP, DEFAULT);
+
+                        show_currency(True);
+                        currency_convert(0d1, TALONS, 0d1, GOLD_COINS);
+
+                        sleep(0d30);
+                        show_currency(True);
+
+                        sleep(0d60);
+
+                        fade_out();
+                        sleep(0d30);
+
+                        object[0x14] = 0x01; // remove vendor_5_4 (currency lady)
+
+                        _fade_in();
+                        face(ACTIVE, NORTH);
+                        animate(ACTIVE, LOOP, DEFAULT);
+                        animate(INACTIVE, LOOP, DEFAULT);
+
+                        sleep(0d60);
+                        show_currency(False);
+                        sleep(0d60);
+
+                        animate(ACTIVE, ONCE, DEFAULT);
+                        animate(INACTIVE, ONCE, DEFAULT);
+                    } else {
+                        show_currency(False);
+
+                        dialog("[SLOW]Be carful with your money. You never know what happens outside the gates.[B]");
+                    }
                 },
                 b_trigger_17 = @install() {
                     debug_subtext("B=17");
@@ -19992,6 +20160,16 @@ area town() {
                 },
                 vendor_2_3__pot = @install() {
                     debug_subtext("B=27");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Mushrooms?[CHOICE]Rice 10:1[CHOICE]Spice 5:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d1, MUSHROOM, 0d10);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, MUSHROOM, 0d5);
+                    }
                 },
                 vendor_1_4__rice = @install() {
                     debug_subtext("B=28");
@@ -20000,77 +20178,61 @@ area town() {
                     debug_subtext("B=29");
                 },
 
-                guard_1_1 = @install() {
-                    debug_subtext("B=30");
-                },
+                guard_1_1 = guard_triggered(),
                 vendor_2_2__egg = @install() {
                     debug_subtext("B=31");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Iron?[CHOICE]Rice 10:1[CHOICE]Spice 5:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d1, IRON, 0d10);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, IRON, 0d5);
+                    }
                 },
                 vendor_2_1__spoon = @install() {
                     debug_subtext("B=32");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Mud Pepper?[CHOICE]Rice 1:1[CHOICE]Spice 1:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d1, IRON, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, IRON, 0d1);
+                    }
                 },
                 vendor_1_1__spice = @install() {
                     debug_subtext("B=33");
                 },
-                goat_xx = @install() {
-                    debug_subtext("B=34");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=35");
-                },
-                goat_xx = @install() {
-                    debug_subtext("B=36");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=37");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=38");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=39");
-                },
+                goat_xx = goat_triggered(),
+                chicken_xx = chicken_triggered(),
+                goat_xx = goat_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
 
-                chicken_xx = @install() {
-                    debug_subtext("B=40");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=41");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=42");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=43");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=44");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=45");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=46");
-                },
-                chicken_xx = @install() {
-                    debug_subtext("B=47");
-                },
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
+                chicken_xx = chicken_triggered(),
                 pot_hidden = @install() {
                     debug_subtext("B=48");
                 },
-                guard_4_1 = @install() {
-                    debug_subtext("B=49");
-                },
+                guard_4_1 = guard_triggered(),
 
                 person_4_2__juggler = @install() {
                     debug_subtext("B=50");
                 },
-                goat_xx = @install() {
-                    debug_subtext("B=51");
-                },
-                goat_xx = @install() {
-                    debug_subtext("B=52");
-                },
+                goat_xx = goat_triggered(),
+                goat_xx = goat_triggered(),
                 vendor_1_2__rice = @install() {
                     debug_subtext("B=53");
                 },
@@ -20107,47 +20269,101 @@ area town() {
                     add_souls_npc_crafter(0d83, 0d143);
                 }
 
-                object[0x00] = 0x01; // remove vendor_1_1 (spice guy)
-                object[0x01] = 0x01; // remove vendor_1_2 (rice lady)
-                object[0x02] = 0x01; // remove guard_1_1 (next to rice lady)
-                object[0x03] = 0x01; // remove vendor_1_3 (fish lady)
-                object[0x04] = 0x01; // remove vendor_1_4 (other rice guy)
-                object[0x05] = 0x01; // remove vendor_2_1 (spoon lady)
-                object[0x06] = 0x01; // remove vendor_2_2 (egg guy)
-                object[0x07] = 0x01; // remove vendor_3_1 (jackal lady)
-                object[0x08] = 0x01; // remove vendor_2_3 (pot lady)
-                object[0x09] = 0x01; // remove person_4_1 (next to pot lady, feeds chicken)
-                object[0x0a] = 0x01; // remove vendor_3_2 (amulet guy)
-                object[0x0b] = 0x01; // remove vendor_3_3 (chest lady)
-                // object[0x0c] = 0x01; // remove ???
-                object[0x0d] = 0x01; // remove vendor_3_4 (polish lady)
-                object[0x0e] = 0x01; // remove guard_4_1 (next to entrance)
-                object[0x0f] = 0x01; // remove vendor_4_1 (other rice lady)
-                object[0x10] = 0x01; // remove vendor_4_2 (other beads lady)
-                object[0x11] = 0x01; // remove person_4_2 (next to vendor_4_2, juggler)
-                object[0x12] = 0x01; // remove person_4_3 (next to vendor_4_2, juggler crowd)
-                object[0x13] = 0x01; // remove vendor_4_3 (tapestry lady)
-                object[0x14] = 0x01; // remove vendor_5_4 (currency lady)
-                object[0x15] = 0x01; // remove vendor_5_1 (perfume lady)
-                object[0x16] = 0x01; // remove vendor_5_2 (other spice guy)
-                object[0x17] = 0x01; // remove vendor_5_3 (chicken guy)
-                object[0x18] = 0x01; // remove vendor_6_1 (beads lady)
-                // object[0x19] = 0x01; // remove vendor_7_2 (tablet lady)
-                object[0x1a] = 0x01; // remove vendor_8_1 (other beads guy)
-                object[0x1b] = 0x01; // remove vendor_8_2 (jade disk lady)
-                object[0x1c] = 0x01; // remove vendor_9_1 (heart lady)
-                object[0x1d] = 0x01; // remove vendor_9_2 (helmet guy)
-                // object[0x1e] = 0x01; // remove vendor_7_1 (scarab lady)
-                object[0x1f] = 0x01; // remove vendor_10_1 (sunstone guy)
-                object[0x20] = 0x01; // remove vendor_10_2 (moxa lady)
-                object[0x21] = 0x01; // remove vendor_10_3 (appraisal lady)
-                object[0x22] = 0x01; // remove vendor_10_4 (sheath guy)
-                // object[0x23] = 0x01; // remove ???
-                object[0x24] = 0x01; // remove vendor_11_1 (beads lady)
-                object[0x24] = 0x01; // remove vendor_10_5 (glove lady)
-                // object[0x25] = 0x01; // remove ???
-                object[0x26] = 0x01; // remove basket (between vendor_1_1 ans vendor_1_2)
-                object[0x27] = 0x04; // remove prophet (goat, chicke, basket)
+                if(time[0d0] >= MARKET.START) {
+                    if(MARKET.DEBUG) {
+                        debug_subtext("market not empty");
+                    }
+
+                    object[0x00] = 0x01; // remove vendor_1_1 (spice guy)
+                    object[0x01] = 0x01; // remove vendor_1_2 (rice lady)
+                    // object[0x02] = 0x01; // remove guard_1_1 (next to rice lady)
+                    object[0x03] = 0x01; // remove vendor_1_3 (fish lady)
+                    object[0x04] = 0x01; // remove vendor_1_4 (other rice guy)
+                    // object[0x05] = 0x01; // remove vendor_2_1 (spoon lady)
+                    // object[0x06] = 0x01; // remove vendor_2_2 (egg guy)
+                    object[0x07] = 0x01; // remove vendor_3_1 (jackal lady)
+                    // object[0x08] = 0x01; // remove vendor_2_3 (pot lady)
+                    object[0x09] = 0x01; // remove person_4_1 (next to pot lady, feeds chicken)
+                    object[0x0a] = 0x01; // remove vendor_3_2 (amulet guy)
+                    object[0x0b] = 0x01; // remove vendor_3_3 (chest lady)
+                    // object[0x0c] = 0x01; // remove ???
+                    object[0x0d] = 0x01; // remove vendor_3_4 (polish lady)
+                    // object[0x0e] = 0x01; // remove guard_4_1 (next to entrance)
+                    object[0x0f] = 0x01; // remove vendor_4_1 (other rice lady)
+                    object[0x10] = 0x01; // remove vendor_4_2 (other beads lady)
+                    object[0x11] = 0x01; // remove person_4_2 (next to vendor_4_2, juggler)
+                    object[0x12] = 0x01; // remove person_4_3 (next to vendor_4_2, juggler crowd)
+                    object[0x13] = 0x01; // remove vendor_4_3 (tapestry lady)
+                    if(ROOM.CONVERTION_SCAM) {
+                        object[0x14] = 0x01; // remove vendor_5_4 (currency lady)
+                    }
+                    object[0x15] = 0x01; // remove vendor_5_1 (perfume lady)
+                    object[0x16] = 0x01; // remove vendor_5_2 (other spice guy)
+                    object[0x17] = 0x01; // remove vendor_5_3 (chicken guy)
+                    // object[0x18] = 0x01; // remove vendor_6_1 (beads lady)
+                    // object[0x19] = 0x01; // remove vendor_7_2 (tablet lady)
+                    // object[0x1a] = 0x01; // remove vendor_8_1 (other beads guy)
+                    // object[0x1b] = 0x01; // remove vendor_8_2 (jade disk lady)
+                    object[0x1c] = 0x01; // remove vendor_9_1 (heart lady)
+                    object[0x1d] = 0x01; // remove vendor_9_2 (helmet guy)
+                    // object[0x1e] = 0x01; // remove vendor_7_1 (scarab lady)
+                    object[0x1f] = 0x01; // remove vendor_10_1 (sunstone guy)
+                    object[0x20] = 0x01; // remove vendor_10_2 (moxa lady)
+                    object[0x21] = 0x01; // remove vendor_10_3 (appraisal lady)
+                    object[0x22] = 0x01; // remove vendor_10_4 (sheath guy)
+                    // object[0x23] = 0x01; // remove ???
+                    object[0x24] = 0x01; // remove vendor_11_1 (beads lady)
+                    object[0x24] = 0x01; // remove vendor_10_5 (glove lady)
+                    // object[0x25] = 0x01; // remove ???
+                    object[0x26] = 0x01; // remove basket (between vendor_1_1 ans vendor_1_2)
+                    object[0x27] = 0x04; // remove prophet (goat, chicke, basket)
+                } else {
+                    if(MARKET.DEBUG) {
+                        debug_subtext("market empty");
+                    }
+
+                    object[0x00] = 0x01; // remove vendor_1_1 (spice guy)
+                    object[0x01] = 0x01; // remove vendor_1_2 (rice lady)
+                    object[0x02] = 0x01; // remove guard_1_1 (next to rice lady)
+                    object[0x03] = 0x01; // remove vendor_1_3 (fish lady)
+                    object[0x04] = 0x01; // remove vendor_1_4 (other rice guy)
+                    object[0x05] = 0x01; // remove vendor_2_1 (spoon lady)
+                    object[0x06] = 0x01; // remove vendor_2_2 (egg guy)
+                    object[0x07] = 0x01; // remove vendor_3_1 (jackal lady)
+                    object[0x08] = 0x01; // remove vendor_2_3 (pot lady)
+                    object[0x09] = 0x01; // remove person_4_1 (next to pot lady, feeds chicken)
+                    object[0x0a] = 0x01; // remove vendor_3_2 (amulet guy)
+                    object[0x0b] = 0x01; // remove vendor_3_3 (chest lady)
+                    object[0x0c] = 0x01; // remove ???
+                    object[0x0d] = 0x01; // remove vendor_3_4 (polish lady)
+                    object[0x0e] = 0x01; // remove guard_4_1 (next to entrance)
+                    object[0x0f] = 0x01; // remove vendor_4_1 (other rice lady)
+                    object[0x10] = 0x01; // remove vendor_4_2 (other beads lady)
+                    object[0x11] = 0x01; // remove person_4_2 (next to vendor_4_2, juggler)
+                    object[0x12] = 0x01; // remove person_4_3 (next to vendor_4_2, juggler crowd)
+                    object[0x13] = 0x01; // remove vendor_4_3 (tapestry lady)
+                    object[0x14] = 0x01; // remove vendor_5_4 (currency lady)
+                    object[0x15] = 0x01; // remove vendor_5_1 (perfume lady)
+                    object[0x16] = 0x01; // remove vendor_5_2 (other spice guy)
+                    object[0x17] = 0x01; // remove vendor_5_3 (chicken guy)
+                    object[0x18] = 0x01; // remove vendor_6_1 (beads lady)
+                    object[0x19] = 0x01; // remove vendor_7_2 (tablet lady)
+                    object[0x1a] = 0x01; // remove vendor_8_1 (other beads guy)
+                    object[0x1b] = 0x01; // remove vendor_8_2 (jade disk lady)
+                    object[0x1c] = 0x01; // remove vendor_9_1 (heart lady)
+                    object[0x1d] = 0x01; // remove vendor_9_2 (helmet guy)
+                    object[0x1e] = 0x01; // remove vendor_7_1 (scarab lady)
+                    object[0x1f] = 0x01; // remove vendor_10_1 (sunstone guy)
+                    object[0x20] = 0x01; // remove vendor_10_2 (moxa lady)
+                    object[0x21] = 0x01; // remove vendor_10_3 (appraisal lady)
+                    object[0x22] = 0x01; // remove vendor_10_4 (sheath guy)
+                    object[0x23] = 0x01; // remove ???
+                    object[0x24] = 0x01; // remove vendor_11_1 (beads lady)
+                    object[0x24] = 0x01; // remove vendor_10_5 (glove lady)
+                    object[0x25] = 0x01; // remove ???
+                    object[0x26] = 0x01; // remove basket (between vendor_1_1 ans vendor_1_2)
+                    object[0x27] = 0x04; // remove prophet (goat, chicke, basket)
+                }
 
                 fade_in();
             }
@@ -21180,29 +21396,43 @@ area town() {
                     add_enemy(DANCING_DEVIL_1, 0d32, 0d30);
                 }
 
-                add_enemy(VILLAGER_1_3, 0d25, 0d63, INACTIVE);
-                face(LAST_ENTITY, SOUTH);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    question("[SLOW]Do you want to trade for Oil?[CHOICE]1 Ethanol…", 0d5);
-
-                    if(MEMORY.QUESTION_ANSWER == 0d0) { // ethanol
-                        trade_items(OIL, 0d1, ETHANOL, 0d1);
+                if(time[0d0] < MARKET.START) {
+                    if(MARKET.DEBUG) {
+                        debug_subtext("market not empty");
                     }
 
-                    control(BOTH);
-                }));
+                    add_enemy(VILLAGER_1_3, 0d25, 0d63, INACTIVE);
+                    face(LAST_ENTITY, SOUTH);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        guard_market_break(True);
 
-                add_enemy(VILLAGER_1_3, 0d60, 0d77, INACTIVE);
-                face(LAST_ENTITY, SOUTH);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    question("[SLOW]Do you want to trade for Tapestry?[CHOICE]10 Iron…", 0d5);
+                        question("[SLOW]Do you want to trade for Oil?[CHOICE]Ethanol 1:1", 0d5);
 
-                    if(MEMORY.QUESTION_ANSWER == 0d0) { // iron
-                        trade_items(TAPESTRY, 0d1, IRON, 0d10);
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // ethanol
+                            trade_items(OIL, 0d1, ETHANOL, 0d1);
+                        }
+
+                        control(BOTH);
+                    }));
+
+                    add_enemy(VILLAGER_1_3, 0d60, 0d77, INACTIVE);
+                    face(LAST_ENTITY, SOUTH);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        guard_market_break(True);
+
+                        question("[SLOW]Do you want to trade for Tapestry?[CHOICE]Rice 1:5", 0d5);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                            trade_items(TAPESTRY, 0d1, RICE, 0d5);
+                        }
+
+                        control(BOTH);
+                    }));
+                } else {
+                    if(MARKET.DEBUG) {
+                        debug_subtext("market empty");
                     }
-
-                    control(BOTH);
-                }));
+                }
 
                 default_init_room(False, False);
             }
