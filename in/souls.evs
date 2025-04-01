@@ -393,12 +393,12 @@ group non_maps() {
 
             // features
             WITH_OPENING = False, // doesn't work?
-            WITH_SAVESTATE_LOAD = False, // after splash screen
+            WITH_SAVESTATE_LOAD = True, // after splash screen
             WITH_SAVESTATE_SAVE = True, // bonfire menu
             // souls specific features
             WITH_INTRO = True,
             WITH_STARTING_CLASS = False,
-            WITH_SHRINE_INTRO = False,
+            WITH_SHRINE_INTRO = True,
             WITH_SOULS_ON_DEATH = True,
             WITH_RETURN_TO_BONFIRE_ON_DEATH = True,
             WITH_TRASH_ENEMIES = True,
@@ -1063,6 +1063,8 @@ group non_maps() {
                 map_transition(volcano_tower, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) { // south
                 map_transition(jungle_firepit, bonfire, NONE);
+            } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.VOLCANO_ROOMS) {
+                map_transition(bugmuck_cave_1, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) { // altus
                 map_transition(well, bonfire, NONE);
             } else if((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0)) {
@@ -1276,6 +1278,8 @@ group non_maps() {
                     save("Castle");
                 } else if(MEMORY.CURRENT_MAP == MAP.FIREPIT_JUNGLE) { // south
                     save("Southern Jungle");
+                } else if(MEMORY.CURRENT_MAP == MAP.VOLCANO_ROOMS) {
+                    save("Bug Muck");
                 } else if(MEMORY.CURRENT_MAP != 0x0000){
                     subtext("Game could not find bonfire #[MEM1]");
                 }
@@ -1909,7 +1913,11 @@ group non_maps() {
                 arg[0x0e]++;
             }
 
-            if(required_strength > arg[0x0e]) {
+            if(SYSTEM.WITH_DEBUG_START) {
+                debug_memory(arg[0x0e], required_strength);
+            }
+
+            if(arg[0x0e] < required_strength) {
                 if(callback_error !is None) {
                     callback_error();
                 } else {
@@ -1924,12 +1932,14 @@ group non_maps() {
         }
         fun add_levitate_stone(x, y, trigger) {
             add_enemy(STONE, x, y, STONE_LEVITATE);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
             
             attach_script(LAST_ENTITY, B, trigger);
         }
 
         fun add_heavy_stone(x, y) {
             add_enemy(STONE_ROUND, x, y);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
             
             attach_script(LAST_ENTITY, B, reference(@install() {
                 guard_levitate_stone(0d2);
@@ -6607,7 +6617,7 @@ area west_inbetwixx() {
             },
             chest_3__2_acorns = @install() {
                 debug_subtext("B=2");
-                _loot_chest(0x02, ACORNS, 0d02);
+                _loot_chest(0x02, SPOON, 0d01);
             },
         }
 
@@ -8605,7 +8615,7 @@ area altus_plateau_entry() {
                 enum b_trigger {
                     chest_1__3_feather = @install() {
                         debug_subtext("B=0");
-                        _loot_chest(0x00, FEATHER, 0d03);
+                        _loot_chest(0x00, SPOON, 0d01);
                     },
                     chest_2__4_brimstone = @install() {
                         debug_subtext("B=1");
@@ -16971,6 +16981,10 @@ area town() {
                     default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
+                enum ROOM {
+                    DOOR_EAST_2 = memory(FLAG, TEMP),
+                }
+
                 enum stepon_trigger {
                     stepon_0 = @install() {
                         debug_subtext("S=0");
@@ -16999,12 +17013,14 @@ area town() {
                     door_west_1 = @install() {
                         debug_subtext("S=8");
                     },
-                    door_east_2 = @install() {
-                        if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
-                            map_transition(town_level_2, west, EAST);
-                        } else {
-                            error_message(DOOR_CONTRAPTION, WEST);
-                        }
+                    door_east_2 = @install() fun trigger_door_east_2() {
+                        bombable_trigger(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED, ROOM.DOOR_EAST_2, ((DIRECTION.WEST << 0x0008) | ERROR_TYPE.DOOR_CONTRAPTION), {
+                            if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+                                map_transition(town_level_2, west, EAST);
+                            } else {
+                                map_transition(town_level_2, west_closed, EAST);
+                            }
+                        });
                     },
 
                     door_east_1 = @install() {
@@ -17130,6 +17146,8 @@ area town() {
                     // object[0x0f] = 0x01; // show bridge_right_2
                     // object[0x10] = 0x01; // show bridge_right_3
                     // object[0x11] = 0x01; // show bridge_right_4
+
+                    add_bombable(0d71, 0d92, ROOM.DOOR_EAST_2, reference(trigger_door_east_2));
 
                     if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
                         add_debug_entity(0d69, 0d87, reference(debug_triggered));
@@ -20684,8 +20702,19 @@ area town() {
 
     area town_level_1() {
         map town_level_1(IVOR_EBON_2) {
+            enum ROOM {
+                WITH_CLOSED_GATE = True,
+                GATE_OPENED = AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED,
+                GATE_OPEN = memory(FLAG, TEMP),
+
+                BEE_COLLECTED = memory(FLAG, SRAM),
+
+                HOUSE_2_1_DOOR_OPENED = memory(FLAG, SRAM),
+            }
+
             enum entrance {
                 north = entrance(0x40, 0x0b, SOUTH),
+                north_closed = entrance(0x40, 0d16, SOUTH),
                 south = entrance(0x20, 0x77, NORTH),
 
                 door_1_1_left = entrance(0x2c, 0x63, SOUTH, { generic_object_door(0x03, True, False); }),
@@ -20703,22 +20732,13 @@ area town() {
                 default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
             }
 
-            enum ROOM {
-                GATE_OPENED = AREA_TOWN_TEMPLE.GATE_OPENED,
-                WITH_CLOSED_GATE = True,
-
-                BEE_COLLECTED = memory(FLAG, SRAM),
-
-                HOUSE_2_1_DOOR_OPENED = memory(FLAG, SRAM),
-            }
-
             enum stepon_trigger {
                 gate = @install() {
                     debug_subtext("S=0");
 
                     if(ROOM.WITH_CLOSED_GATE) {
-                        if!(ROOM.GATE_OPENED) {
-                            error_message(DOOR_WRONG_SIDE, SOUTH);
+                        if!(ROOM.GATE_OPENED || ROOM.GATE_OPEN) {
+                            error_message(DOOR_WRONG_SIDE);
                         }
                     }
                 },
@@ -20802,10 +20822,16 @@ area town() {
                 if(ROOM.WITH_CLOSED_GATE) {
                     if(ROOM.GATE_OPENED) {
                         object[0x00] = 0x7e; // open gate
+                    } else {
+                        add_bombable(0d64, 0d22, ROOM.GATE_OPENED, reference(@install() {
+                            bombable_object(DEFAULT, True, False, 0x00, 0x7e);
+                            ROOM.GATE_OPEN = True;
+                        }));
                     }
                 } else {
                     object[0x00] = 0x7e; // open gate
                 }
+
                 // object[0x01] = 0x01; // open door_2_1
                 // object[0x02] = 0x01; // open door_1_1_right
                 // object[0x03] = 0x01; // open door_1_1_left
@@ -21203,6 +21229,7 @@ area town() {
                 north = entrance(0x20, 0x01, SOUTH),
                 south = entrance(0x1c, 0x5f, NORTH),
                 west = entrance(0x01, 0x3e, EAST),
+                west_closed = entrance(0x01, 0x3d, EAST),
 
                 door_1 = entrance(0x2a, 0x01, SOUTH),
                 door_2 = entrance(0x2a, 0x01, SOUTH),
@@ -21220,6 +21247,8 @@ area town() {
             enum ROOM {
                 STONE_MOVED = memory(FLAG, SRAM),
                 STONE_OFFSET = 0d8 * 0d4,
+
+                PASSAGE_OPENED = AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED,
             }
 
             enum stepon_trigger {
@@ -21241,7 +21270,11 @@ area town() {
                 exit_south = @install() {
                     debug_subtext("S=3");
 
-                    map_transition(town_level_1, north, SOUTH);
+                    if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+                        map_transition(town_level_1, north, SOUTH);
+                    } else {
+                        map_transition(town_level_1, north_closed, SOUTH);
+                    }
                 },
                 door_1_1 = @install() {
                     debug_subtext("S=4");
@@ -21298,8 +21331,6 @@ area town() {
             }
 
             fun trigger_enter() {
-                AREA_TOWN_TEMPLE.GATE_OPENED = True;
-                
                 add_levitate_stone(0d31, 0d9, reference(@install() {
                     guard_levitate_stone(0d1);
 
@@ -21308,6 +21339,10 @@ area town() {
                 if(ROOM.STONE_MOVED) {
                     <LAST_ENTITY>[X] -= ROOM.STONE_OFFSET;
                 }
+
+                add_bombable(0d9, 0d63, ROOM.PASSAGE_OPENED, reference(@install() {
+                    bombable_object(DEFAULT, True, False, 0x1a, 0x00);
+                }));
 
                 special_script(LEVITATE, reference(@install() {
                     if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
@@ -35002,6 +35037,7 @@ area dungeon_volcano() {
 
                     if!(ROOM.STONE_MOVED) {
                         add_enemy(STONE_ROUND, 0d23, 0d15);
+                        <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
                         
                         attach_script(LAST_ENTITY, B, reference(@install() {
                             guard_levitate_stone(0d2);
