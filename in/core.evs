@@ -8906,25 +8906,29 @@ group functions() {
 
         @install()
         @weak()
-        fun generic_yeet_waterfall() {
+        fun generic_yeet_waterfall(x, depth) {
+            yield();
             control(NONE);
 
-            animate(BOY, LOOP, ANIMATION_BOY.LANDING);
+            attribute_bit(ACTIVE, ROOT, True);
+
+            smart_animate(<ACTIVE>, LOOP, ANIMATION_BOY.LANDING);
             sleep(0x05);
 
-            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
-            <BOY>[VELOCITY] = 0x20;
+            smart_animate(<ACTIVE>, LOOP, ANIMATION_BOY.FALL_1);
+            <ACTIVE>[VELOCITY] = 0x20;
 
-            arg[0x00] = <BOY>[X] + 0x30;
-            while(<BOY>[X] < arg[0x00]) {
-                <BOY>[X]++;
+            while(<ACTIVE>[X] < x) {
+                <ACTIVE>[X]++;
 
                 yield();
             }
 
-            arg[0x02] = <BOY>[Y] + 0x40;
-            while(<BOY>[Y] < arg[0x02]) {
-                <BOY>[Y] += 0x02;
+            <ACTIVE>[Z_LEVEL] = 0x20;
+
+            arg[0x02] = <ACTIVE>[Y] + depth;
+            while(<ACTIVE>[Y] < arg[0x02]) {
+                <ACTIVE>[Y] += 0x02;
 
                 yield();
             }
@@ -9457,10 +9461,15 @@ group functions() {
 
             @install()
             @weak()
-            @async()
             fun vanilla_sandpit_puke(entity) {
+                if(entity == <DOG>) {
+                    face(entity, WEST);
+                } else {
+                    face(entity, SOUTH);
+                }
+                // yield();
+
                 smart_animate(entity, LOOP, ANIMATION_BOY.SWIRL_EXIT);
-                face(entity, SOUTH);
                 entity[VELOCITY] = 0d50;
 
                 sleep(0d50);
@@ -9494,6 +9503,43 @@ group functions() {
 
                 wait(SCRIPT_OWNER);
                 destroy(SCRIPT_OWNER);
+            }
+
+            @install()
+            @weak()
+            fun generic_a1_desert_sandpit_out(direction:DIRECTION) {
+                control(NONE);
+                
+                _add_placeholder(SANDPIT_PUKE, <ACTIVE>[X], <ACTIVE>[Y], ONCE);
+                attach_to_script(LAST_ENTITY);
+
+                _teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
+                animate(INACTIVE, LOOP, INVISIBLE);
+
+                vanilla_sandpit_puke(<ACTIVE>);
+                if(direction == DIRECTION.NORTH) {
+                    walk(<ACTIVE>, TILE_RELATIVE, 0d1, -0d2, NONE, NONE);
+                } else if(direction == DIRECTION.EAST) {
+                    walk(<ACTIVE>, TILE_RELATIVE, 0d2, 0d1, NONE, NONE);
+                } else if(direction == DIRECTION.SOUTH) {
+                    walk(<ACTIVE>, TILE_RELATIVE, 0d1, 0d2, NONE, NONE);
+                } else if(direction == DIRECTION.WEST) {
+                    walk(<ACTIVE>, TILE_RELATIVE, -0d2, 0d1, NONE, NONE);
+                }
+                wait(ACTIVE);
+                face(ACTIVE, SOUTH);
+
+                animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+
+                animate(INACTIVE, ONCE, DEFAULT);
+                vanilla_sandpit_puke(<INACTIVE>);
+
+                free_camera();
+
+                wait(SCRIPT_OWNER);
+                destroy(SCRIPT_OWNER);
+
+                control(BOTH);
             }
         };
     };

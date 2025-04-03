@@ -125,7 +125,7 @@ group non_maps() {
     group alchemy_target() {
         @install(ALCHEMY_TARGET.POINTER + ALCHEMY_TARGET.SIZE * (ALCHEMY_INDEX.HEAL / 0d02))
         fun alchemy_target_heal() {
-            code(ALCHEMY_TARGET.BOY_DOG_ALL_ENEMY, "// heal (boy, dog, enemy or all)");
+            code(ALCHEMY_TARGET.ENEMY_ALL, "// heal (enemy or all enemies)");
         }
     };
 
@@ -420,7 +420,7 @@ group non_maps() {
             WITH_BOAT_RIDE = False,
             WITH_CODE = False,
             WITH_SATURN_ROOM = True,
-            WITH_METRO = False,
+            WITH_METRO = True,
 
             // boy dust
             DUST_ENTITY = memory(WORD, TEMP_RESERVED),
@@ -2085,6 +2085,42 @@ group non_maps() {
                 }
             }
         };
+
+        group helper_metro_entrance() {
+            fun pit_fall_callback(callback_reduced, callback_unreduced) {
+                if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
+                    callback_reduced();
+                } else {
+                    callback_unreduced();
+                }
+            }
+
+            fun pit_fall_damage_callback(fall_damage, fall_damage_reduced, callback_success, callback_death) {
+                control(NONE);
+                
+                if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
+                    damage(BOTH, fall_damage_reduced, True);
+                } else {
+                    damage(BOTH, fall_damage, True);
+                }
+
+                yield();
+
+                if(<BOY>[HP] > 0d0) {
+                    sleep(0d60);
+
+                    callback_success();
+                } else {
+                    callback_death();
+                }
+            }
+
+            @install()
+            @async()
+            fun swirl_entrance() {
+                generic_a1_desert_sandpit_out(EAST);
+            }
+        };
     };
 
     group hotkeys() {
@@ -2174,7 +2210,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(town_market, west, NONE);
+                map_transition(eastern_waterfall, swirl, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -7207,11 +7243,11 @@ area altus_plateau_entry() {
 
                 object[0x05] = 0x03; // activate trapdoor_3
 
-                if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
+                pit_fall_callback({
                     generic_fall_gomi(0d91, 0d191, 0d1640);
-                } else {
+                }, {
                     generic_fall_gomi(0d91, 0d191, 0d1640, 0d5);
-                }
+                });
             }
             @install()
             fun trapdoor_4() {
@@ -7219,11 +7255,11 @@ area altus_plateau_entry() {
 
                 object[0x03] = 0x03; // activate trapdoor_4
 
-                if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
+                pit_fall_callback({
                     generic_fall_gomi(0d43, 0d96, 0d1280);
-                } else {
+                }, {
                     generic_fall_gomi(0d43, 0d96, 0d1280, 0d5);
-                }
+                });
             }
 
             enum stepon_trigger {
@@ -7266,11 +7302,11 @@ area altus_plateau_entry() {
                     
                     object[0x06] = 0x03; // activate trapdoor_2
 
-                    if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
+                    pit_fall_callback({
                         generic_fall_gomi(0d61, 0d160, 0d1408);
-                    } else {
+                    }, {
                         generic_fall_gomi(0d61, 0d160, 0d1408, 0d5);
-                    }
+                    });
                 },
                 stepon_9 = @install() {
                     debug_subtext("S=9");
@@ -11051,7 +11087,9 @@ area northwest_inbetwixx() {
 
     map northern_waterfall(WATERFALL) {
         enum entrance {
-            south = entrance(0x11, 0x3f, NORTH)
+            south = entrance(0x11, 0x3f, NORTH),
+
+            swirl = entrance(0d19, 0d33, NONE, { swirl_entrance(); }),
         }
 
         enum soundtrack {
@@ -11061,8 +11099,13 @@ area northwest_inbetwixx() {
         @install()
         fun waterfall_triggered() {
             if(SOULS_MEMORY.WITH_METRO) {
-                generic_yeet_waterfall();
-                map_transition(junkyard_northwest, crash_north, NONE);
+                generic_yeet_waterfall(0d250, 0d200);
+
+                pit_fall_damage_callback(0d80, 0d30, {
+                    map_transition(junkyard_northwest, crash_north, NONE);
+                }, {
+                    dust_unreachable(0d24, 0d34);
+                });
             } else {
                 error_message(DLC);
             }
@@ -11596,21 +11639,11 @@ area east_inbetwixx() {
         fun ravine_triggered() {
             generic_fall(0d100, 0d170);
 
-            if(CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_2) {
-                damage(BOTH, 0d30, True);
-            } else {
-                damage(BOTH, 0d80, True);
-            }
-
-            yield();
-
-            if(<BOY>[HP] > 0x00) {
-                sleep(0d60);
-
+            pit_fall_damage_callback(0d80, 0d30, {
                 map_transition(radahn_arena, center, NONE);
-            } else {
+            }, {
                 dust_unreachable(0d47, 0d6);
-            }
+            });
         }
 
         enum stepon_trigger {
@@ -15489,7 +15522,9 @@ area southern_jungle() {
     area southern_camp() {
         map eastern_waterfall(WATERFALL) {
             enum entrance {
-                south = entrance(0x11, 0x3f, NORTH)
+                south = entrance(0x11, 0x3f, NORTH),
+
+                swirl = entrance(0d19, 0d33, NONE, { swirl_entrance(); }),
             }
 
             enum soundtrack {
@@ -15503,8 +15538,13 @@ area southern_jungle() {
             @install()
             fun waterfall_triggered() {
                 if(SOULS_MEMORY.WITH_METRO) {
-                    generic_yeet_waterfall();
-                    map_transition(junkyard_northwest, crash_south, NONE);
+                    generic_yeet_waterfall(0d250, 0d200);
+
+                pit_fall_damage_callback(0d80, 0d30, {
+                    map_transition(junkyard_northeast, crash_south, NONE);
+                }, {
+                    dust_unreachable(0d24, 0d34);
+                });
                 } else {
                     error_message(DLC);
                 }
@@ -26828,7 +26868,7 @@ area metro() {
 
                     teleporter_out(0d21, 0d79);
 
-                    map_transition(northwest_inbetwixx, cave, NONE);
+                    map_transition(northern_waterfall, swirl, NONE);
                 },
             }
             
@@ -27319,7 +27359,7 @@ area metro() {
 
                     teleporter_out(0d21, 0d79);
 
-                    map_transition(east_crossing, west, NONE);
+                    map_transition(eastern_waterfall, swirl, NONE);
                 },
             }
             
