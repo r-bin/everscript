@@ -5,6 +5,7 @@ group general_enums() {
         WITH_DEBUG_SOUND = False,
         WITH_DEBUG_BOMBABLE = False,
         WITH_DEBUG_START = True,
+        WITH_DEBUG_CAVE = False,
 
         HP_MAX = 0x7fff,
         ITEM_MAX = 0d99,
@@ -9507,6 +9508,19 @@ group functions() {
 
             @install()
             @weak()
+            fun generic_a1_desert_sandpit_in() {
+                control(NONE);
+                // <BOY>[GENERAL_PURPOSE] = 0d2;
+                face(BOY, SOUTH);
+
+                sleep(0d45);
+
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+
+                wait(BOY);
+            }
+            @install()
+            @weak()
             fun generic_a1_desert_sandpit_out(direction:DIRECTION) {
                 control(NONE);
                 
@@ -9540,6 +9554,132 @@ group functions() {
                 destroy(SCRIPT_OWNER);
 
                 control(BOTH);
+            }
+        };
+
+        group tunnel() {
+            enum TUNNEL_TYPE {
+                DEFAULT = 0x00,
+                LEAP = 0x01,
+
+                CAVE_IN = 0x10,
+                CAVE_OUT = 0x11,
+
+                SLIDE_OUT = 0x20,
+
+                TELEPORT_IN = 0x30,
+                TELEPORT_OUT = 0x31,
+
+                SANDPIT_IN = 0x40,
+                SANDPIT_OUT = 0x41,
+            }
+
+            @install()
+            @weak()
+            fun generic_tunnel_enter(type:TUNNEL_TYPE, x, y) {
+                if(type == TUNNEL_TYPE.SANDPIT_IN) {
+                    generic_a1_desert_sandpit_in();
+                } else if(type == TUNNEL_TYPE.CAVE_IN) {
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, ACTIVE, False);
+
+                    animate(ACTIVE, LOOP, INVISIBLE);
+                } else if(type == TUNNEL_TYPE.TELEPORT_IN) {
+                    teleporter_out(x, y);
+                } else {
+                    control(ACTIVE, True);
+                }
+            }
+            @install()
+            @weak()
+            fun generic_tunnel(type:TUNNEL_TYPE, x, y) {
+                if(SYSTEM.WITH_DEBUG_CAVE) {
+                    debug_subtext("+cave");
+                }
+
+                if(True) {
+                    if(type == TUNNEL_TYPE.LEAP) {
+                        debug_subtext("drag");
+
+                        drag(ACTIVE, x, y, <ACTIVE>[Z_LEVEL]);
+                    } else {
+                        animate(ACTIVE, LOOP, INVISIBLE);
+
+                        set_camera(TILE_CENTER, x, y, 0x20);
+
+                        wait(CAMERA_PAN_Y);
+                        wait(CAMERA_PAN_X);
+
+                        animate(ACTIVE, ONCE, DEFAULT);
+                    }
+                } else {
+                    walk(ACTIVE, TILE_ABSOLUTE, x, y, ACTIVE, False);
+                }
+
+                teleport(BOTH, x, y);
+
+                if(SYSTEM.WITH_DEBUG_CAVE) {
+                    debug_subtext("-cave");
+                }
+            }
+            @install()
+            @weak()
+            fun generic_tunnel_exit(type:TUNNEL_TYPE, direction:DIRECTION) {
+                if(type == TUNNEL_TYPE.SANDPIT_OUT) {
+                    generic_a1_desert_sandpit_out(direction);
+                } else if(type == TUNNEL_TYPE.CAVE_OUT) {
+                    control(NONE);
+
+                    animate(ACTIVE, ONCE, DEFAULT);
+                    animate(INACTIVE, ONCE, DEFAULT);
+
+                    walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, False, False);
+                    walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, BOTH, BOTH);
+                } else if(type == TUNNEL_TYPE.SLIDE_OUT) {
+                    control(NONE);
+                    face(ACTIVE, SOUTH);
+
+                    _teleport(<ACTIVE>, <ACTIVE>[X], <ACTIVE>[Y] - (0d19 * 0d4));
+                    
+                    animate(INACTIVE, LOOP, INVISIBLE);
+                    _teleport(<INACTIVE>, <INACTIVE>[X], <INACTIVE>[Y] - (0d19 * 0d4));
+
+                    smart_animate(<ACTIVE>, LOOP, ANIMATION_BOY.FALL_1);
+
+                    while(arg[0x10] < 0d19) {
+                        arg[0x10]++;
+
+                        _teleport(<ACTIVE>, <ACTIVE>[X], <ACTIVE>[Y] + 0d4);
+
+                        yield();
+                    }
+
+                    smart_animate(<ACTIVE>, ONCE, ANIMATION_BOY.LANDING);
+
+
+                    face(INACTIVE, SOUTH);
+
+                    smart_animate(<INACTIVE>, LOOP, ANIMATION_BOY.FALL_1);
+
+                    while(arg[0x12] < 0d19) {
+                        arg[0x12]++;
+
+                        _teleport(<INACTIVE>, <INACTIVE>[X], <INACTIVE>[Y] + 0d4);
+
+                        yield();
+                    }
+
+                    smart_animate(<INACTIVE>, ONCE, ANIMATION_BOY.LANDING);
+
+
+                    control(BOTH);
+                } else if(type == TUNNEL_TYPE.TELEPORT_OUT) {
+                    teleporter_in(direction);
+                } else {
+                    animate(ACTIVE, ONCE, DEFAULT);
+                    control(BOTH, False);
+                }
+                
+                free_camera();
             }
         };
     };
