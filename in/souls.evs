@@ -33057,6 +33057,8 @@ area dungeon_volcano() {
         BRIDGE_CENTER_TOP = memory(FLAG, SRAM),
         BRIDGE_CENTER_BOTTOM = memory(FLAG, SRAM),
         CUTSCENE_STONE = memory(WORD, TEMP),
+
+        AQUAGOTH_RESCUED = memory(FLAG, SRAM),
     }
 
     fun add_bridge_stone(index, x, y) {
@@ -33808,12 +33810,20 @@ area dungeon_volcano() {
         }
 
         enum BOSS {
+            DEBUG = False,
+
+            ID = memory(WORD, TEMP),
+
             DEFEATED = memory(FLAG, SRAM),
+
+            DAMAGE = 0d200,
+            MAX_HP = 0d2500,
+            DIALOG_THRESHOLD_RESCUED_FLAG = memory(FLAG, TEMP),
 
             DIALOG_THRESHOLD_1 = 0d1000,
             DIALOG_THRESHOLD_1_FLAG = memory(FLAG, TEMP),
 
-            DIALOG_THRESHOLD_2 = 0d500,
+            DIALOG_THRESHOLD_2 = 0d300,
             DIALOG_THRESHOLD_2_FLAG = memory(FLAG, TEMP),
         }
 
@@ -33832,22 +33842,68 @@ area dungeon_volcano() {
         }
 
         @install()
-        fun aquagoth_triggered() {
-            if(dead(<SCRIPT_OWNER>)) {
-                boss_defeated();
-            } else if!(BOSS.DIALOG_THRESHOLD_2_FLAG) {
-                if(<SCRIPT_OWNER>[HP] < BOSS.DIALOG_THRESHOLD_2) {
-                    set(BOSS.DIALOG_THRESHOLD_2_FLAG);
+        @async()
+        fun aquagoth_life_tracker(entity) {
+            if(BOSS.DEBUG) {
+                debug_memory(entity[HP]);
+                sleep(0d60);
+            }
 
-                    subtext("ugh…");
+            damage(entity, BOSS.DAMAGE, False);
+
+            if(BOSS.DEBUG) {
+                yield();
+
+                debug_memory(entity[HP]);
+                sleep(0d60);
+            }
+
+            while(alive(entity)) {
+                check_alchemy_type_animation(STOP, arg[0x10]);
+
+                if(arg[0x10] > 0d0) {
+                    attribute(entity, INVINCIBLE_TEMP, True);
+                    subtext("Freedom…");
+                    sleep(0d60);
+
+                    boss_defeated();
+                    end();
+                } else if((!BOSS.DIALOG_THRESHOLD_RESCUED_FLAG) && (entity[HP] >= BOSS.MAX_HP)) {
+                    BOSS.DIALOG_THRESHOLD_RESCUED_FLAG = True;
+
+                    dialog("[SLOW]Here…[B]");
+
+                    reward(STOP);
+
+                    question("Where am I? Did my brother send you?[CHOICE]yes…[CHOICE]no…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        dialog("[SLOW]Tell him………[B]");
+
+                        DUNGEON_VOLCANO.AQUAGOTH_RESCUED = True;
+                    }
+                } else if!(BOSS.DIALOG_THRESHOLD_2_FLAG) {
+                    if(entity[HP] < BOSS.DIALOG_THRESHOLD_2) {
+                        BOSS.DIALOG_THRESHOLD_2_FLAG = True;
+
+                        subtext("ugh…");
+                    }
+                } else if!(BOSS.DIALOG_THRESHOLD_1_FLAG) {
+                    if(entity[HP] < BOSS.DIALOG_THRESHOLD_1) {
+                        BOSS.DIALOG_THRESHOLD_1_FLAG = True;
+
+                        subtext("…");
+                    }
                 }
-            } else if!(BOSS.DIALOG_THRESHOLD_1_FLAG) {
-                if(<SCRIPT_OWNER>[HP] < BOSS.DIALOG_THRESHOLD_1) {
-                    set(BOSS.DIALOG_THRESHOLD_1_FLAG);
 
-                    subtext("…");
+                sleep(0d60);
+
+                if(BOSS.DEBUG) {
+                    debug_memory(entity[HP], arg[0x10], <0x3367>);
                 }
             }
+
+            boss_defeated();
         }
 
         fun init_room() {
@@ -33859,11 +33915,14 @@ area dungeon_volcano() {
         }
 
         fun trigger_enter() {
+            reset_alchemy_types();
+
             aquagoth_seen();
             
             if!(SOULS_MEMORY.DEAD_AQUAGOTH) {
                 add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
-                attach_script(LAST_ENTITY, DAMAGE, reference(aquagoth_triggered));
+                BOSS.ID = <LAST_ENTITY>;
+                aquagoth_life_tracker(<LAST_ENTITY>);
 
                 subtext("A fould stench is in the air.");
             } else {
