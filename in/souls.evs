@@ -2210,7 +2210,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(eastern_waterfall, swirl, NONE);
+                map_transition(volcano_tower, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -2405,6 +2405,63 @@ group non_maps() {
                 debug_subtext("M=11");
             }
             SOULS_MEMORY.MENU_CHOICE = 0x0b;
+        }
+    };
+
+    group statue_riddle() {
+        enum STATUE_RIDDLE {
+            PROGRESS = memory(BYTE, SRAM),
+
+            CARRY_LEFT_EYE = memory(FLAG, SRAM),
+            CARRY_RIGHT_EYE = memory(FLAG, SRAM),
+        }
+
+        enum STATUE_RIDDLE_STATUES { // order = actual activation order
+            DOG = 0x00,
+            HORACE = 0x01,
+            VIGOR = 0x02,
+            GOMI = 0x03,
+        }
+
+        fun place_statue(index:STATUE_RIDDLE_STATUES, x, y) {
+            if(index == STATUE_RIDDLE_STATUES.DOG) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.DOG) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    // <LAST_ENTITY>[GENERAL_PURPOSE] = STATUE_RIDDLE_STATUES.DOG;
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.HORACE;
+
+                        dialog("[SLOW]He was the first to wittness a dog walking on water.[B]");
+                    }));
+                }
+            } else if(index == STATUE_RIDDLE_STATUES.HORACE) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.HORACE) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.VIGOR;
+
+                        dialog("[SLOW]He once wittnessed a street boy outsmarting a strong man, twice.[B]");
+                    }));
+                }
+            } else if(index == STATUE_RIDDLE_STATUES.VIGOR) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.VIGOR) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.GOMI;
+
+                        dialog("[SLOW]He watched a street boy repeatedly falling to the ground.[B]");
+                    }));
+                }
+            } else if(index == STATUE_RIDDLE_STATUES.GOMI) {
+                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.GOMI) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        // STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.HORACE;
+
+                        dialog("todo[B]");
+                    }));
+                }
+            }
         }
     };
 
@@ -3435,28 +3492,43 @@ group non_maps() {
 
                 AQUAGOTH_SEEN = memory(FLAG, SRAM),
                 DIALOG_AQUAGOTH_SEEN = memory(FLAG, SRAM),
+                AQUAGOTH_DAMAGED = memory(FLAG, SRAM),
+                DIALOG_AQUAGOTH_DAMAGED = memory(FLAG, SRAM),
+                AQUAGOTH_RESCUED = memory(FLAG, SRAM),
+                AQUAGOTH_REWARD = ITEM.ORACLE_BONE,
 
                 INSANITY = memory(BYTE, SRAM),
                 INSANITY_LIMIT = 0d100,
 
                 REPUTATION = memory(BYTE, SRAM),
                 REPUTATION_LIMIT = 0d10,
+                REPUTATION_REWARD = ITEM.DIAMOND_EYE,
             }
 
             group squidmar_ai() {
-                fun reduce_sanity(amount, external) {
+                @install()
+                fun reduce_sanity(amount, external_entity) {
                     NPC_SQUIDMAR.INSANITY += amount;
+
+                    if(NPC_SQUIDMAR.DEBUG) {
+                        debug_memory(NPC_SQUIDMAR.INSANITY);
+                    }
 
                     if(NPC_SQUIDMAR.INSANITY > 0d50) {
                         sfx_effect(SHAKING, True);
                     }
 
-                    if(external !is Word) {
+                    if!(external_entity) {
                         if(NPC_SQUIDMAR.INSANITY >= NPC_SQUIDMAR.INSANITY_LIMIT) {
                             destroy(SCRIPT_OWNER);
 
                             conversation_end(True);
                             end();
+
+                            if(NPC_SQUIDMAR.DEBUG) {
+                                debug_subtext("destroying entity");
+                                sleep(0d30);
+                            }
                         }
                     }
                 }
@@ -3507,6 +3579,8 @@ group non_maps() {
                     dialog("[SLOW]What happened to Aquagoth? I can't feel him anymore.[B]");
 
                     while(True) {
+                        reduce_sanity(0d5);
+
                         if(NPC_SQUIDMAR.INSANITY < 0d50) {
                             question("[SLOW]What happened to my brother?![CHOICE]tell…[CHOICE]lie…");
                         } else {
@@ -3580,13 +3654,37 @@ group non_maps() {
                     }
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) { // tell
-                        if((NPC_SQUIDMAR.INSANITY >= 0d50) && (NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) && !FLAG.HEAL) {
-                            dialog("[SLOW]…[B]Here - go and help him.[B]");
+                        if!(NPC_SQUIDMAR.AQUAGOTH_RESCUED) {
+                            if((NPC_SQUIDMAR.INSANITY >= 0d50) && (NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) && !FLAG.HEAL) {
+                                dialog("[SLOW]…[B]Here - go and help him.[B]");
 
-                            reward(HEAL);
+                                reward(HEAL);
+
+                                attach_script(SCRIPT_OWNER, B, reference(@install() {
+                                    reduce_sanity(0d5);
+
+                                    conversation({
+                                        dialog("LEAVE! QUICKLY![B]");
+                                    }, NONE);
+
+                                    if(NPC_SQUIDMAR.DEBUG) {
+                                        debug_memory(NPC_SQUIDMAR.INSANITY);
+                                    }
+                                }));
+                            }
+
+                            dialog("[SLOW]Leave now! Help my brother.[B]");
+                        } else {
+                            if(SOULS_MEMORY.DEAD_AQUAGOTH) {
+                                reduce_sanity(0d100);
+                            } else {
+                                dialog("[SLOW]You saved him…[B]");
+
+                                dialog("[SLOW]This sea shell washed up in my cave recently. It shall be reward.[B]");
+
+                                reward(NPC_SQUIDMAR.AQUAGOTH_REWARD);
+                            }
                         }
-                        
-                        dialog("[SLOW]Leave now! Help my brother.[B]");
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // lie
                         response_buffled();
                         reduce_sanity(0d30);
@@ -3610,8 +3708,11 @@ group non_maps() {
 
                         NPC_SQUIDMAR.REPUTATION++;
 
-                        if(NPC_SQUIDMAR.REPUTATION >= NPC_SQUIDMAR.REPUTATION_LIMIT) {
-                            subtext("TODO");
+                        if(NPC_SQUIDMAR.REPUTATION == NPC_SQUIDMAR.REPUTATION_LIMIT) {
+                            dialog("[SLOW]This pearl washed up in my cave recently. It shall be reward.[B]");
+
+                            reward(NPC_SQUIDMAR.REPUTATION_REWARD);
+                            STATUE_RIDDLE.CARRY_RIGHT_EYE = True;
                         }
                     } else {
                         response_buffled();
@@ -3658,10 +3759,12 @@ group non_maps() {
                 
                 attach_script(LAST_ENTITY, B, reference(@install() {
                     conversation({
-                        if((!NPC_SQUIDMAR.DIALOG_AQUAGOTH_SEEN) && NPC_SQUIDMAR.AQUAGOTH_SEEN) {
-                            dialog_aquagoth_seen();
-                        } else if(SOULS_MEMORY.DEAD_AQUAGOTH) {
+                        reduce_sanity(0d5);
+
+                        if(SOULS_MEMORY.DEAD_AQUAGOTH) {
                             dialog_aquagoth();
+                        } else if(NPC_SQUIDMAR.AQUAGOTH_SEEN) {
+                            dialog_aquagoth_seen();
                         } else if!(NPC_SQUIDMAR.DIALOG_GREETING) {
                             NPC_SQUIDMAR.DIALOG_GREETING = True;
 
@@ -3678,6 +3781,10 @@ group non_maps() {
                             }
                         }
                     }, NONE);
+
+                    if(NPC_SQUIDMAR.DEBUG) {
+                        debug_memory(NPC_SQUIDMAR.INSANITY);
+                    }
                 }));
             }
         };
@@ -3932,8 +4039,12 @@ group non_maps() {
                     
                     attach_script(LAST_ENTITY, B, reference(@install() {
                         conversation({
-                            dialog("todo: hi3[B]");
-                            reward_formula(SPEED, SPEED, SPEED);
+                            if((<ACTIVE>[FACE_DIRECTION] >= FACE_DIRECTION.NORTH_EAST) && (<ACTIVE>[FACE_DIRECTION] <= FACE_DIRECTION.SOUTH_WEST)) {
+                                dialog("[SLOW]Can you please speak up, I can't understand you on that ear![B]");
+                            } else {
+                                dialog("todo: hi3[B]");
+                                reward_formula(SPEED, SPEED, SPEED);
+                            }
                         });
                     }));
                 }
@@ -4022,60 +4133,6 @@ group non_maps() {
                 }
             };
         };
-    };
-
-    group statue_riddle() {
-        enum STATUE_RIDDLE {
-            PROGRESS = memory(BYTE, SRAM),
-        }
-
-        enum STATUE_RIDDLE_STATUES { // order = actual activation order
-            DOG = 0x00,
-            HORACE = 0x01,
-            VIGOR = 0x02,
-            GOMI = 0x03,
-        }
-
-        fun place_statue(index:STATUE_RIDDLE_STATUES, x, y) {
-            if(index == STATUE_RIDDLE_STATUES.DOG) {
-                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.DOG) {
-                    add_enemy(PLACEHOLDER, x, y);
-                    // <LAST_ENTITY>[GENERAL_PURPOSE] = STATUE_RIDDLE_STATUES.DOG;
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.HORACE;
-
-                        dialog("[SLOW]He was the first to wittness a dog walking on water.[B]");
-                    }));
-                }
-            } else if(index == STATUE_RIDDLE_STATUES.HORACE) {
-                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.HORACE) {
-                    add_enemy(PLACEHOLDER, x, y);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.VIGOR;
-
-                        dialog("[SLOW]He once wittnessed a street boy outsmarting a strong man, twice.[B]");
-                    }));
-                }
-            } else if(index == STATUE_RIDDLE_STATUES.VIGOR) {
-                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.VIGOR) {
-                    add_enemy(PLACEHOLDER, x, y);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.GOMI;
-
-                        dialog("[SLOW]He watched a street boy repeatedly falling to the ground.[B]");
-                    }));
-                }
-            } else if(index == STATUE_RIDDLE_STATUES.GOMI) {
-                if(STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.GOMI) {
-                    add_enemy(PLACEHOLDER, x, y);
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        // STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.HORACE;
-
-                        dialog("todo[B]");
-                    }));
-                }
-            }
-        }
     };
 };
 
@@ -7448,11 +7505,17 @@ area altus_plateau_entry() {
 
             enum ROOM {
                 COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
+
+                DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
+
+                WITH_WIND = True,
             }
 
             fun start_wind() {
                 while(True) {
-                    if(<ACTIVE>[Y] < 0d350) {
+                    if(<ACTIVE>[Y] < 0d180) {
+                        arg[0x10] = 0d3;
+                    } else if(<ACTIVE>[Y] < 0d350) {
                         arg[0x10] = 0d4;
                     } else if(<ACTIVE>[Y] < 0d400) {
                         arg[0x10] = 0d3;
@@ -7462,7 +7525,9 @@ area altus_plateau_entry() {
                         arg[0x10] = 0d0;
                     }
 
-                    if(<INACTIVE>[Y] < 0d350) {
+                    if(<INACTIVE>[Y] < 0d180) {
+                        arg[0x12] = 0d3;
+                    } else if(<INACTIVE>[Y] < 0d350) {
                         arg[0x12] = 0d4;
                     } else if(<INACTIVE>[Y] < 0d400) {
                         arg[0x12] = 0d3;
@@ -7480,8 +7545,12 @@ area altus_plateau_entry() {
                         CUSTOM_FLAG.NO_RUNNING = False;
                     }
 
-                    teleport_relative(ACTIVE, 0d0, arg[0x10]);
-                    teleport_relative(INACTIVE, 0d0, arg[0x12]);
+                    if!(<ACTIVE>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                        teleport_relative(ACTIVE, 0d0, arg[0x10]);
+                    }
+                    if!(<INACTIVE>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                        teleport_relative(INACTIVE, 0d0, arg[0x12]);
+                    }
 
                     sleep(0d3);
                 }
@@ -7538,7 +7607,19 @@ area altus_plateau_entry() {
 
                 place_statue(GOMI, 0d24, 0d119);
 
-                if(False) {
+                if!(ROOM.DIAMOND_EYE_LOOTED) {
+                    add_placeholder(DIAMOND_EYE_1, 0d66, 0d19);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        ROOM.DIAMOND_EYE_LOOTED = True;
+                        STATUE_RIDDLE.CARRY_LEFT_EYE = True;
+
+                        destroy(SCRIPT_OWNER);
+
+                        reward(DIAMOND_EYE);
+                    }));
+                }
+
+                if(ROOM.WITH_WIND) {
                     start_wind();
                 }
             }
@@ -16813,10 +16894,16 @@ area southern_jungle() {
 
 area town() {
     enum AREA_TOWN_TEMPLE {
+        DEBUG = True,
+        DEBUG_DONATION = True,
+        DEBUG_MARKET = True,
+
         SECRET_PASSAGE_OPENED = memory(FLAG, SRAM),
         SECRET_PASSAGE_2_OPENED = memory(FLAG, SRAM),
 
-        GATE_OPENED = memory(FLAG, SRAM),
+        DONATED_INGREDIENTS = memory(BYTE, SRAM),
+        DONATED_INGREDIENTS_PARTIAL = 0d5,
+        DONATED_INGREDIENTS_MAX = 0d20,
 
         MUSIC_TOWN = 0x42,
     }
@@ -19713,6 +19800,11 @@ area town() {
                 },
             }
 
+            enum ROOM {
+                STATUE_LEFT_EYE = memory(FLAG, SRAM),
+                STATUE_RIGHT_EYE = memory(FLAG, SRAM),
+            }
+
             fun trigger_enter() {
                 generic_door(True, False);
 
@@ -19747,8 +19839,41 @@ area town() {
                 // object[0x0a] = ???
                 // object[0x0b] = same as crowd_2_2 ???
                 // object[0x0c] = same as crowd_1_3 ???
-                object[0x0d] = 0x02; // show statue, crater, statue_reparing
-                // object[0x0e] = 0x01; // show guard_statue
+                if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX) {
+                    object[0x0d] = 0x00; // show statue, crater, statue_reparing
+                    object[0x0e] = 0x01; // show guard_statue
+
+                    add_enemy(PLACEHOLDER, 0d43, 0d39);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        if((!ROOM.STATUE_LEFT_EYE) && STATUE_RIDDLE.CARRY_LEFT_EYE) {
+                            ROOM.STATUE_LEFT_EYE = True;
+
+                            _add_placeholder(DIAMOND_EYE_1, 0d346, 0d274);
+                        } else if((!ROOM.STATUE_RIGHT_EYE) && STATUE_RIDDLE.CARRY_RIGHT_EYE) {
+                            ROOM.STATUE_RIGHT_EYE = True;
+
+                            _add_placeholder(DIAMOND_EYE_2, 0d346 + 0d12, 0d274);
+                        } else {
+                            if!(FLAG.ORACLE_BONE && FLAG.DIAMOND_EYES) {
+                                subtext("…");
+                            } else {
+                                error_message(DLC); // TODO
+                            }
+                        }
+                    }));
+
+                    if(ROOM.STATUE_LEFT_EYE) {
+                        _add_placeholder(DIAMOND_EYE_1, 0d346, 0d274);
+                    }
+                    if(ROOM.STATUE_RIGHT_EYE) {
+                        _add_placeholder(DIAMOND_EYE_2, 0d346 + 0d12, 0d274);
+                    }
+                } else if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_PARTIAL) {
+                    object[0x0d] = 0x02; // show statue, crater, statue_reparing
+                    object[0x0e] = 0x01; // show guard_statue
+                } else {
+                    object[0x0d] = 0x01; // show statue, crater, statue_reparing
+                }
 
                 bonfire(0d44, 0d58, SOULS_MEMORY.BONFIRE_TOWN_CENTER);
 
@@ -20000,6 +20125,8 @@ area town() {
             enum ROOM {
                 CONVERTION_SCAM = memory(FLAG, SRAM),
                 CONVERTION_REWARD = ITEM.RICE,
+
+                MARKET_ACTIVE = memory(FLAG, TEMP),
             }
 
             enum stepon_trigger {
@@ -20229,6 +20356,32 @@ area town() {
                 },
                 vendor_3_1__jackal = @install() {
                     debug_subtext("B=26");
+
+                    question("[SLOW]Do you want to donate materials for the restauration?[CHOICE]Limestone…[CHOICE]Clay…", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // limestone
+                        item_pay(LIMESTONE, 0d1);
+
+                        if(CUSTOM_MEMORY.RETURN) {
+                            arg[0x10] = 0d5;
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // clay
+                        item_pay(CLAY, 0d1);
+
+                        if(CUSTOM_MEMORY.RETURN) {
+                            arg[0x10] = 0d1;
+                        }
+                    }
+   
+                    if(arg[0x10] > 0d0) {
+                        AREA_TOWN_TEMPLE.DONATED_INGREDIENTS += arg[0x10];
+
+                        dialog("[SLOW]Your help is apreciated![B]");
+                    }
+
+                    if(AREA_TOWN_TEMPLE.DEBUG && AREA_TOWN_TEMPLE.DEBUG_DONATION) {
+                        debug_memory(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS, arg[0x10]);
+                    }
                 },
                 vendor_2_3__pot = @install() {
                     debug_subtext("B=27");
@@ -20342,6 +20495,13 @@ area town() {
                 }
 
                 if(time[0d0] >= MARKET.START) {
+                    ROOM.MARKET_ACTIVE = True;
+                }
+                if(AREA_TOWN_TEMPLE.DEBUG && AREA_TOWN_TEMPLE.DEBUG_MARKET) {
+                    ROOM.MARKET_ACTIVE = True;
+                }
+
+                if(ROOM.MARKET_ACTIVE) {
                     if(MARKET.DEBUG) {
                         debug_subtext("market not empty");
                     }
@@ -20353,7 +20513,7 @@ area town() {
                     object[0x04] = 0x01; // remove vendor_1_4 (other rice guy)
                     // object[0x05] = 0x01; // remove vendor_2_1 (spoon lady)
                     // object[0x06] = 0x01; // remove vendor_2_2 (egg guy)
-                    object[0x07] = 0x01; // remove vendor_3_1 (jackal lady)
+                    // object[0x07] = 0x01; // remove vendor_3_1 (jackal lady)
                     // object[0x08] = 0x01; // remove vendor_2_3 (pot lady)
                     object[0x09] = 0x01; // remove person_4_1 (next to pot lady, feeds chicken)
                     object[0x0a] = 0x01; // remove vendor_3_2 (amulet guy)
@@ -27915,6 +28075,8 @@ area metro() {
                 EVERMORE_MACHINE_LEFT = memory(WORD, TEMP),
                 EVERMORE_MACHINE_RIGHT = memory(WORD, TEMP),
                 EVERMORE_MACHINE_TARGET = memory(WORD, TEMP),
+
+                GOURD_LOOTED = memory(FLAG, SRAM),
             }
 
             @install()
@@ -28115,6 +28277,16 @@ area metro() {
             enum b_trigger {
                 gourd = @install() {
                     debug_subtext("B=0");
+
+                    if!(SOULS_MEMORY.DEAD_SPACESHIP_DESERT && SOULS_MEMORY.DEAD_ABOMINATION) {
+                        subtext("Requires 2 arcade coins.");
+                    } else {
+                        ROOM.GOURD_LOOTED = True;
+
+                        object[0x01] = 0x7e;
+
+                        reward(ENERGY_CORE);
+                    }
                 },
                 door_north = @install() {
                     debug_subtext("B=1");
@@ -28154,6 +28326,10 @@ area metro() {
             }
 
             fun trigger_enter() {
+                if(ROOM.GOURD_LOOTED) {
+                    object[0x01] = 0x7e;
+                }
+
                 start_helper();
                 
                 update_switches(False);
@@ -33057,8 +33233,6 @@ area dungeon_volcano() {
         BRIDGE_CENTER_TOP = memory(FLAG, SRAM),
         BRIDGE_CENTER_BOTTOM = memory(FLAG, SRAM),
         CUTSCENE_STONE = memory(WORD, TEMP),
-
-        AQUAGOTH_RESCUED = memory(FLAG, SRAM),
     }
 
     fun add_bridge_stone(index, x, y) {
@@ -33850,6 +34024,7 @@ area dungeon_volcano() {
             }
 
             damage(entity, BOSS.DAMAGE, False);
+            yield();
 
             if(BOSS.DEBUG) {
                 yield();
@@ -33880,7 +34055,7 @@ area dungeon_volcano() {
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         dialog("[SLOW]Tell him………[B]");
 
-                        DUNGEON_VOLCANO.AQUAGOTH_RESCUED = True;
+                        NPC_SQUIDMAR.AQUAGOTH_RESCUED = True;
                     }
                 } else if!(BOSS.DIALOG_THRESHOLD_2_FLAG) {
                     if(entity[HP] < BOSS.DIALOG_THRESHOLD_2) {
@@ -33922,6 +34097,9 @@ area dungeon_volcano() {
             if!(SOULS_MEMORY.DEAD_AQUAGOTH) {
                 add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
                 BOSS.ID = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                    NPC_SQUIDMAR.AQUAGOTH_DAMAGED = True;
+                }));
                 aquagoth_life_tracker(<LAST_ENTITY>);
 
                 subtext("A fould stench is in the air.");

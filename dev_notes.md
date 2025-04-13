@@ -29,6 +29,7 @@
 ## fog wall - remove walk back (at least for dark forest maps)
 ## basement + sidescroller + bowser + bowser dungeons - dog is available
 ## dog trap (cat) - dog can walk while gaining items
+## market: x bone : 1 biscuit
 
 # nice to have
 ## cutscene: big pressure plate -> altus no intro 
