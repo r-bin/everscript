@@ -30,6 +30,8 @@
 ## basement + sidescroller + bowser + bowser dungeons - dog is available
 ## dog trap (cat) - dog can walk while gaining items
 ## market: x bone : 1 biscuit
+## market: x lime stone : 1 statue progress
+## market: x feathers : 1 wings
 
 # nice to have
 ## cutscene: big pressure plate -> altus no intro 
