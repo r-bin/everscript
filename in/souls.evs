@@ -24150,7 +24150,7 @@ area desert_bug() {
                     yield();
                 }
 
-                map_transition(thraxx, south, NONE);
+                map_transition(thraxx, spider, NONE);
             }
 
             @install()
@@ -24171,7 +24171,6 @@ area desert_bug() {
 
                 control(entity, False);
                 animate(entity, ONCE, ANIMATION_ALL.DEFAULT);
-                subtext("now");
 
                 walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER, NONE);
 
@@ -24464,6 +24463,10 @@ area desert_bug() {
                 },
             }
 
+            enum ROOM {
+                DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
+            }
+
             fun trigger_enter() {
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     // north
@@ -24495,8 +24498,21 @@ area desert_bug() {
                         if!(<BOY>[FLAGS_4] & ATTRIBUTE_FLAGS.ROOT) {
                             // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
 
+                            SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX = True;
                             collapse_bridge();
                         }
+                    }));
+                }
+
+                if!(ROOM.DIAMOND_EYE_LOOTED) {
+                    add_placeholder(DIAMOND_EYE_2, 0d40, 0d159);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        ROOM.DIAMOND_EYE_LOOTED = True;
+                        STATUE_RIDDLE.CARRY_RIGHT_EYE = True;
+
+                        destroy(SCRIPT_OWNER);
+
+                        reward(DIAMOND_EYE);
                     }));
                 }
 
@@ -24634,18 +24650,16 @@ area desert_bug() {
 
         map thraxx(THRAXX) {
             enum ROOM {
-                DEBUG = True,
+                DEBUG = False,
 
-                TRIGGER_BOSS = memory(FLAG, TEMP),
+                TRIGGER_CAGE = memory(FLAG, TEMP),
             }
 
             enum entrance {
                 north = entrance(0x18, 0x10, SOUTH),
-                south = entrance(0x17, 0x3f, NORTH, { ROOM.TRIGGER_BOSS = True; }),
+                south = entrance(0x17, 0x3f, NORTH),
                 
                 spider = entrance(0d22, 0d56, NONE, {
-                    ROOM.TRIGGER_BOSS = True;
-
                     spider_drop(<BOY>, 0d1, 0d63);
                     spider_drop(<DOG>, 0d46, 0d63);
                 }),
@@ -24657,7 +24671,7 @@ area desert_bug() {
 
             group boss_ai() {
                 enum BOSS {
-                    DEBUG = True,
+                    DEBUG = False,
                     DEBUG_CAGE = False,
                     DEBUG_RNG = False,
                     DEBUG_ULTI = True,
@@ -24692,6 +24706,8 @@ area desert_bug() {
                     CAGE_OPEN_TIMER = memory(WORD, TEMP),
 
                     MAGGOT_COUNTER = memory(WORD, TEMP),
+
+                    PHASES_TILL_ULTI = 0d4,
                 }
 
                 fun fog_wall(exit_direction:DIRECTION) {
@@ -24903,8 +24919,10 @@ area desert_bug() {
                     yield();
                     arg[0x16] = arg[0x10] - <SCRIPT_OWNER>[HP];
 
-                    // debug_memory(BOSS.HEART_ORANGE_ID[GENERAL_PURPOSE], BOSS.HEART_WHITE_ID[GENERAL_PURPOSE]);
-                    debug_memory(arg[0x16], arg[0x14]);
+                    if(BOSS.DEBUG) {
+                        // debug_memory(BOSS.HEART_ORANGE_ID[GENERAL_PURPOSE], BOSS.HEART_WHITE_ID[GENERAL_PURPOSE]);
+                        debug_memory(arg[0x16], arg[0x14]);
+                    }
                 }
 
                 @install()
@@ -24987,7 +25005,7 @@ area desert_bug() {
 
                         arg[0x10]++;
 
-                        if(arg[0x10] < 0d5) {
+                        if(arg[0x10] < BOSS.PHASES_TILL_ULTI) {
                             arg[0x12] = randrange(0d3);
                             if(BOSS.DEBUG && BOSS.DEBUG_RNG) {
                                 debug_memory(arg[0x12], MEMORY.MAP_PALETTE);
@@ -25059,18 +25077,18 @@ area desert_bug() {
                                 cast(BOSS.HEART_WHITE_ID, BOTH, FLASH, 0d10);
 
                                 for(arg[0x16] in 0d0..0d4) {
-                                    arg[0x18] = randrange(0d3);
+                                    if(False) {
+                                        arg[0x18] = randrange(0d3);
 
-                                    if(BOSS.DEBUG && BOSS.DEBUG_ULTI) {
-                                        debug_memory(arg[0x16], arg[0x18]);
-                                    }
-
-                                    if(arg[0x18] == 0d0) {
-                                        beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d150, 0d430, 0d20);
-                                    } else if(arg[0x18] == 0d2) {
-                                        beam_wall(SOUTH, <BOY>, 0d110, 0d70, 0d250, 0d430, 0d20);
+                                        if(arg[0x18] == 0d0) {
+                                            beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d150, 0d430, 0d20);
+                                        } else if(arg[0x18] == 0d2) {
+                                            beam_wall(SOUTH, <BOY>, 0d110, 0d70, 0d250, 0d430, 0d20);
+                                        } else {
+                                            beam_wall(SOUTH, <BOY>, 0d230, 0d70, 0d310, 0d430, 0d20);
+                                        }
                                     } else {
-                                        beam_wall(SOUTH, <BOY>, 0d230, 0d70, 0d310, 0d430, 0d20);
+                                        beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d310, 0d430, 0d15);
                                     }
 
                                     sleep(0d180);
@@ -25111,6 +25129,7 @@ area desert_bug() {
                     BOSS.ARM_WHITE_RIGHT_ID = <LAST_ENTITY>;
 
                     thraxx_mode(THRAXX_ORANGE, BOSS.ARM_ORANGE_LEFT_ID, BOSS.ARM_ORANGE_RIGHT_ID, BOSS.ARM_WHITE_LEFT_ID, BOSS.ARM_WHITE_RIGHT_ID);
+                    // thraxx_mode(THRAXX_WHITE, BOSS.ARM_WHITE_LEFT_ID, BOSS.ARM_WHITE_RIGHT_ID, BOSS.ARM_ORANGE_LEFT_ID, BOSS.ARM_ORANGE_RIGHT_ID);
 
                     cage_tracker();
 
@@ -25137,19 +25156,13 @@ area desert_bug() {
                 trigger_boss = @install() {
                     debug_subtext("S=1");
 
-                    if!(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
-                        if(ROOM.TRIGGER_BOSS && (!SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX) && (!SOULS_MEMORY.DEAD_DOUBLE_THRAXX)) {
-                            SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX = True;
+                    if!(ROOM.TRIGGER_CAGE) {
+                        ROOM.TRIGGER_CAGE = True;
 
-                            push_music(BOSS_DRUMS);
-
-                            add_boss();
-                        } else {
-                            show_thraxx(True);
-                            open_thraxx_mouth(True);
-                            open_thraxx_rip_cage(0d3);
-                            glow_thraxx_eys(0d0);
-                        }
+                        show_thraxx(True);
+                        open_thraxx_mouth(True);
+                        open_thraxx_rip_cage(0d3);
+                        glow_thraxx_eys(0d0);
                     }
                 },
                 exit_south = @install() {
@@ -25180,8 +25193,13 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
-                CUSTOM_FLAG.NO_DOG = True;
-                show_thraxx(False);
+                if((!SOULS_MEMORY.DEAD_DOUBLE_THRAXX) && (SOULS_MEMORY.PROGRESS_DOUBLE_THRAXX)) {
+                    push_music(BOSS_DRUMS);
+
+                    add_boss();
+                } else {
+                    show_thraxx(False);
+                }
 
                 default_init_room(False, False);
             }
