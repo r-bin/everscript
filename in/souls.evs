@@ -415,7 +415,7 @@ group non_maps() {
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
-            WITH_DEBUG_ENTITIES = False,
+            WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
             // areas
             WITH_ENDBOSS = True,
@@ -645,12 +645,14 @@ group non_maps() {
 
             REWARD_ISAAC_QUEST = CUSTOM_ITEM.ISAAC_TEARS,
 
-            CLEARED_TRAP_CAT = memory(FLAG, SRAM),
-            REWARD_TRAP_CAT = {
+            CLEARED_TRAP_WOLF = memory(FLAG, SRAM),
+            REWARD_TRAP_WOLF = {
                 subtext("Gained 2 Dog Biscuits");
 
                 MEMORY.DOG_BISCUIT += 0d2;
             },
+            CLEARED_TRAP_POODLE = memory(FLAG, SRAM),
+            REWARD_TRAP_WOLF = ITEM.NECTAR, // TODO
         }
 
         fun asign_debug_button_function(flag, feature) {
@@ -2135,6 +2137,28 @@ group non_maps() {
                 generic_a1_desert_sandpit_out(EAST);
             }
         };
+
+        @install()
+        @async()
+        fun sterling_rats_scanner(x, y) {
+            <BOY>[GENERAL_PURPOSE] = 0d0;
+            while(True) {
+                if(<BOY>[GENERAL_PURPOSE] > 0d0) {
+                    dust_unreachable(x, y);
+
+                    end();
+                }
+
+                sleep(0d10);
+            }
+        }
+
+        fun add_sterling_rat(x, y, x_drop, y_drop, cutoff_drop, x_dust, y_dust) {
+            add_enemy(RAT_RED, x, y);
+            attach_sterling_script(<LAST_ENTITY>, False, 0d20, x_drop, y_drop, cutoff_drop, 0d999);
+
+            sterling_rats_scanner(x_dust, y_dust);
+        }
     };
 
     group hotkeys() {
@@ -3841,8 +3865,12 @@ group non_maps() {
                     
                     attach_script(LAST_ENTITY, B, reference(@install() {
                         conversation({
-                            dialog("todo: hi2[B]");
-                            reward_formula(ACID_RAIN, ACID_RAIN, ACID_RAIN);
+                            if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
+                                dialog("[SLOW]How can you be so calm with all those raptors around you?![B]");
+                            } else {
+                                dialog("todo: hi2[B]");
+                                reward_formula(ACID_RAIN, ACID_RAIN, ACID_RAIN);
+                            }
                         });
                     }));
                 }
@@ -5493,7 +5521,7 @@ area shrine_area() {
                 add_souls_npc_cat(CLEANING, 0d78, 0d100); // desk cleaning
             }
 
-            if(SOULS_MEMORY.CLEARED_TRAP_CAT) {
+            if(SOULS_MEMORY.CLEARED_TRAP_WOLF) {
                 object[0x18] = 0x01; // open gourd_3_3_3
             }
 
@@ -13876,25 +13904,7 @@ area east_inbetwixx() {
                     add_enemy(RAT_RED, 0d139, 0d103);
                     attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d130, 0d85, 0d784, 0d999);
 
-                    <BOY>[GENERAL_PURPOSE] = 0d0;
-                    while(True) {
-                        if(<BOY>[GENERAL_PURPOSE] > 0d0) {
-                            if(ROOM.DEBUG_STERLING_RATS) {
-                                debug_subtext("boy grabbed");
-                            }
-
-                            dust_unreachable(0d103, 0d136);
-
-                            end();
-                        }
-
-                        sleep(0d10);
-
-                        if(ROOM.DEBUG_STERLING_RATS) {
-                            debug_subtext("boy NOT grabbed");
-                            sleep(0d60);
-                        }
-                    }
+                    sterling_rats_scanner(0d103, 0d136);
                 }
             }
         };
@@ -15816,6 +15826,12 @@ area southern_jungle() {
                 },
             }
 
+            enum ROOM {
+                DEBUG = False,
+
+                ALCHEMIST_ID = memory(WORD, TEMP),
+            }
+
             fun remove_water(remove) {
                 if(remove) {
                     object[0x00] = 0x01;
@@ -15826,11 +15842,31 @@ area southern_jungle() {
                 }
             }
 
+            fun add_raptor(type:ENEMY, x, y) {
+                add_enemy(type, x, y);
+
+                ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]++;
+
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]);
+                }
+
+                attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                    ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]--;
+
+                    if(ROOM.DEBUG) {
+                        debug_memory(ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]);
+                    }
+                }));
+            }
+
             fun trigger_enter() {
                 // object[0x00] = 0x01;
                 // object[0x01] = 0x01;
 
                 add_souls_npc_alchemist_acid_rain(0d78, 0d82);
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+                ROOM.ALCHEMIST_ID = <LAST_ENTITY>;
 
                 if!(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
                     add_enemy(REVEALER_TARGET_ENTITY, 0x52, 0x26);
@@ -15855,20 +15891,20 @@ area southern_jungle() {
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     // east
-                    add_enemy(RAPTOR_PURPLE, 0d95, 0d30);
+                    add_raptor(RAPTOR_PURPLE, 0d95, 0d30);
 
-                    add_enemy(RAPTOR_PURPLE, 0d99, 0d63);
+                    add_raptor(RAPTOR_PURPLE, 0d99, 0d63);
 
                     add_enemy(FLOWER_PURPLE, 0d96, 0d60);
 
                     // west
-                    add_enemy(RAPTOR_GREEN, 0d40, 0d47);
+                    add_raptor(RAPTOR_GREEN, 0d40, 0d47);
 
-                    add_enemy(RAPTOR_GREEN, 0d61, 0d81);
+                    add_raptor(RAPTOR_GREEN, 0d61, 0d81);
 
                     // river
                     if(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
-                        add_enemy(RAPTOR_PURPLE, 0d82, 0d38);
+                        add_raptor(RAPTOR_PURPLE, 0d82, 0d38);
                     }
                 }
 
@@ -21495,6 +21531,9 @@ area town() {
                 STONE_OFFSET = 0d8 * 0d4,
 
                 PASSAGE_OPENED = AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED,
+
+                WITH_RAT = True,
+                WITH_BIRDS = False,
             }
 
             enum stepon_trigger {
@@ -21672,10 +21711,14 @@ area town() {
                     add_enemy(FLOWER_ORANGE, 0d191, 0d63);
 
                     // upper houses
-                    add_enemy(BUZZARD_1, 0d177, 0d33);
+                    if(ROOM.WITH_BIRDS) {
+                        add_enemy(BUZZARD_1, 0d177, 0d33);
+                    }
 
                     add_enemy(DANCING_DEVIL_1, 0d109, 0d35);
-                    add_enemy(BUZZARD_1, 0d115, 0d35);
+                    if(ROOM.WITH_BIRDS) {
+                        add_enemy(BUZZARD_1, 0d115, 0d35);
+                    }
 
                     // upper stairs
                     // add_enemy(FLOWER_ORANGE, 0d25, 0d8);
@@ -21720,6 +21763,14 @@ area town() {
                 } else {
                     if(MARKET.DEBUG) {
                         debug_subtext("market empty");
+                    }
+                }
+
+                if(ROOM.WITH_RAT) {
+                    if(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                        add_sterling_rat(0d189, 0d41, 0d156, 0d46, 0d450, 0d186, 0d63);
+                    } else {
+                        add_enemy(RAT, 0d189, 0d41);
                     }
                 }
 
@@ -22076,6 +22127,8 @@ map town_bridge(BAD_BOYS) {
         RIDDLE_SOLVED = memory(FLAG, SRAM),
 
         RIDDLE_PROGRESS = memory(WORD, TEMP),
+
+        WITH_RAT = False,
     }
 
     fun riddle_solved() {
@@ -22163,18 +22216,11 @@ map town_bridge(BAD_BOYS) {
 
         default_init_room(True, True);
 
-        add_enemy(RAT_RED, 0d68, 0d29);
-        attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d68, 0d20, 0d350, 0d999);
+        if(ROOM.WITH_RAT) {
+            add_enemy(RAT_RED, 0d68, 0d29);
+            attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d68, 0d20, 0d350, 0d999);
 
-        <BOY>[GENERAL_PURPOSE] = 0d0;
-        while(True) {
-            if(<BOY>[GENERAL_PURPOSE] > 0d0) {
-                dust_unreachable(0d80, 0d29);
-
-                end();
-            }
-
-            sleep(0d10);
+            sterling_rats_scanner(0d80, 0d29);
         }
     }
 };
@@ -22616,6 +22662,13 @@ map bog_crossing(CROSSING) {
 
         if!(ROOM.COLLECTIBLE_LOOTED) {
             add_collectible(0x01, 0x5e, 0x4d, reference(collectible_triggered));
+        }
+
+        if(True) {
+            add_enemy(RAT_RED, 0d49, 0d51);
+            attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d70, 0d55, 0d600, 0d999);
+
+            sterling_rats_scanner(0d45, 0d42);
         }
 
         add_bombable(0d63, 0d63, ROOM.WALL_1, reference(trigger_wall_1));
@@ -25764,6 +25817,16 @@ area desert_bug() {
                     },
                 }
 
+                @install()
+                @async()
+                fun entity_general_purpose_check(entity) {
+                    while(entity[GENERAL_PURPOSE] == 0x00) {
+                        yield();
+                    }
+
+                    map_transition(gourd_trap_poodle, north, NONE);
+                }
+
                 enum b_trigger {
                     gourd_north__4_wax = @install() {
                         debug_subtext("B=0");
@@ -25771,7 +25834,11 @@ area desert_bug() {
                     },
                     gourd_center__6_ash = @install() {
                         debug_subtext("B=1");
-                        _loot_chest(0x0c, ASH, 0d06);
+                        
+                        <ACTIVE>[GENERAL_PURPOSE] = 0x00;
+                        gourd_trap(0x0c, <ACTIVE>, 0d48, 0d62);
+                        entity_general_purpose_check(<ACTIVE>);
+                        // _loot_chest(0x0c, ASH, 0d06);
                     },
                     gourd_alchemist_2__5_wax = @install() {
                         debug_subtext("B=2");
@@ -25880,6 +25947,10 @@ area desert_bug() {
                     // object[0x0b] = 0x01; // loot gourd_alchemist_2
                     // object[0x0c] = 0x01; // loot gourd_center
                     // object[0x0d] = 0x01; // loot gourd_north
+
+                    if(SOULS_MEMORY.CLEARED_TRAP_POODLE) {
+                        object[0x0c] = 0x01; // open gourd_center
+                    }
 
                     if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                         // gourd
@@ -37202,7 +37273,7 @@ group gourd_trap() {
             }
             
             if(ROOM.RAT_COUNTER == ROOM.RATS_TO_KILL) {
-                souls_boss_defeated(CLEARED_TRAP_CAT, REWARD_TRAP_CAT);
+                souls_boss_defeated(CLEARED_TRAP_WOLF, REWARD_TRAP_WOLF);
 
                 sleep(0d180);
 

@@ -22,9 +22,6 @@
 
 
 # important
-## acid rain + raptor = sound glitch
-## improve bosses (double thraxx)
-## any% only has 500 talons (200 for a level, 100 for atlas amulet, no cat ring)
 ## any door can be opened with a bomb
 ## fog wall - remove walk back (at least for dark forest maps)
 ## basement + sidescroller + bowser + bowser dungeons - dog is available
@@ -32,6 +29,7 @@
 ## market: x bone : 1 biscuit
 ## market: x lime stone : 1 statue progress
 ## market: x feathers : 1 wings
+## market: x roots : 1 essence
 
 # nice to have
 ## cutscene: big pressure plate -> altus no intro 
@@ -45,7 +43,6 @@
 ## raptor arena - don't reuse enemies
 ## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
-## balance bosses (radahn)
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
 ## "jump into volcano" animation
 ## make mario prison less boring
