@@ -3688,6 +3688,7 @@ group non_maps() {
         group npc_squidmar() {
             enum NPC_SQUIDMAR {
                 DEBUG = False,
+                DEBUG_SANITY = True,
 
                 DIALOG_GREETING = memory(FLAG, SRAM),
 
@@ -3700,10 +3701,11 @@ group non_maps() {
 
                 INSANITY = memory(BYTE, SRAM),
                 INSANITY_LIMIT = 0d100,
+                INSANITY_ANGRY = 0d50,
 
                 REPUTATION = memory(BYTE, SRAM),
-                REPUTATION_LIMIT = 0d10,
-                REPUTATION_REWARD = ITEM.DIAMOND_EYE,
+                REPUTATION_LIMIT = 0d8, // available tablets: 4 (3 town + 1 desert), scarabs: 4 (4 thraxx), jackals 0 (0 pyramid)
+                REPUTATION_REWARD = ITEM.CHOCOBO_EGG,
             }
 
             group squidmar_ai() {
@@ -3715,7 +3717,7 @@ group non_maps() {
                         debug_memory(NPC_SQUIDMAR.INSANITY);
                     }
 
-                    if(NPC_SQUIDMAR.INSANITY > 0d50) {
+                    if(NPC_SQUIDMAR.INSANITY >= NPC_SQUIDMAR.INSANITY_ANGRY) {
                         sfx_effect(SHAKING, True);
                     }
 
@@ -3723,14 +3725,23 @@ group non_maps() {
                         if(NPC_SQUIDMAR.INSANITY >= NPC_SQUIDMAR.INSANITY_LIMIT) {
                             destroy(SCRIPT_OWNER);
 
+                            text_end();
+
                             conversation_end(True);
                             end();
-
-                            if(NPC_SQUIDMAR.DEBUG) {
-                                debug_subtext("destroying entity");
-                                sleep(0d30);
-                            }
                         }
+                    }
+                }
+
+                fun response_reaction() {
+                    arg[0x10] = randrange(0d3);
+
+                    if(arg[0x10] == 0d0) {
+                        subtext("Tentacles curl in curiosity");
+                    } else if(arg[0x10] == 0d1) {
+                        subtext("Tendrils curl in anticipation of you");
+                    } else {
+                        subtext("You awaken the abyss itself");
                     }
                 }
 
@@ -3768,7 +3779,7 @@ group non_maps() {
                             dialog("[SLOW]…he attacked you?…[B]");
                         }
                     } else {
-                        question("[SLOW][CHOICE_INLINE]investige silence…[CHOICE]saw someone…[CHOICE]attacked you…");
+                        question("[SLOW][CHOICE_INLINE]investigate silence…[CHOICE]saw someone…[CHOICE]attacked you…");
 
                         response_lie_detected();
 
@@ -3779,8 +3790,8 @@ group non_maps() {
                 fun dialog_aquagoth() {
                     dialog("[SLOW]What happened to Aquagoth? I can't feel him anymore.[B]");
 
-                    while(True) {
-                        reduce_sanity(0d5);
+                    while(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+                        reduce_sanity(0d10);
 
                         if(NPC_SQUIDMAR.INSANITY < 0d50) {
                             question("[SLOW]What happened to my brother?![CHOICE]tell…[CHOICE]lie…");
@@ -3838,9 +3849,8 @@ group non_maps() {
 
                 fun dialog_aquagoth_seen() {
                     NPC_SQUIDMAR.DIALOG_AQUAGOTH_SEEN = True;
-                    NPC_SQUIDMAR.AQUAGOTH_SEEN = False;
 
-                    reduce_sanity(0d5);
+                    reduce_sanity(0d20);
 
                     if(NPC_SQUIDMAR.INSANITY < 0d50) {
                         dialog("[SLOW]Mortal, I have not seen my brother in millenia. Please look after him.[B]");
@@ -3860,21 +3870,24 @@ group non_maps() {
                                 dialog("[SLOW]…[B]Here - go and help him.[B]");
 
                                 reward(HEAL);
-
-                                attach_script(SCRIPT_OWNER, B, reference(@install() {
-                                    reduce_sanity(0d5);
-
-                                    conversation({
-                                        dialog("LEAVE! QUICKLY![B]");
-                                    }, NONE);
-
-                                    if(NPC_SQUIDMAR.DEBUG) {
-                                        debug_memory(NPC_SQUIDMAR.INSANITY);
-                                    }
-                                }));
                             }
 
                             dialog("[SLOW]Leave now! Help my brother.[B]");
+
+                            NPC_SQUIDMAR.AQUAGOTH_SEEN = False;
+                            attach_script(SCRIPT_OWNER, B, reference(@install() {
+                                reduce_sanity(0d20);
+
+                                if(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+                                    conversation({
+                                        dialog("LEAVE! QUICKLY![B]");
+                                    }, NONE);
+                                }
+
+                                if(NPC_SQUIDMAR.DEBUG) {
+                                    debug_memory(NPC_SQUIDMAR.INSANITY);
+                                }
+                            }));
                         } else {
                             if(SOULS_MEMORY.DEAD_AQUAGOTH) {
                                 reduce_sanity(0d100);
@@ -3901,6 +3914,7 @@ group non_maps() {
                     }
                 }
 
+                @install()
                 fun donate_relic(item:ITEM) {
                     item_pay(item, 0d1, False);
 
@@ -3913,21 +3927,22 @@ group non_maps() {
                             dialog("[SLOW]This pearl washed up in my cave recently. It shall be reward.[B]");
 
                             reward(NPC_SQUIDMAR.REPUTATION_REWARD);
-                            STATUE_RIDDLE.CARRY_RIGHT_EYE = True;
                         }
+
+                        reduce_sanity(0d10);
                     } else {
                         response_buffled();
-                        reduce_sanity(0d10);
+                        reduce_sanity(0d30);
                     }
                 }
 
                 fun response_greeting() {
-                    dialog("I am Squidmar.[B]");
+                    conversation_dialog("[SLOW]I am Squidmar.[PAUSE:40] The ancient dread that slumbered in the abyss long before your mortal kind arose.[B]I have watched civilizations rise and fall, my presence whispered only in legends and nightmares.[B]Now, I awaken once more, bound by the currents of time and the secrets of this flooded dark.[B]Approach if you dare, mortal, but beware the depths conceal horrors beyond your comprehension.[B]", 0d5);
                 }
 
                 fun dialog_worship() {
                     MEMORY.QUESTION_ANSWER = 0d0;
-                    while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                    while((MEMORY.QUESTION_ANSWER != 0xffff) && (NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT)) {
                         question("[SLOW]Worship me, mortal. Bring me relics from all across the lands…[CHOICE]Jeweled Scarab…[CHOICE]Limestone Tablet…[CHOICE]Golden Jackal…", 0d7);
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // scarab
@@ -3938,6 +3953,7 @@ group non_maps() {
                             donate_relic(GOLDEN_JACKAL);
                         } else {
                             response_buffled();
+                            reduce_sanity(0d20);
                         }
                     }
                 }
@@ -3960,9 +3976,10 @@ group non_maps() {
                 
                 attach_script(LAST_ENTITY, B, reference(@install() {
                     conversation({
-                        reduce_sanity(0d5);
+                        reduce_sanity(0d10);
 
                         if(SOULS_MEMORY.DEAD_AQUAGOTH) {
+                            NPC_SQUIDMAR.DIALOG_GREETING = True;
                             dialog_aquagoth();
                         } else if(NPC_SQUIDMAR.AQUAGOTH_SEEN) {
                             dialog_aquagoth_seen();
@@ -3971,10 +3988,34 @@ group non_maps() {
 
                             response_greeting();
                         } else {
-                            question("[SLOW][CHOICE]talk…[CHOICE]worship…");
+                            question("[SLOW]Your presence disturbs my slumber.[CHOICE]talk…[CHOICE]worship…");
 
                             if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
-                                subtext("todo");
+                                if(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_ANGRY) {
+                                    arg[0x10] = randrange(0d3);
+
+                                    if(arg[0x10] == 0d0) {
+                                        conversation_dialog("[SLOW]The relics of this world are the keys to our salvation.[B]Offer them to me, and I will reward you with otherworldly treasures.[B]", 0d5);
+                                    } else {
+                                        conversation_dialog("[SLOW]I was once a guardian of the abyss[PAUSE:40], but humans summoned me in their greed[PAUSE:40], and in their ignorance[PAUSE:40], sealed me away[PAUSE:40] beneath these waves.[B]", 0d7);
+
+                                        conversation_dialog("[SLOW]My brother Aquagoth must have suffered the same fate.[B]Our blood ties still pulse through the dark waters of this forsaken tomb.[B]", 0d5);
+                                    }
+                                } else {
+                                    arg[0x10] = randrange(0d5);
+
+                                    if(arg[0x10] == 0d0) {
+                                        conversation_dialog("[SLOW]Time is a treasure I do not possess for idle chatter.[B]");
+                                    } else if(arg[0x10] == 0d1) {
+                                        conversation_dialog("[SLOW]Waste my moments, and you'll regret it.[B]");
+                                    } else if(arg[0x10] == 0d2) {
+                                        conversation_dialog("[SLOW]Time is my prison… Waste it, and I will break free.[B]");
+                                    } else if(arg[0x10] == 0d3) {
+                                        conversation_dialog("[SLOW]Your words are as shallow as this flooded abyss.[B]");
+                                    } else {
+                                        conversation_dialog("[SLOW]Your hesitation feeds my rage.[B]");
+                                    }
+                                }
                             } else if(MEMORY.QUESTION_ANSWER == 0d1) { // worship
                                 dialog_worship();
                             } else {
@@ -11817,7 +11858,9 @@ area east_inbetwixx() {
 
                 control(BOSS.ID, False);
 
-                debug_subtext("+pit");
+                if(BOSS.DEBUG) {
+                    debug_subtext("+pit");
+                }
 
                 sleep(BOSS.VOLCANO_DELAY);
 
@@ -11835,7 +11878,9 @@ area east_inbetwixx() {
                     sleep(BOSS.VOLCANO_TIMER);
                 }
 
-                debug_subtext("-pit");
+                if(BOSS.DEBUG) {
+                    debug_subtext("-pit");
+                }
             }
         }
 
@@ -21773,7 +21818,7 @@ area town() {
             }
 
             fun trigger_enter() {
-                add_levitate_stone(0d31, 0d9, reference(@install() {
+                add_levitate_stone(0d31, 0d11, reference(@install() {
                     guard_levitate_stone(0d1);
 
                     ROOM.STONE_MOVED = True;
@@ -34216,6 +34261,7 @@ area dungeon_volcano() {
             range_checker(entity, <ACTIVE>, 0x20, 0x20, {
                 fog_wall(NONE);
 
+                NPC_SQUIDMAR.AQUAGOTH_SEEN = False;
                 map_transition(dungeon_volcano, north_1, SOUTH);
             });
         }
@@ -34401,12 +34447,16 @@ area dungeon_volcano() {
             while(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
                 yield();
             }
+            
+            sleep(0d30);
 
             start_boss();
         }
 
         fun trigger_enter() {
             if!(SOULS_MEMORY.DEAD_SQUIDMAR) {
+                response_reaction();
+
                 add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
                 BOSS.ID = <LAST_ENTITY>;
                 BOSS.ID[HP] = BOSS.HP;

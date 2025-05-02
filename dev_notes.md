@@ -22,12 +22,12 @@
 
 
 # important
+## gideon does not die while poise broken + poise break should be an optional ability
 ## any door can be opened with a bomb
 ## fog wall - remove walk back (at least for dark forest maps)
 ## basement + sidescroller + bowser + bowser dungeons - dog is available
 ## dog trap (cat) - dog can walk while gaining items
 ## market: x bone : 1 biscuit
-## market: x lime stone : 1 statue progress
 ## market: x feathers : 1 wings
 ## market: x roots : 1 essence
 
