@@ -574,7 +574,7 @@ group non_maps() {
             DEAD_TAVERN_BOXERS = memory(FLAG, SRAM), // t0
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
             DEAD_TOWN_PUPPETS = memory(FLAG, SRAM),
-            REWARD_TOWN_PUPPETS = CUSTOM_ITEM.SPEAR_ORB,
+            REWARD_TOWN_PUPPETS = CUSTOM_ITEM.SWORD_ORB,
 
             DEAD_TEMPLE_MINITAUR = memory(FLAG, SRAM),
             REWARD_TEMPLE_MINITAUR = CUSTOM_ITEM.SPEAR_ORB,
@@ -588,6 +588,9 @@ group non_maps() {
 
             DEAD_HEART = memory(FLAG, SRAM), // t0
             REWARD_HEART = CUSTOM_ITEM.SWORD_ORB,
+
+            DEAD_TRAP_RIMSALA = memory(FLAG, SRAM), // t1
+            REWARD_TRAP_RIMSALA = CUSTOM_ITEM.SPEAR_ORB,
 
             DEAD_AQUAGOTH = memory(FLAG, SRAM), // t0
             REWARD_AQUAGOTH = ITEM.NO_ITEM,
@@ -2269,7 +2272,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(thraxx, south, NONE);
+                map_transition(ship, swirl, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -3687,7 +3690,7 @@ group non_maps() {
 
         group npc_squidmar() {
             enum NPC_SQUIDMAR {
-                DEBUG = False,
+                DEBUG = True,
                 DEBUG_SANITY = True,
 
                 DIALOG_GREETING = memory(FLAG, SRAM),
@@ -22964,6 +22967,8 @@ area ship_caves() {
             door_2_2 = entrance(0x59, 0x2d, SOUTH),
             door_3_1 = entrance(0x13, 0x0d, SOUTH),
             door_3_2 = entrance(0x4b, 0x0c, SOUTH),
+
+            swirl = entrance(0d46, 0d85, NONE, { swirl_entrance(); }),
         }
 
         enum soundtrack {
@@ -23007,7 +23012,7 @@ area ship_caves() {
             door_1_1 = @install() {
                 debug_subtext("S=9");
 
-                error_message(DLC, SOUTH);
+                map_transition(ship_tavern, south, NORTH);
             },
 
             door_3_2 = @install() {
@@ -23050,6 +23055,399 @@ area ship_caves() {
         }
     };
 
+    area ship_inside() {
+        map ship_tavern(CRUSTICIA_CAVES) { // variant: tavern
+            enum entrance {
+                south = entrance(0x6f, 0x51, NORTH),
+            }
+
+            enum soundtrack {
+                default = soundtrack(AREA_SHIP.DEFAULT_MUSIC, 0xff)
+            }
+
+            enum stepon_trigger {
+                monk = nop(),
+                monk_trigger_west = nop(),
+                monk_trigger_south = nop(),
+                exit_cave_hammock = nop(),
+                exit_south = @install() {
+                    debug_subtext("S=4");
+
+                    map_transition(ship, door_1, SOUTH);
+                },
+                exit_ship_small = nop(),
+                exit_cave_crates = nop(),
+                exit_cave_monk = nop(),
+            }
+
+            @install()
+            @async()
+            fun entity_general_purpose_check(entity) {
+                while(entity[GENERAL_PURPOSE] == 0x00) {
+                    yield();
+                }
+
+                map_transition(arena_trap_rimsala, right, NONE);
+            }
+
+            enum b_trigger {
+                gourd_hammock__1_water = nop(),
+                gourd_monk_1__1_nectar = nop(),
+                gourd_monk_2__1_clay = nop(),
+                gourd_crates__1_nectar = nop(),
+                groud__1_wax = @install() {
+                    debug_subtext("B=4");
+
+                    <ACTIVE>[GENERAL_PURPOSE] = 0x00;
+                    gourd_trap(0x06, <ACTIVE>, 0d112, 0d56);
+                    entity_general_purpose_check(<ACTIVE>);
+
+                    // _loot_chest(0x06, WAX, 0d01);
+                },
+                gourd_ship__1_water = nop(),
+                tavern_barkeeper = @install() {
+                    debug_subtext("B=6");
+                },
+            }
+
+            fun init_room(index) {
+                if(index == 0x00) {
+                    init_map(0x00, 0x00, 0x2e, 0x2a); // hammock
+                } else if(index == 0x01) {
+                    init_map(0x00, 0x38, 0x26, 0x5c); // crates
+                } else if(index == 0x02) {
+                    init_map(0x32, 0x36, 0x56, 0x52); // ship
+                } else if(index == 0x03) {
+                    init_map(0x58, 0x30, 0x86, 0x4e); // tavern
+                } else if(index == 0x04) {
+                    init_map(0x40, 0x00, 0x66, 0x24); // monk
+                }
+            }
+
+            fun trigger_enter() {
+                if(SOULS_MEMORY.DEAD_TRAP_RIMSALA) {
+                    object[0x06] = 0x01; // loot gourd_tavern
+                }
+
+                init_room(0x03);
+                fade_in();
+            }
+        };
+
+        map arena_trap_rimsala(RAPTORS) {
+            // sniff=vanilla
+            
+            enum entrance {
+                north = entrance(0x1b, 0x03, SOUTH),
+                south = entrance(0x1d, 0x33, NORTH),
+
+                left = entrance(0x15, 0x1c, NONE),
+                center = entrance(0x1e, 0x21, NONE),
+                right = entrance(0x2a, 0x23, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(BOSS_JUNGLE, 0xff)
+            }
+
+            enum stepon_trigger {
+                exit_north = nop(),
+                exit_south = nop(),
+                center = nop(),
+            }
+
+
+            fun close_exits(close) {
+                if(close) {
+                    object[0x04] = 0x04;
+                } else {
+                    object[0x05] = 0x04;
+                }
+            }
+
+            group boss_ai() {
+                enum BOSS {
+                    DEBUG = False,
+                    DEBUG_CHARGE_BOY = False,
+                    DEBUG_CHARGE_BOSS = False,
+
+                    ID = memory(WORD, TEMP),
+
+                    PROGRESS = memory(FLAG, TEMP),
+
+                    HP = 0d300,
+
+                    STUCK = memory(FLAG, TEMP),
+                    CHARGING = memory(WORD, TEMP),
+
+                    PALETTE_DONOR_BOY = memory(WORD, TEMP),
+                    PALETTE_DONOR_DOG = memory(WORD, TEMP),
+
+                    PALETTE_BOY = memory(WORD, TEMP),
+                    PALETTE_DOG = memory(WORD, TEMP),
+                    PALETTE_BOY_DONOR = memory(WORD, TEMP),
+                    PALETTE_DOG_DONOR = memory(WORD, TEMP),
+
+                    ENTITY_NORTH_WEST = memory(WORD, TEMP),
+                    ENTITY_NORTH_EAST = memory(WORD, TEMP),
+                    ENTITY_SOUTH_WEST = memory(WORD, TEMP),
+                    ENTITY_SOUTH_EAST = memory(WORD, TEMP),
+                }
+
+                fun boss_defeated() {
+                    souls_boss_defeated(DEAD_TRAP_RIMSALA, REWARD_TRAP_RIMSALA);
+
+                    BOSS.PROGRESS = False;
+
+                    map_transition(ship, swirl, NONE);
+                }
+
+                @install()
+                fun update_palette() {
+                    if(BOSS.DEBUG && BOSS.DEBUG_CHARGE_BOY) {
+                        debug_memory(<BOY>[GENERAL_PURPOSE]);
+                    }
+                    if(BOSS.DEBUG && BOSS.DEBUG_CHARGE_BOSS) {
+                        debug_memory(BOSS.ID[GENERAL_PURPOSE]);
+                    }
+
+                    if(<BOY>[GENERAL_PURPOSE] >= 0d10) {
+                        <BOY>[PALETTE] = BOSS.PALETTE_BOY_DONOR;
+                    } else if(<BOY>[GENERAL_PURPOSE] <= 0d5) {
+                        <BOY>[PALETTE] = BOSS.PALETTE_BOY;
+                    }
+                    if(BOSS.ID[GENERAL_PURPOSE] >= 0d10) {
+                        BOSS.ID[PALETTE] = BOSS.PALETTE_DOG_DONOR;
+                    } else if(BOSS.ID[GENERAL_PURPOSE] <= 0d5) {
+                        BOSS.ID[PALETTE] = BOSS.PALETTE_DOG;
+                    }
+                }
+
+                @install()
+                @async()
+                fun decay_charge() {
+                    while(alive(BOSS.ID)) {
+                        sleep(0d120);
+
+                        if(<BOY>[GENERAL_PURPOSE] > 0d0) {
+                            <BOY>[GENERAL_PURPOSE]--;
+                        }
+                        if(BOSS.ID[GENERAL_PURPOSE] > 0d0) {
+                            BOSS.ID[GENERAL_PURPOSE]--;
+                        }
+
+                        update_palette();
+
+                        // debug_memory(<BOY>[PALETTE] & 0xff00, BOSS.PALETTE_BOY_DONOR & 0xff00);
+                        // if((<BOY>[PALETTE] & 0xff00) == (BOSS.PALETTE_BOY_DONOR & 0xff00)) {
+                        if(<BOY>[PALETTE] == BOSS.PALETTE_BOY_DONOR) {
+                            MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
+
+                            if(False) {
+                                if(<BOY>[HP] > 0d2) {
+                                    damage(BOY, 0d2, True);
+                                } else {
+                                    damage(BOY, <BOY>[HP] - 0d1, True);
+                                }
+                            } else {
+                                damage(BOY, 0d2, True);
+                            }
+                        }
+                        if(BOSS.ID[PALETTE] == BOSS.PALETTE_DOG_DONOR) {
+                            damage(BOSS.ID, 0d2, True);
+                        }
+                    }
+                }
+                @install()
+                @async()
+                fun cheese_protection() {
+                    while(alive(BOSS.ID)) {
+                        sleep(0d120);
+
+                        if(BOSS.CHARGING) {
+                            while(BOSS.CHARGING) {
+                                sleep(0d30);
+                            }
+
+                            sleep(0d120);
+                        }
+
+                        if((arg[0x10] == BOSS.ID[X]) && (arg[0x12] == BOSS.ID[Y])) {
+                            BOSS.STUCK = True;
+
+                            if!(BOSS.ID[PALETTE] == BOSS.PALETTE_DOG_DONOR) {
+                                cast(BOSS.ID, BOY, FLASH, 0d1);
+                            } else {
+                                cast(BOSS.ID, BOY, FIREBALL, 0d1);
+                            }
+                        } else {
+                            BOSS.STUCK = False;
+                        }
+
+                        arg[0x10] = BOSS.ID[X];
+                        arg[0x12] = BOSS.ID[Y];
+                    }
+                }
+
+                fun add_boss(x, y) {
+                    add_enemy(RIMSALA_GOLD, x, y);
+                    BOSS.ID = <LAST_ENTITY>;
+                    <LAST_ENTITY>[HP] = BOSS.HP;
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                        if(alive(<SCRIPT_OWNER>)) {
+                            if(<SCRIPT_OWNER>[PALETTE] == BOSS.PALETTE_DOG_DONOR) {
+                                heal(BOSS.ID, 0d10, True);
+                            }
+                            if(<BOY>[PALETTE] == BOSS.PALETTE_BOY_DONOR) {
+                                damage(BOSS.ID, 0d20, True);
+                            }
+                        } else {
+                            boss_defeated();
+                        }
+                    }));
+                }
+
+                fun add_charging_stations() {
+                    add_enemy(PLACEHOLDER, 0d18, 0d23);
+                    BOSS.ENTITY_NORTH_WEST = <LAST_ENTITY>;
+                    add_enemy(PLACEHOLDER, 0d40, 0d25);
+                    BOSS.ENTITY_NORTH_EAST = <LAST_ENTITY>;
+                    add_enemy(PLACEHOLDER, 0d19, 0d38);
+                    BOSS.ENTITY_SOUTH_WEST = <LAST_ENTITY>;
+                    add_enemy(PLACEHOLDER, 0d40, 0d41);
+                    BOSS.ENTITY_SOUTH_EAST = <LAST_ENTITY>;
+                }
+
+                fun add_palette_donors() {
+                    add_enemy(BOY_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+                    BOSS.PALETTE_DONOR_BOY = <LAST_ENTITY>;
+                    add_enemy(RIMSALA, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+                    BOSS.PALETTE_DONOR_DOG = <LAST_ENTITY>;
+
+                    BOSS.PALETTE_BOY = <BOY>[PALETTE];
+                    BOSS.PALETTE_DOG = BOSS.ID[PALETTE];
+                    BOSS.PALETTE_BOY_DONOR = BOSS.PALETTE_DONOR_BOY[PALETTE];
+                    BOSS.PALETTE_DOG_DONOR = BOSS.PALETTE_DONOR_DOG[PALETTE];
+                }
+
+                fun find_nearest_bush(out_memory) {
+                    if((BOSS.ID[X] < (0d30 << 0d0003)) && ((BOSS.ID[Y] < (0d30 << 0d0003)))) {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("north west");
+                        }
+
+                        out_memory = BOSS.ENTITY_NORTH_WEST;
+                    } else if((BOSS.ID[X] >= (0d30 << 0d0003)) && ((BOSS.ID[Y] < (0d32 << 0d0003)))) {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("north east");
+                        }
+
+                        out_memory = BOSS.ENTITY_NORTH_EAST;
+                    } else if((BOSS.ID[X] < (0d30 << 0d0003)) && ((BOSS.ID[Y] >= (0d30 << 0d0003)))) {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("south west");
+                        }
+
+                        out_memory = BOSS.ENTITY_SOUTH_WEST;
+                    } else { // if((BOSS.ID[X] < (0d30 << 0d0003)) && ((BOSS.ID[Y] >= (0d32 << 0d0003)))) {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("south east");
+                        }
+
+                        out_memory = BOSS.ENTITY_SOUTH_EAST;
+                    }
+                }
+                fun charge_beam(source) {
+                    while(_alive(BOSS.ID) && (BOSS.ID[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) && (!(BOSS.ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                        sound(TESLA);
+
+                        arg[0x10] = False;
+                        arg[0x12] = False;
+
+                        if(BOSS.ID[X] > source[X]) {
+                            if((<BOY>[X] < BOSS.ID[X]) && (<BOY>[X] > source[X])) {
+                                arg[0x10] = True;
+                            }
+                        } else {
+                            if((<BOY>[X] > BOSS.ID[X]) && (<BOY>[X] < source[X])) {
+                                arg[0x10] = True;
+                            }
+                        }
+
+                        if(BOSS.ID[Y] > source[Y]) {
+                            if((<BOY>[Y] < BOSS.ID[Y]) && (<BOY>[Y] > source[Y])) {
+                                arg[0x12] = True;
+                            }
+                        } else {
+                            if((<BOY>[Y] > BOSS.ID[Y]) && (<BOY>[Y] < source[Y])) {
+                                arg[0x12] = True;
+                            }
+                        }
+
+                        if!((arg[0x10] == True) && (arg[0x12] == True)) {
+                            arg[0x16] = BOSS.ID;
+                        } else {
+                            arg[0x16] = <BOY>;
+                        }
+
+                        shoot_entity_entity(source, LIGHTNING, arg[0x16], 0d2, 0d0);
+
+                        if(arg[0x16][GENERAL_PURPOSE] < 0d100) {
+                            arg[0x16][GENERAL_PURPOSE]++;
+
+                            BOSS.CHARGING = arg[0x16];
+                        }
+
+                        update_palette();
+
+                        sleep(0d30);
+                    }
+                }
+                @install()
+                @async()
+                fun boss_loop() {
+                    while(alive(BOSS.ID)) {
+                        animate(BOSS.ID, LOOP, DEFAULT);
+
+                        find_nearest_bush(arg[0x14]);
+                        
+                        BOSS.CHARGING = True;
+                        charge_beam(arg[0x14]);
+                        BOSS.CHARGING = 0x0000;
+                        
+                        if(False) {
+                            sleep(0d300);
+                        }
+                        animate(BOSS.ID, ONCE, DEFAULT);
+
+                        sleep(0d600);
+                    }
+                }
+            };
+
+            fun trigger_enter() {
+                close_exits(True);
+
+                default_init_room(False, False);
+
+                if!(SOULS_MEMORY.DEAD_TRAP_RIMSALA) {
+                    <BOY>[GENERAL_PURPOSE] = 0d0;
+                    <DOG>[GENERAL_PURPOSE] = 0d0;
+
+                    add_boss(0d24, 0d30);
+                    add_palette_donors();
+                    add_charging_stations();
+
+                    cheese_protection();
+                    decay_charge();
+
+                    boss_loop();
+                }
+            }
+        };
+    };
+
     map ship_crates(CRUSTICIA_CAVES) { // variant: ship
         enum entrance {
             south = entrance(0x47, 0x51, NORTH),
@@ -23067,6 +23465,7 @@ area ship_caves() {
             exit_ship_tavern = nop(),
             exit_south = @install() {
                 debug_subtext("S=5");
+
                 map_transition(ship, door_2_1, SOUTH);
             },
             exit_cave_crates = nop(),
@@ -23081,6 +23480,7 @@ area ship_caves() {
             groud_tavern__1_wax = nop(),
             gourd__1_water = @install() {
                 debug_subtext("B=5");
+                
                 _loot_chest(0x05, WATER, 0d01);
             },
             tavern_barkeeper = nop(),
