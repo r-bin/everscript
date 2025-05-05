@@ -959,6 +959,8 @@ group general_enums() {
             START_ROCKET_JUMP = <0x28fa, 0x02>,
             START_ISAAC_TEAR = <0x28fa, 0x04>,
             START_MARIO_FIREFLOWER = <0x28fa, 0x08>,
+
+            DOG_BUSY = <0x28fb, 0x10>,
         }
     };
 
@@ -4199,6 +4201,14 @@ group functions() {
                         } else {
                             animate(character, mode, ANIMATION_BOY.SWIRL_EXIT); // TODO
                         }
+                    } else if((id == ANIMATION_DOG.ACT1_SIT) || (id == ANIMATION_DOG.ACT2_SIT) || (id == ANIMATION_DOG.ACT3_SIT)) {
+                        if(MEMORY.DOG_READ == DOG.GREYHOUND) {
+                            animate(character, mode, ANIMATION_DOG.ACT2_SIT);
+                        } else if(MEMORY.DOG_READ == DOG.POODLE) {
+                            animate(character, mode, ANIMATION_DOG.ACT3_SIT);
+                        } else {
+                            animate(character, mode, ANIMATION_DOG.ACT1_SIT);
+                        }
                     }
                 }
             }
@@ -4751,7 +4761,9 @@ group functions() {
                         available(BOY);
                     }
 
-                    teleport(DOG, 0d0, 0d0);
+                    if!(CUSTOM_FLAG.DOG_BUSY) {
+                        teleport(DOG, 0d0, 0d0);
+                    }
                 } else if(CUSTOM_FLAG.NO_BOY) {
                     if(False) {
                         FLAG.BOY_UNAVAILABLE = True;
@@ -9693,6 +9705,52 @@ group functions() {
                 }
                 
                 free_camera();
+            }
+        };
+
+        group dog() {
+            fun _dog_stairs(flag:SOULS_MEMORY, x, y, reachable) {
+                CUSTOM_FLAG.DOG_BUSY = True;
+
+                teleport(DOG, x + 0d2, y + 0d2);
+
+                if!(reachable) {
+                    smart_animate(<DOG>, ONCE_FREEZE, ANIMATION_DOG.ACT2_SIT);
+                } else {
+                    flag = False;
+                }
+            }
+            fun dog_stairs(flag:SOULS_MEMORY, x, y) {
+                if!(CUSTOM_FLAG.NO_DOG) {
+                    flag = True;
+                    available(BOY);
+                    CUSTOM_FLAG.NO_DOG = True;
+                    control(NONE);
+
+                    walk(DOG, TILE_ABSOLUTE_DIRECT, x + 0d2, y + 0d2, NONE, NONE);
+                    walk(BOY, TILE_ABSOLUTE, x, y - 0d5, NONE, NONE);
+
+                    wait(BOY);
+                    sleep(0d5);
+                    face(BOY, SOUTH);
+
+                    wait(DOG);
+                    sleep(0d16);
+                    face(DOG, WEST);
+                    sleep(0d8);
+
+                    smart_animate(<DOG>, ONCE_FREEZE, ANIMATION_DOG.ACT2_SIT);
+                    sleep(0d30);
+
+                    face(BOY, NORTH);
+                    control(BOY);
+                } else {
+                    flag = False;
+                    CUSTOM_FLAG.NO_DOG = False;
+
+                    available(BOTH);
+                    walk(BOY, TILE_ABSOLUTE_DIRECT, x - 0d3, y + 0d1, BOY, BOTH);
+                }
             }
         };
     };

@@ -427,6 +427,8 @@ group non_maps() {
 
             // dog
             DOG_PREFERENCE = memory(BYTE, SRAM),
+            DOG_SHIP = memory(FLAG, SRAM),
+            DOG_SHIP_STAIRS = memory(FLAG, SRAM),
 
             // boy dust
             DUST_ENTITY = memory(WORD, TEMP_RESERVED),
@@ -1718,6 +1720,10 @@ group non_maps() {
 
             if((!FLAG.BAZOOKA) && (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.BAZOOKA_TEMP)) {
                 MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
+            }
+
+            if(SOULS_MEMORY.DOG_SHIP || SOULS_MEMORY.DOG_SHIP_STAIRS) {
+                CUSTOM_FLAG.NO_DOG = True;
             }
             
             if(CUSTOM_MEMORY.CURRENT_DOG) {
@@ -22958,9 +22964,16 @@ area ship_caves() {
     }
 
     map ship(CRUSTICIA) {
+        enum ROOM {
+            DEBUG = False,
+
+            DOG_AVAILABLE = memory(FLAG, TEMP),
+            PILLAR_CLEARED = memory(FLAG, SRAM),
+        }
+
         enum entrance {
-            east = entrance(0x5f, 0x5b, WEST),
-            west = entrance(0x05, 0x59, EAST),
+            east = entrance(0x5f, 0x5b, WEST, { ROOM.DOG_AVAILABLE = True; }),
+            west = entrance(0x05, 0x59, EAST, { ROOM.DOG_AVAILABLE = True; }),
 
             door_1 = entrance(0x32, 0x40, SOUTH),
             door_2_1 = entrance(0x30, 0x22, SOUTH),
@@ -22968,7 +22981,10 @@ area ship_caves() {
             door_3_1 = entrance(0x13, 0x0d, SOUTH),
             door_3_2 = entrance(0x4b, 0x0c, SOUTH),
 
-            swirl = entrance(0d46, 0d85, NONE, { swirl_entrance(); }),
+            swirl = entrance(0d46, 0d85, NONE, {
+                ROOM.DOG_AVAILABLE = True;
+                swirl_entrance();
+            }),
         }
 
         enum soundtrack {
@@ -22984,9 +23000,13 @@ area ship_caves() {
             },
             door_2_2_stairs = @install() {
                 debug_subtext("S=2");
+
+                dog_stairs(DOG_SHIP_STAIRS, 0d84, 0d81);
             },
             door_1_1_stairs = @install() {
                 debug_subtext("S=3");
+
+                dog_stairs(DOG_SHIP, 0d50, 0d77);
             },
             lift_top = @install() {
                 debug_subtext("S=4");
@@ -23028,11 +23048,18 @@ area ship_caves() {
             },
         }
 
-        enum ROOM {
-            PILLAR_CLEARED = memory(FLAG, SRAM),
-        }
-
         fun trigger_enter() {
+            if(SOULS_MEMORY.DOG_SHIP_STAIRS) {
+                _dog_stairs(DOG_SHIP_STAIRS, 0d84, 0d81, ROOM.DOG_AVAILABLE);
+            }
+            if(SOULS_MEMORY.DOG_SHIP) {
+                _dog_stairs(DOG_SHIP, 0d50, 0d77, ROOM.DOG_AVAILABLE);
+            }
+
+            if(ROOM.DEBUG) {
+                debug_memory(SOULS_MEMORY.DOG_SHIP_STAIRS, SOULS_MEMORY.DOG_SHIP, CUSTOM_FLAG.DOG_BUSY);
+            }
+
             add_bombable(0d19, 0d14, ROOM.PILLAR_CLEARED, reference(@install() {
                 bombable_object(WALL_AXE2_FAKE, True, ROOM.PILLAR_CLEARED);
             }), STONE_ROUND, PILLAR_VIGOR);
@@ -23130,7 +23157,7 @@ area ship_caves() {
                 }
 
                 init_room(0x03);
-                fade_in();
+                default_init_room(False, False);
             }
         };
 
@@ -23506,7 +23533,7 @@ area ship_caves() {
 
             init_room(0x02);
 
-            fade_in();
+            default_init_room(False, False);
         }
     };
 
@@ -23573,7 +23600,7 @@ area ship_caves() {
         fun trigger_enter() {
             init_room(0x04);
             
-            fade_in();
+            default_init_room(False, False);
         }
     };
 };
@@ -24711,7 +24738,7 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
-                fade_in();
+                default_init_room(False, False);
             }
         };
     };
@@ -26257,7 +26284,7 @@ area desert_bug() {
             }
 
             fun trigger_enter() {
-                fade_in();
+                default_init_room(False, False);
             }
         };
 
@@ -26972,7 +26999,7 @@ area desert_bug() {
                 }
 
                 fun trigger_enter() {
-                    fade_in();
+                    default_init_room(False, False);
                 }
             };
         };
@@ -27908,7 +27935,7 @@ area metro() {
             add_gate_bot(ROOM.GATE_ID_D2_D3, 0d114, 0d145, ROOM.GATE_OPENED_D2_D3, 0x2a, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D2_D3); }));
             add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D3_D4); }));
 
-            fade_in();
+            default_init_room(False, False);
 
             while!(AREA_METRO.SECRET_CODE) {
                 create_code();
@@ -27987,7 +28014,7 @@ area metro() {
                     crash_both();
                 }
 
-                fade_in();
+                default_init_room(False, False);
             }
         };
 
