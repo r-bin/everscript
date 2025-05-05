@@ -4195,11 +4195,11 @@ group functions() {
                         } else {
                             animate(character, mode, ANIMATION_DOG.ACT1_SLEEP);
                         }
-                    } else if((id == ANIMATION_BOY.SWIRL_EXIT) || (id == ANIMATION_BOY.SWIRL_EXIT)) { // TODO
+                    } else if((id == ANIMATION_BOY.SWIRL_EXIT) || (id == ANIMATION_DOG.ACT1_FALL1)) {
                         if(character == <BOY>) {
                             animate(character, mode, ANIMATION_BOY.SWIRL_EXIT);
                         } else {
-                            animate(character, mode, ANIMATION_BOY.SWIRL_EXIT); // TODO
+                            animate(character, mode, ANIMATION_DOG.ACT1_FALL1);
                         }
                     } else if((id == ANIMATION_DOG.ACT1_SIT) || (id == ANIMATION_DOG.ACT2_SIT) || (id == ANIMATION_DOG.ACT3_SIT)) {
                         if(MEMORY.DOG_READ == DOG.GREYHOUND) {
@@ -4753,7 +4753,7 @@ group functions() {
                 // enables/disables BOY/DOG, based on BOY_UNAVAILABLE/DOG_UNAVAILABLE
                 // fades in bridghtness
 
-                if(CUSTOM_FLAG.NO_DOG) {
+                if(CUSTOM_FLAG.NO_DOG || FLAG.DOG_UNAVAILABLE) {
                     if(False) {
                         FLAG.BOY_UNAVAILABLE = False;
                         FLAG.DOG_UNAVAILABLE = True;
@@ -4764,7 +4764,7 @@ group functions() {
                     if!(CUSTOM_FLAG.DOG_BUSY) {
                         teleport(DOG, 0d0, 0d0);
                     }
-                } else if(CUSTOM_FLAG.NO_BOY) {
+                } else if(CUSTOM_FLAG.NO_BOY || FLAG.BOY_UNAVAILABLE) {
                     if(False) {
                         FLAG.BOY_UNAVAILABLE = True;
                         FLAG.DOG_UNAVAILABLE = False;
@@ -9318,7 +9318,9 @@ group functions() {
             control(NONE);
 
             animate(ACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
-            animate(INACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+            if!(FLAG.DOG_UNAVAILABLE) {
+                animate(INACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+            }
 
             teleporter_animation_in(<ACTIVE>);
             if(direction == DIRECTION.NORTH) {
@@ -9335,19 +9337,21 @@ group functions() {
                 face(ACTIVE, WEST);
             }
 
-            teleporter_animation_in(<INACTIVE>);
-            if(direction == DIRECTION.NORTH) {
-                walk(INACTIVE, TILE_RELATIVE, -0d2, 0d1, BOTH, NONE);
-                face(INACTIVE, NORTH);
-            } else if(direction == DIRECTION.EAST) {
-                walk(INACTIVE, TILE_RELATIVE, 0d2, 0d1, BOTH, NONE);
-                face(INACTIVE, EAST);
-            } else if(direction == DIRECTION.SOUTH) {
-                walk(INACTIVE, TILE_RELATIVE, -0d1, 0d2, BOTH, NONE);
-                face(INACTIVE, SOUTH);
-            } else if(direction == DIRECTION.WEST) {
-                walk(INACTIVE, TILE_RELATIVE, -0d2, -0d1, BOTH, NONE);
-                face(INACTIVE, SOUTH);
+            if!(FLAG.DOG_UNAVAILABLE) {
+                teleporter_animation_in(<INACTIVE>);
+                if(direction == DIRECTION.NORTH) {
+                    walk(INACTIVE, TILE_RELATIVE, -0d2, 0d1, BOTH, NONE);
+                    face(INACTIVE, NORTH);
+                } else if(direction == DIRECTION.EAST) {
+                    walk(INACTIVE, TILE_RELATIVE, 0d2, 0d1, BOTH, NONE);
+                    face(INACTIVE, EAST);
+                } else if(direction == DIRECTION.SOUTH) {
+                    walk(INACTIVE, TILE_RELATIVE, -0d1, 0d2, BOTH, NONE);
+                    face(INACTIVE, SOUTH);
+                } else if(direction == DIRECTION.WEST) {
+                    walk(INACTIVE, TILE_RELATIVE, -0d2, -0d1, BOTH, NONE);
+                    face(INACTIVE, SOUTH);
+                }
             }
 
             control(BOTH);
@@ -9361,9 +9365,11 @@ group functions() {
             face(ACTIVE, SOUTH);
             teleporter_animation_out(<ACTIVE>);
             
-            walk(INACTIVE, TILE_ABSOLUTE, x, y, INACTIVE);
-            face(INACTIVE, SOUTH);
-            teleporter_animation_out(<INACTIVE>);
+            if!(FLAG.DOG_UNAVAILABLE) {
+                walk(INACTIVE, TILE_ABSOLUTE, x, y, INACTIVE);
+                face(INACTIVE, SOUTH);
+                teleporter_animation_out(<INACTIVE>);
+            }
 
             sleep(0d50);
         }
@@ -9547,13 +9553,19 @@ group functions() {
             @install()
             @weak()
             fun generic_a1_desert_sandpit_out(direction:DIRECTION) {
+                if(FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY) {
+                    arg[0x10] = True;
+                }
+
                 control(NONE);
                 
                 _add_placeholder(SANDPIT_PUKE, <ACTIVE>[X], <ACTIVE>[Y], ONCE);
                 attach_to_script(LAST_ENTITY);
 
-                _teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
-                animate(INACTIVE, LOOP, INVISIBLE);
+                if!(arg[0x10]) {
+                    _teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
+                    animate(INACTIVE, LOOP, INVISIBLE);
+                }
 
                 vanilla_sandpit_puke(<ACTIVE>);
                 if(direction == DIRECTION.NORTH) {
@@ -9568,10 +9580,12 @@ group functions() {
                 wait(ACTIVE);
                 face(ACTIVE, SOUTH);
 
-                animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+                if!(arg[0x10]) {
+                    animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
 
-                animate(INACTIVE, ONCE, DEFAULT);
-                vanilla_sandpit_puke(<INACTIVE>);
+                    animate(INACTIVE, ONCE, DEFAULT);
+                    vanilla_sandpit_puke(<INACTIVE>);
+                }
 
                 free_camera();
 
@@ -9718,6 +9732,7 @@ group functions() {
                     smart_animate(<DOG>, ONCE_FREEZE, ANIMATION_DOG.ACT2_SIT);
                 } else {
                     flag = False;
+                    FLAG.DOG_UNAVAILABLE = False;
                 }
             }
             fun dog_stairs(flag:SOULS_MEMORY, x, y) {
@@ -9725,6 +9740,7 @@ group functions() {
                     flag = True;
                     available(BOY);
                     CUSTOM_FLAG.NO_DOG = True;
+                    FLAG.DOG_UNAVAILABLE = True;
                     control(NONE);
 
                     walk(DOG, TILE_ABSOLUTE_DIRECT, x + 0d2, y + 0d2, NONE, NONE);
@@ -9747,6 +9763,7 @@ group functions() {
                 } else {
                     flag = False;
                     CUSTOM_FLAG.NO_DOG = False;
+                    FLAG.DOG_UNAVAILABLE = False;
 
                     available(BOTH);
                     walk(BOY, TILE_ABSOLUTE_DIRECT, x - 0d3, y + 0d1, BOY, BOTH);
