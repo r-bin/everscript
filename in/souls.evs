@@ -23107,6 +23107,11 @@ area ship_caves() {
                 exit_cave_monk = nop(),
             }
 
+            enum ROOM {
+                RAT_COUNTER = memory(WORD, TEMP),
+                RATS_CLEARED = memory(FLAG, SRAM),
+            }
+
             @install()
             @async()
             fun entity_general_purpose_check(entity) {
@@ -23151,10 +23156,32 @@ area ship_caves() {
                 }
             }
 
+            @install()
+            fun add_rat(x, y) {
+                if!(ROOM.RATS_CLEARED) {
+                    add_enemy(RAT_RED, x, y);
+                    ROOM.RAT_COUNTER++;
+                    attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                        ROOM.RAT_COUNTER--;
+
+                        if(ROOM.RAT_COUNTER == 0d0) {
+                            ROOM.RATS_CLEARED = True;
+                        }
+                    }));
+                    attach_sterling_script(<LAST_ENTITY>, False, 0d30, 0d111, 0d50, 0d580, 0d999);
+                } else {
+                    add_enemy(RAT, x, y);
+                }
+            }
+
             fun trigger_enter() {
                 if(SOULS_MEMORY.DEAD_TRAP_RIMSALA) {
                     object[0x06] = 0x01; // loot gourd_tavern
                 }
+
+                add_rat(0d94, 0d71);
+                add_rat(0d107, 0d61);
+                add_rat(0d129, 0d74);
 
                 init_room(0x03);
                 default_init_room(False, False);
@@ -23202,7 +23229,7 @@ area ship_caves() {
 
                     PROGRESS = memory(FLAG, TEMP),
 
-                    HP = 0d300,
+                    HP = 0d500,
 
                     STUCK = memory(FLAG, TEMP),
                     CHARGING = memory(WORD, TEMP),
