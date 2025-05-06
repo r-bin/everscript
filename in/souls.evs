@@ -4393,6 +4393,67 @@ group non_maps() {
 
 // MAPS
 
+group helper_global() {
+    enum AREA_GLOBAL {
+        ROCK_MOVED_SHIP = memory(FLAG, SRAM),
+        ROCK_MOVED_SHIP_OFFSET = 0d8 * 0d5,
+    }
+
+    @install()
+    fun add_levitate_stone_ship(x, y) {
+        add_levitate_stone(x, y, reference(@install() {
+            guard_levitate_stone(0d1);
+
+            AREA_GLOBAL.ROCK_MOVED_SHIP = True;
+        }));
+        if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+            <LAST_ENTITY>[Y] += AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET;
+        }
+        special_script(LEVITATE, reference(@install() {
+            if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                end();
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            if!(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+                sleep(0d60);
+
+                AREA_GLOBAL.ROCK_MOVED_SHIP = True;
+                object[0x03] = 0x01; // open door_NW
+
+                sleep(0d60);
+
+                while(arg[0x10] < AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[Y]++;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET);
+            } else {
+                sleep(0d120);
+
+                while(arg[0x10] < AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[Y]--;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET);
+
+                AREA_GLOBAL.ROCK_MOVED_SHIP = False;
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+        }));
+    }
+};
+
 area intro_screens() {
     fun intro_skip() {
         init_souls();
@@ -12032,7 +12093,11 @@ area east_inbetwixx() {
             ravine_18 = ravine_triggered(),
             ravine_19 = ravine_triggered(),
             exit_east = @install() {
-                map_transition(ship, west, EAST);
+                if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+                    map_transition(ship, west, EAST);
+                } else {
+                    error_message(DOOR_CONTRAPTION);
+                }
             },
 
             exit_cave = @install() {
@@ -12196,6 +12261,8 @@ area east_inbetwixx() {
                     add_debug_entity(0x24, 0x06, reference(debug_triggered));
                 }
             }
+
+            add_levitate_stone_ship(0d65, 0d75);
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // upstairs
@@ -23012,7 +23079,11 @@ area ship_caves() {
                 debug_subtext("S=4");
             },
             exit_west = @install() {
-                map_transition(east_crossing, east, WEST);
+                if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+                    map_transition(east_crossing, east, WEST);
+                } else {
+                    error_message(DOOR_CONTRAPTION);
+                }
             },
             door_3_1 = @install() {
                 debug_subtext("S=6");
@@ -23077,6 +23148,8 @@ area ship_caves() {
                 // south-west
                 add_enemy(RAPTOR_GREEN, 0d41, 0d78);
             }
+
+            add_levitate_stone_ship(0d0, 0d89);
 
             default_init_room(True, True);
         }
