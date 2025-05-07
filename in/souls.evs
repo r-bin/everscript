@@ -7257,6 +7257,8 @@ area altus_plateau_entry() {
         enum ROOM {
             STONE_MOVED = memory(FLAG, SRAM),
             STONE_OFFSET = 0d8 * 0d2,
+
+            VOLCANO_TOWER_BACKDOOR_OPEN = memory(FLAG, SRAM),
         }
 
         fun pressure_plate_0_1() {
@@ -7291,6 +7293,11 @@ area altus_plateau_entry() {
         }
         fun pressure_plate_3_2() {
             generic_act1_volcano_pressure_plate(0x52, 0x19, 0x00, 0x01, 0d66, 0d37, 0d1);
+        }
+
+        @install()
+        fun volcano_tower_backdoor_triggered() {
+            map_transition(pipe_pit, south, NORTH);
         }
 
         enum stepon_trigger {
@@ -7354,7 +7361,11 @@ area altus_plateau_entry() {
             cave_2_2_hole_1_2 = @install() {
                 debug_subtext("S=10");
 
-                map_transition(pipe_pit, south, NORTH);
+                if(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN) {
+                    volcano_tower_backdoor_triggered();
+                } else {
+                    subtext("Seems to be blocked.");
+                }
                 // generic_act1_volcano_cave_hole(0x44, 0x23, 0d82, 0d42);
             },
             exit_south = @install() {
@@ -7606,6 +7617,16 @@ area altus_plateau_entry() {
                 if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
                     add_debug_entity(0x06, 0x78, reference(debug_triggered));
                 }
+            }
+
+            if!(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN) {
+                add_enemy(PLACEHOLDER, 0d67, 0d34);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    sound(WEIRD_SOUND);
+                    ROOM.VOLCANO_TOWER_BACKDOOR_OPEN = True;
+
+                    volcano_tower_backdoor_triggered();
+                }));
             }
 
             if!(AREA_ALTUS_PLATEAU.BRANCH_USED) {
@@ -7879,7 +7900,7 @@ area altus_plateau_entry() {
                 },
                 gourd_x__1_ethanol = @install() {
                     debug_subtext("B=21");
-                    _loot_chest(0x00, WINGS, 0d01);
+                    _loot_chest(0x00, SPOON, 0d01);
                 }
             }
 
@@ -16023,10 +16044,6 @@ area southern_jungle() {
                 default = soundtrack(WATERFALL_AMBIENT, 0xff)
             }
 
-            enum ROOM {
-                GATE_DEACTIVATED = memory(FLAG, SRAM),
-            }
-
             @install()
             fun waterfall_triggered() {
                 if(SOULS_MEMORY.WITH_METRO) {
@@ -16055,12 +16072,6 @@ area southern_jungle() {
             }
 
             fun trigger_enter() {
-                rimsala_gate(0d17, 0d40, ROOM.GATE_DEACTIVATED, reference(@install() {
-                    control(SCRIPT_OWNER, True);
-
-                    ROOM.GATE_DEACTIVATED = True;
-                }));
-
                 default_init_room(True, True);
             }
         };
