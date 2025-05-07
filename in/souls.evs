@@ -2187,7 +2187,9 @@ group non_maps() {
             add_enemy(RAT_RED, x, y);
             attach_sterling_script(<LAST_ENTITY>, False, 0d20, x_drop, y_drop, cutoff_drop, 0d999);
 
-            sterling_rats_scanner(x_dust, y_dust);
+            if((x_dust !is None) && (y_dust !is None)) {
+                sterling_rats_scanner(x_dust, y_dust);
+            }
         }
     };
 
@@ -2278,7 +2280,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(ship, swirl, NONE);
+                map_transition(stone_room_center_bottom, east, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -4140,6 +4142,37 @@ group non_maps() {
                     }));
                 }
             };
+            group npc_alchemist_drain() {
+                fun reward_formula(flag:FLAG, formula:ITEM, alchemy_index:ALCHEMY_INDEX) {
+                    if!(flag) {
+                        dialog("todo: reward(drain)[B]");
+
+                        reward(formula);
+                        select_alchemy(alchemy_index);
+
+                        // music(BUGMUCK_AMBIENT_MELODY);
+
+                        dialog("todo: explain(drain)[B]");
+                    }
+                }
+
+                fun add_souls_npc_alchemist_drain(x, y, direction:DIRECTION) {
+                    if(direction is Word) {
+                        add_enemy(MONK, x, y, INACTIVE);
+                        face(LAST_ENTITY, direction);
+                    } else {
+                        add_enemy(MONK, x, y);
+                    }
+                    attribute(LAST_ENTITY, INVINCIBLE, True);
+                    
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        conversation({
+                            dialog("todo: hi2[B]");
+                            reward_formula(DRAIN, DRAIN, DRAIN);
+                        });
+                    }));
+                }
+            };
 
             // "E"
             group npc_alchemist_escape() {
@@ -4174,6 +4207,50 @@ group non_maps() {
             };
 
             // "F"
+            group npc_alchemist_firepower() {
+                enum NPC_ALCHEMIST_FIREPOWER {
+                    BRANCH_USED = memory(FLAG, SRAM),
+                }
+
+                fun reward_formula(flag:FLAG, formula:ITEM, alchemy_index:ALCHEMY_INDEX) {
+                    if!(flag) {
+                        dialog("todo: reward(firepower)[B]");
+
+                        reward(formula);
+                        select_alchemy(alchemy_index);
+
+                        // music(BUGMUCK_AMBIENT_MELODY);
+
+                        dialog("todo: explain(firepower)[B]");
+                    }
+                }
+                
+                @install()
+                fun dialog_alchemist_firepower() {
+                    conversation({
+                        dialog("todo: hi3[B]");
+                        reward_formula(FIRE_POWER, FIRE_POWER, FIRE_POWER);
+                    });
+                }
+                fun add_souls_npc_alchemist_firepower(x, y, direction:DIRECTION) {
+                    if!(NPC_ALCHEMIST_FIREPOWER.BRANCH_USED) {
+                        branch_lady(VILLAGER_2_8, x, y, direction, reference(@install() {
+                            guard_branch_lady(NPC_ALCHEMIST_FIREPOWER.BRANCH_USED);
+
+                            dialog_alchemist_firepower();
+                        }));
+                    } else {
+                        if(direction is Word) {
+                            add_enemy(VILLAGER_2_8, x, y, INACTIVE);
+                            face(LAST_ENTITY, direction);
+                        } else {
+                            add_enemy(VILLAGER_2_8, x, y);
+                        }
+
+                        attach_script(LAST_ENTITY, B, reference(dialog_alchemist_firepower));
+                    }
+                }
+            };
             group npc_alchemist_forcefield() {
                 fun reward_formula(flag:FLAG, formula:ITEM, alchemy_index:ALCHEMY_INDEX) {
                     if!(flag) {
@@ -4188,7 +4265,7 @@ group non_maps() {
                     }
                 }
 
-                fun add_souls_npc_alchemist_stop(x, y, direction:DIRECTION) {
+                fun add_souls_npc_alchemist_forefield(x, y, direction:DIRECTION) {
                     if(direction is Word) {
                         add_enemy(VILLAGER_2_8, x, y, INACTIVE);
                         face(LAST_ENTITY, direction);
@@ -7389,11 +7466,11 @@ area altus_plateau_entry() {
             },
             gourd_3__1_PETAL = @install() {
                 debug_subtext("B=2");
-                _loot_chest(0x08, PETAL, 0d01);
+                _loot_chest(0x08, BISCUIT, 0d01);
             },
             gourd_5__1_WATER = @install() {
                 debug_subtext("B=3");
-                _loot_chest(0x09, MUD_PEPPER, 0d01);
+                _loot_chest(0x09, PIXIE_DUST, 0d01);
             },
             gourd_1__1_ROOTS = @install() {
                 debug_subtext("B=4");
@@ -7940,6 +8017,8 @@ area altus_plateau_entry() {
                 default_init_room(True, True);
 
                 place_statue(GOMI, 0d24, 0d119);
+
+                add_souls_npc_alchemist_drain(0d63, 0d31);
 
                 if!(ROOM.DIAMOND_EYE_LOOTED) {
                     add_placeholder(DIAMOND_EYE_1, 0d66, 0d19);
@@ -17286,6 +17365,11 @@ area town() {
                 // south
                 add_enemy(RAT, 0d23, 0d179);
 
+                add_enemy(RAT, 0d41, 0d141);
+
+                // center
+                add_enemy(MAGGOT, 0d15, 0d116);
+
                 // north
                 add_enemy(MAGGOT, 0d9, 0d31);
                 add_enemy(MAGGOT, 0d39, 0d38);
@@ -17295,6 +17379,8 @@ area town() {
 
             init_map(0x0, 0x0, 0x3a, 0xcc);
             default_init_room(False, False);
+
+            add_sterling_rat(0d41, 0d93, 0d42, 0d172, 0d1530);
         }
     };
 
@@ -22345,6 +22431,8 @@ area town() {
             fun trigger_enter() {
                 open_gate(True);
 
+                add_souls_npc_alchemist_firepower(0d86, 0d33, SOUTH);
+
                 default_init_room(False, False);
 
                 if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
@@ -22801,7 +22889,7 @@ map bog_crossing(CROSSING) {
         },
         gourd_2_1__3_water = @install() {
             debug_subtext("B=2");
-            _loot_chest(0x06, MUD_PEPPER, 0d03);
+            _loot_chest(0x06, MUD_PEPPER, 0d01);
         },
         gourd_1_1__2_water = @install() {
             debug_subtext("B=3");
@@ -34413,6 +34501,14 @@ area dungeon_volcano() {
                 map_transition(stone_room_center_bottom, south, NONE);
             }
         }
+        @install()
+        fun falling_rock_transition() {
+            pit_fall_callback({
+                crash_both(0d5, 0d5);
+            }, {
+                crash_both(0d5, 0d10);
+            });
+        }
 
         enum entrance {
             north_1 = entrance(0x2e, 0x05, SOUTH),
@@ -34431,13 +34527,13 @@ area dungeon_volcano() {
             }),
 
             jump_bridge_top = entrance(0d83, 0d53, NONE, {
-                nop(); // TODO
+                falling_rock_transition();
             }),
             jump_bridge_center_top = entrance(0d82, 0d65, NONE, {
-                nop(); // TODO
+                falling_rock_transition();
             }),
             jump_bridge_center_bottom = entrance(0d78, 0d81, NONE, {
-                nop(); // TODO
+                falling_rock_transition();
             }),
         }
 
@@ -35192,8 +35288,8 @@ area dungeon_volcano() {
         }
     };
 
-    group side_volcano() {
-        group northern_side_volcano() {
+    area side_volcano() {
+        area northern_side_volcano() {
             map radahn_exit(VOLCANO_ROOMS) { // variant: room_nss
                 enum entrance {
                     north = entrance(0x9e, 0x05, SOUTH),
@@ -35462,7 +35558,7 @@ area dungeon_volcano() {
             }
         };
 
-        group cave_left() {
+        area cave_left() {
             map cave_left_entrance(OGLIN_CAVE) { // variant room_1 (entrance)
                 enum entrance {
                     north = entrance(0x38, 0x93, SOUTH),
@@ -36646,7 +36742,7 @@ area dungeon_volcano() {
             };
         };
 
-        group cave_right() {
+        area cave_right() {
             enum AREA_CAVE_RIGHT {
                 STONE_MOVED = memory(FLAG, SRAM),
                 STONE_OFFSET = 0d8 * 0d4,
