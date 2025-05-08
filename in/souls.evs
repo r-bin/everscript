@@ -2280,7 +2280,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(stone_room_center_bottom, east, NONE);
+                map_transition(town_house_maggy, door, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -2800,6 +2800,40 @@ group non_maps() {
         enum NPC_ISAAC {
             PROGRESS = memory(BYTE, SRAM),
         }
+        group npc_maggy() {
+            enum NPC_MAGGY {
+                FOUND = memory(FLAG, SRAM),
+
+                BODY = ENEMY.VILLAGER_3_4,
+            }
+
+            group dog_lady_ai() {
+                @install()
+                fun maggy_dialog() {
+                    if!(NPC_MAGGY.FOUND) {
+                        NPC_MAGGY.FOUND = True;
+
+                        conversation({
+                            conversation_dialog("[SLOW]I did not expect any visitors.[B]");
+                        });
+                    } else {
+                        conversation({
+                            conversation_dialog("[SLOW]What do you want from me?[B]");
+                        });
+                    }
+                }
+            };
+
+            fun add_souls_npc_maggy(x, y, flags:FLAG_ENEMY) {
+                if(flags is Word) {
+                    add_enemy(NPC_MAGGY.BODY, x, y, flags);
+                } else {
+                    add_enemy(NPC_MAGGY.BODY, x, y);
+                }
+
+                attach_script(LAST_ENTITY, B, reference(maggy_dialog));
+            }
+        };
 
         group npc_cat() {
             enum NPC_CAT {
@@ -3206,7 +3240,7 @@ group non_maps() {
                 group crafting() {
                     fun _craft_armor(armor:ITEM, price) {
                         trade_items(NO_ITEM, 0d0, TAPESTRY, 0d1, MUSHROOM, price);
-                            
+                        
                         if(CUSTOM_MEMORY.RETURN) {
                             reward(armor);
                         }
@@ -20568,6 +20602,139 @@ area town() {
                 crash = entrance(0x45, 0x7b, NONE, { enter_from_side(); }),
             }
 
+            group market_helper() {
+                group wheel_of_misforftune() {
+                    enum WHEEL_OF_MISFORTUNE {
+                        MAX = 0d20,
+
+                        TICK_DELAY = 0d2,
+                        TICK_EXTRA = 0d20,
+                        TICK_ROLLBACK = 0d3,
+                    }
+
+                    fun tick(max, up, bonus_time) {
+                        if(up) {
+                            if(arg[0x10] <= max) {
+                                arg[0x10]++;
+                            } else {
+                                arg[0x10] = 0d0;
+                            }
+                        } else {
+                            if(arg[0x10] > 0d0) {
+                                arg[0x10]--;
+                            } else {
+                                arg[0x10] = max;
+                            }
+                        }
+                        
+                        if(bonus_time !is None) {
+                            sleep(WHEEL_OF_MISFORTUNE.TICK_DELAY + bonus_time);
+                        } else {
+                            sleep(WHEEL_OF_MISFORTUNE.TICK_DELAY);
+                        }
+
+                        MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                        subtext("[MEM1]");
+                        sound(MENU_WHEEL_TURN);
+                    }
+                };
+
+                @install()
+                fun spin_secret_wheel(coins) {
+                    if!(coins) {
+                        end();
+                    }
+
+                    _dialog("[SLOW]Oh wow, that never happened…[B]Press [b] to stop the secret wheel.[B]");
+
+                    while(coins) {
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x8000) {
+                            yield();
+                        }
+                        while!(CUSTOM_MEMORY.INPUT_P1 & 0x8000) {
+                            tick(WHEEL_OF_MISFORTUNE.MAX, True);
+                        }
+
+                        while(arg[0x12] < WHEEL_OF_MISFORTUNE.TICK_EXTRA) {
+                            tick(WHEEL_OF_MISFORTUNE.MAX, True, (arg[0x12] + arg[0x12] + arg[0x12]) >> 0d2);
+                            
+                            arg[0x12]++;
+                        }
+
+                        if!(randrange(WHEEL_OF_MISFORTUNE.TICK_ROLLBACK)) {
+                            tick(WHEEL_OF_MISFORTUNE.MAX, False, (arg[0x12] + arg[0x12] + arg[0x12]) >> 0d2);
+                        }
+
+                        sleep(0d60);
+                        clear_subtext();
+
+                        _dialog("[SLOW][MEM1]![B]");
+
+                        if(arg[0x10] == 0d0) {
+                            reward(RUBY_HEART);
+                        } else if(arg[0x10] == 0d5) {
+                            reward(THUGS_CLOAK);
+                        } else if(arg[0x10] == 0d10) {
+                            reward(THUGS_CLOAK);
+                        } else {
+                            reward(NOTHING);
+
+                            dialog("[SLOW]Better luck next time![B]");
+                            end();
+                        }
+
+                        dialog("[SLOW]I'll remove the secret wheel entirely…[B]");
+                    }
+                }
+                @install()
+                fun spin_wheel(coins) {
+                    if!(coins) {
+                        end();
+                    }
+
+                    _dialog("[SLOW]Press [b] to stop the wheel![B]");
+
+                    while(coins) {
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x8000) {
+                            yield();
+                        }
+                        while!(CUSTOM_MEMORY.INPUT_P1 & 0x8000) {
+                            tick(WHEEL_OF_MISFORTUNE.MAX, True);
+                        }
+
+                        while(arg[0x12] < WHEEL_OF_MISFORTUNE.TICK_EXTRA) {
+                            tick(WHEEL_OF_MISFORTUNE.MAX, True, (arg[0x12] + arg[0x12] + arg[0x12]) >> 0d2);
+                            
+                            arg[0x12]++;
+                        }
+
+                        if!(randrange(WHEEL_OF_MISFORTUNE.TICK_ROLLBACK)) {
+                            tick(WHEEL_OF_MISFORTUNE.MAX, False, (arg[0x12] + arg[0x12] + arg[0x12]) >> 0d2);
+                        }
+
+                        sleep(0d60);
+                        clear_subtext();
+
+                        _dialog("[SLOW][MEM1]![B]");
+
+                        if(arg[0x10] == 0d0) {
+                            dialog("[SLOW]Spin again![B]");
+
+                            coins++;
+                        } else if(arg[0x10] == 0d20) {
+                            spin_secret_wheel(0d1);
+                        } else {
+                            reward(NOTHING);
+
+                            dialog("[SLOW]Better luck next time![B]");
+                            end();
+                        }
+
+                        dialog("[SLOW]I'll have to lower the chances on that…[B]");
+                    }
+                }
+            };
+
             enum soundtrack {
                 default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
                 // default = soundtrack(WIND_AMBIENT_BIRDS_2, 0xff)
@@ -20789,6 +20956,22 @@ area town() {
 
                 vendor_4_1__rice = @install() {
                     debug_subtext("B=20");
+
+                    prepare_market_trade();
+                    
+                    question("Welcome to the wheel of misfortune![CHOICE]spin… (rice+spice)[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // spin
+                        trade_items(NO_ITEM, 0d0, RICE, 0d1, SPICE, 0d1);
+
+                        if(CUSTOM_MEMORY.RETURN) {
+                            spin_wheel(0d1);
+                        } else {
+                            dialog("[SLOW]Keep moving.[B]");
+                        }
+                    } else { // leave
+                        dialog("[SLOW]Don't miss out on great prices![B]");
+                    }
                 },
                 vendor_4_2__beads = @install() {
                     debug_subtext("B=21");
@@ -20972,7 +21155,7 @@ area town() {
                     // object[0x0c] = 0x01; // remove ???
                     object[0x0d] = 0x01; // remove vendor_3_4 (polish lady)
                     // object[0x0e] = 0x01; // remove guard_4_1 (next to entrance)
-                    object[0x0f] = 0x01; // remove vendor_4_1 (other rice lady)
+                    // object[0x0f] = 0x01; // remove vendor_4_1 (other rice lady)
                     object[0x10] = 0x01; // remove vendor_4_2 (other beads lady)
                     object[0x11] = 0x01; // remove person_4_2 (next to vendor_4_2, juggler)
                     object[0x12] = 0x01; // remove person_4_3 (next to vendor_4_2, juggler crowd)
@@ -21366,7 +21549,7 @@ area town() {
 
                 BEE_COLLECTED = memory(FLAG, SRAM),
 
-                HOUSE_2_1_DOOR_OPENED = memory(FLAG, SRAM),
+                TOWN_HOUSE_MAGGY_DOOR_OPENED = memory(FLAG, SRAM),
             }
 
             enum entrance {
@@ -21429,12 +21612,12 @@ area town() {
 
                     error_message(DOOR_LOCKED, SOUTH);
                 },
-                door_2_1 = @install() fun trigger_door_house_2_1() {
+                door_2_1 = @install() fun trigger_door_town_house_maggy() {
                     debug_subtext("S=5");
 
-                    bombable_trigger(FLAG.QUEENS_KEY, ROOM.HOUSE_2_1_DOOR_OPENED, ((DIRECTION.SOUTH << 0x0008) | ERROR_TYPE.DOOR_LOCKED), {
+                    bombable_trigger(FLAG.QUEENS_KEY, ROOM.TOWN_HOUSE_MAGGY_DOOR_OPENED, ((DIRECTION.SOUTH << 0x0008) | ERROR_TYPE.DOOR_LOCKED), {
                         generic_object_door(0x01, False, False);
-                        map_transition(house_2_1, door, NORTH);
+                        map_transition(town_house_maggy, door, NORTH);
                     }, 0x01, 0x01);
                 },
                 exit_south = @install() {
@@ -21456,7 +21639,7 @@ area town() {
                     if(True) {
                         error_message(DOOR_WRONG_SIDE, EAST);
                     } else {
-                        map_transition(house_2_1, door_backroom, NONE);
+                        map_transition(town_house_maggy, door_backroom, NONE);
                     }
                 },
 
@@ -21474,7 +21657,7 @@ area town() {
             }
 
             fun trigger_enter() {
-                add_bombable(0d142, 0d46, ROOM.HOUSE_2_1_DOOR_OPENED, reference(trigger_door_house_2_1));
+                add_bombable(0d142, 0d46, ROOM.TOWN_HOUSE_MAGGY_DOOR_OPENED, reference(trigger_door_town_house_maggy));
 
                 if(ROOM.WITH_CLOSED_GATE) {
                     if(ROOM.GATE_OPENED) {
@@ -21674,8 +21857,8 @@ area town() {
             }
         };
 
-        area town_house() {
-            map house_2_1(IVOR_EBON_HOUSES) {
+        area town_house_maggy() {
+            map town_house_maggy(IVOR_EBON_HOUSES) { // house_2_1
                 enum entrance {
                     door = entrance(0x70, 0x47, NORTH),
                     stairs = entrance(0x56, 0x35, SOUTH),
@@ -21690,7 +21873,7 @@ area town() {
                     exit_stairs_house_3 = @install() {
                         debug_subtext("S=3");
 
-                        map_transition(house_2_1_upstairs, stairs, NORTH);
+                        map_transition(town_house_maggy_upstairs, stairs, NORTH);
                     },
                     exit_door_house_3 = @install() {
                         debug_subtext("S=4");
@@ -21769,11 +21952,15 @@ area town() {
                     // object[0x04] = 0x01; // open gourd_house_3_north
                     // object[0x0b] = 0x01; // open gourd_house_3_east
 
+                    if!(NPC_MAGGY.FOUND) {
+                        add_souls_npc_maggy(0d112, 0d44);
+                    }
+
                     fade_in();
                 }
             };
 
-            map house_2_1_upstairs(IVOR_EBON_HOUSES) {
+            map town_house_maggy_upstairs(IVOR_EBON_HOUSES) { // house_2_1 upstairs
                 enum entrance {
                     stairs = entrance(0xaa, 0x23, NORTH),
                 }
@@ -21787,7 +21974,7 @@ area town() {
                     exit_stairs = @install() {
                         debug_subtext("S=5");
 
-                        map_transition(house_2_1, stairs, SOUTH);
+                        map_transition(town_house_maggy, stairs, SOUTH);
                     },
                     exit_house_1 = nop(),
                     exit_door_house_2 = nop(),
