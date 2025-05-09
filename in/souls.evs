@@ -885,6 +885,11 @@ group non_maps() {
         }
 
         @install()
+        fun souls_quest_progress() {
+            SOULS_MEMORY.PROGRESS_COUNTER++;
+        }
+
+        @install()
         fun _souls_boss_defeated() {
             // if!(ITEM.NO_ITEM) {
             //     reward(reward_item);
@@ -1061,9 +1066,21 @@ group non_maps() {
             }
         }
 
+        fun eternal_dust(x, y, callback) {
+            add_enemy(ENEMY.BEE, x, y);
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                animate_eternal_dust();
+            }));
+            
+            attribute(LAST_ENTITY, MUTE, True);
+            damage(LAST_ENTITY, 0d999, False);
+            yield();
+            attach_script(LAST_ENTITY, B, callback);
+        }
+
         @install()
         fun dust_drop() {
-            unset(SOULS_MEMORY.DUST_UNREACHABLE);
+            SOULS_MEMORY.DUST_UNREACHABLE = False;
 
             // subtext("Souls in reach...");
 
@@ -2280,7 +2297,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(town_house_maggy, door, NONE);
+                map_transition(potato_room, floor, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -2797,17 +2814,21 @@ group non_maps() {
             }
         };
 
-        enum NPC_ISAAC {
-            PROGRESS = memory(BYTE, SRAM),
-        }
+        group npc_isaac() {
+            enum NPC_ISAAC {
+                FOUND = memory(FLAG, SRAM),
+            }
+        };
         group npc_maggy() {
             enum NPC_MAGGY {
                 FOUND = memory(FLAG, SRAM),
 
                 BODY = ENEMY.VILLAGER_3_4,
+
+                REWARD = ITEM.CHOCOBO_EGG,
             }
 
-            group dog_lady_ai() {
+            group maggy_ai() {
                 @install()
                 fun maggy_dialog() {
                     if!(NPC_MAGGY.FOUND) {
@@ -2817,9 +2838,36 @@ group non_maps() {
                             conversation_dialog("[SLOW]I did not expect any visitors.[B]");
                         });
                     } else {
-                        conversation({
-                            conversation_dialog("[SLOW]What do you want from me?[B]");
-                        });
+                        if!(NPC_ISAAC.FOUND && SOULS_MEMORY.ISAAC_WANTED_POSTER) {
+                            conversation({
+                                conversation_dialog("[SLOW]What do you want from me?[B]");
+                            });
+                        } else {
+                            conversation({
+                                conversation_question("[SLOW]What do you want from me?[CHOICE]procecute Magdalena…[CHOICE]leave…");
+
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // procecute
+                                    attribute(SCRIPT_OWNER, INVINCIBLE, False);
+
+                                    conversation_dialog("[SLOW]I knew this day would come…[B]");
+
+                                    attach_script(SCRIPT_OWNER, DEATH, reference(@install() {
+                                        souls_quest_progress();
+
+                                        reward(NPC_MAGGY.REWARD);
+                                    }));
+                                } else { // leave
+                                    conversation_dialog("[SLOW]You wasted your chance.[B]");
+
+                                    fade_out();
+                                    sleep(0d120);
+
+                                    destroy(SCRIPT_OWNER);
+
+                                    _fade_in();
+                                }
+                            });
+                        }
                     }
                 }
             };
@@ -7135,7 +7183,9 @@ area west_inbetwixx() {
         }
 
         enum entrance {
-            stairs = entrance(0x29, 0x0d, WEST)
+            stairs = entrance(0x29, 0x0d, WEST),
+
+            floor = entrance(0d29, 0d27, NONE, { bonfire_wakeup(0d0, 0d0, -0d24, 0d0); }),
         }
 
         enum stepon_trigger {
@@ -7160,6 +7210,14 @@ area west_inbetwixx() {
         }
 
         fun trigger_enter() {
+            if!(NPC_ISAAC.FOUND) {
+                eternal_dust(0d8, 0d24, reference(@install() {
+                    NPC_ISAAC.FOUND = True;
+
+                    subtext("Cruel fate…");
+                }));
+            }
+
             default_init_room(True, False);
         }
     };
@@ -7236,7 +7294,7 @@ area west_inbetwixx() {
                 animate(BOY, ONCE, DEFAULT);
             }
         }
-
+        
         fun trigger_enter() {
             if(SOULS_MEMORY.ISAAC_LETTER) {
                 object[0x00] = 0x01; // unload gourd_1
@@ -34468,9 +34526,10 @@ area dungeon_isaac() {
 
             @install()
             fun boss_defeated() {
+                BOSS.PROGRESS = False;
                 souls_boss_defeated(DEAD_DARK_ONE, REWARD_DARK_ONE);
 
-                unset(BOSS.PROGRESS);
+                map_transition(potato_room, floor, NONE);
             }
 
             group boss_ai() {
