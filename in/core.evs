@@ -960,7 +960,8 @@ group general_enums() {
             START_ISAAC_TEAR = <0x28fa, 0x04>,
             START_MARIO_FIREFLOWER = <0x28fa, 0x08>,
 
-            DOG_BUSY = <0x28fb, 0x10>,
+            DOG_BUSY = <0x28fa, 0x10>,
+            CUTSCENE = <0x28fa, 0x20>,
         }
     };
 
@@ -4294,8 +4295,8 @@ group functions() {
                 if(character == CHARACTER.BOY) {
                     // teleport(DOG, 0x00, 0x00);
                     
-                    unset(FLAG.BOY_UNAVAILABLE);
-                    set(FLAG.DOG_UNAVAILABLE);
+                    FLAG.BOY_UNAVAILABLE = False;
+                    FLAG.DOG_UNAVAILABLE = True;
 
                     code(0xbd, "// (bd) BOY = Player controlled");
                     player_control(character);
@@ -4303,20 +4304,20 @@ group functions() {
                 } else if(character == CHARACTER.DOG) {
                     // teleport(BOY, 0x00, 0x00);
                     
-                    set(FLAG.BOY_UNAVAILABLE);
-                    unset(FLAG.DOG_UNAVAILABLE);
+                    FLAG.BOY_UNAVAILABLE = True;
+                    FLAG.DOG_UNAVAILABLE = False;
 
                     code(0xbf, "// (bf) DOG = Player controlled");
                     player_control(character);
                     code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
                 } else if(character == CHARACTER.BOTH) {
-                    unset(FLAG.BOY_UNAVAILABLE);
-                    unset(FLAG.DOG_UNAVAILABLE);
+                    FLAG.BOY_UNAVAILABLE = False;
+                    FLAG.DOG_UNAVAILABLE = False;
 
                     code(0xc1, "// (c1) BOY+DOG = Player controlled");
                 } else if(character == CHARACTER.NONE) {
-                    set(FLAG.BOY_UNAVAILABLE);
-                    set(FLAG.DOG_UNAVAILABLE);
+                    FLAG.BOY_UNAVAILABLE = True;
+                    FLAG.DOG_UNAVAILABLE = True;
 
                     // code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
                     // code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
@@ -4744,16 +4745,39 @@ group functions() {
                 }
             }
 
+            fun show_hud(show) {
+                if(show == True) {
+                    if(False) {
+                        call(ADDRESS.STATUS_BAR_SHOW);
+                    } else {
+                        set(FLAG.SHOW_HUD);
+                        update_ui();
+                    }
+                } else {
+                    if(False) {
+                        call(ADDRESS.STATUS_BAR_HIDE);
+                    } else {
+                        unset(FLAG.SHOW_HUD);
+                        update_ui();
+                    }
+                }
+            }
+
             fun _fade_in() {
                 code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
             }
+            @install()
             fun fade_in() {
                 // handles default loot script
                 // handles transition animation (walk x/y into direction z)
                 // enables/disables BOY/DOG, based on BOY_UNAVAILABLE/DOG_UNAVAILABLE
                 // fades in bridghtness
 
-                if(CUSTOM_FLAG.NO_DOG || FLAG.DOG_UNAVAILABLE) {
+                if!(CUSTOM_FLAG.CUTSCENE) {
+                    show_hud(True);
+                }
+
+                if(CUSTOM_FLAG.NO_DOG) {
                     if(False) {
                         FLAG.BOY_UNAVAILABLE = False;
                         FLAG.DOG_UNAVAILABLE = True;
@@ -4764,7 +4788,7 @@ group functions() {
                     if!(CUSTOM_FLAG.DOG_BUSY) {
                         teleport(DOG, 0d0, 0d0);
                     }
-                } else if(CUSTOM_FLAG.NO_BOY || FLAG.BOY_UNAVAILABLE) {
+                } else if(CUSTOM_FLAG.NO_BOY) {
                     if(False) {
                         FLAG.BOY_UNAVAILABLE = True;
                         FLAG.DOG_UNAVAILABLE = False;
@@ -4795,26 +4819,18 @@ group functions() {
                     call_id(FADE_IN);
                 }
 
+                if(CUSTOM_FLAG.CUTSCENE) {
+                    show_hud(False);
+
+                    control(NONE);
+                    animate(BOY, ONCE_FREEZE, INVISIBLE);
+                    animate(DOG, ONCE_FREEZE, INVISIBLE);
+                    attribute(BOY, INVINCIBLE_TEMP, True);
+                    attribute(DOG, INVINCIBLE_TEMP, True);
+                }
+
                 if(True) {
                     FLAG.IN_ANIMATION = False;
-                }
-            }
-
-            fun show_hud(show) {
-                if(show == True) {
-                    if(False) {
-                        call(ADDRESS.STATUS_BAR_SHOW);
-                    } else {
-                        set(FLAG.SHOW_HUD);
-                        update_ui();
-                    }
-                } else {
-                    if(False) {
-                        call(ADDRESS.STATUS_BAR_HIDE);
-                    } else {
-                        unset(FLAG.SHOW_HUD);
-                        update_ui();
-                    }
                 }
             }
 
