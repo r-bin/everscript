@@ -383,6 +383,7 @@ group non_maps() {
             // fake items
             TUNIC_GREEN = 0xf300,
             TUNIC_RED = 0xf301,
+            ESTUS_SHARD = 0xf302
         }
         enum SOULS_MEMORY {
             INIT = memory(FLAG, SRAM),
@@ -859,6 +860,11 @@ group non_maps() {
             } else if(item == CUSTOM_ITEM.TUNIC_RED) {
                 subtext("Gained Red Tunic");
                 unlock(CHEST_2_3);
+                    
+                fanfare_item(True, push_music);
+            } else if(item == CUSTOM_ITEM.ESTUS_SHARD) {
+                subtext("Estus Shard");
+                SOULS_MEMORY.ESTUS_SHARDS++;
                     
                 fanfare_item(True, push_music);
             } else {
@@ -2298,7 +2304,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(potato_room, floor, NONE);
+                map_transition(town_house_maggy, door, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -11715,7 +11721,7 @@ area northwest_inbetwixx() {
             if(SOULS_MEMORY.WITH_METRO) {
                 generic_yeet_waterfall(0d250, 0d200);
 
-                pit_fall_damage_callback(0d80, 0d30, {
+                pit_fall_damage_callback(0d500, 0d50, {
                     map_transition(junkyard_northwest, crash_north, NONE);
                 }, {
                     dust_unreachable(0d24, 0d34);
@@ -11830,7 +11836,11 @@ area east_inbetwixx() {
             exit_cave = @install() {
                 fog_wall(SOUTH);
                 
-                map_transition(jaguar_cave, south, NORTH);
+                if(True) {
+                    map_transition(jaguar_cave, south, NORTH);
+                } else {
+                    map_transition(stone_room_top, crash, NORTH);
+                }
             },
             exit_south_1 = @install() {
                 fog_wall(NONE); // NORTH
@@ -12257,7 +12267,7 @@ area east_inbetwixx() {
         fun ravine_triggered() {
             generic_fall(0d100, 0d170);
 
-            pit_fall_damage_callback(0d80, 0d30, {
+            pit_fall_damage_callback(0d300, 0d30, {
                 map_transition(radahn_arena, center, NONE);
             }, {
                 dust_unreachable(0d47, 0d6);
@@ -21696,7 +21706,7 @@ area town() {
                 door_2_1_back = @install() {
                     debug_subtext("S=9");
 
-                    if(True) {
+                    if(False) {
                         error_message(DOOR_WRONG_SIDE, EAST);
                     } else {
                         map_transition(town_house_maggy, door_backroom, NONE);
@@ -21926,6 +21936,11 @@ area town() {
                     door_backroom = entrance(0x8c, 0x10, SOUTH),
                 }
 
+                enum ROOM {
+                    BIG_CHEST_LOOTED = memory(FLAG, SRAM),
+                    SMALL_CHEST_LOOTED = memory(FLAG, SRAM),
+                }
+
                 enum stepon_trigger {
                     exit_backroom_3chests = nop(),
                     exit_inn_2_left = nop(),
@@ -21962,12 +21977,34 @@ area town() {
                     gourd_house_2 = nop(),
                     gourd_north = @install() {
                         debug_subtext("B=5");
+
+                        object[0x04] = 0x01; // open gourd_house_3_north
+                        ROOM.BIG_CHEST_LOOTED = True;
+
+                        reward(CHOCOBO_EGG);
+
+                        // _loot_chest(0x04, CHOCOBO_EGG, 0d01);
                     },
                     gourd_east = @install() {
                         debug_subtext("B=6");
+
+                        object[0x0b] = 0x01; // open gourd_house_3_east
+                        ROOM.SMALL_CHEST_LOOTED = True;
+
+                        custom_reward(ESTUS_SHARD, True);
+
+                        // _loot_chest(0x0b, WATER, 0d01);
                     },
-                    gourd_backroom_2chests_2 = nop(),
-                    gourd_backroom_2chests_1 = nop(),
+                    gourd_backroom_2chests_2 = @install() {
+                        debug_subtext("B=7");
+
+                        _loot_chest(0x06, HERBAL_ESSENCE, 0d01);
+                    },
+                    gourd_backroom_2chests_1 = @install() {
+                        debug_subtext("B=8");
+
+                        _loot_chest(0x05, WATER, 0d01);
+                    },
                     gourd_upstairs_1 = nop(),
 
                     gourd_upstairs_2 = nop(),
@@ -22009,8 +22046,20 @@ area town() {
                 fun trigger_enter() {
                     init_room(0x02);
 
+                    if(ROOM.BIG_CHEST_LOOTED) {
+                        object[0x04] = 0x01; // open gourd_house_3_north
+                    }
+
+                    if(ROOM.SMALL_CHEST_LOOTED) {
+                        object[0x0b] = 0x01; // open gourd_house_3_east
+                    }
+
+
                     // object[0x04] = 0x01; // open gourd_house_3_north
                     // object[0x0b] = 0x01; // open gourd_house_3_east
+
+                    // object[0x05] = 0x01; // open gourd_backroom_2chests_1
+                    // object[0x06] = 0x01; // open gourd_backroom_2chests_2
 
                     if!(NPC_MAGGY.FOUND) {
                         add_souls_npc_maggy(0d112, 0d44);
@@ -22057,10 +22106,14 @@ area town() {
                     gourd_backroom_2chests_1 = nop(),
                     gourd_2_1 = @install() {
                         debug_subtext("B=9");
+
+                        _loot_chest(0x07, PIXIE_DUST, 0d01);
                     },
 
                     gourd_2_2 = @install() {
                         debug_subtext("B=10");
+
+                        _loot_chest(0x08, SPOON, 0d01);
                     },
                     b_trigger_11 = @install() {
                         debug_subtext("B=11");
@@ -34653,71 +34706,82 @@ area dungeon_volcano() {
         CUTSCENE_STONE = memory(WORD, TEMP),
     }
 
-    fun add_bridge_stone(index, x, y) {
-        if(index == 0x0) {
-            if!(DUNGEON_VOLCANO.BRIDGE_TOP) {
-                add_enemy(STONE_ROUND, x, y);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    map_transition(dungeon_volcano, cutscene_bridge_top, NONE);
-                }));
-            }
-        } else if(index == 0x1) {
-            if!(DUNGEON_VOLCANO.BRIDGE_CENTER_TOP) {
-                add_enemy(STONE_ROUND, x, y);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    map_transition(dungeon_volcano, cutscene_bridge_center_top, NONE);
-                }));
-            }
-        } else if(index == 0x2) {
-            if!(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
-                add_enemy(STONE_ROUND, x, y);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    map_transition(dungeon_volcano, cutscene_bridge_center_bottom, NONE);
-                }));
+    group dungeon_volcano_helper() {
+        fun add_bridge_stone(index, x, y) {
+            if(index == 0x0) {
+                if!(DUNGEON_VOLCANO.BRIDGE_TOP) {
+                    add_enemy(STONE_ROUND, x, y);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        map_transition(dungeon_volcano, cutscene_bridge_top, NONE);
+                    }));
+                }
+            } else if(index == 0x1) {
+                if!(DUNGEON_VOLCANO.BRIDGE_CENTER_TOP) {
+                    add_enemy(STONE_ROUND, x, y);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        map_transition(dungeon_volcano, cutscene_bridge_center_top, NONE);
+                    }));
+                }
+            } else if(index == 0x2) {
+                if!(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
+                    add_enemy(STONE_ROUND, x, y);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        map_transition(dungeon_volcano, cutscene_bridge_center_bottom, NONE);
+                    }));
+                }
             }
         }
-    }
-    fun trigger_bridge_stone(index) {
-        if(index == 0d0) {
-            if(DUNGEON_VOLCANO.BRIDGE_TOP) {
-                question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
-                if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    map_transition(dungeon_volcano, jump_bridge_top, NONE);
-                } else {
-                    error_walk_back(NORTH);
-                }
-            } else {
-                error_walk_back(NORTH);
-            }
-        } else if(index == 0d1) {
-            if(DUNGEON_VOLCANO.BRIDGE_CENTER_TOP) {
-                question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
-                if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
-                        map_transition(dungeon_volcano, jump_bridge_center_top, NONE);
+        fun trigger_bridge_stone(index) {
+            if(index == 0d0) {
+                if(DUNGEON_VOLCANO.BRIDGE_TOP) {
+                    question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        map_transition(dungeon_volcano, jump_bridge_top, NONE);
                     } else {
-                        dialog("Seems way too dangerous![B]");
-                        error_walk_back(NORTH);    
+                        error_walk_back(NORTH);
                     }
                 } else {
                     error_walk_back(NORTH);
                 }
-            } else {
-                error_walk_back(NORTH);
-            }
-        } else if(index == 0d2) {
-            if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
-                question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
-                if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    map_transition(dungeon_volcano, jump_bridge_center_bottom, NONE);
+            } else if(index == 0d1) {
+                if(DUNGEON_VOLCANO.BRIDGE_CENTER_TOP) {
+                    question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
+                            map_transition(dungeon_volcano, jump_bridge_center_top, NONE);
+                        } else {
+                            dialog("Seems way too dangerous![B]");
+                            error_walk_back(NORTH);    
+                        }
+                    } else {
+                        error_walk_back(NORTH);
+                    }
                 } else {
                     error_walk_back(NORTH);
                 }
-            } else {
-                error_walk_back(NORTH);
+            } else if(index == 0d2) {
+                if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
+                    question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        map_transition(dungeon_volcano, jump_bridge_center_bottom, NONE);
+                    } else {
+                        error_walk_back(NORTH);
+                    }
+                } else {
+                    error_walk_back(NORTH);
+                }
             }
         }
-    }
+
+        @install()
+        fun falling_rock_transition() {
+            pit_fall_callback({
+                crash_both(0d5, 0d5);
+            }, {
+                crash_both(0d5, 0d10);
+            });
+        }
+    };
 
     map dungeon_volcano(VOLCANO) {
         fun _falling_rock_cutscene(x, y, bridge_id) {
@@ -34753,14 +34817,6 @@ area dungeon_volcano() {
 
                 map_transition(stone_room_center_bottom, south, NONE);
             }
-        }
-        @install()
-        fun falling_rock_transition() {
-            pit_fall_callback({
-                crash_both(0d5, 0d5);
-            }, {
-                crash_both(0d5, 0d10);
-            });
         }
 
         enum entrance {
@@ -35644,6 +35700,8 @@ area dungeon_volcano() {
             enum entrance {
                 east = entrance(0x67, 0x1c, WEST),
                 south = entrance(0x4c, 0x39, NORTH),
+
+                crash = entrance(0d82, 0d19, NONE, { falling_rock_transition(); }),
             }
 
             enum soundtrack {
