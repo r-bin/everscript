@@ -22,7 +22,7 @@
 
 
 # important
-## gideon does not die while poise broken + poise break should be an optional ability
+## gideon does not die while poise broken
 ## any door can be opened with a bomb
 ## fog wall - remove walk back (at least for dark forest maps)
 ## basement + sidescroller + bowser + bowser dungeons - dog is available
@@ -30,8 +30,12 @@
 ## market: x bone : 1 biscuit
 ## market: x feathers : 1 wings
 ## market: x roots : 1 essence
+## metro: after toaster arena a single gate bot respawns
+## drone arena: ending glitchy (65k/10, fight is not ending)
+## abomination: buggy
 
 # nice to have
+## sound glitches: kill radahn, get revealer/levitate
 ## cutscene: big pressure plate -> altus no intro 
 ## cutscene: enter duel arena
 ## loot: nothing (says invalid item)
