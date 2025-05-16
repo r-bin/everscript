@@ -2304,7 +2304,7 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(mansion_modern, west, NONE);
+                map_transition(spaceship_desert, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -30348,10 +30348,11 @@ area metro() {
                 ROOM.SHIP_PALETTE_ID = <LAST_ENTITY>;
                 // animate(LAST_ENTITY, ONCE, INVISIBLE);
                 
-                add_placeholder(SPACESHIP_BACK_FIRE, 0d0, 0d0);
+                add_placeholder(SPACESHIP_TOP_FIRE, 0d0, 0d0);
                 ROOM.SHIP_FIRE_ID = <LAST_ENTITY>;
 
-                add_placeholder(SPACESHIP_BACK, 0d0, 0d0);
+                add_placeholder(SPACESHIP_TOP, 0d0, 0d0);
+                ROOM.SHIP_ID = <LAST_ENTITY>;
                 attach_to_script(LAST_ENTITY);
                 face(SCRIPT_OWNER, EAST);
                 
@@ -30363,6 +30364,7 @@ area metro() {
 
                 yield();
 
+                // spaceship_loop();
 
                 while(True) {
                     arg[0x10] = <BOY>[Y];
@@ -30373,23 +30375,14 @@ area metro() {
                     if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || ROOM.PAUSE || (<BOY>[Y] != arg[0x10])) {
                         if(ROOM.PAUSE) {
                             ROOM.PAUSE--;
-                        }
-
-                        if!(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.RUNNING) {
-                            if(ROOM.JUMPING) {
-                                ROOM.JUMPING = False;
-
-                                animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_TOP);
-                                animate(ROOM.SHIP_FIRE_ID, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_TOP_FIRE);
-                            }
-
+                            
                             if!(ROOM.PAUSE) {
                                 attribute(BOY, NO_CLIP, False);
                             }
+                        }
 
-                            MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
-                        } else {
-                            if!(ROOM.JUMPING) {
+                        if!(ROOM.JUMPING) {
+                            if(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.RUNNING) {
                                 ROOM.JUMPING = True;
 
                                 attribute(BOY, NO_CLIP, True);
@@ -30397,10 +30390,17 @@ area metro() {
                                 animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_BACK);
                                 animate(ROOM.SHIP_FIRE_ID, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_BACK_FIRE);
                             }
+                        } else {
+                            if!(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.RUNNING) {
+                                ROOM.JUMPING = False;
 
-                            MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d20;
+                                attribute(BOY, NO_CLIP, False);
+
+                                animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_TOP);
+                                animate(ROOM.SHIP_FIRE_ID, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_TOP_FIRE);
+                            }
                         }
-                    } else {
+                    } else if!(ROOM.PAUSE) {
                         attribute(BOY, NO_CLIP, True);
                         face(BOY, NORTH);
                         damage(BOY, 0d1, True);
@@ -30409,13 +30409,12 @@ area metro() {
                         ROOM.PAUSE = 0d90;
                     }
 
-                    <SCRIPT_OWNER>[X] = <BOY>[X];
-                    <SCRIPT_OWNER>[Y] = <BOY>[Y];
+                    _teleport(SCRIPT_OWNER, <BOY>[X], <BOY>[Y]);
+                    _teleport(ROOM.SHIP_FIRE_ID, <BOY>[X], <BOY>[Y]);
 
-                    ROOM.SHIP_FIRE_ID[X] = <BOY>[X];
-                    ROOM.SHIP_FIRE_ID[Y] = <BOY>[Y];
+                    MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
                     
-                    sleep(0d2);
+                    yield();
                 }
 
                 desert_damage();
