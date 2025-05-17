@@ -2227,6 +2227,10 @@ group non_maps() {
             // }
 
             if(CUSTOM_FLAG.START_COOLDOWN) {
+                if(SYSTEM.WITH_DEBUG_START) {
+                    debug_subtext("start = cooldown");
+                }
+
                 end();
             }
 
@@ -2242,6 +2246,10 @@ group non_maps() {
 
             sleep(0d5);
             if(CUSTOM_MEMORY.INPUT_P1 != 0x1000) {
+                if(SYSTEM.WITH_DEBUG_START) {
+                    debug_subtext("start < 5frames");
+                }
+
                 end();
             }
 
@@ -2250,7 +2258,9 @@ group non_maps() {
             if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.AIRSHIP) {
                 windwalker_rocket();
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.SPACESHIP) {
-                spaceship_rocket();
+                if(False) {
+                    spaceship_rocket();
+                }
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.ISAAC) {
                 isaac_tear(False);
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.BOMBS) {
@@ -2362,14 +2372,18 @@ group non_maps() {
                 }
             }
         }
-        // @install()
-        // @inject(ADDRESS.HOTKEY_L)
-        // @count_limit(0x20)
-        // fun hotkey_l() {
-        //     if(False) {
-        //         debug_subtext("L");
-        //     }
-        // }
+        @install()
+        @inject(ADDRESS.HOTKEY_L)
+        @count_limit(0x20)
+        fun hotkey_l() {
+            if(False) {
+                debug_subtext("L");
+            }
+
+            if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.SPACESHIP) {
+                spaceship_rocket(0d1);
+            }
+        }
         @install()
         @inject(ADDRESS.HOTKEY_R)
         @count_limit(0x20)
@@ -2378,7 +2392,9 @@ group non_maps() {
                 debug_subtext("R");
             }
 
-            if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.MARIO) {
+            if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.SPACESHIP) {
+                spaceship_rocket(0d2);
+            } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.MARIO) {
                 if(CUSTOM_FLAG.START_MARIO_FIREFLOWER) {
                     mario_fireflower();
                 }
@@ -29886,6 +29902,18 @@ area metro() {
                 default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
+            fun update_camera() {
+                if(False) {
+                    if(<BOY>[Y] <= (MEMORY.CAMERA_BOUNDRY_Y_END - 0d40)) {
+                        MEMORY.CAMERA_BOUNDRY_Y_END -= 0d2;
+                    } else {
+                        MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
+                    }
+                } else {
+                    MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
+                }
+            }
+
             enum ROOM {
                 DEBUG = False,
                 WITH_WRAP = True,
@@ -30070,6 +30098,8 @@ area metro() {
                 } else {
                     remove_alchemist(ROOM.ID_ALCHEMIST);
                 }
+
+                update_camera();
             }
 
             @install()
@@ -30194,8 +30224,9 @@ area metro() {
 
             group boss_ai() {
                 enum X_MODE {
-                    LEFT = 0d0,
-                    RIGHT = 0d1,
+                    LINE = 0d0,
+                    LEFT = 0d1,
+                    RIGHT = 0d2,
                 }
                 enum Y_MODE {
                     LINE = 0d0,
@@ -30204,7 +30235,8 @@ area metro() {
                 }
 
                 enum BOSS {
-                    DEBUG = False,
+                    DEBUG = True,
+                    DEBUG_BOY = False,
 
                     BOSS_ID = memory(WORD, TEMP),
 
@@ -30217,6 +30249,32 @@ area metro() {
                     BORDER_NORTH = 0d10,
                     BORDER_EAST = 0d256 - 0d25,
                     BORDER_WEST = 0d25,
+
+                    BOSS_Y_YIELD = 0d600,
+
+                    HP = 0d30000,
+                    THRESHOLD_P1 = 0d28000,
+                    THRESHOLD_P2 = 0d26000, // autoattack
+                    THRESHOLD_P3 = 0d20000,
+                    THRESHOLD_P4 = 0d18000, // autoattack
+
+                    PHASE = memory(WORD, TEMP),
+
+                    PATTERN = memory(WORD, TEMP),
+
+                    PATTERN_SHOOTING = memory(FLAG, TEMP),
+                    PATTERN_BOMBS = memory(FLAG, TEMP),
+                    PATTERN_AUTOATTACK = memory(FLAG, TEMP),
+                }
+
+                fun boss_defeated() {
+                    attribute(BOY, NO_CLIP, True);
+                    
+                    control(NONE);
+
+                    souls_boss_defeated(DEAD_SPACESHIP_DESERT, REWARD_SPACESHIP_DESERT);
+
+                    map_transition(ar_lab, north, NONE);
                 }
                 
                 @install()
@@ -30227,7 +30285,11 @@ area metro() {
                     sleep(0d30);
 
                     while!(dead(<SCRIPT_OWNER>)) {
-                        while(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                        while!(BOSS.PATTERN_SHOOTING) {
+                            sleep(0d30);
+                        }
+
+                        while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (<SCRIPT_OWNER>[Y] < BOSS.BOSS_Y_YIELD)) {
                             yield();
                         }
 
@@ -30244,7 +30306,11 @@ area metro() {
                     sleep(0d180);
 
                     while!(dead(<SCRIPT_OWNER>)) {
-                        while(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                        while!(BOSS.PATTERN_BOMBS) {
+                            sleep(0d30);
+                        }
+
+                        while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (<SCRIPT_OWNER>[Y] < BOSS.BOSS_Y_YIELD)) {
                             yield();
                         }
 
@@ -30256,21 +30322,36 @@ area metro() {
                 }
                 @install()
                 @async()
-                fun boss_watcher() {
+                fun boss_autoattack_watcher() {
                     attach_to_script(BOSS.BOSS_ID);
 
-                    if(BOSS.DEBUG) {
-                        debug_subtext("+boss");
-                    }
+                    sleep(0d60);
 
-                    BOSS.X = 0d256 / 0d2;
-                    BOSS.Y = 0d25;
-                    BOSS.Y_MODE = Y_MODE.UP;
+                    while!(dead(<SCRIPT_OWNER>)) {
+                        control(SCRIPT_OWNER, True);
+
+                        while((<SCRIPT_OWNER>[Y] < BOSS.BOSS_Y_YIELD) || (!BOSS.PATTERN_AUTOATTACK)) {
+                            yield();
+                        }
+
+                        control(SCRIPT_OWNER, False);
+
+                        while(<SCRIPT_OWNER>[Y] >= BOSS.BOSS_Y_YIELD) {
+                            yield();
+                        }
+                    }
+                }
+                @install()
+                @async()
+                fun boss_movement_watcher() {
+                    attach_to_script(BOSS.BOSS_ID);
 
                     while!(dead(<SCRIPT_OWNER>)) {
                         // animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.SKELETON_SHIP_ROW_1);
-                        
-                        if(BOSS.X_MODE == X_MODE.LEFT) {
+                                
+                        if(BOSS.X_MODE == X_MODE.LINE) {
+                            BOSS.X = 0d230;
+                        } else if(BOSS.X_MODE == X_MODE.LEFT) {
                             if(BOSS.X > BOSS.BORDER_WEST) {
                                 BOSS.X--;
                             } else {
@@ -30300,26 +30381,146 @@ area metro() {
                             }
                         }
 
-                        <SCRIPT_OWNER>[X] = MEMORY.CAMERA_X_MIN + BOSS.X;
-                        <SCRIPT_OWNER>[Y] = MEMORY.CAMERA_Y_MIN + BOSS.BORDER_NORTH + BOSS.Y;
+                        _teleport(SCRIPT_OWNER, MEMORY.CAMERA_X_MIN + BOSS.X, MEMORY.CAMERA_Y_MIN + BOSS.BORDER_NORTH + BOSS.Y);
 
                         sleep(0d2);
+                    }
+                }
+                @install()
+                @async()
+                fun boss_watcher() {
+                    attach_to_script(BOSS.BOSS_ID);
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("+boss");
+                    }
+
+                    BOSS.X = 0d256 / 0d2;
+                    BOSS.Y = 0d25;
+
+                    // only shooting
+
+                    BOSS.X_MODE = X_MODE.LEFT;
+                    BOSS.Y_MODE = Y_MODE.LINE;
+
+                    BOSS.PATTERN_SHOOTING = True;
+                    BOSS.PATTERN_AUTOATTACK = False;
+                    BOSS.PATTERN_BOMBS = False;
+
+                    while(BOSS.PHASE == 0d0) {
+                        yield();
+                    }
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("p1");
+                    }
+
+                    BOSS.X_MODE = X_MODE.LEFT;
+                    BOSS.Y_MODE = Y_MODE.UP;
+
+                    BOSS.PATTERN_SHOOTING = False;
+                    BOSS.PATTERN_AUTOATTACK = True;
+                    BOSS.PATTERN_BOMBS = False;
+
+                    while(BOSS.PHASE <= 0d1) {
+                        yield();
+                    }
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("p2");
+                    }
+
+                    // shooting + bombs
+
+                    BOSS.X_MODE = X_MODE.LEFT;
+                    BOSS.Y_MODE = Y_MODE.LINE;
+
+                    BOSS.PATTERN_SHOOTING = True;
+                    BOSS.PATTERN_AUTOATTACK = False;
+                    BOSS.PATTERN_BOMBS = True;
+
+                    while(BOSS.PHASE <= 0d2) {
+                        yield();
+                    }
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("p3");
+                    }
+
+                    BOSS.X_MODE = X_MODE.LEFT;
+                    BOSS.Y_MODE = Y_MODE.UP;
+
+                    BOSS.PATTERN_SHOOTING = False;
+                    BOSS.PATTERN_AUTOATTACK = True;
+                    BOSS.PATTERN_BOMBS = False;
+
+                    while(BOSS.PHASE <= 0d3) {
+                        yield();
+                    }
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("p4");
+                    }
+
+                    // here he comes
+
+                    BOSS.X_MODE = X_MODE.LEFT;
+                    BOSS.Y_MODE = Y_MODE.UP;
+
+                    BOSS.PATTERN_SHOOTING = True;
+                    BOSS.PATTERN_AUTOATTACK = True;
+                    BOSS.PATTERN_BOMBS = True;
+
+                    while(BOSS.PHASE <= 0d4) {
+                        yield();
                     }
 
                     if(BOSS.DEBUG) {
                         debug_subtext("-boss");
                     }
+
+                    boss_defeated();
                 }
                 fun add_boss() {
-                    add_enemy(FAN_BOT, 0d0, 0d0);
+                    add_enemy(GATE_BOT, 0d0, 0d0, INACTIVE);
                     BOSS.BOSS_ID = <LAST_ENTITY>;
-                    // attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
-                    //     animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.SKELETON_SHIP_1);
-                    // }));
+                    <LAST_ENTITY>[HP] = BOSS.HP;
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                        // animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.SKELETON_SHIP_1);
+
+                        if(BOSS.DEBUG) {
+                            damage(SCRIPT_OWNER, 0d3000 + randrange(0d500), True);
+                        } else {
+                            damage(SCRIPT_OWNER, 0d300 + randrange(0d500), True);
+                        }
+
+                        if(dead(<SCRIPT_OWNER>)) {
+                            BOSS.PHASE = 0d5;
+                        } else if(BOSS.PHASE == 0d0) {
+                            if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P1) {
+                                BOSS.PHASE = 0d1;
+                            }
+                        } else if(BOSS.PHASE == 0d1) {
+                            if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P2) {
+                                BOSS.PHASE = 0d2;
+                            }
+                        } else if(BOSS.PHASE == 0d2) {
+                            if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P3) {
+                                BOSS.PHASE = 0d3;
+                            }
+                        } else if(BOSS.PHASE == 0d3) {
+                            if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P4) {
+                                BOSS.PHASE = 0d4;
+                            }
+                        }
+
+                    }));
 
                     boss_watcher();
                     boss_shoot_watcher();
                     boss_bomb_watcher();
+                    boss_autoattack_watcher();
+                    boss_movement_watcher();
                 }
             };
 
@@ -30333,7 +30534,7 @@ area metro() {
                 if(False) {
                     MEMORY.ENEMY_SPAWNER_UNKNOWN_1 = 0x0280;
                     MEMORY.ENEMY_SPAWNER_UNKNOWN_2 = 0x0000;
-                    add_enemy_spawner(SPIDER_YELLOW, 0x33, 0x9e, 0d10);
+                    add_enemy_spawner(TUMBLING_WEED, 0x33, 0x9e, 0d10);
                 }
 
                 CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPACESHIP;
@@ -30342,7 +30543,13 @@ area metro() {
                 
                 update_desert();
 
-                attribute(BOY, INVISIBLE, True);
+                if(BOSS.DEBUG) {
+                    attribute(BOY, INVINCIBLE_TEMP, True);
+                }
+
+                if!(BOSS.DEBUG && BOSS.DEBUG_BOY) {
+                    attribute(BOY, INVISIBLE, True);
+                }
 
                 add_placeholder(SPACESHIP_IDLE, 0d0, 0d0);
                 ROOM.SHIP_PALETTE_ID = <LAST_ENTITY>;
@@ -30355,6 +30562,11 @@ area metro() {
                 ROOM.SHIP_ID = <LAST_ENTITY>;
                 attach_to_script(LAST_ENTITY);
                 face(SCRIPT_OWNER, EAST);
+
+                if(BOSS.DEBUG && BOSS.DEBUG_BOY) {
+                    attribute(ROOM.SHIP_ID, INVISIBLE, True);
+                    attribute(ROOM.SHIP_FIRE_ID, INVISIBLE, True);
+                }
                 
                 unlock(JAGUAR_RING);
 
@@ -30412,7 +30624,7 @@ area metro() {
                     _teleport(SCRIPT_OWNER, <BOY>[X], <BOY>[Y]);
                     _teleport(ROOM.SHIP_FIRE_ID, <BOY>[X], <BOY>[Y]);
 
-                    MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
+                    update_camera();
                     
                     yield();
                 }
