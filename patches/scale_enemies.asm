@@ -615,7 +615,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(800) ; "Face" (124) = 800
   %default_stats(160) ; "Gargon" (125) = 160
   %default_stats(160) ; "Dragoil" (126) = 160
-  %default_stats(300) ; "Floating Fans" (127) = 300
+  dw #30, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; ; "Floating Fans" (127) = 300
   %default_stats(80) ; "Sphere Bot" (128) = 80
   %default_stats(1400) ; "Fan" (129) = 1400
   %default_stats(1400) ; "Speaker" (130) = 1400
