@@ -417,7 +417,7 @@ group non_maps() {
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
-            WITH_DEBUG_ENTITIES = False,
+            WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
             // areas
             WITH_ENDBOSS = True,
@@ -467,6 +467,8 @@ group non_maps() {
             HIT_BONUS_HELM = memory(FLAG, SRAM),
             HIT_BONUS_CHEST = memory(FLAG, SRAM),
             HIT_BONUS_ARMLET = memory(FLAG, SRAM),
+            NO_RUNNING_CHEST = CUSTOM_FLAG.RESERVED_1,
+            ARCHAEOLOGY_TARGET = CUSTOM_MEMORY.RESERVED_1,
 
             // button map
             BUTTON_MAP = memory(BYTE, SRAM), // TODO: should be memory(WORD, TEMP)
@@ -970,19 +972,26 @@ group non_maps() {
             }
         }
 
-        fun _update_armor_effects(armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS, flag:SOULS_MEMORY, bonus) {
+        fun _update_armor_effects_hit_bonus(armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS, helper_flag:SOULS_MEMORY, bonus) {
             if(armor_slot == armor) {
-                if!(flag) {
-                    flag = True;
+                if!(helper_flag) {
+                    helper_flag = True;
 
                     <BOY>[BOOST_HIT] += bonus;
                 }
             } else {
-                if(flag) {
-                    flag = False;
+                if(helper_flag) {
+                    helper_flag = False;
 
                     <BOY>[BOOST_HIT] -= bonus;
                 }
+            }
+        }
+        fun _update_armor_effects_no_running(armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS, helper_flag:SOULS_MEMORY) {
+            if(armor_slot == armor) {
+                increment_no_running(helper_flag);
+            } else {
+                decrement_no_running(helper_flag);
             }
         }
         @install()
@@ -992,10 +1001,13 @@ group non_maps() {
             // fall damage = GLOVE_3_2
             // heat = CHEST_2_3
             // thorne = GLOVE_1_3
+            // NO_RUNNING = CHEST_2_2
 
-            _update_armor_effects(CURRENT_ARMOR_CHEST, CHEST_1_1, HIT_BONUS_CHEST, 0d15);
-            _update_armor_effects(CURRENT_ARMOR_HELM, HELM_1_1, HIT_BONUS_HELM, 0d15);
-            _update_armor_effects(CURRENT_ARMOR_ARMLET, GLOVE_1_1, HIT_BONUS_ARMLET, 0d15);
+            _update_armor_effects_hit_bonus(CURRENT_ARMOR_CHEST, CHEST_1_1, HIT_BONUS_CHEST, 0d15);
+            _update_armor_effects_hit_bonus(CURRENT_ARMOR_HELM, HELM_1_1, HIT_BONUS_HELM, 0d15);
+            _update_armor_effects_hit_bonus(CURRENT_ARMOR_ARMLET, GLOVE_1_1, HIT_BONUS_ARMLET, 0d15);
+
+            _update_armor_effects_no_running(CURRENT_ARMOR_CHEST, CHEST_2_2, NO_RUNNING_CHEST);
         }
 
         @install()
@@ -1491,8 +1503,8 @@ group non_maps() {
         @install()
         @async()
         fun _init_souls() {
-            if(False) { // TODO: the hit% bonus is being calculated during fade_in() and the temp-copies aren't ready at that point
-                while(FLAG.IN_ANIMATION) {
+            if(True) { // TODO: the hit% bonus is being calculated during fade_in() and the temp-copies aren't ready at that point
+                while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
                     yield();
                 }
                 yield();
@@ -2306,7 +2318,14 @@ group non_maps() {
                 end();
             }
 
-            if(SOULS_MEMORY.MARIO_YUMP_ENABLED && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0)) {
+            if(CUSTOM_MEMORY.CURRENT_ARMOR_HELM == ARMOR_STATS.HELM_4_3) {
+                if(False) {
+                    debug_memory(SOULS_MEMORY.ARCHAEOLOGY_TARGET, _dead(SOULS_MEMORY.ARCHAEOLOGY_TARGET), dead(SOULS_MEMORY.ARCHAEOLOGY_TARGET));
+                    sleep(0d30);
+                }
+
+                wow_archaeology(SOULS_MEMORY.ARCHAEOLOGY_TARGET);
+            } else if(SOULS_MEMORY.MARIO_YUMP_ENABLED && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0)) {
                 rocket_jump();
             } else if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_HOTKEYS) {
                 debug_subtext("Start+L");
@@ -6308,6 +6327,26 @@ area inbetwixx_center() {
         fun trigger_enter() {
             add_debug_entity(0d16, 0d63, reference(debug_triggered));
 
+            if(False) {
+                add_enemy(PLACEHOLDER, 0d22, 0d68);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    arg[0x10] = <SCRIPT_OWNER>[X];
+                    arg[0x12] = <SCRIPT_OWNER>[Y];
+
+                    wow_archaeology_guard();
+
+                    if(False) {
+                        subtext("!");
+                    }
+
+                    _add_enemy(GUARD_BOT, arg[0x10], arg[0x12], INACTIVE);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        subtext("!");
+                    }));
+                }));
+                SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+            }
+
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // center
                 add_enemy(FLOWER_PURPLE, 0d52, 0d79);
@@ -8056,29 +8095,30 @@ area altus_plateau_entry() {
                 DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
 
                 WITH_WIND = True,
+                WIND_ACTIVE = memory(FLAG, TEMP),
             }
 
             fun start_wind() {
                 while(True) {
-                    if(<ACTIVE>[Y] < 0d180) {
+                    if(<BOY>[Y] < 0d180) {
                         arg[0x10] = 0d3;
-                    } else if(<ACTIVE>[Y] < 0d350) {
+                    } else if(<BOY>[Y] < 0d350) {
                         arg[0x10] = 0d4;
-                    } else if(<ACTIVE>[Y] < 0d400) {
+                    } else if(<BOY>[Y] < 0d400) {
                         arg[0x10] = 0d3;
-                    } else if(<ACTIVE>[Y] < 0d670) {
+                    } else if(<BOY>[Y] < 0d670) {
                         arg[0x10] = 0d1;
                     } else {
                         arg[0x10] = 0d0;
                     }
 
-                    if(<INACTIVE>[Y] < 0d180) {
+                    if(<DOG>[Y] < 0d180) {
                         arg[0x12] = 0d3;
-                    } else if(<INACTIVE>[Y] < 0d350) {
+                    } else if(<DOG>[Y] < 0d350) {
                         arg[0x12] = 0d4;
-                    } else if(<INACTIVE>[Y] < 0d400) {
+                    } else if(<DOG>[Y] < 0d400) {
                         arg[0x12] = 0d3;
-                    } else if(<INACTIVE>[Y] < 0d670) {
+                    } else if(<DOG>[Y] < 0d670) {
                         arg[0x12] = 0d1;
                     } else {
                         arg[0x12] = 0d0;
@@ -8087,16 +8127,18 @@ area altus_plateau_entry() {
                     // if(<BOY>[STAMINA] > STAMINA.PERCENTAGE_50) {
 
                     if(arg[0x10] > 0d0) {
-                        CUSTOM_FLAG.NO_RUNNING = True;
+                        increment_no_running(ROOM.WIND_ACTIVE);
                     } else {
-                        CUSTOM_FLAG.NO_RUNNING = False;
+                        decrement_no_running(ROOM.WIND_ACTIVE);
                     }
 
-                    if!(<ACTIVE>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
-                        teleport_relative(ACTIVE, 0d0, arg[0x10]);
+                    if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST != ARMOR_STATS.CHEST_2_2) {
+                        if!(<BOY>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                            teleport_relative(BOY, 0d0, arg[0x10]);
+                        }
                     }
-                    if!(<INACTIVE>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
-                        teleport_relative(INACTIVE, 0d0, arg[0x12]);
+                    if!(<DOG>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                        teleport_relative(DOG, 0d0, arg[0x12]);
                     }
 
                     sleep(0d3);
