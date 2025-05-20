@@ -937,6 +937,16 @@ group general_enums() {
 
             // <0x289e>
             CHICKEN_TAUNT_COUNTER = (Byte) <0x289e>, // see chickens_taunted()
+
+            // <0x289b>
+            NO_RUNNING = (Byte) <0x289b>, // see NO_RUNNING
+
+            // <0x2891>…<0x289a>
+            RESERVED_1 = <0x2891>,
+            RESERVED_2 = <0x2893>,
+            RESERVED_3 = <0x2895>,
+            RESERVED_4 = <0x2897>,
+            RESERVED_5 = <0x2899>,
         }
         enum CUSTOM_FLAG {
             // <0x28fb, x>
@@ -962,6 +972,17 @@ group general_enums() {
 
             DOG_BUSY = <0x28fa, 0x10>,
             CUTSCENE = <0x28fa, 0x20>,
+            // …
+
+            // <0x289c, x>
+            RESERVED_1 = <0x289c, 0x01>,
+            RESERVED_2 = <0x289c, 0x02>,
+            RESERVED_3 = <0x289c, 0x04>,
+            RESERVED_4 = <0x289c, 0x08>,
+            RESERVED_5 = <0x289c, 0x10>,
+            RESERVED_6 = <0x289c, 0x20>,
+            RESERVED_7 = <0x289c, 0x40>,
+            RESERVED_8 = <0x289c, 0x80>,
         }
     };
 
@@ -6525,6 +6546,54 @@ group functions() {
     };
 
     group complex() {
+        group running() {
+            fun update_no_running() {
+                if(CUSTOM_MEMORY.NO_RUNNING > 0d0) {
+                    CUSTOM_FLAG.NO_RUNNING = True;
+                } else {
+                    CUSTOM_FLAG.NO_RUNNING = False;
+                }
+
+                if(True) {
+                    _debug_memory(CUSTOM_MEMORY.NO_RUNNING, CUSTOM_FLAG.NO_RUNNING);
+                }
+            }
+            fun _increment_no_running(flag) {
+                CUSTOM_MEMORY.NO_RUNNING++;
+
+                update_no_running();
+            }
+            fun increment_no_running(flag) {
+                if(flag is Memory) {
+                    if!(flag) {
+                        flag = True;
+
+                        _increment_no_running(flag);
+                    }
+                } else {
+                    _increment_no_running(flag);
+                }
+            }
+            fun _decrement_no_running(flag) {
+                if(CUSTOM_MEMORY.NO_RUNNING > 0d0) {
+                    CUSTOM_MEMORY.NO_RUNNING--;
+                }
+
+                update_no_running();
+            }
+            fun decrement_no_running(flag) {
+                if(flag is Memory) {
+                    if(flag) {
+                        flag = False;
+
+                        _decrement_no_running(flag);
+                    }
+                } else {
+                    _decrement_no_running(flag);
+                }
+            }
+        };
+
         group error_messages() {
             enum ERROR_TYPE {
                 UNKNOWN = 0x00,
@@ -10708,6 +10777,250 @@ group functions() {
                 }
                 <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
                 end();
+            }
+        }
+
+        enum ARCHAEOLOGY {
+            SIGNAL_VERY_STRONG = 0d50,
+            SIGNAL_STRONG = 0d150,
+            SIGNAL_MEDIUM = 0d300,
+            SIGNAL_WEAK = 0d600,
+        }
+
+        fun wow_archaeology_guard(flag) {
+            if(<ACTIVE> == <BOY>) {
+                fake_b();
+                end();
+            }
+
+            if(flag is Memory) {
+                flag = True;
+            }
+
+            destroy(SCRIPT_OWNER);
+
+            // TODO: nice animation
+        }
+
+        @install()
+        @weak()
+        fun wow_archaeology(entity) {
+            if((entity == 0d0) || (_dead(entity))) {
+                subtext("Signal: None");
+                end();
+            }
+
+            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+
+            face_target(BOY, entity);
+
+            if(<BOY>[X] < entity[X]) {
+                arg[0x18] = DIRECTION.WEST;
+                arg[0x14] = entity[X] - <BOY>[X];
+            } else {
+                arg[0x18] = DIRECTION.EAST;
+                arg[0x14] = <BOY>[X] - entity[X];
+            }
+
+            if(<BOY>[Y] < entity[Y]) {
+                arg[0x1a] = DIRECTION.NORTH;
+                arg[0x16] = entity[Y] - <BOY>[Y];
+            } else {
+                arg[0x1a] = DIRECTION.SOUTH;
+                arg[0x16] = <BOY>[Y] - entity[Y];
+            }
+
+            if(arg[0x14] < arg[0x16]) {
+                arg[0x1c] = arg[0x16];
+                arg[0x1e] = arg[0x14];
+            } else {
+                arg[0x1c] = arg[0x14];
+                arg[0x1e] = arg[0x16];
+            }
+
+            arg[0x20] = arg[0x1c] + (arg[0x1e] >> 0d1);
+
+            if(False) {
+                _debug_memory(entity[X], entity[Y], arg[0x20]);
+                sleep(0d60);
+            }
+
+            if((arg[0x1a] == DIRECTION.NORTH) && (arg[0x18] == DIRECTION.EAST)) { // q1
+                if((arg[0x16] < (arg[0x14] >> 0d1))) {
+                    // subtext("q1 E");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: West, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: West, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: West, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: West, weak");
+                    } else {
+                        subtext("Signal: West, very weak");
+                    }
+                } else if((arg[0x16] > (arg[0x14] << 0d1))) {
+                    // subtext("q1 N");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: South, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: South, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: South, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: South, weak");
+                    } else {
+                        subtext("Signal: South, very weak");
+                    }
+                } else {
+                    // subtext("q1 NE");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: South West, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: South West, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: South West, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: South West, weak");
+                    } else {
+                        subtext("Signal: South West, very weak");
+                    }
+                }
+            } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.EAST)) { // q2
+                if((arg[0x16] < (arg[0x14] >> 0d1))) {
+                    // subtext("q2 E");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: West, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: West, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: West, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: West, weak");
+                    } else {
+                        subtext("Signal: West, very weak");
+                    }
+                } else if((arg[0x16] > (arg[0x14] << 0d1))) {
+                    // subtext("q2 S");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: North, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: North, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: North, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: North, weak");
+                    } else {
+                        subtext("Signal: North, very weak");
+                    }
+                } else {
+                    // subtext("q2 SE");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: North West, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: North West, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: North West, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: North West, weak");
+                    } else {
+                        subtext("Signal: North West, very weak");
+                    }
+                }
+            } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.WEST)) { // q3
+                if((arg[0x16] < (arg[0x14] >> 0d1))) {
+                    // subtext("q3 W");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: East, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: East, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: East, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: East, weak");
+                    } else {
+                        subtext("Signal: East, very weak");
+                    }
+                } else if((arg[0x16] > (arg[0x14] << 0d1))) {
+                    // subtext("q3 S");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: North, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: North, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: North, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: North, weak");
+                    } else {
+                        subtext("Signal: North, very weak");
+                    }
+                } else {
+                    // subtext("q3 SW");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: North East, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: North East, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: North East, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: North East, weak");
+                    } else {
+                        subtext("Signal: North East, very weak");
+                    }
+                }
+            } else { // q4
+                if((arg[0x16] < (arg[0x14] >> 0d1))) {
+                    // subtext("q4 W");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: East, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: East, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: East, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: East, weak");
+                    } else {
+                        subtext("Signal: East, very weak");
+                    }
+                } else if((arg[0x16] > (arg[0x14] << 0d1))) {
+                    // subtext("q4 N");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: South, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: South, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: South, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: South, weak");
+                    } else {
+                        subtext("Signal: South, very weak");
+                    }
+                } else {
+                    // subtext("q4 NW");
+
+                    if(arg[0x20] < ARCHAEOLOGY.SIGNAL_VERY_STRONG) {
+                        subtext("Signal: South East, very strong!");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_STRONG) {
+                        subtext("Signal: South East, strong");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_MEDIUM) {
+                        subtext("Signal: South East, medium");
+                    } else if(arg[0x20] < ARCHAEOLOGY.SIGNAL_WEAK) {
+                        subtext("Signal: South East, weak");
+                    } else {
+                        subtext("Signal: South East, very weak");
+                    }
+                }
             }
         }
     };
