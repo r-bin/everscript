@@ -38475,6 +38475,14 @@ area dungeon_podunk() {
             south = entrance(0d19, 0d111, NORTH),
         }
 
+        enum soundtrack {
+            default = soundtrack(BOSS, 0xff)
+        }
+
+        enum ROOM {
+            COORDINATE_NORTH_BORDER = 0d22 * 0x0008,
+        }
+
         enum BOSS {
             DEBUG = True,
             DEBUG_CHEESE = False,
@@ -38484,6 +38492,11 @@ area dungeon_podunk() {
             ID_RIGHT = memory(WORD, TEMP),
             ID_BACK = memory(WORD, TEMP),
 
+            HP_CLAW_ORANGE = 0d100,
+            HP_CLAW_WHITE = 0d200,
+            HP_HEAD = 0d200,
+
+            PROGRESS = memory(FLAG, TEMP),
             PHASE = memory(WORD, TEMP),
 
             CHEESE_COUNT = memory(WORD, TEMP),
@@ -38494,7 +38507,28 @@ area dungeon_podunk() {
             KNOCKBACK_DAMAGE = 0d5,
         }
 
+        @install()
+        @async()
+        fun fake_exit_check() {
+            while(True) {
+                if(<ACTIVE>[Y] < ROOM.COORDINATE_NORTH_BORDER) {
+                    map_transition(ar_lab, evermore_machine, NORTH);
+                    end();
+                }
+
+                yield();
+            }
+        }
+
         group boss_ai() {
+            fun boss_defeated() {
+                BOSS.PROGRESS = False;
+
+                souls_boss_defeated(DEAD_ABOMINATION, REWARD_ABOMINATION);
+
+                fake_exit_check();
+            }
+
             fun zap() {
                 if(False) {
                     subtext("zap");
@@ -38527,44 +38561,60 @@ area dungeon_podunk() {
             }
             @install()
             fun abomination_left_triggered() {
-                yield();
+                if(BOSS.PHASE == 0d1) {
+                    if(dead(<SCRIPT_OWNER>)) {
+                        BOSS.PHASE = 0d2;
+                    }
+                } else {
+                    heal(SCRIPT_OWNER, 0d99, True);
+                    yield();
+                }
 
                 if(BOSS.DEBUG) {
                     debug_subtext("l");
                 }
 
-                if(BOSS.PHASE == 0d1) {
-                    if(dead(<SCRIPT_OWNER>)) {
-                        BOSS.PHASE = 0d2;
-                    }
+                if(dead(<SCRIPT_OWNER>)) {
+                    wait(SCRIPT_OWNER);
+                    destroy(SCRIPT_OWNER);
                 }
             }
             @install()
             fun abomination_right_triggered() {
-                yield();
-
                 if(BOSS.DEBUG) {
                     debug_subtext("r");
                 }
 
-                if(BOSS.PHASE >= 0d2) {
-                    if(dead(<SCRIPT_OWNER>)) {
-                        BOSS.PHASE++;
+                if(BOSS.PHASE == 0d2) {
+                    if(_dead(<SCRIPT_OWNER>) && _dead(BOSS.ID_BACK)) {
+                        BOSS.PHASE = 0d3;
                     }
+                }
+
+                if(dead(<SCRIPT_OWNER>)) {
+                    wait(SCRIPT_OWNER);
+                    destroy(SCRIPT_OWNER);
                 }
             }
             @install()
             fun abomination_back_triggered() {
-                yield();
-
                 if(BOSS.DEBUG) {
                     debug_subtext("b");
                 }
 
-                if(BOSS.PHASE >= 0d2) {
-                    if(dead(<SCRIPT_OWNER>)) {
-                        BOSS.PHASE++;
+                if(BOSS.PHASE == 0d2) {
+                    if(_dead(<SCRIPT_OWNER>) && _dead(BOSS.ID_RIGHT)) {
+                        BOSS.PHASE = 0d3;
                     }
+                } else if(BOSS.PHASE == 0d3) {
+                    if(_dead(<SCRIPT_OWNER>)) {
+                        BOSS.PHASE = 0d4;
+                    }
+                }
+
+                if(dead(<SCRIPT_OWNER>)) {
+                    wait(SCRIPT_OWNER);
+                    destroy(SCRIPT_OWNER);
                 }
             }
 
@@ -38586,6 +38636,7 @@ area dungeon_podunk() {
                 animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
 
                 add_enemy(THRAXX_LEFT_ARM, 0d0, 0d0);
+                <LAST_ENTITY>[HP] = BOSS.HP_CLAW_ORANGE;
                 BOSS.ID_LEFT = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, DAMAGE, reference(abomination_left_triggered));
 
@@ -38602,12 +38653,14 @@ area dungeon_podunk() {
                 animate(BOSS.ID_CARLTRON, ONCE, ANIMATION_ENEMY.CARLTRON_SMUG);
 
                 add_enemy(THRAXX2_LEFT_ARM, 0d0, 0d0);
+                <LAST_ENTITY>[HP] = BOSS.HP_CLAW_WHITE;
                 BOSS.ID_LEFT = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, DAMAGE, reference(abomination_left_triggered));
 
                 sleep(0x50);
 
                 add_enemy(THRAXX_RIGHT_ARM, 0d0, 0d0);
+                <LAST_ENTITY>[HP] = BOSS.HP_CLAW_ORANGE;
                 BOSS.ID_RIGHT = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, DAMAGE, reference(abomination_right_triggered));
 
@@ -38627,27 +38680,12 @@ area dungeon_podunk() {
                     debug_subtext("phase 3");
                 }
 
-                while(BOSS.PHASE == 0x03) {
-                    yield();
-                }
-
-                if(BOSS.DEBUG) {
-                    debug_subtext("phase 4");
-                }
-
-                while(BOSS.PHASE == 0d4) {
-                    yield();
-                }
-
-                if(BOSS.DEBUG) {
-                    debug_subtext("phase 5");
-                }
-
                 add_enemy(SALABOG, 0d0, 0d0);
+                <LAST_ENTITY>[HP] = BOSS.HP_HEAD;
                 BOSS.ID_BACK = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, DAMAGE, reference(abomination_back_triggered));
 
-                while(BOSS.PHASE == 0d5) {
+                while(BOSS.PHASE == 0d3) {
                     yield();
                 }
 
@@ -38661,19 +38699,20 @@ area dungeon_podunk() {
                 destroy(BOSS.ID_LEFT);
                 destroy(BOSS.ID_RIGHT);
                 destroy(BOSS.ID_BACK);
-                sleep(0d250);
 
                 // destroy(BOSS.ID_CARLTRON);
 
                 if(BOSS.DEBUG) {
                     debug_subtext("yatta!");
                 }
+
+                boss_defeated();
             }
 
             fun _stack_t0123(entity, x, y) {
-                if(BOSS.ID_LEFT) {
-                    if(alive(BOSS.ID_LEFT)) {
-                        _teleport(BOSS.ID_LEFT, arg[0x10] - 0x05, arg[0x12] - 0x1a);
+                if(entity) {
+                    if(alive(entity)) {
+                        _teleport(entity, x, y);
 
                         // sleep(0x02);
                         yield();
@@ -38683,12 +38722,12 @@ area dungeon_podunk() {
             @install()
             @async()
             fun stack_t0123() {
-                while(BOSS.ID_CARLTRON[HP] > 0d0) {
+                while(BOSS.PHASE < 0d4) {
                     arg[0x10] = BOSS.ID_CARLTRON[X];
                     arg[0x12] = BOSS.ID_CARLTRON[Y];
 
                     _stack_t0123(BOSS.ID_LEFT, arg[0x10] - 0x05, arg[0x12] - 0x1a);
-                    _stack_t0123(BOSS.ID_RIGHT, arg[0x10] - 0x05, arg[0x12] - 0x1a);
+                    _stack_t0123(BOSS.ID_RIGHT, arg[0x10] + 0x05, arg[0x12] - 0x1a);
                     _stack_t0123(BOSS.ID_BACK, arg[0x10], arg[0x12] - 0x20);
 
                     yield();
@@ -38700,7 +38739,7 @@ area dungeon_podunk() {
             fun cheese_watcher() {
                 attach_to_script(BOSS.ID_CARLTRON);
 
-                while!(dead(<SCRIPT_OWNER>)) {
+                while(BOSS.PHASE < 0d4) {
                     if(<BOY>[Y] < arg[0x12]) {
                         BOSS.CHEESE_COUNT += 0d2;
                     } else if((arg[0x10] == <SCRIPT_OWNER>[X]) && (arg[0x12] == <SCRIPT_OWNER>[Y])) {
@@ -38733,13 +38772,15 @@ area dungeon_podunk() {
                 attach_script(LAST_ENTITY, DAMAGE, reference(abomination_triggered));
 
                 abomination_watcher();
-                // cheese_watcher();
+                cheese_watcher();
                 stack_t0123();
             }
 
         };
 
         fun trigger_enter() {
+            CUSTOM_FLAG.NO_DOG = True;
+
             add_boss(0d20, 0d81);
 
             if(BOSS.DEBUG) {
