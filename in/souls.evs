@@ -364,6 +364,9 @@ group non_maps() {
             SPEAR_ORB = 0xf001, // available: 3
             AXE_ORB = 0xf002, // available: 3
 
+            // armor
+            HELMET_ARCHAEOLOGY = 0xf010,
+
             // quest items
             SMITH_KEY = 0xf100, // unlocks orb upgrades
             BIG_MUSHROOM = 0xf101, // unlocks jumping in the sewers
@@ -383,7 +386,10 @@ group non_maps() {
             // fake items
             TUNIC_GREEN = 0xf300,
             TUNIC_RED = 0xf301,
-            ESTUS_SHARD = 0xf302
+            ESTUS_SHARD = 0xf302,
+            PICKAXE_HEAD = 0xf303,
+            PICKAXE_SHAFT = 0xf304,
+            PICKAXE = 0xf305,
         }
         enum SOULS_MEMORY {
             INIT = memory(FLAG, SRAM),
@@ -461,6 +467,9 @@ group non_maps() {
             ISAAC_WANTED_POSTER = memory(FLAG, SRAM),
             BUG_CATCHER_BROKEN = memory(FLAG, SRAM),
             BUG_CATCHER = memory(FLAG, SRAM),
+            PICKAXE_HEAD = memory(FLAG, SRAM),
+            PICKAXE_SHAFT = memory(FLAG, SRAM),
+            PICKAXE = memory(FLAG, SRAM),
 
             // custom item helper
 
@@ -540,11 +549,7 @@ group non_maps() {
 
             // west
             DEAD_OWL_BOY = memory(FLAG, SRAM), // t0+
-            REWARD_OWL_BOY = {
-                subtext("Gained 3 Iron");
-
-                MEMORY.IRON += 0d3;
-            },
+            REWARD_OWL_BOY = CUSTOM_ITEM.PICKAXE_HEAD,
 
             DEAD_MONSTRO = memory(FLAG, SRAM), // t0
             REWARD_MONSTRO = CUSTOM_ITEM.SWORD_ORB,
@@ -586,7 +591,7 @@ group non_maps() {
             DEAD_TEMPLE_SQUAD = memory(FLAG, SRAM), // t2 (nerfed from t3+) - locked: spear2
             REWARD_TEMPLE_SQUAD = CUSTOM_ITEM.AXE_ORB,
             DEAD_WALL = memory(FLAG, SRAM), // t2
-            REWARD_WALL = ITEM.NECTAR, // TODO
+            REWARD_WALL = CUSTOM_ITEM.PICKAXE_SHAFT,
             DEAD_NARIS = memory(FLAG, SRAM),
             REWARD_NARIS = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
             PROGRESS_NARIS = memory(FLAG, SRAM),
@@ -764,6 +769,11 @@ group non_maps() {
                 SOULS_MEMORY.ORB_AXE++;
 
                 orb_helper_dialog();
+            
+            } else if(item == CUSTOM_ITEM.HELMET_ARCHAEOLOGY) { // armor
+                reward(HELM_4_3);
+
+                dialog("[SLOW]What in the world is this? I hope someone can help me understand it.[B]");
             } else if(item == CUSTOM_ITEM.SMITH_KEY) { // quest items
                 subtext("Gained Smith Key");
                     
@@ -868,6 +878,29 @@ group non_maps() {
                 subtext("Estus Shard");
                 SOULS_MEMORY.ESTUS_SHARDS++;
                     
+                fanfare_item(True, push_music);
+            } else if(item == CUSTOM_ITEM.PICKAXE_HEAD) {
+                subtext("Pickaxe Head");
+                SOULS_MEMORY.PICKAXE_HEAD = True;
+
+                fanfare_item(True, push_music);
+                
+                if!(CUSTOM_ITEM.PICKAXE_SHAFT) {
+                    dialog("[SLOW]Wait, only the head, without the shaft?[B]");
+                }
+            } else if(item == CUSTOM_ITEM.PICKAXE_HEAD) {
+                subtext("Pickaxe Shaft");
+                SOULS_MEMORY.PICKAXE_SHAFT = True;
+
+                fanfare_item(True, push_music);
+                
+                if!(CUSTOM_ITEM.PICKAXE_HEAD) {
+                    dialog("[SLOW]Wait, only the shaft, without the head?[B]");
+                }
+            } else if(item == CUSTOM_ITEM.PICKAXE) {
+                subtext("Pickaxe");
+                SOULS_MEMORY.PICKAXE = True;
+
                 fanfare_item(True, push_music);
             } else {
                 subtext("Found Invalid Custom Item");
@@ -2227,6 +2260,106 @@ group non_maps() {
                 sterling_rats_scanner(x_dust, y_dust);
             }
         }
+
+        group archaeology() {
+            enum ARCHAEOLOGY_DIG {
+                DEBUG = True,
+
+                DOG = 0d10,
+                BOY = 0d1,
+                BOY_PICKAXE = 0d30,
+
+                WITH_BOY = False,
+            }
+
+            fun add_code_bot(x, y, index) {
+                add_enemy(DUSTER_BOT, x, y, INACTIVE_IMORTAL);
+                <LAST_ENTITY>[GENERAL_PURPOSE] = index;
+                face_target(LAST_ENTITY, ACTIVE);
+
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00) {
+                        dialog("[SLOW]_ _  _ _ 1[B]");
+                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x01) {
+                        dialog("[SLOW]_ _  _ 2 _[B]");
+                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x02) {
+                        dialog("[SLOW]_ _  3 _ _[B]");
+                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x10) {
+                        dialog("[SLOW]_ 4  _ _ _[B]");
+                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x11) {
+                        dialog("[SLOW]5 _  _ _ _[B]");
+                    } else {
+                        dialog("[SLOW]…[B]");
+                    }
+                }));
+            }
+
+            fun archaeology_dig(x, y, counter, digs, callback, detectable) {
+                add_enemy(PLACEHOLDER, x, y);
+                attach_script(LAST_ENTITY, B, callback);
+                
+                counter = digs;
+
+                if(detectable !is None) {
+                    if(detectable) {
+                        SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+                    }
+                }
+            }
+
+            fun _guard_archaeology_dig(counter) {
+                sound(IMPACT);
+
+                if(<ACTIVE> == <DOG>) {
+                    animate(DOG, ONCE, ANIMATION_DOG.ACT1_BARK); // TODO
+
+                    if(counter >= ARCHAEOLOGY_DIG.DOG) {
+                        counter -= ARCHAEOLOGY_DIG.DOG;
+                    } else {
+                        counter = 0d0;
+                    }
+                } else {
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
+                    if((SOULS_MEMORY.PICKAXE) || (CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_3)) {
+                        if(counter >= ARCHAEOLOGY_DIG.BOY_PICKAXE) {
+                            counter -= ARCHAEOLOGY_DIG.BOY_PICKAXE;
+                        } else {
+                            counter = 0d0;
+                        }
+                    } else if(ARCHAEOLOGY_DIG.WITH_BOY) {
+                        if(counter >= ARCHAEOLOGY_DIG.BOY) {
+                            counter -= ARCHAEOLOGY_DIG.BOY;
+                        } else {
+                            counter = 0d0;
+                        }
+                    } else {
+                        fake_b();
+                    }
+                }
+            }
+            fun guard_archaeology_dig(flag, counter) {
+                if(ARCHAEOLOGY_DIG.DEBUG) {
+                    debug_memory(counter, flag);
+                }
+
+                if!(flag) {
+                    if(counter == 0d0) {
+                        sound(WEIRD_SOUND);
+
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        destroy(SCRIPT_OWNER);
+                    } else {
+                        _guard_archaeology_dig(counter);
+
+                        end();
+                    }
+                }
+            }
+        };
     };
 
     group hotkeys() {
@@ -2333,7 +2466,8 @@ group non_maps() {
                 // return_to_bonfire();
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
-                map_transition(spaceship_desert, south, NONE);
+                // map_transition(mansion_modern, west, NONE);
+                map_transition(ship, west, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -2607,6 +2741,10 @@ group non_maps() {
     };
 
     group souls_npcs() {
+        enum NPC_SHARED {
+            STORY_PICKAXE = memory(FLAG, SRAM), // crafter -> smith (unlocks: PICKAXE_HEAD)
+        }
+
         group npc_shrine_maiden() {
             enum NPC_SHRINE_MAIDEN {
                 PROGRESS = memory(BYTE, SRAM),
@@ -2969,7 +3107,7 @@ group non_maps() {
                             currency_take(TALONS, price);
                             show_currency(True);
 
-                            reward(GLOVE_3_2);
+                            reward(GLOVE_3_3);
 
                             response_positive();
                         }
@@ -3281,6 +3419,23 @@ group non_maps() {
                         }
                     }
 
+                    fun story_pickaxe() {
+                        question("[SLOW]Something to dig? Bring me 5 Iron.[CHOICE]yes…[CHOICE]no…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            item_pay(IRON, 0d5);
+                            if(CUSTOM_MEMORY.RETURN) {
+                                custom_reward(PICKAXE_HEAD, True);
+
+                                conversation_dialog("[SLOW]I can't help you with the handle, though.[B]");
+                            } else {
+                                response_negative();
+                            }
+                        } else {
+                            response_negative();
+                        }
+                    }
+
                     @install()
                     fun smith_1_triggered() {
                         conversation({
@@ -3289,7 +3444,11 @@ group non_maps() {
                             question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade…");
 
                             if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
-                                subtext("todo");
+                                if(NPC_SHARED.STORY_PICKAXE && (!SOULS_MEMORY.PICKAXE_HEAD) && (!SOULS_MEMORY.PICKAXE)) {
+                                    story_pickaxe();
+                                } else {
+                                    subtext("todo");
+                                }
                             } else if(MEMORY.QUESTION_ANSWER == 0d1) { // purchase
                                 response_upgrade_weapon();
                             } else {
@@ -3324,6 +3483,8 @@ group non_maps() {
                 PRICE_MUSHROM_HELMET = 0d5,
                 PRICE_MUSHROM_CHEST = 0d8,
                 PRICE_MUSHROM_GLOVE = 0d5,
+
+                STORY_HELMET_ARCHAEOLOGY = memory(FLAG, SRAM),
             }
 
             group crafter_ai() {
@@ -3342,7 +3503,7 @@ group non_maps() {
                         MEMORY.STRING_PARAMETER_1 = NPC_CRAFTER.PRICE_MUSHROM_HELMET;
                         MEMORY.STRING_PARAMETER_2 = NPC_CRAFTER.PRICE_MUSHROM_CHEST;
                         MEMORY.STRING_PARAMETER_3 = NPC_CRAFTER.PRICE_MUSHROM_GLOVE;
-                        question("This is what I can offer for a tapestry and some mushrooms…[CHOICE]Helm ([MEM1])[CHOICE]Chest ([MEM2])[CHOICE]Glove ([MEM3])", 0d6);
+                        question("[SLOW]This is what I can offer for a tapestry and some mushrooms…[CHOICE]Helm ([MEM1])[CHOICE]Chest ([MEM2])[CHOICE]Glove ([MEM3])", 0d6);
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) {
                             _craft_armor(HELM_1_1, MEMORY.STRING_PARAMETER_1);
@@ -3350,6 +3511,20 @@ group non_maps() {
                             _craft_armor(CHEST_1_1, MEMORY.STRING_PARAMETER_2);
                         } else if(MEMORY.QUESTION_ANSWER == 0d2) {
                             _craft_armor(GLOVE_1_1, MEMORY.STRING_PARAMETER_3);
+                        }
+
+                        if(SOULS_MEMORY.DEAD_STOMPY_RADAHN && (MEMORY.GLOVE_3_3 == 0d0)) {
+                            question("[SLOW]Are those actual dragon claws? With two tapestry I can craft you the perfect gloves…[CHOICE]yes…[CHOICE]no…", 0d5);
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                trade_items(NO_ITEM, 0d0, TAPESTRY, 0d2);
+                                
+                                if(CUSTOM_MEMORY.RETURN) {
+                                    reward(GLOVE_3_3);
+                                }
+
+                                control(BOTH);
+                            }
                         }
                     }
                 };
@@ -3419,7 +3594,29 @@ group non_maps() {
                         question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]craft…");
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
-                            subtext("todo");
+                            if((SOULS_MEMORY.PICKAXE_HEAD) && (SOULS_MEMORY.PICKAXE_SHAFT) && (!SOULS_MEMORY.PICKAXE)) {
+                                    conversation_dialog("[SLOW]Let me attach that for you…[B]");
+
+                                    custom_reward(PICKAXE, True);
+
+                                    conversation_dialog("[SLOW]Now you are ready for your first archaeology adventure![B]");
+                            } else if((MEMORY.HELM_4_3 > 0d0) && (!NPC_CRAFTER.STORY_HELMET_ARCHAEOLOGY)) {
+                                NPC_CRAFTER.STORY_HELMET_ARCHAEOLOGY = True;
+
+                                conversation_dialog("[SLOW]How did you get that ancient helmet in your possession?![B]I only heard stories about this technology so far.[B]Press [Start]+[L] to use it.[B]It should be able to locate ancient hidden treasures with ease.[B]");
+
+                                if((!SOULS_MEMORY.PICKAXE_HEAD) && (!SOULS_MEMORY.PICKAXE)) {
+                                    conversation_dialog("[SLOW]You'll need something to dig, though.[B]Maybe the smith can help you.[B]");
+
+                                    NPC_SHARED.STORY_PICKAXE = True;
+                                }
+                            } else if(SOULS_MEMORY.DEAD_WALL && (!NPC_SHARED.STORY_PICKAXE)) {
+                                    conversation_dialog("[SLOW]You actually went back and defused the trap, and that sparked your interest in archaeology?[B]First step would be to dig something up.[B]Maybe the smith can help you with that.[B]");
+
+                                    NPC_SHARED.STORY_PICKAXE = True;
+                            } else {
+                                subtext("todo");
+                            }
                         } else if(MEMORY.QUESTION_ANSWER == 0d1) { // craft
                             craft_armor();
                         } else {
@@ -7006,6 +7203,9 @@ area west_inbetwixx() {
 
             FAKE_SLASH_GRASS_X = memory(WORD, TEMP),
             FAKE_SLASH_GRASS_Y = memory(WORD, TEMP),
+
+            CODE_BOT_DIG_COUNTER = memory(WORD, TEMP),
+            CODE_BOT_DIG = 0d100,
         }
 
         enum BOSS {
@@ -7201,6 +7401,12 @@ area west_inbetwixx() {
 
                 subtext("prisoner ahead and then bonfire!");
             }));
+
+            archaeology_dig(0d45, 0d78, ROOM.CODE_BOT_DIG_COUNTER, ROOM.CODE_BOT_DIG, reference(@install() {
+                guard_archaeology_dig(False, ROOM.CODE_BOT_DIG_COUNTER);
+
+                add_code_bot(0d45, 0d78, 0x00);
+            }), True);
         }
     };
 
@@ -7412,6 +7618,8 @@ area altus_plateau_entry() {
             STONE_MOVED = memory(FLAG, SRAM),
             STONE_OFFSET = 0d8 * 0d2,
 
+            VOLCANO_TOWER_BACKDOOR_DIG = 0d20,
+            VOLCANO_TOWER_BACKDOOR_DIG_COUNTER = memory(WORD, TEMP),
             VOLCANO_TOWER_BACKDOOR_OPEN = memory(FLAG, SRAM),
         }
 
@@ -7518,7 +7726,7 @@ area altus_plateau_entry() {
                 if(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN) {
                     volcano_tower_backdoor_triggered();
                 } else {
-                    subtext("Seems to be blocked.");
+                    error_message(DOOR_REQUIRES_DIG);
                 }
                 // generic_act1_volcano_cave_hole(0x44, 0x23, 0d82, 0d42);
             },
@@ -7774,10 +7982,8 @@ area altus_plateau_entry() {
             }
 
             if!(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN) {
-                add_enemy(PLACEHOLDER, 0d67, 0d34);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    sound(WEIRD_SOUND);
-                    ROOM.VOLCANO_TOWER_BACKDOOR_OPEN = True;
+                archaeology_dig(0d67, 0d34, ROOM.VOLCANO_TOWER_BACKDOOR_DIG_COUNTER, ROOM.VOLCANO_TOWER_BACKDOOR_DIG, reference(@install() {
+                    guard_archaeology_dig(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN, ROOM.VOLCANO_TOWER_BACKDOOR_DIG_COUNTER);
 
                     volcano_tower_backdoor_triggered();
                 }));
@@ -23547,6 +23753,10 @@ area ship_caves() {
 
             DOG_AVAILABLE = memory(FLAG, TEMP),
             PILLAR_CLEARED = memory(FLAG, SRAM),
+
+            CAVE_OPENED = memory(FLAG, SRAM),
+            CAVE_OPENED_DIG_COUNTER = memory(WORD, TEMP),
+            CAVE_OPENED_DIG = 0d30,
         }
 
         enum entrance {
@@ -23567,6 +23777,10 @@ area ship_caves() {
 
         enum soundtrack {
             default = soundtrack(AREA_SHIP.DEFAULT_MUSIC, 0xff)
+        }
+
+        fun cave_door_triggered() {
+            map_transition(room_monk, south, NORTH);
         }
 
         enum stepon_trigger {
@@ -23604,7 +23818,11 @@ area ship_caves() {
             door_2_2 = @install() {
                 debug_subtext("S=7");
 
-                map_transition(room_monk, south, NORTH);
+                if(ROOM.CAVE_OPENED) {
+                    cave_door_triggered();
+                } else {
+                    error_message(DOOR_REQUIRES_DIG);
+                }
             },
             door_2_1 = @install() {
                 debug_subtext("S=8");
@@ -23640,6 +23858,14 @@ area ship_caves() {
             }
             if(SOULS_MEMORY.DOG_SHIP) {
                 _dog_stairs(DOG_SHIP, 0d50, 0d77, ROOM.DOG_AVAILABLE);
+            }
+
+            if!(ROOM.CAVE_OPENED) {
+                archaeology_dig(0d89, 0d42, ROOM.CAVE_OPENED_DIG_COUNTER, ROOM.CAVE_OPENED_DIG, reference(@install() {
+                    guard_archaeology_dig(ROOM.CAVE_OPENED, ROOM.CAVE_OPENED_DIG_COUNTER);
+
+                    cave_door_triggered();
+                }));
             }
 
             if(ROOM.DEBUG) {
@@ -28722,6 +28948,8 @@ area metro() {
 
             enum ROOM {
                 LIGHT_ON = AREA_METRO.LEVER_REACTOR_ROOM,
+
+                LOOTED_HELMET = memory(FLAG, SRAM),
             }
 
             enum OBJECT_DEFAULT {
@@ -28786,6 +29014,15 @@ area metro() {
                     debug_subtext("B=2");
 
                     guard_dark_gourd();
+
+                    if(False) {
+                        _loot_chest(0x04, HELM_4_3, 0d01);
+                    } else {
+                        object[0x04] = 0x02; // loot gourd_1_1
+                        ROOM.LOOTED_HELMET = True;
+
+                        custom_reward(HELMET_ARCHAEOLOGY);
+                    }
                 },
                 gourd_2_4 = @install() {
                     debug_subtext("B=3");
@@ -28812,13 +29049,19 @@ area metro() {
             }
 
             fun trigger_enter() {
+                if(False) {
+                    AREA_METRO.LEVER_REACTOR_ROOM = True;
+                }
+                
                 start_helper();
                 
                 // object[0x00] = 0x02; // loot gourd_2_1
                 // object[0x01] = 0x02; // loot gourd_2_2
                 // object[0x02] = 0x02; // loot gourd_2_3
                 // object[0x03] = 0x02; // loot gourd_2_4
-                // object[0x04] = 0x02; // loot gourd_1_1
+                if(ROOM.LOOTED_HELMET) {
+                    object[0x04] = 0x02; // loot gourd_1_1
+                }
                 // object[0x05] = 0x02; // loot gourd_1_2
                 // object[0x06] = 0x02; // loot gourd_1_3
                 // object[0x07] = 0x01; // remove fan_east_1_2
