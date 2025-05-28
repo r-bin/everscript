@@ -2272,26 +2272,26 @@ group non_maps() {
                 WITH_BOY = False,
             }
 
-            fun add_code_bot(x, y, index) {
-                add_enemy(DUSTER_BOT, x, y, INACTIVE_IMORTAL);
-                <LAST_ENTITY>[GENERAL_PURPOSE] = index;
-                face_target(LAST_ENTITY, ACTIVE);
+            @install()
+            @async()
+            fun hacking_wakeup(offset_boy_x, offset_boy_y, offset_dog_x, offset_dog_y) {
+                <BOY>[X] += signed arg[0x00];
+                <BOY>[Y] += signed arg[0x02];
 
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00) {
-                        dialog("[SLOW]_ _  _ _ 1[B]");
-                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x01) {
-                        dialog("[SLOW]_ _  _ 2 _[B]");
-                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x02) {
-                        dialog("[SLOW]_ _  3 _ _[B]");
-                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x10) {
-                        dialog("[SLOW]_ 4  _ _ _[B]");
-                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x11) {
-                        dialog("[SLOW]5 _  _ _ _[B]");
-                    } else {
-                        dialog("[SLOW]…[B]");
-                    }
-                }));
+                <DOG>[X] += signed arg[0x04];
+                <DOG>[Y] += signed arg[0x06];
+
+                attribute(BOY, INVINCIBLE_TEMP, True);
+                attribute(DOG, INVINCIBLE_TEMP, True);
+
+                animate_boy_kneel();
+
+                sleep(0d60);
+
+                animate(BOY, ONCE, DEFAULT);
+
+                attribute(BOY, INVINCIBLE_TEMP, False);
+                attribute(DOG, INVINCIBLE_TEMP, False);
             }
 
             fun archaeology_dig(x, y, counter, digs, callback, detectable) {
@@ -2308,9 +2308,8 @@ group non_maps() {
             }
 
             fun _guard_archaeology_dig(counter) {
-                sound(IMPACT);
-
                 if(<ACTIVE> == <DOG>) {
+                    sound(IMPACT);
                     animate(DOG, ONCE, ANIMATION_DOG.ACT1_BARK); // TODO
 
                     if(counter >= ARCHAEOLOGY_DIG.DOG) {
@@ -2319,15 +2318,19 @@ group non_maps() {
                         counter = 0d0;
                     }
                 } else {
-                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
-
                     if((SOULS_MEMORY.PICKAXE) || (CUSTOM_MEMORY.CURRENT_ARMOR_ARMLET == ARMOR_STATS.GLOVE_3_3)) {
+                        sound(IMPACT);
+                        animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
                         if(counter >= ARCHAEOLOGY_DIG.BOY_PICKAXE) {
                             counter -= ARCHAEOLOGY_DIG.BOY_PICKAXE;
                         } else {
                             counter = 0d0;
                         }
                     } else if(ARCHAEOLOGY_DIG.WITH_BOY) {
+                        sound(IMPACT);
+                        animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
                         if(counter >= ARCHAEOLOGY_DIG.BOY) {
                             counter -= ARCHAEOLOGY_DIG.BOY;
                         } else {
@@ -2338,7 +2341,7 @@ group non_maps() {
                     }
                 }
             }
-            fun guard_archaeology_dig(flag, counter) {
+            fun guard_archaeology_dig(flag, counter, no_clean_up) {
                 if(ARCHAEOLOGY_DIG.DEBUG) {
                     debug_memory(counter, flag);
                 }
@@ -2351,12 +2354,73 @@ group non_maps() {
                             flag = True;
                         }
 
-                        destroy(SCRIPT_OWNER);
+                        if!(no_clean_up !is None) {
+                            destroy(SCRIPT_OWNER);
+                        }
                     } else {
                         _guard_archaeology_dig(counter);
 
                         end();
                     }
+                }
+            }
+
+            fun add_code_bot(x, y, index, dig_counter, hacked) {
+                add_enemy(DUSTER_BOT, x, y, INACTIVE_IMORTAL);
+                if!(hacked) {
+                    attribute(LAST_ENTITY, INVISIBLE, True);
+                }
+                <LAST_ENTITY>[GENERAL_PURPOSE] = dig_counter;
+                SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+                face_target(LAST_ENTITY, ACTIVE);
+
+                <BOY>[GENERAL_PURPOSE] = index;
+
+                if!(hacked) {
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        guard_archaeology_dig(False, <SCRIPT_OWNER>[GENERAL_PURPOSE], True);
+
+                        attribute(SCRIPT_OWNER, INVISIBLE, False);
+
+                        if(<ACTIVE> == <DOG>) {
+                            dialog("…[B]");
+                            end();
+                        }
+
+                        animate_boy_kneel();
+
+                        question("[SLOW]Access robot?[CHOICE]hack…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // hack
+                            map_transition(mini_game_hacking, center, NONE);
+                        }
+
+                        animate(BOY, ONCE, DEFAULT);
+                    }));
+                } else {
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        if(<BOY>[GENERAL_PURPOSE] == 0x00) {
+                            dialog("[SLOW]_ _  _ _ 1[B]");
+                        } else if(<BOY>[GENERAL_PURPOSE] == 0x01) {
+                            dialog("[SLOW]_ _  _ 2 _[B]");
+                        } else if(<BOY>[GENERAL_PURPOSE] == 0x02) {
+                            dialog("[SLOW]_ _  3 _ _[B]");
+                        } else if(<BOY>[GENERAL_PURPOSE] == 0x10) {
+                            dialog("[SLOW]_ 4  _ _ _[B]");
+                        } else if(<BOY>[GENERAL_PURPOSE] == 0x11) {
+                            dialog("[SLOW]5 _  _ _ _[B]");
+                        } else {
+                            dialog("[SLOW]…[B]");
+                        }
+                    }));
+                }
+            }
+
+            fun archaeology_dig_code_bot(x, y, index, dig_counter, flag) {
+                if!(flag) {
+                    add_code_bot(x, y, index, dig_counter, False);
+                } else {
+                    add_code_bot(x, y, index, dig_counter, True);
                 }
             }
         };
@@ -4921,6 +4985,679 @@ area intro_screens() {
     };
 };
 
+area mini_games() {
+    map mini_game_hacking(OMNITOPIA_ALARM) {
+        enum ROOM {
+            DEBUG = False,
+            DEBUG_INPUT = False,
+            DEBUG_POINTS_GOAL = False,
+
+            COLUMN_LEFT = 0d34,
+            COLUMN_RIGHT = 0d58,
+
+            ROW_1 = 0d60,
+            ROW_2 = 0d68,
+            ROW_3 = 0d76,
+            ROW_4 = 0d84,
+
+            DEBOUNCE = 0d3,
+
+            CURSOR_X = memory(WORD, TEMP),
+            CURSOR_Y = memory(WORD, TEMP),
+
+            TESLA_ID_LEFT_1 = memory(WORD, TEMP),
+            TESLA_ID_LEFT_2 = memory(WORD, TEMP),
+            TESLA_ID_LEFT_3 = memory(WORD, TEMP),
+            TESLA_ID_LEFT_4 = memory(WORD, TEMP),
+            TESLA_ID_RIGHT_1 = memory(WORD, TEMP),
+            TESLA_ID_RIGHT_2 = memory(WORD, TEMP),
+            TESLA_ID_RIGHT_3 = memory(WORD, TEMP),
+            TESLA_ID_RIGHT_4 = memory(WORD, TEMP),
+
+            TESLA_ID_RIGHT = memory(WORD, TEMP),
+
+            CHAIN_1 = memory(WORD, TEMP),
+            CHAIN_2 = memory(WORD, TEMP),
+            CHAIN_3 = memory(WORD, TEMP),
+            CHAIN_4 = memory(WORD, TEMP),
+            CHAIN_5 = memory(WORD, TEMP),
+            CHAIN_6 = memory(WORD, TEMP),
+            CHAIN_7 = memory(WORD, TEMP),
+            CHAIN_8 = memory(WORD, TEMP),
+
+            CHAIN_COOLDOWN = 0d10,
+
+            POINTS = memory(WORD, TEMP),
+            POINTS_GOAL = memory(WORD, TEMP),
+        }
+
+        enum entrance {
+            north = entrance(0x0e, 0x68, NONE),
+            south = entrance(0x4c, 0x15, NONE),
+
+            pod_left_1 = entrance(ROOM.COLUMN_LEFT, ROOM.ROW_1, NONE),
+            pod_left_2 = entrance(ROOM.COLUMN_LEFT, ROOM.ROW_2, NONE),
+            pod_left_3 = entrance(ROOM.COLUMN_LEFT, ROOM.ROW_3, NONE),
+            pod_left_4 = entrance(ROOM.COLUMN_LEFT, ROOM.ROW_4, NONE),
+
+            pod_right_1 = entrance(ROOM.COLUMN_RIGHT, ROOM.ROW_1, NONE),
+            pod_right_2 = entrance(ROOM.COLUMN_RIGHT, ROOM.ROW_2, NONE),
+            pod_right_3 = entrance(ROOM.COLUMN_RIGHT, ROOM.ROW_3, NONE),
+            pod_right_4 = entrance(ROOM.COLUMN_RIGHT, ROOM.ROW_4, NONE),
+
+            center = entrance(0d45, 0d72, NONE),
+        }
+
+        enum stepon_trigger {
+            exit_north = @install() {
+                debug_subtext("S=0");
+            },
+            exit_south = @install() {
+                debug_subtext("S=1");
+            },
+            exit_south = @install() {
+                debug_subtext("S=2");
+            },
+            exit_south = @install() {
+                debug_subtext("S=3");
+            },
+            alarm_row_4 = @install() {
+                if(False) {
+                    debug_subtext("S=4");
+                }
+            },
+            alarm_row_3 = @install() {
+                if(False) {
+                    debug_subtext("S=5");
+                }
+            },
+            alarm_row_2 = @install() {
+                if(False) {
+                    debug_subtext("S=6");
+                }
+            },
+            alarm_row_1 = @install() {
+                if(False) {
+                    debug_subtext("S=7");
+                }
+            },
+        }
+
+        enum b_trigger {
+            gourd = @install() {
+                debug_subtext("B=0");
+            },
+        }
+
+        group game_logic() {
+            fun room_hacked() {
+                control(NONE);
+                <BOY>[GENERAL_PURPOSE] = <BOY>[GENERAL_PURPOSE] + (True << 0x08);
+            }
+
+            fun exit_room() {
+                if(ROOM.DEBUG) {
+                    subtext("exit");
+                }
+
+                if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d0) {
+                    map_transition(west_inbetwixx, code_bot, NONE); // west inbetwixx
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d1) {
+                    nop(); // TODO
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d2) {
+                    nop(); // TODO
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d3) {
+                    nop(); // TODO
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d4) {
+                    nop(); // TODO
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d5) {
+                    nop(); // TODO
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d6) {
+                    nop(); // TODO
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d7) {
+                    nop(); // TODO
+                }
+            }
+
+            fun cursor_init(x, y) {
+                teleport(BOY, x, y);
+                control(NONE);
+
+                ROOM.CURSOR_X = x;
+                ROOM.CURSOR_Y = y;
+            }
+            fun cursor_x(x) {
+                teleport(BOY, x, ROOM.CURSOR_Y);
+
+                ROOM.CURSOR_X = x;
+            }
+            fun cursor_y(y) {
+                teleport(BOY, ROOM.CURSOR_X, y);
+
+                ROOM.CURSOR_Y = y;
+            }
+
+            fun cursor_up() {
+                if(ROOM.CURSOR_Y == ROOM.ROW_2) {
+                    cursor_y(ROOM.ROW_1);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("north 2");
+                    }
+                } else if(ROOM.CURSOR_Y == ROOM.ROW_3) {
+                    cursor_y(ROOM.ROW_2);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("north 3");
+                    }
+                } else if(ROOM.CURSOR_Y == ROOM.ROW_4) {
+                    cursor_y(ROOM.ROW_3);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("north 4");
+                    }
+                } else {
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("north ?");
+                    }
+                }
+            }
+            fun cursor_right() {
+                if(ROOM.CURSOR_X == ROOM.COLUMN_LEFT) {
+                    cursor_x(ROOM.COLUMN_RIGHT);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("east");
+                    }
+                } else {
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("east ?");
+                    }
+                }
+            }
+            fun cursor_down() {
+                if(ROOM.CURSOR_Y == ROOM.ROW_1) {
+                    cursor_y(ROOM.ROW_2);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("south 1");
+                    }
+                } else if(ROOM.CURSOR_Y == ROOM.ROW_2) {
+                    cursor_y(ROOM.ROW_3);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("south 2");
+                    }
+                } else if(ROOM.CURSOR_Y == ROOM.ROW_3) {
+                    cursor_y(ROOM.ROW_4);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("south 3");
+                    }
+                } else {
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("south ?");
+                    }
+                }
+            }
+            fun cursor_left() {
+                if(ROOM.CURSOR_X == ROOM.COLUMN_RIGHT) {
+                    cursor_x(ROOM.COLUMN_LEFT);
+
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("west");
+                    }
+                } else {
+                    if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                        debug_subtext("west ?");
+                    }
+                }
+            }
+            @install()
+            fun cursor(direction:DIRECTION) {
+                control(BOY);
+
+                if(direction == DIRECTION.NORTH) {
+                    cursor_up();
+                } else if(direction == DIRECTION.EAST) {
+                    cursor_right();
+                } else if(direction == DIRECTION.SOUTH) {
+                    cursor_down();
+                } else if(direction == DIRECTION.WEST) {
+                    cursor_left();
+                }
+            }
+
+            fun store_pod(x, y) {
+                if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_1)) {
+                    arg[0x0e] = ROOM.TESLA_ID_LEFT_1;
+                } else if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_2)) {
+                    arg[0x0e] = ROOM.TESLA_ID_LEFT_2;
+                } else if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_3)) {
+                    arg[0x0e] = ROOM.TESLA_ID_LEFT_3;
+                } else if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_4)) {
+                    arg[0x0e] = ROOM.TESLA_ID_LEFT_4;
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_1)) {
+                    arg[0x0e] = ROOM.TESLA_ID_RIGHT_1;
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_2)) {
+                    arg[0x0e] = ROOM.TESLA_ID_RIGHT_2;
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_3)) {
+                    arg[0x0e] = ROOM.TESLA_ID_RIGHT_3;
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_4)) {
+                    arg[0x0e] = ROOM.TESLA_ID_RIGHT_4;
+                } else {
+                    arg[0x0e] = 0x0000;
+                }
+            }
+
+            fun _check_hacked(entity) {
+                if(entity) {
+                    if(ROOM.DEBUG && ROOM.DEBUG_POINTS_GOAL) {
+                        debug_memory(entity, entity[GENERAL_PURPOSE], arg[0x12]);
+                        sleep(0d60);
+                    }
+
+                    arg[0x12] += entity[GENERAL_PURPOSE];
+                }
+            }
+            @install()
+            fun check_hacked() {
+                arg[0x12] = 0d0;
+
+                _check_hacked(ROOM.CHAIN_1);
+                _check_hacked(ROOM.CHAIN_2);
+                _check_hacked(ROOM.CHAIN_3);
+                _check_hacked(ROOM.CHAIN_4);
+                _check_hacked(ROOM.CHAIN_5);
+                _check_hacked(ROOM.CHAIN_6);
+                _check_hacked(ROOM.CHAIN_7);
+                _check_hacked(ROOM.CHAIN_8);
+
+                if(ROOM.DEBUG) {
+                    debug_memory(arg[0x12], ROOM.POINTS_GOAL);
+                }
+
+                ROOM.POINTS = arg[0x12];
+            }
+
+            @install()
+            fun cursor_enter() {
+                store_pod(ROOM.CURSOR_X, ROOM.CURSOR_Y);
+                
+                if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                    debug_subtext("B");
+                }
+
+                if((ROOM.CHAIN_1 == arg[0x0e]) || (ROOM.CHAIN_2 == arg[0x0e]) || (ROOM.CHAIN_3 == arg[0x0e]) || (ROOM.CHAIN_4 == arg[0x0e])) {
+                    end();
+                }
+
+                if!(ROOM.CHAIN_1) {
+                    ROOM.CHAIN_1 = arg[0x0e];
+                } else if!(ROOM.CHAIN_2) {
+                    if((ROOM.CHAIN_1[X] == arg[0x0e][X]) || ROOM.CHAIN_1[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_2 = arg[0x0e];
+                    }
+                } else if!(ROOM.CHAIN_3) {
+                    if((ROOM.CHAIN_2[X] == arg[0x0e][X]) || ROOM.CHAIN_2[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_3 = arg[0x0e];
+                    }
+                } else if!(ROOM.CHAIN_4) {
+                    if((ROOM.CHAIN_3[X] == arg[0x0e][X]) || ROOM.CHAIN_3[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_4 = arg[0x0e];
+                    }
+                } else if!(ROOM.CHAIN_5) {
+                    if((ROOM.CHAIN_4[X] == arg[0x0e][X]) || ROOM.CHAIN_4[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_5 = arg[0x0e];
+                    }
+                } else if!(ROOM.CHAIN_6) {
+                    if((ROOM.CHAIN_5[X] == arg[0x0e][X]) || ROOM.CHAIN_5[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_6 = arg[0x0e];
+                    }
+                } else if!(ROOM.CHAIN_7) {
+                    if((ROOM.CHAIN_6[X] == arg[0x0e][X]) || ROOM.CHAIN_6[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_7 = arg[0x0e];
+                    }
+                } else if!(ROOM.CHAIN_8) {
+                    if((ROOM.CHAIN_7[X] == arg[0x0e][X]) || ROOM.CHAIN_7[Y] == arg[0x0e][Y]) {
+                        ROOM.CHAIN_8 = arg[0x0e];
+                    }
+                }
+
+                check_hacked();
+            }
+
+            fun cursor_back() {
+                if(ROOM.DEBUG && ROOM.DEBUG_INPUT) {
+                    debug_subtext("A");
+                }
+
+                if(ROOM.CHAIN_8) {
+                    ROOM.CHAIN_8 = 0x0000;
+                } else if(ROOM.CHAIN_7) {
+                    ROOM.CHAIN_7 = 0x0000;
+                } else if(ROOM.CHAIN_6) {
+                    ROOM.CHAIN_6 = 0x0000;
+                } else if(ROOM.CHAIN_5) {
+                    ROOM.CHAIN_5 = 0x0000;
+                } else if(ROOM.CHAIN_4) {
+                    ROOM.CHAIN_4 = 0x0000;
+                } else if(ROOM.CHAIN_3) {
+                    ROOM.CHAIN_3 = 0x0000;
+                } else if(ROOM.CHAIN_2) {
+                    ROOM.CHAIN_2 = 0x0000;
+                } else if(ROOM.CHAIN_1) {
+                    question("[SLOW]Exit?[CHOICE]exit…[CHOICE]cancel…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // exit
+                        exit_room();
+                    }
+                }
+            }
+
+            fun pod(x, y, state) {
+                ROOM.POINTS_GOAL += state;
+
+                store_pod(x, y);
+                arg[0x0e][GENERAL_PURPOSE] = state;
+
+                if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_1)) {
+                    debug_subtext("pod left 1");
+
+                    object[0x02] = state; // open pod_left_1
+                } else if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_2)) {
+                    debug_subtext("pod left 2");
+
+                    object[0x03] = state; // open pod_left_2
+                } else if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_3)) {
+                    debug_subtext("pod left 3");
+
+                    object[0x04] = state; // open pod_left_3
+                } else if((x == ROOM.COLUMN_LEFT) && (y == ROOM.ROW_4)) {
+                    debug_subtext("pod left 4");
+
+                    object[0x05] = state; // open pod_left_4
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_1)) {
+                    debug_subtext("pod right 1");
+
+                    object[0x06] = state; // open pod_right_1
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_2)) {
+                    debug_subtext("pod right 2");
+
+                    object[0x07] = state; // open pod_right_2
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_3)) {
+                    debug_subtext("pod right 3");
+
+                    object[0x08] = state; // open pod_right_3
+                } else if((x == ROOM.COLUMN_RIGHT) && (y == ROOM.ROW_4)) {
+                    debug_subtext("pod right 4");
+
+                    object[0x09] = state; // open pod_right_4
+                } else {
+                    debug_subtext("pod unknown");
+                }
+            }
+
+            @install()
+            @async()
+            fun tesla_chain_watcher() {
+                while(True) {
+                    if(ROOM.CHAIN_1) {
+                        if(ROOM.CHAIN_2) {
+                            shoot_entity_entity(ROOM.CHAIN_1, LIGHTNING, ROOM.CHAIN_2, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_1[X] == <BOY>[X]) || ROOM.CHAIN_1[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_1, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_2) {
+                        if(ROOM.CHAIN_3) {
+                            shoot_entity_entity(ROOM.CHAIN_2, LIGHTNING, ROOM.CHAIN_3, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_2[X] == <BOY>[X]) || ROOM.CHAIN_2[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_2, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_3) {
+                        if(ROOM.CHAIN_4) {
+                            shoot_entity_entity(ROOM.CHAIN_3, LIGHTNING, ROOM.CHAIN_4, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_3[X] == <BOY>[X]) || ROOM.CHAIN_3[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_3, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_4) {
+                        if(ROOM.CHAIN_5) {
+                            shoot_entity_entity(ROOM.CHAIN_4, LIGHTNING, ROOM.CHAIN_5, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_4[X] == <BOY>[X]) || ROOM.CHAIN_4[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_4, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_5) {
+                        if(ROOM.CHAIN_6) {
+                            shoot_entity_entity(ROOM.CHAIN_5, LIGHTNING, ROOM.CHAIN_6, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_5[X] == <BOY>[X]) || ROOM.CHAIN_5[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_5, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_6) {
+                        if(ROOM.CHAIN_7) {
+                            shoot_entity_entity(ROOM.CHAIN_6, LIGHTNING, ROOM.CHAIN_7, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_6[X] == <BOY>[X]) || ROOM.CHAIN_6[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_6, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_7) {
+                        if(ROOM.CHAIN_8) {
+                            shoot_entity_entity(ROOM.CHAIN_7, LIGHTNING, ROOM.CHAIN_8, 0d1, 0d0);
+                        } else if((ROOM.CHAIN_7[X] == <BOY>[X]) || ROOM.CHAIN_7[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_7, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    if(ROOM.CHAIN_8) {
+                        if((ROOM.CHAIN_8[X] == <BOY>[X]) || ROOM.CHAIN_8[Y] == <BOY>[Y]) {
+                            shoot_entity_entity(ROOM.CHAIN_8, LIGHTNING, <BOY>, 0d1, 0d0);
+                        }
+
+                        sleep(ROOM.CHAIN_COOLDOWN);
+                    }
+
+                    sleep(ROOM.CHAIN_COOLDOWN);
+                    sound(TESLA);
+                }
+            }
+
+            fun add_player_sprite(enemy:ENEMY) {
+                add_enemy(enemy, 0d0, 0d0);
+
+                stack_sprite(<BOY>, <LAST_ENTITY>);
+            }
+
+            fun prepare_enemy(enemy:ENEMY, x, y) {
+                add_enemy(enemy, x, y);
+
+                attribute(LAST_ENTITY, ROOT, True);
+            }
+
+            fun prepare_pod(entity, x, y) {
+                add_enemy(PLACEHOLDER, x, y);
+                <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+                entity = <LAST_ENTITY>;
+
+                if(arg[0x18] == arg[0x10]) { // start
+                    ROOM.CHAIN_1 = <LAST_ENTITY>;
+
+                    cursor_init(x, y);
+                    pod(x, y, 0x03);
+                } else if(arg[0x18] == arg[0x12]) { // end
+                    pod(x, y, 0x03);
+                } else if(arg[0x18] == arg[0x14]) { // node
+                    pod(x, y, 0x01);
+                } else if(arg[0x18] == arg[0x16]) { // node
+                    pod(x, y, 0x01);
+                }
+
+                arg[0x18]++;
+            }
+        };
+
+        fun trigger_enter() {
+            // object[0x00] = 0x06; // open gate_north
+            // object[0x01] = 0x06; // gate_south
+            // object[0x02] = 0x03; // open pod_left_1
+            // object[0x03] = 0x03; // open pod_left_2
+            // object[0x04] = 0x03; // open pod_left_3
+            // object[0x05] = 0x03; // open pod_left_4
+            // object[0x06] = 0x03; // open pod_right_1
+            // object[0x07] = 0x03; // open pod_right_2
+            // object[0x08] = 0x03; // open pod_right_3
+            // object[0x09] = 0x03; // open pod_right_4
+            // object[0x0a] = 0x02; // open gourd
+
+            if(False) {
+                set_camera(TILE_CENTER, 0d45, 0d72, 0x80);
+                wait(CAMERA_PAN_X);
+                wait(CAMERA_PAN_Y);
+                free_camera();
+            }
+            
+
+            CUSTOM_FLAG.NO_DOG = True;
+            fade_in();
+
+            // control(NONE);
+            attribute(BOY, INVISIBLE, True);
+            add_player_sprite(DUSTER_BOT);
+            attribute(BOY, ROOT, True);
+            MEMORY.PACIFIED = True;
+
+            arg[0x10] = randrange(0d8); // start
+            while((arg[0x12] == 0d0) || (arg[0x12] == arg[0x10])) { // end
+                arg[0x12] = randrange(0d8);
+            }
+            while((arg[0x14] == 0d0) || (arg[0x14] == arg[0x10]) || (arg[0x14] == arg[0x12])) { // node
+                arg[0x14] = randrange(0d8);
+            }
+            while((arg[0x16] == 0d0) || (arg[0x16] == arg[0x10]) || (arg[0x16] == arg[0x12]) || (arg[0x16] == arg[0x14])) { // node
+                arg[0x16] = randrange(0d8);
+            }
+
+            prepare_pod(ROOM.TESLA_ID_LEFT_1, ROOM.COLUMN_LEFT, ROOM.ROW_1);
+            prepare_pod(ROOM.TESLA_ID_LEFT_2, ROOM.COLUMN_LEFT, ROOM.ROW_2);
+            prepare_pod(ROOM.TESLA_ID_LEFT_3, ROOM.COLUMN_LEFT, ROOM.ROW_3);
+            prepare_pod(ROOM.TESLA_ID_LEFT_4, ROOM.COLUMN_LEFT, ROOM.ROW_4);
+            prepare_pod(ROOM.TESLA_ID_RIGHT_1, ROOM.COLUMN_RIGHT, ROOM.ROW_1);
+            prepare_pod(ROOM.TESLA_ID_RIGHT_2, ROOM.COLUMN_RIGHT, ROOM.ROW_2);
+            prepare_pod(ROOM.TESLA_ID_RIGHT_3, ROOM.COLUMN_RIGHT, ROOM.ROW_3);
+            prepare_pod(ROOM.TESLA_ID_RIGHT_4, ROOM.COLUMN_RIGHT, ROOM.ROW_4);
+
+            if(False) {
+                cursor_init(ROOM.COLUMN_LEFT, ROOM.ROW_1);
+                pod(ROOM.CURSOR_X, ROOM.CURSOR_Y, 0x03);
+                pod(ROOM.COLUMN_RIGHT, ROOM.ROW_4, 0x03);
+                pod(ROOM.COLUMN_LEFT, ROOM.ROW_3, 0x01);
+                
+                ROOM.CHAIN_1 = ROOM.TESLA_ID_LEFT_1;
+            }
+            tesla_chain_watcher();
+
+            if(False) {
+                prepare_enemy(GUARD_BOT, 0d45, 0d72);
+            } else if(False) {
+                prepare_enemy(GUARD_BOT, ROOM.COLUMN_RIGHT, ROOM.ROW_1);
+            }
+
+            while(ROOM.POINTS < ROOM.POINTS_GOAL) {
+                // debug_memory(CUSTOM_MEMORY.INPUT_P1, CUSTOM_MEMORY.INPUT_P1 & 0x0400);
+
+                if(CUSTOM_MEMORY.INPUT_P1 & 0x0800) { // north
+                    sleep(ROOM.DEBOUNCE);
+                    if(CUSTOM_MEMORY.INPUT_P1 & 0x0800) {
+                        cursor(NORTH);
+
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x0800) {
+                            sleep(ROOM.DEBOUNCE);
+                        }
+                    }
+                } else if(CUSTOM_MEMORY.INPUT_P1 & 0x0100) { // east
+                    sleep(ROOM.DEBOUNCE);
+                    if(CUSTOM_MEMORY.INPUT_P1 & 0x0100) {
+                        cursor(EAST);
+
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x0100) {
+                            sleep(ROOM.DEBOUNCE);
+                        }
+                    }
+                } else if(CUSTOM_MEMORY.INPUT_P1 & 0x0400) { // south
+                    sleep(ROOM.DEBOUNCE);
+                    if(CUSTOM_MEMORY.INPUT_P1 & 0x0400) {
+                        cursor(SOUTH);
+
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x0400) {
+                            sleep(ROOM.DEBOUNCE);
+                        }
+                    }
+                } else if(CUSTOM_MEMORY.INPUT_P1 & 0x0200) { // west
+                    sleep(ROOM.DEBOUNCE);
+                    if(CUSTOM_MEMORY.INPUT_P1 & 0x0200) {
+                        cursor(WEST);
+
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x0200) {
+                            sleep(ROOM.DEBOUNCE);
+                        }
+                    }
+                } else if(CUSTOM_MEMORY.INPUT_P1 & 0x8000) { // b
+                    sleep(ROOM.DEBOUNCE);
+                    if(CUSTOM_MEMORY.INPUT_P1 & 0x8000) {
+                        cursor_enter();
+
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x8000) {
+                            sleep(ROOM.DEBOUNCE);
+                        }
+                    }
+                } else if(CUSTOM_MEMORY.INPUT_P1 & 0x0080) { // a
+                    sleep(ROOM.DEBOUNCE);
+                    if(CUSTOM_MEMORY.INPUT_P1 & 0x0080) {
+                        cursor_back();
+
+                        while(CUSTOM_MEMORY.INPUT_P1 & 0x0080) {
+                            sleep(ROOM.DEBOUNCE);
+                        }
+                    }
+                }
+
+                sleep(ROOM.DEBOUNCE);
+            }
+
+            if(ROOM.DEBUG) {
+                subtext("yatta");
+            }
+
+            room_hacked();
+
+            exit_room();
+        }
+    };
+};
+
 area shrine_area() {
     map shrine(VILLAGE) {
         // sniff=vanilla
@@ -7186,26 +7923,34 @@ area west_inbetwixx() {
     map west_inbetwixx(EAST_JUNGLE) {
         // sniff=vanilla
 
-        enum entrance {
-            north = entrance(0x12, 0x09, SOUTH),
-            east_1 = entrance(0x6d, 0x11, WEST),
-            east_2 = entrance(0x6d, 0x23, WEST),
-            east_3 = entrance(0x6d, 0x35, WEST),
-            west = entrance(0x01, 0x37, EAST),
-        }
-
-        enum soundtrack {
-            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
-        }
-
         enum ROOM {
             BRANCH_USED = memory(FLAG, SRAM),
 
             FAKE_SLASH_GRASS_X = memory(WORD, TEMP),
             FAKE_SLASH_GRASS_Y = memory(WORD, TEMP),
 
-            CODE_BOT_DIG_COUNTER = memory(WORD, TEMP),
-            CODE_BOT_DIG = 0d100,
+            CODE_BOT_HACKED = memory(FLAG, TEMP),
+            CODE_BOT_DIG_COUNT = 0d100,
+            CODE_BOT_X = 0d45,
+            CODE_BOT_Y = 0d78,
+        }
+
+        enum entrance {
+            north = entrance(0x12, 0x09, SOUTH),
+            east_1 = entrance(0x6d, 0x11, WEST),
+            east_2 = entrance(0x6d, 0x23, WEST),
+            east_3 = entrance(0x6d, 0x35, WEST),
+            west = entrance(0x01, 0x37, EAST),
+
+            code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+                ROOM.CODE_BOT_HACKED = True;
+
+                hacking_wakeup(0d32, -0d8, 0d24, -0d24);
+            }),
+        }
+
+        enum soundtrack {
+            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
         }
 
         enum BOSS {
@@ -7402,11 +8147,7 @@ area west_inbetwixx() {
                 subtext("prisoner ahead and then bonfire!");
             }));
 
-            archaeology_dig(0d45, 0d78, ROOM.CODE_BOT_DIG_COUNTER, ROOM.CODE_BOT_DIG, reference(@install() {
-                guard_archaeology_dig(False, ROOM.CODE_BOT_DIG_COUNTER);
-
-                add_code_bot(0d45, 0d78, 0x00);
-            }), True);
+            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, 0x00, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
         }
     };
 
