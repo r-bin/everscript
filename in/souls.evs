@@ -428,7 +428,7 @@ group non_maps() {
             // areas
             WITH_ENDBOSS = True,
             WITH_BOAT_RIDE = False,
-            WITH_CODE = False,
+            WITH_CODE = True,
             WITH_SATURN_ROOM = True,
             WITH_METRO = True,
 
@@ -2237,6 +2237,68 @@ group non_maps() {
             }
         };
 
+        group code() {
+            enum CODE_RIDDLE {
+                DEBUG = False,
+                DEBUG_LEVERS = True,
+
+                SECRET_CODE = memory(BYTE, SRAM), // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
+
+                CODE_RED = 0d0,
+                CODE_BLUE = 0d1,
+                CODE_GREEN = 0d2,
+            }
+
+            fun plot_code() {
+                arg[0x10] = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3; // rgb_1
+                arg[0x12] = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3; // rgb_2
+                arg[0x14] = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3; // rgb_3
+                arg[0x16] = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1; // right
+                arg[0x18] = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1; // left
+
+                if(CODE_RIDDLE.DEBUG) {
+                    debug_memory(arg[0x18], arg[0x16]);
+                    sleep(0d120);
+                    debug_memory(arg[0x10], arg[0x12], arg[0x14]);
+                    sleep(0d120);
+                    debug_memory(CODE_RIDDLE.SECRET_CODE);
+                }
+            }
+            fun create_code() {
+                // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
+                
+                arg[0x10] = randrange(0d3); // rgb_1
+                arg[0x12] = randrange(0d3); // rgb_2
+                arg[0x14] = randrange(0d3); // rgb_3
+                arg[0x16] = randrange(0d2); // right
+                arg[0x18] = randrange(0d2); // left
+                
+                CODE_RIDDLE.SECRET_CODE = (arg[0x18] << 0d7) + (arg[0x16] << 0d6) + (arg[0x14] << 0d4) + (arg[0x12] << 0d2) + (arg[0x10] << 0d0);
+
+                if(CODE_RIDDLE.DEBUG) {
+                    plot_code();
+                }
+            }
+
+            fun safe_create_code() {
+                while!(CUSTOM_MEMORY.INPUT_P1) {
+                    sleep(randrange(0d60));
+                }
+                sleep(randrange(0d60));
+                while!(CUSTOM_MEMORY.INPUT_P1) {
+                    sleep(randrange(0d60));
+                }
+                sleep(randrange(0d60));
+                while!(CUSTOM_MEMORY.INPUT_P1) {
+                    sleep(randrange(0d60));
+                }
+
+                while!(CODE_RIDDLE.SECRET_CODE) {
+                    create_code();
+                }
+            }
+        };
+
         @install()
         @async()
         fun sterling_rats_scanner(x, y) {
@@ -2406,16 +2468,67 @@ group non_maps() {
                     }));
                 } else {
                     attach_script(LAST_ENTITY, B, reference(@install() {
+                        arg[0x10] = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1; // left
+                        arg[0x12] = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1; // right
+                        arg[0x14] = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3; // rgb_1
+                        arg[0x16] = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3; // rgb_2
+                        arg[0x18] = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3; // rgb_3
+
                         if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_1) {
-                            dialog("[SLOW]_ _  _ _ 1[B]");
+                            // dialog("[SLOW]_ _  _ _ 1[B]");
+
+                            if(False) {
+                                MEMORY.STRING_PARAMETER_1 = arg[0x18];
+                                dialog("[SLOW]_ _  _ _ [MEM1][B]");
+                            } else {
+                                if(arg[0x18] == CODE_RIDDLE.CODE_RED) {
+                                    dialog("[SLOW]_ _  _ _ R[B]");
+                                } else if(arg[0x18] == CODE_RIDDLE.CODE_GREEN) {
+                                    dialog("[SLOW]_ _  _ _ G[B]");
+                                } else if(arg[0x18] == CODE_RIDDLE.CODE_BLUE) {
+                                    dialog("[SLOW]_ _  _ _ B[B]");
+                                }
+                            }
                         } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_2) {
-                            dialog("[SLOW]_ _  _ 2 _[B]");
+                            // dialog("[SLOW]_ _  _ 2 _[B]");
+
+                            if(False) {
+                                MEMORY.STRING_PARAMETER_1 = arg[0x16];
+                                dialog("[SLOW]_ _  _ [MEM1] _[B]");
+                            } else {
+                                if(arg[0x16] == CODE_RIDDLE.CODE_RED) {
+                                    dialog("[SLOW]_ _  _ R _[B]");
+                                } else if(arg[0x16] == CODE_RIDDLE.CODE_GREEN) {
+                                    dialog("[SLOW]_ _  _ G _[B]");
+                                } else if(arg[0x16] == CODE_RIDDLE.CODE_BLUE) {
+                                    dialog("[SLOW]_ _  _ B _[B]");
+                                }
+                            }
                         } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_3) {
-                            dialog("[SLOW]_ _  3 _ _[B]");
+                            // dialog("[SLOW]_ _  3 _ _[B]");
+
+                            if(False) {
+                                MEMORY.STRING_PARAMETER_1 = arg[0x14];
+                                dialog("[SLOW]_ _  [MEM1] _ _[B]");
+                            } else {
+                                if(arg[0x14] == CODE_RIDDLE.CODE_RED) {
+                                    dialog("[SLOW]_ _  R _ _[B]");
+                                } else if(arg[0x14] == CODE_RIDDLE.CODE_GREEN) {
+                                    dialog("[SLOW]_ _  G _ _[B]");
+                                } else if(arg[0x14] == CODE_RIDDLE.CODE_BLUE) {
+                                    dialog("[SLOW]_ _  B _ _[B]");
+                                }
+                            }
                         } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_4) {
-                            dialog("[SLOW]_ 4  _ _ _[B]");
+                            // dialog("[SLOW]_ 4  _ _ _[B]");
+
+                            MEMORY.STRING_PARAMETER_1 = arg[0x12];
+                            dialog("[SLOW]_ [MEM1]  _ _ _[B]");
                         } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_5) {
-                            dialog("[SLOW]5 _  _ _ _[B]");
+                            // dialog("[SLOW]5 _  _ _ _[B]");
+
+                            MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                            dialog("[SLOW][MEM1] _  _ _ _[B]");
                         } else {
                             dialog("[SLOW]…[B]");
                         }
@@ -2538,7 +2651,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(bugmuck, north_1, NONE);
+                map_transition(control_room, east, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -7365,6 +7478,8 @@ area inbetwixx_center() {
                 add_enemy(BOXER_1, 0x13, 0x47);
                 // attach_script(LAST_ENTITY, 0x100, reference(@install() { if(dead(<SCRIPT_OWNER>)) { subtext("true"); } else { subtext("false"); } }));
             }
+
+            safe_create_code();
         }
     };
 };
@@ -28634,13 +28749,9 @@ area desert_bug() {
 
 area metro() {
     enum AREA_METRO {
-        DEBUG_CODE = True,
-        
         MUSIC_DEFAULT = MUSIC.SPACE,
 
         LEVER_REACTOR_ROOM = memory(FLAG, SRAM), // generator on (light on, computers active)
-
-        SECRET_CODE = memory(BYTE, SRAM), // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
     }
 
     group helper_metro() {
@@ -28653,35 +28764,6 @@ area metro() {
                 error_message(SWITCH_ENERGY, direction);
                 end();
             }
-        }
-
-        fun plot_code() {
-            arg[0x10] = (AREA_METRO.SECRET_CODE >> 0d0) & 0x3; // rgb_1
-            arg[0x12] = (AREA_METRO.SECRET_CODE >> 0d2) & 0x3; // rgb_2
-            arg[0x14] = (AREA_METRO.SECRET_CODE >> 0d4) & 0x3; // rgb_3
-            arg[0x16] = (AREA_METRO.SECRET_CODE >> 0d6) & 0x1; // right
-            arg[0x18] = (AREA_METRO.SECRET_CODE >> 0d7) & 0x1; // left
-
-            if(AREA_METRO.DEBUG_CODE) {
-                debug_memory(arg[0x18], arg[0x16]);
-                sleep(0d120);
-                debug_memory(arg[0x10], arg[0x12], arg[0x14]);
-                sleep(0d120);
-                debug_memory(AREA_METRO.SECRET_CODE);
-            }
-        }
-        fun create_code() {
-            // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
-            
-            arg[0x10] = randrange(0d3); // rgb_1
-            arg[0x12] = randrange(0d3); // rgb_2
-            arg[0x14] = randrange(0d3); // rgb_3
-            arg[0x16] = randrange(0d2); // right
-            arg[0x18] = randrange(0d2); // left
-            
-            AREA_METRO.SECRET_CODE = (arg[0x18] << 0d7) + (arg[0x16] << 0d6) + (arg[0x14] << 0d4) + (arg[0x12] << 0d2) + (arg[0x10] << 0d0);
-
-            // plot_code();
         }
     };
 
@@ -29562,10 +29644,6 @@ area metro() {
             add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D3_D4); }));
 
             default_init_room(False, False);
-
-            while!(AREA_METRO.SECRET_CODE) {
-                create_code();
-            }
         }
     };
 
@@ -29883,11 +29961,11 @@ area metro() {
 
                 CODE_SOLVED = memory(FLAG, SRAM),
 
-                CODE_1 = (AREA_METRO.SECRET_CODE >> 0d7) & 0x1, // left
-                CODE_2 = (AREA_METRO.SECRET_CODE >> 0d6) & 0x1, // right
-                CODE_3 = (AREA_METRO.SECRET_CODE >> 0d0) & 0x3, // rgb_1
-                CODE_4 = (AREA_METRO.SECRET_CODE >> 0d2) & 0x3, // rgb_2
-                CODE_5 = (AREA_METRO.SECRET_CODE >> 0d4) & 0x3, // rgb_3
+                CODE_1 = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1, // left
+                CODE_2 = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1, // right
+                CODE_3 = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3, // rgb_1
+                CODE_4 = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3, // rgb_2
+                CODE_5 = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3, // rgb_3
             }
 
             fun check_code() {
@@ -29898,7 +29976,7 @@ area metro() {
                 arg[0x18] = ROOM.CODE_1;
 
                 if!(ROOM.SWITCH_LEFT == arg[0x18]) {
-                    if(AREA_METRO.DEBUG_CODE) {
+                    if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
                         debug_subtext("lever left wrong");
                         sleep(0d60);
                         debug_memory(ROOM.SWITCH_LEFT, arg[0x18]);
@@ -29908,7 +29986,7 @@ area metro() {
                     end();
                 }
                 if!(ROOM.SWITCH_RIGHT == arg[0x16]) {
-                    if(AREA_METRO.DEBUG_CODE) {
+                    if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
                         debug_subtext("lever right wrong");
                         sleep(0d60);
                         debug_memory(ROOM.SWITCH_RIGHT, arg[0x16]);
@@ -29919,7 +29997,7 @@ area metro() {
                 }
 
                 if!(ROOM.SWITCH_RGB_1 == arg[0x10]) {
-                    if(AREA_METRO.DEBUG_CODE) {
+                    if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
                         debug_subtext("lever code_3 wrong");
                         sleep(0d60);
                         debug_memory(ROOM.SWITCH_RGB_1, arg[0x10]);
@@ -29929,7 +30007,7 @@ area metro() {
                     end();
                 }
                 if!(ROOM.SWITCH_RGB_2 == arg[0x12]) {
-                    if(AREA_METRO.DEBUG_CODE) {
+                    if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
                         debug_subtext("lever code_4 wrong");
                         sleep(0d60);
                         debug_memory(ROOM.SWITCH_RGB_2, arg[0x12]);
@@ -29939,7 +30017,7 @@ area metro() {
                     end();
                 }
                 if!(ROOM.SWITCH_RGB_3 == arg[0x14]) {
-                    if(AREA_METRO.DEBUG_CODE) {
+                    if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
                         debug_subtext("lever code_5 wrong");
                         sleep(0d60);
                         debug_memory(ROOM.SWITCH_RGB_3, arg[0x14]);
@@ -29957,9 +30035,27 @@ area metro() {
                 object[0x00] = ROOM.SWITCH_LEFT; // toggle lever_1
                 object[0x01] = ROOM.SWITCH_RIGHT; // toggle lever_2
 
-                object[0x03] = ROOM.SWITCH_RGB_1; // toggle lever_3_1
-                object[0x04] = ROOM.SWITCH_RGB_2; // toggle lever_3_2
-                object[0x05] = ROOM.SWITCH_RGB_3; // toggle lever_3_3
+                if(ROOM.SWITCH_RGB_1 == 0d1) { // toggle lever_3_1
+                    object[0x03] = 0d2;
+                } else if(ROOM.SWITCH_RGB_1 == 0d2) {
+                    object[0x03] = 0d1;
+                } else {
+                    object[0x03] = ROOM.SWITCH_RGB_1;
+                }
+                if(ROOM.SWITCH_RGB_2 == 0d1) { // toggle lever_3_2
+                    object[0x04] = 0d2;
+                } else if(ROOM.SWITCH_RGB_2 == 0d2) {
+                    object[0x04] = 0d1;
+                } else {
+                    object[0x04] = ROOM.SWITCH_RGB_2;
+                }
+                if(ROOM.SWITCH_RGB_3 == 0d1) { // toggle lever_3_3
+                    object[0x05] = 0d2;
+                } else if(ROOM.SWITCH_RGB_3 == 0d2) {
+                    object[0x05] = 0d1;
+                } else {
+                    object[0x05] = ROOM.SWITCH_RGB_3;
+                }
 
                 if(only_visual) {
                     end();
@@ -30012,19 +30108,19 @@ area metro() {
 
                     guard_power(NONE);
 
-                    question("[SLOW]Code 3[CHOICE]RED[CHOICE]YELLOW[CHOICE]GREEN");
+                    question("[SLOW]Code 3[CHOICE]RED[CHOICE]BLUE[CHOICE]GREEN");
                     if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
                         ROOM.SWITCH_RGB_1 = MEMORY.QUESTION_ANSWER;
                         update_switches(True);
                     }
 
-                    question("[SLOW]Code 4[CHOICE]RED[CHOICE]YELLOW[CHOICE]GREEN");
+                    question("[SLOW]Code 4[CHOICE]RED[CHOICE]BLUE[CHOICE]GREEN");
                     if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
                         ROOM.SWITCH_RGB_2 = MEMORY.QUESTION_ANSWER;
                         update_switches(True);
                     }
 
-                    question("[SLOW]Code 5[CHOICE]RED[CHOICE]YELLOW[CHOICE]GREEN");
+                    question("[SLOW]Code 5[CHOICE]RED[CHOICE]BLUE[CHOICE]GREEN");
                     if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
                         ROOM.SWITCH_RGB_3 = MEMORY.QUESTION_ANSWER;
                     }
