@@ -2270,6 +2270,13 @@ group non_maps() {
                 BOY_PICKAXE = 0d30,
 
                 WITH_BOY = False,
+
+                // riddle: code bots
+                CODE_1 = 0x00,
+                CODE_2 = 0x01,
+                CODE_3 = 0x02,
+                CODE_4 = 0x03,
+                CODE_5 = 0x04,
             }
 
             @install()
@@ -2399,15 +2406,15 @@ group non_maps() {
                     }));
                 } else {
                     attach_script(LAST_ENTITY, B, reference(@install() {
-                        if(<BOY>[GENERAL_PURPOSE] == 0x00) {
+                        if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_1) {
                             dialog("[SLOW]_ _  _ _ 1[B]");
-                        } else if(<BOY>[GENERAL_PURPOSE] == 0x01) {
+                        } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_2) {
                             dialog("[SLOW]_ _  _ 2 _[B]");
-                        } else if(<BOY>[GENERAL_PURPOSE] == 0x02) {
+                        } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_3) {
                             dialog("[SLOW]_ _  3 _ _[B]");
-                        } else if(<BOY>[GENERAL_PURPOSE] == 0x10) {
+                        } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_4) {
                             dialog("[SLOW]_ 4  _ _ _[B]");
-                        } else if(<BOY>[GENERAL_PURPOSE] == 0x11) {
+                        } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_5) {
                             dialog("[SLOW]5 _  _ _ _[B]");
                         } else {
                             dialog("[SLOW]…[B]");
@@ -2531,7 +2538,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(ship, west, NONE);
+                map_transition(bugmuck, north_1, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -5100,22 +5107,16 @@ area mini_games() {
                     subtext("exit");
                 }
 
-                if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d0) {
-                    map_transition(west_inbetwixx, code_bot, NONE); // west inbetwixx
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d1) {
-                    nop(); // TODO
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d2) {
-                    nop(); // TODO
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d3) {
-                    nop(); // TODO
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d4) {
-                    nop(); // TODO
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d5) {
-                    nop(); // TODO
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d6) {
-                    nop(); // TODO
-                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == 0d7) {
-                    nop(); // TODO
+                if((<BOY>[GENERAL_PURPOSE] & 0xff) == ARCHAEOLOGY_DIG.CODE_1) {
+                    map_transition(west_inbetwixx, code_bot, NONE);
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == ARCHAEOLOGY_DIG.CODE_2) {
+                    map_transition(cave_left_south_east, code_bot, NONE);
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == ARCHAEOLOGY_DIG.CODE_3) {
+                    map_transition(volcano_tower, code_bot, NONE);
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == ARCHAEOLOGY_DIG.CODE_4) {
+                    map_transition(bugmuck, code_bot, NONE);
+                } else if((<BOY>[GENERAL_PURPOSE] & 0xff) == ARCHAEOLOGY_DIG.CODE_5) {
+                    map_transition(desert, code_bot, NONE);
                 }
             }
 
@@ -8147,7 +8148,7 @@ area west_inbetwixx() {
                 subtext("prisoner ahead and then bonfire!");
             }));
 
-            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, 0x00, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_1, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
         }
     };
 
@@ -8820,6 +8821,20 @@ area altus_plateau_entry() {
             // gourd=vanilla
             // sniff=vannilla
 
+            enum ROOM {
+                COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
+
+                DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
+
+                WITH_WIND = True,
+                WIND_ACTIVE = memory(FLAG, TEMP),
+
+                CODE_BOT_HACKED = memory(FLAG, TEMP),
+                CODE_BOT_DIG_COUNT = 0d100,
+                CODE_BOT_X = 0d39,
+                CODE_BOT_Y = 0d233,
+            }
+
             enum entrance {
                 south = entrance(0x55, 0xf9, NORTH),
                 platform = entrance(0x51, 0x2f, NORTH),
@@ -8827,6 +8842,12 @@ area altus_plateau_entry() {
                 bonfire = entrance(0d67, 0d159, NONE, { bonfire_wakeup(0d0, 0d8, -0d24, 0d0); }),
 
                 crash = entrance(0d23, 0d249, NONE, { crash_both(); }),
+
+                code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+                    ROOM.CODE_BOT_HACKED = True;
+
+                    hacking_wakeup(-0d8, 0d24, 0d24, 0d24);
+                }),
             }
 
             enum soundtrack {
@@ -9036,15 +9057,6 @@ area altus_plateau_entry() {
                 map_transition(windwalker_sidescroller, west, NONE);
             }
 
-            enum ROOM {
-                COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
-
-                DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
-
-                WITH_WIND = True,
-                WIND_ACTIVE = memory(FLAG, TEMP),
-            }
-
             fun start_wind() {
                 while(True) {
                     if(<BOY>[Y] < 0d180) {
@@ -9156,6 +9168,8 @@ area altus_plateau_entry() {
                         reward(DIAMOND_EYE);
                     }));
                 }
+
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
 
                 if(ROOM.WITH_WIND) {
                     start_wind();
@@ -25211,6 +25225,13 @@ area desert_bug() {
     }
 
     map bugmuck(BUGMUCK) {
+        enum ROOM {
+            CODE_BOT_HACKED = memory(FLAG, TEMP),
+            CODE_BOT_DIG_COUNT = 0d100,
+            CODE_BOT_X = 0d138,
+            CODE_BOT_Y = 0d44,
+        }
+
         enum entrance {
             north_1 = entrance(0x0b, 0x01, SOUTH),
             north_2 = entrance(0x1b, 0x01, SOUTH),
@@ -25224,6 +25245,12 @@ area desert_bug() {
             dungeon_west_1 = entrance(0x73, 0x4a, WEST, { dungeon_legs(True); }),
             dungeon_west_2 = entrance(0x73, 0x3e, WEST, { dungeon_legs(True); }),
             dungeon_west_3 = entrance(0x73, 0x34, WEST, { dungeon_legs(True); }),
+
+            code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+                ROOM.CODE_BOT_HACKED = True;
+
+                hacking_wakeup(0d24, 0d0, 0d24, 0d16);
+            }),
         }
 
         enum soundtrack {
@@ -25543,6 +25570,8 @@ area desert_bug() {
             }
             
             default_init_room(False, False);
+
+            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_4, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
 
             add_enemy(PLACEHOLDER, 0d124, 0d18);
             fake_exit_scanner(<LAST_ENTITY>);
@@ -27496,6 +27525,11 @@ area desert_bug() {
                 HAS_SHIP_NORTH = memory(FLAG, TEMP),
                 HAS_SHIP_SOUTH = memory(FLAG, TEMP),
                 HAS_ALCHEMIST = memory(FLAG, TEMP),
+
+                CODE_BOT_HACKED = memory(FLAG, TEMP),
+                CODE_BOT_DIG_COUNT = 0d100,
+                CODE_BOT_X = 0d21,
+                CODE_BOT_Y = 0d150,
             }
 
             enum soundtrack {
@@ -27521,6 +27555,12 @@ area desert_bug() {
                 south = entrance(0x49, 0xc7, NORTH, { desert_screen(0d4, 0d0); }),
 
                 swirl_secret = entrance(0d28, 0d47, NONE, { enter_sandpit(); }),
+
+                code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+                    ROOM.CODE_BOT_HACKED = True;
+
+                    hacking_wakeup(0d0, 0d24, 0d40, 0d40);
+                }),
             }
 
             fun show_oasis(show) {
@@ -27833,6 +27873,8 @@ area desert_bug() {
                 default_init_room(False, False);
                 
                 update_desert();
+
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_5, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
 
                 add_enemy(PLACEHOLDER, 0d21 - 0d4, 0d47);
                 fake_exit_scanner(<LAST_ENTITY>);
@@ -37382,11 +37424,24 @@ area dungeon_volcano() {
             };
 
             map cave_left_south_east(OGLIN_CAVE) { // variant room_3 (U-shape)
+                enum ROOM {
+                    CODE_BOT_HACKED = memory(FLAG, TEMP),
+                    CODE_BOT_DIG_COUNT = 0d100,
+                    CODE_BOT_X = 0d138,
+                    CODE_BOT_Y = 0d218,
+                }
+
                 enum entrance {
                     north_1 = entrance(0x72, 0xd5, SOUTH),
                     north_2 = entrance(0xa4, 0xd5, SOUTH),
 
                     teleporter = entrance(0x89, 0xe0, NONE, { teleporter_in(SOUTH); }),
+
+                    code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+                        ROOM.CODE_BOT_HACKED = True;
+
+                        hacking_wakeup(0d0, 0d24, 0d40, 0d40);
+                    }),
                 }
 
                 enum soundtrack {
@@ -37542,6 +37597,8 @@ area dungeon_volcano() {
 
                     init_room(0d3);
                     default_init_room(False, False);
+
+                    archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_2, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
                 }
             };
             map cave_left_south_west(OGLIN_CAVE) { // variant room_3 (U-shape)
