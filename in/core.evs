@@ -4903,35 +4903,6 @@ group functions() {
         };
 
         group projectile() {
-            fun projectile(source:CHARACTER, throwable:THROWABLE, source_x, source_y, target_x, target_y, z, overshoot) {
-                // (b5) REVEAL ENTITY?? args 26 $2869 $24ab + 20 $24af - 0x30 0 signed arg0 signed arg2 0x3c // thraxx eye
-                // (b5) REVEAL ENTITY?? args 26 boy $2890 $2894 0 $2898 $289a 30 // aegis
-                // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
-                // (b5) REVEAL ENTITY?? args 26 boy $2839 $283b 0 $283d - 8 $283f 1 // professor
-                // (b5) REVEAL ENTITY?? args 26 boy $24ab $24af - 0x28 0 $2861 $2863 - 16 0x78 // boss rush
-
-                // (b5) REVEAL ENTITY?? args 28 boy signed arg0 signed arg2 0 0x32 0x32 0 // bomb 1
-                // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg0 signed arg2 0 0x32 0x28 0 // bomb 2
-
-                // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
-                // (b5) REVEAL ENTITY?? args 30 entity attached to script? signed arg0 signed arg2 0x0140 signed arg0 signed arg2 + 0x20 0 // carltron missile
-                // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg10 signed arg12 0 0x46 0x32 0 // carltron stomp
-
-                code(0xb5, param(throwable), entity_t(source), calculate(source_x), calculate(source_y), param(overshoot), calculate(target_x), calculate(target_y), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            }
-
-            fun shoot_entity_absolute(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot) {
-                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(x), calculate(y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            }
-            fun shoot_entity_relative(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot) {
-                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(entity[X] + x), calculate(entity[Y] + y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            }
-            fun shoot_entity_entity(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot) { // TODO: target=BOY crashes
-                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X]), calculate(target[Y]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            }
-            fun shoot_entity_entity_offset(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, offset_x, offset_y, z, overshoot) { // TODO: target=BOY crashes
-                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X] + offset_x), calculate(target[Y] + offset_y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
-            }
             enum SCALED_VECTOR {
                 DEFAULT = 0d0,
 
@@ -4976,8 +4947,64 @@ group functions() {
                     arg[0x16] = y - arg[0x12];
                 }
             }
+            fun _calculate_scaled_vector_relative(entity, dx, dy, factor:SCALED_VECTOR) {
+                if(factor == SCALED_VECTOR.DEFAULT_HALF) {
+                    arg[0x10] = dx >> 0d1;
+                    arg[0x12] = dy >> 0d1;
+                } else if(factor == SCALED_VECTOR.DEFAULT_QUARTER) {
+                    arg[0x10] = dx >> 0d2;
+                    arg[0x12] = dy >> 0d2;
+                } else if(factor == SCALED_VECTOR.TARGET_PLUS_HALF) {
+                    arg[0x10] = dx + (dx >> 0d1);
+                    arg[0x12] = dy + (dy >> 0d1);
+                } else if(factor == SCALED_VECTOR.TARGET_PLUS_QUARTER) {
+                    arg[0x10] = dx + (dx >> 0d2);
+                    arg[0x12] = dy + (dy >> 0d2);
+                } else if(factor == SCALED_VECTOR.TARGET_MINUS_HALF) {
+                    arg[0x10] = dx - (dx >> 0d1);
+                    arg[0x12] = dy - (dy >> 0d1);
+                } else if(factor == SCALED_VECTOR.TARGET_MINUS_QUARTER) {
+                    arg[0x10] = dx - (dx >> 0d2);
+                    arg[0x12] = dy - (dy >> 0d2);
+                }
+            }
             fun calculate_scaled_vector(entity, target, factor:SCALED_VECTOR) {
                 _calculate_scaled_vector(entity, target[X], target[Y], factor);
+            }
+
+            fun projectile(source:CHARACTER, throwable:THROWABLE, source_x, source_y, target_x, target_y, z, overshoot) {
+                // (b5) REVEAL ENTITY?? args 26 $2869 $24ab + 20 $24af - 0x30 0 signed arg0 signed arg2 0x3c // thraxx eye
+                // (b5) REVEAL ENTITY?? args 26 boy $2890 $2894 0 $2898 $289a 30 // aegis
+                // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
+                // (b5) REVEAL ENTITY?? args 26 boy $2839 $283b 0 $283d - 8 $283f 1 // professor
+                // (b5) REVEAL ENTITY?? args 26 boy $24ab $24af - 0x28 0 $2861 $2863 - 16 0x78 // boss rush
+
+                // (b5) REVEAL ENTITY?? args 28 boy signed arg0 signed arg2 0 0x32 0x32 0 // bomb 1
+                // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg0 signed arg2 0 0x32 0x28 0 // bomb 2
+
+                // (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20 // vigor mob
+                // (b5) REVEAL ENTITY?? args 30 entity attached to script? signed arg0 signed arg2 0x0140 signed arg0 signed arg2 + 0x20 0 // carltron missile
+                // (b5) REVEAL ENTITY?? args 28 entity attached to script? signed arg10 signed arg12 0 0x46 0x32 0 // carltron stomp
+
+                code(0xb5, param(throwable), entity_t(source), calculate(source_x), calculate(source_y), param(overshoot), calculate(target_x), calculate(target_y), param(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+
+            fun shoot_entity_absolute(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot) {
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(x), calculate(y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_relative(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot) {
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(entity[X] + x), calculate(entity[Y] + y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_relative_scaled(entity:CHARACTER, projectile:THROWABLE, x, y, z, overshoot, factor:SCALED_VECTOR) {
+                _calculate_scaled_vector_relative(entity, x, y, factor);
+
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(entity[X] + signed arg[0x10]), calculate(entity[Y] + signed arg[0x12]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_entity(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot) { // TODO: target=BOY crashes
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X]), calculate(target[Y]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_entity_offset(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, offset_x, offset_y, z, overshoot) { // TODO: target=BOY crashes
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X] + offset_x), calculate(target[Y] + offset_y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun shoot_entity_entity_scaled(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot, factor:SCALED_VECTOR) { // TODO: target=BOY crashes
                 calculate_scaled_vector(entity, target, factor);
@@ -5005,6 +5032,22 @@ group functions() {
                 _calculate_scaled_vector(entity, x, y, factor);
 
                 bomb_absolute(entity, arg[0x14], arg[0x16], size, damage);
+            }
+            fun bomb_relative(entity:CHARACTER, x, y, size, damage) {
+                if(damage !is None) {
+                    MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                }
+                
+                code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity[X] + x), calculate(entity[Y] + y), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun bomb_relative_scaled(entity:CHARACTER, x, y, size, damage, factor:SCALED_VECTOR) {
+                if(damage !is None) {
+                    MEMORY.NEXT_PROJECTILE_DAMAGE = damage;
+                }
+
+                _calculate_scaled_vector_relative(entity, x, y, factor);
+                
+                code(0xb5, param(THROWABLE.BOMB_EXPLOSION), entity_t(entity), calculate(entity[X] + signed arg[0x10]), calculate(entity[Y] + signed arg[0x12]), param(0x00), param(size), param(size), param(0x00), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun bomb_entity(entity:CHARACTER, size, damage) {
                 if(damage !is None) {
@@ -11433,21 +11476,75 @@ group functions() {
             damage(target, 0d10, True);
         }
 
+        fun _scale_vector_max(entity_source, x, y, length_max) {
+            if(entity_source[X] > x) {
+                arg[0x10] = entity_source[X] - x;
+            } else {
+                arg[0x10] = x - entity_source[X];
+            }
+            if(entity_source[Y] > y) {
+                arg[0x12] = entity_source[Y] - y;
+            } else {
+                arg[0x12] = y - entity_source[Y];
+            }
+
+            arg[0x18] = x - entity_source[X];
+            arg[0x1a] = y - entity_source[Y];
+
+            if(True) {
+                while((arg[0x14] == 0d0) || (arg[0x14] > (0d0002 * length_max))) {
+                    arg[0x0c]++;
+
+                    if(arg[0x10] > arg[0x12]) {
+                        arg[0x14] = arg[0x10] + (arg[0x12] >> 0d1);
+                    } else {
+                        arg[0x14] = arg[0x12] + (arg[0x10] >> 0d1);
+                    }
+
+                    if(arg[0x14] > (0d0002 * length_max)) {
+                        signed arg[0x10] >>= 0d1;
+                        signed arg[0x12] >>= 0d1;
+
+                        signed arg[0x18] >>= 0d1;
+                        signed arg[0x1a] >>= 0d1;
+                    }
+                }
+            }
+
+            if(arg[0x14] > 0xff) { // division only worths with 8bit divisors
+                arg[0x14] = 0xff;
+            }
+
+            if(arg[0x14] > length_max) {
+                arg[0x16] = (length_max << 0d0005) / arg[0x14];
+
+                signed arg[0x18] *= signed arg[0x16];
+                signed arg[0x18] >>= 0d5;
+
+                signed arg[0x1a] *= signed arg[0x16];
+                signed arg[0x1a] >>= 0d5;
+            }
+        }
+        fun scale_vector_max(entity_source, entity_target, length_max) {
+            _scale_vector_max(entity_source, entity_target[X], entity_target[Y], length_max);
+        }
+
         @install()
         @weak()
         fun _projectile_beam(entity, x, y, tick, duration) {
-            // shoot_entity_absolute(entity, LIGHTNING, x, y, 0d10, 0d0);
+            _scale_vector_max(entity, x, y, 0d100);
+
             if(tick < 0d2) {
-                shoot_entity_absolute_scaled(entity, LIGHTNING, x, y, 0d10, 0d0, DEFAULT_QUARTER);
+                shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, DEFAULT_QUARTER);
 
                 while(duration) {
                     duration--;
 
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d1, DEFAULT_QUARTER);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d1, DEFAULT_QUARTER);
                     yield();
                 }
             } else if(tick < 0d3) {
-                shoot_entity_absolute_scaled(entity, LIGHTNING, x, y, 0d10, 0d0, DEFAULT_HALF);
+                shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, DEFAULT_HALF);
 
                 while(duration) {
                     if(duration > 0d2) {
@@ -11456,13 +11553,13 @@ group functions() {
                         duration = 0d0;
                     }
                     
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, DEFAULT_QUARTER);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_QUARTER);
                     yield();
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, DEFAULT_HALF);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_HALF);
                     yield();
                 }
             } else if(tick < 0d5) {
-                shoot_entity_absolute(entity, LIGHTNING, x, y, 0d10, 0d0);
+                shoot_entity_relative(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0);
 
                 while(duration) {
                     if(duration > 0d3) {
@@ -11471,15 +11568,15 @@ group functions() {
                         duration = 0d0;
                     }
                     
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, DEFAULT_QUARTER);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_QUARTER);
                     yield();
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, DEFAULT_HALF);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_HALF);
                     yield();
-                    bomb_absolute(entity, x, y, 0d15, 0d0);
+                    bomb_absolute(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0);
                     yield();
                 }
             } else {
-                shoot_entity_absolute_scaled(entity, LIGHTNING, x, y, 0d10, 0d0, TARGET_PLUS_HALF);
+                shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, TARGET_PLUS_HALF);
 
                 while(duration) {
                     if(duration > 0d4) {
@@ -11488,13 +11585,15 @@ group functions() {
                         duration = 0d0;
                     }
                     
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, DEFAULT_QUARTER);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_QUARTER);
                     yield();
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, DEFAULT_HALF);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_HALF);
                     yield();
-                    bomb_absolute(entity, x, y, 0d15, 0d0);
+                    bomb_absolute(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0);
                     yield();
-                    bomb_absolute_scaled(entity, x, y, 0d15, 0d0, TARGET_PLUS_HALF);
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, TARGET_MINUS_QUARTER);
+                    yield();
+                    bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, TARGET_PLUS_HALF);
                     yield();
                 }
             }
@@ -11516,6 +11615,7 @@ group functions() {
 
             while(arg[0x0e] < ticks) {
                 arg[0x0e]++;
+                sound(TESLA);
 
                 face_target(SCRIPT_OWNER, ACTIVE);
                 _projectile_beam(<SCRIPT_OWNER>, arg[0x10], arg[0x12], arg[0x0e], 0d15);
