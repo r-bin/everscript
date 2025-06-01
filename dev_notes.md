@@ -32,7 +32,6 @@
 ## market: x roots : 1 essence
 ## metro: after toaster arena a single gate bot respawns
 ## drone arena: ending glitchy (65k/10, fight is not ending)
-## abomination: buggy
 ## Crafter = Archeologist = hints for robotos (fossils)
 ## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
 
