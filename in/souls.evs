@@ -1251,8 +1251,7 @@ group non_maps() {
             full_heal(BOTH, with_animation);
         }
 
-        @install()
-        fun boy_death() {
+        fun _boy_death() {
             if((<SCRIPT_OWNER> == <BOY>) && (<BOY>[HP] > 0d0)) {
                 CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
 
@@ -1280,10 +1279,16 @@ group non_maps() {
                 }
             }
 
+            currency_get(CURRENCY.CREDITS, 0d1);
+
             control(NONE);
             enable_subtext(False);
             attribute(BOY, INVINCIBLE_TEMP, True);
             attribute(DOG, INVINCIBLE_TEMP, True);
+        }
+        @install()
+        fun boy_death() {
+            _boy_death();
 
             yield();
             
@@ -1315,8 +1320,6 @@ group non_maps() {
                 SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
 
                 if!(CUSTOM_FLAG.NO_CURRENCY_DISPLAY) {
-                    currency_get(CURRENCY.CREDITS, 0d1);
-
                     show_currency(True);
                 }
             }
@@ -2041,6 +2044,10 @@ group non_maps() {
 
             if(SYSTEM.WITH_DEBUG_START) {
                 debug_memory(arg[0x0e], required_strength, <BOY>[BOOST_ATTACK]);
+            }
+
+            if((MEMORY.GLOVE_2_2 > 0d0) || (MEMORY.GLOVE_2_3 > 0d0) || (FLAG.ATLAS)) {
+                subtext("(Too heavy)");
             }
 
             if(arg[0x0e] < required_strength) {
@@ -7907,6 +7914,18 @@ area north_inbetwixx() {
                         nop();
                     }
 
+                    arg[0x12]++;
+
+                    if(arg[0x12] > 0d20) {
+                        if(BOSS.DEBUG) {
+                            // debug_memory(BOSS.RNG, 0d0);
+                            // debug_subtext("reroll");
+                            nop();
+                        }
+
+                        end();
+                    }
+
                     yield();
                 }
             }
@@ -8066,7 +8085,7 @@ area north_inbetwixx() {
             if!(SOULS_MEMORY.DEAD_GIDEON) {
                 // attribute(BOY, INVINCIBLE_TEMP, True);
 
-                if(BOSS.DEBUG_ABILITIES) {
+                if(BOSS.DEBUG && BOSS.DEBUG_ABILITIES) {
                     <BOY>[HP] = SYSTEM.HP_MAX;
                     
                     // SOULS_MEMORY.DEAD_MONSTRO = True;
@@ -28807,11 +28826,63 @@ area metro() {
         MUSIC_DEFAULT = MUSIC.SPACE,
 
         LEVER_REACTOR_ROOM = memory(FLAG, SRAM), // generator on (light on, computers active)
+        REGENERATION_INN_ROOM = memory(FLAG, SRAM), // regeneration active (no bonfire teleportation)
     }
 
     group helper_metro() {
-        fun start_helper() {
-            CUSTOM_FLAG.NO_START = True;
+        fun metro_death_trigger(callback) {
+            _boy_death();
+
+            yield();
+
+            control(NONE);
+            
+            if(False) {
+                animate(BOY, ONCE, ANIMATION_ENEMY.DUST);
+                animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
+            }
+
+            sleep(0d60);
+
+            if(False) {
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
+                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT2_TELEPORT);
+            } else {
+                teleporter_animation_out(<BOY>);
+
+                if!(FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY) {
+                    teleporter_animation_out(<DOG>);
+                }
+            }
+
+            sleep(0d60);
+
+            fade_out();
+            refresh_both(False);
+            
+            callback();
+        }
+
+        @install()
+        fun _default_metro_init_room() {
+            if!(FLAG.ENERGY_CORE) {
+                CUSTOM_FLAG.NO_START = True;
+            }
+        }
+        fun default_metro_init_room(death_trigger) {
+            default_init_room(False, False);
+
+            _default_metro_init_room();
+
+            if(death_trigger !is None) {
+                if(AREA_METRO.REGENERATION_INN_ROOM) {
+                    if!(CUSTOM_FLAG.NO_BOY) {
+                        attach_script(BOY, DAMAGE_DEATH, death_trigger);
+                    } else {
+                        attach_script(DOG, DAMAGE_DEATH, death_trigger);
+                    }
+                }
+            }
         }
 
         fun guard_power(direction:DIRECTION) {
@@ -28828,13 +28899,13 @@ area metro() {
             COLUMN_2 = 0d82,
             COLUMN_3 = 0d146,
             COLUMN_4 = 0d210,
-            COLUMN_CENTER = 0d84,
+            COLUMN_CENTER = 0d114,
 
             ROW_1 = 0d18,
             ROW_2 = 0d62,
             ROW_3 = 0d106,
             ROW_4 = 0d150,
-            ROW_CENTER = 0d114,
+            ROW_CENTER = 0d84,
 
             WITH_BROKEN_GATE_BOT = False, // TODO: buggy, also weird in vanilla
             GUARD_BOT_HP = 0d20,
@@ -28915,6 +28986,8 @@ area metro() {
             door_d1 = entrance(ROOM.COLUMN_1, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x16); }),
             door_d3 = entrance(ROOM.COLUMN_3, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x15); }),
             door_d4 = entrance(ROOM.COLUMN_4, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x14); }),
+
+            door_center = entrance(ROOM.COLUMN_CENTER, ROOM.ROW_CENTER, NONE, { door_act4_airlock_in(0x25); }),
         }
         
         enum soundtrack {
@@ -29413,7 +29486,7 @@ area metro() {
                 }
 
                 if!(SOULS_MEMORY.DEAD_FINAL_BOSS) {
-                    door_act4_airlock_out(ROOM.ROW_CENTER, ROOM.COLUMN_CENTER, 0x25);
+                    door_act4_airlock_out(ROOM.COLUMN_CENTER, ROOM.ROW_CENTER, 0x25);
 
                     map_transition(metro_rooms_true_ending, center, NONE);
                 } else {
@@ -29678,8 +29751,6 @@ area metro() {
         }        
 
         fun trigger_enter() {
-            start_helper();
-
             add_gate_bot(ROOM.GATE_ID_A1_A2, 0d50, 0d13, ROOM.GATE_OPENED_A1_A2, 0x2e, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A1_A2); }));
             add_gate_bot(ROOM.GATE_ID_A1_B1, 0d18, 0d34, ROOM.GATE_OPENED_A1_B1, 0x20, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A1_B1); }));
             add_gate_bot(ROOM.GATE_ID_A2_B2, 0d82, 0d34, ROOM.GATE_OPENED_A2_B2, 0x01, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_A2_B2); }));
@@ -29699,7 +29770,7 @@ area metro() {
             add_gate_bot(ROOM.GATE_ID_D2_D3, 0d114, 0d145, ROOM.GATE_OPENED_D2_D3, 0x2a, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D2_D3); }));
             add_gate_bot(ROOM.GATE_ID_D3_D4, 0d178, 0d145, ROOM.GATE_OPENED_D3_D4, 0x29, reference(@install() { gate_bot_killed(ROOM.GATE_OPENED_D3_D4); }));
 
-            default_init_room(False, False);
+            default_metro_init_room();
         }
     };
 
@@ -29775,18 +29846,24 @@ area metro() {
         };
 
         map shopping_district(OMNITOPIA_SHOPPING) {
+            enum ROOM {
+                DOOR_PASSAGE_SOUTH_OPEN = memory(FLAG, TEMP),
+                DOOR_PASSAGE_NORTH_OPEN = memory(FLAG, TEMP),
+
+                ENTERED_FROM_SOUTH = memory(FLAG, TEMP),
+            }
+
             enum entrance {
                 east = entrance(0d110, 0d19, NONE, { door_act4_beam_in(); }),
-                west = entrance(0d10, 0d81, NONE, { door_act4_beam_in(); }),
+                west = entrance(0d10, 0d81, NONE, {
+                    door_act4_beam_in();
+
+                    ROOM.ENTERED_FROM_SOUTH = True;
+                }),
             }
         
             enum soundtrack {
                 default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
-            }
-
-            enum ROOM {
-                DOOR_PASSAGE_SOUTH_OPEN = memory(FLAG, TEMP),
-                DOOR_PASSAGE_NORTH_OPEN = memory(FLAG, TEMP),
             }
 
             enum stepon_trigger {
@@ -29826,6 +29903,12 @@ area metro() {
                 },
                 inn = @install() {
                     debug_subtext("S=6");
+
+                    if!(AREA_METRO.REGENERATION_INN_ROOM) {
+                        AREA_METRO.REGENERATION_INN_ROOM = True;
+
+                        dialog("[SLOW]Cloning machine has been activated.[B]");
+                    }
                 },
             }
 
@@ -29842,15 +29925,21 @@ area metro() {
             }
 
             fun trigger_enter() {
-                start_helper();
-                
                 // object[0x00] = 0x7e; // open door_passage_north
                 // object[0x01] = 0x7e; // open door_passage_south
                 // object[0x02] = 0x7e; // open shop_1
                 // object[0x03] = 0x7e; // open shop_2
                 // object[0x04] = 0x7e; // open shop_3
 
-                fade_in();
+                default_metro_init_room(reference(@install() {
+                    metro_death_trigger({
+                        if(ROOM.ENTERED_FROM_SOUTH) {
+                            map_transition(metro, door_c2, NONE);
+                        } else {
+                            map_transition(metro, door_a2, NONE);
+                        }
+                    });
+                }));
             }
         };
 
@@ -29970,8 +30059,6 @@ area metro() {
                     AREA_METRO.LEVER_REACTOR_ROOM = True;
                 }
                 
-                start_helper();
-                
                 // object[0x00] = 0x02; // loot gourd_2_1
                 // object[0x01] = 0x02; // loot gourd_2_2
                 // object[0x02] = 0x02; // loot gourd_2_3
@@ -29987,7 +30074,11 @@ area metro() {
                 // object[0x0a] = 0x01; // remove fan_east_2_5
                 // object[0x0b] = 0x01; // remove fan_west
 
-                fade_in();
+                default_metro_init_room(reference(@install() {
+                    metro_death_trigger({
+                        map_transition(metro, door_b2, NONE);
+                    });
+                }));
 
                 if!(ROOM.LIGHT_ON) {
                     MEMORY.MAP_PALETTE = MAP_PALETTE.STORAGE_ROOM_DARK;
@@ -30206,7 +30297,7 @@ area metro() {
             }
 
             fun trigger_enter() {
-                start_helper();
+                default_metro_init_room();
                 
                 // object[0x00] = 0x01; // toggle lever_1
                 // object[0x01] = 0x01; // toggle lever_2
@@ -30528,7 +30619,7 @@ area metro() {
             }
 
             fun trigger_enter() {
-                start_helper();
+                default_metro_init_room();
                 
                 update_switches(False);
 
@@ -30722,13 +30813,15 @@ area metro() {
             };
 
             fun trigger_enter() {
-                start_helper();
-                
                 close_exits(True);
 
                 prepare_dog_arena(TOASTER);
-                default_init_room(True, False);
-
+                default_metro_init_room(reference(@install() {
+                    metro_death_trigger({
+                        map_transition(metro, door_c4, NONE);
+                    });
+                }));
+                
                 attribute(DOG, INVINCIBLE_TEMP, True);
 
                 add_boss();
@@ -30836,12 +30929,14 @@ area metro() {
             };
 
             fun trigger_enter() {
-                start_helper();
-                
                 close_exits(True);
 
                 CUSTOM_FLAG.NO_DOG = True;
-                default_init_room(True, False);
+                default_metro_init_room(reference(@install() {
+                    metro_death_trigger({
+                        map_transition(metro, door_d3, NONE);
+                    });
+                }));
                 
                 MEMORY.AMMO_1 = 0d100;
                 MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_TEMP;
@@ -31118,13 +31213,15 @@ area metro() {
                 if(ROOM.GOURD_LOOTED) {
                     object[0x01] = 0x7e;
                 }
-
-                start_helper();
                 
                 update_switches(False);
                 init_evermore_machine();
 
-                fade_in();
+                default_metro_init_room(reference(@install() {
+                    metro_death_trigger({
+                        map_transition(metro, door_d1, NONE);
+                    });
+                }));
 
                 add_enemy(PLACEHOLDER, 0d26, 0d88 - 0d2);
                 fake_exit_scanner(<LAST_ENTITY>);
@@ -31811,7 +31908,11 @@ area metro() {
 
                 CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPACESHIP;
                 CUSTOM_FLAG.NO_DOG = True;
-                fade_in();
+                default_metro_init_room(reference(@install() {
+                    metro_death_trigger({
+                        map_transition(metro, door_d1, NONE);
+                    });
+                }));
                 
                 update_desert();
 
@@ -32856,7 +32957,11 @@ area metro() {
 
         fun trigger_enter() {
             CUSTOM_FLAG.NO_DOG = True;
-            default_init_room(False, False);
+            default_metro_init_room(reference(@install() {
+                metro_death_trigger({
+                    map_transition(metro, door_center, NONE);
+                });
+            }));
 
             add_carltron();
             
@@ -39394,6 +39499,14 @@ area dungeon_volcano() {
 };
 
 area dungeon_podunk() {
+    fun default_dungeon_podunk_init_room() {
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_d1, NONE);
+            });
+        }));
+    }
+
     map podunk_old(PODUNK_65) {
         enum entrance {
             north = entrance(0d09, 0d00, SOUTH),
@@ -39510,7 +39623,7 @@ area dungeon_podunk() {
             add_placeholder(CAT_CLEANING_2, 0d123, 0d17);
             attach_script(LAST_ENTITY, B, reference(cat_triggered));
             
-            fade_in();
+            default_dungeon_podunk_init_room();
 
             fake_exit_check();
         }
@@ -39564,7 +39677,7 @@ area dungeon_podunk() {
             ROOM.PROFESSOR = <LAST_ENTITY>;
             professor_glitch();
 
-            fade_in();
+            default_dungeon_podunk_init_room();
 
             fake_exit_check();
         }
@@ -39673,7 +39786,7 @@ area dungeon_podunk() {
         }
 
         fun trigger_enter() {
-            fade_in();
+            default_dungeon_podunk_init_room();
 
             sleep(0d60);
             fake_exit_check();
@@ -39999,7 +40112,7 @@ area dungeon_podunk() {
             }
 
             // CUSTOM_FLAG.NO_DOG = True;
-            default_init_room(False, False);
+            default_dungeon_podunk_init_room(False, False);
         }
     };
 };
