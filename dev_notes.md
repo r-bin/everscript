@@ -34,6 +34,11 @@
 ## drone arena: ending glitchy (65k/10, fight is not ending)
 ## Crafter = Archeologist = hints for robotos (fossils)
 ## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
+## anti cheese: turret arena (mosquito flies off), minitaur
+## act4 beam in animation: not locking
+## basement_3_9 trash did not spawn (room already cleared?)
+## mario koopa: stuck in no animation when out of screen
+## stairs boss: black rats are glitchy, megataur invincible, fight continued until the end of the megataur phase, camera was not unlocked, 600 hp is a lot (due to anti cheese)
 
 # nice to have
 ## sound glitches: kill radahn, get revealer/levitate
