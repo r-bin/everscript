@@ -426,7 +426,7 @@ group non_maps() {
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
-            WITH_DEBUG_ENTITIES = True,
+            WITH_DEBUG_ENTITIES = False,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
             // areas
             WITH_ENDBOSS = True,
@@ -618,11 +618,11 @@ group non_maps() {
             // southern jungle
 
             DEAD_DOUBLE_THRAXX = memory(FLAG, SRAM),
-            REWARD_DOUBLE_THRAXX = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
+            REWARD_DOUBLE_THRAXX = ITEM.STAFF_OF_LIFE,
             PROGRESS_DOUBLE_THRAXX = memory(FLAG, SRAM),
 
             DEAD_UNNAMED_DESERT_TEMPLE_BOSS = memory(FLAG, SRAM),
-            REWARD_UNNAMED_DESERT_TEMPLE_BOSS = ITEM.NECTAR, // TODO
+            REWARD_UNNAMED_DESERT_TEMPLE_BOSS = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
 
             // metro
 
@@ -633,9 +633,13 @@ group non_maps() {
             REWARD_TURRET_ARENA = ITEM.METEORITE,
 
             DEAD_SPACESHIP_DESERT = memory(FLAG, SRAM),
-            REWARD_SPACESHIP_DESERT = ITEM.NECTAR, // TODO
+            REWARD_SPACESHIP_DESERT = {
+                subtext("Gained Arcade Coin");
+            },
             DEAD_ABOMINATION = memory(FLAG, SRAM),
-            REWARD_ABOMINATION = ITEM.ENERGY_CORE,
+            REWARD_ABOMINATION = {
+                subtext("Gained Arcade Coin");
+            },
 
             DEAD_FINAL_BOSS = memory(FLAG, SRAM),
 
@@ -678,7 +682,11 @@ group non_maps() {
                 MEMORY.DOG_BISCUIT += 0d2;
             },
             CLEARED_TRAP_POODLE = memory(FLAG, SRAM),
-            REWARD_TRAP_WOLF = ITEM.NECTAR, // TODO
+            REWARD_TRAP_POODLE = {
+                subtext("Gained 2 Dog Biscuits");
+
+                MEMORY.DOG_BISCUIT += 0d2;
+            },
         }
 
         fun asign_debug_button_function(flag, feature) {
@@ -943,6 +951,11 @@ group non_maps() {
 
         @install()
         fun _souls_boss_defeated() {
+            control(NONE);
+
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            attribute(DOG, INVINCIBLE_TEMP, True);
+
             // if!(ITEM.NO_ITEM) {
             //     reward(reward_item);
             // }
@@ -961,9 +974,6 @@ group non_maps() {
             }
         }
         fun souls_boss_defeated(flag:SOULS_MEMORY, reward_item:SOULS_MEMORY) {
-            attribute(BOY, INVINCIBLE_TEMP, True);
-            attribute(DOG, INVINCIBLE_TEMP, True);
-
             if(flag is Memory) {
                 set(flag);
             }
@@ -988,6 +998,7 @@ group non_maps() {
 
             attribute(BOY, INVINCIBLE_TEMP, False);
             attribute(DOG, INVINCIBLE_TEMP, False);
+            control(BOTH);
         }
 
         fun fog_wall_outside(condition:SOULS_MEMORY, exit_direction:DIRECTION) {
@@ -2046,11 +2057,11 @@ group non_maps() {
                 debug_memory(arg[0x0e], required_strength, <BOY>[BOOST_ATTACK]);
             }
 
-            if((MEMORY.GLOVE_2_2 > 0d0) || (MEMORY.GLOVE_2_3 > 0d0) || (FLAG.ATLAS)) {
-                subtext("(Too heavy)");
-            }
-
             if(arg[0x0e] < required_strength) {
+                if((MEMORY.GLOVE_2_2 > 0d0) || (MEMORY.GLOVE_2_3 > 0d0) || (FLAG.ATLAS)) {
+                    subtext("(Too heavy)");
+                }
+
                 if(callback_error !is None) {
                     callback_error();
                 } else {
@@ -6037,7 +6048,7 @@ area shrine_area() {
                 if(SOULS_MEMORY.BONFIRE_DESERT) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.HALLS_NE;
                     SOULS_MEMORY.BONFIRE_VARIANT = 0d1;
-                    map_transition(desert_temple_main, west_1, NONE);
+                    map_transition(desert_temple_main, bonfire, NONE);
                 }
             }
         }
@@ -15603,7 +15614,7 @@ area east_inbetwixx() {
                 DEFAULT_MUSIC = MUSIC.SWAMP_AMBIENT,
 
                 ROOMS_CLEARED = memory(BYTE, SRAM),
-                ROOMS_REQUIRED = 0d5,
+                ROOMS_REQUIRED = 0d3, // was 5/5
             }
 
             group mario_helper() {
@@ -15619,6 +15630,8 @@ area east_inbetwixx() {
                         if(MARIO.ROOMS_CLEARED == MARIO.ROOMS_REQUIRED) {
                             PIPE_MAZE.MARIO_BOSS_ROOM_OPEND = True;
                             notification_door_opened();
+
+                            dialog("[SLOW]A big door has opened somewhere as well.[B]");
                         }
                     }
                 }
@@ -17619,6 +17632,10 @@ area southern_jungle() {
             @install()
             @async()
             fun entrance_water() {
+                if(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
+                    end();    
+                }
+
                 control(NONE);
 
                 arg[0x10] = <BOY>[Y];
@@ -17994,18 +18011,10 @@ area southern_jungle() {
         };
 
         map pyramid_cave(PYRAMID_CAVE) {
-            fun check_water() {
-                map_transition(pyramid, water, NONE);
-                end();
-            }
-
             enum entrance {
                 south = entrance(0x15, 0x23, NORTH),
 
-                teleporter = entrance(0d23, 0d18, NONE, {
-                    check_water();
-                    teleporter_in(SOUTH);
-                }),
+                teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
             }
 
             enum soundtrack {
@@ -27293,7 +27302,11 @@ area desert_bug() {
                     souls_boss_defeated(DEAD_DOUBLE_THRAXX, REWARD_DOUBLE_THRAXX);
                 }
                 fun fake_boss_defeated() {
-                    subtext("nice.");
+                    if(BOSS.DEBUG) {
+                        subtext("nice.");
+                    }
+
+                    roar();
                 }
 
                 @install()
@@ -27484,9 +27497,9 @@ area desert_bug() {
                 @install()
                 @async()
                 fun boss_tracker() {
-                    while(True) {
-                        sleep(0d300);
+                    sleep(0d300);
 
+                    while(_alive(BOSS.HEART_ORANGE_ID) || _alive(BOSS.HEART_WHITE_ID)) {
                         arg[0x10]++;
 
                         if(arg[0x10] < BOSS.PHASES_TILL_ULTI) {
@@ -27502,13 +27515,17 @@ area desert_bug() {
                                     arg[0x14]--;
                                     
                                     if(MEMORY.MAP_PALETTE != MAP_PALETTE.THRAXX_WHITE) {
-                                        throw_rock(BOSS.ARM_ORANGE_LEFT_ID);
+                                        if(alive(BOSS.ARM_ORANGE_LEFT_ID)) {
+                                            throw_rock(BOSS.ARM_ORANGE_LEFT_ID);
 
-                                        shoot_entity_offset_relative(BOSS.ARM_ORANGE_LEFT_ID, ONION, -0d50, 0d10, randrange(0d100) - 0d20, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                            shoot_entity_offset_relative(BOSS.ARM_ORANGE_LEFT_ID, ONION, -0d50, 0d10, randrange(0d100) - 0d20, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                        }
                                     } else {
-                                        throw_rock(BOSS.ARM_WHITE_LEFT_ID);
+                                        if(alive(BOSS.ARM_WHITE_LEFT_ID)) {
+                                            throw_rock(BOSS.ARM_WHITE_LEFT_ID);
 
-                                        shoot_entity_offset_relative(BOSS.ARM_WHITE_LEFT_ID, ROCK, -0d50, 0d10, randrange(0d100) - 0d20, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                            shoot_entity_offset_relative(BOSS.ARM_WHITE_LEFT_ID, ROCK, -0d50, 0d10, randrange(0d100) - 0d20, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                        }
                                     }
                                 }
                             } else if(arg[0x12] == 0d1) {
@@ -27518,13 +27535,17 @@ area desert_bug() {
                                     arg[0x14]--;
                                     
                                     if(MEMORY.MAP_PALETTE != MAP_PALETTE.THRAXX_WHITE) {
-                                        throw_rock(BOSS.ARM_ORANGE_RIGHT_ID);
+                                        if(alive(BOSS.ARM_ORANGE_LEFT_ID)) {
+                                            throw_rock(BOSS.ARM_ORANGE_RIGHT_ID);
 
-                                        shoot_entity_offset_relative(BOSS.ARM_ORANGE_RIGHT_ID, ONION, 0d50, 0d10, randrange(0d100) - 0d120, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                            shoot_entity_offset_relative(BOSS.ARM_ORANGE_RIGHT_ID, ONION, 0d50, 0d10, randrange(0d100) - 0d120, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                        }
                                     } else {
-                                        throw_rock(BOSS.ARM_WHITE_RIGHT_ID);
+                                        if(alive(BOSS.ARM_WHITE_LEFT_ID)) {
+                                            throw_rock(BOSS.ARM_WHITE_RIGHT_ID);
 
-                                        shoot_entity_offset_relative(BOSS.ARM_WHITE_RIGHT_ID, ROCK, 0d50, 0d10, randrange(0d100) - 0d120, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                            shoot_entity_offset_relative(BOSS.ARM_WHITE_RIGHT_ID, ROCK, 0d50, 0d10, randrange(0d100) - 0d120, 0d100 + randrange(0d100), 0d20 + randrange(0d20), 0d10);
+                                        }
                                     }
                                 }
                             }
@@ -27581,6 +27602,8 @@ area desert_bug() {
 
                             sfx_effect(SHAKING, False);
                         }
+
+                        sleep(0d300);
                     }
                 }
                 
@@ -27640,13 +27663,15 @@ area desert_bug() {
                 trigger_boss = @install() {
                     debug_subtext("S=1");
 
-                    if!(ROOM.TRIGGER_CAGE) {
-                        ROOM.TRIGGER_CAGE = True;
+                    if!(SOULS_MEMORY.DEAD_DOUBLE_THRAXX) {
+                        if!(ROOM.TRIGGER_CAGE) {
+                            ROOM.TRIGGER_CAGE = True;
 
-                        show_thraxx(True);
-                        open_thraxx_mouth(True);
-                        open_thraxx_rip_cage(0d3);
-                        glow_thraxx_eys(0d0);
+                            show_thraxx(True);
+                            open_thraxx_mouth(True);
+                            open_thraxx_rip_cage(0d3);
+                            glow_thraxx_eys(0d0);
+                        }
                     }
                 },
                 exit_south = @install() {
@@ -27968,7 +27993,7 @@ area desert_bug() {
             @install()
             @async()
             fun fake_exit_scanner(entity) {
-                conditional_range_checker(entity, <ACTIVE>, 0x20, 0x20, arg[0x02][GENERAL_PURPOSE] >= 0d2, {
+                conditional_range_checker(entity, <ACTIVE>, 0x20, 0x20, arg[0x02][Z_LEVEL] == 0x30, {
                     vanilla_desert_sandpit_out(0d21, 0d43);
                 });
             }
@@ -27979,8 +28004,6 @@ area desert_bug() {
 
                     vanilla_desert_sandpit({
                         if(arg[0x10] == 0d120) {
-                            <BOY>[GENERAL_PURPOSE] = 0d2;
-
                             vanilla_desert_sandpit_in(0d21 + 0d1, 0d47);
                         }
                     });
@@ -29905,9 +29928,13 @@ area metro() {
                     debug_subtext("S=6");
 
                     if!(AREA_METRO.REGENERATION_INN_ROOM) {
-                        AREA_METRO.REGENERATION_INN_ROOM = True;
+                        if!(FLAG.STAFF_OF_LIFE) {
+                            dialog("[SLOW]The cloning machine seems to be inactive. Something seems to be missing.[B]");
+                        } else {
+                            AREA_METRO.REGENERATION_INN_ROOM = True;
 
-                        dialog("[SLOW]Cloning machine has been activated.[B]");
+                            dialog("[SLOW]Cloning machine has been activated.[B]");
+                        }
                     }
                 },
             }
@@ -30854,7 +30881,7 @@ area metro() {
 
             group boss_ai() {
                 enum BOSS {
-                    DEBUG = True,
+                    DEBUG = False,
 
                     RIDER_1_ID = memory(WORD, TEMP),
                     MOUNT_1_ID = memory(WORD, TEMP),
@@ -31224,7 +31251,9 @@ area metro() {
                 }));
 
                 add_enemy(PLACEHOLDER, 0d26, 0d88 - 0d2);
-                fake_exit_scanner(<LAST_ENTITY>);
+                if!(SOULS_MEMORY.DEAD_ABOMINATION) {
+                    fake_exit_scanner(<LAST_ENTITY>);
+                }
 
                 // object[0x00] = 0x7e; // open door_passage_south
                 // object[0x01] = 0x7e; // open gourd
@@ -31604,7 +31633,7 @@ area metro() {
                 }
 
                 enum BOSS {
-                    DEBUG = True,
+                    DEBUG = False,
                     DEBUG_BOY = False,
 
                     BOSS_ID = memory(WORD, TEMP),
@@ -31621,11 +31650,11 @@ area metro() {
 
                     BOSS_Y_YIELD = 0d600,
 
-                    HP = 0d30000,
-                    THRESHOLD_P1 = 0d28000,
-                    THRESHOLD_P2 = 0d26000, // autoattack
-                    THRESHOLD_P3 = 0d20000,
-                    THRESHOLD_P4 = 0d18000, // autoattack
+                    HP = 0d20000,
+                    THRESHOLD_P1 = 0d18000,
+                    THRESHOLD_P2 = 0d16000, // autoattack
+                    THRESHOLD_P3 = 0d10000,
+                    THRESHOLD_P4 = 0d08000, // autoattack
 
                     PHASE = memory(WORD, TEMP),
 
@@ -31913,6 +31942,7 @@ area metro() {
                         map_transition(metro, door_d1, NONE);
                     });
                 }));
+                teleport(DOG, 0xff, 0xff);
                 
                 update_desert();
 
@@ -31924,14 +31954,15 @@ area metro() {
                     attribute(BOY, INVISIBLE, True);
                 }
 
-                add_placeholder(SPACESHIP_IDLE, 0d0, 0d0);
+                add_placeholder(SPACESHIP_IDLE, 0xff, 0xff);
+                attribute(LAST_ENTITY, INVISIBLE, True);
                 ROOM.SHIP_PALETTE_ID = <LAST_ENTITY>;
                 // animate(LAST_ENTITY, ONCE, INVISIBLE);
                 
-                add_placeholder(SPACESHIP_TOP_FIRE, 0d0, 0d0);
+                add_placeholder(SPACESHIP_TOP_FIRE, 0xff, 0xff);
                 ROOM.SHIP_FIRE_ID = <LAST_ENTITY>;
 
-                add_placeholder(SPACESHIP_TOP, 0d0, 0d0);
+                add_placeholder(SPACESHIP_TOP, 0xff, 0xff);
                 ROOM.SHIP_ID = <LAST_ENTITY>;
                 attach_to_script(LAST_ENTITY);
                 face(SCRIPT_OWNER, EAST);
@@ -36151,10 +36182,10 @@ area dungeon_isaac() {
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     if!(ROOM.CLEAR_FLAG) {
-                    add_isaac_enemy_maggot(0x23, 0x15);
+                        add_isaac_enemy_maggot(0x23, 0x15);
 
-                    add_isaac_enemy_spider(0d13, 0d18);
-                    add_isaac_enemy_spider(0d23, 0d25);
+                        add_isaac_enemy_spider(0d13, 0d18);
+                        add_isaac_enemy_spider(0d23, 0d25);
                     }
                 }
                 
@@ -39808,7 +39839,7 @@ area dungeon_podunk() {
         }
 
         enum BOSS {
-            DEBUG = True,
+            DEBUG = False,
             DEBUG_CHEESE = False,
 
             ID_CARLTRON = memory(WORD, TEMP),
@@ -39929,16 +39960,17 @@ area dungeon_podunk() {
                 if(BOSS.PHASE == 0d2) {
                     if(_dead(<SCRIPT_OWNER>) && _dead(BOSS.ID_RIGHT)) {
                         BOSS.PHASE = 0d3;
+
+                        wait(SCRIPT_OWNER);
+                        destroy(SCRIPT_OWNER);
                     }
                 } else if(BOSS.PHASE == 0d3) {
-                    if(_dead(<SCRIPT_OWNER>)) {
+                    if(dead(<SCRIPT_OWNER>)) {
                         BOSS.PHASE = 0d4;
-                    }
-                }
 
-                if(dead(<SCRIPT_OWNER>)) {
-                    wait(SCRIPT_OWNER);
-                    destroy(SCRIPT_OWNER);
+                        wait(SCRIPT_OWNER);
+                        destroy(SCRIPT_OWNER);
+                    }
                 }
             }
 
@@ -40218,7 +40250,7 @@ group gourd_trap() {
             attach_script(LAST_ENTITY, DEATH, death_trigger);
             <LAST_ENTITY>[HP] = 0d1;
 
-            sleep(0x20);
+            sleep(0d30);
             destroy(SCRIPT_OWNER);
         }
 
@@ -40285,15 +40317,6 @@ group gourd_trap() {
             default = soundtrack(PIG_RACE, 0xff)
         }
 
-        enum stepon_trigger {
-            exit_north = @install() {
-                debug_subtext("S=0");
-            },
-            exit_east = @install() {
-                debug_subtext("S=1");
-            },
-        }
-
         enum ROOM {
             DEBUG = False,
             DEBUG_RUNNING = False,
@@ -40322,6 +40345,42 @@ group gourd_trap() {
 
             PIG_COUNT = memory(WORD, TEMP),
             PIG_COUNT_MAX = 0d2, // 0d4,
+
+            WINNER = memory(WORD, TEMP),
+        }
+
+        @install()
+        fun finish_line(entity) {
+            if!(ROOM.WINNER) {
+                ROOM.WINNER = entity;
+                
+                control(NONE);
+
+                if(entity == <DOG>) {
+                    subtext("Truffle Trouble lost?!");
+
+                    sleep(0d120);
+
+                    souls_boss_defeated(CLEARED_TRAP_POODLE, REWARD_TRAP_POODLE);
+                } else {
+                    subtext("Truffle Trouble wins!");
+                }
+                
+                sleep(0d180);
+
+                map_transition(desert_temple_main, west_2, NONE);
+            }
+        }
+
+        enum stepon_trigger {
+            exit_north = @install() {
+                debug_subtext("S=0");
+            },
+            exit_east = @install() {
+                debug_subtext("S=1");
+
+                finish_line(<DOG>);
+            },
         }
 
         @install()
@@ -40492,10 +40551,10 @@ group gourd_trap() {
             add_barrier(ROOM.BARRIER_3, ROOM.Y_3);
             add_barrier(ROOM.BARRIER_4, ROOM.Y_4);
 
-            MEMORY.DOG_WRITE = DOG.POODLE;
-
-            fade_in();
-            available(DOG);
+            CUSTOM_FLAG.NO_RUNNING = True;
+            CUSTOM_FLAG.NO_BOY = True;
+            CUSTOM_MEMORY.CURRENT_DOG = DOG.POODLE;
+            default_init_room(False, False);
 
             pig_spawner();
 
@@ -40539,9 +40598,11 @@ group gourd_trap() {
 
                 walk(arg[0x10], TILE_ABSOLUTE, 0d59, 0d191, arg[0x10], NONE);
 
-                subtext("?");
-
+                finish_line(arg[0x10]);
+                
                 destroy(arg[0x10]);
+
+                sleep(0d180);
             }
         }
     };
