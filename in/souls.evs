@@ -32047,6 +32047,17 @@ area metro() {
             default = soundtrack(BOSS_BOSSRUSH, 0xff)
         }
 
+        enum WALL_STATE {
+            FANS = 0x01,
+
+            SWITCHES_8 = 0x02,
+            SWITCHES_4 = 0x03,
+            
+            OPEN = 0x04,
+
+            UNKNOWN = 0x00,
+        }
+
         enum ROOM {
             DEBUG = False,
             
@@ -32063,10 +32074,16 @@ area metro() {
             SWITCH_TILT_SPEED = 0d20,
             SWITCH_VENT_MODE = memory(FLAG, TEMP),
 
-            SWITCH_AREA = memory(FLAG, TEMP),
+            SWITCH_AREA_ENTERED = memory(FLAG, TEMP),
             SWITCH_AREA_TILT = memory(FLAG, TEMP),
+            SWITCH_AREA_VENTING = memory(FLAG, TEMP), // toaster phase
             SWITCH_AREA_TILT_THRESHOLD = 0d2 * 0d0060,
             SWITCH_AREA_TIMER = memory(WORD, TEMP),
+
+            WALL_STATE = memory(WORD, TEMP),
+            INTERNAL_WALL_STATE = memory(WORD, TEMP),
+            INTERNAL_WALL_VENTING = memory(FLAG, TEMP),
+            INTERNAL_WALL_ANIMATING = memory(FLAG, TEMP),
 
             SQUARE_1_X = 0d10,
             SQUARE_1_Y = 0d32,
@@ -32086,20 +32103,40 @@ area metro() {
                     debug_subtext("S=0");
                 }
 
-                ROOM.SWITCH_AREA = True;
+                ROOM.SWITCH_AREA_ENTERED = True;
             },
             fans = @install() {
                 if(False) {
                     debug_subtext("S=1");
                 }
 
-                ROOM.SWITCH_AREA = False;
+                ROOM.SWITCH_AREA_ENTERED = False;
             }
         }
 
+        fun _switch_tilt(switch_1, switch_2, is_fan) {
+            if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.OPEN) {
+                object[switch_1] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[switch_2] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_4) {
+                if(is_fan) {
+                    object[switch_1] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[switch_2] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                } else {
+                    object[switch_1] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[switch_2] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)    
+                }
+            } else {
+                object[switch_1] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[switch_2] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            }
+        }
+        
         @install()
         @async()
         fun switch_tilt(on) {
+            ROOM.INTERNAL_WALL_ANIMATING = True;
+
             if(on) {
                 tile_animate(0x01, 0xff, 0x00);
                 tile_animate(0x02, 0xff, 0x00);
@@ -32138,22 +32175,20 @@ area metro() {
 
                 sleep(0d60);
 
-                object[0x00] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                object[0x07] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                _switch_tilt(0x00, 0x07, False);
                 sleep(ROOM.SWITCH_TILT_SPEED);
 
-                object[0x01] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                object[0x06] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                _switch_tilt(0x01, 0x06, True);
                 sleep(ROOM.SWITCH_TILT_SPEED);
 
-                object[0x02] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                object[0x05] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                _switch_tilt(0x02, 0x05, False);
                 sleep(ROOM.SWITCH_TILT_SPEED);
 
-                object[0x03] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                object[0x04] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                _switch_tilt(0x03, 0x04, True);
                 sleep(ROOM.SWITCH_TILT_SPEED);
             }
+
+            ROOM.INTERNAL_WALL_ANIMATING = False;
         }
 
         fun _switch_vent_mode(switch_id, state, on) {
@@ -32200,35 +32235,166 @@ area metro() {
             }
         }
 
+        fun guard_tilt() {
+            if(False) {
+                debug_memory(ROOM.INTERNAL_WALL_ANIMATING, ROOM.SWITCH_AREA_TILT);
+            }
+
+            if(ROOM.INTERNAL_WALL_ANIMATING || ROOM.SWITCH_AREA_TILT || SOULS_MEMORY.DEAD_FINAL_BOSS) {
+                if(False) {
+                    debug_subtext("guarded");
+                }
+                
+                arg[0x12] = True;
+            }
+        }
         fun switch_triggered(switch_id, state) {
-            if(state == 0d0) {
+            // ROOM.INTERNAL_WALL_ANIMATING = True;
+
+            guard_tilt();
+
+            if(state == False) {
                 state = True;
 
                 object[switch_id] = state;
 
-                while(arg[0x10] < 0d9) {
-                    object[switch_id] = arg[0x10] + 0d2;
+                while((arg[0x10] < 0d9) && (!arg[0x12])) {
+                    guard_tilt();
 
-                    arg[0x10]++;
+                    if!(arg[0x12]) {
+                        object[switch_id] = arg[0x10] + 0d2;
+
+                        arg[0x10]++;
+                    }
                 }
 
-                sleep(ROOM.SWITCH_TIMEOUT);
-
-                while(arg[0x10] > 0d0) {
-                    object[switch_id] = arg[0x10] + 0d2;
-
-                    arg[0x10]--;
+                if!(arg[0x12]) {
+                    sleep(ROOM.SWITCH_TIMEOUT);
                 }
 
-                
-                if(ROOM.SWITCH_VENT_MODE && ((switch_id != 0d2) && (switch_id != 0d5))) {
-                    object[switch_id] = 0d0;
+                guard_tilt();
+
+                while((arg[0x10] > 0d0) && (!arg[0x12])) {
+                    guard_tilt();
+
+                    if!(arg[0x12]) {
+                        object[switch_id] = arg[0x10] + 0d2;
+
+                        arg[0x10]--;
+                    }
+                }
+
+                if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.OPEN) {
+                    object[switch_id] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_4) {
+                    if((switch_id == 0d1) || (switch_id == 0d3) || (switch_id == 0d4) || (switch_id == 0d6)) {
+                        object[switch_id] = 0d0; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)    
+                    } else {
+                        object[switch_id] = 0d1; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)    
+                    }
                 } else {
-                    object[switch_id] = 0d1;
+                    object[switch_id] = 0d1; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
                 }
                 
                 state = False;
             }
+
+            // ROOM.INTERNAL_WALL_ANIMATING = False;
+        }
+
+        @install()
+        fun _update_wall(switch_id, switch_mode, state) {
+            if(switch_mode) {
+                if(state) {
+                    object[switch_id] = 0x02; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                } else {
+                    object[switch_id] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                }
+            } else {
+                object[switch_id] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            }
+
+            if(False && ROOM.DEBUG) {
+                debug_memory(switch_id, state, on);
+                sleep(0d60);
+            }
+        }
+        @install()
+        @async()
+        fun _update_wall() {
+            while(ROOM.INTERNAL_WALL_ANIMATING) {
+                yield();
+            }
+
+            if(ROOM.DEBUG) {
+                debug_subtext("update wall");
+            }
+
+            if(ROOM.WALL_STATE != ROOM.INTERNAL_WALL_STATE) {
+                ROOM.INTERNAL_WALL_STATE = ROOM.WALL_STATE;
+
+                if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.FANS) {
+                    object[0x00] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x01] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x02] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x03] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x04] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x05] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x06] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x07] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_8) {
+                    _update_wall(0x00, True, ROOM.SWITCH_1);
+                    _update_wall(0x01, True, ROOM.SWITCH_2);
+                    _update_wall(0x02, True, ROOM.SWITCH_3);
+                    _update_wall(0x03, True, ROOM.SWITCH_4);
+                    _update_wall(0x04, True, ROOM.SWITCH_5);
+                    _update_wall(0x05, True, ROOM.SWITCH_6);
+                    _update_wall(0x06, True, ROOM.SWITCH_7);
+                    _update_wall(0x07, True, ROOM.SWITCH_8);
+                } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_4) {
+                    _update_wall(0x00, True, ROOM.SWITCH_1);
+                    _update_wall(0x01, False, ROOM.SWITCH_2);
+                    _update_wall(0x02, True, ROOM.SWITCH_3);
+                    _update_wall(0x03, False, ROOM.SWITCH_4);
+                    _update_wall(0x04, False, ROOM.SWITCH_5);
+                    _update_wall(0x05, True, ROOM.SWITCH_6);
+                    _update_wall(0x06, False, ROOM.SWITCH_7);
+                    _update_wall(0x07, True, ROOM.SWITCH_8);
+                } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.OPEN) {
+                    object[0x00] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x01] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x02] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x03] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x04] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x05] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x06] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                    object[0x07] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                }
+            }
+
+            if(ROOM.SWITCH_AREA_VENTING || ROOM.SWITCH_AREA_TILT) {
+                if!(ROOM.INTERNAL_WALL_VENTING) {
+                    ROOM.INTERNAL_WALL_VENTING = True;
+
+                    tile_animate(0x01, 0xff, 0xff);
+                    tile_animate(0x02, 0xff, 0xff);
+
+                    sound(LEVITATE);
+                }
+            } else {
+                if(ROOM.INTERNAL_WALL_VENTING) {
+                    tile_animate(0x01, 0xff, 0x00);
+                    tile_animate(0x02, 0xff, 0x00);
+
+                    ROOM.INTERNAL_WALL_VENTING = False;
+                }
+            }
+        }
+        fun update_wall(callback_update) {
+            callback_update();
+
+            _update_wall();
+            yield();
         }
 
         enum b_trigger {
@@ -32293,7 +32459,7 @@ area metro() {
         group carltron_ai() {
             enum BOSS {
                 DEBUG = True,
-                DEBUG_CHEATS = False,
+                DEBUG_CHEATS = True,
                 DEBUG_PHASE = False,
                 DEBUG_AI = False,
                 DEBUG_RIMSALA = False,
@@ -32333,12 +32499,19 @@ area metro() {
 
                 TIMER_RAW = memory(WORD, TEMP),
                 TIMER_COUNTER = memory(WORD, TEMP),
-                TIMER_P1 = 0d2000, // bombs
-                TIMER_P2 = 0d2000, // raptors
-                TIMER_P3 = 0d3000, // rimsala
-                TIMER_P4 = 0d3000, // boy
-                TIMER_P5 = 0d2000, // toaster
-                TIMER_P6 = 0d5000, // carltron
+                TIMER_P1 = 0d301, // 0d2000, // bombs
+                TIMER_P2 = 0d302, // 0d2000, // raptors
+                TIMER_P3 = 0d303, // 0d3000, // rimsala
+                TIMER_P4 = 0d304, // 0d3000, // boy
+                TIMER_P5 = 0d305, // 0d2000, // toaster
+                TIMER_P6 = 0d306, // 0d5000, // carltron
+
+                HINT_TIMER_P1 = memory(FLAG, TEMP),
+                HINT_TIMER_P2 = memory(FLAG, TEMP),
+                HINT_TIMER_P3 = memory(FLAG, TEMP),
+                HINT_TIMER_P4 = memory(FLAG, TEMP),
+                HINT_TIMER_P5 = memory(FLAG, TEMP),
+                HINT_TIMER_P6 = memory(FLAG, TEMP),
             }
 
             fun boss_defeated() {
@@ -32539,7 +32712,9 @@ area metro() {
 
                 arg[0x0e] = BOSS.PHASE;
 
-                debug_memory(BOSS.PHASE, arg[0x0e]);
+                if(False) {
+                    debug_memory(BOSS.PHASE, arg[0x0e]);
+                }
                 sleep(0d60);
 
                 while(BOSS.PHASE == arg[0x0e]) {
@@ -32594,7 +32769,9 @@ area metro() {
                     debug_subtext("--rimsala");
                 }
 
-                debug_memory(BOSS.PHASE, arg[0x0e]);
+                if(False) {
+                    debug_memory(BOSS.PHASE, arg[0x0e]);
+                }
             }
             @install()
             @async()
@@ -32612,6 +32789,10 @@ area metro() {
                 <LAST_ENTITY>[HP] = BOSS.TOASTER_HP;
                 BOSS.TRASH_ID = <LAST_ENTITY>;
                 attach_to_script(LAST_ENTITY);
+
+                update_wall({
+                    ROOM.SWITCH_AREA_VENTING = True;
+                });
 
                 while(alive(<SCRIPT_OWNER>)) {
                     arg[0x14]++;
@@ -32675,6 +32856,10 @@ area metro() {
 
                     yield();
                 }
+
+                update_wall({
+                    ROOM.SWITCH_AREA_VENTING = False;
+                });
 
                 tile_animate(0x01, 0xff, 0x00);
                 tile_animate(0x02, 0xff, 0x00);
@@ -32745,13 +32930,15 @@ area metro() {
                     debug_subtext("next phase = [MEM1]");
                 }
             }
-            @install()
-            fun hint_phase(max) {
-                MEMORY.STRING_PARAMETER_1 = BOSS.TIMER_COUNTER;
-                MEMORY.STRING_PARAMETER_2 = max;
+            fun hint_phase(flag, max) {
+                if!(flag) {
+                    flag = True;
 
-                subtext("[MEM1]/[MEM2]");
+                    MEMORY.STRING_PARAMETER_1 = BOSS.TIMER_COUNTER;
+                    MEMORY.STRING_PARAMETER_2 = max;
 
+                    subtext("[MEM1]/[MEM2]");
+                }
             }
 
             fun show_boss(show, x, y) {
@@ -32798,122 +32985,117 @@ area metro() {
 
                     if(BOSS.PHASE == 0d0) {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P1) {
-                            hint_phase(BOSS.TIMER_P1);
+                            hint_phase(BOSS.HINT_TIMER_P1, BOSS.TIMER_P1);
 
-                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                sleep(0d10);
+                            if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                next_phase(); // phase 1
+
+                                add_raptors();
                             }
-                            
-                            next_phase(); // phase 1
-
-                            add_raptors();
                         }
                     } else if(BOSS.PHASE == 0d1) {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P2) {
-                            hint_phase(BOSS.TIMER_P2);
+                            hint_phase(BOSS.HINT_TIMER_P2, BOSS.TIMER_P2);
 
-                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                sleep(0d10);
+                            if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                next_phase(); // phase 2
+
+                                add_rimsala();
                             }
-
-                            next_phase(); // phase 2
-
-                            add_rimsala();
                         }
                     } else if(BOSS.PHASE == 0d2) {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P3) {
-                            hint_phase(BOSS.TIMER_P3);
+                            hint_phase(BOSS.HINT_TIMER_P3, BOSS.TIMER_P3);
 
-                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                sleep(0d10);
+                            if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                next_phase();
+
+                                BOSS.BOSS_HIDDEN = True;
+                                add_boy();
                             }
-
-                            next_phase();
-
-                            BOSS.BOSS_HIDDEN = True;
-                            add_boy();
                         }
                     } else if(BOSS.PHASE == 0d3) {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P4) {
-                            hint_phase(BOSS.TIMER_P4);
+                            hint_phase(BOSS.HINT_TIMER_P4, BOSS.TIMER_P4);
 
-                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                sleep(0d10);
+                            if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                next_phase();
+
+                                update_wall({
+                                    ROOM.WALL_STATE = WALL_STATE.SWITCHES_4;
+                                    ROOM.SWITCH_AREA_VENTING = True;
+                                });
+
+                                BOSS.BOSS_HIDDEN = True;
+                                
+                                CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPEAR_TOSS;
+                                hint(PRESS_R);
+
+                                add_dog();
                             }
-
-                            next_phase();
-
-                            switch_vent_mode(True);
-                            BOSS.BOSS_HIDDEN = True;
-                            
-                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPEAR_TOSS;
-                            hint(PRESS_R);
-
-                            add_dog();
                         }
                     } else if(BOSS.PHASE == 0d4) {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P5) {
-                            hint_phase(BOSS.TIMER_P5);
+                            hint_phase(BOSS.HINT_TIMER_P5, BOSS.TIMER_P5);
 
-                            while!((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
-                                sleep(0d10);
+                            if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                                CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.NORMAL;
+
+                                next_phase();
+
+                                update_wall({
+                                    ROOM.WALL_STATE = WALL_STATE.SWITCHES_8;
+                                    ROOM.SWITCH_AREA_VENTING = False;
+                                });
+
+                                BOSS.BOSS_HIDDEN = False;
+                                enrage_carltron();
                             }
-
-                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.NORMAL;
-
-                            next_phase();
-
-                            switch_vent_mode(False);
-                            BOSS.BOSS_HIDDEN = False;
-                            enrage_carltron();
                         }
                     } else {
                         if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P6) {
-                            hint_phase(BOSS.TIMER_P6);
+                            hint_phase(BOSS.HINT_TIMER_P6, BOSS.TIMER_P6);
 
-                            while!((_dead(BOSS.ID)) || (BOSS.ID == 0d0)) {
-                                sleep(0d10);
-                            }
-                            
-                            object[0x00] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x01] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x02] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x03] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x04] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x05] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x06] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-                            object[0x07] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                            if((_dead(BOSS.ID)) || (BOSS.ID == 0d0)) {
+                                update_wall({
+                                    ROOM.WALL_STATE = WALL_STATE.OPEN;
+                                });
 
-                            boss_defeated();
+                                boss_defeated();
 
-                            while(True) {
-                                if(<BOY>[Y] <= 0d51) {
-                                    walk(BOY, TILE_ABSOLUTE, 0d20, 0d6, BOY, NONE);
+                                while(True) {
+                                    if(<BOY>[Y] <= 0d51) {
+                                        walk(BOY, TILE_ABSOLUTE, 0d20, 0d6, BOY, NONE);
 
-                                    fade_out();
+                                        fade_out();
 
-                                    walk(BOY, TILE_RELATIVE_DIRECT, 0d0, -0d1, BOY, NONE);
+                                        walk(BOY, TILE_RELATIVE_DIRECT, 0d0, -0d1, BOY, NONE);
 
-                                    outro();
+                                        outro();
 
-                                    end();
+                                        end();
+                                    }
+
+                                    yield();
                                 }
-
-                                yield();
                             }
                         }
                     }
 
-                    if(ROOM.SWITCH_AREA) {
+                    if(ROOM.SWITCH_AREA_ENTERED) {
                         ROOM.SWITCH_AREA_TIMER++;
 
                         if(ROOM.SWITCH_AREA_TIMER > ROOM.SWITCH_AREA_TILT_THRESHOLD) {
-                            switch_tilt(True);
+                            update_wall({
+                                ROOM.SWITCH_AREA_TILT = True;
+                                switch_tilt(True);
+                                yield();
+                            });
 
                             while(ROOM.SWITCH_AREA_TIMER > 0d0) {
                                 ROOM.SWITCH_AREA_TIMER--;
 
-                                if(ROOM.SWITCH_AREA) {
+                                if(ROOM.SWITCH_AREA_ENTERED) {
                                     teleport_relative(BOY, 0d0, 0d4);
                                 } else {
                                     teleport_relative(BOY, 0d0, 0d2);
@@ -32922,7 +33104,11 @@ area metro() {
                                 yield();
                             }
 
-                            switch_tilt(False);
+                            update_wall({
+                                ROOM.SWITCH_AREA_TILT = False;
+                                switch_tilt(False);
+                                yield();
+                            });
                         }
                     } else if(ROOM.SWITCH_AREA_TIMER > 0d0) {
                         ROOM.SWITCH_AREA_TIMER--;
@@ -33100,15 +33286,10 @@ area metro() {
             // add_dog(); // phase 4
             // enrage_carltron(); // phase 5
 
-            object[0x00] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x01] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x02] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x03] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x04] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x05] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x06] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            object[0x07] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
-            
+            update_wall({
+                ROOM.WALL_STATE = WALL_STATE.SWITCHES_8;
+            });
+
             if(BOSS.DEBUG && BOSS.DEBUG_CHEATS) {
                 unlock(SPEAR_4);
                 yield();
