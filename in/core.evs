@@ -6,6 +6,7 @@ group general_enums() {
         WITH_DEBUG_BOMBABLE = False,
         WITH_DEBUG_START = True,
         WITH_DEBUG_CAVE = False,
+        WITH_DEBUG_POISE = False,
 
         HP_MAX = 0x7fff,
         ITEM_MAX = 0d99,
@@ -12371,39 +12372,67 @@ group functions() {
             }
         }
         
+        enum POISE {
+            ONGOING = 0xffff,
+            RESETTING = 0xfffe,
+        }
         @install()
         @async()
         @weak()
-        fun poise_break_decay(entity, decay, time) {
+        fun poise_break_decay(entity, poise, decay, time) {
+            entity[GENERAL_PURPOSE] = poise;
+
+            if(SYSTEM.WITH_DEBUG_POISE) {
+                debug_memory(entity[GENERAL_PURPOSE]);
+            }
+
             while!(dead(entity)) {
                 sleep(time);
 
-                if(entity[GENERAL_PURPOSE] != 0xffff) {
-                    if(entity[GENERAL_PURPOSE] > decay) {
-                        entity[GENERAL_PURPOSE] -= decay;
-                    } else {
-                        entity[GENERAL_PURPOSE] = 0d0;
+                if(SYSTEM.WITH_DEBUG_POISE) {
+                    arg[0x10] = entity[GENERAL_PURPOSE];
+                }
+
+                if(entity[GENERAL_PURPOSE] == POISE.RESETTING) {
+                    entity[GENERAL_PURPOSE] = poise;
+                } else if(entity[GENERAL_PURPOSE] != POISE.ONGOING) {
+                    if(entity[GENERAL_PURPOSE] < (poise - decay)) {
+                        entity[GENERAL_PURPOSE] += decay;
+                    } else if(entity[GENERAL_PURPOSE] < poise) {
+                        entity[GENERAL_PURPOSE] = poise;
                     }
                 }
 
-                if(False) {
-                    debug_memory(entity[GENERAL_PURPOSE]);
+                if(SYSTEM.WITH_DEBUG_POISE) {
+                    debug_memory(arg[0x10], entity[GENERAL_PURPOSE]);
                 }
             }
         }
         @install()
         @weak()
-        fun poise_break(threshold) {
-            if((<SCRIPT_OWNER>[DAMAGE_SOURCE] > 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != 0xffff)) {
-                <SCRIPT_OWNER>[GENERAL_PURPOSE] += <SCRIPT_OWNER>[LAST_DAMAGE];
+        fun poise_break() {
+            if((<SCRIPT_OWNER>[DAMAGE_SOURCE] > 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] < 0xfff0)) {
+                if(SYSTEM.WITH_DEBUG_POISE) {
+                    arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+                }
 
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > threshold) {
+                if(<SCRIPT_OWNER>[LAST_DAMAGE] <= <SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] -= <SCRIPT_OWNER>[LAST_DAMAGE];
+                } else {
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                }
+
+                if(SYSTEM.WITH_DEBUG_POISE) {
+                    debug_memory(arg[0x10], <SCRIPT_OWNER>[LAST_DAMAGE], <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                }
+
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d0) {
                     while(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
                         yield();
                     }
                     yield();
 
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0xffff;
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = POISE.ONGOING;
 
                     // sound?
 
@@ -12455,7 +12484,7 @@ group functions() {
                             yield();
                         }
 
-                        arg[0x00][GENERAL_PURPOSE] = 0d0;
+                        arg[0x00][GENERAL_PURPOSE] = POISE.RESETTING;
                     }));
                     arg[0x00] = <LAST_ENTITY>;
                     arg[0x02] = 0d180;
@@ -12485,7 +12514,7 @@ group functions() {
                             debug_memory(0d2, dead(arg[0x00]), 0d1);
                         }
 
-                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = POISE.RESETTING;
                         animate(SCRIPT_OWNER, ONCE, DEFAULT);
                         destroy(arg[0x00]);
                     }
