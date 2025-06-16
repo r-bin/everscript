@@ -1006,7 +1006,7 @@ group non_maps() {
                 if(condition) {
                     question("[SLOW]A wall of white light[CHOICE]traverse…[CHOICE]leave…");
 
-                    if(MEMORY.QUESTION_ANSWER != 0d00) {
+                    if(MEMORY.QUESTION_ANSWER != 0d0) {
                         error_walk_back(exit_direction);
                         end();
                     }
@@ -2687,7 +2687,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(control_room, east, NONE);
+                map_transition(room_monk, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -18352,12 +18352,17 @@ area southern_jungle() {
             // chest=vanilla
             // sniff=vanilla
 
+            enum ROOM {
+                HIDDEN_TUNNEL_OPENED = memory(FLAG, SRAM),
+                FAKE_FOG_GATE = memory(FLAG, SRAM),
+            }
+
             enum entrance {
                 north = entrance(0x56, 0x05, SOUTH),
                 south = entrance(0x07, 0x4d, NORTH),
 
                 cave_1 = entrance(0x08, 0x0f, SOUTH),
-                cave_2 = entrance(0x48, 0x13, SOUTH),
+                cave_2 = entrance(0x48, 0x13, SOUTH, { ROOM.HIDDEN_TUNNEL_OPENED = True; }),
 
                 wings = entrance(0x0f, 0x3f, NONE),
             }
@@ -18368,12 +18373,21 @@ area southern_jungle() {
 
             enum stepon_trigger {
                 exit_north = @install() {
+                    debug_subtext("S=10");
+
+                    fog_wall_outside(!ROOM.FAKE_FOG_GATE, SOUTH);
+                    ROOM.FAKE_FOG_GATE = True;
+
                     map_transition(jungle_firepit, south, NORTH);
                 },
                 cave_2 = @install() {
                     debug_subtext("S=1");
 
-                    error_message(DLC, SOUTH);
+                    if!(ROOM.HIDDEN_TUNNEL_OPENED) {
+                        error_message(DOOR_WRONG_SIDE, SOUTH);
+                    } else {
+                        map_transition(northern_jungle_tunnel_1, south, NORTH);
+                    }
                 },
                 cave_1 = @install() {
                     debug_subtext("S=2");
@@ -18485,6 +18499,13 @@ area southern_jungle() {
             fun trigger_enter() {
                 init_map(0x00, 0x00, 0x63, 0x4f);
 
+                if!(ROOM.HIDDEN_TUNNEL_OPENED) {
+                    add_enemy(STONE_ROUND, 0d72, 0d22);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        error_message(DOOR_WRONG_SIDE, SOUTH);
+                    }));
+                }
+
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     // right path
                     // add_enemy(RAPTOR_GREEN, 0d41, 0d57);
@@ -18530,127 +18551,574 @@ area southern_jungle() {
                 fade_in();
             }
         };
-    };
 
-    map jungle_firepit(FIREPIT_JUNGLE) {
-        // sniff=vanilla
+        area northern_jungle_tunnel() {
+            map northern_jungle_tunnel_1(VOLCANO_ROOMS) { // variant: room_ns
+                enum entrance {
+                    north = entrance(0x1c, 0x3d, SOUTH),
+                    south = entrance(0x22, 0x7b, NORTH),
+                }
 
-        enum entrance {
-            south = entrance(0x17, 0x2c, NORTH),
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_south = nop(),
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_south = @install() {
+                        debug_subtext("S=5");
 
-            bonfire = entrance(0d15, 0d23, NONE, { bonfire_wakeup(0d8, 0d32, 0d40, 0d16); }),
-        }
+                        map_transition(northern_jungle, cave_2, SOUTH);
+                    },
+                    exit_room_sw_west = nop(),
+                    exit_north = @install() {
+                        debug_subtext("S=7");
 
-        enum soundtrack {
-            default = soundtrack(JUNGLE_AMBIENT, 0xff)
-        }
+                        map_transition(northern_jungle_tunnel_2, south_2, NORTH);
+                    },
+                    exit_room_sw_south = nop(),
+                    exit_room_nne_north_1 = nop(),
 
-        enum stepon_trigger {
-            exit_south = @install() {
-                map_transition(northern_jungle, north, SOUTH);
-            },
-            windwalker = @install() {
-                debug_subtext("S=1");
-            },
-        }
+                    exit_room_es_south = nop(),
+                    exit_room_es_east = nop(),
+                    exit_room_nne_north_2 = nop(),
+                    exit_room_nss_south_2 = nop(),
+                    exit_room_nss_south_1 = nop(),
+                    exit_room_nss_north = nop(),
+                    exit_north = nop(),
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
 
-        enum b_trigger {
-            sniff__1_clay_2 = @install() {
-                debug_subtext("B=0");
-                _loot(0x06, CLAY, 0d01, 0d02);
-            },
-            sniff__1_ash_1 = @install() {
-                debug_subtext("B=1");
-                _loot(0x05, ASH, 0d01, 0d01);
-            },
-            sniff__1_oil_1 = @install() {
-                debug_subtext("B=2");
-                _loot(0x04, OIL, 0d01, 0d01);
-            },
-            sniff__1_oil_3 = @install() {
-                debug_subtext("B=3");
-                _loot(0x03, OIL, 0d01, 0d03);
-            },
-        }
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff_room_alchemist__1_ash = nop(),
+                    gourd_cave_outside__3_wax = nop(),
+                    gourd_cave_outside__1_wax = nop(),
+                    gourd__4_ash = @install() {
+                        debug_subtext("B=3");
+                        _loot_chest(0x04, ASH, 0d04);
+                    },
+                    gourd_room_sw__4_ash = nop(),
+                    gourd_main__1_call_bead = nop(),
+                    gourd_alchemist_west__3_water = nop(),
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_alchemist_hidden_2__5_wax = nop(),
+                    gourd_alchemist_hidden_1__6_water = nop(),
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff_room_sw__1_water = nop(),
+                    sniff_room_nne__1_water = nop(),
+                    sniff__1_clay = @install() {
+                        debug_subtext("B=14");
+                        _loot(0x0a, CLAY, 0d01, 0d00);
+                    },
+                    sniff_room_nss__1_roots = nop(),
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff_cave_outside__1_roots = nop(),
+                    sniff_room_es__1_oil = nop(),
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff_room_nss__1_wax = nop(),
+                    sniff__1_wax = @install() {
+                        debug_subtext("B=23");
+                        _loot(0x13, WAX, 0d01, 0d00);
+                    },
+                    sniff_room_main__1_wax = nop(),
+                }
 
-        enum ROOM {
-            DEBUG = False,
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
 
-            STATUE_REVEALED = memory(FLAG, SRAM),
+                fun trigger_enter() {
+                    init_room(0d4);
+                    fade_in();
+                }
+            };
 
-            PIT_IGNITED = memory(FLAG, SRAM),
-            FIRE_ORB_TRIGGER_COUNTER = memory(WORD, TEMP),
-        }
+            map northern_jungle_tunnel_2(VOLCANO_ROOMS) { // variant: room_nss
+                enum entrance {
+                    north = entrance(0x9e, 0x05, SOUTH),
+                    south_1 = entrance(0x9e, 0x37, NORTH),
+                    south_2 = entrance(0x84, 0x37, NORTH),
+                }
 
-        fun ignite_pit() {
-            object[0x01] = 0x01; // ignite firepit
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_south = nop(),
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_room_ns_south = nop(),
+                    exit_room_sw_west = nop(),
+                    exit_room_ns_north = nop(),
+                    exit_room_sw_south = nop(),
+                    exit_room_nne_north_1 = nop(),
 
-            bonfire(0d15, 0d23, SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
-            attribute(LAST_ENTITY, INVISIBLE, True);
-            <LAST_ENTITY>[Z_LEVEL] = <BOY>[Z_LEVEL];
-        }
+                    exit_room_es_south = nop(),
+                    exit_room_es_east = nop(),
+                    exit_room_nne_north_2 = nop(),
+                    exit_south_2 = @install() {
+                        debug_subtext("S=13");
 
-        @install()
-        fun firepit_damage() {
-            check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
+                        map_transition(northern_jungle_tunnel_1, north, SOUTH);
+                    },
+                    exit_south_1 = @install() {
+                        debug_subtext("S=14");
 
-            if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
-                ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                set(ROOM.PIT_IGNITED);
-                ignite_pit();
-                destroy(SCRIPT_OWNER);
+                        map_transition(northern_jungle_tunnel_gourds, north, SOUTH);
+                    },
+                    exit_north = @install() {
+                        debug_subtext("S=15");
 
-                set(SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
-            } else {
-                heal(SCRIPT_OWNER, 0x00, False);
-                // damage(SCRIPT_OWNER, 0x00, True);
+                        map_transition(northern_jungle_tunnel_end, south, NORTH);
+                    },
+                    exit_room_alchemist_north = nop(),
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
+
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff_room_alchemist__1_ash = nop(),
+                    gourd_cave_outside__3_wax = nop(),
+                    gourd_cave_outside__1_wax = nop(),
+                    gourd_room_ns__4_ash = nop(),
+                    gourd_room_sw__4_ash = nop(),
+                    gourd_main__1_call_bead = nop(),
+                    gourd_alchemist_west__3_water = nop(),
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_alchemist_hidden_2__5_wax = nop(),
+                    gourd_alchemist_hidden_1__6_water = nop(),
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff_room_sw__1_water = nop(),
+                    sniff_room_nne__1_water = nop(),
+                    sniff_room_ns__1_clay = nop(),
+                    sniff__1_roots = @install() {
+                        debug_subtext("B=15");
+                        _loot(0x0b, ROOTS, 0d01, 0d00);
+                    },
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff_cave_outside__1_roots = nop(),
+                    sniff_room_es__1_oil = nop(),
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff__1_wax = @install() {
+                        debug_subtext("B=22");
+                        _loot(0x12, WAX, 0d01, 0d00);
+                    },
+                    sniff_room_ns__1_wax = nop(),
+                    sniff_room_main__1_wax = nop(),
+                }
+
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0d2);
+                    fade_in();
+                }
+            };
+
+            map northern_jungle_tunnel_gourds(VOLCANO_ROOMS) { // variant: room_alchemist
+                enum entrance {
+                    north = entrance(0xd0, 0x05, SOUTH),
+                }
+
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_south = nop(),
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_room_ns_south = nop(),
+                    exit_room_sw_west = nop(),
+                    exit_room_ns_north = nop(),
+                    exit_room_sw_south = nop(),
+                    exit_room_nne_north_1 = nop(),
+
+                    exit_room_es_south = nop(),
+                    exit_room_es_east = nop(),
+                    exit_room_nne_north_2 = nop(),
+                    exit_room_nss_south_2 = nop(),
+                    exit_room_nss_south_1 = nop(),
+                    exit_room_nss_north = nop(),
+                    exit_north = @install() {
+                        debug_subtext("S=16");
+
+                        map_transition(northern_jungle_tunnel_2, south_1, NORTH);
+                    },
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
+
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=0");
+                        _loot(0x17, ASH, 0d01, 0d00);
+                    },
+                    gourd_cave_outside__3_wax = nop(),
+                    gourd_cave_outside__1_wax = nop(),
+                    gourd_room_ns__4_ash = nop(),
+                    gourd_room_sw__4_ash = nop(),
+                    gourd_main__1_call_bead = nop(),
+                    gourd_west__3_water = @install() {
+                        debug_subtext("B=6");
+                        _loot_chest(0x02, WATER, 0d03);
+                    },
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_hidden_2__5_wax = @install() {
+                        debug_subtext("B=9");
+                        _loot_chest(0x06, WAX, 0d05);
+                    },
+                    gourd_hidden_1__6_water = @install() {
+                        debug_subtext("B=10");
+                        _loot_chest(0x07, WATER, 0d06);
+                    },
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff_room_sw__1_water = nop(),
+                    sniff_room_nne__1_water = nop(),
+                    sniff_room_ns__1_clay = nop(),
+                    sniff_room_nss__1_roots = nop(),
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff_cave_outside__1_roots = nop(),
+                    sniff_room_es__1_oil = nop(),
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff_room_nss__1_wax = nop(),
+                    sniff_room_ns__1_wax = nop(),
+                    sniff_room_main__1_wax = nop(),
+                }
+
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0d3);
+                    fade_in();
+                }
+            };
+
+            map northern_jungle_tunnel_end(VOLCANO_ROOMS) { // variant: cave
+                enum entrance {
+                    south = entrance(0x54, 0xb1, NORTH),
+
+                    crash = entrance(0d85, 0d167, NONE, { crash_both(); }),
+                }
+
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_south = @install() {
+                        debug_subtext("S=2");
+
+                        map_transition(northern_jungle_tunnel_2, north, SOUTH);
+                    },
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_room_ns_south = nop(),
+                    exit_room_sw_west = nop(),
+                    exit_room_ns_north = nop(),
+                    exit_room_sw_south = nop(),
+                    exit_room_nne_north_1 = nop(),
+
+                    exit_room_es_south = nop(),
+                    exit_room_es_east = nop(),
+                    exit_room_nne_north_2 = nop(),
+                    exit_room_nss_south_2 = nop(),
+                    exit_room_nss_south_1 = nop(),
+                    exit_room_nss_north = nop(),
+                    exit_room_alchemist_north = nop(),
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
+
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff_room_alchemist__1_ash = nop(),
+                    gourd__3_wax = @install() {
+                        debug_subtext("B=1");
+                        _loot_chest(0x16, WAX, 0d03);
+                    },
+                    gourd__1_wax = @install() {
+                        debug_subtext("B=2");
+                        _loot_chest(0x15, DRY_ICE, 0d01);
+                    },
+                    gourd_room_ns__4_ash = nop(),
+                    gourd_room_sw__4_ash = nop(),
+                    gourd_main__1_call_bead = nop(),
+                    gourd_alchemist_west__3_water = nop(),
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_alchemist_hidden_2__5_wax = nop(),
+                    gourd_alchemist_hidden_1__6_water = nop(),
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff_room_sw__1_water = nop(),
+                    sniff_room_nne__1_water = nop(),
+                    sniff_room_ns__1_clay = nop(),
+                    sniff_room_nss__1_roots = nop(),
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff__1_roots = @install() {
+                        debug_subtext("B=18");
+                        _loot(0x0e, ROOTS, 0d01, 0d00);
+                    },
+                    sniff_room_es__1_oil = nop(),
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff_room_nss__1_wax = nop(),
+                    sniff_room_ns__1_wax = nop(),
+                    sniff_room_main__1_wax = nop(),
+                }
+
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0d9);
+                    fade_in();
+                }
+            };
+        };
+
+        map jungle_firepit(FIREPIT_JUNGLE) {
+            // sniff=vanilla
+
+            enum entrance {
+                south = entrance(0x17, 0x2c, NORTH),
+
+                bonfire = entrance(0d15, 0d23, NONE, { bonfire_wakeup(0d8, 0d32, 0d40, 0d16); }),
             }
 
-            // reset_alchemy_types();
-        }
-
-        fun show_statue(show) {
-            if(show) {
-                object[0x02] = 0x01; // show dog_statue
-
-                place_statue(DOG, 0d26, 0d19);
-            } else {
-                object[0x02] = 0x00; // show dog_statue
+            enum soundtrack {
+                default = soundtrack(JUNGLE_AMBIENT, 0xff)
             }
-        }
 
-        @install()
-        fun revealer_triggered() {
-            show_statue(True);
+            enum stepon_trigger {
+                exit_south = @install() {
+                    map_transition(northern_jungle, north, SOUTH);
+                },
+                windwalker = @install() {
+                    debug_subtext("S=1");
+                },
+            }
 
-            destroy(SCRIPT_OWNER);
-        }
+            enum b_trigger {
+                sniff__1_clay_2 = @install() {
+                    debug_subtext("B=0");
+                    _loot(0x06, CLAY, 0d01, 0d02);
+                },
+                sniff__1_ash_1 = @install() {
+                    debug_subtext("B=1");
+                    _loot(0x05, ASH, 0d01, 0d01);
+                },
+                sniff__1_oil_1 = @install() {
+                    debug_subtext("B=2");
+                    _loot(0x04, OIL, 0d01, 0d01);
+                },
+                sniff__1_oil_3 = @install() {
+                    debug_subtext("B=3");
+                    _loot(0x03, OIL, 0d01, 0d03);
+                },
+            }
 
-        fun trigger_enter() {
-            // object[0x00] = 0x02; // add windwalker_hitbox
-            // object[0x01] = 0x01; // ignite firepit
-            // object[0x02] = 0x01; // show dog_statue
+            enum ROOM {
+                DEBUG = False,
 
-            if!(ROOM.PIT_IGNITED) {
-                add_enemy(FACE_ENTITY, 0d14, 0d22);
+                STATUE_REVEALED = memory(FLAG, SRAM),
+
+                PIT_IGNITED = memory(FLAG, SRAM),
+                FIRE_ORB_TRIGGER_COUNTER = memory(WORD, TEMP),
+            }
+
+            fun ignite_pit() {
+                object[0x01] = 0x01; // ignite firepit
+
+                bonfire(0d15, 0d23, SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
                 attribute(LAST_ENTITY, INVISIBLE, True);
-                attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
-
-                reset_alchemy_types();
-            } else {
-                ignite_pit();
+                <LAST_ENTITY>[Z_LEVEL] = <BOY>[Z_LEVEL];
             }
 
-            if!(ROOM.STATUE_REVEALED) {
-                add_enemy(REVEALER_TARGET_ENTITY, 0d26, 0d16);
+            @install()
+            fun firepit_damage() {
+                check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
 
-                special_script(REVEALER, reference(revealer_triggered));
-            } else {
+                if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
+                    ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
+                    set(ROOM.PIT_IGNITED);
+                    ignite_pit();
+                    destroy(SCRIPT_OWNER);
+
+                    set(SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
+                } else {
+                    heal(SCRIPT_OWNER, 0x00, False);
+                    // damage(SCRIPT_OWNER, 0x00, True);
+                }
+
+                // reset_alchemy_types();
+            }
+
+            fun show_statue(show) {
+                if(show) {
+                    object[0x02] = 0x01; // show dog_statue
+
+                    place_statue(DOG, 0d26, 0d19);
+                } else {
+                    object[0x02] = 0x00; // show dog_statue
+                }
+            }
+
+            @install()
+            fun revealer_triggered() {
                 show_statue(True);
+
+                destroy(SCRIPT_OWNER);
             }
 
-            default_init_room(True, True);
-        }
+            fun trigger_enter() {
+                // object[0x00] = 0x02; // add windwalker_hitbox
+                // object[0x01] = 0x01; // ignite firepit
+                // object[0x02] = 0x01; // show dog_statue
+
+                if!(ROOM.PIT_IGNITED) {
+                    add_enemy(FACE_ENTITY, 0d14, 0d22);
+                    attribute(LAST_ENTITY, INVISIBLE, True);
+                    attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
+
+                    reset_alchemy_types();
+                } else {
+                    ignite_pit();
+                }
+
+                if!(ROOM.STATUE_REVEALED) {
+                    add_enemy(REVEALER_TARGET_ENTITY, 0d26, 0d16);
+
+                    special_script(REVEALER, reference(revealer_triggered));
+                } else {
+                    show_statue(True);
+                }
+
+                default_init_room(True, True);
+            }
+        };
     };
 };
 
@@ -25340,9 +25808,41 @@ area ship_caves() {
             default = soundtrack(AREA_SHIP.DEFAULT_MUSIC, 0xff)
         }
 
+        enum ROOM {
+            VOLCANO_TUNNEL_REVEALED = memory(FLAG, SRAM),
+
+            MONK = memory(WORD, TEMP),
+        }
+
+        @install()
+        fun monk_triggered() {
+            conversation({
+                if!(SOULS_MEMORY.DEAD_GIDEON) { // TODO: progress instead?
+                    conversation_dialog("[SLOW]You have yet to prove yourself worthy.[B]");
+                } else {
+                    conversation_question("[SLOW]I have heard about your adventures.[B]0Digging those tunnels took a life time.[CHOICE]jump…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        walk(ACTIVE, TILE_ABSOLUTE, 0d74, 0d16, ACTIVE, NONE);
+
+                        walk(ACTIVE, TILE_ABSOLUTE_DIRECT, 0d72, 0d16, ACTIVE, NONE);
+
+                        sleep(0d30);
+
+                        map_transition(northern_jungle_tunnel_end, crash, NONE);
+                    } else {
+                        error_walk_back(EAST);
+                    }
+                }
+            });
+        }
+
         enum stepon_trigger {
             monk = @install() {
                 debug_subtext("S=0");
+
+                attach_to_script(ROOM.MONK);
+                monk_triggered();
             },
             monk_trigger_west = @install() {
                 debug_subtext("S=1");
@@ -25354,7 +25854,7 @@ area ship_caves() {
             exit_ship_tavern = nop(),
             exit_ship_small = nop(),
             exit_cave_crates = nop(),
-            exit_south = @install() {
+            south = @install() {
                 debug_subtext("S=7");
 
                 map_transition(ship, door_2_2, SOUTH);
@@ -25393,6 +25893,19 @@ area ship_caves() {
 
         fun trigger_enter() {
             init_room(0x04);
+
+            add_enemy(MONK, 0d77, 0d15, INACTIVE_IMORTAL);
+            attach_script(LAST_ENTITY, B, reference(monk_triggered));
+            ROOM.MONK = <LAST_ENTITY>;
+
+            if(ROOM.VOLCANO_TUNNEL_REVEALED) {
+                add_enemy(REVEALER_TARGET_ENTITY, 0d69, 0d17);
+                special_script(REVEALER, reference(@install() {
+                    destroy(SCRIPT_OWNER);
+
+                    ROOM.VOLCANO_TUNNEL_REVEALED = True;
+                }));
+            }
             
             default_init_room(False, False);
         }
