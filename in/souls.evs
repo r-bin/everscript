@@ -426,7 +426,7 @@ group non_maps() {
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
-            WITH_DEBUG_ENTITIES = False,
+            WITH_DEBUG_ENTITIES = True,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
             // areas
             WITH_ENDBOSS = True,
@@ -588,6 +588,8 @@ group non_maps() {
             REWARD_TAVERN_BOXERS = ITEM.TICKET_FOR_EXHIBITION,
             DEAD_TOWN_PUPPETS = memory(FLAG, SRAM),
             REWARD_TOWN_PUPPETS = CUSTOM_ITEM.SWORD_ORB,
+            DEAD_DOG_STATUE = memory(FLAG, SRAM), // t0
+            REWARD_DOG_STATUE = ITEM.NECTAR, // TODO
 
             DEAD_TEMPLE_MINITAUR = memory(FLAG, SRAM),
             REWARD_TEMPLE_MINITAUR = CUSTOM_ITEM.SPEAR_ORB,
@@ -2382,7 +2384,7 @@ group non_maps() {
                 attribute(BOY, INVINCIBLE_TEMP, True);
                 attribute(DOG, INVINCIBLE_TEMP, True);
 
-                animate_boy_kneel();
+                animate_boy_kneel(BOY);
 
                 sleep(0d60);
 
@@ -2553,7 +2555,7 @@ group non_maps() {
                             end();
                         }
 
-                        animate_boy_kneel();
+                        animate_boy_kneel(BOY);
 
                         question("[SLOW]Access robot?[CHOICE]hack…[CHOICE]leave…");
 
@@ -2687,7 +2689,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(room_monk, south, NONE);
+                map_transition(town_center_secret_dog_statue_boss, center_north, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -5010,7 +5012,7 @@ group non_maps() {
 };
 
 group custom_bosses() {
-    group custom_boss_gideon() {
+    area custom_boss_gideon() {
         enum BOSS {
             DEBUG = False,
 
@@ -5390,6 +5392,1025 @@ group custom_bosses() {
                 if(with_speech) {
                     gideon_speech();
                 }
+
+                if(callback_dead is Function) {
+                    attach_to_script(LAST_ENTITY);
+
+                    while!(dead(<SCRIPT_OWNER>)) {
+                        yield();
+                    }
+
+                    callback_dead();
+                }
+            }
+        }
+    };
+
+    area custom_boss_pudge() {
+        enum BOSS {
+            DEBUG = False,
+
+            MOVE_COOLDOWN = 0d300,
+        }
+
+        @install()
+        fun _roar(scream) {
+            if(scream) {
+                sound(THRAXX_DAMAGE);
+            }
+
+            animate(<0x2834>, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+            yield();
+            wait(<0x2834>);
+
+            sfx_effect(SHAKING, True);
+            sleep(0d20);
+            sfx_effect(SHAKING, False);
+        }
+        fun roar(scream) {
+            if(scream !is None) {
+                _roar(scream);
+            } else {
+                _roar();
+            }
+
+            yield();
+        }
+
+        group ai_moves() {
+            @install()
+            fun ai_move_fresh_meat(mount, rider) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("eat");
+                }
+
+                guard_dead(mount);
+
+                control(mount, True);
+                animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+                subtext("FRESH MEAT");
+
+                while(arg[0x10] < 0d30) {
+                    arg[0x10]++;
+
+                    guard_dead(mount);
+
+                    walk(mount, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y], False, False);
+
+                    sleep(0d10);
+
+                    // debug_memory(arg[0x10]);
+                }
+
+                animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+
+                control(mount, False);
+            }
+            
+            @install()
+            fun ai_move_charge(mount, rider) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("charge");
+                }
+
+                guard_dead(mount);
+
+                control(mount, True);
+
+                roar(True);
+                face_target(mount, ACTIVE);
+                sleep(0d30);
+
+                guard_dead(mount);
+
+                animate(mount, ONCE, DEFAULT);
+                animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+                face_target(mount, ACTIVE);
+                sleep(0d10);
+                animate(mount, ONCE, DEFAULT);
+                animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+                face_target(mount, ACTIVE);
+
+                animate(mount, LOOP, RUN_FORWARD);
+                attribute(mount, ROOT, True);
+
+                if(<BOY>[X] < mount[X]) {
+                    arg[0x18] = DIRECTION.WEST;
+                    arg[0x14] = mount[X] - <BOY>[X];
+                } else {
+                    arg[0x18] = DIRECTION.EAST;
+                    arg[0x14] = <BOY>[X] - mount[X];
+                }
+
+                if(<BOY>[Y] < mount[Y]) {
+                    arg[0x1a] = DIRECTION.NORTH;
+                    arg[0x16] = mount[Y] - <BOY>[Y];
+                } else {
+                    arg[0x1a] = DIRECTION.SOUTH;
+                    arg[0x16] = <BOY>[Y] - mount[Y];
+                }
+
+                if(arg[0x14] > arg[0x16]) {
+                    if(arg[0x14] > 0d200) {
+                        while(arg[0x14] > (arg[0x16] + arg[0x16] + arg[0x16] + arg[0x16])) {
+                            arg[0x14] >>= 0d1;
+                        }
+                    }
+                    
+                    while(arg[0x14] < 0d100) {
+                        arg[0x14] <<= 0d1;
+                        arg[0x16] <<= 0d1;
+                    }
+                } else {
+                    if(arg[0x16] > 0d200) {
+                        while(arg[0x16] > (arg[0x14] + arg[0x14] + arg[0x14] + arg[0x14])) {
+                            arg[0x16] >>= 0d1;
+                        }
+                    }
+                    
+                    while(arg[0x16] < 0d100) {
+                        arg[0x14] <<= 0d1;
+                        arg[0x16] <<= 0d1;
+                    }
+                }
+
+                // debug_memory(arg[0x18], arg[0x1a], 0d1);
+
+                while(True) {
+                    guard_dead(mount);
+
+                    arg[0x10] = arg[0x14] >> 0d5;
+                    arg[0x12] = arg[0x16] >> 0d5;
+
+                    arg[0x20] = mount[X];
+                    arg[0x22] = mount[Y];
+
+                    if((arg[0x1a] == DIRECTION.NORTH) && (arg[0x18] == DIRECTION.EAST)) { // q1
+                        teleport_relative(mount, arg[0x10], -(arg[0x12]));
+                    } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.EAST)) { // q2
+                        teleport_relative(mount, arg[0x10], arg[0x12]);
+                    } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.WEST)) { // q3
+                        teleport_relative(mount, -(arg[0x10]), arg[0x12]);
+                    } else { // q4
+                        teleport_relative(mount, -(arg[0x10]), -(arg[0x12]));
+                    }
+
+                    if((mount[X] == arg[0x20]) && (mount[Y] == arg[0x22])) {
+                        subtext("?");
+
+                        sfx_effect(SHAKING, True);
+
+                        bomb_entity(mount, 0d150);
+
+                        animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+                        attribute(mount, ROOT, False);
+
+                        control(mount, False);
+
+                        sleep(0d40);
+
+                        sfx_effect(SHAKING, False);
+
+                        end();
+                    }
+
+                    sleep(0d2);
+                }
+            }
+            
+            @install()
+            @async()
+            fun tesla_line(mount, rider) {
+                while(_alive(rider) && (rider[GENERAL_PURPOSE] > 0d0)) {
+                    sleep(0d10);
+
+                    shoot_entity_offset_entity_offset(mount, LIGHTNING, rider, 0d0, -0d30, 0d0, -(rider[Z] >> 0d4), 0d1, 0d0);
+
+                    // debug_memory(rider[Z]);
+
+                    face_target(rider, <ACTIVE>);
+                    face_target(mount, rider);
+                }
+            }
+            @install()
+            fun ai_move_hook(mount, rider) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("hook");
+                }
+
+                guard_dead(mount);
+
+                control(mount, True);
+
+                if(rand(0x01)) {
+                    subtext("Get over here!");
+                } else {
+                    subtext("Come here!");
+                }
+
+                roar(True);
+                attribute(mount, ROOT, True);
+
+                rider[GENERAL_PURPOSE] = 0d1;
+
+                sleep(0d30);
+
+                guard_dead(mount);
+
+                tesla_line(mount, rider);
+
+                sleep(0d30);
+
+                rider[GENERAL_PURPOSE] = 0d2;
+
+                animate(rider, ONCE, SLASH_1);
+
+                if(<BOY>[X] < mount[X]) {
+                    arg[0x18] = DIRECTION.WEST;
+                    arg[0x14] = mount[X] - <BOY>[X];
+                } else {
+                    arg[0x18] = DIRECTION.EAST;
+                    arg[0x14] = <BOY>[X] - mount[X];
+                }
+
+                if(<BOY>[Y] < mount[Y]) {
+                    arg[0x1a] = DIRECTION.NORTH;
+                    arg[0x16] = mount[Y] - <BOY>[Y];
+                } else {
+                    arg[0x1a] = DIRECTION.SOUTH;
+                    arg[0x16] = <BOY>[Y] - mount[Y];
+                }
+
+                if(arg[0x14] > arg[0x16]) {
+                    if(arg[0x14] > 0d200) {
+                        while(arg[0x14] > (arg[0x16] + arg[0x16] + arg[0x16] + arg[0x16])) {
+                            arg[0x14] >>= 0d1;
+                        }
+                    }
+                    
+                    while(arg[0x14] < 0d100) {
+                        arg[0x14] <<= 0d1;
+                        arg[0x16] <<= 0d1;
+                    }
+                } else {
+                    if(arg[0x16] > 0d200) {
+                        while(arg[0x16] > (arg[0x14] + arg[0x14] + arg[0x14] + arg[0x14])) {
+                            arg[0x16] >>= 0d1;
+                        }
+                    }
+                    
+                    while(arg[0x16] < 0d100) {
+                        arg[0x14] <<= 0d1;
+                        arg[0x16] <<= 0d1;
+                    }
+                }
+
+                // debug_memory(arg[0x18], arg[0x1a], 0d1);
+
+                while(True) {
+                    guard_dead(mount);
+
+                    arg[0x10] = arg[0x14] >> 0d5;
+                    arg[0x12] = arg[0x16] >> 0d5;
+
+                    arg[0x20] = rider[X];
+                    arg[0x22] = rider[Y];
+
+                    if((arg[0x1a] == DIRECTION.NORTH) && (arg[0x18] == DIRECTION.EAST)) { // q1
+                        teleport_relative(rider, arg[0x10], -(arg[0x12]));
+                    } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.EAST)) { // q2
+                        teleport_relative(rider, arg[0x10], arg[0x12]);
+                    } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.WEST)) { // q3
+                        teleport_relative(rider, -(arg[0x10]), arg[0x12]);
+                    } else { // q4
+                        teleport_relative(rider, -(arg[0x10]), -(arg[0x12]));
+                    }
+
+                    if((rider[X] == arg[0x20]) && (rider[Y] == arg[0x22])) {
+                        subtext("?");
+
+                        sleep(0d30);
+
+                        _drag(rider, mount[X], mount[Y]);
+
+                        subtext("!");
+
+                        sleep(0d30);
+
+                        rider[GENERAL_PURPOSE] = 0d0;
+
+                        roar();
+                        attribute(mount, ROOT, False);
+
+                        control(mount, False);
+
+                        end();
+                    }
+
+                    sleep(0d2);
+                }
+            }
+        };
+
+        @install()
+        @async()
+        fun holding_spider(mount, rider) {
+            while!(dead(mount)) {
+                if(rider[GENERAL_PURPOSE] == 0d0) {
+                    if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                        _teleport(rider, mount[X], mount[Y] + 0d1);
+                    } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                        _teleport(rider, mount[X] - 0d10, mount[Y] - 0d20);
+                    } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                        _teleport(rider, mount[X] + 0d10, mount[Y] - 0d20);
+                    } else {
+                        _teleport(rider, mount[X], mount[Y] - 0d20);
+                    }
+
+                    _face(rider, NORTH);
+                } else if(rider[GENERAL_PURPOSE] == 0d1) {
+                    _teleport(rider, mount[X], mount[Y] + 0d5);
+                }
+
+                sleep(0d2);
+            }
+        }
+
+        @install()
+        @async()
+        fun _add_custom_boss_pudge(x, y, force_phase, hp) {
+            add_enemy(MINITAUR, x, y);
+            <LAST_ENTITY>[HP] = hp;
+            arg[0x10] = <LAST_ENTITY>;
+            attach_to_script(LAST_ENTITY);
+
+            yield();
+
+            _add_enemy(SPIDER, <LAST_ENTITY>[X], <LAST_ENTITY>[Y] + 0d5, INACTIVE);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+            arg[0x12] = <LAST_ENTITY>;
+
+            holding_spider(arg[0x10], arg[0x12]);
+
+            smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(arg[0x10]));
+
+            while!(dead(arg[0x10])) {
+                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp / 0d2))) {
+                    arg[0x0e] = randrange(0d3);
+                } else {
+                    arg[0x0e] = randrange(0d3);
+                }
+
+                if(arg[0x0e] == 0d0) {
+                    ai_move_fresh_meat(arg[0x10], arg[0x12]);
+                } else if(arg[0x0e] == 0d1) {
+                    ai_move_charge(arg[0x10], arg[0x12]);
+                } else {
+                    ai_move_hook(arg[0x10], arg[0x12]);
+                }
+
+                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(arg[0x10]));
+            }
+
+            destroy(arg[0x12]); // TODO: delayed
+        }
+        fun add_custom_boss_pudge(x, y, flag_dead, callback_dead, force_phase, hp) {
+            _add_custom_boss_pudge(x, y, force_phase, hp);
+            yield();
+
+            if(callback_dead is Function) {
+                attach_to_script(LAST_ENTITY);
+
+                while((!_dead(<SCRIPT_OWNER>)) && (!flag_dead)) {
+                    yield();
+                }
+
+                if(flag_dead) {
+                    destroy(<SCRIPT_OWNER>);
+                }
+
+                callback_dead();
+            }
+        }
+    };
+
+    area custom_boss_rat_boy() {
+        enum BOSS {
+            DEBUG = False,
+
+            MOVE_COOLDOWN = 0d300,
+        }
+
+        @install()
+        fun _roar(scream) {
+            if(scream) {
+                sound(THRAXX_DAMAGE);
+            }
+
+            sfx_effect(SHAKING, True);
+            sleep(0d20);
+            sfx_effect(SHAKING, False);
+        }
+        fun roar(scream) {
+            if(scream !is None) {
+                _roar(scream);
+            } else {
+                _roar();
+            }
+
+            yield();
+        }
+
+        group ai_moves() {    
+            @install()
+            @async()
+            fun add_rat() {
+                arg[0x10] = <SCRIPT_OWNER>;
+
+                _add_enemy(RAT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+                attach_to_script(LAST_ENTITY);
+                attach_script(SCRIPT_OWNER, DEATH, reference(@install() {
+                    arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                    destroy(SCRIPT_OWNER);
+
+                    arg[0x10][GENERAL_PURPOSE]--;
+                }));
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = arg[0x10];
+                arg[0x10][GENERAL_PURPOSE]++;
+
+                while(<SCRIPT_OWNER>[GENERAL_PURPOSE] != 0xffff) {
+                    sleep(0d10);
+                    if(dead(<SCRIPT_OWNER>)) {
+                        end();
+                    }
+                }
+
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                yield();
+
+                if(dead(<SCRIPT_OWNER>)) {
+                    end();
+                }
+
+                walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, arg[0x10][X], arg[0x10][Y], SCRIPT_OWNER, False);
+
+                destroy(SCRIPT_OWNER);
+                arg[0x10][GENERAL_PURPOSE]--;
+            }
+            fun rat_split() {
+                if(BOSS.DEBUG) {
+                    debug_subtext("+split");
+                }
+
+                while(_alive(<SCRIPT_OWNER>) && <BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    sleep(0d10);
+                }
+
+                control(SCRIPT_OWNER, True);
+
+                animate_boy_kneel(SCRIPT_OWNER);
+
+                sleep(0d20);
+
+                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.RAT_RED;
+                control(SCRIPT_OWNER, False);
+
+                add_rat();
+                add_rat();
+                while(rand(0x01) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] < 0d5)) {
+                    add_rat();
+                    yield();
+                }
+
+                yield();
+
+                arg[0x14] = 0d0;
+                while(_alive(<SCRIPT_OWNER>) && (arg[0x14] < 0d600) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0)) {
+                    arg[0x14]++;
+                    yield();
+                }
+
+                while(_alive(<SCRIPT_OWNER>) && <BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    sleep(0d10);
+                }
+
+                control(SCRIPT_OWNER, True);
+
+                if(_alive(<SCRIPT_OWNER>) && <SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
+                    attribute(SCRIPT_OWNER, ROOT, True);
+
+                    find_all(RAT, {
+                        // walk(arg[0x12], COORDINATE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], False, False)
+                        // destroy();
+                        arg[0x10][GENERAL_PURPOSE] = 0xffff;
+                    });
+
+                    while(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
+                        yield();
+                    }
+
+                    attribute(SCRIPT_OWNER, ROOT, False);
+                }
+
+                if(False) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.OWL_BLACK;
+                    animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.BLACK_OWL_FUSION);
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.BOY_BLACK;
+
+                    sleep(0d10);
+
+                    animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                } else {
+                    animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_BOY.LANDING);
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.BOY_BLACK;
+
+                    sleep(0d10);
+
+                    animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                }
+
+                control(SCRIPT_OWNER, False);
+
+                if(BOSS.DEBUG) {
+                    debug_subtext("-split");
+                }
+            }
+            @install()
+            fun rat_boy_rocket_jump() {
+                if(BOSS.DEBUG) {
+                    debug_subtext("+jump");
+                }
+
+                guard_dead(<SCRIPT_OWNER>);
+
+                roar(True);
+
+                control(SCRIPT_OWNER, True);
+
+                face_target(<SCRIPT_OWNER>, <BOY>);
+
+                animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_BOY.LANDING);
+                sleep(0d20);
+                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                sleep(0d1);
+
+                if(False) {
+                    face_target(<SCRIPT_OWNER>, <BOY>);
+                } else {
+                    walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y], False, False);
+                    sleep(0d10);
+                    control(SCRIPT_OWNER, False);
+
+                    if(False) {
+                        yield();
+                        control(SCRIPT_OWNER, True);
+                    }
+                }
+
+                guard_dead(<SCRIPT_OWNER>);
+                
+                _rocket_jump(<SCRIPT_OWNER>, False, {
+                    if(False) {
+                        control(SCRIPT_OWNER, False);
+                    }
+
+                    sfx_effect(SHAKING, True);
+
+                    bomb_entity(<SCRIPT_OWNER>, 0d150);
+
+                    sleep(0d40);
+
+                    sfx_effect(SHAKING, False);
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("-jump");
+                    }
+                });
+            }
+        };
+
+        @install()
+        @async()
+        fun _add_custom_boss_rat_boy(x, y, force_phase, hp) {
+            add_enemy(BOY_BLACK, 0d35, 0d40);
+            <LAST_ENTITY>[HP] = hp;
+            attach_to_script(LAST_ENTITY);
+
+            attach_sterling_script(<SCRIPT_OWNER>, True, 0d10, 0d32, 0d40, 0d400, 0d15);
+
+            smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("+rng");
+                }
+
+                while(alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) || (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)  || (<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                    yield();
+                }
+
+                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp / 0d2))) {
+                    arg[0x0e] = randrange(0d3);
+                } else {
+                    arg[0x0e] = randrange(0d4);
+                }
+                debug_memory(arg[0x0e]);
+
+                if(arg[0x0e]) {
+                    rat_split();
+                } else {
+                    rat_boy_rocket_jump();
+                }
+
+                if(BOSS.DEBUG) {
+                    debug_subtext("-rng");
+                }
+
+                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+            }
+
+            find_all(RAT, {
+                destroy(arg[0x10]);
+            });
+        }
+        fun add_custom_boss_rat_boy(x, y, flag_dead, callback_dead, force_phase, hp) {
+            _add_custom_boss_rat_boy(x, y, force_phase, hp);
+            yield();
+
+            if(callback_dead is Function) {
+                attach_to_script(LAST_ENTITY);
+
+                while((!_dead(<SCRIPT_OWNER>)) && (!flag_dead)) {
+                    yield();
+                }
+
+                if(flag_dead) {
+                    destroy(<SCRIPT_OWNER>);
+                }
+
+                callback_dead();
+            }
+        }
+    };
+
+    area custom_boss_diablo() {
+        enum BOSS {
+            DEBUG = False,
+
+            MOVE_COOLDOWN = 0d300,
+
+            WITH_CHANNEL_PROTECTION = False,
+        }
+
+        @install()
+        fun _roar(scream) {
+            if(scream) {
+                sound(THRAXX_DAMAGE);
+            }
+
+            sfx_effect(SHAKING, True);
+            sleep(0d20);
+            sfx_effect(SHAKING, False);
+        }
+        fun roar(scream) {
+            if(scream !is None) {
+                _roar(scream);
+            } else {
+                _roar();
+            }
+
+            yield();
+        }
+
+        group ai_moves() {
+            @install()
+            @async()
+            fun add_shadow() {
+                <SCRIPT_OWNER>[GENERAL_PURPOSE]++;
+
+                arg[0x10] = <SCRIPT_OWNER>[X];
+                arg[0x12] = <SCRIPT_OWNER>[Y];
+
+                while((arg[0x10] == <SCRIPT_OWNER>[X]) && (arg[0x12] == <SCRIPT_OWNER>[Y])) {
+                    guard_dead(<SCRIPT_OWNER>);
+
+                    sleep(0d10);
+                }
+
+                sleep(0d60);
+
+                guard_dead(<SCRIPT_OWNER>);
+
+                _add_enemy(LIZARD, arg[0x10], arg[0x12]);
+                <LAST_ENTITY>[HP] = 0d1;
+                <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
+                attach_to_script(<LAST_ENTITY>);
+                attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                    arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                    arg[0x10][GENERAL_PURPOSE]--;
+
+                    wait(SCRIPT_OWNER);
+                    destroy(SCRIPT_OWNER);
+                }));
+
+                animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+
+                yield();
+
+                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+
+                while!(dead(<SCRIPT_OWNER>)) {
+                    arg[0x0e] = randrange(0d2);
+
+                    if(arg[0x0e] == 0d0) {
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+
+                        // ai_move_projectile_ring(<SCRIPT_OWNER>, BOOMERANG, 0d75, 0x40, 0d5, 0d1, False, True);
+                        ai_move_projectile_plus(<SCRIPT_OWNER>, ONION, 0d70);
+                    } else {
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
+                        attribute(SCRIPT_OWNER, ROOT, True);
+                        if(BOSS.WITH_CHANNEL_PROTECTION) {
+                            attribute(SCRIPT_OWNER, INVINCIBLE, True);
+                        }
+
+                        projectile_beam(<ACTIVE>, 0d5);
+
+                        if(BOSS.WITH_CHANNEL_PROTECTION) {
+                            attribute(SCRIPT_OWNER, INVINCIBLE, False);
+                        }
+                        attribute(SCRIPT_OWNER, ROOT, False);
+                        animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                    }
+
+                    smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+                }
+            }
+        };
+
+        @install()
+        @async()
+        fun _add_custom_boss_diablo(x, y, force_phase, hp) {
+            add_enemy(LIZARD, x, y);
+            <LAST_ENTITY>[HP] = hp;
+            attach_to_script(<LAST_ENTITY>);
+            <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+
+            yield();
+
+            smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+
+            arg[0x10] = True;
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp / 0d2))) {
+                    arg[0x0e] = randrange(0d2);
+                } else {
+                    arg[0x0e] = randrange(0d3);
+                }
+
+                debug_memory(arg[0x0e]);
+
+                if(arg[0x0e] == 0d0) {
+                    animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+
+                    if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                        ai_move_projectile_star(<SCRIPT_OWNER>, ONION, 0d70);
+                    } else {
+                        ai_move_projectile_x(<SCRIPT_OWNER>, ONION, 0d70);
+                    }
+                } else if(arg[0x0e] == 0d1) {
+                    animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
+                    attribute(SCRIPT_OWNER, ROOT, True);
+                    if(BOSS.WITH_CHANNEL_PROTECTION) {
+                        attribute(SCRIPT_OWNER, INVINCIBLE, True);
+                    }
+
+                    projectile_beam(<ACTIVE>, 0d5);
+
+                    if(BOSS.WITH_CHANNEL_PROTECTION) {
+                        attribute(SCRIPT_OWNER, INVINCIBLE, False);
+                    }
+                    attribute(SCRIPT_OWNER, ROOT, False);
+                    animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                } else {
+                    if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                        add_shadow();
+                    } else {
+                        arg[0x10] = True;
+                    }
+                }
+
+                if!(arg[0x10]) {
+                    smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+                } else {
+                    arg[0x10] = False;
+                }
+            }
+        }
+        fun add_custom_boss_diablo(x, y, flag_dead, callback_dead, force_phase, hp) {
+            _add_custom_boss_diablo(x, y, force_phase, hp);
+            yield();
+
+            if(callback_dead is Function) {
+                attach_to_script(LAST_ENTITY);
+
+                while((!_dead(<SCRIPT_OWNER>)) && (!flag_dead)) {
+                    yield();
+                }
+
+                if(flag_dead) {
+                    destroy(<SCRIPT_OWNER>);
+                }
+
+                callback_dead();
+            }
+        }
+    };
+
+    area custom_boss_aegis() {
+        enum BOSS {
+            DEBUG = False,
+
+            MASKLESS_DURATION = 0d600,
+        }
+
+        enum MASK {
+            SUN = 0d0,
+            MOON = 0d1,
+            CAT = 0d2,
+
+            NONE = 0xffff,
+        }
+        
+        @install()
+        fun randomize_mask(entity, mask) {
+            arg[0x10] = 0d5 + randrange(0d100);
+
+            arg[0x14] = 0d100;
+            while(arg[0x10] > 0d0) {
+                guard_dead(entity);
+
+                arg[0x10]--;
+                arg[0x12]++;
+
+                if(arg[0x12] > MASK.CAT) {
+                    arg[0x12] = MASK.SUN;
+                }
+
+                if(arg[0x12] == MASK.SUN) {
+                    animate(mask, LOOP, ANIMATION_PLACEHOLDER.AEGIS_MASK_1);
+                } else if(arg[0x12] == MASK.MOON) {
+                    animate(mask, LOOP, ANIMATION_PLACEHOLDER.AEGIS_MASK_2);
+                } else {
+                    animate(mask, LOOP, ANIMATION_PLACEHOLDER.AEGIS_MASK_3);
+                }
+
+                arg[0x14] = (arg[0x14] + arg[0x14] + arg[0x14]) >> 0d2;
+
+                sleep(0d2 + arg[0x14]);
+                sound(CLICK_1);
+            }
+
+            mask[GENERAL_PURPOSE] = arg[0x12];
+
+            entity[GENERAL_PURPOSE] = True;
+            if(BOSS.DEBUG) {
+                debug_memory(entity, entity[GENERAL_PURPOSE]);
+            }
+        }
+        @install()
+        fun remove_mask(entity, mask) {
+            guard_dead(entity);
+
+            sleep(0d60);
+
+            guard_dead(entity);
+
+            animate(mask, ONCE_FREEZE, INVISIBLE_FADE);
+            wait(mask);
+
+            guard_dead(entity);
+
+            mask[GENERAL_PURPOSE] = MASK.NONE;
+
+            entity[GENERAL_PURPOSE] = False;
+            if(BOSS.DEBUG) {
+                debug_memory(entity, entity[GENERAL_PURPOSE]);
+            }
+        }
+
+        @install()
+        @async()
+        fun _add_custom_boss_aegis(x, y, x_mask, y_mask, x_spawn, y_spawn, hp) {
+            add_enemy(AEGIS_ENTITY, x, y);
+            <LAST_ENTITY>[HP] = hp;
+            arg[0x10] = <LAST_ENTITY>;
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+            attach_to_script(LAST_ENTITY);
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                    sound(WEIRD_SOUND);
+
+                    heal(SCRIPT_OWNER, 0d0, False);
+                }
+
+                if(dead(<SCRIPT_OWNER>)) {
+                    end();
+                }
+
+                if(<ACTIVE>[Y] >= 0d275) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("center");
+                    }
+
+                    beam_wall(SOUTH, <BOY>, 0d150, 0d170, 0d360, 0d550, 0d20);
+                } else if(<ACTIVE>[X] < 0d260) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("left");
+                    }
+
+                    beam_wall(SOUTH, <BOY>, 0d150, 0d170, 0d270, 0d550, 0d20);
+                } else {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("right");
+                    }
+
+                    beam_wall(SOUTH, <BOY>, 0d240, 0d170, 0d360, 0d550, 0d20);
+                }
+
+                if(BOSS.DEBUG) {
+                    debug_memory(<SCRIPT_OWNER>, <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                }
+            }));
+
+            yield();
+
+            add_enemy(PLACEHOLDER, x_mask, y_mask);
+            arg[0x12] = <LAST_ENTITY>;
+
+            while(alive(arg[0x10])) {
+                randomize_mask(arg[0x10], arg[0x12]);
+
+                if(arg[0x10][HP] > 0d300) {
+                    arg[0x14] = 0d1;
+                } else {
+                    arg[0x14] = 0d2;
+                }
+
+                if(BOSS.DEBUG) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x12][GENERAL_PURPOSE];
+                    debug_subtext("mask = [MEM1]");
+                }
+
+                if(arg[0x12][GENERAL_PURPOSE] == MASK.SUN) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("+rat boy");
+                    }
+                    add_custom_boss_rat_boy(x_spawn, y_spawn, _dead(arg[0x10]), {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("-rat boy");
+                        }
+                    }, arg[0x14], 0d100);
+                } else if(arg[0x12][GENERAL_PURPOSE] == MASK.MOON) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("+diablo");
+                    }
+                    add_custom_boss_diablo(0d35, 0d40, _dead(arg[0x10]), {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("-diablo");
+                        }
+                    }, arg[0x14], 0d100);
+                } else if(arg[0x12][GENERAL_PURPOSE] == MASK.CAT) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("+pudge");
+                    }
+                    add_custom_boss_pudge(x_spawn, y_spawn, _dead(arg[0x10]), {
+                        if(BOSS.DEBUG) {
+                            debug_subtext("-pudge");
+                        }
+                    }, arg[0x14], 0d100);
+                }
+
+                // debug_memory(dead(arg[0x10]), _dead(arg[0x10]));
+
+                remove_mask(arg[0x10], arg[0x12]);
+
+                smart_timer(arg[0x16], BOSS.MASKLESS_DURATION, !_dead(arg[0x10]));
+            }
+
+            destroy(arg[0x12]);
+        }
+        
+        fun add_custom_boss_aegis(x, y, flag_dead, callback_dead, x_mask, y_mask, x_spawn, y_spawn, hp) {
+            if!(flag_dead) {
+                play_music(BOSS_DRUMS, False, True);
+
+                _add_custom_boss_aegis(x, y, x_mask, y_mask, x_spawn, y_spawn, hp);
+                yield();
 
                 if(callback_dead is Function) {
                     attach_to_script(LAST_ENTITY);
@@ -8488,7 +9509,7 @@ area west_inbetwixx() {
 
             sound(WEIRD_SOUND);
 
-            animate_boy_kneel();
+            animate_boy_kneel(BOY);
             
             question("[SLOW]A trap door under the rug.[CHOICE]Enter…[CHOICE]Leave…");
 
@@ -21999,6 +23020,8 @@ area town() {
 
                 crash = entrance(0x2c, 0x39, NONE, { crash_both(); }),
                 bonfire = entrance(0d44, 0d58, NONE, { bonfire_wakeup(0d0, 0d8, 0d0, -0d8); }),
+
+                center_north = entrance(0d43, 0d50, NONE),
             }
 
             enum soundtrack {
@@ -22077,7 +23100,9 @@ area town() {
                 // object[0x0a] = ???
                 // object[0x0b] = same as crowd_2_2 ???
                 // object[0x0c] = same as crowd_1_3 ???
-                if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX) {
+                if(SOULS_MEMORY.DEAD_DOG_STATUE) {
+                    object[0x0d] = 0x02; // show statue, crater, statue_reparing
+                } else if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX) {
                     object[0x0d] = 0x00; // show statue, crater, statue_reparing
                     object[0x0e] = 0x01; // show guard_statue
 
@@ -22095,7 +23120,11 @@ area town() {
                             if!(FLAG.ORACLE_BONE && FLAG.DIAMOND_EYES) {
                                 subtext("…");
                             } else {
-                                error_message(DLC); // TODO
+                                question("[SLOW]Touch the statue[CHOICE]touch…[CHOICE]leave…");
+
+                                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                    map_transition(town_center_secret_dog_statue_boss, center_north, NONE);
+                                }
                             }
                         }
                     }));
@@ -22116,6 +23145,68 @@ area town() {
                 bonfire(0d44, 0d58, SOULS_MEMORY.BONFIRE_TOWN_CENTER);
 
                 default_init_room(False, False);
+            }
+        };
+
+        map town_center_secret_dog_statue_boss(AEGIS) {
+            enum soundtrack {
+                default = soundtrack(WIND_AMBIENT_BIRDS_2, 0xff),
+            }
+
+            enum entrance {
+                cinematic = entrance(0x21, 0x41, NONE),
+
+                center_north = entrance(0d32, 0d37, NONE),
+            }
+
+            enum stepon_trigger {
+                bridge_east = @install() {
+                    debug_subtext("S=0");
+                },
+                bridge_west = @install() {
+                    debug_subtext("S=1");
+                },
+                bridge_south = @install() {
+                    debug_subtext("S=2");
+                },
+            }
+
+            enum BOSS {
+                DEBUG = False,
+            }
+
+            @install()
+            @async()
+            fun reveal_aegis(delay) {
+                arg[0x10] = 0d1;
+
+                while(arg[0x10] < 0d17) {
+                    arg[0x10]++;
+
+                    object[0x03] = arg[0x10]; // change layout_statue (0 = normal, 1-13 = statue exploding, 14-17 = aegis, 18 = empty, 19-21 = bridge)
+
+                    sleep(delay);
+                }
+            }
+
+            fun trigger_enter() {
+                // object[0x00] = 0x01; // hide bridge_south
+                // object[0x01] = 0x01; // hide bridge_east
+                // object[0x02] = 0x01; // hide bridge_west
+                object[0x03] = 0x00; // change layout_statue (0 = normal, 1-13 = statue exploding, 14-17 = aegis, 18 = empty, 19-21 = bridge)
+
+                reveal_aegis(0d1);
+                
+                CUSTOM_FLAG.NO_DOG = True;
+                default_init_room(False, False);
+
+                add_custom_boss_aegis(0d32, 0d28, SOULS_MEMORY.DEAD_DOG_STATUE, {
+                    object[0x03] = 0d18; // change layout_statue (0 = normal, 1-13 = statue exploding, 14-17 = aegis, 18 = empty, 19-21 = bridge)
+
+                    souls_boss_defeated(DEAD_DOG_STATUE, REWARD_DOG_STATUE);
+
+                    map_transition(town_center, center_north, NONE);
+                }, 0d32, 0d24, 0d35, 0d40, 0d20);
             }
         };
 
