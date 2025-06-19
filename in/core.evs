@@ -3316,9 +3316,9 @@ group general_enums() {
                 SKELETON_SHIP_ROW_1 = 0x00a2,
                 SKELETON_SHIP_ROW_2 = 0x00a4,
 
-                AEGIS_MASK_1 = 0x00c6,
-                AEGIS_MASK_2 = 0x00c2,
-                AEGIS_MASK_3 = 0x00c4,
+                AEGIS_MASK_1 = 0x00c6, // sun/bird
+                AEGIS_MASK_2 = 0x00c2, // moon
+                AEGIS_MASK_3 = 0x00c4, // cat/dog
 
                 DIAMOND_EYE_1 = 0x019a, // left
                 DIAMOND_EYE_2 = 0x019c, // right
@@ -5006,6 +5006,12 @@ group functions() {
             }
             fun shoot_entity_entity_offset(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, offset_x, offset_y, z, overshoot) { // TODO: target=BOY crashes
                 code(0xb5, param(projectile), entity_t(entity), calculate(entity[X]), calculate(entity[Y]), param(overshoot), calculate(target[X] + offset_x), calculate(target[Y] + offset_y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_offset_entity(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, offset_x, offset_y, z, overshoot) { // TODO: target=BOY crashes
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X] + offset_x), calculate(entity[Y] + offset_y), param(overshoot), calculate(target[X]), calculate(target[Y]), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
+            }
+            fun shoot_entity_offset_entity_offset(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, offset_x, offset_y, offset_target_x, offset_target_y, z, overshoot) { // TODO: target=BOY crashes
+                code(0xb5, param(projectile), entity_t(entity), calculate(entity[X] + offset_x), calculate(entity[Y] + offset_y), param(overshoot), calculate(target[X] + offset_target_x), calculate(target[Y] + offset_target_y), calculate(z), "// (b5) REVEAL ENTITY?? args $2849 $2835 $2477 $2479 10 signed arg4 signed arg6 20");
             }
             fun shoot_entity_entity_scaled(entity:CHARACTER, projectile:THROWABLE, target:CHARACTER, z, overshoot, factor:SCALED_VECTOR) { // TODO: target=BOY crashes
                 calculate_scaled_vector(entity, target, factor);
@@ -8143,6 +8149,43 @@ group functions() {
                 _desert_damage(interval, tick_damage);
             }
         };
+
+        group ai_logic() {
+            fun _guard_dead(entity) {
+                if(_dead(entity)) {
+                    end();
+                }
+            }
+            fun guard_dead(entity) {
+                if(dead(entity)) {
+                    end();
+                }
+            }
+
+            fun smart_timer(memory, time, condition, callback) {
+                memory = 0d0;
+
+                if(False) {
+                    _debug_memory(memory, time, condition);
+                    sleep(0d60);
+                }
+
+                while((memory < time) && (condition)) {
+                    memory++;
+
+                    if(callback is Function) {
+                        callback();
+                    }
+
+                    yield();
+                }
+
+                if(False) {
+                    _debug_memory(memory, time, condition);
+                    sleep(0d60);
+                }
+            }
+        };
     };
 
     group cutscenes() {
@@ -8787,10 +8830,10 @@ group functions() {
             }
         }
 
-        fun animate_boy_kneel() { // see mungola cutscene
-            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.LOOT);
+        fun animate_boy_kneel(entity:CHARACTER) { // see mungola cutscene
+            animate(entity, ONCE_FREEZE, ANIMATION_BOY.LOOT);
             sleep(0d10);
-            animate(BOY, PAUSE, DEFAULT);
+            animate(entity, PAUSE, DEFAULT);
         }
 
         fun animate_eternal_dust() {
@@ -10112,6 +10155,110 @@ group functions() {
             CUSTOM_FLAG.START_ISAAC_TEAR = False;
         }
 
+        fun _rocket_jump(entity, with_yump_interaction, callback_bonk) {
+            if(True) {
+                _add_placeholder(EXPLOSION_1, entity[X], entity[Y]);
+                arg[0x10] = <LAST_ENTITY>;
+            }
+
+            arg[0x12] = entity[X];
+            arg[0x14] = entity[Y];
+
+            if(True) {
+                animate(entity, LOOP, ANIMATION_BOY.FALL_2);
+            }
+
+            while(True) {
+                if(False) {
+                    entity[Z] = 0d100; // TODO: drops by 1/f instead of staying at 100
+                }
+
+                if((entity[HP] <= 0d0) || (entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)  || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                    destroy(arg[0x10]);
+                    if(callback_bonk is Function) {
+                        callback_bonk();
+                    }
+                    end();
+                }
+
+                if(with_yump_interaction) {
+                    if(CUSTOM_FLAG.START_MARIO_YUMP && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT == 0d1)) {
+                        arg[0x16] = True;
+                    }
+                }
+
+                arg[0x18] = entity[X];
+                arg[0x1a] = entity[Y];
+
+                if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    teleport_relative(entity, 0d0, -0d4);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH_EAST) {
+                    teleport_relative(entity, 0d3, -0d3);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    teleport_relative(entity, 0d4, 0d0);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_EAST) {
+                    teleport_relative(entity, 0d3, 0d3);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    teleport_relative(entity, 0d0, 0d4);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_WEST) {
+                    teleport_relative(entity, -0d3, 0d3);
+                } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    teleport_relative(entity, -0d4, 0d0);
+                } if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH_WEST) {
+                    teleport_relative(entity, -0d3, -0d3);
+                }
+
+                if((entity[X] == arg[0x18]) && (entity[Y] == arg[0x1a])) {
+                    if(arg[0x16]) {
+                        arg[0x20] = entity[FACE_DIRECTION];
+                        control(NONE);
+                        // attribute(entity, INVISIBLE, True);
+
+                        animate(entity, ONCE, ANIMATION_ALL.DEFAULT);
+
+                        sleep(0d5);
+
+                        arg[0x1c] = entity[X];
+                        arg[0x1e] = entity[Y];
+
+                        if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                            walk(entity, COORDINATE_ABSOLUTE, entity[X], entity[Y] + 0d24, NONE, NONE);
+                        } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                            walk(entity, COORDINATE_ABSOLUTE, entity[X] - 0d24, entity[Y], NONE, NONE);
+                        } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                            walk(entity, COORDINATE_ABSOLUTE, entity[X], entity[Y] - 0d24, NONE, NONE);
+                        } else {
+                            walk(entity, COORDINATE_ABSOLUTE, entity[X] + 0d24, entity[Y], NONE, NONE);
+                        }
+
+                        sleep(0d10);
+
+                        if((arg[0x1c] == entity[X]) && (arg[0x1e] == entity[Y])) {
+                            _teleport(entity, arg[0x12], arg[0x14]);
+
+                            damage(entity, 0d1, True);
+                        } else {
+                            entity[X] = arg[0x1c];
+                            entity[Y] = arg[0x1e];
+                            _face(entity, arg[0x20]);
+                        }
+
+                        // attribute(entity, INVISIBLE, False);
+                        control(BOTH);
+                    }
+                    
+                    animate(entity, ONCE, ANIMATION_BOY.LANDING);
+
+                    destroy(arg[0x10]);
+                    if(callback_bonk is Function) {
+                        callback_bonk();
+                    }
+                    end();
+                }
+
+                yield();
+            }
+        }
         @install()
         @weak()
         fun rocket_jump() {
@@ -10124,102 +10271,9 @@ group functions() {
                 CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT++;
             }
 
-            if(True) {
-                _add_placeholder(EXPLOSION_1, <BOY>[X], <BOY>[Y]);
-                arg[0x10] = <LAST_ENTITY>;
-            }
-
-            arg[0x12] = <BOY>[X];
-            arg[0x14] = <BOY>[Y];
-
-            if(True) {
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-            }
-
-            while(True) {
-                if(False) {
-                    <BOY>[Z] = 0d100; // TODO: drops by 1/f instead of staying at 100
-                }
-
-                if(<BOY>[HP] <= 0d0) {
-                    destroy(arg[0x10]);
-                    CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT--;
-                    end();
-                }
-
-                if(CUSTOM_FLAG.START_MARIO_YUMP && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT == 0d1)) {
-                    arg[0x16] = True;
-                }
-
-                arg[0x18] = <BOY>[X];
-                arg[0x1a] = <BOY>[Y];
-
-                if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                    teleport_relative(BOY, 0d0, -0d4);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH_EAST) {
-                    teleport_relative(BOY, 0d3, -0d3);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
-                    teleport_relative(BOY, 0d4, 0d0);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_EAST) {
-                    teleport_relative(BOY, 0d3, 0d3);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
-                    teleport_relative(BOY, 0d0, 0d4);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_WEST) {
-                    teleport_relative(BOY, -0d3, 0d3);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
-                    teleport_relative(BOY, -0d4, 0d0);
-                } if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH_WEST) {
-                    teleport_relative(BOY, -0d3, -0d3);
-                }
-
-                if((<BOY>[X] == arg[0x18]) && (<BOY>[Y] == arg[0x1a])) {
-                    if(arg[0x16]) {
-                        arg[0x20] = <BOY>[FACE_DIRECTION];
-                        control(NONE);
-                        // attribute(BOY, INVISIBLE, True);
-
-                        animate(BOY, ONCE, ANIMATION_ALL.DEFAULT);
-
-                        sleep(0d5);
-
-                        arg[0x1c] = <BOY>[X];
-                        arg[0x1e] = <BOY>[Y];
-
-                        if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y] + 0d24, NONE, NONE);
-                        } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
-                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X] - 0d24, <BOY>[Y], NONE, NONE);
-                        } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
-                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y] - 0d24, NONE, NONE);
-                        } else {
-                            walk(BOY, COORDINATE_ABSOLUTE, <BOY>[X] + 0d24, <BOY>[Y], NONE, NONE);
-                        }
-
-                        sleep(0d10);
-
-                        if((arg[0x1c] == <BOY>[X]) && (arg[0x1e] == <BOY>[Y])) {
-                            _teleport(BOY, arg[0x12], arg[0x14]);
-
-                            damage(BOY, 0d1, True);
-                        } else {
-                            <BOY>[X] = arg[0x1c];
-                            <BOY>[Y] = arg[0x1e];
-                            _face(<BOY>, arg[0x20]);
-                        }
-
-                        // attribute(BOY, INVISIBLE, False);
-                        control(BOTH);
-                    }
-                    
-                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
-
-                    destroy(arg[0x10]);
-                    CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT--;
-                    end();
-                }
-
-                yield();
-            }
+            _rocket_jump(<BOY>, True, {
+                CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT--;
+            });
         }
 
         @install()
@@ -11540,6 +11594,8 @@ group functions() {
                 shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, DEFAULT_QUARTER);
 
                 while(duration) {
+                    guard_dead(entity);
+
                     duration--;
 
                     bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d1, DEFAULT_QUARTER);
@@ -11549,6 +11605,8 @@ group functions() {
                 shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, DEFAULT_HALF);
 
                 while(duration) {
+                    guard_dead(entity);
+
                     if(duration > 0d2) {
                         duration -= 0d2;
                     } else {
@@ -11564,6 +11622,8 @@ group functions() {
                 shoot_entity_relative(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0);
 
                 while(duration) {
+                    guard_dead(entity);
+
                     if(duration > 0d3) {
                         duration -= 0d3;
                     } else {
@@ -11581,6 +11641,8 @@ group functions() {
                 shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, TARGET_PLUS_HALF);
 
                 while(duration) {
+                    guard_dead(entity);
+
                     if(duration > 0d4) {
                         duration -= 0d4;
                     } else {
@@ -11616,6 +11678,8 @@ group functions() {
             sleep(0d15);
 
             while(arg[0x0e] < ticks) {
+                guard_dead(entity);
+                
                 arg[0x0e]++;
                 sound(TESLA);
 
@@ -12134,7 +12198,11 @@ group functions() {
 
             sleep(0x1d);
             if(with_roar) {
-                call(0x99988a);
+                if(MEMORY.CURRENT_MUSIC == MUSIC.BOSS_DRUMS) {
+                    sound(THRAXX_DAMAGE);
+                } else {
+                    call_async(ADDRESS.STERLING_ROAR);
+                }
             }
 
             arg[0x10] = <BOY>[X];
@@ -12228,7 +12296,7 @@ group functions() {
                 }
 
                 while(alive(entity)) {
-                    if((<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) == 0d0) {
+                    if!(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
                         if!(entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
                             arg[0x10] = entity[X];
                             arg[0x12] = entity[Y];
@@ -12257,13 +12325,19 @@ group functions() {
                                 control(NONE);
 
                                 if(with_roar) {
-                                    call_async(ADDRESS.STERLING_ROAR);
+                                    if(MEMORY.CURRENT_MUSIC == MUSIC.BOSS_DRUMS) {
+                                        sound(THRAXX_DAMAGE);
+                                    } else {
+                                        call_async(ADDRESS.STERLING_ROAR);
+                                    }
                                 }
                                 if(True) {
                                     sterling_grab(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
                                 } else {
                                     sterling_grab_3d(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
                                 }
+
+                                sleep(0d300);
                             } else {
                                 sleep(0d4);
                             }
