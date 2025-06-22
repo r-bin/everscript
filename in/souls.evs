@@ -481,6 +481,17 @@ group non_maps() {
             HIT_BONUS_ARMLET = memory(FLAG, SRAM),
             NO_RUNNING_CHEST = CUSTOM_FLAG.RESERVED_1,
             ARCHAEOLOGY_TARGET = CUSTOM_MEMORY.RESERVED_1,
+            RADIATION = memory(BYTE, SRAM),
+            RADIATION_SOURCE_1 = CUSTOM_MEMORY.RESERVED_2,
+            RADIATION_SOURCE_2 = CUSTOM_MEMORY.RESERVED_3,
+            RADIATION_SOURCE_3 = CUSTOM_MEMORY.RESERVED_4,
+            RADIATION_SOURCE_4 = CUSTOM_MEMORY.RESERVED_5,
+            RADIATION_SOURCE_5 = CUSTOM_MEMORY.RESERVED_6,
+            RADIATION_SOURCE_6 = CUSTOM_MEMORY.RESERVED_7,
+            RADIATION_SOURCE_7 = CUSTOM_MEMORY.RESERVED_8,
+            RADIATION_SOURCE_8 = CUSTOM_MEMORY.RESERVED_9,
+            RADIATION_SOURCE_9 = CUSTOM_MEMORY.RESERVED_10,
+            RADIATION_SOURCE_10 = CUSTOM_MEMORY.RESERVED_11,
 
             // button map
             BUTTON_MAP = memory(BYTE, SRAM), // TODO: should be memory(WORD, TEMP)
@@ -1059,6 +1070,7 @@ group non_maps() {
             // heat = CHEST_2_3
             // thorne = GLOVE_1_3
             // NO_RUNNING = CHEST_2_2
+            // pip boy = GLOVE_4_2
 
             _update_armor_effects_hit_bonus(CURRENT_ARMOR_CHEST, CHEST_1_1, HIT_BONUS_CHEST, 0d15);
             _update_armor_effects_hit_bonus(CURRENT_ARMOR_HELM, HELM_1_1, HIT_BONUS_HELM, 0d15);
@@ -1560,146 +1572,6 @@ group non_maps() {
             }
         }
 
-        @install()
-        @async()
-        fun _init_souls() {
-            if(True) { // TODO: the hit% bonus is being calculated during fade_in() and the temp-copies aren't ready at that point
-                while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                    yield();
-                }
-                yield();
-            } else {
-                sleep(0d120);
-            }
-
-            if(True) {
-                update_armor_effects();
-            }
-        }
-        @install()
-        fun init_souls() {
-            if(SOULS_MEMORY.DEBUG) {
-                FLAG.DEBUG = True;
-            }
-
-            if!(SOULS_MEMORY.INIT_SESSION) {
-                update_debug_menu();
-            }
-
-            if!(SOULS_MEMORY.INIT) {
-                SOULS_MEMORY.INIT = True;
-
-                SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
-                refresh_flask();
-
-                SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
-                SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
-
-                // MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
-                // MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
-                // MEMORY.ALCHEMY_LEVEL_SPEED = 0d1;
-
-                SOULS_MEMORY.MENU_CHOICE = 0xffff;
-
-                // CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
-
-                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_FULL_INGREDIENTS) {
-                    unlock(INGREDIENTS);
-                }
-
-                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
-                    if(FLAG.DEBUG) {
-                        SOULS_MEMORY.MENU_CHOICE = 0x01;
-                        
-                        SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
-                        // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
-
-                        update_debug_menu();
-                    }
-                }
-
-                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_ALL_BONFIRES) {
-                    // center
-                    SOULS_MEMORY.BONFIRE_INBETWIXX = True;
-
-                    // east
-                    SOULS_MEMORY.BONFIRE_EAST_CROSSING = True;
-                    SOULS_MEMORY.BONFIRE_PIPES = True;
-                    SOULS_MEMORY.BONFIRE_TOWN_CENTER = True;
-                    SOULS_MEMORY.BONFIRE_TEMPLE_PIT = True;
-
-                    // west
-                    SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON = True;
-                    SOULS_MEMORY.BONFIRE_VOLCANO_TOWER = True;
-
-                    // south
-                    SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
-                    SOULS_MEMORY.BONFIRE_BUG = True;
-                    SOULS_MEMORY.BONFIRE_DESERT = True;
-
-                    // altus
-                    SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
-                    SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
-                    SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
-                }
-            }
-
-            if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.CURRENT_MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == MEMORY.CURRENT_MAP_VARIANT)) {
-                _add_enemy(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
-                SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
-                attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
-                
-                attribute(LAST_ENTITY, MUTE, True);
-                damage(LAST_ENTITY, 0d999, False);
-            }
-
-            if((<ACTIVE>[X] == 0x00) && (<ACTIVE>[Y] == 0x00)) {
-                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED); // TODO
-            }
-
-            if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
-                if(
-                    // (SOULS_MEMORY.BONFIRE_MAP == 0x00) ||
-                    // (SOULS_MEMORY.BONFIRE_VARIANT == 0x00) ||
-                    (SOULS_MEMORY.BONFIRE_X == 0x00) ||
-                    (SOULS_MEMORY.BONFIRE_Y == 0x00)
-                ) {
-                    if(False) {
-                        _fade_in();
-                        debug_subtext("Failed to teleport player to bonfire");
-                        sleep(0d200);
-                    }
-                } else {
-                    _teleport(BOY, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
-                    _teleport(DOG, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
-                }
-                
-
-                unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
-            }
-
-            // cure();
-            // cast(BOY, BOTH, CURE, 0x01);
-
-            if(SOULS_MEMORY.WITH_RETURN_TO_BONFIRE_ON_DEATH) {
-                attach_script(BOY, DAMAGE_DEATH, reference(boy_death));
-            }
-
-            if!(SOULS_MEMORY.WINGS_BLOCKED) {
-                special_script(WINGS, reference(wings_used));
-            }
-
-            MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
-            MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
-
-            if!(SOULS_MEMORY.WITH_CHEATS) {
-                attribute(BOY, NO_CLIP, False);
-                attribute(DOG, NO_CLIP, False);
-            }
-
-            _init_souls();
-        }
-
         fun add_frippo_switch(x, y, trigger) {
             add_enemy(FRIPPO, x, y, INACTIVE);
             <LAST_ENTITY>[HP] = 0d1;
@@ -1793,10 +1665,6 @@ group non_maps() {
             }
         }
 
-        fun init_hack() {
-            init_souls();
-        }
-
         fun init_weather(night, rain) {
             if(SOULS_MEMORY.WITH_WEATHER) {
                 if(SOULS_MEMORY.WITH_COLOR_FILTER) {
@@ -1808,69 +1676,6 @@ group non_maps() {
                     sfx_effect(RAIN, True);
                 }
             }
-        }
-
-        @install()
-        fun default_init_room(night, rain) {
-            init_hack();
-
-            if((!FLAG.BAZOOKA) && (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.BAZOOKA_TEMP)) {
-                MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
-            }
-
-            if(SOULS_MEMORY.DOG_SHIP || SOULS_MEMORY.DOG_SHIP_STAIRS) {
-                CUSTOM_FLAG.NO_DOG = True;
-            }
-            
-            if(CUSTOM_MEMORY.CURRENT_DOG) {
-                MEMORY.DOG_WRITE = CUSTOM_MEMORY.CURRENT_DOG;
-            } else if(SOULS_MEMORY.DOG_PREFERENCE != 0d0) {
-                MEMORY.DOG_WRITE = SOULS_MEMORY.DOG_PREFERENCE;
-            } else {
-                MEMORY.DOG_WRITE = DOG.WOLF;
-            }
-
-            init_weather(night, rain);
-
-            MEMORY.PACIFIED = False;
-
-            show_currency(False);
-
-            fade_in();
-        }
-
-        fun isaac_mode() {
-            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.ISAAC;
-            MEMORY.PACIFIED = True;
-        }
-
-        fun isaac_init(night, rain) {
-            init_hack();
-
-            available(BOY);
-            teleport(DOG, 0xff, 0xff);
-            init_weather(night, rain);
-
-            isaac_mode();
-
-            fade_in();
-        }
-
-        fun mario_mode() {
-            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
-            MEMORY.PACIFIED = True;
-        }
-
-        fun mario_init(night, rain) {
-            init_hack();
-
-            available(BOY);
-            teleport(DOG, 0xff, 0xff);
-            init_weather(night, rain);
-
-            mario_mode();
-
-            fade_in();
         }
 
         @install()
@@ -2582,6 +2387,384 @@ group non_maps() {
                 }
             }
         };
+    };
+
+    group fallout_mechanics() {
+        enum RADIATION {
+            DEBUG = True,
+
+            RADIATION_MAX = 0d255,
+            RADIATION_DECAY = 0d1,
+            RADIATION_DAMAGE = 0d1,
+
+            RADIATION_BUMP_PROXIMITY = 0d3,
+            RADIATION_BUMP_TOUCH = 0d10,
+
+            THRESHOLD_DAMAGE = 0d20,
+        }
+
+        @install()
+        fun prepare_radiating_entity(entity) {
+            if!(SOULS_MEMORY.RADIATION_SOURCE_1) {
+                SOULS_MEMORY.RADIATION_SOURCE_1 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_2) {
+                SOULS_MEMORY.RADIATION_SOURCE_2 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_3) {
+                SOULS_MEMORY.RADIATION_SOURCE_3 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_4) {
+                SOULS_MEMORY.RADIATION_SOURCE_4 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_5) {
+                SOULS_MEMORY.RADIATION_SOURCE_5 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_6) {
+                SOULS_MEMORY.RADIATION_SOURCE_6 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_7) {
+                SOULS_MEMORY.RADIATION_SOURCE_7 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_8) {
+                SOULS_MEMORY.RADIATION_SOURCE_8 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_9) {
+                SOULS_MEMORY.RADIATION_SOURCE_9 = entity;
+            } else if!(SOULS_MEMORY.RADIATION_SOURCE_10) {
+                SOULS_MEMORY.RADIATION_SOURCE_10 = entity;
+            }
+        }
+
+        @install()
+        fun increase_radiation(amount) {
+            if(SOULS_MEMORY.RADIATION < (RADIATION.RADIATION_MAX - amount)) {
+                SOULS_MEMORY.RADIATION += amount;
+            }
+        }
+
+
+        fun _radiation_click() {
+            sound(CLICK_1);
+
+            if(True) {
+                sleep(randrange(0d2));
+                sound(NONE);
+            }
+        }
+        @install()
+        fun radiation_click(no_bonus_clicks) {
+                _radiation_click();
+
+                if!(no_bonus_clicks) {
+                    if(rand(0x1)) {
+                        sleep(0d5 + randrange(0d10));
+
+                        _radiation_click();
+                    }
+                    if(rand(0x1)) {
+                        sleep(randrange(0d30));
+                    }
+                    if(rand(0x1)) {
+                        sleep(0d3 + randrange(0d10));
+
+                        _radiation_click();
+
+                        if(rand(0x1)) {
+                            sleep(0d1 + randrange(0d10));
+
+                            _radiation_click();
+                        }
+                    }
+                }
+        }
+
+        fun _radiation_handler_range_checker(source, target, range) {
+            if(target) { // alive(target)
+                check_range_old(source, target, range, range, {
+                    increase_radiation(RADIATION.RADIATION_BUMP_PROXIMITY);
+                    // sleep(0d30 + randrange(0d30));
+
+                    if(False) {
+                        arg[0x14] = 0d5 + randrange(0d5);
+                        while(arg[0x14] > 0d0) {
+                            arg[0x14]--;
+                            sleep(0d30 + randrange(0d30));
+
+                            radiation_click();
+                        }
+                    } else {
+                        radiation_click();
+                    }
+                });
+            }
+
+            if(True) {
+                sleep(0d5 + randrange(0d5));
+            } else {
+                radiation_click();
+            }
+        }
+        @install()
+        @async()
+        fun _radiation_handler(source, range) {
+            attach_to_script(source);
+
+            sleep(0d60);
+
+            if(SOULS_MEMORY.RADIATION_SOURCE_1) {
+                radiation_click();
+            }
+
+            arg[0x12] = 0d2 + randrange(0d3);
+
+            while(True) {
+                arg[0x10] = 0d0;
+                arg[0x12]--;
+                
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_1, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_2, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_3, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_4, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_5, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_6, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_7, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_8, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_9, range);
+                _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_10, range);
+
+                if(arg[0x10] > 0d0) {
+                    radiation_click();
+                } else if(arg[0x12] == 0d0) {
+                    arg[0x12] = 0d2 + randrange(0d3);
+
+                    if(SOULS_MEMORY.RADIATION_SOURCE_1) {
+                        radiation_click();
+                    }
+
+                    if(SOULS_MEMORY.RADIATION > RADIATION.RADIATION_DECAY) {
+                        SOULS_MEMORY.RADIATION -= RADIATION.RADIATION_DECAY;
+                    } else {
+                        SOULS_MEMORY.RADIATION = 0d0;
+                    }
+                }
+
+                if(RADIATION.DEBUG) {
+                    debug_memory(SOULS_MEMORY.RADIATION, arg[0x10], arg[0x12]);
+                }
+
+                if((SOULS_MEMORY.RADIATION > RADIATION.THRESHOLD_DAMAGE) && (!randrange(0d3))) {
+                    MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
+                    damage(BOY, RADIATION.RADIATION_DAMAGE, True);
+                }
+            }
+        }
+        fun radiation_handler() {
+            _radiation_handler(<BOY>, 0d50);
+        }
+    };
+
+    group souls_game_state() {
+        @install()
+        @async()
+        fun _init_souls() {
+            if(True) { // TODO: the hit% bonus is being calculated during fade_in() and the temp-copies aren't ready at that point
+                while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    yield();
+                }
+                yield();
+            } else {
+                sleep(0d120);
+            }
+
+            if(True) {
+                update_armor_effects();
+            }
+        }
+        @install()
+        fun init_souls() {
+            if(SOULS_MEMORY.DEBUG) {
+                FLAG.DEBUG = True;
+            }
+
+            if!(SOULS_MEMORY.INIT_SESSION) {
+                update_debug_menu();
+            }
+
+            if!(SOULS_MEMORY.INIT) {
+                SOULS_MEMORY.INIT = True;
+
+                SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
+                refresh_flask();
+
+                SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
+                SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
+
+                // MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
+                // MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
+                // MEMORY.ALCHEMY_LEVEL_SPEED = 0d1;
+
+                SOULS_MEMORY.MENU_CHOICE = 0xffff;
+
+                // CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
+
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_FULL_INGREDIENTS) {
+                    unlock(INGREDIENTS);
+                }
+
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
+                    if(FLAG.DEBUG) {
+                        SOULS_MEMORY.MENU_CHOICE = 0x01;
+                        
+                        SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
+                        // SOULS_MEMORY.BUTTON_MAP = BUTTON_MAP.MARIO;
+
+                        update_debug_menu();
+                    }
+                }
+
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_ALL_BONFIRES) {
+                    // center
+                    SOULS_MEMORY.BONFIRE_INBETWIXX = True;
+
+                    // east
+                    SOULS_MEMORY.BONFIRE_EAST_CROSSING = True;
+                    SOULS_MEMORY.BONFIRE_PIPES = True;
+                    SOULS_MEMORY.BONFIRE_TOWN_CENTER = True;
+                    SOULS_MEMORY.BONFIRE_TEMPLE_PIT = True;
+
+                    // west
+                    SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON = True;
+                    SOULS_MEMORY.BONFIRE_VOLCANO_TOWER = True;
+
+                    // south
+                    SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
+                    SOULS_MEMORY.BONFIRE_BUG = True;
+                    SOULS_MEMORY.BONFIRE_DESERT = True;
+
+                    // altus
+                    SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
+                    SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
+                    SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
+                }
+            }
+
+            if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.CURRENT_MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == MEMORY.CURRENT_MAP_VARIANT)) {
+                _add_enemy(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
+                SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
+                
+                attribute(LAST_ENTITY, MUTE, True);
+                damage(LAST_ENTITY, 0d999, False);
+            }
+
+            if((<ACTIVE>[X] == 0x00) && (<ACTIVE>[Y] == 0x00)) {
+                set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED); // TODO
+            }
+
+            if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
+                if(
+                    // (SOULS_MEMORY.BONFIRE_MAP == 0x00) ||
+                    // (SOULS_MEMORY.BONFIRE_VARIANT == 0x00) ||
+                    (SOULS_MEMORY.BONFIRE_X == 0x00) ||
+                    (SOULS_MEMORY.BONFIRE_Y == 0x00)
+                ) {
+                    if(False) {
+                        _fade_in();
+                        debug_subtext("Failed to teleport player to bonfire");
+                        sleep(0d200);
+                    }
+                } else {
+                    _teleport(BOY, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
+                    _teleport(DOG, SOULS_MEMORY.BONFIRE_X, SOULS_MEMORY.BONFIRE_Y);
+                }
+                
+
+                unset(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED);
+            }
+
+            // cure();
+            // cast(BOY, BOTH, CURE, 0x01);
+
+            if(SOULS_MEMORY.WITH_RETURN_TO_BONFIRE_ON_DEATH) {
+                attach_script(BOY, DAMAGE_DEATH, reference(boy_death));
+            }
+
+            if!(SOULS_MEMORY.WINGS_BLOCKED) {
+                special_script(WINGS, reference(wings_used));
+            }
+
+            MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+            MEMORY.DOG_XP_REQUIRED = SYSTEM.HP_MAX;
+
+            if!(SOULS_MEMORY.WITH_CHEATS) {
+                attribute(BOY, NO_CLIP, False);
+                attribute(DOG, NO_CLIP, False);
+            }
+
+            _init_souls();
+
+            radiation_handler();
+        }
+
+        fun init_hack() {
+            init_souls();
+        }
+
+        @install()
+        fun default_init_room(night, rain) {
+            init_hack();
+
+            if((!FLAG.BAZOOKA) && (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.BAZOOKA_TEMP)) {
+                MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
+            }
+
+            if(SOULS_MEMORY.DOG_SHIP || SOULS_MEMORY.DOG_SHIP_STAIRS) {
+                CUSTOM_FLAG.NO_DOG = True;
+            }
+            
+            if(CUSTOM_MEMORY.CURRENT_DOG) {
+                MEMORY.DOG_WRITE = CUSTOM_MEMORY.CURRENT_DOG;
+            } else if(SOULS_MEMORY.DOG_PREFERENCE != 0d0) {
+                MEMORY.DOG_WRITE = SOULS_MEMORY.DOG_PREFERENCE;
+            } else {
+                MEMORY.DOG_WRITE = DOG.WOLF;
+            }
+
+            init_weather(night, rain);
+
+            MEMORY.PACIFIED = False;
+
+            show_currency(False);
+
+            fade_in();
+        }
+
+        fun isaac_mode() {
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.ISAAC;
+            MEMORY.PACIFIED = True;
+        }
+
+        fun isaac_init(night, rain) {
+            init_hack();
+
+            available(BOY);
+            teleport(DOG, 0xff, 0xff);
+            init_weather(night, rain);
+
+            isaac_mode();
+
+            fade_in();
+        }
+
+        fun mario_mode() {
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
+            MEMORY.PACIFIED = True;
+        }
+
+        fun mario_init(night, rain) {
+            init_hack();
+
+            available(BOY);
+            teleport(DOG, 0xff, 0xff);
+            init_weather(night, rain);
+
+            mario_mode();
+
+            fade_in();
+        }
     };
 
     group hotkeys() {
@@ -5008,6 +5191,147 @@ group non_maps() {
                 }
             };
         };
+    };
+
+    group cheat_menu() {
+
+        fun cheat_menu() {
+            hide_non_dialog_layers();
+
+            <0x2850> = 0x0000; // TODO
+
+            MEMORY.QUESTION_ANSWER = 0d0;
+            while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                // text_start();
+                open_message_box(TRANSPARENT_CENTERED, 0x04, 0x04, 0x18, 0x14);
+
+                font(OUTRO);
+                text("Debug Menu:");
+
+                font(DEFAULT);
+                MEMORY.STRING_PARAMETER_1 = <0x2850, 0x01>;
+                text("[CHOICE][MEM1] - Fast Travel - [MEM1]");
+
+                MEMORY.STRING_PARAMETER_1 = <0x2850, 0x02>;
+                text("[CHOICE][MEM1] - Souls on Death - [MEM1]");
+
+                MEMORY.STRING_PARAMETER_1 = <0x2850, 0x04>;
+                text("[CHOICE][MEM1] - Cheat in Weapons - [MEM1]");
+
+                MEMORY.STRING_PARAMETER_1 = <0x2850, 0x08>;
+                text("[CHOICE][MEM1] - Cheat in Armor - [MEM1]");
+
+                debug_marker();
+                await_answer(MEMORY.QUESTION_ANSWER);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    <0x2850, 0x01> = !<0x2850, 0x01>;
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    <0x2850, 0x02> = !<0x2850, 0x02>;
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    <0x2850, 0x04> = !<0x2850, 0x04>;
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                    <0x2850, 0x08> = !<0x2850, 0x08>;
+                }
+
+                text_end();
+                control(BOTH);
+
+                if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    arg[0x10] = MEMORY.QUESTION_ANSWER;
+                    MEMORY.QUESTION_ANSWER = 0d0;
+                    while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                        // text_start();
+                        open_message_box(TRANSPARENT_CENTERED, 0x04, 0x04, 0x18, 0x14 + 0d2);
+                        // open_message_box(TRANSPARENT_CENTERED, 0x03, 0x00, 0x18 + 0d4, 0x14 + 0d4);
+
+                        font(OUTRO);
+                        text("Debug Menu: Weapons");
+
+                        font(DEFAULT);
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SWORD_1;
+                        text("[CHOICE][MEM1] - Sword 1 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SWORD_2;
+                        text("[CHOICE][MEM1] - Sword 2 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SWORD_3;
+                        text("[CHOICE][MEM1] - Sword 3 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SWORD_4;
+                        text("[CHOICE][MEM1] - Sword 4 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SPEAR_1;
+                        text("[CHOICE][MEM1] - Spear 1 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SPEAR_2;
+                        text("[CHOICE][MEM1] - Spear 2 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SPEAR_3;
+                        text("[CHOICE][MEM1] - Spear 3 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.SPEAR_4;
+                        text("[CHOICE][MEM1] - Spear 4 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.AXE_1;
+                        text("[CHOICE][MEM1] - Axe 1 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.AXE_2;
+                        text("[CHOICE][MEM1] - Axe 2 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.AXE_3;
+                        text("[CHOICE][MEM1] - Axe 3 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.AXE_4;
+                        text("[CHOICE][MEM1] - Axe 4 - [MEM1]");
+
+                        MEMORY.STRING_PARAMETER_1 = FLAG.BAZOOKA;
+                        text("[CHOICE][MEM1] - Bazooka - [MEM1]");
+
+                        await_answer(MEMORY.QUESTION_ANSWER);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            FLAG.SWORD_1 = !FLAG.SWORD_1;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                            FLAG.SWORD_2 = !FLAG.SWORD_2;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                            FLAG.SWORD_3 = !FLAG.SWORD_3;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                            FLAG.SWORD_4 = !FLAG.SWORD_4;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d4) {
+                            FLAG.SPEAR_1 = !FLAG.SPEAR_1;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d5) {
+                            FLAG.SPEAR_2 = !FLAG.SPEAR_2;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d6) {
+                            FLAG.SPEAR_3 = !FLAG.SPEAR_3;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d7) {
+                            FLAG.SPEAR_4 = !FLAG.SPEAR_4;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d8) {
+                            FLAG.AXE_1 = !FLAG.AXE_1;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d9) {
+                            FLAG.AXE_2 = !FLAG.AXE_2;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d10) {
+                            FLAG.AXE_3 = !FLAG.AXE_3;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d11) {
+                            FLAG.AXE_4 = !FLAG.AXE_4;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d12) {
+                            FLAG.BAZOOKA = !FLAG.BAZOOKA;
+                        }
+
+                        text_end();
+                        control(BOTH);
+                    }
+                    MEMORY.QUESTION_ANSWER = arg[0x10];
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                    <0x2850, 0x08> = !<0x2850, 0x08>;
+                    arg[0x10] = 0d3;
+                } else {
+                    arg[0x12] = True;
+                }
+            }
+
+            fade_in();
+        }
     };
 };
 
@@ -18571,6 +18895,28 @@ area southern_jungle() {
                 }));
             }
 
+            @install()
+            fun radiating_relic_examined() {
+                MEMORY.QUESTION_ANSWER = 0d0;
+                while(MEMORY.QUESTION_ANSWER == 0d0) {
+                    arg[0x0e] = randrange(0d4);
+
+                    increase_radiation(0d10);
+
+                    if(arg[0x0e] == 0d0) {
+                        conversation_dialog("[SLOW]It feels warped. Who crafted such bad armor?[B]");
+                    } else if(arg[0x0e] == 0d1) {
+                        conversation_dialog("[SLOW]It feels extremely heavy?! Who crafted such bad armor?[B]");
+                    } else if(arg[0x0e] == 0d2) {
+                        conversation_dialog("[SLOW]The soil around the armor sees to be discolored.[B]");
+                    } else if(arg[0x0e] == 0d3) {
+                        conversation_dialog("[SLOW]It feels somewhat soft. Who crafted such bad armor?[B]");
+                    }
+
+                    conversation_question("[SLOW]Examine again?[CHOICE]examine…[CHOICE]leave…");
+                }
+            }
+
             fun trigger_enter() {
                 // object[0x00] = 0x01;
                 // object[0x01] = 0x01;
@@ -18601,27 +18947,91 @@ area southern_jungle() {
                 }
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
-                    // east
-                    add_raptor(RAPTOR_PURPLE, 0d95, 0d30);
+                    if!(FLAG.ACID_RAIN) {
+                        // east
+                        add_raptor(RAPTOR_PURPLE, 0d95, 0d30);
 
-                    add_raptor(RAPTOR_PURPLE, 0d99, 0d63);
+                        add_raptor(RAPTOR_PURPLE, 0d99, 0d63);
 
-                    add_enemy(FLOWER_PURPLE, 0d96, 0d60);
+                        add_enemy(FLOWER_PURPLE, 0d96, 0d60);
 
-                    // west
-                    add_raptor(RAPTOR_GREEN, 0d40, 0d47);
+                        // west
+                        add_raptor(RAPTOR_GREEN, 0d40, 0d47);
 
-                    add_raptor(RAPTOR_GREEN, 0d61, 0d81);
+                        add_raptor(RAPTOR_GREEN, 0d61, 0d81);
 
-                    // river
-                    if(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
-                        add_raptor(RAPTOR_PURPLE, 0d82, 0d38);
+                        // river
+                        if(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
+                            add_raptor(RAPTOR_PURPLE, 0d82, 0d38);
+                        }   
                     }
                 }
 
                 default_init_room(True, True);
 
-                place_statue(HORACE, 0d90, 0d75);
+                place_statue(HORACE, 0d91, 0d75);
+
+                if(True) {
+                    // site - row 1
+                    add_enemy(PLACEHOLDER, 0d21, 0d43); // wagon west (skull)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+                    add_enemy(PLACEHOLDER, 0d21, 0d43); // grave 1-1 (skull)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+
+                    add_enemy(PLACEHOLDER, 0d49, 0d51); // grave 1-2 (chest)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        animate_boy_kneel(<BOY>);
+
+                        conversation({
+                            conversation_question("[SLOW]Why is that armor not green? They look more grey[CHOICE]examine…[CHOICE]leave…", 0d5);
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                radiating_relic_examined();
+                            }
+                        });
+
+                        animate(BOY, ONCE, DEFAULT);
+                    }));
+
+                    // site - row 2
+                    add_enemy(PLACEHOLDER, 0d23, 0d59); // grave 2-1 (skull)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+                    add_enemy(PLACEHOLDER, 0d21, 0d63); // grave 2-1 (chest)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        conversation({
+                            conversation_question("[SLOW]Is there something white on the armor? Are they infected by something?[CHOICE]examine…[CHOICE]leave…", 0d6);
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                radiating_relic_examined();
+                            }
+                        });
+                    }));
+                    add_enemy(PLACEHOLDER, 0d38, 0d61); // grave 2-2 (skull)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        conversation({
+                            conversation_question("[SLOW]Those rips don't look human.[CHOICE]examine…[CHOICE]leave…", 0d5);
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                                conversation_dialog("[SLOW]It feels extremely heavy?! Who crafted such bad armor?");
+                            }
+                        });
+                    }));
+
+                    // site - row 3
+                    add_enemy(PLACEHOLDER, 0d57, 0d73); // wagon east (skull)
+                    prepare_radiating_entity(<LAST_ENTITY>);
+
+                    // north
+                    add_enemy(PLACEHOLDER, 0d71, 0d15); // center skull
+                    prepare_radiating_entity(<LAST_ENTITY>);
+
+                    // east
+                    add_enemy(PLACEHOLDER, 0d108, 0d49); // center skull
+                    prepare_radiating_entity(<LAST_ENTITY>);
+                }
             }
         };
     };
@@ -23159,15 +23569,37 @@ area town() {
                 center_north = entrance(0d32, 0d37, NONE),
             }
 
+            @install()
+            fun bridge_explosion(object_id) {
+                control(NONE);
+
+                explode_barrier(<ACTIVE>, True); // TODO: wrong explosion
+
+                sleep(0d10);
+
+                object[object_id] = 0d1;
+                animate(ACTIVE, ONCE, KNOCKBACK);
+
+                sleep(0d60);
+
+                control(BOTH);
+            }
+
             enum stepon_trigger {
                 bridge_east = @install() {
                     debug_subtext("S=0");
+
+                    bridge_explosion(0x01);
                 },
                 bridge_west = @install() {
                     debug_subtext("S=1");
+
+                    bridge_explosion(0x02);
                 },
                 bridge_south = @install() {
                     debug_subtext("S=2");
+
+                    bridge_explosion(0x04);
                 },
             }
 

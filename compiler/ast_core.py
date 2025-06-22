@@ -689,11 +689,12 @@ class Function_Code(Function_Base):
 {code}
         """
 class Function_Calculate(Function_Base, Calculatable):
-    def __init__(self, script, delimiter=' ', raw=None):
+    def __init__(self, script, delimiter=' ', with_terminate=True, raw=None):
         self.raw = raw
         
         self.script = script
         self.delimiter = delimiter
+        self.with_terminate = with_terminate
 
     def _code(self, params:list[Param]):
         list = []
@@ -715,7 +716,10 @@ class Function_Calculate(Function_Base, Calculatable):
                 case _:
                     raise Exception(f"unknown type: can't generate code for:\n{a}")
 
-        code = self._terminate(list)
+        if self.with_terminate:
+            code = self._terminate(list)
+        else:
+            code = list
         code = self._clean_calucatable(code, params)
         code = self._clean_code(code)
         if "xx" in code:
