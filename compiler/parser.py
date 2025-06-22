@@ -63,6 +63,7 @@ class Parser():
             "eval": (lambda p: Function_Eval(p[2][0])),
             "goto": (lambda p: Function_Goto(p[2][0])),
             "code": (lambda p: Function_Code(p[2])),
+            "_calculate": (lambda p: Function_Calculate(p[2], with_terminate=False, raw=p)),
             "calculate": (lambda p: Function_Calculate(p[2], raw=p)),
             "set": (lambda p: Set(p[2][0])),
             "unset": (lambda p: Unset(p[2][0])),
