@@ -369,6 +369,7 @@ group non_maps() {
             CHEST_RED = 0xf011,
             HELM_ARCHAEOLOGY = 0xf020,
             GLOVE_HACKER = 0xf030,
+            GLOVE_PIPBOY = 0xf031,
 
             // quest items
             SMITH_KEY = 0xf100, // unlocks orb upgrades
@@ -798,7 +799,7 @@ group non_maps() {
                 reward(CHEST_2_2, push_music);
             } else if(item == CUSTOM_ITEM.CHEST_RED) {
                 reward(CHEST_2_3, push_music);
-            } else if(item == CUSTOM_ITEM.HELM_ARCHAEOLOGY) { // armor
+            } else if(item == CUSTOM_ITEM.HELM_ARCHAEOLOGY) {
                 reward(HELM_4_3, push_music);
 
                 dialog("[SLOW]What in the world is this? I hope someone can help me understand it.[B]");
@@ -806,6 +807,10 @@ group non_maps() {
                 reward(GLOVE_4_1, push_music);
 
                 dialog("[SLOW]You feel like hacker man.[B]");
+            } else if(item == CUSTOM_ITEM.GLOVE_PIPBOY) {
+                reward(GLOVE_4_2, push_music);
+
+                dialog("[SLOW]It has a glowing display that says `Pip-Boy´.[B]");
             } else if(item == CUSTOM_ITEM.SMITH_KEY) { // quest items
                 subtext("Gained Smith Key");
                     
@@ -2436,39 +2441,42 @@ group non_maps() {
         }
 
 
+        @install()
         fun _radiation_click() {
-            sound(CLICK_1);
+            if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2) {
+                sound(CLICK_1);
 
-            if(True) {
-                sleep(randrange(0d2));
-                sound(NONE);
+                if(True) {
+                    sleep(randrange(0d2));
+                    sound(NONE);
+                }
             }
         }
         @install()
         fun radiation_click(no_bonus_clicks) {
-                _radiation_click();
+            _radiation_click();
 
-                if!(no_bonus_clicks) {
+            if!(no_bonus_clicks) {
+                if(rand(0x1)) {
+                    sleep(0d5 + randrange(0d10));
+
+                    _radiation_click();
+                }
+                if(rand(0x1)) {
+                    sleep(randrange(0d30));
+                }
+                if(rand(0x1)) {
+                    sleep(0d3 + randrange(0d10));
+
+                    _radiation_click();
+
                     if(rand(0x1)) {
-                        sleep(0d5 + randrange(0d10));
+                        sleep(0d1 + randrange(0d10));
 
                         _radiation_click();
-                    }
-                    if(rand(0x1)) {
-                        sleep(randrange(0d30));
-                    }
-                    if(rand(0x1)) {
-                        sleep(0d3 + randrange(0d10));
-
-                        _radiation_click();
-
-                        if(rand(0x1)) {
-                            sleep(0d1 + randrange(0d10));
-
-                            _radiation_click();
-                        }
                     }
                 }
+            }
         }
 
         fun _radiation_handler_range_checker(source, target, range) {
@@ -3964,35 +3972,109 @@ group non_maps() {
                 }
 
                 @install()
-                fun crafter_0_triggered() {
+                fun crafter_market_triggered() {
                     conversation({
                         if(NPC_CRAFTER.PROGRESS == 0d0) {
-                            dialog("[SLOW]I'm trying to find some limestone tablets in the temple… Wish me luck…[B]");
+                            conversation({
+                                conversation_dialog("[SLOW]Ho there! Careful where you stomp, stranger. You're standing on six centuries of sediment![B]");
+                            });
 
-                            NPC_CRAFTER.PROGRESS = 0d1;
+                            NPC_CRAFTER.PROGRESS++;
+                        } else if(NPC_CRAFTER.PROGRESS == 0d1) {
+                            conversation({
+                                conversation_dialog("[SLOW]Digwell. Varn Digwell is the name. Based on the dust on your boots you have a long way behind you.[B]", 0d5);
+                            });
+
+                            NPC_CRAFTER.PROGRESS++;
+                        } else if((NPC_CRAFTER.PROGRESS == 0d2) || (NPC_CRAFTER.PROGRESS == 0x10)) {
+                            conversation({
+                                conversation_question("[SLOW]Locals told me about multiple treasures to hunt.[B]Which one sounds more adventurous to you?[CHOICE]Limestone Tablets…[CHOICE]Bones…[CHOICE]shopping…", 0d5);
+
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // temple
+                                    if(SOULS_MEMORY.DEAD_TEMPLE_MINITAUR) {
+                                        NPC_CRAFTER.PROGRESS = 0x20;
+                                    } else {
+                                        NPC_CRAFTER.PROGRESS = 0xff;
+                                    }
+
+                                    conversation_dialog("[SLOW]They were all out in the market, but locals told me that they can rarely be found in the temple to the North West.[B]Thanks for the recommendation![B]");
+                                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // horace camp
+                                    if(FLAG.ACID_RAIN) {
+                                        NPC_CRAFTER.PROGRESS = 0x30;
+                                    } else {
+                                        NPC_CRAFTER.PROGRESS = 0xff;
+                                    }
+
+                                    conversation_dialog("[SLOW]Interesting, locals told me about a mysterious excavation site South West of the town.[B]Thanks for the recommendation![B]");
+                                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // market
+                                    NPC_CRAFTER.PROGRESS = 0x10;
+
+                                    conversation_dialog("[SLOW]Really? Sounds somewhat boring.[B]Thanks for the recommendation…[B]");
+                                } else {
+                                    NPC_CRAFTER.PROGRESS++;
+
+                                    conversation_dialog("[SLOW]You sound boring…");
+                                }
+                            });
                         } else {
-                            dialog("[SLOW]Wish me luck…[B]");
+                            dialog("[SLOW]Treasures await![B]");
                         }
                     });
                 }
                 @install()
-                fun crafter_1_triggered() {
+                fun crafter_temple_triggered() {
                     conversation({
-                        if(NPC_CRAFTER.PROGRESS == 0d1) {
-                            question("[SLOW]I don't think I'll get out of here alive…[CHOICE]invite…[CHOICE]leave…");
-                                 
-                            if(MEMORY.QUESTION_ANSWER == 0d0) { // help
-                                NPC_CRAFTER.PROGRESS = 0d2;
+                        if(NPC_CRAFTER.PROGRESS == 0x20) {
+                            conversation({
+                                conversation_question("[SLOW]I don't think I'll get out of here alive…[CHOICE]market…[CHOICE]invite…[CHOICE]leave…");
+                                    
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // market
+                                    NPC_CRAFTER.PROGRESS = 0x10;
 
-                                dialog("[SLOW]Let me know when you need some crafting…[B]");
+                                    conversation_dialog("[SLOW]I'll trace back my steps.[B]");
+                                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // invite
+                                    NPC_CRAFTER.PROGRESS = 0x40;
+
+                                    conversation_dialog("[SLOW]Let me know when you need some crafting…[B]");
+                                } else {
+                                    conversation_dialog("[SLOW]I fear I'm stuck…[B]");
+                                }
+                            });
+                        } else {
+                            dialog("[SLOW]I'm glad you ran into me…[B]");
+                        }
+                    });
+                }
+                @install()
+                fun crafter_horace_camp_triggered() {
+                    conversation({
+                        if(NPC_CRAFTER.PROGRESS >= 0x30) {
+                            if(NPC_CRAFTER.PROGRESS < 0x33) {
+                                conversation_question("[SLOW]Did you already inspect the excavated relics?[B]This place raises so many questions.[CHOICE]talk…[CHOICE]market…[CHOICE]invite…[CHOICE]leave…", 0d6);
+                            } else {
+                                conversation_question("[SLOW]I don't feel so well…[CHOICE]talk…[CHOICE]market…[CHOICE]invite…[CHOICE]leave…", 0d6);
+                            }
+                                
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                                conversation_dialog("[SLOW]It's like armor from a dead world. Bronze wouldn't rot like this. And it's far too heavy. This wasn't made for battle… It was made for survival. Against what?[B]");
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // market
+                                NPC_CRAFTER.PROGRESS = 0x10;
+
+                                conversation_dialog("[SLOW]I'll trace back my steps.[B]");
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // invite
+                                NPC_CRAFTER.PROGRESS = 0x40;
+
+                                conversation_dialog("[SLOW]Let me know when you need some crafting…[B]");
+                            } else {
+                                conversation_dialog("[SLOW]This seems like something big…[B]");
                             }
                         } else {
-                            dialog("[SLOW]Let me know when you need some crafting…[B]");
+                            dialog("[SLOW]I'm glad you ran into me…[B]");
                         }
                     });
                 }
                 @install()
-                fun crafter_2_triggered() {
+                fun crafter_shrine_triggered() {
                     conversation({
                         response_greeting();
 
@@ -4038,12 +4120,20 @@ group non_maps() {
                     add_enemy(NPC_CRAFTER.BODY, x, y, 0d0);
                 }
 
-                if(NPC_CRAFTER.PROGRESS == 0d0) {
-                    attach_script(LAST_ENTITY, B, reference(crafter_0_triggered));
-                } else if(NPC_CRAFTER.PROGRESS == 0d1) {
-                    attach_script(LAST_ENTITY, B, reference(crafter_1_triggered));
-                } else if(NPC_CRAFTER.PROGRESS == 0d2) {
-                    attach_script(LAST_ENTITY, B, reference(crafter_2_triggered));
+                if(NPC_CRAFTER.PROGRESS < 0x20) {
+                    attach_script(LAST_ENTITY, B, reference(crafter_market_triggered));
+                } else if(NPC_CRAFTER.PROGRESS < 0x30) {
+                    attach_script(LAST_ENTITY, B, reference(crafter_temple_triggered));
+                } else if(NPC_CRAFTER.PROGRESS < 0x40) {
+                    if(NPC_CRAFTER.PROGRESS < 0x33) {
+                        attach_script(LAST_ENTITY, B, reference(crafter_horace_camp_triggered));
+
+                        NPC_CRAFTER.PROGRESS++;
+                    } else {
+                        NPC_CRAFTER.PROGRESS = 0xff;
+                    }
+                } else if(NPC_CRAFTER.PROGRESS < 0xff) {
+                    attach_script(LAST_ENTITY, B, reference(crafter_shrine_triggered));
                 }
             }
         };
@@ -8452,7 +8542,7 @@ area shrine_area() {
             // object[0x03] = 0x01; // open gourd_1_2_2
             // object[0x04] = 0x01; // open gourd_1_2_3
 
-            if(NPC_CRAFTER.PROGRESS == 0d2) {
+            if((NPC_CRAFTER.PROGRESS >= 0x40) && (NPC_CRAFTER.PROGRESS < 0xff)) {
                 add_souls_npc_crafter(0d57, 0d23);
             }
 
@@ -18901,14 +18991,14 @@ area southern_jungle() {
                 while(MEMORY.QUESTION_ANSWER == 0d0) {
                     arg[0x0e] = randrange(0d4);
 
-                    increase_radiation(0d10);
+                    increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
 
                     if(arg[0x0e] == 0d0) {
                         conversation_dialog("[SLOW]It feels warped. Who crafted such bad armor?[B]");
                     } else if(arg[0x0e] == 0d1) {
                         conversation_dialog("[SLOW]It feels extremely heavy?! Who crafted such bad armor?[B]");
                     } else if(arg[0x0e] == 0d2) {
-                        conversation_dialog("[SLOW]The soil around the armor sees to be discolored.[B]");
+                        conversation_dialog("[SLOW]The soil around the armor seems to be discolored.[B]");
                     } else if(arg[0x0e] == 0d3) {
                         conversation_dialog("[SLOW]It feels somewhat soft. Who crafted such bad armor?[B]");
                     }
@@ -18920,6 +19010,10 @@ area southern_jungle() {
             fun trigger_enter() {
                 // object[0x00] = 0x01;
                 // object[0x01] = 0x01;
+
+                if((NPC_CRAFTER.PROGRESS >= 0x30) && (NPC_CRAFTER.PROGRESS < 0x33)) {
+                    add_souls_npc_crafter(0d33, 0d55);
+                }
 
                 add_souls_npc_alchemist_acid_rain(0d78, 0d82);
                 <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
@@ -19015,7 +19109,13 @@ area southern_jungle() {
                             conversation_question("[SLOW]Those rips don't look human.[CHOICE]examine…[CHOICE]leave…", 0d5);
 
                             if(MEMORY.QUESTION_ANSWER == 0d0) {
-                                conversation_dialog("[SLOW]It feels extremely heavy?! Who crafted such bad armor?");
+                                increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
+
+                                if!(MEMORY.GLOVE_4_2) {
+                                    custom_reward(GLOVE_PIPBOY, True);
+                                } else {
+                                    conversation_dialog("[SLOW]The bones look discolored. I wonder what happened to them.[B]");
+                                }
                             }
                         });
                     }));
@@ -22194,7 +22294,7 @@ area town() {
                 }
 
                 fun trigger_enter() {
-                    if(NPC_CRAFTER.PROGRESS == 0d1) {
+                    if((NPC_CRAFTER.PROGRESS >= 0x20) && (NPC_CRAFTER.PROGRESS < 0x30)) {
                         add_souls_npc_crafter(0d97, 0d82);
                     }
 
@@ -24400,7 +24500,7 @@ area town() {
                     crash_both();
                 }
 
-                if(NPC_CRAFTER.PROGRESS == 0d0) {
+                if(NPC_CRAFTER.PROGRESS < 0x20) {
                     add_souls_npc_crafter(0d66, 0d121);
                 }
 
