@@ -7496,6 +7496,17 @@ group functions() {
                 }
             }
 
+            fun guard_boy() {
+                if(<ACTIVE> != <BOY>) {
+                    end();
+                }
+            }
+            fun guard_dog() {
+                if(<ACTIVE> != <DOG>) {
+                    end();
+                }
+            }
+
             fun _guard_weapon(weapon_check) {
                 if(<ACTIVE> == <BOY>) {
                     animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
@@ -7549,39 +7560,43 @@ group functions() {
             @install()
             @async()
             @weak()
-            fun movement_boost(speed, inverted) {
-                arg[0x10] = <BOY>[X];
-                arg[0x12] = <BOY>[Y];
+            fun movement_amplification(entity, time, speed, inverted) {
+                arg[0x10] = entity[X];
+                arg[0x12] = entity[Y];
 
-                while(True) {
-                    if((arg[0x10] != <BOY>[X]) || (arg[0x12] != <BOY>[Y])) {
-                        if(<BOY>[X] > arg[0x10]) {
+                while(time) {
+                    if((time > 0d0) && (time != 0xffff)) {
+                        time--;
+                    }
+
+                    if((arg[0x10] != entity[X]) || (arg[0x12] != entity[Y])) {
+                        if(entity[X] > arg[0x10]) {
                             arg[0x14] = speed;
-                        } else if(<BOY>[X] < arg[0x10]) {
+                        } else if(entity[X] < arg[0x10]) {
                             arg[0x14] = -(speed);
                         } else {
                             arg[0x14] = 0d0;
                         }
 
-                        if(<BOY>[Y] > arg[0x12]) {
+                        if(entity[Y] > arg[0x12]) {
                             arg[0x16] = speed;
-                        } else if(<BOY>[Y] < arg[0x12]) {
+                        } else if(entity[Y] < arg[0x12]) {
                             arg[0x16] = -(speed);
                         } else {
                             arg[0x16] = 0d0;
                         }
 
-                        if(inverted) {
+                        if!(inverted) {
                             arg[0x14] = -(arg[0x14]);
                             arg[0x16] = -(arg[0x16]);
                         }
 
-                        teleport_relative(BOY, -(arg[0x14]), -(arg[0x16]));
+                        teleport_relative(entity, -(arg[0x14]), -(arg[0x16]));
                         // debug_memory(arg[0x14], arg[0x16]);
                     }
 
-                    arg[0x10] = <BOY>[X];
-                    arg[0x12] = <BOY>[Y];
+                    arg[0x10] = entity[X];
+                    arg[0x12] = entity[Y];
 
                     yield();
                 }
@@ -11254,6 +11269,15 @@ group functions() {
     };
 
     group debug_helper() {
+        @install()
+        @weak()
+        fun debug_entity(entity) {
+            MEMORY.STRING_PARAMETER_1 = entity[X] / 0x08;
+            MEMORY.STRING_PARAMETER_2 = entity[Y] / 0x08;
+            MEMORY.STRING_PARAMETER_3 = entity[Z_LEVEL];
+
+            debug_subtext("entity = [MEM1]/[MEM2]/[MEM3]");
+        }
         @install()
         @weak()
         fun _debug_boy() {

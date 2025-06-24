@@ -369,7 +369,8 @@ group non_maps() {
             CHEST_RED = 0xf011,
             HELM_ARCHAEOLOGY = 0xf020,
             GLOVE_HACKER = 0xf030,
-            GLOVE_PIPBOY = 0xf031,
+            GLOVE_PIPBOY_NORTH_EAST = 0xf031,
+            GLOVE_PIPBOY_NORTH_WEST = 0xf032,
 
             // quest items
             SMITH_KEY = 0xf100, // unlocks orb upgrades
@@ -441,6 +442,8 @@ group non_maps() {
             DOG_SHIP = memory(FLAG, SRAM),
             DOG_SHIP_STAIRS = memory(FLAG, SRAM),
 
+            // boy
+            BOY_SLOW_ON_HIT = CUSTOM_FLAG.RESERVED_2,
             // boy dust
             DUST_ENTITY = memory(WORD, TEMP_RESERVED),
             DUST_DROP_X = memory(WORD, SRAM),
@@ -463,7 +466,7 @@ group non_maps() {
             ORB_SPEAR = memory(BYTE, SRAM),
 
             BEES = memory(BYTE, SRAM),
-            ISAAC_BOMBS = memory(BYTE, SRAM),
+            // ISAAC_BOMBS = memory(BYTE, SRAM),
             
             SMITH_KEY = memory(FLAG, SRAM),
             BIG_MUSHROOM = memory(FLAG, SRAM),
@@ -475,6 +478,8 @@ group non_maps() {
             PICKAXE_SHAFT = memory(FLAG, SRAM),
             PICKAXE = memory(FLAG, SRAM),
 
+            CLEARANCE_VAULT_NORTH_EAST = memory(FLAG, SRAM),
+
             // custom item helper
 
             HIT_BONUS_HELM = memory(FLAG, SRAM),
@@ -482,7 +487,6 @@ group non_maps() {
             HIT_BONUS_ARMLET = memory(FLAG, SRAM),
             NO_RUNNING_CHEST = CUSTOM_FLAG.RESERVED_1,
             ARCHAEOLOGY_TARGET = CUSTOM_MEMORY.RESERVED_1,
-            RADIATION = memory(BYTE, SRAM),
             RADIATION_SOURCE_1 = CUSTOM_MEMORY.RESERVED_2,
             RADIATION_SOURCE_2 = CUSTOM_MEMORY.RESERVED_3,
             RADIATION_SOURCE_3 = CUSTOM_MEMORY.RESERVED_4,
@@ -627,7 +631,7 @@ group non_maps() {
             // north
 
             DEAD_GIDEON = memory(FLAG, SRAM), // t?
-            REWARD_GIDEON = ITEM.NOTHING,
+            REWARD_GIDEON = CUSTOM_ITEM.GLOVE_PIPBOY_NORTH_EAST,
 
             // southern jungle
 
@@ -807,7 +811,12 @@ group non_maps() {
                 reward(GLOVE_4_1, push_music);
 
                 dialog("[SLOW]You feel like hacker man.[B]");
-            } else if(item == CUSTOM_ITEM.GLOVE_PIPBOY) {
+            } else if(item == CUSTOM_ITEM.GLOVE_PIPBOY_NORTH_EAST) {
+                reward(GLOVE_4_2, push_music);
+
+                dialog("[SLOW]It has a glowing display that says `Pip-Boy´.[B]");
+            } else if(item == CUSTOM_ITEM.GLOVE_PIPBOY_NORTH_WEST) {
+                SOULS_MEMORY.CLEARANCE_VAULT_NORTH_EAST = True;
                 reward(GLOVE_4_2, push_music);
 
                 dialog("[SLOW]It has a glowing display that says `Pip-Boy´.[B]");
@@ -1292,6 +1301,10 @@ group non_maps() {
                     if(arg[0x12] && arg[0x10]) {
                         damage(arg[0x10], 0d10, True);
                     }
+                }
+
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] && SOULS_MEMORY.BOY_SLOW_ON_HIT) {
+                    movement_amplification(<BOY>, 0d180, 0d1, True);
                 }
 
                 end();
@@ -2398,6 +2411,10 @@ group non_maps() {
         enum RADIATION {
             DEBUG = True,
 
+            RADIATION_LEVEL = memory(WORD, TEMP_RESERVED),
+
+            RADIATION_CURRENT = memory(BYTE, SRAM),
+
             RADIATION_MAX = 0d255,
             RADIATION_DECAY = 0d1,
             RADIATION_DAMAGE = 0d1,
@@ -2435,15 +2452,19 @@ group non_maps() {
 
         @install()
         fun increase_radiation(amount) {
-            if(SOULS_MEMORY.RADIATION < (RADIATION.RADIATION_MAX - amount)) {
-                SOULS_MEMORY.RADIATION += amount;
+            if(RADIATION.RADIATION_CURRENT < (RADIATION.RADIATION_MAX - amount)) {
+                RADIATION.RADIATION_CURRENT += amount;
+
+                if(RADIATION.RADIATION_LEVEL) {
+                    RADIATION.RADIATION_CURRENT += amount + amount;
+                }
             }
         }
 
 
         @install()
-        fun _radiation_click() {
-            if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2) {
+        fun _radiation_click(force_click) {
+            if(force_click || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2)) {
                 sound(CLICK_1);
 
                 if(True) {
@@ -2453,14 +2474,14 @@ group non_maps() {
             }
         }
         @install()
-        fun radiation_click(no_bonus_clicks) {
-            _radiation_click();
+        fun radiation_click(no_bonus_clicks, force_click) {
+            _radiation_click(force_click);
 
             if!(no_bonus_clicks) {
                 if(rand(0x1)) {
                     sleep(0d5 + randrange(0d10));
 
-                    _radiation_click();
+                    _radiation_click(force_click);
                 }
                 if(rand(0x1)) {
                     sleep(randrange(0d30));
@@ -2468,12 +2489,12 @@ group non_maps() {
                 if(rand(0x1)) {
                     sleep(0d3 + randrange(0d10));
 
-                    _radiation_click();
+                    _radiation_click(force_click);
 
                     if(rand(0x1)) {
                         sleep(0d1 + randrange(0d10));
 
-                        _radiation_click();
+                        _radiation_click(force_click);
                     }
                 }
             }
@@ -2542,18 +2563,20 @@ group non_maps() {
                         radiation_click();
                     }
 
-                    if(SOULS_MEMORY.RADIATION > RADIATION.RADIATION_DECAY) {
-                        SOULS_MEMORY.RADIATION -= RADIATION.RADIATION_DECAY;
-                    } else {
-                        SOULS_MEMORY.RADIATION = 0d0;
+                    if!(RADIATION.RADIATION_LEVEL) {
+                        if(RADIATION.RADIATION_CURRENT > RADIATION.RADIATION_DECAY) {
+                            RADIATION.RADIATION_CURRENT -= RADIATION.RADIATION_DECAY;
+                        } else {
+                            RADIATION.RADIATION_CURRENT = 0d0;
+                        }
                     }
                 }
 
                 if(RADIATION.DEBUG) {
-                    debug_memory(SOULS_MEMORY.RADIATION, arg[0x10], arg[0x12]);
+                    debug_memory(RADIATION.RADIATION_CURRENT, arg[0x10], arg[0x12]);
                 }
 
-                if((SOULS_MEMORY.RADIATION > RADIATION.THRESHOLD_DAMAGE) && (!randrange(0d3))) {
+                if((RADIATION.RADIATION_CURRENT > RADIATION.THRESHOLD_DAMAGE) && (!randrange(0d3))) {
                     MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
                     damage(BOY, RADIATION.RADIATION_DAMAGE, True);
                 }
@@ -2561,6 +2584,14 @@ group non_maps() {
         }
         fun radiation_handler() {
             _radiation_handler(<BOY>, 0d50);
+        }
+
+        fun pip_boy(callback) {
+            if((<ACTIVE> == <BOY>) && (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2)) {
+                callback();
+            } else {
+                fake_b();
+            }
         }
     };
 
@@ -2757,6 +2788,14 @@ group non_maps() {
             fade_in();
         }
 
+        fun fallout_init(night, rain) {
+            init_hack();
+
+            RADIATION.RADIATION_LEVEL = 0d1;
+
+            default_init_room(night, rain);
+        }
+
         fun mario_mode() {
             CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
             MEMORY.PACIFIED = True;
@@ -2880,7 +2919,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(town_center_secret_dog_statue_boss, center_north, NONE);
+                map_transition(junkyard_northwest, teleporter, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -2965,11 +3004,12 @@ group non_maps() {
                     mario_fireflower();
                 }
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.ISAAC) {
-                if(SOULS_MEMORY.ISAAC_BOMBS > 0d0) {
-                    SOULS_MEMORY.ISAAC_BOMBS--;
-
-                    drop_bomb(False);
-                }
+                // if(SOULS_MEMORY.ISAAC_BOMBS > 0d0) {
+                //     SOULS_MEMORY.ISAAC_BOMBS--;
+                // 
+                //     drop_bomb(False);
+                // }
+                nop();
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.SPEAR_TOSS) {
                 spear_toss();
             }
@@ -19112,7 +19152,7 @@ area southern_jungle() {
                                 increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
 
                                 if!(MEMORY.GLOVE_4_2) {
-                                    custom_reward(GLOVE_PIPBOY, True);
+                                    custom_reward(GLOVE_PIPBOY_NORTH_WEST, True);
                                 } else {
                                     conversation_dialog("[SLOW]The bones look discolored. I wonder what happened to them.[B]");
                                 }
@@ -31048,6 +31088,58 @@ area metro() {
                 end();
             }
         }
+
+        @install()
+        fun _guard_entrance_gate(flag, radiation_check) {
+            CUSTOM_MEMORY.RETURN = False;
+
+            if(radiation_check && (RADIATION.RADIATION_CURRENT > 0d0)) {
+                control(NONE);
+
+                if(radiation_check) {
+                    for(arg[0x0e] in 0d0..0d10) {
+                        radiation_click(False, True);
+                    }
+                }
+
+                sound(PIPING_SOUND);
+
+                error_walk_back(SOUTH);
+
+                dialog("[SLOW]Warning: Biohazard detected. Quarantine breach imminent.[B]");
+                face(ACTIVE, NORTH);
+
+                control(BOTH);
+
+                end();
+            } else if(!flag || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE != ARMOR_STATS.GLOVE_4_2)) {
+                sound(PIPING_SOUND);
+
+                error_walk_back(SOUTH);
+
+                dialog("[SLOW]…Unautorized user… access denied… Please present clearance…[B]");
+                face(ACTIVE, NORTH);
+
+                end();
+            } else {
+                sound(ACT4_DOOR_OPENING);
+            }
+
+            CUSTOM_MEMORY.RETURN = True;
+        }
+        fun guard_entrance_gate(flag, radiation_check) {
+            _guard_entrance_gate(flag, radiation_check);
+
+            if!(CUSTOM_MEMORY.RETURN) {
+                end();
+            }
+        }
+
+        @install()
+        fun add_radiating_tentacle(x, y) {
+            add_enemy(TENTACLE_SPIKE, x, y);
+            prepare_radiating_entity(<LAST_ENTITY>);
+        }
     };
 
     map metro(OMNITOPIA_METROPLEX) {
@@ -31984,6 +32076,8 @@ area metro() {
                 exit_north = @install() {
                     debug_subtext("S=11");
 
+                    guard_entrance_gate(SOULS_MEMORY.DEAD_GIDEON, True);
+
                     door_act4_beam_out(0d62, 0d22);
 
                     map_transition(metro, door_c1, NONE);
@@ -31998,7 +32092,7 @@ area metro() {
             }
             
             fun trigger_enter() {
-                default_init_room(False, False);
+                fallout_init(False, False);
             }
         };
 
@@ -32008,6 +32102,8 @@ area metro() {
                 DOOR_PASSAGE_NORTH_OPEN = memory(FLAG, TEMP),
 
                 ENTERED_FROM_SOUTH = memory(FLAG, TEMP),
+
+                CLONE_OPENED = memory(FLAG, TEMP),
             }
 
             enum entrance {
@@ -32076,21 +32172,55 @@ area metro() {
             enum b_trigger {
                 shop_1 = @install() {
                     debug_subtext("B=0");
+
+                    pip_boy({
+                        dialog("[SLOW]An escaped clone dog.[B]");
+                    });
                 },
                 shop_2 = @install() {
                     debug_subtext("B=1");
+
+                    pip_boy({
+                        if!(ROOM.CLONE_OPENED) {
+                            control(NONE);
+
+                            ROOM.CLONE_OPENED = True;
+
+                            object[0x03] = 0x7e; // open shop_2
+
+                            add_enemy(BOY_BLACK, 0d60, 0d10, INACTIVE_IMORTAL);
+
+                            animate(LAST_ENTITY, ONCE, ANIMATION_BOY.FALL_2);
+                            sleep(0d5);
+                            animate(LAST_ENTITY, PAUSE, DEFAULT);
+
+                            dialog("[SLOW]An incomplete clone.[B]");
+
+                            control(BOTH);
+                        } else {
+                            dialog("[SLOW]An incomplete clone.[B]");
+                        }
+                    });
                 },
                 shop_3 = @install() {
                     debug_subtext("B=2");
+
+                    pip_boy({
+                        dialog("[SLOW]An escaped clone.[B]");
+                    });
                 },
             }
 
             fun trigger_enter() {
                 // object[0x00] = 0x7e; // open door_passage_north
                 // object[0x01] = 0x7e; // open door_passage_south
-                // object[0x02] = 0x7e; // open shop_1
-                // object[0x03] = 0x7e; // open shop_2
-                // object[0x04] = 0x7e; // open shop_3
+                object[0x02] = 0x7e; // open shop_1
+                if(ROOM.CLONE_OPENED) {
+                    object[0x03] = 0x7e; // open shop_2
+                }
+                object[0x04] = 0x7e; // open shop_3
+
+                add_enemy(DOG_4_BLACK, 0d84, 0d61);
 
                 default_metro_init_room(reference(@install() {
                     metro_death_trigger({
@@ -32530,6 +32660,8 @@ area metro() {
                 exit_north = @install() {
                     debug_subtext("S=11");
 
+                    guard_entrance_gate(SOULS_MEMORY.CLEARANCE_VAULT_NORTH_EAST, True);
+
                     door_act4_beam_out(0d62, 0d22);
 
                     map_transition(metro, door_b3, NONE);
@@ -32548,7 +32680,11 @@ area metro() {
                     crash_both();
                 }
 
-                fade_in();
+                add_radiating_tentacle(0d41, 0d33);
+                add_radiating_tentacle(0d48, 0d35);
+                add_radiating_tentacle(0d57, 0d36);
+
+                fallout_init(False, False);
             }
         };
 
