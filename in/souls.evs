@@ -2176,235 +2176,6 @@ group non_maps() {
                 sterling_rats_scanner(x_dust, y_dust);
             }
         }
-
-        group archaeology() {
-            enum ARCHAEOLOGY_DIG {
-                DEBUG = True,
-
-                DOG = 0d10,
-                BOY = 0d1,
-                BOY_PICKAXE = 0d30,
-
-                WITH_BOY = False,
-
-                // riddle: code bots
-                CODE_1 = 0x00,
-                CODE_2 = 0x01,
-                CODE_3 = 0x02,
-                CODE_4 = 0x03,
-                CODE_5 = 0x04,
-            }
-
-            @install()
-            @async()
-            fun hacking_wakeup(offset_boy_x, offset_boy_y, offset_dog_x, offset_dog_y) {
-                <BOY>[X] += signed arg[0x00];
-                <BOY>[Y] += signed arg[0x02];
-
-                <DOG>[X] += signed arg[0x04];
-                <DOG>[Y] += signed arg[0x06];
-
-                attribute(BOY, INVINCIBLE_TEMP, True);
-                attribute(DOG, INVINCIBLE_TEMP, True);
-
-                animate_boy_kneel(BOY);
-
-                sleep(0d60);
-
-                animate(BOY, ONCE, DEFAULT);
-
-                attribute(BOY, INVINCIBLE_TEMP, False);
-                attribute(DOG, INVINCIBLE_TEMP, False);
-            }
-
-            fun archaeology_dig(x, y, counter, digs, callback, detectable) {
-                add_enemy(PLACEHOLDER, x, y);
-                attach_script(LAST_ENTITY, B, callback);
-                
-                counter = digs;
-
-                if(detectable !is None) {
-                    if(detectable) {
-                        SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
-                    }
-                }
-            }
-
-            fun _guard_archaeology_dig(counter) {
-                if(<ACTIVE> == <DOG>) {
-                    sound(IMPACT);
-                    animate(DOG, ONCE, ANIMATION_DOG.ACT1_ANGRY); // TODO
-
-                    if(counter >= ARCHAEOLOGY_DIG.DOG) {
-                        counter -= ARCHAEOLOGY_DIG.DOG;
-                    } else {
-                        counter = 0d0;
-                    }
-                } else {
-                    if((SOULS_MEMORY.PICKAXE) || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_3)) {
-                        sound(IMPACT);
-                        animate(BOY, ONCE, ANIMATION_BOY.LANDING);
-
-                        if(counter >= ARCHAEOLOGY_DIG.BOY_PICKAXE) {
-                            counter -= ARCHAEOLOGY_DIG.BOY_PICKAXE;
-                        } else {
-                            counter = 0d0;
-                        }
-                    } else if(ARCHAEOLOGY_DIG.WITH_BOY) {
-                        sound(IMPACT);
-                        animate(BOY, ONCE, ANIMATION_BOY.LANDING);
-
-                        if(counter >= ARCHAEOLOGY_DIG.BOY) {
-                            counter -= ARCHAEOLOGY_DIG.BOY;
-                        } else {
-                            counter = 0d0;
-                        }
-                    } else {
-                        fake_b();
-                    }
-                }
-            }
-            fun guard_archaeology_dig(flag, counter, no_clean_up) {
-                if(ARCHAEOLOGY_DIG.DEBUG) {
-                    debug_memory(counter, flag);
-                }
-
-                if!(flag) {
-                    if(counter == 0d0) {
-                        sound(WEIRD_SOUND);
-
-                        if(flag is Memory) {
-                            flag = True;
-                        }
-
-                        if!(no_clean_up !is None) {
-                            destroy(SCRIPT_OWNER);
-                        }
-                    } else {
-                        _guard_archaeology_dig(counter);
-
-                        end();
-                    }
-                }
-            }
-
-            @install()
-            fun reveal_code() {
-                arg[0x10] = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1; // left
-                arg[0x12] = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1; // right
-                arg[0x14] = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3; // rgb_1
-                arg[0x16] = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3; // rgb_2
-                arg[0x18] = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3; // rgb_3
-
-                if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_1) {
-                    // dialog("[SLOW]_ _  _ _ 1[B]");
-
-                    if(False) {
-                        MEMORY.STRING_PARAMETER_1 = arg[0x18];
-                        dialog("[SLOW]_ _  _ _ [MEM1][B]");
-                    } else {
-                        if(arg[0x18] == CODE_RIDDLE.CODE_RED) {
-                            dialog("[SLOW]_ _  _ _ R[B]");
-                        } else if(arg[0x18] == CODE_RIDDLE.CODE_GREEN) {
-                            dialog("[SLOW]_ _  _ _ G[B]");
-                        } else if(arg[0x18] == CODE_RIDDLE.CODE_BLUE) {
-                            dialog("[SLOW]_ _  _ _ B[B]");
-                        }
-                    }
-                } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_2) {
-                    // dialog("[SLOW]_ _  _ 2 _[B]");
-
-                    if(False) {
-                        MEMORY.STRING_PARAMETER_1 = arg[0x16];
-                        dialog("[SLOW]_ _  _ [MEM1] _[B]");
-                    } else {
-                        if(arg[0x16] == CODE_RIDDLE.CODE_RED) {
-                            dialog("[SLOW]_ _  _ R _[B]");
-                        } else if(arg[0x16] == CODE_RIDDLE.CODE_GREEN) {
-                            dialog("[SLOW]_ _  _ G _[B]");
-                        } else if(arg[0x16] == CODE_RIDDLE.CODE_BLUE) {
-                            dialog("[SLOW]_ _  _ B _[B]");
-                        }
-                    }
-                } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_3) {
-                    // dialog("[SLOW]_ _  3 _ _[B]");
-
-                    if(False) {
-                        MEMORY.STRING_PARAMETER_1 = arg[0x14];
-                        dialog("[SLOW]_ _  [MEM1] _ _[B]");
-                    } else {
-                        if(arg[0x14] == CODE_RIDDLE.CODE_RED) {
-                            dialog("[SLOW]_ _  R _ _[B]");
-                        } else if(arg[0x14] == CODE_RIDDLE.CODE_GREEN) {
-                            dialog("[SLOW]_ _  G _ _[B]");
-                        } else if(arg[0x14] == CODE_RIDDLE.CODE_BLUE) {
-                            dialog("[SLOW]_ _  B _ _[B]");
-                        }
-                    }
-                } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_4) {
-                    // dialog("[SLOW]_ 4  _ _ _[B]");
-
-                    MEMORY.STRING_PARAMETER_1 = arg[0x12];
-                    dialog("[SLOW]_ [MEM1]  _ _ _[B]");
-                } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_5) {
-                    // dialog("[SLOW]5 _  _ _ _[B]");
-
-                    MEMORY.STRING_PARAMETER_1 = arg[0x10];
-                    dialog("[SLOW][MEM1] _  _ _ _[B]");
-                } else {
-                    dialog("[SLOW]…[B]");
-                }
-            }
-
-            fun add_code_bot(x, y, index, dig_counter, hacked) {
-                add_enemy(DUSTER_BOT, x, y, INACTIVE_IMORTAL);
-                if!(hacked) {
-                    attribute(LAST_ENTITY, INVISIBLE, True);
-                }
-                <LAST_ENTITY>[GENERAL_PURPOSE] = dig_counter;
-                SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
-                face_target(LAST_ENTITY, ACTIVE);
-
-                <BOY>[GENERAL_PURPOSE] = index;
-
-                if!(hacked) {
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        guard_archaeology_dig(False, <SCRIPT_OWNER>[GENERAL_PURPOSE], True);
-
-                        attribute(SCRIPT_OWNER, INVISIBLE, False);
-
-                        if(<ACTIVE> == <DOG>) {
-                            dialog("…[B]");
-                            end();
-                        }
-
-                        animate_boy_kneel(BOY);
-
-                        question("[SLOW]Access robot?[CHOICE]hack…[CHOICE]leave…");
-
-                        if(MEMORY.QUESTION_ANSWER == 0d0) { // hack
-                            if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_1) {
-                                reveal_code();
-                            } else {
-                                map_transition(mini_game_hacking, center, NONE);
-                            }
-                        }
-
-                        animate(BOY, ONCE, DEFAULT);
-                    }));
-                } else {
-                    attach_script(LAST_ENTITY, B, reference(reveal_code));
-                }
-            }
-
-            fun archaeology_dig_code_bot(x, y, index, dig_counter, flag) {
-                if!(flag) {
-                    add_code_bot(x, y, index, dig_counter, False);
-                } else {
-                    add_code_bot(x, y, index, dig_counter, True);
-                }
-            }
-        };
     };
 
     group fallout_mechanics() {
@@ -2591,6 +2362,246 @@ group non_maps() {
                 callback();
             } else {
                 fake_b();
+            }
+        }
+    };
+
+    group archaeology_helper() {
+        enum ARCHAEOLOGY_DIG {
+            DEBUG = True,
+
+            DOG = 0d10,
+            BOY = 0d1,
+            BOY_PICKAXE = 0d30,
+
+            WITH_BOY = False,
+
+            // riddle: code bots
+            CODE_1 = 0x00,
+            CODE_2 = 0x01,
+            CODE_3 = 0x02,
+            CODE_4 = 0x03,
+            CODE_5 = 0x04,
+        }
+
+        @install()
+        @async()
+        fun hacking_wakeup(offset_boy_x, offset_boy_y, offset_dog_x, offset_dog_y) {
+            <BOY>[X] += signed arg[0x00];
+            <BOY>[Y] += signed arg[0x02];
+
+            <DOG>[X] += signed arg[0x04];
+            <DOG>[Y] += signed arg[0x06];
+
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            attribute(DOG, INVINCIBLE_TEMP, True);
+
+            animate_boy_kneel(BOY);
+
+            sleep(0d60);
+
+            animate(BOY, ONCE, DEFAULT);
+
+            attribute(BOY, INVINCIBLE_TEMP, False);
+            attribute(DOG, INVINCIBLE_TEMP, False);
+        }
+
+        fun archaeology_dig(x, y, counter, digs, callback, detectable) {
+            add_enemy(PLACEHOLDER, x, y);
+            attach_script(LAST_ENTITY, B, callback);
+            
+            counter = digs;
+
+            if(detectable !is None) {
+                if(detectable) {
+                    SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+                }
+            }
+        }
+
+        fun _guard_archaeology_dig(counter) {
+            if(<ACTIVE> == <DOG>) {
+                sound(IMPACT);
+                animate(DOG, ONCE, ANIMATION_DOG.ACT1_ANGRY); // TODO
+
+                if(counter >= ARCHAEOLOGY_DIG.DOG) {
+                    counter -= ARCHAEOLOGY_DIG.DOG;
+                } else {
+                    counter = 0d0;
+                }
+            } else {
+                if((SOULS_MEMORY.PICKAXE) || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_3)) {
+                    sound(IMPACT);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
+                    if(counter >= ARCHAEOLOGY_DIG.BOY_PICKAXE) {
+                        counter -= ARCHAEOLOGY_DIG.BOY_PICKAXE;
+                    } else {
+                        counter = 0d0;
+                    }
+                } else if(ARCHAEOLOGY_DIG.WITH_BOY) {
+                    sound(IMPACT);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
+                    if(counter >= ARCHAEOLOGY_DIG.BOY) {
+                        counter -= ARCHAEOLOGY_DIG.BOY;
+                    } else {
+                        counter = 0d0;
+                    }
+                } else {
+                    fake_b();
+                }
+            }
+        }
+        fun guard_archaeology_dig(flag, counter, no_clean_up) {
+            if(ARCHAEOLOGY_DIG.DEBUG) {
+                debug_memory(counter, flag);
+            }
+
+            if!(flag) {
+                if(counter == 0d0) {
+                    sound(WEIRD_SOUND);
+
+                    if(flag is Memory) {
+                        flag = True;
+                    }
+
+                    if!(no_clean_up !is None) {
+                        destroy(SCRIPT_OWNER);
+                    }
+                } else {
+                    _guard_archaeology_dig(counter);
+
+                    end();
+                }
+            }
+        }
+
+        @install()
+        fun reveal_code() {
+            arg[0x10] = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1; // left
+            arg[0x12] = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1; // right
+            arg[0x14] = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3; // rgb_1
+            arg[0x16] = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3; // rgb_2
+            arg[0x18] = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3; // rgb_3
+
+            if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_1) {
+                // dialog("[SLOW]_ _  _ _ 1[B]");
+
+                if(False) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x18];
+                    dialog("[SLOW]_ _  _ _ [MEM1][B]");
+                } else {
+                    if(arg[0x18] == CODE_RIDDLE.CODE_RED) {
+                        dialog("[SLOW]_ _  _ _ R[B]");
+                    } else if(arg[0x18] == CODE_RIDDLE.CODE_GREEN) {
+                        dialog("[SLOW]_ _  _ _ G[B]");
+                    } else if(arg[0x18] == CODE_RIDDLE.CODE_BLUE) {
+                        dialog("[SLOW]_ _  _ _ B[B]");
+                    }
+                }
+            } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_2) {
+                // dialog("[SLOW]_ _  _ 2 _[B]");
+
+                if(False) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x16];
+                    dialog("[SLOW]_ _  _ [MEM1] _[B]");
+                } else {
+                    if(arg[0x16] == CODE_RIDDLE.CODE_RED) {
+                        dialog("[SLOW]_ _  _ R _[B]");
+                    } else if(arg[0x16] == CODE_RIDDLE.CODE_GREEN) {
+                        dialog("[SLOW]_ _  _ G _[B]");
+                    } else if(arg[0x16] == CODE_RIDDLE.CODE_BLUE) {
+                        dialog("[SLOW]_ _  _ B _[B]");
+                    }
+                }
+            } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_3) {
+                // dialog("[SLOW]_ _  3 _ _[B]");
+
+                if(False) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x14];
+                    dialog("[SLOW]_ _  [MEM1] _ _[B]");
+                } else {
+                    if(arg[0x14] == CODE_RIDDLE.CODE_RED) {
+                        dialog("[SLOW]_ _  R _ _[B]");
+                    } else if(arg[0x14] == CODE_RIDDLE.CODE_GREEN) {
+                        dialog("[SLOW]_ _  G _ _[B]");
+                    } else if(arg[0x14] == CODE_RIDDLE.CODE_BLUE) {
+                        dialog("[SLOW]_ _  B _ _[B]");
+                    }
+                }
+            } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_4) {
+                // dialog("[SLOW]_ 4  _ _ _[B]");
+
+                MEMORY.STRING_PARAMETER_1 = arg[0x12];
+                dialog("[SLOW]_ [MEM1]  _ _ _[B]");
+            } else if(<BOY>[GENERAL_PURPOSE] == ARCHAEOLOGY_DIG.CODE_5) {
+                // dialog("[SLOW]5 _  _ _ _[B]");
+
+                MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                dialog("[SLOW][MEM1] _  _ _ _[B]");
+            } else {
+                dialog("[SLOW]…[B]");
+            }
+        }
+
+        fun add_code_bot(x, y, index, dig_counter, hacked) {
+            add_enemy(DUSTER_BOT, x, y, INACTIVE_IMORTAL);
+            if!(hacked) {
+                attribute(LAST_ENTITY, INVISIBLE, True);
+            }
+            <LAST_ENTITY>[GENERAL_PURPOSE] = dig_counter;
+            SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+            face_target(LAST_ENTITY, ACTIVE);
+            prepare_radiating_entity(<LAST_ENTITY>);
+
+            <BOY>[GENERAL_PURPOSE] = index;
+
+            if!(hacked) {
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    guard_archaeology_dig(False, <SCRIPT_OWNER>[GENERAL_PURPOSE], True);
+
+                    attribute(SCRIPT_OWNER, INVISIBLE, False);
+
+                    if(<ACTIVE> == <DOG>) {
+                        dialog("…[B]");
+                        end();
+                    }
+
+                    animate_boy_kneel(BOY);
+
+                    if((CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_1) || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2)) {
+                        question("[SLOW]Access robot?[CHOICE]hack…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // hack
+                            if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_1) {
+                                reveal_code();
+                            } else {
+                                map_transition(mini_game_hacking, center, NONE);
+                            }
+                        }
+                    } else {
+                        question("[SLOW]Touch robot?[CHOICE]touch…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // touch
+                            increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
+
+                            dialog("[SLOW]Even though the robot has been buried for an eternity it is still faintly buzzing inside.[B]");
+                        }
+                    }
+
+                    animate(BOY, ONCE, DEFAULT);
+                }));
+            } else {
+                attach_script(LAST_ENTITY, B, reference(reveal_code));
+            }
+        }
+
+        fun archaeology_dig_code_bot(x, y, index, dig_counter, flag) {
+            if!(flag) {
+                add_code_bot(x, y, index, dig_counter, False);
+            } else {
+                add_code_bot(x, y, index, dig_counter, True);
             }
         }
     };
@@ -31180,9 +31191,10 @@ area metro() {
                 sound(PIPING_SOUND);
 
                 error_walk_back(SOUTH);
-
-                dialog("[SLOW]Warning: Biohazard detected. Quarantine breach imminent.[B]");
                 face(ACTIVE, NORTH);
+
+                MEMORY.STRING_PARAMETER_1 = RADIATION.RADIATION_CURRENT;
+                dialog("[SLOW]Warning: Biohazard detected. Radiation level [MEM1] measured. Quarantine breach imminent.[B]");
 
                 control(BOTH);
 
@@ -32027,7 +32039,7 @@ area metro() {
 
                 debug_subtext("B=42");
 
-                map_transition(control_room, east, NONE);
+                map_transition(junkyard_northwest, north, NONE);
             },
             door_d1_center = @install() {
                 door_act4_airlock_out(ROOM.COLUMN_1, ROOM.ROW_4, 0x16);
@@ -32041,7 +32053,7 @@ area metro() {
 
                 debug_subtext("B=44");
 
-                map_transition(junkyard_northwest, north, NONE);
+                map_transition(control_room, east, NONE);
             },
             door_c2_center = @install() {
                 door_act4_airlock_out(ROOM.COLUMN_2, ROOM.ROW_3, 0x12);
@@ -32155,7 +32167,7 @@ area metro() {
 
                     door_act4_beam_out(0d62, 0d22);
 
-                    map_transition(metro, door_c1, NONE);
+                    map_transition(metro, door_a1, NONE);
                 },
                 teleporter = @install() {
                     debug_subtext("S=12");
@@ -32594,7 +32606,7 @@ area metro() {
                 exit_east = @install() {
                     debug_subtext("S=0");
 
-                    map_transition(metro, door_a1, NONE);
+                    map_transition(metro, door_c1, NONE);
                 },
             }
 
