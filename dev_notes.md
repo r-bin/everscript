@@ -24,15 +24,10 @@
 # important
 ## gideon does not die while poise broken
 ## any door can be opened with a bomb
-## fog wall - remove walk back (at least for dark forest maps)
-## basement + sidescroller + bowser + bowser dungeons - dog is available
 ## dog trap (cat) - dog can walk while gaining items
 ## market: x bone : 1 biscuit
 ## market: x feathers : 1 wings
 ## market: x roots : 1 essence
-## metro: after toaster arena a single gate bot respawns
-## drone arena: ending glitchy (65k/10, fight is not ending)
-## Crafter = Archeologist = hints for robotos (fossils)
 ## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
 ## anti cheese: turret arena (mosquito flies off), minitaur
 ## act4 beam in animation: not locking
@@ -44,7 +39,6 @@
 ## sound glitches: kill radahn, get revealer/levitate
 ## cutscene: big pressure plate -> altus no intro 
 ## cutscene: enter duel arena
-## loot: nothing (says invalid item)
 ## isaac slime knockback = no shot
 ## minitaur anti cheese + megataur anti cheese (horizontal rolling)
 ## projectiles with entity targets should check range (and not shoot off screen)
@@ -56,14 +50,12 @@
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
 ## "jump into volcano" animation
 ## make mario prison less boring
-## mushroom armor crafting
 ## monstro p2
 ## town tavern door does not control active
 ## basement - door unlock sounds
 ## sound - falling transition
 ## stats menu - armor name incorrect
 ## monstro - does not explode
-## pressure plate - no sound
 ## town arena bin contains hidden ticket
 
 
