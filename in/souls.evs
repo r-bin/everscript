@@ -17,7 +17,7 @@
     <0x2463>..<0x2512>, // experimental
 
     // TEMP RAM
-    <0x2834>..<0x2884>
+    <0x2834>..<0x2890>
     // <0x2834>..<0x28fb> // 199 room specific bytes
 )
 #include("in/core.evs")
@@ -428,7 +428,7 @@ group non_maps() {
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
-            WITH_DEBUG_ENTITIES = True,
+            WITH_DEBUG_ENTITIES = False,
             WITH_DEBUG_ENTITY_ALCHEMY_SELECTION = False,
             // areas
             WITH_ENDBOSS = True,
@@ -443,7 +443,7 @@ group non_maps() {
             DOG_SHIP_STAIRS = memory(FLAG, SRAM),
 
             // boy
-            BOY_SLOW_ON_HIT = CUSTOM_FLAG.RESERVED_2,
+            BOY_SLOW_ON_HIT = memory(FLAG, TEMP_RESERVED),
             // boy dust
             DUST_ENTITY = memory(WORD, TEMP_RESERVED),
             DUST_DROP_X = memory(WORD, SRAM),
@@ -485,18 +485,18 @@ group non_maps() {
             HIT_BONUS_HELM = memory(FLAG, SRAM),
             HIT_BONUS_CHEST = memory(FLAG, SRAM),
             HIT_BONUS_ARMLET = memory(FLAG, SRAM),
-            NO_RUNNING_CHEST = CUSTOM_FLAG.RESERVED_1,
-            ARCHAEOLOGY_TARGET = CUSTOM_MEMORY.RESERVED_1,
-            RADIATION_SOURCE_1 = CUSTOM_MEMORY.RESERVED_2,
-            RADIATION_SOURCE_2 = CUSTOM_MEMORY.RESERVED_3,
-            RADIATION_SOURCE_3 = CUSTOM_MEMORY.RESERVED_4,
-            RADIATION_SOURCE_4 = CUSTOM_MEMORY.RESERVED_5,
-            RADIATION_SOURCE_5 = CUSTOM_MEMORY.RESERVED_6,
-            RADIATION_SOURCE_6 = CUSTOM_MEMORY.RESERVED_7,
-            RADIATION_SOURCE_7 = CUSTOM_MEMORY.RESERVED_8,
-            RADIATION_SOURCE_8 = CUSTOM_MEMORY.RESERVED_9,
-            RADIATION_SOURCE_9 = CUSTOM_MEMORY.RESERVED_10,
-            RADIATION_SOURCE_10 = CUSTOM_MEMORY.RESERVED_11,
+            NO_RUNNING_CHEST = memory(FLAG, TEMP_RESERVED),
+            ARCHAEOLOGY_TARGET = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_1 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_2 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_3 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_4 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_5 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_6 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_7 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_8 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_9 = memory(WORD, TEMP_RESERVED),
+            RADIATION_SOURCE_10 = memory(WORD, TEMP_RESERVED),
 
             // button map
             BUTTON_MAP = memory(BYTE, TEMP_RESERVED),
@@ -563,6 +563,7 @@ group non_maps() {
             ///////////////////////////////////////////////////////
 
             PROGRESS_COUNTER = memory(BYTE, SRAM),
+            FAME_THRESHOLD = 0d20,
             BOSSES_DEFEATED_COUNTER = memory(BYTE, SRAM),
             COLLECTIBLE_COUNTER = memory(BYTE, SRAM),
 
@@ -577,7 +578,7 @@ group non_maps() {
 
             // altus
             DEAD_SIDESCROLLER = memory(FLAG, SRAM), // t0
-            REWARD_SIDESCROLLER = CUSTOM_ITEM.SWORD_ORB,
+            REWARD_SIDESCROLLER = CUSTOM_ITEM.SPEAR_ORB,
 
             DEAD_CHESS = memory(FLAG, SRAM), // t0
             REWARD_CHESS = CUSTOM_ITEM.AXE_ORB,
@@ -2790,8 +2791,7 @@ group non_maps() {
         fun isaac_init(night, rain) {
             init_hack();
 
-            available(BOY);
-            teleport(DOG, 0xff, 0xff);
+            CUSTOM_FLAG.NO_DOG = True;
             init_weather(night, rain);
 
             isaac_mode();
@@ -2815,8 +2815,7 @@ group non_maps() {
         fun mario_init(night, rain) {
             init_hack();
 
-            available(BOY);
-            teleport(DOG, 0xff, 0xff);
+            CUSTOM_FLAG.NO_DOG = True;
             init_weather(night, rain);
 
             mario_mode();
@@ -10455,7 +10454,7 @@ area altus_plateau_entry() {
             }
 
             if(NPC_ARCHAEOLOGIST.PROGRESS == 0d0) {
-                add_souls_npc_archaeologist(0d53, 0d21);
+                add_souls_npc_archaeologist(0d77, 0d38);
             }
 
             if!(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN) {
@@ -10971,20 +10970,6 @@ area altus_plateau_entry() {
             }
 
             @install()
-            @async()
-            fun stack_t01_offset() {
-                while(alive(<BOY>)) {
-                    ROOM.SHIP_ID[X] = <BOY>[X];
-                    ROOM.SHIP_ID[Y] = <BOY>[Y] + 0x05;
-                    yield();
-
-                    // <DOG>[X] = <BOY>[X] - 0x05;
-                    // <DOG>[Y] = <BOY>[Y];
-                    // yield();
-                }
-            }
-
-            @install()
             fun enemy_killed() {
                 ROOM.ENEMIES_ALIVE--;
                 if(ROOM.DEBUG) {
@@ -11188,8 +11173,7 @@ area altus_plateau_entry() {
             fun trigger_enter() {
                 add_debug_entity(0d3, 0d3, reference(debug_triggered));
 
-                available(BOY);
-                teleport(DOG, 0xff, 0xff);
+                CUSTOM_FLAG.NO_DOG = True;
                 face(BOY, EAST);
 
                 <BOY>[Z] = ROOM.START_HEIGHT;
@@ -11205,7 +11189,7 @@ area altus_plateau_entry() {
                 ROOM.SHIP_ID = <LAST_ENTITY>;
                 <LAST_ENTITY>[Z] = ROOM.START_HEIGHT;
 
-                stack_t01_offset();
+                stack_sprite(<BOY>, ROOM.SHIP_ID, 0d0, -0d5);
 
                 sleep(0d250);
 
@@ -27566,12 +27550,19 @@ area ship_caves() {
         @install()
         fun monk_triggered() {
             conversation({
-                if!(SOULS_MEMORY.DEAD_GIDEON) { // TODO: progress instead?
-                    conversation_dialog("[SLOW]You have yet to prove yourself worthy.[B]");
+                if!((SOULS_MEMORY.PROGRESS_COUNTER >= SOULS_MEMORY.FAME_THRESHOLD) || SOULS_MEMORY.DEAD_GIDEON) {
+                    arg[0x0e] = randrange(0d3);
+                    if(arg[0x0e] == 0d0) {
+                        conversation_dialog("[SLOW]Who are you?[B]");
+                    } else if(arg[0x0e] == 0d1) {
+                        conversation_dialog("[SLOW]Didn't I close my door properly?[B]");
+                    } else {
+                        conversation_dialog("[SLOW]I don't know you.[B]");
+                    }
                 } else {
-                    conversation_question("[SLOW]I have heard about your adventures.[B]0Digging those tunnels took a life time.[CHOICE]jump…[CHOICE]leave…");
+                    conversation_question("[SLOW]I have heard about your adventures.[B]Digging those tunnels took a life time.[CHOICE]jump…[CHOICE]leave…");
 
-                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // jump
                         walk(ACTIVE, TILE_ABSOLUTE, 0d74, 0d16, ACTIVE, NONE);
 
                         walk(ACTIVE, TILE_ABSOLUTE_DIRECT, 0d72, 0d16, ACTIVE, NONE);

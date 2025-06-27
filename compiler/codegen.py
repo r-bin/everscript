@@ -83,11 +83,11 @@ class Scope(BaseBox):
                     continue
                 else:
                     if m2.address == m.address - 1:
-                        del memory_list[i + 1]
-                        del memory_list[i]
+                        memory_list.remove(m2)
+                        memory_list.remove(m)
 
-                        m.force_value_count(2)
-                        return m
+                        m2.force_value_count(2)
+                        return m2
                     else:
                         m2 = m
 
