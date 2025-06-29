@@ -679,7 +679,7 @@ group non_maps() {
             REWARD_BEE_BOY_QUEST_2 = ITEM.FORCE_FIELD,
             COST_BEE_BOY_QUEST_3 = 0d5,
             REWARD_BEE_BOY_QUEST_3 = ITEM.GLOVE_1_3,
-            COST_BEE_BOY_QUEST_4 = 0d9,
+            COST_BEE_BOY_QUEST_4 = 0d8,
             REWARD_BEE_BOY_QUEST_4 = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
 
             REWARD_SQUIDMAR_QUEST = ITEM.NECTAR, // TODO
@@ -15183,19 +15183,6 @@ area east_inbetwixx() {
                 end();
             });
         }
-        
-        @install()
-        fun stone_door_triggered() {
-            if!(ROOM.RADAHN_EXIT_OPENED) {
-                ROOM.RADAHN_EXIT_OPENED = True;
-
-                guard_levitate_stone(0d2, {
-                    error_message(DOOR_WRONG_SIDE, SOUTH);
-                });
-            } else {
-                guard_levitate_stone(0d2);
-            }
-        }
 
         fun init_room() {
             default_init_room(True, True);
@@ -15245,7 +15232,17 @@ area east_inbetwixx() {
             } else {
                 add_enemy(STONE_ROUND, 0x15, 0x1b);
                 ROOM.ID_STONE = <LAST_ENTITY>;
-                attach_script(LAST_ENTITY, B, reference(stone_door_triggered));
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    if!(ROOM.RADAHN_EXIT_OPENED) {
+                        ROOM.RADAHN_EXIT_OPENED = True;
+
+                        guard_levitate_stone(0d2, {
+                            error_message(DOOR_WRONG_SIDE, SOUTH);
+                        });
+                    } else {
+                        guard_levitate_stone(0d2);
+                    }
+                }));
 
                 if(ROOM.RADAHN_EXIT_OPENED) {
                     ROOM.ID_STONE[Y] += 0d7 * 0d8;
@@ -31099,6 +31096,8 @@ area metro() {
     enum AREA_METRO {
         MUSIC_DEFAULT = MUSIC.SPACE,
 
+        DEBUG = False,
+
         LEVER_REACTOR_ROOM = memory(FLAG, SRAM), // generator on (light on, computers active)
         REGENERATION_INN_ROOM = memory(FLAG, SRAM), // regeneration active (no bonfire teleportation)
     }
@@ -31190,7 +31189,7 @@ area metro() {
                 control(BOTH);
 
                 end();
-            } else if(!flag || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE != ARMOR_STATS.GLOVE_4_2)) {
+            } else if((!flag) || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE != ARMOR_STATS.GLOVE_4_2)) {
                 sound(PIPING_SOUND);
 
                 error_walk_back(SOUTH);
@@ -31207,6 +31206,10 @@ area metro() {
         }
         fun guard_entrance_gate(flag, radiation_check) {
             _guard_entrance_gate(flag, radiation_check);
+
+            if(AREA_METRO.DEBUG) {
+                debug_memory(flag, CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2, CUSTOM_MEMORY.RETURN);
+            }
 
             if!(CUSTOM_MEMORY.RETURN) {
                 end();
