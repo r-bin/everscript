@@ -34,8 +34,10 @@
 ## basement_3_9 trash did not spawn (room already cleared?)
 ## mario koopa: stuck in no animation when out of screen
 ## stairs boss: black rats are glitchy, megataur invincible, fight continued until the end of the megataur phase, camera was not unlocked, 600 hp is a lot (due to anti cheese)
+## act 4 transitions without dog
 
 # nice to have
+## power glove 3 = nothing?
 ## sound glitches: kill radahn, get revealer/levitate
 ## cutscene: big pressure plate -> altus no intro 
 ## cutscene: enter duel arena
