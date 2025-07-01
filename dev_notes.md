@@ -2,25 +2,6 @@
 ## if(…) {} turns into  while(true) {} (endless loop)
 
 
-# enemies
-## rogue enemy needs to be scaled down
-## move first sniff
-
-
-
-
-# megataur anti cheese strats
-
-
-# temple
-## north west room
-### no sounds on switches
-
-
-# castle
-## no music after formula
-
-
 # important
 ## gideon does not die while poise broken
 ## any door can be opened with a bomb
@@ -30,10 +11,7 @@
 ## market: x roots : 1 essence
 ## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
 ## anti cheese: turret arena (mosquito flies off), minitaur
-## act4 beam in animation: not locking
-## basement_3_9 trash did not spawn (room already cleared?)
 ## mario koopa: stuck in no animation when out of screen
-## stairs boss: black rats are glitchy, megataur invincible, fight continued until the end of the megataur phase, camera was not unlocked, 600 hp is a lot (due to anti cheese)
 ## act 4 transitions without dog
 
 # nice to have
@@ -42,7 +20,6 @@
 ## cutscene: big pressure plate -> altus no intro 
 ## cutscene: enter duel arena
 ## isaac slime knockback = no shot
-## minitaur anti cheese + megataur anti cheese (horizontal rolling)
 ## projectiles with entity targets should check range (and not shoot off screen)
 ## no music after levitate+revealer
 ## scale enemies: before puppets, before pyramid
@@ -58,12 +35,7 @@
 ## sound - falling transition
 ## stats menu - armor name incorrect
 ## monstro - does not explode
-## town arena bin contains hidden ticket
 
-
-
-# act4
-## inn: heals once, afterwards knockback
 
 
 
