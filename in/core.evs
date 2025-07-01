@@ -1772,11 +1772,13 @@ group general_enums() {
                 INVINCIBLE_TEMP = 0x40, // see ATTRIBUTE_BITS.INVINCIBLE_TEMP
 
                 // ATTRIBUTE.FLAGS_3 (character+0x12)
+                AI_FOLLOWING_REACHED = 0x01, // reached waypoint?
                 UNKNOWN = 0x02, // briefly active during megataur roll
                 AI_FOLLOWING = 0x04, // walking to waypoint? (alsp ai following)
                 UNKNOWN_CAST = 0x38, // during cast on boy? (CRUSH, EXPLOSION, FLASH, FIREBALL)
 
                 // ATTRIBUTE.FLAGS_4 (character+0x13
+                LEVITATING = 0x01, // ?
                 UNKNOWN_CAST = 0x04, // during cast on boy? (CRUSH, EXPLOSION)
                 ROOT = 0x10, // see ATTRIBUTE_BITS.ROOT
                 SHIELD = 0x20, // shield halves damage
@@ -7471,23 +7473,6 @@ group functions() {
                 }
             }
 
-            fun guard_dead(entity) {
-                if(_dead(entity)) {
-                    end();
-                }
-            }
-
-            fun guard_boy() {
-                if(<ACTIVE> != <BOY>) {
-                    end();
-                }
-            }
-            fun guard_dog() {
-                if(<ACTIVE> != <DOG>) {
-                    end();
-                }
-            }
-
             fun _guard_weapon(weapon_check) {
                 if(<ACTIVE> == <BOY>) {
                     animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
@@ -8232,17 +8217,6 @@ group functions() {
         };
 
         group ai_logic() {
-            fun _guard_dead(entity) {
-                if(_dead(entity)) {
-                    end();
-                }
-            }
-            fun guard_dead(entity) {
-                if(dead(entity)) {
-                    end();
-                }
-            }
-
             fun smart_timer(memory, time, condition, callback) {
                 memory = 0d0;
 
@@ -8470,6 +8444,36 @@ group functions() {
             }
         };
 
+        group guards() {
+            fun guard_z() {
+                if((<ACTIVE>[Z] > 0d0) || CUSTOM_FLAG.START_MARIO_YUMP || CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0) {
+                    end();
+                }
+            }
+
+            fun _guard_dead(entity) {
+                if(_dead(entity)) {
+                    end();
+                }
+            }
+            fun guard_dead(entity) {
+                if(dead(entity)) {
+                    end();
+                }
+            }
+
+            fun guard_boy() {
+                if(<ACTIVE> != <BOY>) {
+                    end();
+                }
+            }
+            fun guard_dog() {
+                if(<ACTIVE> != <DOG>) {
+                    end();
+                }
+            }
+        };
+
         group act_3() {
             fun vanilla_a3_stairs_helper(object_id, x, y, upwards) {
                 if!(
@@ -8665,21 +8669,29 @@ group functions() {
                 control(NONE);
 
                 <ACTIVE>[X] -= 0d8;
-                <INACTIVE>[X] += 0d8;
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    <INACTIVE>[X] += 0d8;
+                }
 
                 arg[0x10] = 0x0400;
 
                 while(arg[0x10] > 0d0) {
                     <ACTIVE>[Z] = arg[0x10];
-                    <INACTIVE>[Z] = arg[0x10];
+                    if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                        <INACTIVE>[Z] = arg[0x10];
+                    }
 
                     yield();
 
                     arg[0x10] -= 0x10;
                 }
 
-                walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, NONE, NONE);
-                walk(INACTIVE, TILE_RELATIVE, 0d0, 0d1, BOTH, BOTH);
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, NONE, NONE);
+                    walk(INACTIVE, TILE_RELATIVE, 0d0, 0d1, BOTH, BOTH);
+                } else {
+                    walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, ACTIVE, ACTIVE);
+                }
             }
 
             @install()
@@ -8689,7 +8701,9 @@ group functions() {
                     z += 0x10;
 
                     <ACTIVE>[Z] = z;
-                    <INACTIVE>[Z] = z;
+                    if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                        <INACTIVE>[Z] = z;
+                    }
                     
                     yield();
                 }
@@ -8699,13 +8713,17 @@ group functions() {
                 control(NONE);
 
                 walk(ACTIVE, TILE_ABSOLUTE, x - 0d1, y, NONE, NONE);
-                walk(INACTIVE, TILE_ABSOLUTE, x + 0d1, y, BOTH, NONE);
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    walk(INACTIVE, TILE_ABSOLUTE, x + 0d1, y, BOTH, NONE);
 
-                walk(INACTIVE, COORDINATE_ABSOLUTE, <ACTIVE>[X] - 0d8, <ACTIVE>[Y], INACTIVE, NONE);
+                    walk(INACTIVE, COORDINATE_ABSOLUTE, <ACTIVE>[X] - 0d8, <ACTIVE>[Y], INACTIVE, NONE);
+                }
 
                 while(arg[0x10] < 0x470) {
                     <ACTIVE>[Z] = arg[0x10];
-                    <INACTIVE>[Z] = arg[0x10];
+                    if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                        <INACTIVE>[Z] = arg[0x10];
+                    }
 
                     yield();
 
@@ -8793,7 +8811,6 @@ group functions() {
 
                 walk(BOY, TILE_RELATIVE, 0d0, 0d2, BOY, BOTH);
             }
-
         };
 
         fun fake_loot() {
@@ -8947,12 +8964,6 @@ group functions() {
                 sleep(0d20);
 
                 sfx_effect(SHAKING, False);
-            }
-        }
-
-        fun guard_z() {
-            if((<ACTIVE>[Z] > 0d0) || CUSTOM_FLAG.START_MARIO_YUMP || CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0) {
-                end();
             }
         }
 
@@ -9653,7 +9664,7 @@ group functions() {
             control(NONE);
 
             animate(ACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
-            if!(FLAG.DOG_UNAVAILABLE) {
+            if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
                 animate(INACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
             }
 
@@ -9672,7 +9683,7 @@ group functions() {
                 face(ACTIVE, WEST);
             }
 
-            if!(FLAG.DOG_UNAVAILABLE) {
+            if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
                 teleporter_animation_in(<INACTIVE>);
                 if(direction == DIRECTION.NORTH) {
                     walk(INACTIVE, TILE_RELATIVE, -0d2, 0d1, BOTH, NONE);
@@ -9700,7 +9711,7 @@ group functions() {
             face(ACTIVE, SOUTH);
             teleporter_animation_out(<ACTIVE>);
             
-            if!(FLAG.DOG_UNAVAILABLE) {
+            if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
                 walk(INACTIVE, TILE_ABSOLUTE, x, y, INACTIVE);
                 face(INACTIVE, SOUTH);
                 teleporter_animation_out(<INACTIVE>);
