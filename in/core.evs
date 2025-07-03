@@ -4,9 +4,11 @@ group general_enums() {
         WITH_DEBUG_MUSIC = False,
         WITH_DEBUG_SOUND = False,
         WITH_DEBUG_BOMBABLE = False,
-        WITH_DEBUG_START = True,
+        WITH_DEBUG_START = False,
         WITH_DEBUG_CAVE = False,
         WITH_DEBUG_POISE = False,
+
+        WITH_HINT_INTERACTION = True,
 
         HP_MAX = 0x7fff,
         ITEM_MAX = 0d99,
@@ -916,7 +918,7 @@ group general_enums() {
             // <0x28e4>
             RETURN = <0x28e4>,
             // <0x28e2>
-            INPUT_P1 = <0x28e2>,
+            INPUT_P1 = <0x28e2>, // see INPUT
 
             // <0x28e0>
             CURRENT_ARMOR_COLLAR = <0x28e0>, // see ARMOR_STATS
@@ -987,6 +989,28 @@ group general_enums() {
 
             // <0x289c, x>
             // …
+        }
+    };
+
+    group snes() {
+        enum INPUT { // see INPUT_P1
+            NONE = 0x0000,
+
+            START = 0x1000,
+            SELECT = 0x0000, // blocks inputs, including SELECT
+
+            UP = 0x0800,
+            DOWN = 0x0400,
+            LEFT = 0x0200,
+            RIGHT = 0x0100,
+
+            A = 0x0080,
+            B = 0x8000,
+            X = 0x0040,
+            Y = 0x4000,
+
+            R = 0x0010,
+            L = 0x0020,
         }
     };
 
@@ -6700,7 +6724,9 @@ group functions() {
                 if(error == ERROR_TYPE.DLC) {
                     subtext("DLC content…");
                 } else if(error == ERROR_TYPE.WRONG_WEAPON) {
-                    subtext("(Wrong weapon…)");
+                    if(SYSTEM.WITH_HINT_INTERACTION) {
+                        subtext("(Wrong weapon…)");
+                    }
                 } else if(error == ERROR_TYPE.DOOR_LOCKED) {
                     subtext("Locked.");
                 } else if(error == ERROR_TYPE.DOOR_CONTRAPTION) {
@@ -6753,9 +6779,9 @@ group functions() {
             @async()
             fun hint(hint:HINT) {
                 if(hint == HINT.PRESS_START) {
-                    _hint(CUSTOM_MEMORY.INPUT_P1 & 0x1000, { subtext("Press the [START] Button"); });
+                    _hint(CUSTOM_MEMORY.INPUT_P1 & INPUT.START, { subtext("Press the [START] Button"); });
                 } else if(hint == HINT.PRESS_R) {
-                    _hint(CUSTOM_MEMORY.INPUT_P1 & 0x0010, { subtext("Press the [R] Button"); });
+                    _hint(CUSTOM_MEMORY.INPUT_P1 & INPUT.R, { subtext("Press the [R] Button"); });
                 }
             }
         };
@@ -10236,7 +10262,7 @@ group functions() {
 
             arg[0x10] = <BOY>[FACE_DIRECTION];
 
-            while(CUSTOM_MEMORY.INPUT_P1 & 0x1000) {
+            while(CUSTOM_MEMORY.INPUT_P1 & INPUT.START) {
                 _face(<BOY>, arg[0x10]);
 
                 _isaac_tear(costs_ingredients);
@@ -10877,7 +10903,7 @@ group functions() {
                 arg[0x16] = <SCRIPT_OWNER>[Y];
 
                 while(
-                    (CUSTOM_MEMORY.INPUT_P1 & 0x8000) &&
+                    (CUSTOM_MEMORY.INPUT_P1 & INPUT.B) &&
                     ((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) == 0d0) &&
                     ((<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) == 0d0) &&
                     ((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) &&
@@ -10922,7 +10948,7 @@ group functions() {
 
             
             while(
-                (CUSTOM_MEMORY.INPUT_P1 & 0x8000) &&
+                (CUSTOM_MEMORY.INPUT_P1 & INPUT.B) &&
                 ((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) == 0d0) &&
                 ((<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) == 0d0) &&
                 ((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) &&
@@ -11009,7 +11035,7 @@ group functions() {
             if(level < 0d3) {
                 CUSTOM_FLAG.NO_RUNNING = True;
 
-                while((CUSTOM_MEMORY.INPUT_P1 & 0x8000) && (arg[0x10] < 0d120)) {
+                while((CUSTOM_MEMORY.INPUT_P1 & INPUT.B) && (arg[0x10] < 0d120)) {
                     arg[0x10]++;
 
                     animate(BOY, ONCE, ANIMATION_BOY.LANDING);
@@ -12829,90 +12855,90 @@ group functions() {
 
         fun code() {
             while(True) {
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0800) {
-                    yield();
-                }
-                subtext("up");
-                
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
-                    yield();
-                }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0800) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.UP) {
                     yield();
                 }
                 subtext("up");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0400) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.UP) {
+                    yield();
+                }
+                subtext("up");
+                
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
+                    yield();
+                }
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.DOWN) {
                     yield();
                 }
                 subtext("down");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0400) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.DOWN) {
                     yield();
                 }
                 subtext("down");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0200) {
-                    yield();
-                }
-                subtext("left");
-                
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
-                    yield();
-                }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0100) {
-                    yield();
-                }
-                subtext("right");
-                
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
-                    yield();
-                }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0200) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.LEFT) {
                     yield();
                 }
                 subtext("left");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0100) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.RIGHT) {
                     yield();
                 }
                 subtext("right");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x8000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.LEFT) {
+                    yield();
+                }
+                subtext("left");
+                
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
+                    yield();
+                }
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.RIGHT) {
+                    yield();
+                }
+                subtext("right");
+                
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
+                    yield();
+                }
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.B) {
                     yield();
                 }
                 subtext("b");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0080) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.A) {
                     yield();
                 }
                 subtext("a");
                 
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x0000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.NONE) {
                     yield();
                 }
-                while(CUSTOM_MEMORY.INPUT_P1 != 0x1000) {
+                while(CUSTOM_MEMORY.INPUT_P1 != INPUT.START) {
                     yield();
                 }
                 subtext("start");
@@ -12922,6 +12948,81 @@ group functions() {
                 subtext("yay");
                 
                 yield();
+            }
+        }
+        fun check_code_konami(position, input) {
+            if(
+                ((position == 0d0) && (input == INPUT.UP))
+                || ((position == 0d1) && (input == INPUT.UP))
+                || ((position == 0d2) && (input == INPUT.DOWN))
+                || ((position == 0d3) && (input == INPUT.DOWN))
+                || ((position == 0d4) && (input == INPUT.LEFT))
+                || ((position == 0d5) && (input == INPUT.RIGHT))
+                || ((position == 0d6) && (input == INPUT.LEFT))
+                || ((position == 0d7) && (input == INPUT.RIGHT))
+                || ((position == 0d8) && (input == INPUT.B))
+                || ((position == 0d9) && (input == INPUT.A))
+            ) {
+                position++;
+            } else if(((position == 0d10) && (input == INPUT.START))) {
+                position = 0xff;
+
+                subtext("konami!");
+                end();
+            } else {
+                position = 0d0;
+            }
+        }
+        fun check_code_leftright(position, input) {
+            if(
+                ((position == 0d0) && (input == INPUT.LEFT))
+                || ((position == 0d1) && (input == INPUT.RIGHT))
+                || ((position == 0d2) && (input == INPUT.LEFT))
+                || ((position == 0d3) && (input == INPUT.RIGHT))
+            ) {
+                position++;
+            } else if(((position == 0d4) && (input == INPUT.START))) {
+                position = 0xff;
+
+                subtext("left right!");
+                end();
+            } else {
+                position = 0d0;
+            }
+        }
+        fun advanced_code() {
+            control(NONE);
+
+            while(arg[0x10] < 0d30) {
+                if!((CUSTOM_MEMORY.INPUT_P1 & (INPUT.L | INPUT.R)) == (INPUT.L | INPUT.R)) {
+                    arg[0x10]++;
+                }
+
+                arg[0x12] = CUSTOM_MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R));
+                
+                if(True) {
+                    if(arg[0x14] < 0d0) {
+                        arg[0x14]++;
+                    } else if(arg[0x12] == 0x0000) {
+                        arg[0x14] = 0d0;
+                    } else if(arg[0x14] < 0d3) {
+                        arg[0x14]++;
+                    } else if(arg[0x14] == 0d3) {
+                        check_code_konami(arg[0x16], arg[0x12]);
+                        check_code_leftright(arg[0x18], arg[0x12]);
+
+                        arg[0x14] = -0d3;
+
+                        if(False) {
+                            debug_memory(arg[0x14], arg[0x12], arg[0x16]);
+                        }
+                    }
+                }
+
+                yield();
+
+                // debug_memory(arg[0x12], arg[0x14], arg[0x16]);
+                // debug_memory(arg[0x0e], arg[0x14], arg[0x16]);
             }
         }
 
