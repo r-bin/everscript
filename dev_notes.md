@@ -13,6 +13,7 @@
 ## anti cheese: turret arena (mosquito flies off), minitaur
 ## mario koopa: stuck in no animation when out of screen
 ## act 4 transitions without dog
+## populate: altus entry invisible cave, tree house
 
 # nice to have
 ## power glove 3 = nothing?
