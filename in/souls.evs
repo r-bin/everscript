@@ -443,7 +443,7 @@ group non_maps() {
             DOG_SHIP_STAIRS = memory(FLAG, SRAM),
 
             // boy
-            BOY_SLOW_ON_HIT = memory(FLAG, TEMP_RESERVED),
+            SLOW_ON_HIT = memory(FLAG, TEMP_RESERVED),
             // boy dust
             DUST_ENTITY = memory(WORD, TEMP_RESERVED),
             DUST_DROP_X = memory(WORD, SRAM),
@@ -1141,7 +1141,7 @@ group non_maps() {
 
         @install()
         fun dust_loot() {
-            unset(SOULS_MEMORY.DUST_UNREACHABLE);
+            SOULS_MEMORY.DUST_UNREACHABLE = False;
 
             SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
             SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
@@ -1292,19 +1292,21 @@ group non_maps() {
         }
 
         fun _boy_death() {
-            if((<SCRIPT_OWNER> == <BOY>) && (<BOY>[HP] > 0d0)) {
-                CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
+            if(<ACTIVE>[HP] > 0d0) {
+                if(<SCRIPT_OWNER> == <BOY>) {
+                    CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
 
-                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_1_3) {
-                    arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
-                    arg[0x12] = !randrange(0d5);
+                    if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_1_3) {
+                        arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
+                        arg[0x12] = !randrange(0d5);
 
-                    if(arg[0x12] && arg[0x10]) {
-                        damage(arg[0x10], 0d10, True);
+                        if(arg[0x12] && arg[0x10]) {
+                            damage(arg[0x10], 0d10, True);
+                        }
                     }
                 }
 
-                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] && SOULS_MEMORY.BOY_SLOW_ON_HIT) {
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] && SOULS_MEMORY.SLOW_ON_HIT) {
                     movement_amplification(<BOY>, 0d180, 0d1, True);
                 }
 
@@ -2693,7 +2695,7 @@ group non_maps() {
             }
 
             if((SOULS_MEMORY.DUST_DROP_MAP == MEMORY.CURRENT_MAP) && (SOULS_MEMORY.DUST_DROP_VARIANT == MEMORY.CURRENT_MAP_VARIANT)) {
-                _add_enemy(ENEMY.BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
+                _add_enemy(BEE, SOULS_MEMORY.DUST_DROP_X, SOULS_MEMORY.DUST_DROP_Y);
                 SOULS_MEMORY.DUST_ENTITY = <LAST_ENTITY>;
                 attach_script(LAST_ENTITY, DEATH, reference(dust_drop));
                 
@@ -15324,6 +15326,7 @@ area east_inbetwixx() {
                 COOLDOWN = memory(WORD, TEMP),
 
                 HP = 0d1000,
+                HP_MOUNT = 0d600,
 
                 COUNTDOWN = 0d03,
 
@@ -15339,6 +15342,8 @@ area east_inbetwixx() {
 
                 RANDOM_SPELL = memory(WORD, TEMP),
                 TIME_BEFORE_RANDOM_SPELL = 0d720,
+
+                THRESHOLD_SUDDEN_DEATH = 0d50,
             }
 
             fun boss_killed() {
@@ -15386,7 +15391,11 @@ area east_inbetwixx() {
 
                 BOSS.COOLDOWN += 0d120;
 
-                callback2();
+                if(BOSS.RIDER_ID[HP] > BOSS.THRESHOLD_SUDDEN_DEATH) {
+                    callback2();
+                } else {
+                    cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
+                }
             }
 
             @install()
@@ -15482,9 +15491,9 @@ area east_inbetwixx() {
                                 cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
                                 cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
                             } else if(BOSS.RANDOM_SPELL == 0d1) {
-                                cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d20);
+                                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
                             } else if(BOSS.RANDOM_SPELL == 0d2) {
-                                cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
+                                cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d20);
                             }
                         });
                     });
@@ -15507,6 +15516,7 @@ area east_inbetwixx() {
                 attribute(LAST_ENTITY, ROOT, True);
 
                 add_enemy(RAPTOR_BLACK, x, y);
+                <LAST_ENTITY>[HP] = BOSS.HP_MOUNT;
                 BOSS.MOUNT_ID = <LAST_ENTITY>;
                 // attribute(LAST_ENTITY, ROOT, True);
             }
@@ -19219,7 +19229,7 @@ area southern_jungle() {
                             if(MEMORY.QUESTION_ANSWER == 0d0) {
                                 increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
 
-                                if!(MEMORY.GLOVE_4_2) {
+                                if!(SOULS_MEMORY.CLEARANCE_VAULT_NORTH_EAST) {
                                     custom_reward(GLOVE_PIPBOY_NORTH_WEST, True);
                                 } else {
                                     conversation_dialog("[SLOW]The bones look discolored. I wonder what happened to them.[B]");
@@ -22675,7 +22685,7 @@ area town() {
                     BOSS.PALETTE_DONOR = <LAST_ENTITY>;
 
                     if!(SOULS_MEMORY.DEAD_TEMPLE_SQUAD) {
-                        set(BOSS.PROGRESS);
+                        BOSS.PROGRESS = True;
                         push_music(BOSS);
 
                         default_init_room(False, False);
@@ -24231,6 +24241,12 @@ area town() {
                 CONVERTION_REWARD = ITEM.RICE,
 
                 MARKET_ACTIVE = memory(FLAG, TEMP),
+
+                FORCE_FULL_MARKET = False,
+
+                PRICE_ESSENCE = 0d3,
+                PRICE_WINGS = 0d3,
+                PRICE_BISCUIT = 0d3,
             }
 
             enum stepon_trigger {
@@ -24289,6 +24305,18 @@ area town() {
                 },
                 vendor_10_5__glove = @install() {
                     debug_subtext("B=4");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Feathers?[CHOICE]Rice 2:1[CHOICE]Spice 2:1, [CHOICE]Wings 3:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d1, FEATHER, 0d2);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, FEATHER, 0d2);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // wings
+                        trade_items(WINGS, 0d1, FEATHER, ROOM.PRICE_WINGS);
+                    }
                 },
                 vendor_10_4__silver_sheath = @install() {
                     debug_subtext("B=5");
@@ -24298,6 +24326,18 @@ area town() {
                 },
                 vendor_10_2__moxa_stick = @install() {
                     debug_subtext("B=7");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Bones?[CHOICE]Rice 1:2[CHOICE]Spice 1:3, [CHOICE]Biscuit 3:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d1, BONE, 0d2);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, BONE, 0d3);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // biscuit
+                        trade_items(BISCUIT, 0d1, BONE, ROOM.PRICE_BISCUIT);
+                    }
                 },
                 vendor_10_1__sun_stone = @install() {
                     debug_subtext("B=8");
@@ -24467,6 +24507,18 @@ area town() {
                 },
                 vendor_3_4__polish = @install() {
                     debug_subtext("B=23");
+
+                    prepare_market_trade();
+
+                    question("[SLOW]Do you want to trade me your Roots?[CHOICE]Rice 1:1[CHOICE]Spice 1:1, [CHOICE]Essence 3:1", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d1, ROOT, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d1, ROOT, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // essence
+                        trade_items(HERBAL_ESSENCE, 0d1, ROOT, ROOM.PRICE_ESSENCE);
+                    }
                 },
                 vendor_3_3__chest = @install() {
                     debug_subtext("B=24");
@@ -24621,7 +24673,13 @@ area town() {
                     ROOM.MARKET_ACTIVE = True;
                 }
 
-                if(ROOM.MARKET_ACTIVE) {
+                if(ROOM.FORCE_FULL_MARKET) {
+                    if(MARKET.DEBUG) {
+                        debug_subtext("market force full");
+                    }
+
+                    nop();
+                } else if(ROOM.MARKET_ACTIVE) {
                     if(MARKET.DEBUG) {
                         debug_subtext("market not empty");
                     }
@@ -24639,7 +24697,7 @@ area town() {
                     object[0x0a] = 0x01; // remove vendor_3_2 (amulet guy)
                     object[0x0b] = 0x01; // remove vendor_3_3 (chest lady)
                     // object[0x0c] = 0x01; // remove ???
-                    object[0x0d] = 0x01; // remove vendor_3_4 (polish lady)
+                    // object[0x0d] = 0x01; // remove vendor_3_4 (polish lady)
                     // object[0x0e] = 0x01; // remove guard_4_1 (next to entrance)
                     // object[0x0f] = 0x01; // remove vendor_4_1 (other rice lady)
                     object[0x10] = 0x01; // remove vendor_4_2 (other beads lady)
@@ -24660,12 +24718,12 @@ area town() {
                     object[0x1d] = 0x01; // remove vendor_9_2 (helmet guy)
                     // object[0x1e] = 0x01; // remove vendor_7_1 (scarab lady)
                     object[0x1f] = 0x01; // remove vendor_10_1 (sunstone guy)
-                    object[0x20] = 0x01; // remove vendor_10_2 (moxa lady)
+                    // object[0x20] = 0x01; // remove vendor_10_2 (moxa lady)
                     object[0x21] = 0x01; // remove vendor_10_3 (appraisal lady)
                     object[0x22] = 0x01; // remove vendor_10_4 (sheath guy)
                     // object[0x23] = 0x01; // remove ???
                     object[0x24] = 0x01; // remove vendor_11_1 (beads lady)
-                    object[0x24] = 0x01; // remove vendor_10_5 (glove lady)
+                    // object[0x24] = 0x01; // remove vendor_10_5 (glove lady)
                     // object[0x25] = 0x01; // remove ???
                     object[0x26] = 0x01; // remove basket (between vendor_1_1 ans vendor_1_2)
                     object[0x27] = 0x04; // remove prophet (goat, chicke, basket)
@@ -31134,7 +31192,9 @@ area metro() {
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
                 animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT2_TELEPORT);
             } else {
-                teleporter_animation_out(<BOY>);
+                if!(CUSTOM_FLAG.NO_BOY) {
+                    teleporter_animation_out(<BOY>);
+                }
 
                 if!(FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY) {
                     teleporter_animation_out(<DOG>);
@@ -33152,9 +33212,19 @@ area metro() {
                 fun boss_defeated() {
                     control(NONE);
 
+                    find_all(GATE_BOT, {
+                        attribute(arg[0x10], INVINCIBLE, True);
+                        animate(arg[0x10], ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+                    });
+
                     souls_boss_defeated(DEAD_TOASTER_ARENA, REWARD_TOASTER_ARENA);
 
                     map_transition(metro, door_c4, NONE);
+                }
+                fun guard_boss_defeated() {
+                    if(BOSS.HIT_COUNT_MEMORY <= 0d0) {
+                        end();
+                    }
                 }
 
                 fun boss_hit() {
@@ -33171,11 +33241,20 @@ area metro() {
                         }
                     }
                 }
-
                 fun spawn_guardbot(x, y) {
                     add_enemy(GATE_BOT, x, y);
                     <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
                     attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                        if!(
+                            (<SCRIPT_OWNER>[X] >= MEMORY.CAMERA_X_MIN) &&
+                            (<SCRIPT_OWNER>[X] <= MEMORY.CAMERA_X_MAX) &&
+                            (<SCRIPT_OWNER>[Y] >= MEMORY.CAMERA_Y_MIN) &&
+                            (<SCRIPT_OWNER>[Y] <= MEMORY.CAMERA_Y_MAX)
+                        ) {
+                            heal(SCRIPT_OWNER, 0d0, False);
+                            end();
+                        }
+
                         boss_hit();
 
                         yield();
@@ -33185,8 +33264,12 @@ area metro() {
 
                         sleep(0d500);
 
+                        guard_boss_defeated();
+
                         cast(SCRIPT_OWNER, SCRIPT_OWNER, HEAL, BOSS.HEAL_AMOUNT);
                         sleep(0d250);
+
+                        guard_boss_defeated();
 
                         animate(SCRIPT_OWNER, ONCE, DEFAULT);
                         attribute(SCRIPT_OWNER, INVINCIBLE, False);
@@ -39988,7 +40071,35 @@ area dungeon_volcano() {
                     sniff_room_main__1_wax = nop(),
                 }
 
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_ne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
                 fun trigger_enter() {
+                    init_room(0d2);
+
                     add_bridge_stone(0x1, 0d132, 0d47);
 
                     default_init_room(False, False);

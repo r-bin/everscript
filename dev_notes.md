@@ -3,19 +3,24 @@
 
 
 # important
+## no poise damage during knockback to avoid chain poise breaks
 ## gideon does not die while poise broken
 ## any door can be opened with a bomb
-## dog trap (cat) - dog can walk while gaining items
-## market: x bone : 1 biscuit
-## market: x feathers : 1 wings
-## market: x roots : 1 essence
 ## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
 ## anti cheese: turret arena (mosquito flies off), minitaur
 ## mario koopa: stuck in no animation when out of screen
-## act 4 transitions without dog
 ## populate: altus entry invisible cave, tree house
+## town puppets fog gate + change pipe maze exits
+## scale enemies: dancing fools before town puppets
+## market: gain brown dropplets
 
 # nice to have
+## monstro bonfire?
+## basement trap door animation
+## basement red maggots after monstro
+## western inbetwixx - remove one sprite palette?
+## temple elevator preselect floor
+## dog trap (cat) - dog can walk while gaining items
 ## power glove 3 = nothing?
 ## sound glitches: kill radahn, get revealer/levitate
 ## cutscene: big pressure plate -> altus no intro 
