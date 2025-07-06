@@ -12627,8 +12627,16 @@ group functions() {
         }
         
         enum POISE {
+            DEBUG = SYSTEM.WITH_DEBUG_POISE,
+            DEBUG_DECAY = False,
+            DEBUG_HIT = True,
+
             ONGOING = 0xffff,
             RESETTING = 0xfffe,
+
+            POISE_BREAK_DURATION = 0d180,
+
+            CRIT_DAMAGE = 0d10,
         }
         @install()
         @async()
@@ -12636,14 +12644,14 @@ group functions() {
         fun poise_break_decay(entity, poise, decay, time) {
             entity[GENERAL_PURPOSE] = poise;
 
-            if(SYSTEM.WITH_DEBUG_POISE) {
+            if(POISE.DEBUG && POISE.DEBUG_DECAY) {
                 debug_memory(entity[GENERAL_PURPOSE]);
             }
 
             while!(dead(entity)) {
                 sleep(time);
 
-                if(SYSTEM.WITH_DEBUG_POISE) {
+                if(POISE.DEBUG && POISE.DEBUG_DECAY) {
                     arg[0x10] = entity[GENERAL_PURPOSE];
                 }
 
@@ -12657,7 +12665,7 @@ group functions() {
                     }
                 }
 
-                if(SYSTEM.WITH_DEBUG_POISE) {
+                if(POISE.DEBUG && POISE.DEBUG_DECAY) {
                     debug_memory(arg[0x10], entity[GENERAL_PURPOSE]);
                 }
             }
@@ -12665,8 +12673,8 @@ group functions() {
         @install()
         @weak()
         fun poise_break() {
-            if((<SCRIPT_OWNER>[DAMAGE_SOURCE] > 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] < 0xfff0)) {
-                if(SYSTEM.WITH_DEBUG_POISE) {
+            if(_alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[DAMAGE_SOURCE] > 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.RESETTING) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.ONGOING)) {
+                if(POISE.DEBUG && POISE.DEBUG_HIT) {
                     arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
                 }
 
@@ -12676,27 +12684,38 @@ group functions() {
                     <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
                 }
 
-                if(SYSTEM.WITH_DEBUG_POISE) {
-                    debug_memory(arg[0x10], <SCRIPT_OWNER>[LAST_DAMAGE], <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                    // debug_memory(arg[0x10], <SCRIPT_OWNER>[LAST_DAMAGE], <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                    debug_memory(0d1, <SCRIPT_OWNER>[GENERAL_PURPOSE]);
                 }
 
                 if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d0) {
-                    while(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = POISE.ONGOING;
+                    sound(IMPACT);
+                    
+                    yield();
+                    while(_alive(<SCRIPT_OWNER>) && <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
                         yield();
                     }
-                    yield();
 
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = POISE.ONGOING;
+                    if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                        // debug_subtext("waiting for knockback");
+                        debug_memory(0d2, <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                    }
 
-                    // sound?
+                    animate_boy_kneel(SCRIPT_OWNER);
 
-                    animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_BOY.KNEEL);
-                    yield();
-                    animate(SCRIPT_OWNER, PAUSE, DEFAULT);
-
-                    _add_enemy(PLACEHOLDER, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+                    if(POISE.DEBUG && POISE.DEBUG_HIT && False) {
+                        _add_enemy(THRAXX_HEART, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], INVINCIBLE);
+                    } else {
+                        _add_enemy(PLACEHOLDER, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+                    }
                     <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
                     attach_script(LAST_ENTITY, B, reference(@install() {
+                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                            debug_subtext("crit triggered!");
+                        }
+
                         arg[0x00] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
 
                         if(<ACTIVE>[X] > <SCRIPT_OWNER>[X]) {
@@ -12711,7 +12730,7 @@ group functions() {
                         }
 
                         if!(((arg[0x02] == 0d16) & (arg[0x04] <= 0d8)) ^ ((arg[0x04] == 0d8) && (arg[0x02] <= 0d8))) {
-                            if(False) {
+                            if(POISE.DEBUG && POISE.DEBUG_HIT) {
                                 debug_memory(arg[0x02], arg[0x04]);
                             }
                             fake_b();
@@ -12724,13 +12743,17 @@ group functions() {
                         }
 
                         face_target(arg[0x00], <ACTIVE>);
-                        damage(arg[0x00], 0d10, True);
+                        damage(arg[0x00], POISE.CRIT_DAMAGE, True);
                         animate(ACTIVE, ONCE, SLASH_1_3);
 
                         if(False) {
                             debug_memory(0d3, _dead(arg[0x00]));
                         }
                         destroy(SCRIPT_OWNER);
+
+                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                            debug_subtext("crit");
+                        }
 
                         sleep(0d60);
 
@@ -12739,31 +12762,44 @@ group functions() {
                         }
 
                         arg[0x00][GENERAL_PURPOSE] = POISE.RESETTING;
+
+                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                            debug_subtext("resetting poise");
+                        }
                     }));
+
                     arg[0x00] = <LAST_ENTITY>;
-                    arg[0x02] = 0d180;
+                    if(POISE.POISE_BREAK_DURATION != 0xffff) {
+                        arg[0x02] = POISE.POISE_BREAK_DURATION;
 
-                    while(arg[0x02] > 0d0) {
-                        arg[0x02]--;
+                        while(_alive(<SCRIPT_OWNER>) && (arg[0x02] > 0d0) && (arg[0x06] == False)) {
+                            arg[0x02]--;
 
-                        if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
-                            if!(dead(arg[0x00])) {
-                                if(False) {
-                                    debug_memory(0d1, dead(arg[0x00]), 0d1);
-                                }
-
-                                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
-                                animate(SCRIPT_OWNER, ONCE, DEFAULT);
-                                destroy(arg[0x00]);
+                            if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                                arg[0x06] = True;
+                            } else {
+                                yield();
                             }
-
-                            end();
-                        } else {
+                        }
+                    } else {
+                        while(_alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) {
                             yield();
                         }
                     }
 
+                    if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                        debug_memory(0d3, <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                    }
+                    
                     if!(dead(arg[0x00])) {
+                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                            if!(arg[0x06]) {
+                                debug_subtext("recovered without crit via timeout");
+                            } else {
+                                debug_subtext("recovered without crit");
+                            }
+                        }
+
                         if(False) {
                             debug_memory(0d2, dead(arg[0x00]), 0d1);
                         }
@@ -12772,6 +12808,15 @@ group functions() {
                         animate(SCRIPT_OWNER, ONCE, DEFAULT);
                         destroy(arg[0x00]);
                     }
+
+                    if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                        debug_memory(0d4, <SCRIPT_OWNER>[GENERAL_PURPOSE], dead(arg[0x00]));
+                    }
+                }
+            } else {
+                if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                    // debug_subtext("poise hit ignored");
+                    debug_memory(0d0, <SCRIPT_OWNER>[GENERAL_PURPOSE], <SCRIPT_OWNER>[GENERAL_PURPOSE] < 0xfff0);
                 }
             }
         }

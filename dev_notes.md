@@ -3,15 +3,11 @@
 
 
 # important
-## no poise damage during knockback to avoid chain poise breaks
-## gideon does not die while poise broken
 ## any door can be opened with a bomb
 ## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
 ## anti cheese: turret arena (mosquito flies off), minitaur
 ## mario koopa: stuck in no animation when out of screen
 ## populate: altus entry invisible cave, tree house
-## town puppets fog gate + change pipe maze exits
-## scale enemies: dancing fools before town puppets
 ## market: gain brown dropplets
 
 # nice to have
