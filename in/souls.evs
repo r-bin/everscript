@@ -1217,6 +1217,8 @@ group non_maps() {
                 map_transition(desert_temple_main, bonfire, NONE);
             } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) { // altus
                 map_transition(well, bonfire, NONE);
+            } else if(SOULS_MEMORY.BONFIRE_MAP == MAP.CHESSBOARD_STAIRS) {
+                map_transition(stairs, bonfire, NONE);
             } else if((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0)) {
                 map_transition(castle_fire_pit, bonfire, NONE);
             } else if((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d1)) {
@@ -12307,7 +12309,8 @@ area altus_plateau_entry() {
                                         BOSS.PHASE++;
                                     }
                                 } else if(BOSS.PHASE == 0d1) {
-                                    heal(SCRIPT_OWNER, BOSS.BOSS_RAT_HP, False);
+                                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                                    heal(SCRIPT_OWNER, 0d1, False);
 
                                     animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
                                     cast(BOSS.ID_RIDER, SCRIPT_OWNER, HEAL, BOSS.BOSS_RAT_HP);
@@ -12320,8 +12323,8 @@ area altus_plateau_entry() {
                                         cast(BOSS.ID_RIDER, SCRIPT_OWNER, HEAL, BOSS.BOSS_RAT_HP);
 
                                         animate(BOSS.ID_MOUNT, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
-                                        cast(BOSS.ID_RIDER, BOSS.ID_MOUNT, HEAL, 0d999);
                                     }
+                                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
                                 }
                             }));
 
@@ -17266,6 +17269,13 @@ area east_inbetwixx() {
                         sleep(0d5);
                         
                         if((enemy[X] == arg[0x12]) && (enemy[Y] == arg[0x14])) {
+                            arg[0x16]++;
+
+                            if(arg[0x16] > 0d5) {
+                                animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+                                arg[0x16] = 0d0;
+                            }
+
                             if(enemy[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
                                 face(enemy, SOUTH);
                             } else if(enemy[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
@@ -17275,6 +17285,8 @@ area east_inbetwixx() {
                             } else if(enemy[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
                                 face(enemy, EAST);
                             }
+                        } else {
+                            arg[0x16] = 0d0;
                         }
                     }
                 }
@@ -27059,10 +27071,21 @@ area ship_caves() {
             },
         }
 
+        @install()
+        @async()
+        fun persistent_animate_pillar(entity) {
+            while(alive(entity)) {
+                animate(entity, ONCE_FREEZE, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
+
+                sleep(0d20);
+            }
+        }
+
         fun trigger_enter() {
             add_bombable(0d19, 0d14, ROOM.PILLAR_CLEARED, reference(@install() {
                 bombable_object(WALL_AXE2_FAKE, True, ROOM.PILLAR_CLEARED);
             }), STONE_ROUND, PILLAR_VIGOR);
+            persistent_animate_pillar(<LAST_ENTITY>);
 
             if(SOULS_MEMORY.DOG_SHIP_STAIRS) {
                 _dog_stairs(DOG_SHIP_STAIRS, 0d84, 0d81, ROOM.DOG_AVAILABLE);
@@ -27292,11 +27315,17 @@ area ship_caves() {
                         debug_memory(BOSS.ID[GENERAL_PURPOSE]);
                     }
 
+                    while(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                        yield();
+                    }
+                    yield();
+
                     if(<BOY>[GENERAL_PURPOSE] >= 0d10) {
                         <BOY>[PALETTE] = BOSS.PALETTE_BOY_DONOR;
                     } else if(<BOY>[GENERAL_PURPOSE] <= 0d5) {
                         <BOY>[PALETTE] = BOSS.PALETTE_BOY;
                     }
+
                     if(BOSS.ID[GENERAL_PURPOSE] >= 0d10) {
                         BOSS.ID[PALETTE] = BOSS.PALETTE_DOG_DONOR;
                     } else if(BOSS.ID[GENERAL_PURPOSE] <= 0d5) {
@@ -29823,7 +29852,7 @@ area desert_bug() {
                             if(arg[0x12] == 0d0) {
                                 arg[0x14] = 0d20;
 
-                                while(arg[0x14] > 0d0) {
+                                while((arg[0x14] > 0d0) && (!(BOSS.ARM_ORANGE_LEFT_ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) && (!(BOSS.ARM_WHITE_LEFT_ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
                                     arg[0x14]--;
                                     
                                     if(MEMORY.MAP_PALETTE != MAP_PALETTE.THRAXX_WHITE) {
@@ -29843,7 +29872,7 @@ area desert_bug() {
                             } else if(arg[0x12] == 0d1) {
                                 arg[0x14] = 0d20;
 
-                                while(arg[0x14] > 0d0) {
+                                while((arg[0x14] > 0d0) && (!(BOSS.ARM_ORANGE_RIGHT_ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) && (!(BOSS.ARM_WHITE_RIGHT_ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
                                     arg[0x14]--;
                                     
                                     if(MEMORY.MAP_PALETTE != MAP_PALETTE.THRAXX_WHITE) {
@@ -29898,14 +29927,14 @@ area desert_bug() {
                                         arg[0x18] = randrange(0d3);
 
                                         if(arg[0x18] == 0d0) {
-                                            beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d150, 0d430, 0d20);
-                                        } else if(arg[0x18] == 0d2) {
-                                            beam_wall(SOUTH, <BOY>, 0d110, 0d70, 0d250, 0d430, 0d20);
+                                            beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d150, 0d450, 0d20);
+                                        } else if(arg[0x18] == 0d1) {
+                                            beam_wall(SOUTH, <BOY>, 0d110, 0d70, 0d250, 0d450, 0d20);
                                         } else {
-                                            beam_wall(SOUTH, <BOY>, 0d230, 0d70, 0d310, 0d430, 0d20);
+                                            beam_wall(SOUTH, <BOY>, 0d230, 0d70, 0d310, 0d450, 0d20);
                                         }
                                     } else {
-                                        beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d310, 0d430, 0d15);
+                                        beam_wall(SOUTH, <BOY>, 0d30, 0d70, 0d350, 0d450, 0d15);
                                     }
 
                                     sleep(0d180);
@@ -29923,6 +29952,8 @@ area desert_bug() {
                     if(ROOM.DEBUG) {
                         debug_subtext("add boss");
                     }
+
+                    object[0x04] = 0x01; // remove bridge
 
                     show_thraxx(True);
                     // show_cocoon();
@@ -33307,6 +33338,10 @@ area metro() {
         };
 
         map turret_arena(RAPTORS) {
+            enum soundtrack {
+                default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+            }
+
             enum entrance {
                 left = entrance(0x15, 0x1c, NONE),
                 center = entrance(0x1e, 0x21, NONE),
@@ -33520,8 +33555,6 @@ area metro() {
             @install()
             fun change_machine(color, on) {
                 if(color == 0d0) {
-                    object[0x02] = 0x00; // open door_floor_left
-                    object[0x03] = 0x00; // open door_floor_left
                     object[0x05] = 0x00; // remove machine_wood_west
                     object[0x06] = 0x00; // remove machine_wood_south
                     object[0x07] = 0x00; // remove machine_wood_east
@@ -33540,8 +33573,6 @@ area metro() {
                     object[0x17] = 0x00; // change machine_1 (0 = brown, 1 = grey)
                     object[0x18] = 0x00; // change machine_2 (0 = brown, 1 = grey)
                 } else if(color == 0d1) {
-                    object[0x02] = 0x01; // open door_floor_left
-                    object[0x03] = 0x01; // open door_floor_left
                     object[0x05] = 0x01; // remove machine_wood_west
                     object[0x06] = 0x01; // remove machine_wood_south
                     object[0x07] = 0x01; // remove machine_wood_east
@@ -33674,7 +33705,7 @@ area metro() {
             fun fake_exit_scanner(entity) {
                 range_checker(entity, <ACTIVE>, 0x20, 0x20, {
                     if(ROOM.SWITCH) {
-                        fog_wall(NONE);
+                        fog_wall_outside(True, NONE);
 
                         ROOM.EVERMORE_MACHINE_TARGET = <BOY>;
                         act4_evermoremachine_in(0d26, 0d88);
@@ -33689,19 +33720,19 @@ area metro() {
                     object[0x01] = 0x7e;
                 }
                 
-                update_switches(False);
-                init_evermore_machine();
-
                 default_metro_init_room(reference(@install() {
                     metro_death_trigger({
                         map_transition(metro, door_d1, NONE);
                     });
                 }));
 
-                add_enemy(PLACEHOLDER, 0d26, 0d88 - 0d2);
                 if!(SOULS_MEMORY.DEAD_ABOMINATION) {
+                    add_enemy(PLACEHOLDER, 0d26, 0d88 - 0d2);
                     fake_exit_scanner(<LAST_ENTITY>);
                 }
+
+                update_switches(False);
+                init_evermore_machine();
 
                 // object[0x00] = 0x7e; // open door_passage_south
                 // object[0x01] = 0x7e; // open gourd
