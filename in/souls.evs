@@ -21585,16 +21585,116 @@ area town() {
                     boss_defeated();
                 }
 
+                @install()
+                @async()
+                fun anti_cheese_mini(entity) {
+                    while(True) {
+                        // debug_memory(arg[0x1a], BOSS.RIDER_ID[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, BOSS.RIDER_ID[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION);
+                        // debug_memory(arg[0x0e], entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK);
+
+                        while((!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING)) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)  || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                            yield();
+                        }
+                        yield();
+
+                        arg[0x10] = entity[X];
+                        arg[0x12] = entity[Y];
+
+                        sleep(0d5);
+
+                        if!((!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING)) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)  || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                            if(((entity[X] == arg[0x10]) && (entity[Y] == arg[0x12]))) {
+                                if(entity == BOSS.RIDER_ID) {
+                                    arg[0x0e] = 0d0;
+
+                                    _drag(entity, 0d22 << 0d0003, 0d32 << 0d0003);
+                                    entity[Z_LEVEL] = BOSS.DEFAULT_Z;
+                                } else {
+                                    arg[0x0e]++;
+
+                                    if(arg[0x0e] > 0d30) {
+                                        arg[0x0e] = 0d0;
+
+                                        animate(entity, ONCE, SLASH_1);
+
+                                        damage(ACTIVE, 0d5, True);
+                                        damage(INACTIVE, 0d5, True);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                @install()
+                @async()
+                fun anti_cheese_mega(entity) {
+                    while(alive(entity)) {
+                        // debug_memory(arg[0x0e], entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION);
+                        // debug_memory(arg[0x0e], entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK);
+
+                        while((!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING)) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                            yield();
+                        }
+                        yield();
+
+                        arg[0x10] = entity[X];
+                        arg[0x12] = entity[Y];
+
+                        sleep(0d5);
+
+                        if!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                            if(((entity[X] == arg[0x10]) && (entity[Y] == arg[0x12]))) {
+                                if(entity == BOSS.RIDER_ID) {
+                                    arg[0x0e] = 0d0;
+
+                                    _drag(entity, 0d22 << 0d0003, 0d32 << 0d0003);
+                                    entity[Z_LEVEL] = BOSS.DEFAULT_Z;
+                                } else {
+                                    arg[0x0e]++;
+
+                                    // cast(entity, ACTIVE, CRUSH, 0d10); // TODO
+                                    if(BOSS.PHASE == 0d1) {
+                                        BOSS.DISMOUNT += 0d300;
+                                        animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+                                    }
+                                }
+                            } else {
+                                while(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                                    yield();
+                                }
+                                yield();
+
+                                if(((entity[X] == arg[0x10]) || (entity[Y] == arg[0x12])) && (!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                                    arg[0x0e]++;
+
+                                    // cast(entity, ACTIVE, CRUSH, 0d10); // TODO
+                                    if(BOSS.PHASE == 0d1) {
+                                        BOSS.DISMOUNT += 0d300;
+                                        animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+                                    }
+                                }
+                            }
+                        } else {
+                            while((entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                                yield();
+                            }
+                            yield();
+                        }
+                    }
+                }
+
                 fun spawn_boss(x, y) {
                     add_enemy(MINITAUR, x, y);
                     BOSS.MOUNT_ID = <LAST_ENTITY>;
                     <LAST_ENTITY>[HP] = BOSS.HP_MINITAUR;
                     attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(mount_damage));
+                    anti_cheese_mini(<LAST_ENTITY>);
 
                     add_enemy(MEGATAUR, x, y);
                     BOSS.RIDER_ID = <LAST_ENTITY>;
                     <LAST_ENTITY>[HP] = BOSS.HP_MEGATAUR;
                     attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(rider_damage));
+                    anti_cheese_mega(<LAST_ENTITY>);
 
                     animate(BOSS.RIDER_ID, FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
                     
