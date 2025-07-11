@@ -13855,7 +13855,7 @@ area altus_plateau_entry() {
                 map duel_arena(ARENA) {
                     enum entrance {
                         north_cinematic = entrance(0x20, 0x07, NONE),
-                        south = entrance(0x22, 0x69, NORTH) // 0x22, 0x6a
+                        south = entrance(0x22, 0x69, NORTH, { act2_arena_bridge_entrance(); }), // 0x22, 0x6a
                     }
 
                     enum soundtrack {
@@ -15383,6 +15383,10 @@ area east_inbetwixx() {
             }
 
             fun cast_salvage(target:CHARACTER, count, level) {
+                while(BOSS.RIDER_ID[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+                    yield();
+                }
+
                 arg[0x10] = 0d0;
                 while(arg[0x10] < count) {
                     arg[0x10]++;
@@ -15406,6 +15410,10 @@ area east_inbetwixx() {
                 }
             }
             fun cast_spells(callback2) {
+                while(BOSS.RIDER_ID[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+                    yield();
+                }
+
                 animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1); // blocks cast() for whatever reason
 
                 BOSS.COOLDOWN += 0d120;
@@ -15527,6 +15535,20 @@ area east_inbetwixx() {
                 boss_killed();
             }
 
+            @install()
+            @async()
+            fun anti_cheese_magic_spam(entity) {
+                _anti_cheese_magic_spam(entity, {
+                    animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                    cast(BOSS.RIDER_ID, SCRIPT_OWNER, MIRACLE_CURE, 0d100 + randrange(0d100));
+
+                    sleep(0d900);
+
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                });
+            }
+
             fun spawn_boss(x, y) {
                 add_enemy(VERMINATOR, x, y);
                 <LAST_ENTITY>[HP] = BOSS.HP;
@@ -15538,6 +15560,7 @@ area east_inbetwixx() {
                 <LAST_ENTITY>[HP] = BOSS.HP_MOUNT;
                 BOSS.MOUNT_ID = <LAST_ENTITY>;
                 // attribute(LAST_ENTITY, ROOT, True);
+                anti_cheese_magic_spam(<LAST_ENTITY>);
             }
 
             fun trigger_enter() {
@@ -25036,7 +25059,7 @@ area town() {
         map gladiator_arena(ARENA) {
             enum entrance {
                 north_cinematic = entrance(0x20, 0x07, NONE),
-                south = entrance(0x22, 0x69, NORTH), // 0x22, 0x6a
+                south = entrance(0x22, 0x69, NORTH, { act2_arena_bridge_entrance(); }), // 0x22, 0x6a
 
                 center = entrance(0x20, 0x53, NONE),
             }
@@ -25177,14 +25200,6 @@ area town() {
                 }
             }
 
-            fun show_bridge(show) {
-                if(show) {
-                    object[0x00] = 0x01;
-                } else {
-                    object[0x00] = 0x00;
-                }
-            }
-
             fun trigger_enter() {
                 CUSTOM_FLAG.NO_DOG = True;
                 CUSTOM_FLAG.NO_XP_MONEY = True;
@@ -25198,15 +25213,11 @@ area town() {
                 add_enemy(PLACEHOLDER, 0x20, 0x48);
                 attach_script(LAST_ENTITY, B, reference(manager_triggered));
 
-                show_bridge(True);
                 default_init_room(False, False);
 
                 hint(PRESS_START);
 
                 CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
-
-                sleep(0d15);
-                show_bridge(False);
 
                 add_bombable(0d53, 0d74, ROOM.COLLECTIBLE_LOOTED, reference(@install() {
                     bombable_object(DEFAULT, True, ROOM.PILLAR_OPENED, 0x01, 0x01);
