@@ -11,24 +11,19 @@
 
 # nice to have
 ## monstro bonfire?
-## basement trap door animation
 ## basement red maggots after monstro
 ## western inbetwixx - remove one sprite palette?
 ## temple elevator preselect floor
 ## dog trap (cat) - dog can walk while gaining items
 ## power glove 3 = nothing?
 ## sound glitches: kill radahn, get revealer/levitate
-## cutscene: big pressure plate -> altus no intro 
-## cutscene: enter duel arena
-## isaac slime knockback = no shot
 ## projectiles with entity targets should check range (and not shoot off screen)
 ## no music after levitate+revealer
-## scale enemies: before puppets, before pyramid
+## scale enemies: before pyramid
 ## raptor arena - don't reuse enemies
 ## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
-## "jump into volcano" animation
 ## make mario prison less boring
 ## monstro p2
 ## town tavern door does not control active

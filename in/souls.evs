@@ -3217,7 +3217,6 @@ group non_maps() {
         group npc_shrine_maiden() {
             enum NPC_SHRINE_MAIDEN {
                 PROGRESS = memory(BYTE, SRAM),
-                SUB_PROGRESS = memory(BYTE, SRAM),
 
                 PRICE_LEVEL_UP = 0d100,
 
@@ -3267,51 +3266,48 @@ group non_maps() {
 
                 @install()
                 fun shrine_maiden_triggered__first_bonfire() {
-                    if(NPC_SHRINE_MAIDEN.PROGRESS == 0d0) {
-                        if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d0) {
-                            NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
-                        
-                            dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
-                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d1) {
-                            NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
-                        
-                            dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
-                        } else if(NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d2) {
-                            NPC_SHRINE_MAIDEN.SUB_PROGRESS++;
-                        
-                            dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
-                        } else {
-                            dialog("[SLOW]Ignite the first bonfire.[B]");
-                        }
-                    } else if(NPC_SHRINE_MAIDEN.PROGRESS >= 0d1) {
-                        NPC_SHRINE_MAIDEN.PROGRESS = 0d2;
-                        NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0d0;
-
-                        dialog("[SLOW]Bearer of the curse, seek misery.[LF]For misery will lead you to greater, stronger souls.[LF]You will never meet the King with a soul so frail and pallid.[B]");
+                    if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d0) {
+                        NPC_SHRINE_MAIDEN.PROGRESS++;
+                    
+                        dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
+                    } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d1) {
+                        NPC_SHRINE_MAIDEN.PROGRESS++;
+                    
+                        dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
+                    } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d2) {
+                        NPC_SHRINE_MAIDEN.PROGRESS++;
+                    
+                        dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
+                    } else {
+                        dialog("[SLOW]Ignite the first bonfire.[B]");
                     }
                 }
                 @install()
+                fun shrine_maiden_triggered__shrine() {
+                    NPC_SHRINE_MAIDEN.PROGRESS = 0x20;
+
+                    dialog("[SLOW]Bearer of the curse, seek misery.[LF]For misery will lead you to greater, stronger souls.[LF]You will never meet the King with a soul so frail and pallid.[B]");
+                }
+                @install()
                 fun shrine_maiden_triggered() {
-                    if(NPC_SHRINE_MAIDEN.PROGRESS == 0d2) {
-                        if(SOULS_MEMORY.ESTUS_SHARDS > 0d00) {
-                            greeting_estus_shard();
-                        } else {
-                            greeting_default();
-                        }
+                    if(SOULS_MEMORY.ESTUS_SHARDS > 0d00) {
+                        greeting_estus_shard();
+                    } else {
+                        greeting_default();
+                    }
 
-                        if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
-                            question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…[CHOICE]upgrade…");
-                        } else {
-                            question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…");
-                        }
+                    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
+                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…[CHOICE]upgrade…");
+                    } else {
+                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…");
+                    }
 
-                        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
-                            story_estus_shard();
-                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // level up
-                            upgrade_boy();
-                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // upgrade
-                            upgrade_estus();
-                        }
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                        story_estus_shard();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // level up
+                        upgrade_boy();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // upgrade
+                        upgrade_estus();
                     }
                 }
             };
@@ -3319,8 +3315,10 @@ group non_maps() {
             fun add_souls_npc_shrine_maiden(x, y) {
                 add_enemy(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
 
-                if(NPC_SHRINE_MAIDEN.PROGRESS < 0d2) {
+                if(NPC_SHRINE_MAIDEN.PROGRESS < 0x10) {
                     attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered__first_bonfire));
+                } else if(NPC_SHRINE_MAIDEN.PROGRESS < 0x20) {
+                    attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered__shrine));
                 } else {
                     attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered));
                 }
@@ -8115,13 +8113,12 @@ area shrine_area() {
                 bonfire_triggered_first_bonfire();
             } else {
                 if(
-                    (NPC_SHRINE_MAIDEN.PROGRESS == 0d0) && (NPC_SHRINE_MAIDEN.SUB_PROGRESS == 0d3) &&
+                    (NPC_SHRINE_MAIDEN.PROGRESS == 0x03) &&
                     !(ROOM.SHRINE_BONFIRE_LIT)
                 ) {
                     ROOM.SHRINE_BONFIRE_LIT = True;
                     
-                    NPC_SHRINE_MAIDEN.PROGRESS++;
-                    NPC_SHRINE_MAIDEN.SUB_PROGRESS = 0x00;
+                    NPC_SHRINE_MAIDEN.PROGRESS = 0x20;
 
                     object[0x11] = 0x1; // ignite fire
 
@@ -10086,6 +10083,10 @@ area altus_plateau_entry() {
             cave_gauge = entrance(0x5f, 0x16, SOUTH),
 
             cave_2_2 = entrance(0x44, 0x23, SOUTH),
+
+            teleporter = entrance(0d95, 0d28, NONE, {
+                teleporter_in();
+            }),
         }
 
         enum soundtrack {
@@ -10144,13 +10145,9 @@ area altus_plateau_entry() {
             tunnel_gauge = @install() {
                 debug_subtext("S=0");
 
-                if(False) {
-                    generic_tunnel_enter(CAVE_IN);
-                    generic_tunnel(DEFAULT, 0d48, 0d69);
-                    generic_tunnel_exit(SLIDE_OUT, EAST);
-                } else {
-                    map_transition(cave_gauge, south, NORTH);
-                }
+                generic_tunnel_enter(CAVE_IN);
+                generic_tunnel(DEFAULT, 0d48, 0d69);
+                generic_tunnel_exit(SLIDE_OUT, EAST);
             },
             pressure_plate_1_2_right = @install() {
                 debug_subtext("S=1");
@@ -11383,34 +11380,6 @@ area altus_plateau_entry() {
         }
     };
 
-    map cave_gauge(PYRAMID_CAVE) {
-        enum entrance {
-            south = entrance(0x15, 0x23, NORTH),
-
-            teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
-        }
-
-        enum soundtrack {
-            default = soundtrack(AREA_ALTUS_PLATEAU.DEFAULT_MUSIC, 0xff)
-        }
-
-        enum stepon_trigger {
-            exit_south = @install() {
-                map_transition(volcano, cave_gauge, SOUTH);
-            },
-            exit_teleporter = @install() {
-                debug_subtext("S=1");
-
-                teleporter_out(0d23, 0d17);
-                map_transition(jaguar_cave, teleporter, NONE);
-            },
-        }
-
-        fun trigger_enter() {
-            default_init_room(False, False);
-        }
-    };
-
     map cave_shop(ACT1_2_CAVES) {
         enum entrance {
             south = entrance(0x40, 0x2d, NORTH),
@@ -11457,25 +11426,67 @@ area altus_plateau_entry() {
 
         enum ROOM {
             FURNITURE_REVEALED = memory(FLAG, SRAM),
-        }
 
-        @install()
-        fun alchemist_triggered() {
-            dialog("[SLOW]Huh, how did you find me?[B]");
+            TABLE_COUNT = memory(WORD, TEMP),
+            TABLE_COUNT_THRESHOLD = 0d4,
         }
 
         fun reveal_furniture() {
             show_furniture(True);
 
+            if(<ACTIVE>[Y] < 0d200) {
+                drag(<ACTIVE>, 0d72, 0d26);
+                <ACTIVE>[Z_LEVEL] = <INACTIVE>[Z_LEVEL];
+            }
+
             sfx_effect(NIGHT, False);
 
-            add_enemy(VILLAGER_1_6, 0d70, 0d18);
-            attach_script(LAST_ENTITY, B, reference(alchemist_triggered));
+            add_placeholder(ANIMATION_ENEMY.KING_ROCKING, 0d65, 0d18);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                conversation({
+                    if(ROOM.TABLE_COUNT < ROOM.TABLE_COUNT_THRESHOLD) {
+                        arg[0x0e] = randrange(0d6);
+
+                        if(arg[0x0e] < 0d2) {
+                            conversation_question("[SLOW]What am I sitting on?[CHOICE]Stool[CHOICE]Table");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // stool
+                                if(ROOM.TABLE_COUNT > 0d0) {
+                                    ROOM.TABLE_COUNT--;
+                                }
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // table
+                                ROOM.TABLE_COUNT++;
+                            }
+                        } else if(arg[0x0e] < 0d4) {
+                            conversation_question("[SLOW]What am I sitting on?[CHOICE]Table[CHOICE]Stool");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // table
+                                ROOM.TABLE_COUNT++;
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // stool
+                                if(ROOM.TABLE_COUNT > 0d0) {
+                                    ROOM.TABLE_COUNT--;
+                                }
+                            }
+                        } else if(arg[0x0e] == 0d4) {
+                            conversation_question("[SLOW]What am I sitting on?[CHOICE]Stoble[CHOICE]Taol");
+                        } else {
+                            conversation_question("[SLOW]Can you slide?[CHOICE]Stool[CHOICE]Table");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d1) { // table
+                                teleporter_out();
+                                map_transition(volcano, teleporter, NONE);
+                            }
+                        }
+                    } else {
+                        conversation_dialog("[SLOW]Take X.[LF]Take the first prime factor and take it's square.[LF]Can you see how Fibonacci numbers are left?[LF]Take the second prime factor and take the prime factors sum.[LF]Now only one is left.[B]", 0d10);
+                    }
+                }, NONE);
+            }));
         }
 
         @install()
         fun revealer_triggered() {
-            set(ROOM.FURNITURE_REVEALED);
+            ROOM.FURNITURE_REVEALED = True;
 
             reveal_furniture();
         }
@@ -12508,10 +12519,44 @@ area altus_plateau_entry() {
         };
 
         map well(WELL) {
+            @install()
+            @async()
+            fun crash_windwalker() {
+                // add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x5b, 0x39);
+                add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x2a, 0x0c);
+                attach_to_script(LAST_ENTITY);
+                <SCRIPT_OWNER>[Z] = 0x1fff;
+                sleep(0x80);
+                <SCRIPT_OWNER>[VELOCITY] = 0x20;
+                
+                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
+                arg[0x00] = <LAST_ENTITY>;
+
+                arg[0x00][X] = <SCRIPT_OWNER>[X] + 0x10;
+                arg[0x00][Y] = <SCRIPT_OWNER>[Y] + 0x10;
+
+                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
+                arg[0x02] = <LAST_ENTITY>;
+
+                arg[0x02][X] = <SCRIPT_OWNER>[X] - 0x10;
+                arg[0x02][Y] = <SCRIPT_OWNER>[Y] - 0x10;
+
+                sleep(0x50);
+                destroy(arg[0x02]);
+                sleep(0x10);
+                destroy(SCRIPT_OWNER);
+                sleep(0x60);
+                destroy(arg[0x00]);
+            }
+
             enum entrance {
                 west = entrance(0x01, 0x1c, EAST),
 
-                crash = entrance(0x38, 0x18, NONE),
+                crash = entrance(0x38, 0x18 + 0d5, NONE, { crash_both(); }),
+                crash_with_windwalker = entrance(0x3a, 0x18 + 0d5, NONE, {
+                    crash_both();
+                    crash_windwalker();
+                }),
                 bonfire = entrance(0d30, 0d20, NONE, { bonfire_wakeup(0d0, 0d8, 0d32, 0d0); }),
             }
 
@@ -12607,45 +12652,8 @@ area altus_plateau_entry() {
                 },
             }
 
-            @install()
-            @async()
-            fun crash_windwalker() {
-                // add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x5b, 0x39);
-                add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x2a, 0x0c);
-                attach_to_script(LAST_ENTITY);
-                <SCRIPT_OWNER>[Z] = 0x1fff;
-                sleep(0x80);
-                <SCRIPT_OWNER>[VELOCITY] = 0x20;
-                
-                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
-                arg[0x00] = <LAST_ENTITY>;
-
-                arg[0x00][X] = <SCRIPT_OWNER>[X] + 0x10;
-                arg[0x00][Y] = <SCRIPT_OWNER>[Y] + 0x10;
-
-                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
-                arg[0x02] = <LAST_ENTITY>;
-
-                arg[0x02][X] = <SCRIPT_OWNER>[X] - 0x10;
-                arg[0x02][Y] = <SCRIPT_OWNER>[Y] - 0x10;
-
-                sleep(0x50);
-                destroy(arg[0x02]);
-                sleep(0x10);
-                destroy(SCRIPT_OWNER);
-                sleep(0x60);
-                destroy(arg[0x00]);
-            }
-
             fun trigger_enter() {
-                if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
-                    set(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED);
-
-                    if!(FLAG.IN_ANIMATION) {
-                        crash_both();
-                        crash_windwalker();
-                    }
-                }
+                AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED = True;
 
                 if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
                     if(NPC_MARIO.PROGRESS == 0d0) {
@@ -14603,11 +14611,7 @@ area east_inbetwixx() {
             exit_cave = @install() {
                 fog_wall(SOUTH);
                 
-                if(True) {
-                    map_transition(jaguar_cave, south, NORTH);
-                } else {
-                    map_transition(stone_room_top, crash, NORTH);
-                }
+                map_transition(north_eastern_cave_1, south_2, NORTH);
             },
             exit_south_1 = @install() {
                 fog_wall(NONE); // NORTH
@@ -14976,30 +14980,6 @@ area east_inbetwixx() {
             pit_scanner_dog();
             yield();
             pit_scanner_boss();
-        }
-    };
-
-    map jaguar_cave(PYRAMID_CAVE) {
-        enum entrance {
-            south = entrance(0x15, 0x23, NORTH),
-
-            teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
-        }
-
-        enum stepon_trigger {
-            exit_south = @install() {
-                map_transition(east_inbetwixx, cave, SOUTH);
-            },
-            exit_teleporter = @install() {
-                debug_subtext("S=1");
-
-                teleporter_out(0d23, 0d18);
-                map_transition(cave_gauge, teleporter, NONE);
-            },
-        }
-
-        fun trigger_enter() {
-            default_init_room(False, False);
         }
     };
 
@@ -16066,7 +16046,7 @@ area east_inbetwixx() {
             default_init_room(True, True);
         }
     };
-
+    
     area pipe_maze() {
         enum PIPE_MAZE {
             MARIO_BOSS_ROOM_OPEND = memory(FLAG, SRAM),
@@ -36049,25 +36029,33 @@ area dungeon_isaac() {
 
         @install()
         @async()
-        fun isaac_ai_shooting(enemy) {
+        fun isaac_ai_shooting(entity) {
             sleep(0x60);
 
-            while(alive(enemy)) {
-                shoot(enemy);
-                // ai_move_projectile_plus(enemy, ONION, 0d130);
-                // ai_move_bomb_toss(enemy, ONION, <BOY>);
+            while(alive(entity)) {
+                while((entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                    yield();
+                }
+
+                shoot(entity);
+                // ai_move_projectile_plus(entity, ONION, 0d130);
+                // ai_move_bomb_toss(entity, ONION, <BOY>);
 
                 sleep(0xa0);
             }
         }
         @install()
         @async()
-        fun isaac_ai_shooting_plus(enemy) {
+        fun isaac_ai_shooting_plus(entity) {
             sleep(0d100);
 
-            while(alive(enemy)) {
+            while(alive(entity)) {
+                while((entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                    yield();
+                }
+
                 // shoot(enemy);
-                ai_move_projectile_plus(enemy, ONION, 0d130);
+                ai_move_projectile_plus(entity, ONION, 0d130);
                 // ai_move_bomb_toss(enemy, ONION, <BOY>);
 
                 sleep(0d240);
@@ -39285,6 +39273,8 @@ area dungeon_volcano() {
                 if(DUNGEON_VOLCANO.BRIDGE_TOP) {
                     question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        animation_fall_pit(ACTIVE);
+
                         map_transition(dungeon_volcano, jump_bridge_top, NONE);
                     } else {
                         error_walk_back(NORTH);
@@ -39297,6 +39287,8 @@ area dungeon_volcano() {
                     question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
+                            animation_fall_pit(ACTIVE);
+                        
                             map_transition(dungeon_volcano, jump_bridge_center_top, NONE);
                         } else {
                             dialog("Seems way too dangerous![B]");
@@ -39312,6 +39304,8 @@ area dungeon_volcano() {
                 if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
                     question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        animation_fall_pit(ACTIVE);
+                        
                         map_transition(dungeon_volcano, jump_bridge_center_bottom, NONE);
                     } else {
                         error_walk_back(NORTH);
@@ -40160,6 +40154,357 @@ area dungeon_volcano() {
     };
 
     area side_volcano() {
+        area north_eastern_cave() {
+            map north_eastern_cave_1(VOLCANO_ROOMS) { // variant: room_nss
+                enum entrance {
+                    north = entrance(0x9e, 0x05, SOUTH),
+                    south_1 = entrance(0x9e, 0x37, NORTH),
+                    south_2 = entrance(0x84, 0x37, NORTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(DUNGEON_VOLCANO.DEFAULT_SIDE_MUSIC, 0xff)
+                }
+
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_south = nop(),
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_room_ns_south = nop(),
+                    exit_room_sw_west = nop(),
+                    exit_room_ns_north = nop(),
+                    exit_room_sw_south = nop(),
+                    exit_room_nne_north_1 = nop(),
+
+                    exit_room_es_south = nop(),
+                    exit_room_es_east = nop(),
+                    exit_room_nne_north_2 = nop(),
+                    exit_south_2 = @install() {
+                        debug_subtext("S=13");
+
+                        map_transition(east_inbetwixx, cave, SOUTH);
+                    },
+                    exit_south_1 = @install() {
+                        debug_subtext("S=14");
+
+                        question("Jump into the pit?[CHOICE]yes…[CHOICE]no…");
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            animation_fall_pit(ACTIVE);
+
+                            map_transition(stone_room_top, crash, NONE);
+                        } else {
+                            error_walk_back(NORTH);
+                        }
+                    },
+                    exit_north = @install() {
+                        debug_subtext("S=15");
+
+                        map_transition(north_eastern_cave_2, south, NORTH);
+                    },
+                    exit_room_alchemist_north = nop(),
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
+
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff_room_alchemist__1_ash = nop(),
+                    gourd_cave_outside__3_wax = nop(),
+                    gourd_cave_outside__1_wax = nop(),
+                    gourd_room_ns__4_ash = nop(),
+                    gourd_room_sw__4_ash = nop(),
+                    gourd_main__1_call_bead = nop(),
+                    gourd_alchemist_west__3_water = nop(),
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_alchemist_hidden_2__5_wax = nop(),
+                    gourd_alchemist_hidden_1__6_water = nop(),
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff_room_sw__1_water = nop(),
+                    sniff_room_nne__1_water = nop(),
+                    sniff_room_ns__1_clay = nop(),
+                    sniff__1_roots = @install() {
+                        debug_subtext("B=15");
+                        _loot(0x0b, ROOTS, 0d01, 0d00);
+                    },
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff_cave_outside__1_roots = nop(),
+                    sniff_room_es__1_oil = nop(),
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff__1_wax = @install() {
+                        debug_subtext("B=22");
+                        _loot(0x12, WAX, 0d01, 0d00);
+                    },
+                    sniff_room_ns__1_wax = nop(),
+                    sniff_room_main__1_wax = nop(),
+                }
+
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0d2);
+                    fade_in();
+                }
+            };
+            map north_eastern_cave_2(VOLCANO_ROOMS) { // variant: room_es
+                enum entrance {
+                    east = entrance(0x67, 0x1c, WEST),
+                    south = entrance(0x4c, 0x39, NORTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(DUNGEON_VOLCANO.DEFAULT_SIDE_MUSIC, 0xff)
+                }
+
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_south = nop(),
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_room_ns_south = nop(),
+                    exit_room_sw_west = nop(),
+                    exit_room_ns_north = nop(),
+                    exit_room_sw_south = nop(),
+                    exit_room_nne_north_1 = nop(),
+
+                    exit_south = @install() {
+                        debug_subtext("S=10");
+
+                        map_transition(north_eastern_cave_1, north, SOUTH);
+                    },
+                    exit_east = @install() {
+                        debug_subtext("S=11");
+
+                        map_transition(north_eastern_cave_3, west, EAST);
+                    },
+                    exit_room_nne_north_2 = nop(),
+                    exit_room_nss_south_2 = nop(),
+                    exit_room_nss_south_1 = nop(),
+                    exit_room_nss_north = nop(),
+                    exit_room_alchemist_north = nop(),
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
+
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff_room_alchemist__1_ash = nop(),
+                    gourd_cave_outside__3_wax = nop(),
+                    gourd_cave_outside__1_wax = nop(),
+                    gourd_room_ns__4_ash = nop(),
+                    gourd_room_sw__4_ash = nop(),
+                    gourd_main__1_call_bead = nop(),
+                    gourd_alchemist_west__3_water = nop(),
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_alchemist_hidden_2__5_wax = nop(),
+                    gourd_alchemist_hidden_1__6_water = nop(),
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff_room_sw__1_water = nop(),
+                    sniff_room_nne__1_water = nop(),
+                    sniff_room_ns__1_clay = nop(),
+                    sniff_room_nss__1_roots = nop(),
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff_cave_outside__1_roots = nop(),
+                    sniff__1_oil = @install() {
+                        debug_subtext("B=19");
+                        _loot(0x0f, OIL, 0d01, 0d00);
+                    },
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff_room_nss__1_wax = nop(),
+                    sniff_room_ns__1_wax = nop(),
+                    sniff_room_main__1_wax = nop(),
+                }
+
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0d1);
+                    fade_in();
+                }
+            };
+            map north_eastern_cave_3(VOLCANO_ROOMS) { // variant: room_sw
+                enum entrance {
+                    south = entrance(0x1c, 0x3b, NORTH),
+                    west = entrance(0x01, 0x24, EAST),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(DUNGEON_VOLCANO.DEFAULT_SIDE_MUSIC, 0xff)
+                }
+
+                enum stepon_trigger {
+                    exit_room_nw_north = nop(),
+                    exit_room_nw_west = nop(),
+                    exit_cave_south = nop(),
+                    exit_room_s_south = nop(),
+                    exit_room_nne_east = nop(),
+                    exit_room_ns_south = nop(),
+                    exit_west = @install() {
+                        debug_subtext("S=6");
+
+                        map_transition(north_eastern_cave_2, east, WEST);
+                    },
+                    exit_room_ns_north = nop(),
+                    exit_south = @install() {
+                        debug_subtext("S=8");
+
+                        fog_wall_outside(!SOULS_MEMORY.DEAD_STOMPY_RADAHN, NORTH);
+                        map_transition(graveyard, north, SOUTH);
+                    },
+                    exit_room_nne_north_1 = nop(),
+
+                    exit_room_es_south = nop(),
+                    exit_room_es_east = nop(),
+                    exit_room_nne_north_2 = nop(),
+                    exit_room_nss_south_2 = nop(),
+                    exit_room_nss_south_1 = nop(),
+                    exit_room_nss_north = nop(),
+                    exit_room_alchemist_north = nop(),
+                    exit_main_east = nop(),
+                    exit_main_west = nop(),
+                    exit_main_north = nop(),
+
+                    exit_main_south = nop(),
+                }
+                
+                enum b_trigger {
+                    sniff_room_alchemist__1_ash = nop(),
+                    gourd_cave_outside__3_wax = nop(),
+                    gourd_cave_outside__1_wax = nop(),
+                    gourd_room_ns__4_ash = nop(),
+                    gourd__4_ash = @install() {
+                        debug_subtext("B=4");
+                        // _loot_chest(0x05, ASH, 0d04);
+
+                        _loot_chest(0x05, SPOON, 0d01);
+                    },
+                    gourd_main__1_call_bead = nop(),
+                    gourd_alchemist_west__3_water = nop(),
+                    gourd_room_s__2_wax = nop(),
+                    gourd_room_s__3_ash = nop(),
+                    gourd_alchemist_hidden_2__5_wax = nop(),
+                    gourd_alchemist_hidden_1__6_water = nop(),
+                    sniff__1_ash = @install() {
+                        debug_subtext("B=11");
+                        _loot_chest(0x05, ASH, 0d04);
+                    },
+                    sniff__1_water = @install() {
+                        debug_subtext("B=12");
+                        _loot(0x08, WATER, 0d01, 0d00);
+                    },
+                    sniff_room_nne__1_water = nop(),
+                    sniff_room_ns__1_clay = nop(),
+                    sniff_room_nss__1_roots = nop(),
+                    sniff_room_nne__1_roots = nop(),
+                    sniff_room_main__1_roots = nop(),
+                    sniff_cave_outside__1_roots = nop(),
+                    sniff_room_es__1_oil = nop(),
+                    sniff_room_s__1_oil = nop(),
+                    sniff_room_nw__1_oil = nop(),
+                    sniff_room_nss__1_wax = nop(),
+                    sniff_room_ns__1_wax = nop(),
+                    sniff_room_main__1_wax = nop(),
+                }
+
+                fun init_room(index) {
+                    if(index == 0d0) {
+                        init_map(0x00, 0x04, 0x2a, 0x3c); // room_sw
+                    } else if(index == 0d1) {
+                        init_map(0x3a, 0x08, 0x68, 0x38); // room_es
+                    } else if(index == 0d2) {
+                        init_map(0x78, 0x06, 0xb0, 0x38); // room_nss
+                    } else if(index == 0d3) {
+                        init_map(0xbe, 0x04, 0xfc, 0x36); // room_alchemist
+                    } else if(index == 0d4) {
+                        init_map(0x0a, 0x3c, 0x30, 0x7c); // room_ns
+                    } else if(index == 0d5) {
+                        init_map(0x40, 0x38, 0x80, 0x6c); // room_nne
+                    } else if(index == 0d6) {
+                        init_map(0x8c, 0x46, 0xb2, 0x7c); // room_s
+                    } else if(index == 0d7) {
+                        init_map(0xb4, 0x3c, 0xf8, 0x96); // room_main (downstairs)
+                    } else if(index == 0d8) {
+                        init_map(0x01, 0x83, 0x2b, 0xb1); // room_nw
+                    } else if(index == 0d9) {
+                        init_map(0x3f, 0x89, 0x6c, 0xb2); // room_outside_cave
+                    } else if(index == 0d10) {
+                        init_map(0xba, 0x3c, 0xf8, 0x96); // room_main (upstairs)
+                    }
+                }
+
+                fun trigger_enter() {
+                    init_room(0d0);
+                    fade_in();
+                }
+            };
+        };
+        
         area northern_side_volcano() {
             map radahn_exit(VOLCANO_ROOMS) { // variant: room_nss
                 enum entrance {
