@@ -10033,9 +10033,7 @@ area west_inbetwixx() {
             question("[SLOW]A trap door under the rug.[CHOICE]Enter…[CHOICE]Leave…");
 
             if(MEMORY.QUESTION_ANSWER == 0d0) {
-                face(BOY, SOUTH);
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_2);
-                sleep(0d20);
+                animation_fall_pit(BOY);
 
                 map_transition(basement_0_start, center, NONE);
             } else {
@@ -36005,6 +36003,22 @@ area dungeon_isaac() {
             }
         }
 
+        fun _add_trap_door(callback, flag, check_exits) {
+            if(check_exits !is None) {
+                check_exits(flag);
+            }
+
+            if(flag) {
+                animation_fall_pit(ACTIVE);
+            
+                callback();
+            }
+        }
+        fun add_trap_door(x, y, trigger) {
+            add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, x, y);
+            attach_script(LAST_ENTITY, B, trigger);
+        }
+        
         @install()
         fun shoot(entity) {
             shoot_entity_entity(entity, ONION, BOY, 0x10, 0xff);
@@ -36632,15 +36646,12 @@ area dungeon_isaac() {
                 }
             }
 
-            @install()
-            fun trap_door_interacted() {
-                check_exits(ROOM.CLEAR_FLAG);
-                map_transition(basement_1_start, center, NONE);
-            }
-
-            fun trigger_enter() {
-                add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
-                attach_script(LAST_ENTITY, B, reference(trap_door_interacted));
+            fun trigger_enter(x, y) {
+                add_trap_door(0x10, 0x13, reference(@install() {
+                    _add_trap_door({
+                        map_transition(basement_1_start, center, NONE);
+                    }, ROOM.CLEAR_FLAG, True);
+                }));
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     if!(ROOM.CLEAR_FLAG) {
@@ -37227,17 +37238,14 @@ area dungeon_isaac() {
                 }
             }
 
-            @install()
-            fun trap_door_interacted() {
-                check_exits(ROOM.CLEAR_FLAG);
-                map_transition(basement_2_start, center, NONE);
-            }
-
             fun trigger_enter() {
                 object[0x00] = 0x02; // close exit_west
 
-                add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0d89, 0d29);
-                attach_script(LAST_ENTITY, B, reference(trap_door_interacted));
+                add_trap_door(0d89, 0d29, reference(@install() {
+                    _add_trap_door({
+                        map_transition(basement_2_start, center, NONE);
+                    }, ROOM.CLEAR_FLAG, True);
+                }));
 
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     if!(ROOM.CLEAR_FLAG) {
@@ -38161,11 +38169,10 @@ area dungeon_isaac() {
                 // available(BOY);
                 // destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
-                add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    if!(BOSS.PROGRESS) {
+                add_trap_door(0x10, 0x13, reference(@install() {
+                    _add_trap_door({
                         map_transition(basement_3_start, center, NONE);
-                    }
+                    }, !BOSS.PROGRESS);
                 }));
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
@@ -39212,13 +39219,6 @@ area dungeon_isaac() {
                 }
             };
 
-            @install()
-            fun trap_door_interacted() {
-                if!(BOSS.PROGRESS) {
-                    map_transition(west_hut_outside, hut, NONE);
-                }
-            }
-
             fun trigger_enter() {
                 object[0x00] = 0x01; // close south
                 object[0x01] = 0x7e; // open east
@@ -39232,8 +39232,11 @@ area dungeon_isaac() {
                 // available(BOY);
                 // destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
-                add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, 0x10, 0x13);
-                attach_script(LAST_ENTITY, B, reference(trap_door_interacted));
+                add_trap_door(0x10, 0x13, reference(@install() {
+                    _add_trap_door({
+                        map_transition(west_hut_outside, hut, NONE);
+                    }, !BOSS.PROGRESS);
+                }));
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
