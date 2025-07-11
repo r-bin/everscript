@@ -15612,8 +15612,17 @@ area east_inbetwixx() {
     map graveyard(GRAVEYARD) {
         // sniff=vanilla
 
+        enum ROOM {
+            PASSAGE_OPENED = memory(FLAG, SRAM),
+
+            ENTERED_FROM_NORTH = memory(FLAG, TEMP),
+        }
+
         enum entrance {
-            north = entrance(0x32, 0x0f, SOUTH),
+            north = entrance(0x32, 0x0f, SOUTH, {
+                ROOM.ENTERED_FROM_NORTH = True;
+                ROOM.PASSAGE_OPENED = True;
+            }),
             south = entrance(0x2f, 0x5f, NORTH)
         }
 
@@ -15885,6 +15894,37 @@ area east_inbetwixx() {
             // attribute(LAST_ENTITY, ROOT, True);
         }
 
+        @install()
+        @async()
+        fun boss_triggered() {
+            if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
+                if!(BOSS.IN_PROGRESS) {
+                    push_music(BOSS);
+
+                    spawn_boss(0x39, 0x23);
+                    control(BOSS.MOUNT_ID, True);
+                    stack_t01_offset();
+
+                    set_camera(COORDINATE_CORNER, 0x0108, 0xa0, 0x18);
+
+                    while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                        yield();
+                    }
+
+                    walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
+                    walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, BOTH);
+                    free_camera();
+
+                    BOSS.IN_PROGRESS = True;
+                    object[0x1f] = 0x7e;
+                    object[0x00] = 0x00;
+                    
+                    control(BOSS.MOUNT_ID, False);
+                    boss_watcher();
+                }
+            }
+        }
+
         enum stepon_trigger {
             exit_north = @install() {
                 debug_subtext("S=0");
@@ -15895,25 +15935,7 @@ area east_inbetwixx() {
                 map_transition(eastern_barrier, north, SOUTH);
             },
             spawn_boss = @install() {
-                if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
-                    if!(BOSS.IN_PROGRESS) {
-                        push_music(BOSS);
-                        spawn_boss(0x39, 0x23);
-                        control(BOSS.MOUNT_ID, True);
-                        stack_t01_offset();
-
-                        set_camera(COORDINATE_CORNER, 0x0108, 0xa0, 0x18);
-                        walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
-                        walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, BOTH);
-                        free_camera();
-
-                        BOSS.IN_PROGRESS = True;
-                        object[0x1f] = 0x7e;
-                        
-                        control(BOSS.MOUNT_ID, False);
-                        boss_watcher();
-                    }
-                }
+                boss_triggered();
             }
         }
 
@@ -16043,10 +16065,18 @@ area east_inbetwixx() {
         }
 
         fun trigger_enter() {
+            if(ROOM.PASSAGE_OPENED) {
+                object[0x00] = 0x01;
+            }
+
+            if(ROOM.ENTERED_FROM_NORTH) {
+                boss_triggered();
+            }
+
             default_init_room(True, True);
         }
     };
-    
+
     area pipe_maze() {
         enum PIPE_MAZE {
             MARIO_BOSS_ROOM_OPEND = memory(FLAG, SRAM),
