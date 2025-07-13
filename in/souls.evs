@@ -706,6 +706,9 @@ group non_maps() {
 
                 MEMORY.DOG_BISCUIT += 0d2;
             },
+
+            REWARD_STONEHENGE_TOWN = ITEM.JADE_DISK,
+            REWARD_STONEHENGE_BASEMENT = NECTAR, // TODO
         }
 
         fun asign_debug_button_function(flag, feature) {
@@ -19756,7 +19759,7 @@ area southern_jungle() {
             north = entrance(0x62, 0x0b, SOUTH),
             west = entrance(0x04, 0x1f, EAST),
 
-            crash = entrance(0x64, 0x5b, NONE),
+            crash = entrance(0x64, 0x5b, NONE, { crash_both(); }),
         }
 
         enum soundtrack {
@@ -19998,10 +20001,6 @@ area southern_jungle() {
         fun trigger_enter() {
             init_map(0x00, 0x02, 0x80, 0x96);
 
-            if!(FLAG.IN_ANIMATION) {
-                crash_both();
-            }
-
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // north (west entrance)
                 add_enemy(RAPTOR_PURPLE, 0d49, 0d59);
@@ -20062,6 +20061,26 @@ area southern_jungle() {
         }
 
         fun trigger_enter() {
+            add_placeholder(ANIMATION_ENEMY.KING_ROCKING, 0d12, 0d22);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                conversation({
+                    conversation_question("[SLOW]Do you like music?[CHOICE]yes…[CHOICE]no…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                        arg[0x0e] = randrange(0d2);
+
+                        if(arg[0x0e] == 0d0) {
+                            conversation_dialog("[SLOW]The first instruments were made of stone.[B]");
+                        } else {
+                            conversation_dialog("[SLOW]Using something blunt can reveal a beautiful melody.[B]");
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // no
+                        teleporter_out();
+                        map_transition(northern_jungle, teleporter, NONE);
+                    }
+                }, NONE);
+            }));
+
             default_init_room(True, False);
         }
     };
@@ -20084,6 +20103,10 @@ area southern_jungle() {
                 cave_2 = entrance(0x48, 0x13, SOUTH, { ROOM.HIDDEN_TUNNEL_OPENED = True; }),
 
                 wings = entrance(0x0f, 0x3f, NONE),
+
+                teleporter = entrance(0d82, 0d61, NONE, {
+                    teleporter_in();
+                }),
             }
 
             enum soundtrack {
@@ -26457,6 +26480,8 @@ map town_bridge(BAD_BOYS) {
         if(ROOM.DEBUG) {
             debug_subtext("yatta");
         }
+
+        reward(SOULS_MEMORY.REWARD_STONEHENGE_TOWN);
     }
 
     fun print_index(index) {
@@ -30996,17 +31021,23 @@ area desert_bug() {
                         conversation({
                             conversation_question("[SLOW]Can you swim?[CHOICE]yes…[CHOICE]no…");
 
-                            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
                                 teleporter_animation_out(<ACTIVE>);
                                 teleporter_animation_out(<INACTIVE>);
 
                                 map_transition(pyramid, water, NONE);
-                            } else {
-                                nop();
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // no
+                                arg[0x0e] = randrange(0d3);
+
+                                if(arg[0x0e] == 0d0) {
+                                    conversation_dialog("[SLOW]A sphinx is a talking statue.[B]");
+                                } else if(arg[0x0e] == 0d1) {
+                                    conversation_dialog("[SLOW]Sphinxes are very elusive and sometimes hard to see.[B]");
+                                } else {
+                                    conversation_dialog("[SLOW]It would be hard to find someone talking in the sphinxes tongue.[B]");
+                                }
                             }
-                        });
-                        
-                        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.KING_ROCKING);
+                        }, NONE);
                     }));
 
                     if(True) {
@@ -35935,8 +35966,8 @@ area dungeon_isaac() {
 
         // ENABLE_DOORS = memory(WORD, TEMP),
 
-        ENEMY_COUNT_TOTAL = memory(WORD, TEMP),
-        ENEMY_COUNT = memory(WORD, TEMP),
+        ENEMY_COUNT_TOTAL = memory(WORD, TEMP_RESERVED),
+        ENEMY_COUNT = memory(WORD, TEMP_RESERVED),
 
         MUSIC_DEFAULT = MUSIC.PUPPET_SHOW,
     }
@@ -37227,10 +37258,25 @@ area dungeon_isaac() {
             }
 
             enum ROOM {
+                DEBUG = True,
+
                 CLEAR_FLAG = memory(FLAG, SRAM),
 
                 BEE_COLLECTED = memory(FLAG, SRAM),
                 BRIDGE_BLOCKER = retained_object(0x07),
+
+                RIDDLE_SOLVED = memory(FLAG, SRAM),
+
+                RIDDLE_PROGRESS = memory(WORD, TEMP),
+
+                RIDDLE_STEP_1 = memory(WORD, TEMP),
+                RIDDLE_STEP_2 = memory(WORD, TEMP),
+                RIDDLE_STEP_3 = memory(WORD, TEMP),
+                RIDDLE_STEP_4 = memory(WORD, TEMP),
+                RIDDLE_STEP_5 = memory(WORD, TEMP),
+                RIDDLE_STEP_6 = memory(WORD, TEMP),
+
+                RANDOM_NUMBER = 0d1 + randrange(0d6),
             }
 
             enum stepon_trigger {
@@ -37256,8 +37302,148 @@ area dungeon_isaac() {
                 }
             }
 
+            group pillar_riddle() {
+                fun riddle_solved() {
+                    sound(WEIRD_SOUND);
+
+                    ROOM.RIDDLE_SOLVED = True;
+
+                    if(ROOM.DEBUG) {
+                        debug_subtext("yatta");
+                    }
+
+                    reward(SOULS_MEMORY.REWARD_STONEHENGE_BASEMENT);
+                }
+
+                fun remove_pillar(index) {
+                    if(index == 0d1) {
+                        object[0x01] = 0x7e;
+                    } else if(index == 0d2) {
+                        object[0x02] = 0x7e;
+                    } else if(index == 0d3) {
+                        object[0x03] = 0x7e;
+                    } else if(index == 0d4) {
+                        object[0x04] = 0x7e;
+                    } else if(index == 0d5) {
+                        object[0x05] = 0x7e;
+                    } else if(index == 0d6) {
+                        object[0x06] = 0x7e;
+                    }
+                }
+                @install()
+                fun pillar_triggered() {
+                    guard_boy();
+
+                    print_index(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+
+                    if(
+                        ((ROOM.RIDDLE_PROGRESS == 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_1))
+                        || ((ROOM.RIDDLE_PROGRESS == 0d1) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_2))
+                        || ((ROOM.RIDDLE_PROGRESS == 0d2) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_3))
+                        || ((ROOM.RIDDLE_PROGRESS == 0d3) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_4))
+                        || ((ROOM.RIDDLE_PROGRESS == 0d4) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_5))
+                        || ((ROOM.RIDDLE_PROGRESS == 0d5) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_6))
+                    ) {
+                        arg[0x10] = True;
+                    }
+
+                    if(MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SWORD_1) {
+                        if(arg[0x10]) {
+                            sound(MECHANICAL_MOVEMENT);
+                        }
+
+                        end();
+                    } else if(
+                        (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_2) ||
+                        (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_3) ||
+                        (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_4)
+                    ) {
+                        if(arg[0x10]) {
+                            ROOM.RIDDLE_PROGRESS++;
+                        } else {
+                            ROOM.RIDDLE_PROGRESS = 0xffff;
+                        }
+                        
+                        animate(BOY, ONCE, SLASH_2);
+                    } else {
+                        end();
+                    }
+
+                    animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
+                    remove_pillar(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+
+                    wait(SCRIPT_OWNER);
+                    destroy(SCRIPT_OWNER);
+
+                    if(ROOM.RIDDLE_PROGRESS == 0d6) {
+                        sleep(0d10);
+
+                        riddle_solved();
+                    }
+                }
+
+                fun add_pillar(index, x, y) {
+                    add_enemy(PLACEHOLDER, x, y);
+                    attach_script(LAST_ENTITY, B, reference(pillar_triggered));
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = index;
+                }
+
+                fun init_riddle_code() {
+                    ROOM.RIDDLE_STEP_1 = ROOM.RANDOM_NUMBER;
+
+                    ROOM.RIDDLE_STEP_2 = ROOM.RANDOM_NUMBER;
+                    while(ROOM.RIDDLE_STEP_2 == ROOM.RIDDLE_STEP_1) {
+                        ROOM.RIDDLE_STEP_2 = ROOM.RANDOM_NUMBER;
+                    }
+
+                    ROOM.RIDDLE_STEP_3 = ROOM.RANDOM_NUMBER;
+                    while((ROOM.RIDDLE_STEP_3 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_3 == ROOM.RIDDLE_STEP_2)) {
+                        ROOM.RIDDLE_STEP_3 = ROOM.RANDOM_NUMBER;
+                    }
+
+                    ROOM.RIDDLE_STEP_4 = ROOM.RANDOM_NUMBER;
+                    while((ROOM.RIDDLE_STEP_4 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_4 == ROOM.RIDDLE_STEP_2) || (ROOM.RIDDLE_STEP_4 == ROOM.RIDDLE_STEP_3)) {
+                        ROOM.RIDDLE_STEP_4 = ROOM.RANDOM_NUMBER;
+                    }
+
+                    ROOM.RIDDLE_STEP_5 = ROOM.RANDOM_NUMBER;
+                    while((ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_2) || (ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_3) || (ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_4)) {
+                        ROOM.RIDDLE_STEP_5 = ROOM.RANDOM_NUMBER;
+                    }
+
+                    ROOM.RIDDLE_STEP_6 = ROOM.RANDOM_NUMBER;
+                    while((ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_2) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_3) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_4) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_5)) {
+                        ROOM.RIDDLE_STEP_6 = ROOM.RANDOM_NUMBER;
+                    }
+                }
+
+                fun init_riddle() {
+                    if!(ROOM.RIDDLE_SOLVED) {
+                        init_riddle_code();
+
+                        add_pillar(0d1, 0d12, 0d24);
+                        add_pillar(0d2, 0d20, 0d24);
+                        add_pillar(0d3, 0d29, 0d24);
+
+                        add_pillar(0d4, 0d12, 0d38);
+                        add_pillar(0d5, 0d20, 0d38);
+                        add_pillar(0d6, 0d29, 0d38);
+                    } else {
+                        object[0x01] = 0x7e;
+                        object[0x02] = 0x7e;
+                        object[0x03] = 0x7e;
+
+                        object[0x04] = 0x7e;
+                        object[0x05] = 0x7e;
+                        object[0x06] = 0x7e;
+                    }
+                }
+            };
+
             fun trigger_enter() {
                 object[0x00] = 0x02; // close exit_west
+
+                init_riddle();
 
                 add_trap_door(0d89, 0d29, reference(@install() {
                     _add_trap_door({
