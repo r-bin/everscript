@@ -4,10 +4,9 @@
 
 # important
 ## any door can be opened with a bomb
-## stonehenge = 6, 2, 4, 3, 5, 1 ("Take X. Take the first prime factor and take it's square. Can you see how Fibonacci numbers are left? Take the second prime factor and take it and add the first one. Now only one is left.")
-## populate: altus entry invisible cave, tree house
 ## market: gain brown dropplets
-## more orbs
+## more orbs (every boss)
+## spoon sickness can be healed with heal or miracle cure
 
 # nice to have
 ## monstro bonfire?
@@ -16,7 +15,7 @@
 ## temple elevator preselect floor
 ## dog trap (cat) - dog can walk while gaining items
 ## power glove 3 = nothing?
-## sound glitches: kill radahn, get revealer/levitate
+## sound glitches: kill radahn
 ## projectiles with entity targets should check range (and not shoot off screen)
 ## no music after levitate+revealer
 ## scale enemies: before pyramid
