@@ -456,6 +456,11 @@ group non_maps() {
             DUST_DROP_VARIANT = memory(BYTE, SRAM),
             DUST_UNREACHABLE = memory(FLAG, SRAM),
 
+            // both
+            ONLY_AVAILABLE = CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.NO_BOY,
+            ONLY_BOY = FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY,
+            ONLY_DOG = CUSTOM_FLAG.NO_BOY,
+
             // wings
             WINGS_BLOCKED = memory(FLAG, SRAM),
             
@@ -645,7 +650,7 @@ group non_maps() {
             PROGRESS_DOUBLE_THRAXX = memory(FLAG, SRAM),
 
             DEAD_UNNAMED_DESERT_TEMPLE_BOSS = memory(FLAG, SRAM),
-            REWARD_UNNAMED_DESERT_TEMPLE_BOSS = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
+            REWARD_UNNAMED_DESERT_TEMPLE_BOSS = ITEM.JADE_DISK,
 
             // metro
 
@@ -7816,10 +7821,18 @@ area shrine_area() {
         fun bonfire_triggered_first_bonfire() {
             fake_b();
 
-            question("[SLOW]Return to the beginning?[CHOICE]Yes.[CHOICE]No.");
+            if!(SOULS_MEMORY.BONFIRE_MAP) {
+                question("[SLOW]Return to the beginning?[CHOICE]Yes.[CHOICE]No.");
+                
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    map_transition(inbetwixx, center, NONE);
+                }
+            } else {
+                question("[SLOW]Return to bonfire?[CHOICE]Yes.[CHOICE]No.");
 
-            if(MEMORY.QUESTION_ANSWER == 0d0) {
-                map_transition(inbetwixx, center, NONE);
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    return_to_bonfire();
+                }
             }
         }
 
@@ -11708,8 +11721,14 @@ area altus_plateau_entry() {
 
                         if!(SOULS_MEMORY.DEAD_CHESS) {
                             if!(BOSS.PROGRESS) {
-                                walk(BOY, TILE_ABSOLUTE, 0x39, 0x44, NONE);
-                                walk(DOG, TILE_ABSOLUTE, 0x39, 0x48, BOTH, BOTH);
+                                walk(ACTIVE, TILE_ABSOLUTE, 0x39, 0x44, NONE);
+
+                                if!(SOULS_MEMORY.ONLY_AVAILABLE) {
+                                    walk(INACTIVE, TILE_ABSOLUTE, 0x39, 0x48, BOTH, BOTH);
+                                } else {
+                                    wait(ACTIVE);
+                                    control(BOTH); // TODO: unlocks unavailable dog
+                                }
 
                                 close_arena(True);
                                 spawn_boss(0d74, 0d69); // 0d84, 0d57);
@@ -12090,7 +12109,7 @@ area altus_plateau_entry() {
 
                         STACKING = memory(FLAG, TEMP),
                         STACK_ROLL = memory(WORD, TEMP),
-                        STACK_ROLL_COUNT = 0d4,
+                        STACK_ROLL_COUNT = 0d5,
 
                         CRATES_X = 0d22,
                         CRATES_Y = 0d12,
@@ -12199,14 +12218,60 @@ area altus_plateau_entry() {
                     }
 
                     @install()
+                    @async()
+                    fun _heal_rat(entity) {
+                        sleep(0d120);
+                        while(entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+                            sleep(0d10);
+                        }
+                        animate(entity, ONCE, DEFAULT);
+
+                        while!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                            sleep(0d10);
+                        }
+
+                        attribute(entity, INVINCIBLE_TEMP, False);
+
+                        if(BOSS.DEBUG) {
+                            subtext("!");
+                        }
+
+                        BOSS.BOSS_RAT_HEALING = False;
+                    }
+                    @install()
+                    fun heal_rat(entity) {
+                        guard_not_flag(BOSS.BOSS_RAT_HEALING);
+                        BOSS.BOSS_RAT_HEALING = True;
+
+                        attribute(entity, INVINCIBLE_TEMP, True);
+
+                        animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
+                        cast(BOSS.ID_RIDER, entity, HEAL, BOSS.BOSS_RAT_HP);
+
+                        // animate(entity, ONCE_FREEZE, DEFAULT);
+
+                        cast(BOSS.ID_RIDER, entity, HEAL, BOSS.BOSS_RAT_HP);
+                        animate(BOSS.ID_MOUNT, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+
+                        _heal_rat(entity);
+                        yield();
+                    }
+                    @install()
                     // @async()
-                    fun ride_rat(entity_rider, entity_mount, offset_x, offset_y) {
-                        BOSS.STACKING = True;
+                    fun _ride_rat(entity_rider, entity_mount, offset_x, offset_y, with_heal) {
+                        if(with_heal) {
+                            heal_rat(entity_mount);
+                        }
+
                         arg[0x10] = entity_mount[Z_LEVEL];
                         arg[0x12] = entity_rider[Z_LEVEL];
 
-                        attribute(entity_mount, ROOT, True);
-                        animate(entity_mount, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+                        if!(with_heal) {
+                            attribute(entity_mount, INVINCIBLE_TEMP, True);
+                            attribute(entity_mount, ROOT, True);
+                            animate(entity_mount, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+                        }
+
                         entity_mount[TYPE] = CHARACTER_TYPE.MEGATAUR;
 
                         animate(entity_rider, ONCE, ANIMATION_ALL.CAST);
@@ -12221,16 +12286,18 @@ area altus_plateau_entry() {
                         sleep(0d50);
                         entity_rider[Z] = 0d0;
 
-                        animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
-                        attribute(entity_mount, ROOT, False);
+                        if!(with_heal) {
+                            animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+                            attribute(entity_mount, ROOT, False);
+                            attribute(entity_mount, INVINCIBLE_TEMP, False);
+                        }
                         guard_dead(entity_rider);
 
                         cheese_protection(entity_mount);
                         
                         BOSS.STACK_ROLL = 0d0;
                         while(BOSS.STACKING && _alive(entity_rider) && _alive(entity_mount)) {
-                            entity_rider[X] = entity_mount[X] + offset_x;
-                            entity_rider[Y] = entity_mount[Y] - offset_y;
+                            _teleport(entity_rider, entity_mount[X] + offset_x, entity_mount[Y] - offset_y);
 
                             yield();
                         }
@@ -12246,6 +12313,13 @@ area altus_plateau_entry() {
 
                         guard_dead(entity_mount);
                         wait(entity_mount);
+                    }
+                    fun ride_rat(with_heal) {
+                        BOSS.STACKING = True;
+
+                        _ride_rat(BOSS.ID_RIDER, BOSS.ID_MOUNT, 0d0, 0d40, with_heal);
+
+                        BOSS.STACKING = False;
                     }
 
                     fun toss_bomb() {
@@ -12292,6 +12366,10 @@ area altus_plateau_entry() {
 
                     @install()
                     fun toss_rat(boss_rat) {
+                        if(BOSS.DEBUG) {
+                            debug_memory(_dead(BOSS.ID_MOUNT), BOSS.ID_MOUNT, boss_rat);
+                        }
+
                         animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
                         sleep(0d20);
 
@@ -12323,22 +12401,14 @@ area altus_plateau_entry() {
                                         BOSS.PHASE++;
                                     }
                                 } else if(BOSS.PHASE == 0d1) {
-                                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-                                    heal(SCRIPT_OWNER, 0d1, False);
-
-                                    animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
-                                    cast(BOSS.ID_RIDER, SCRIPT_OWNER, HEAL, BOSS.BOSS_RAT_HP);
-
-                                    animate(SCRIPT_OWNER, ONCE_FREEZE, DEFAULT);
-
-                                    BOSS.BOSS_RAT_HEALING = True;
-
                                     if!(BOSS.STACKING) {
-                                        cast(BOSS.ID_RIDER, SCRIPT_OWNER, HEAL, BOSS.BOSS_RAT_HP);
+                                        heal(SCRIPT_OWNER, 0d1, False);
 
-                                        animate(BOSS.ID_MOUNT, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+                                        ride_rat(True);
+                                    } else {
+                                        wait(SCRIPT_OWNER);
+                                        destroy(SCRIPT_OWNER);
                                     }
-                                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
                                 }
                             }));
 
@@ -12386,7 +12456,7 @@ area altus_plateau_entry() {
                                     debug_memory(arg[0x10], dead(BOSS.ID_MOUNT));
                                 }
 
-                                if(dead(BOSS.ID_MOUNT)) {
+                                if((BOSS.ID_MOUNT == 0d0) || _dead(BOSS.ID_MOUNT)) {
                                     toss_rat(True);
                                 } else if(arg[0x10] == 0d0) {
                                     toss_bombs(0d1);
@@ -12409,14 +12479,15 @@ area altus_plateau_entry() {
                         while(BOSS.PHASE == 0d1) {
                             BOSS.TIMER++;
 
+                            while(BOSS.STACKING) {
+                                yield();
+                            }
+
                             if(BOSS.TIMER > BOSS.TIMER_T1) {
                                 arg[0x10] = randrange(0d5);
 
                                 if(dead(BOSS.ID_MOUNT)) {
                                     toss_rat(True);
-                                } else if(BOSS.BOSS_RAT_HEALING) {
-                                    BOSS.BOSS_RAT_HEALING = False;
-                                    ride_rat(BOSS.ID_RIDER, BOSS.ID_MOUNT, 0d0, 0d40);
                                 } else if(arg[0x10] == 0d0) {
                                     toss_bombs(0d2);
                                 } else if(arg[0x10] == 0d1) {
@@ -12424,9 +12495,7 @@ area altus_plateau_entry() {
                                 } else if(arg[0x10] == 0d2) {
                                     toss_rat();
                                 } else {
-                                    if!(BOSS.STACKING) {
-                                        ride_rat(BOSS.ID_RIDER, BOSS.ID_MOUNT, 0d0, 0d40);
-                                    }
+                                    ride_rat(False);
                                 }
 
                                 BOSS.TIMER = 0d0;
@@ -12493,14 +12562,16 @@ area altus_plateau_entry() {
                             walk(ACTIVE, TILE_ABSOLUTE, 0x14, 0x16, ACTIVE, NONE);
                             face(ACTIVE, NORTH);
 
-                            walk(INACTIVE, TILE_ABSOLUTE, 0x18, 0x16, INACTIVE, NONE);
-                            face(INACTIVE, NORTH);
+                            if!(SOULS_MEMORY.ONLY_AVAILABLE) {
+                                walk(INACTIVE, TILE_ABSOLUTE, 0x18, 0x16, INACTIVE, NONE);
+                                face(INACTIVE, NORTH);
+                            }
 
                             object[0x00] = 0x7e; // close gate
 
                             free_camera();
 
-                            control(BOTH);
+                            control(BOTH); // TODO: unlocks unavailable dog
                         }
                     },
                     exit_stairs = @install() {
@@ -13512,10 +13583,10 @@ area altus_plateau_entry() {
 
                     if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
                         ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                        set(ROOM.PIT_IGNITED);
+                        ROOM.PIT_IGNITED = True;
                         destroy(SCRIPT_OWNER);
 
-                        set(SOULS_MEMORY.BONFIRE_CASTLE_PIT);
+                        SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
                         ignite_pit();
                     } else {
                         heal(SCRIPT_OWNER, 0x00, False);
@@ -20757,7 +20828,7 @@ area southern_jungle() {
             enum entrance {
                 south = entrance(0x17, 0x2c, NORTH),
 
-                bonfire = entrance(0d15, 0d23, NONE, { bonfire_wakeup(0d8, 0d32, 0d40, 0d16); }),
+                bonfire = entrance(0d15, 0d23, NONE, { bonfire_wakeup(0d8, 0d40, 0d40, 0d16); }),
             }
 
             enum soundtrack {
@@ -20815,11 +20886,11 @@ area southern_jungle() {
 
                 if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
                     ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                    set(ROOM.PIT_IGNITED);
-                    ignite_pit();
+                    ROOM.PIT_IGNITED = True;
                     destroy(SCRIPT_OWNER);
 
-                    set(SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
+                    SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
+                    ignite_pit();
                 } else {
                     heal(SCRIPT_OWNER, 0x00, False);
                     // damage(SCRIPT_OWNER, 0x00, True);
@@ -20836,13 +20907,6 @@ area southern_jungle() {
                 } else {
                     object[0x02] = 0x00; // show dog_statue
                 }
-            }
-
-            @install()
-            fun revealer_triggered() {
-                show_statue(True);
-
-                destroy(SCRIPT_OWNER);
             }
 
             fun trigger_enter() {
@@ -20863,7 +20927,11 @@ area southern_jungle() {
                 if!(ROOM.STATUE_REVEALED) {
                     add_enemy(REVEALER_TARGET_ENTITY, 0d26, 0d16);
 
-                    special_script(REVEALER, reference(revealer_triggered));
+                    special_script(REVEALER, reference(@install() {
+                        show_statue(True);
+
+                        destroy(SCRIPT_OWNER);
+                    }));
                 } else {
                     show_statue(True);
                 }
@@ -21011,6 +21079,7 @@ area town() {
                 open_elevator(False);
             }
             fun elevator_entrance() {
+                control(NONE);
                 object[0x05] = 0d4;
 
                 _elevator_entrance();
@@ -21023,8 +21092,12 @@ area town() {
                 } else {
                     open_elevator(True);
 
-                    walk(BOY, TILE_ABSOLUTE, 0d43, 0d82, NONE);
-                    walk(DOG, TILE_ABSOLUTE, 0d39, 0d82, BOTH);
+                    if!(SOULS_MEMORY.ONLY_AVAILABLE) {
+                        walk(BOY, TILE_ABSOLUTE, 0d43, 0d82, NONE);
+                        walk(DOG, TILE_ABSOLUTE, 0d39, 0d82, BOTH);
+                    } else {
+                        walk(ACTIVE, TILE_ABSOLUTE, 0d43, 0d82, ACTIVE);
+                    }
 
                     open_elevator(False);
 
@@ -21043,8 +21116,12 @@ area town() {
 
                 open_elevator(True);
 
-                walk(BOY, TILE_ABSOLUTE, 0d43, 0d73, NONE);
-                walk(DOG, TILE_ABSOLUTE, 0d39, 0d73, BOTH);
+                if!(SOULS_MEMORY.ONLY_AVAILABLE) {
+                    walk(BOY, TILE_ABSOLUTE, 0d43, 0d73, NONE);
+                    walk(DOG, TILE_ABSOLUTE, 0d39, 0d73, BOTH);
+                } else {
+                    walk(ACTIVE, TILE_ABSOLUTE, 0d43, 0d73, ACTIVE);
+                }
 
                 face(BOY, SOUTH);
                 face(DOG, SOUTH);
@@ -22194,10 +22271,10 @@ area town() {
 
                     if(ROOM.FIRE_ORB_TRIGGER_COUNTER) {
                         ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                        set(ROOM.PIT_IGNITED);
+                        ROOM.PIT_IGNITED = True;
                         destroy(SCRIPT_OWNER);
 
-                        set(SOULS_MEMORY.BONFIRE_TEMPLE_PIT);
+                        SOULS_MEMORY.BONFIRE_TEMPLE_PIT = True;
                         ignite_pit();
                     } else {
                         heal(SCRIPT_OWNER, 0x00, False);
@@ -25956,7 +26033,7 @@ area town() {
             }
 
             fun trigger_enter() {
-                add_levitate_stone(0d31, 0d11, reference(@install() {
+                add_levitate_stone(0d31, 0d4, reference(@install() {
                     guard_levitate_stone(0d1);
 
                     ROOM.STONE_MOVED = True;

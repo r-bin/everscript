@@ -1,6 +1,6 @@
 group general_enums() {
     enum SYSTEM {
-        WITH_DEBUG_SUBTEXT = False,
+        WITH_DEBUG_SUBTEXT = True,
         WITH_DEBUG_MUSIC = False,
         WITH_DEBUG_SOUND = False,
         WITH_DEBUG_BOMBABLE = False,
@@ -8629,6 +8629,16 @@ group functions() {
                     end();
                 }
             }
+
+            fun guard_not_flag(flag, callbac) {
+                if(flag) {
+                    if(callback !is None) {
+                        callback();
+                    }
+                    
+                    end();
+                }
+            }
         };
 
         group act_2() {
@@ -9309,14 +9319,18 @@ group functions() {
         fun generic_act1_volcano_pressure_plate(x, y, object_id, object_state, z, end, step) {
             control(ACTIVE, True);
 
-            while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                yield();
+            if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+                while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    yield();
+                }
+                control(INACTIVE, True);
             }
-            control(INACTIVE, True);
 
             generic_act1_volcano_pressure_plate_walk(<ACTIVE>, x, y, object_id, object_state, z, end, step);
 
-            _generic_act1_volcano_pressure_plate_walk(<INACTIVE>, x, y, object_id, object_state, z, end, step);
+            if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+                _generic_act1_volcano_pressure_plate_walk(<INACTIVE>, x, y, object_id, object_state, z, end, step);
+            }
         }
 
         fun _generic_act1_volcano_cave_hole_walk(entity) {
@@ -9349,10 +9363,12 @@ group functions() {
 
             walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, ACTIVE, NONE);
 
-            while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                yield();
+            if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+                while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    yield();
+                }
+                control(INACTIVE, True);
             }
-            control(INACTIVE, True);
 
 
             set_camera(TILE_CENTER, x_out, y_out, 0x20);
@@ -9361,15 +9377,17 @@ group functions() {
 
             wait(CAMERA_PAN_Y);
 
-            if!(skip_wait_inactive) {
-                walk(INACTIVE, TILE_ABSOLUTE, x_in, y_in, INACTIVE, NONE);
-                walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, INACTIVE, NONE);
+            if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+                if!(skip_wait_inactive) {
+                    walk(INACTIVE, TILE_ABSOLUTE, x_in, y_in, INACTIVE, NONE);
+                    walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, INACTIVE, NONE);
+                }
+
+                teleport(INACTIVE, x_out, y_out);
+                face(INACTIVE, SOUTH);
+
+                generic_act1_volcano_cave_hole_walk(<INACTIVE>);
             }
-
-            teleport(INACTIVE, x_out, y_out);
-            face(INACTIVE, SOUTH);
-
-            generic_act1_volcano_cave_hole_walk(<INACTIVE>);
             _generic_act1_volcano_cave_hole_walk(<ACTIVE>);
 
             free_camera();
@@ -9685,6 +9703,8 @@ group functions() {
         @install()
         @weak()
         fun pit_act3_sewers() {
+            // TODO: support "no INACTIVE"
+
             if(True) { // [0x7a] Gothica - Ivor Tower Sewers Exterior (landing spot)
                 call(0x98b4b5);
             } else { // buggy
