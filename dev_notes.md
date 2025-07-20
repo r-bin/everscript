@@ -7,8 +7,17 @@
 ## market: gain brown dropplets
 ## more orbs (every boss)
 ## spoon sickness can be healed with heal or miracle cure
+## cutscenes:
+### tavern brawl door does not lock ACTIVE
+
+### jungle pit fire is visible
+## ai moves don't cancel on death
+## poise break initial damage kills don't reward the player
+## dog lady only wants to join when the dog is present
+## cat ring purchasing is weird
 
 # nice to have
+## pipe maze side room spawns dog (vanilla script)
 ## monstro bonfire?
 ## basement red maggots after monstro
 ## western inbetwixx - remove one sprite palette?
