@@ -1477,12 +1477,7 @@ group non_maps() {
             destroy(entity);
         }
 
-        @install()
-        fun bonfire_bond() {
-            guard_boy_damage();
-
-            // replace_bonfire(<SCRIPT_OWNER>, reference(bonfire_triggered));
-
+        fun _bonfire_bond() {
             if(True) {
                 SOULS_MEMORY.BONFIRE_X = <ACTIVE>[X];
                 SOULS_MEMORY.BONFIRE_Y = <ACTIVE>[Y];
@@ -1490,6 +1485,12 @@ group non_maps() {
 
             SOULS_MEMORY.BONFIRE_MAP = MEMORY.CURRENT_MAP;
             SOULS_MEMORY.BONFIRE_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
+        }
+        @install()
+
+            // replace_bonfire(<SCRIPT_OWNER>, reference(bonfire_triggered));
+
+            _bonfire_bond();
 
             bonfire_triggered();
         }
@@ -1551,6 +1552,7 @@ group non_maps() {
                 if!(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
                     SOULS_MEMORY.BONFIRE_FIRST_TRIGGER = True;
 
+                    _bonfire_bond();
                     shrine_intro();
                 }
             } else {
@@ -1920,7 +1922,14 @@ group non_maps() {
             add_enemy(STONE, x, y, STONE_LEVITATE);
             <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
             
-            attach_script(LAST_ENTITY, B, trigger);
+            if(trigger !is None) {
+                attach_script(LAST_ENTITY, B, trigger);
+            } else {
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    guard_levitate_stone(0d1);
+                }));
+            }
+
         }
 
         fun add_heavy_stone(x, y) {
@@ -2947,7 +2956,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(desert, south, NONE);
+                map_transition(temple_underground_castle_south_east, east, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -7813,8 +7822,13 @@ area shrine_area() {
 
         enum ROOM {
             SHRINE_BONFIRE_LIT = memory(FLAG, SRAM),
+            BONFIRES_ADDED = memory(FLAG, TEMP),
 
             SMITH_UNLOCKED = memory(FLAG, SRAM),
+
+            TREASURE_DIG = 0d20,
+            TREASURE_DIG_COUNTER = memory(WORD, TEMP),
+            TREASURE_LOOTED = memory(FLAG, TEMP), // memory(FLAG, SRAM),
         }
 
         @install()
@@ -8060,6 +8074,12 @@ area shrine_area() {
 
         @install()
         fun add_bonfire() {
+            if(!FLAG.MAGIC_GOURD || ROOM.BONFIRES_ADDED) {
+                end();
+            }
+
+            ROOM.BONFIRES_ADDED = True;
+
             bonfire_portal(0d77, 0d92, SOULS_MEMORY.BONFIRE_INBETWIXX, (SOULS_MEMORY.BONFIRE_MAP == MAP.CROSSING), reference(bonfire_triggered_inbetwixx)); // inbetwixx
 
             bonfire_portal(0d77, 0d100, (SOULS_MEMORY.BONFIRE_EAST_CROSSING || SOULS_MEMORY.BONFIRE_PIPES), ((SOULS_MEMORY.BONFIRE_MAP == MAP.BLIMP_EXTERIOR) || (SOULS_MEMORY.BONFIRE_MAP == MAP.PIPEMAZE_ROOMS)), reference(bonfire_triggered_east)); // east inbetwixx
@@ -8236,9 +8256,11 @@ area shrine_area() {
         }
 
         fun trigger_enter() {
-            if!(FLAG.IN_ANIMATION) {
-                crash_both();
-            }
+            archaeology_dig(0d20, 0d61, ROOM.TREASURE_DIG_COUNTER, ROOM.TREASURE_DIG, reference(@install() {
+                guard_archaeology_dig(ROOM.TREASURE_LOOTED, ROOM.TREASURE_DIG_COUNTER);
+
+                reward(MAGIC_GOURD);
+            }));
 
             add_souls_npc_bee_boy(0d60, 0d60);
 
@@ -23234,6 +23256,7 @@ area town() {
                 group boss_ai() {
                     enum BOSS {
                         DEBUG = False,
+                        DEBUG_PHASES = False,
                         DEBUG_MARBLES = False,
 
                         PROGRESS = SOULS_MEMORY.PROGRESS_NARIS,
@@ -23243,6 +23266,7 @@ area town() {
                         MOUNT_ID = memory(WORD, TEMP),
 
                         FOLLOW_ID = memory(WORD, TEMP),
+                        DAMAGE_CONTACT = 0d10,
 
                         NARIS_BUSY = memory(FLAG, TEMP),
                         NARIS_BUSY_COUNT = 0d60 * 0d0005,
@@ -23500,6 +23524,15 @@ area town() {
                     }
 
                     @install()
+                    fun naris_hi(source, without_damage) {
+                        if!(without_damage) {
+                            damage(source, BOSS.DAMAGE_CONTACT, True);
+                        }
+
+                        conversation_dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
+                    }
+
+                    @install()
                     fun young_naris_question(question_count, source) {
                         arg[0x10] = randrange(question_count);
 
@@ -23560,24 +23593,28 @@ area town() {
                                     subtext("yay");
                                 }
 
+                                sound(GENERIC_GOOD);
                                 damage(BOSS.MOUNT_ID, 0d666, True);
                             } else if(arg[0x12] == 0d0) {
                                 if(BOSS.DEBUG_MARBLES) {
                                     subtext("nay 0");
                                 }
 
+                                sound(GENERIC_BAD);
                                 spawn_enemies(ENEMY.MAGGOT);
                             } else if(arg[0x12] == 0d1) {
                                 if(BOSS.DEBUG_MARBLES) {
                                     subtext("nay 1");
                                 }
 
+                                sound(GENERIC_BAD);
                                 spawn_enemies(ENEMY.MOSQUITO);
                             } else if(arg[0x12] == 0d2) {
                                 if(BOSS.DEBUG_MARBLES) {
                                     subtext("nay 2");
                                 }
 
+                                sound(GENERIC_BAD);
                                 spawn_enemies(ENEMY.SKELESNAIL);
                             }
                         }
@@ -23603,6 +23640,11 @@ area town() {
                         if(BOSS.PHASE == 0d2) {
                             if(dead(<SCRIPT_OWNER>)) {
                                 BOSS.PHASE++;
+
+                                if(BOSS.DEBUG) {
+                                    debug_memory(0d3, <SCRIPT_OWNER>[DAMAGE_SOURCE], BOSS.FOLLOW_ID);
+                                }
+
                                 end();
                             }
                         }
@@ -23616,20 +23658,30 @@ area town() {
                                     BOSS.NARIS_BUSY = True;
                                     
                                     conversation({
-                                        // conversation_dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
+                                        naris_hi(BOSS.FOLLOW_ID, True);
 
                                         if(BOSS.PHASE < 0d2) {
                                             arg[0x10] = 0d2;
                                         } else {
                                             arg[0x10] = 0d3;
                                         }
-                                        young_naris_question(arg[0x10], <SCRIPT_OWNER>[DAMAGE_SOURCE]);
-                                    }, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+                                        young_naris_question(arg[0x10], BOSS.FOLLOW_ID);
+                                    }, BOSS.FOLLOW_ID);
 
                                     sleep(BOSS.NARIS_BUSY_COUNT);
 
                                     BOSS.NARIS_BUSY = False;
+                                } else {
+                                    naris_hi(BOSS.FOLLOW_ID);
                                 }
+                            } else {
+                                if(BOSS.DEBUG) {
+                                    debug_memory(0d0, <SCRIPT_OWNER>[DAMAGE_SOURCE], BOSS.FOLLOW_ID);
+                                }
+                            }
+                        } else {
+                            if(BOSS.DEBUG) {
+                                debug_memory(0d1, <SCRIPT_OWNER>[DAMAGE_SOURCE], BOSS.FOLLOW_ID);
                             }
                         }
                     }
@@ -23643,8 +23695,8 @@ area town() {
                         attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
 
                         conversation({
-                            conversation_dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
-                        });
+                            naris_hi(<ACTIVE>);
+                        }, ACTIVE);
 
                         attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
                         // control(BOSS.MOUNT_ID, False);
@@ -23655,8 +23707,6 @@ area town() {
                         attribute(entity, INVINCIBLE, False);
                         attach_script(entity, DAMAGE_DEATH, reference(mount_triggered));
 
-                        destroy(BOSS.RIDER_ID);
-
                         add_enemy(PLACEHOLDER, 0d0, 0d0);
                         BOSS.RIDER_ID = <LAST_ENTITY>;
 
@@ -23666,17 +23716,20 @@ area town() {
                     }
 
                     fun spawn_old_naris() {
-                        arg[0x10] = BOSS.MOUNT_ID;
-                        _add_enemy(VILLAGER_3_5, arg[0x10][X], arg[0x10][Y]);
-                        BOSS.MOUNT_ID = <LAST_ENTITY>;
-                        <LAST_ENTITY>[HP] = arg[0x10][HP];
-                        // <LAST_ENTITY>[ATTACHED_SCRIPT_ID] = arg[0x10][ATTACHED_SCRIPT_ID];
-                        // <LAST_ENTITY>[ATTACHED_SCRIPT_TRIGGER] = arg[0x10][ATTACHED_SCRIPT_TRIGGER];
-                        activate_naris(<LAST_ENTITY>);
+                        if(True) {
+                            arg[0x10] = BOSS.MOUNT_ID;
+                            _add_enemy(VILLAGER_3_5, arg[0x10][X], arg[0x10][Y]);
+                            BOSS.MOUNT_ID = <LAST_ENTITY>;
+                            <LAST_ENTITY>[HP] = arg[0x10][HP];
+                            // <LAST_ENTITY>[ATTACHED_SCRIPT_ID] = arg[0x10][ATTACHED_SCRIPT_ID];
+                            // <LAST_ENTITY>[ATTACHED_SCRIPT_TRIGGER] = arg[0x10][ATTACHED_SCRIPT_TRIGGER];
+                            activate_naris(<LAST_ENTITY>);
 
-                        BOSS.FOLLOW_ID = 0x0000;
-                        
-                        destroy(arg[0x10]);
+                            BOSS.FOLLOW_ID = 0x0000;
+                            destroy(arg[0x10]);
+                        } else {
+                            BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.VILLAGER_3_5;
+                        }
                     }
 
                     @install()
@@ -23695,6 +23748,7 @@ area town() {
                                 conversation({
                                     conversation_dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
                                 }, BOSS.FOLLOW_ID);
+                                damage(BOSS.FOLLOW_ID, BOSS.DAMAGE_CONTACT, True);
 
                                 sleep(0d60);
                             });
@@ -23706,7 +23760,7 @@ area town() {
                     @install()
                     @async()
                     fun boss_watcher() {
-                        if(BOSS.DEBUG) {
+                        if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
                             subtext("phase 0");
                         }
 
@@ -23714,7 +23768,7 @@ area town() {
                             yield();
                         }
 
-                        if(BOSS.DEBUG) {
+                        if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
                             subtext("phase 1");
                         }
 
@@ -23722,7 +23776,7 @@ area town() {
                             yield();
                         }
 
-                        if(BOSS.DEBUG) {
+                        if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
                             subtext("phase 2");
                         }
 
@@ -23732,7 +23786,7 @@ area town() {
                             yield();
                         }
 
-                        if(BOSS.DEBUG) {
+                        if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
                             subtext("yatta");
                         }
 
@@ -27341,6 +27395,7 @@ area ship_caves() {
                 bombable_object(WALL_AXE2_FAKE, True, ROOM.PILLAR_CLEARED);
             }), STONE_ROUND, PILLAR_VIGOR);
             persistent_animate_pillar(<LAST_ENTITY>);
+            yield();
 
             if(SOULS_MEMORY.DOG_SHIP_STAIRS) {
                 _dog_stairs(DOG_SHIP_STAIRS, 0d84, 0d81, ROOM.DOG_AVAILABLE);
@@ -27376,6 +27431,13 @@ area ship_caves() {
             }
 
             add_levitate_stone_ship(0d0, 0d89);
+
+            if(True) {
+                add_levitate_stone(0d48, 0d38);
+                add_levitate_stone(0d45, 0d42);
+                add_levitate_stone(0d44, 0d40);
+                add_levitate_stone(0d49, 0d39);
+            }
 
             default_init_room(True, True);
         }

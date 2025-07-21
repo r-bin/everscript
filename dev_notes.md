@@ -9,7 +9,6 @@
 ## spoon sickness can be healed with heal or miracle cure
 ## cutscenes:
 ### tavern brawl door does not lock ACTIVE
-
 ### jungle pit fire is visible
 ## ai moves don't cancel on death
 ## poise break initial damage kills don't reward the player
