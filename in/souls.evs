@@ -1248,11 +1248,26 @@ group non_maps() {
             map_transition(inbetwixx, center, NONE);
         }
 
-        fun show_credits() {
+        enum CREDITS_VARIANT {
+            TOWN_CRYPT = 0d0, // crypt - puppets
+            NECROPOLIS = 0d1, // necropolis - gideon
+            CARLTRON = 0d2, // true ending -  carltron
+        }
+        @install()
+        fun show_credits(variant:CREDITS_VARIANT) {
             control(NONE);
             available(NONE);
 
-            outro_stats(SOULS_MEMORY.PROGRESS_COUNTER, SOULS_MEMORY.BOSSES_DEFEATED_COUNTER, SOULS_MEMORY.COLLECTIBLE_COUNTER);
+            arg[0x10] = time[0d0];
+            arg[0x12] = time[0d2];
+
+            if(variant == CREDITS_VARIANT.TOWN_CRYPT) {
+                outro_text_box("The great evil wins…", "[LF][LF]In silence, the crypt accepts you.[LF]One more soul, stacked upon the forgotten.[LF][LF]And yet, it begins again…");
+            } else if(variant == CREDITS_VARIANT.NECROPOLIS) {
+                outro_text_box("The great evil wins…", "[LF][LF]The necropolis swallows you whole.[LF][LF]And yet, it begins again…");
+            }
+
+            outro_stats(SOULS_MEMORY.PROGRESS_COUNTER, SOULS_MEMORY.BOSSES_DEFEATED_COUNTER, SOULS_MEMORY.COLLECTIBLE_COUNTER, False, arg[0x10], arg[0x12]);
             
             outro_text_box("Created by", "[LF][LF]twitch.tv/ps3003");
 
@@ -1260,7 +1275,11 @@ group non_maps() {
 
             outro_text_box("Shoutouts Players", "[LF][LF]twitch.tv/its_cliqz[LF][LF]twitch.tv/solarcell007");
 
-            outro_text_box("", "[LF][LF]The End", True);
+            if(variant < CREDITS_VARIANT.CARLTRON) {
+                outro_text_box("", "[LF][LF]The End?", True);
+            } else {
+                outro_text_box("", "[LF][LF]The End", True);
+            }
 
             sleep(0d3600);
 
@@ -8262,6 +8281,8 @@ area shrine_area() {
                 guard_archaeology_dig(ROOM.TREASURE_LOOTED, ROOM.TREASURE_DIG_COUNTER);
 
                 reward(MAGIC_GOURD);
+
+                add_bonfire();
             }));
 
             add_souls_npc_bee_boy(0d60, 0d60);
@@ -9549,7 +9570,7 @@ area north_inbetwixx() {
             question("[SLOW]I'm afraid there is no final boss, yet.[B]After starting the credits you can't return back to the game.[B]Exit the games and roll the credits?[CHOICE]credits…[CHOICE]leave…");
 
             if(MEMORY.QUESTION_ANSWER == 0d0) {
-                show_credits();
+                show_credits(NECROPOLIS);
             } else {
                 map_transition(inbetwixx, north, SOUTH);
             }
@@ -9570,7 +9591,7 @@ area north_inbetwixx() {
 
                 fog_wall_inside(!SOULS_MEMORY.DEAD_GIDEON, SOUTH);
 
-                show_credits();
+                show_credits(NECROPOLIS);
             },
         }
 
@@ -25998,6 +26019,7 @@ area town() {
             }
 
             enum ROOM {
+                STONE_ID = memory(WORD, TEMP),
                 STONE_MOVED = memory(FLAG, SRAM),
                 STONE_OFFSET = 0d8 * 0d4,
 
@@ -26094,6 +26116,7 @@ area town() {
 
                     ROOM.STONE_MOVED = True;
                 }));
+                ROOM.STONE_ID = <LAST_ENTITY>;
                 if(ROOM.STONE_MOVED) {
                     <LAST_ENTITY>[X] -= ROOM.STONE_OFFSET;
                 }
@@ -26206,7 +26229,7 @@ area town() {
                         debug_subtext("market not empty");
                     }
 
-                    add_enemy(VILLAGER_1_3, 0d25, 0d63, INACTIVE);
+                    add_enemy(VILLAGER_2_6, 0d25, 0d63, INACTIVE);
                     face(LAST_ENTITY, SOUTH);
                     attach_script(LAST_ENTITY, B, reference(@install() {
                         guard_market_break(True);
@@ -26220,7 +26243,7 @@ area town() {
                         control(BOTH);
                     }));
 
-                    add_enemy(VILLAGER_1_3, 0d60, 0d77, INACTIVE);
+                    add_enemy(VILLAGER_2_6, 0d47, 0d63, INACTIVE);
                     face(LAST_ENTITY, SOUTH);
                     attach_script(LAST_ENTITY, B, reference(@install() {
                         guard_market_break(True);
@@ -26233,17 +26256,55 @@ area town() {
 
                         control(BOTH);
                     }));
+
+                    if(FLAG.LEVITATE) {
+                        add_enemy(TINY, 0d60, 0d77, INACTIVE);
+                        face(LAST_ENTITY, SOUTH);
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            if(MEMORY.MUD_PEPPER) {
+                                if(!ROOM.STONE_MOVED) {
+                                    dialog("[SLOW]You again? Go and try Levitate on the stone in the North.[B]");
+                                } else {
+                                    dialog("[SLOW]You again? Go and try Levitate in the wild.[B]");
+                                }
+                            } else {
+                                // guard_market_break(True);
+
+                                if(!ROOM.STONE_MOVED) {
+                                    question("[SLOW]You failed to bring a Mud Pepper?[B]Bring me a Tapestry and I'll move the stone for you.[CHOICE]give Tapestry…", 0d5);
+
+                                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                                        item_pay(TAPESTRY, 0d1, False);
+                                        if(CUSTOM_MEMORY.RETURN) {
+                                            // TODO: cutscene
+
+                                            sound(MECHANICAL_MOVEMENT);
+
+                                            ROOM.STONE_MOVED = True;
+                                            ROOM.STONE_ID[X] -= ROOM.STONE_OFFSET;
+
+                                            dialog("[SLOW]You can visit the crypt now.[B]");
+                                        }
+                                    }
+                                } else {
+                                    dialog("[SLOW]You again? Go and try Levitate in the wild.[B]");
+                                }
+                            }
+
+                            control(BOTH);
+                        }));
+                    }
                 } else {
                     if(MARKET.DEBUG) {
                         debug_subtext("market empty");
                     }
-                }
 
-                if(ROOM.WITH_RAT) {
-                    if(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
-                        add_sterling_rat(0d189, 0d41, 0d156, 0d46, 0d450, 0d186, 0d63);
-                    } else {
-                        add_enemy(RAT, 0d189, 0d41);
+                    if(ROOM.WITH_RAT) {
+                        if(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                            add_sterling_rat(0d189, 0d41, 0d156, 0d46, 0d450, 0d186, 0d63);
+                        } else {
+                            add_enemy(RAT, 0d189, 0d41);
+                        }
                     }
                 }
 
@@ -26305,7 +26366,15 @@ area town() {
                 exit_north = @install() {
                     debug_subtext("S=3");
 
-                    error_message(DLC);
+                    if(BOSS.PROGRESS) {
+                        fog_wall_inside(!SOULS_MEMORY.DEAD_TOWN_PUPPETS, SOUTH);
+                    }
+
+                    question("Enter Crypt? (credits)[CHOICE]rest eternally…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        show_credits(TOWN_CRYPT);
+                    }
                 },
                 stepon_4 = @install() {
                     debug_subtext("S=4");
@@ -26536,7 +26605,7 @@ area town() {
             fun trigger_enter() {
                 open_gate(True);
 
-                add_souls_npc_alchemist_firepower(0d86, 0d33, SOUTH);
+                // add_souls_npc_alchemist_firepower(0d86, 0d33, SOUTH);
 
                 if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
                     BOSS.PROGRESS = True;
@@ -35329,7 +35398,7 @@ area metro() {
                 SOULS_MEMORY.DEAD_FINAL_BOSS = True;
             }
             fun outro() {
-                show_credits();
+                show_credits(CARLTRON);
             }
 
             @install()

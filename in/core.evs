@@ -5175,7 +5175,7 @@ group functions() {
                 if(True) {
                     call_id(OPEN_TEXTBOX_DEFAULT);
                 } else {
-                    open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0x07);
+                    open_message_box(DEFAULT, 0d10, 0d2, 0d20, 0d7);
                 }
             }
             fun text(id) {
@@ -5356,20 +5356,22 @@ group functions() {
 
             @install()
             @weak()
-            fun print_time() {
-                arg[0x10] = time[0d0];
-                arg[0x12] = time[0d2];
+            fun print_time(time_0, time_2) {
+                if((time_0 == 0d0) && (time_2 == 0d0)) {
+                    time_0 = time[0d0];
+                    time_2 = time[0d2];
+                }
 
-                modulo(arg[0x10], 0d60, arg[0x16]); // frames->seconds
-                arg[0x14] = arg[0x10]; // frames
+                modulo(time_0, 0d60, arg[0x16]); // frames->seconds
+                arg[0x14] = time_0; // frames
 
                 modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
 
                 modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
 
                 if(True) {
-                    while(arg[0x12] > 0d0) {
-                        arg[0x12]--;
+                    while(time_2 > 0d0) {
+                        time_2--;
 
                         // 18m + 12s + 16f
 
@@ -5388,6 +5390,24 @@ group functions() {
                 MEMORY.STRING_PARAMETER_3 = arg[0x16];
 
                 if(True) {
+                    if(arg[0x1a]) {
+                        if((arg[0x18] < 0d10) && (arg[0x16] < 0d10)) {
+                            text("[MEM1]:0[MEM2]:0[MEM3]");
+                        } else if(arg[0x18] < 0d10) {
+                            text("[MEM1]:0[MEM2]:[MEM3]");
+                        } else if(arg[0x16] < 0d10) {
+                            text("[MEM1]:[MEM2]:0[MEM3]");
+                        } else {
+                            text("[MEM1]:[MEM2]:[MEM3]");
+                        }
+                    } else {
+                        if(arg[0x16] < 0d10) {
+                            text("[MEM2]:0[MEM3]");
+                        } else {
+                            text("[MEM2]:[MEM3]");
+                        }
+                    }
+                } else {
                     text("[MEM1]:[MEM2]:[MEM3]");
                 }
             }
@@ -5428,14 +5448,14 @@ group functions() {
 
                 outro_end(False);
             }
-            fun outro_stats(progress, bosses, collectibles, stay_open) {
+            fun outro_stats(progress, bosses, collectibles, stay_open, time_0, time_2) {
                 outro_start();
 
                 font(OUTRO);
                 text("Time:[LF]");
 
                 font(DEFAULT);
-                print_time();
+                print_time(time_0, time_2);
 
                 sleep(0d120);
 
@@ -8691,7 +8711,7 @@ group functions() {
             fun door_act4_airlock_out(x, y, door_id, wait_for_inactive) {
                 control(NONE);
 
-                if!(wait_for_inactive) {
+                if((!wait_for_inactive) || FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
                     walk(ACTIVE, TILE_ABSOLUTE_DIRECT, x, y, ACTIVE, NONE);
 
                     face(ACTIVE, SOUTH);
@@ -8719,14 +8739,16 @@ group functions() {
                 arg[0x00] = <ACTIVE>[Y] + 0d40;
                 while(<ACTIVE>[Y] < arg[0x00]) {
                     <ACTIVE>[Y] += 0x02;
-                    if(wait_for_inactive) {
+                    if!((!wait_for_inactive) || FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
                         <INACTIVE>[Y] += 0x02;
                     }
                     yield();
                 }
 
                 animate(ACTIVE, ONCE_FREEZE, INVISIBLE);
-                animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+                }
 
                 object[door_id] = 0x00;
                 sound(ACT4_DOOR_OPENING);
@@ -8743,10 +8765,14 @@ group functions() {
 
                 arg[0x10] = <ACTIVE>[Y];
                 <ACTIVE>[Y] += 0d40;
-                <INACTIVE>[Y] += 0d40;
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    <INACTIVE>[Y] += 0d40;
+                }
 
                 animate(ACTIVE, ONCE_FREEZE, INVISIBLE);
-                animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    animate(INACTIVE, ONCE_FREEZE, INVISIBLE);
+                }
 
                 object[door_id] = 0x7e;
                 sound(ACT4_DOOR_OPENING);
@@ -8754,11 +8780,15 @@ group functions() {
                 sleep(0d20);
 
                 animate(ACTIVE, ONCE_FREEZE, DEFAULT);
-                animate(INACTIVE, ONCE_FREEZE, DEFAULT);
+                if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                    animate(INACTIVE, ONCE_FREEZE, DEFAULT);
+                }
 
                 while(<ACTIVE>[Y] > arg[0x10]) {
                     <ACTIVE>[Y] -= 0d2;
-                    <INACTIVE>[Y] -= 0d2;
+                    if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+                        <INACTIVE>[Y] -= 0d2;
+                    }
 
                     yield();
                 }
@@ -10808,6 +10838,22 @@ group functions() {
             
             if(False) {
                 control(BOTH);
+            }
+        }
+
+        @install()
+        @weak()
+        fun quick_draw_weapon(weapon:GAIN_WEAPON) {
+            arg[0x10] = MEMORY.CURRENT_WEAPON;
+
+            if(arg[0x10] != weapon) {
+                MEMORY.GAIN_WEAPON = weapon;
+
+                while((CUSTOM_MEMORY.INPUT_P1 & INPUT.L) && (!(<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED))) {
+                    yield();
+                }
+
+                MEMORY.GAIN_WEAPON = arg[0x10];
             }
         }
 

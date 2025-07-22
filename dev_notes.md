@@ -14,6 +14,8 @@
 ## poise break initial damage kills don't reward the player
 ## dog lady only wants to join when the dog is present
 ## cat ring purchasing is weird
+## toaster arena persistent animation
+## arcade loot (fanfare buggy, cut off)
 
 # nice to have
 ## pipe maze side room spawns dog (vanilla script)
