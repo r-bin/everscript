@@ -16,6 +16,7 @@
 ## cat ring purchasing is weird
 ## toaster arena persistent animation
 ## arcade loot (fanfare buggy, cut off)
+## ship: walking south instantly breaks stairs
 
 # nice to have
 ## pipe maze side room spawns dog (vanilla script)
