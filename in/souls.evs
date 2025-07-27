@@ -303,6 +303,20 @@ group non_maps() {
     };
 
     group helper() {
+        @install()
+        @async()
+        fun persistent_animate_pillar(entity, once) {
+            while(alive(entity)) {
+                if(once) {
+                    animate(entity, ONCE, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);    
+                } else {
+                    animate(entity, ONCE_FREEZE, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
+                }
+
+                sleep(0d20);
+            }
+        }
+
         fun add_pillar(x, y) {
             add_enemy(LIZARD, x, y, INACTIVE_IMORTAL);
             animate(LAST_ENTITY, LOOP, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
@@ -399,6 +413,9 @@ group non_maps() {
             PICKAXE_HEAD = 0xf303,
             PICKAXE_SHAFT = 0xf304,
             PICKAXE = 0xf305,
+
+            // misc
+            ARCARDE_COIN = 0xf400,
         }
         enum SOULS_MEMORY {
             INIT = memory(FLAG, SRAM),
@@ -429,6 +446,7 @@ group non_maps() {
             // cheats
             WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_FULL_INGREDIENTS = True,
+            WITH_CHEATS_EVERYTHING = False,
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
@@ -661,13 +679,10 @@ group non_maps() {
             REWARD_TURRET_ARENA = ITEM.METEORITE,
 
             DEAD_SPACESHIP_DESERT = memory(FLAG, SRAM),
-            REWARD_SPACESHIP_DESERT = {
-                subtext("Gained Arcade Coin");
-            },
+            REWARD_SPACESHIP_DESERT = CUSTOM_ITEM.ARCARDE_COIN,
             DEAD_ABOMINATION = memory(FLAG, SRAM),
-            REWARD_ABOMINATION = {
-                subtext("Gained Arcade Coin");
             },
+            REWARD_ABOMINATION = CUSTOM_ITEM.ARCARDE_COIN,
 
             DEAD_FINAL_BOSS = memory(FLAG, SRAM),
 
@@ -961,6 +976,10 @@ group non_maps() {
                 SOULS_MEMORY.PICKAXE = True;
 
                 fanfare_item(True, push_music);
+            } else if(item == CUSTOM_ITEM.ARCARDE_COIN) { // misc
+                subtext("Arcade Coin");
+
+                fanfare_item(True, push_music);
             } else {
                 subtext("Found Invalid Custom Item");
             }
@@ -990,7 +1009,7 @@ group non_maps() {
         }
 
         @install()
-        fun _souls_boss_defeated() {
+        fun _souls_boss_defeated_prepare() {
             control(NONE);
 
             attribute(BOY, INVINCIBLE_TEMP, True);
@@ -1013,13 +1032,7 @@ group non_maps() {
                 }
             }
         }
-        fun souls_boss_defeated(flag:SOULS_MEMORY, reward_item:SOULS_MEMORY) {
-            if(flag is Memory) {
-                set(flag);
-            }
-
-            _souls_boss_defeated();
-
+        fun _souls_boss_defeated(reward_item:SOULS_MEMORY) {
             if(reward_item is Function) {
                 reward_item();
             } else {
@@ -1030,6 +1043,23 @@ group non_maps() {
                         custom_reward(reward_item, True);
                     }
                 }
+            }
+        }
+        fun souls_boss_defeated(flag:SOULS_MEMORY, reward_item_1:SOULS_MEMORY, reward_item_2:SOULS_MEMORY, reward_item_3:SOULS_MEMORY) {
+            if(flag is Memory) {
+                set(flag);
+            }
+
+            _souls_boss_defeated_prepare();
+
+            if(reward_item_1 !is None) {
+                _souls_boss_defeated(reward_item_1);
+            }
+            if(reward_item_2 !is None) {
+                _souls_boss_defeated(reward_item_2);
+            }
+            if(reward_item_3 !is None) {
+                _souls_boss_defeated(reward_item_3);
             }
 
             // subtext("Enemy Felled");
@@ -1973,7 +2003,7 @@ group non_maps() {
             }));
         }
 
-        fun guard_mudd_stone() {
+        fun guard_mud_stone() {
             fake_b();
 
             guard_bone();
@@ -1990,7 +2020,7 @@ group non_maps() {
             }
         }
         
-        fun add_mudd_stone(x, y, trigger, color_donor:ENEMY) {
+        fun add_mud_stone(x, y, trigger, color_donor:ENEMY) {
             if(color_donor !is None) {
                 add_enemy(color_donor, x, y, STONE_LEVITATE);
                 <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.STONE_ROUND;
@@ -1998,7 +2028,7 @@ group non_maps() {
             } else {
                 add_enemy(STONE_ROUND, x, y);
 
-                animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
+                persistent_animate_pillar(<LAST_ENTITY>, True);
             }
             <LAST_ENTITY>[GENERAL_PURPOSE] = 0d2;
 
@@ -2096,6 +2126,16 @@ group non_maps() {
 
             @install()
             fun guard_triggered() {
+                if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                    arg[0x10] = randrange(0d3);
+
+                    if(arg[0x10] == 0d0) {
+                        dialog("[SLOW]An evil crawled out of the towns crypt.[B]");
+                    } else {
+                        dialog("[SLOW]In the center of the town two creates appeared and brought death with them.[B]The guard built a professional barrier to keep everyone safe.");
+                    }
+                }
+
                 MEMORY.STRING_PARAMETER_1 = time[0d0];
 
                 if(time[0d0] < MARKET.START) {
@@ -5926,7 +5966,7 @@ group custom_bosses() {
             } else {
                 <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
             }
-            attach_script(<SCRIPT_OWNER>, DAMAGE, reference(@install() {
+            attach_script(<SCRIPT_OWNER>, DAMAGE_DEATH, reference(@install() {
                 if(dead(<SCRIPT_OWNER>)) {
                     nop();
                 } else if(SOULS_MEMORY.DEAD_OWL_BOY) {
@@ -7028,59 +7068,22 @@ group helper_global() {
     enum AREA_GLOBAL {
         ROCK_MOVED_SHIP = memory(FLAG, SRAM),
         ROCK_MOVED_SHIP_OFFSET = 0d8 * 0d5,
+
+        SHELL_SHIP_EAST = memory(FLAG, SRAM),
     }
 
     @install()
     fun add_levitate_stone_ship(x, y) {
-        add_mudd_stone(x, y, reference(@install() {
-            guard_mudd_stone();
+        add_mud_stone(x, y, reference(@install() {
+            guard_mud_stone();
 
             _add_levitate_stone(<SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], reference(@install() {
                 guard_levitate_stone(0d1);
 
                 AREA_GLOBAL.ROCK_MOVED_SHIP = True;
             }));
-        }));
-        end();
-
-        if(False) {
-            add_levitate_stone(x, y, reference(@install() {
-                guard_levitate_stone(0d1);
-
-                AREA_GLOBAL.ROCK_MOVED_SHIP = True;
-            }));
-        } else {
-            if(False) {
-                _add_enemy(GATE_BOT, <BOY>[X] + 0d30, <BOY>[Y], STONE_LEVITATE);
-                <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.STONE_ROUND;
-            } else {
-                add_enemy(STONE_ROUND, x, y);
-
-                animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
-            }
-            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d3;
-
-            attach_script(LAST_ENTITY, B, reference(@install() {
-                fake_b();
-
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE]--;
-                    sound(HEAVY_IMPACT);
-                    end();
-                } else {
-                    // <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.STONE;
-
-                    add_levitate_stone(0d0, 0d0, reference(@install() {
-                        guard_levitate_stone(0d1);
-
-                        AREA_GLOBAL.ROCK_MOVED_SHIP = True;
-                    }));
-                    _teleport(LAST_ENTITY, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
-
-                    destroy(SCRIPT_OWNER);
-                }
-            }));
-        }
+        }), RAPTOR_PURPLE);
+        
         if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
             <LAST_ENTITY>[Y] += AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET;
         }
@@ -7941,7 +7944,10 @@ area shrine_area() {
 
         @install()
         fun bonfire_triggered_first_bonfire() {
-            fake_b();
+            guard_boy({
+                fake_b();
+            });
+            animate_boy_kneel(BOY);
 
             if!(SOULS_MEMORY.BONFIRE_MAP) {
                 question("[SLOW]Return to the beginning?[CHOICE]Yes.[CHOICE]No.");
@@ -7954,8 +7960,11 @@ area shrine_area() {
 
                 if(MEMORY.QUESTION_ANSWER == 0d0) {
                     return_to_bonfire();
+                    end();
                 }
             }
+
+            animate(BOY, ONCE, DEFAULT);
         }
 
         @install()
@@ -9524,12 +9533,17 @@ area inbetwixx_center() {
                 select_alchemy();
             }
             
-            destroy(SCRIPT_OWNER);
+            if(<SCRIPT_OWNER> != <BOY>) {
+                destroy(SCRIPT_OWNER);
+            }
         }
         
         @install()
         fun trigger_enter() {
             add_debug_entity(0d16, 0d63, reference(debug_triggered));
+            if(SOULS_MEMORY.WITH_CHEATS_EVERYTHING) {
+                debug_triggered();
+            }
 
             if(False) {
                 add_enemy(PLACEHOLDER, 0d22, 0d68);
@@ -9975,7 +9989,7 @@ area west_inbetwixx() {
 
                 _add_enemy(BOY_BLACK, arg[0x0c][X], arg[0x0c][Y]);
                 poise_break_decay(<LAST_ENTITY>, BOSS.POISE, BOSS.POISE_DECAY, 0d120);
-                attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
                     if(dead(<SCRIPT_OWNER>)) {
                         boss_defeated();
                     } else {
@@ -9992,8 +10006,8 @@ area west_inbetwixx() {
 
         fun trigger_enter() {
             if!(ROOM.MUD_STONE_DESTROYED) {
-                add_mudd_stone(0d14, 0d25, reference(@install() {
-                    guard_mudd_stone();
+                add_mud_stone(0d14, 0d25, reference(@install() {
+                    guard_mud_stone();
 
                     ROOM.MUD_STONE_DESTROYED = True;
                 }), OWL_BLACK);
@@ -15214,6 +15228,10 @@ area east_inbetwixx() {
 
             ID_STONE = memory(WORD, TEMP),
             ID_STONE_HOLE = memory(WORD, TEMP),
+
+            SHELL_BOAT_INTRO = memory(FLAG, TEMP),
+            SHELL_BOAT_X = 0d26,
+            SHELL_BOAT_Y = 0d87,
         }
 
         enum entrance {
@@ -15227,6 +15245,8 @@ area east_inbetwixx() {
 
             crash = entrance(0x32, 0x1e, NONE, { crash_both(); }),
             bonfire = entrance(0d45, 0d68, NONE, { bonfire_wakeup(0d0, 0d8, 0d24, 0d0); }),
+
+            shell_boat = entrance(ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y, NONE, { ROOM.SHELL_BOAT_INTRO = True; }),
         }
 
         enum soundtrack {
@@ -15476,6 +15496,20 @@ area east_inbetwixx() {
                 ROOM.ID_STONE_HOLE = <LAST_ENTITY>;
 
                 stone_hole_scanner();
+            }
+
+            if!(AREA_GLOBAL.SHELL_SHIP_EAST) {
+                add_placeholder(SHELL_BOAT, ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    shell_boat_out(<SCRIPT_OWNER>, EAST);
+
+                    AREA_GLOBAL.SHELL_SHIP_EAST = True;
+                    map_transition(ship, shell_boat, NONE);
+                }));
+
+                if(ROOM.SHELL_BOAT_INTRO) {
+                    shell_boat_in(<LAST_ENTITY>, WEST);
+                }
             }
 
             default_init_room(True, False);
@@ -24115,6 +24149,9 @@ area town() {
                     map_transition(town_market, west, EAST);
                 },
                 exit_door = @install() {
+                    control(NONE);
+                    face(ACTIVE, NORTH);
+
                     generic_door(False, False);
                     map_transition(town_room, south, NORTH);
                 },
@@ -26436,6 +26473,8 @@ area town() {
                 GUARD_STATE = memory(WORD, TEMP),
                 GUARD_STATE_THRESHOLD = 0d5,
                 GUARD_KNOCKBAC_DAMAGE = 0d5,
+
+                HINT_ESCAPE_TRIGGERED = memory(FLAG, TEMP),
             }
 
             enum BOSS {
@@ -26477,6 +26516,16 @@ area town() {
                             } else {
                                 face(ACTIVE, SOUTH);
                                 damage(ACTIVE, ROOM.GUARD_KNOCKBAC_DAMAGE, True);
+
+                                if!(ROOM.HINT_ESCAPE_TRIGGERED) {
+                                    ROOM.HINT_ESCAPE_TRIGGERED = True;
+
+                                    player_message(0d85, 0d79, reference(@install() {
+                                        player_message_triggered();
+
+                                        subtext("visions of wings… time for fleeing");
+                                    }));
+                                }
                             }
                             
                         } else {
@@ -27488,6 +27537,10 @@ area ship_caves() {
             CAVE_OPENED = memory(FLAG, SRAM),
             CAVE_OPENED_DIG_COUNTER = memory(WORD, TEMP),
             CAVE_OPENED_DIG = 0d30,
+
+            SHELL_BOAT_INTRO = memory(FLAG, TEMP),
+            SHELL_BOAT_X = 0d24,
+            SHELL_BOAT_Y = 0d96,
         }
 
         enum entrance {
@@ -27504,6 +27557,8 @@ area ship_caves() {
                 ROOM.DOG_AVAILABLE = True;
                 swirl_entrance();
             }),
+
+            shell_boat = entrance(ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y, NONE, { ROOM.SHELL_BOAT_INTRO = True; }),
         }
 
         enum soundtrack {
@@ -27579,16 +27634,6 @@ area ship_caves() {
             },
         }
 
-        @install()
-        @async()
-        fun persistent_animate_pillar(entity) {
-            while(alive(entity)) {
-                animate(entity, ONCE_FREEZE, ANIMATION_PLACEHOLDER.PILLAR_VIGOR);
-
-                sleep(0d20);
-            }
-        }
-
         fun trigger_enter() {
             add_bombable(0d19, 0d14, ROOM.PILLAR_CLEARED, reference(@install() {
                 bombable_object(WALL_AXE2_FAKE, True, ROOM.PILLAR_CLEARED);
@@ -27636,6 +27681,20 @@ area ship_caves() {
                 add_levitate_stone(0d45, 0d42);
                 add_levitate_stone(0d44, 0d40);
                 add_levitate_stone(0d49, 0d39);
+            }
+
+            if(AREA_GLOBAL.SHELL_SHIP_EAST) {
+                add_placeholder(SHELL_BOAT, ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    shell_boat_out(<SCRIPT_OWNER>, WEST);
+
+                    AREA_GLOBAL.SHELL_SHIP_EAST = False;
+                    map_transition(east_crossing, shell_boat, NONE);
+                }));
+
+                if(ROOM.SHELL_BOAT_INTRO) {
+                    shell_boat_in(<LAST_ENTITY>, EAST);
+                }
             }
 
             default_init_room(True, True);
@@ -33820,7 +33879,13 @@ area metro() {
 
                         animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
 
-                        sleep(0d500);
+                        while(arg[0x10] < 0d500) {
+                            arg[0x10]++;
+                            
+                            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+
+                            yield();
+                        }
 
                         guard_boss_defeated();
 
@@ -34137,9 +34202,7 @@ area metro() {
                 if(ROOM.SWITCH) {
                     change_machine(True, True);
 
-                    yield();
                     object[0x1b] = 0x01; // toggle lever
-                    yield();
 
                     if(with_text) {
                         subtext("AR Game ON");
@@ -34147,9 +34210,7 @@ area metro() {
                 } else {
                     change_machine(True, False);
 
-                    yield();
                     object[0x1b] = 0x00; // toggle lever
-                    yield();
 
                     if(with_text) {
                         subtext("AR Game OFF");
@@ -34248,6 +34309,9 @@ area metro() {
                     object[0x01] = 0x7e;
                 }
                 
+                update_switches(False);
+                init_evermore_machine();
+                
                 default_metro_init_room(reference(@install() {
                     metro_death_trigger({
                         map_transition(metro, door_d1, NONE);
@@ -34258,9 +34322,6 @@ area metro() {
                     add_enemy(PLACEHOLDER, 0d26, 0d88 - 0d2);
                     fake_exit_scanner(<LAST_ENTITY>);
                 }
-
-                update_switches(False);
-                init_evermore_machine();
 
                 // object[0x00] = 0x7e; // open door_passage_south
                 // object[0x01] = 0x7e; // open gourd

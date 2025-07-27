@@ -8,39 +8,31 @@
 ## more orbs (every boss)
 ## spoon sickness can be healed with heal or miracle cure
 ## cutscenes:
-### tavern brawl door does not lock ACTIVE
 ### jungle pit fire is visible
 ## ai moves don't cancel on death
-## poise break initial damage kills don't reward the player
 ## dog lady only wants to join when the dog is present
-## cat ring purchasing is weird
-## toaster arena persistent animation
-## arcade loot (fanfare buggy, cut off)
-## ship: walking south instantly breaks stairs
 
 # nice to have
+## temple - lvl1 = white maggots, lvl2 = red maggots
+## bomb arena - leave via bridge
+## cat ring purchasing is weird
+## ship: walking south instantly breaks stairs
 ## pipe maze side room spawns dog (vanilla script)
-## monstro bonfire?
 ## basement red maggots after monstro
-## western inbetwixx - remove one sprite palette?
 ## temple elevator preselect floor
 ## dog trap (cat) - dog can walk while gaining items
 ## power glove 3 = nothing?
 ## sound glitches: kill radahn
 ## projectiles with entity targets should check range (and not shoot off screen)
-## no music after levitate+revealer
 ## scale enemies: before pyramid
 ## raptor arena - don't reuse enemies
 ## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
 ## mario dungeon should state "door opened" and sperately "somewhere a door opened"
-## make mario prison less boring
-## monstro p2
-## town tavern door does not control active
+## monstro - bonfire? p2? does not explode?
 ## basement - door unlock sounds
 ## sound - falling transition
 ## stats menu - armor name incorrect
-## monstro - does not explode
 
 
 
