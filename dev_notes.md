@@ -13,6 +13,7 @@
 ## dog lady only wants to join when the dog is present
 
 # nice to have
+## multiple fanfares seem to be inefficient (long fadeout silence)
 ## temple - lvl1 = white maggots, lvl2 = red maggots
 ## bomb arena - leave via bridge
 ## cat ring purchasing is weird
