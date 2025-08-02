@@ -1551,7 +1551,7 @@ group general_enums() {
 
                 FLOWER_ORANGE = 0x0c, // #108, "Carniflower"
 
-                SPIDER = 0x22, // #100, "Widowmaker"
+                SPIDER = 0x22, // #100, "Widowmaker", palette(good=DOG_4_BLACK, GATE_BOT, FOOTKNIGHT, DOG_1_BLACK, BONE_SNAKE, QUEEN, MAGGOT_RED, RIMSALA_*, decent=RAPTOR_*, LANTERN_LIGHT*, MOSQUITO funny=HORACE)
                 LIZARD = 0x29, // #92, "Viper", palette(perfect=STONE_SNAKE_*, OGLIN, good=BOMB, DOG_4_BLACK, GATE_BOT, MINITAUR, MEGATUAR, FOOTKNIGHT, FORESTDRAKE, STERLING, MAGMAR, MOSQUITO_BLACK, SPIDER_BLACK, BUZZARD_BLACK, DOG_1_BLACK, TINY, BONE_SNAKE, FRIPPO, RAT_RED, decent=VIGOR, SLIME_*, DRAKE*, HEDGEHOG, LANTERN_LIGHT*, MONK, ROGUE, BUZZARD_*, DANCING_FOOL_*, PROFESSOR, CARLTRON, TINKER, GOMI, funny=SKELESNAIL)
 
                 RAPTOR_GREEN = 0x2b, // #89, "Raptor", slash(1-3=default attack), palette(good=MOSQUITO, BOMB, DOG_4_BLACK, FOOTKNIGHT, FORESTDRAKE, STERLING, BONE_SNAKE, BUZZARD*, SNAKE_STATUE_*, GATE_BOT, MINITAUR, OGLIN, MOSQUITO_BLACK, decent=MAGMAR, MEGATAUR, VIGOR, LIZARD_BLACK, FLOWER_BLACK, RIMSALA_*, SPIDER_GREEN, HEDGEHOG, DOG_1_BLACK, BUZZARD_BLACK, DANCING_FOOL*, LANTERN_LIGHT*, MONK, ROGUE, LIZARD, FLOWER_PURPLE, SLIME_*, FLOWER_ORANGE, TINY, PROFESSOR, CARLTRON, MAGGOT*, FRIPPO, funny=HORACE_EVIL, SKELESNAIL)
@@ -10485,6 +10485,15 @@ group functions() {
     };
 
     group start_gimmicks() {
+        enum START_GIMMICK {
+            YUMP_DURATION = 0d70,
+            YUMP_VELOCITY = 0d36,
+            YUMP_DAMAGE = 0d1,
+            YUMP_DAMAGE_RADIUS = 0d30,
+            YUMP_ANIMATION_START = True,
+            YUMP_ANIMATION_END = True,
+        }
+
         @install()
         @weak()
         fun spear_toss() {
@@ -10787,13 +10796,26 @@ group functions() {
 
             arg[0x10] = <BOY>[X];
             arg[0x12] = <BOY>[Y];
-            <BOY>[VELOCITY] = 0d30;
+
+            <BOY>[VELOCITY] = START_GIMMICK.YUMP_VELOCITY;
+            if(START_GIMMICK.YUMP_ANIMATION_START) {
+                animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+            }
             attribute(BOY, NO_CLIP, True);
 
-            sleep(0d60);
+            if(False) {
+                sleep(START_GIMMICK.YUMP_DURATION);
+            } else {
+                yield();
+                while(<BOY>[Z] > 0d0) {
+                    yield();
+                }
+            }
             // animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
 
             // debug_memory(<BOY>[FACE_DIRECTION], <BOY>[FACE_DIRECTION]);
+
+            attribute(BOY, NO_CLIP, False);
 
             // if((<BOY>[CURRENT_GROUND] & 0xff) != 0x10) {
             if(CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT <= 0d0) {
@@ -10802,58 +10824,129 @@ group functions() {
                     debug_subtext("yump damage: [MEM1]");
                 }
 
-                control(NONE);
-                attribute(BOY, INVISIBLE, True);
-
-                yield();
-
                 arg[0x14] = <BOY>[X];
                 arg[0x16] = <BOY>[Y];
 
-                if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
-                    walk(BOY, TILE_RELATIVE, 0d0, -0d1, NONE, NONE);
-                    face(BOY, DIRECTION.NORTH);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
-                    walk(BOY, TILE_RELATIVE, 0d1, 0d0, NONE, NONE);
-                    face(BOY, DIRECTION.EAST);
-                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
-                    walk(BOY, TILE_RELATIVE, 0d0, 0d1, NONE, NONE);
-                    face(BOY, DIRECTION.SOUTH);
+                if(False) {
+                    if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                        teleport_relative(BOY, 0d0, -0d1);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH_EAST) {
+                        teleport_relative(BOY, 0d1, -0d1);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                        teleport_relative(BOY, 0d1, 0d0);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_EAST) {
+                        teleport_relative(BOY, 0d1, 0d1);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                        teleport_relative(BOY, 0d0, 0d1);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_WEST) {
+                        teleport_relative(BOY, -0d1, 0d1);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                        teleport_relative(BOY, -0d1, 0d0);
+                    } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH_WEST) {
+                        teleport_relative(BOY, -0d1, -0d1);
+                    } else {
+                        debug_subtext("?");
+                    }
+
+                    if((arg[0x14] == <BOY>[X]) && (arg[0x16] == <BOY>[Y])) {
+                        <BOY>[X] = arg[0x10];
+                        <BOY>[Y] = arg[0x12];
+
+                        damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
+                    } else {
+                        <BOY>[Y] = arg[0x16];
+                        <BOY>[X] = arg[0x14];
+
+                        if(True) {
+                            animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+                        }
+                    }
+                } else if(False) {
+                    teleport_relative(BOY, 0d1, 0d1);
+
+                    if((arg[0x14] == <BOY>[X]) || (arg[0x16] == <BOY>[Y])) {
+                        <BOY>[X] = arg[0x10];
+                        <BOY>[Y] = arg[0x12];
+
+                        damage(BOY, 0d1, True);
+                    } else {
+                        <BOY>[Y] = arg[0x16];
+                        <BOY>[X] = arg[0x14];
+
+                        teleport_relative(BOY, -0d1, -0d1);
+
+                        if((arg[0x14] == <BOY>[X]) || (arg[0x16] == <BOY>[Y])) {
+                            <BOY>[X] = arg[0x10];
+                            <BOY>[Y] = arg[0x12];
+
+                            damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
+                        } else {
+                            <BOY>[Y] = arg[0x16];
+                            <BOY>[X] = arg[0x14];
+
+                            if(True) {
+                                animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+                            }
+                        }
+                    }
                 } else {
-                    walk(BOY, TILE_RELATIVE, -0d1, 0d0, NONE, NONE);
-                    face(BOY, WEST);
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
+                    yield();
+                    if((arg[0x14] == <BOY>[X]) && (arg[0x16] == <BOY>[Y])) {
+                        teleport_relative(BOY, 0d0, -0d1);
+                        if(arg[0x16] == <BOY>[Y]) {
+                            arg[0x18]++;
+                            arg[0x1a] |= 0x01;
+                        }
+                        _teleport(BOY, arg[0x14], arg[0x16]);
+
+                        teleport_relative(BOY, 0d1, 0d0);
+                        if(arg[0x14] == <BOY>[X]) {
+                            arg[0x18]++;
+                            arg[0x1a] |= 0x02;
+                        }
+                        _teleport(BOY, arg[0x14], arg[0x16]);
+
+                        teleport_relative(BOY, 0d0, 0d1);
+                        if(arg[0x16] == <BOY>[Y]) {
+                            arg[0x18]++;
+                            arg[0x1a] |= 0x04;
+                        }
+                        _teleport(BOY, arg[0x14], arg[0x16]);
+
+                        teleport_relative(BOY, -0d1, 0d0);
+                        if(arg[0x14] == <BOY>[X]) {
+                            arg[0x18]++;
+                            arg[0x1a] |= 0x08;
+                        }
+                        _teleport(BOY, arg[0x14], arg[0x16]);
+                    } else {
+                        arg[0x1a] = 0xffff;
+                    }
+
+                    _debug_memory(arg[0x18], arg[0x1a]);
+
+                    if(arg[0x18] >= 0d4) {
+                        <BOY>[X] = arg[0x10];
+                        <BOY>[Y] = arg[0x12];
+
+                        damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
+                    }
                 }
 
-                sleep(0d3);
-
-                if((arg[0x14] == <BOY>[X]) && (arg[0x16] == <BOY>[Y])) {
-                    <BOY>[X] = arg[0x10];
-                    <BOY>[Y] = arg[0x12];
-
-                    damage(BOY, 0d1, True);
-                } else {
-                    <BOY>[Y] = arg[0x16];
-                    <BOY>[X] = arg[0x14];
-                }
-
-                attribute(BOY, INVISIBLE, False);
-
-                bomb_entity(BOY, 0d30);
+                bomb_entity(BOY, START_GIMMICK.YUMP_DAMAGE_RADIUS);
                 sound(HEAVY_IMPACT);
-
-                control(BOTH);
             }
 
-
             // animate(BOY, LOOP, ANIMATION_ALL.DEFAULT);
-            attribute(BOY, NO_CLIP, False);
+            // attribute(BOY, NO_CLIP, False);
             // walk(BOY, TILE_RELATIVE, 0x00, 0x00, NONE);
             // debug_memory(<0x2834>, <BOY>[X]);
             // sleep(0x30);
             // debug_memory(<0x2836>, <BOY>[Y]);
 
-
-            if(True) {
+            if(START_GIMMICK.YUMP_ANIMATION_END) {
                 CUSTOM_FLAG.START_MARIO_YUMP = False;
                 CUSTOM_FLAG.NO_RUNNING = False;
             }
@@ -11304,13 +11397,12 @@ group functions() {
 
                 zelda_power_glove_stop(level);
             }
-
             
             while(
                 (CUSTOM_MEMORY.INPUT_P1 & INPUT.B) &&
-                ((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) == 0d0) &&
-                ((<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) == 0d0) &&
-                ((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) &&
+                (!(<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) &&
+                (!(<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) &&
+                (!(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) &&
                 _alive(<SCRIPT_OWNER>)
             ) {
                 arg[0x10]++;
@@ -11320,7 +11412,7 @@ group functions() {
                 yield();
             }
 
-            if(_dead(<SCRIPT_OWNER>)) {
+            if(dead(<SCRIPT_OWNER>)) {
                 zelda_power_glove_stop(level);
             }
 

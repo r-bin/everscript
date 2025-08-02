@@ -37794,14 +37794,17 @@ area dungeon_isaac() {
                     animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
                     remove_pillar(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
 
-                    wait(SCRIPT_OWNER);
-                    destroy(SCRIPT_OWNER);
-
                     if(ROOM.RIDDLE_PROGRESS == 0d6) {
-                        sleep(0d10);
+                        control(NONE);
+                        
+                        wait(ACTIVE);
 
                         riddle_solved();
+                    } else {
+                        wait(SCRIPT_OWNER);
                     }
+
+                    destroy(SCRIPT_OWNER);
                 }
 
                 fun add_pillar(index, x, y) {
@@ -39732,6 +39735,10 @@ area dungeon_isaac() {
                 default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
             }
 
+            enum ROOM {
+                WITH_TRAP_DOOR = False,
+            }
+
             enum BOSS {
                 PROGRESS = memory(FLAG, TEMP),
 
@@ -39763,7 +39770,12 @@ area dungeon_isaac() {
                 BOSS.PROGRESS = False;
                 souls_boss_defeated(DEAD_DARK_ONE, REWARD_DARK_ONE);
 
-                map_transition(potato_room, floor, NONE);
+                if!(ROOM.WITH_TRAP_DOOR) {
+                    control(NONE);
+                    sleep(0d60);
+
+                    map_transition(potato_room, floor, NONE);
+                }
             }
 
             group boss_ai() {
@@ -39858,11 +39870,13 @@ area dungeon_isaac() {
                 // available(BOY);
                 // destroy(DOG); // teleport(BOY, 0x00, 0x00);
 
-                add_trap_door(0x10, 0x13, reference(@install() {
-                    _add_trap_door({
-                        map_transition(west_hut_outside, hut, NONE);
-                    }, !BOSS.PROGRESS);
-                }));
+                if(ROOM.WITH_TRAP_DOOR) {
+                    add_trap_door(0x10, 0x13, reference(@install() {
+                        _add_trap_door({
+                            map_transition(west_hut_outside, hut, NONE);
+                        }, !BOSS.PROGRESS);
+                    }));
+                }
 
                 isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
             }
@@ -40289,7 +40303,9 @@ area dungeon_volcano() {
 
             add_souls_npc_alchemist_escape(0d71, 0d104);
 
-            add_enemy(STONE, 0d90, 0d126);
+            add_levitate_stone(0d90, 0d126, reference(@install() {
+                guard_levitate_stone(0d1);
+            }));
             <LAST_ENTITY>[Z_LEVEL] = 0x10;
             add_spike(0d90, 0d124, True);
             add_spike(0d87, 0d128, True);
