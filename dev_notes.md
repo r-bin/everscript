@@ -3,16 +3,16 @@
 
 
 # important
-## any door can be opened with a bomb
+## 9 bees
+## abomination entrance only works the first time
 ## market: gain brown dropplets
 ## more orbs (every boss)
 ## spoon sickness can be healed with heal or miracle cure
-## cutscenes:
-### jungle pit fire is visible
 ## ai moves don't cancel on death
 ## dog lady only wants to join when the dog is present
 
 # nice to have
+## any door can be opened with a bomb
 ## multiple fanfares seem to be inefficient (long fadeout silence)
 ## temple - lvl1 = white maggots, lvl2 = red maggots
 ## bomb arena - leave via bridge
