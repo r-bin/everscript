@@ -3852,7 +3852,18 @@ group functions() {
             code(0x3a, "// (3a) YIELD (break out of script loop, continue later)");
         }
 
-        fun sleep(ticks) {
+        enum UNIT_TIME {
+            FRAME = 0d0001,
+            F = 0d0001,
+
+            SECOND = 0d0060,
+            S = 0d0060,
+
+            MINUTE = 0d3600,
+            M = 0d3600,
+        }
+
+        fun _sleep(ticks) {
             if(ticks is Word) {
                 if(ticks <= 0xff) {
                     code(0xa7, ticks, "// (a7) SLEEP 59 TICKS");
@@ -3861,6 +3872,14 @@ group functions() {
                 }
             } else {
                 code(0x3b, calculate(ticks), "// (3b) SLEEP (RAND & 3) + 4 TICKS");
+            }
+        }
+        fun sleep(ticks, unit:UNIT_TIME) {
+            if(unit is None) {
+                _sleep(ticks);
+            } else {
+                // _sleep(ticks * unit);
+                code(0x3b, calculate(ticks * unit), "// (3b) SLEEP (RAND & 3) + 4 TICKS");
             }
         }
 
@@ -6733,7 +6752,7 @@ group functions() {
                     CUSTOM_FLAG.NO_RUNNING = False;
                 }
 
-                if(True) {
+                if(False) {
                     _debug_memory(CUSTOM_MEMORY.NO_RUNNING, CUSTOM_FLAG.NO_RUNNING);
                 }
             }
@@ -6778,6 +6797,7 @@ group functions() {
                 UNKNOWN = 0x00,
                 DLC = 0x01,
                 WRONG_WEAPON = 0x02,
+                TOO_LIGHT = 0x03,
 
                 DOOR_LOCKED = 0x10,
                 DOOR_CONTRAPTION = 0x11,
@@ -6814,6 +6834,10 @@ group functions() {
                 } else if(error == ERROR_TYPE.WRONG_WEAPON) {
                     if(SYSTEM.WITH_HINT_INTERACTION) {
                         subtext("(Wrong weapon…)");
+                    }
+                } else if(error == ERROR_TYPE.TOO_LIGHT) {
+                    if(SYSTEM.WITH_HINT_INTERACTION) {
+                        subtext("(Too light…)");
                     }
                 } else if(error == ERROR_TYPE.DOOR_LOCKED) {
                     subtext("Locked.");
@@ -8457,13 +8481,16 @@ group functions() {
     group cutscenes() {
         group object_interaction() {
             enum OBJECT_ANIMATOR_MODE {
-                BRIDGE_HALLS = 0d0,
-                SWITCH_GROUND_HALLS = 0d1,
-                SWITCH_SPEAR_HALLS = 0d2,
-                GATE_HALLS = 0d3,
-                REVEALER = 0d4,
-                SECRET_OPEN = 0d5,
-                SECRET_ACTIVE = 0d6,
+                BRIDGE_HALLS = 0x00,
+                BRIDGE_HALLS_NORTH_WEST = 0x01,
+                SWITCH_GROUND_HALLS = 0x10,
+                SWITCH_SPEAR_HALLS = 0x11,
+                GATE_HALLS = 0x12,
+
+                REVEALER = 0x20,
+
+                SECRET_OPEN = 0x30,
+                SECRET_ACTIVE = 0x31,
             }
 
             fun _object_animator_simple(object_id, value_active, value_inactive, sound_id:SOUND, active, delay, instant) {
@@ -8558,6 +8585,20 @@ group functions() {
                             flag = False;
                         }
                     }
+                } else if(mode == OBJECT_ANIMATOR_MODE.BRIDGE_HALLS_NORTH_WEST) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator(object_id, 0d1, 0d11, MECHANICAL_MOVEMENT, 0d8, instant);
+                    } else {
+                        _object_animator(object_id, 0d10, 0d0, MECHANICAL_MOVEMENT, 0d8, instant);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
                 } else if(mode == OBJECT_ANIMATOR_MODE.GATE_HALLS) {
                     if(value) {
                         if(flag is Memory) {
@@ -8626,6 +8667,12 @@ group functions() {
                         _object_animator(object_id, 0d1, 0d8, MECHANICAL_MOVEMENT, 0d8, True);
                     } else {
                         _object_animator(object_id, 0d7, 0d0, MECHANICAL_MOVEMENT, 0d8, True);
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.BRIDGE_HALLS_NORTH_WEST) {
+                    if(flag) {
+                        _object_animator(object_id, 0d1, 0d11, MECHANICAL_MOVEMENT, 0d8, True);
+                    } else {
+                        _object_animator(object_id, 0d10, 0d0, MECHANICAL_MOVEMENT, 0d8, True);
                     }
                 } else if(mode == OBJECT_ANIMATOR_MODE.GATE_HALLS) {
                     if(flag) {
@@ -10925,7 +10972,9 @@ group functions() {
                         arg[0x1a] = 0xffff;
                     }
 
-                    _debug_memory(arg[0x18], arg[0x1a]);
+                    if(False) {
+                        _debug_memory(arg[0x18], arg[0x1a]);
+                    }
 
                     if(arg[0x18] >= 0d4) {
                         <BOY>[X] = arg[0x10];

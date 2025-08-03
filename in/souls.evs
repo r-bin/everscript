@@ -446,7 +446,7 @@ group non_maps() {
             // cheats
             WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_FULL_INGREDIENTS = True,
-            WITH_CHEATS_EVERYTHING = False,
+            WITH_CHEATS_EVERYTHING = True,
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
@@ -2308,6 +2308,60 @@ group non_maps() {
                 sterling_rats_scanner(x_dust, y_dust);
             }
         }
+
+        group ground_switch() {
+            fun _ground_switch_trigger(entity, x, y) {
+                if(
+                    (entity[X] >= (x * 0d0008)) &&
+                    (entity[Y] >= (y * 0d0008)) &&
+                    (entity[X] <= ((x + 0d4) * 0d0008)) &&
+                    (entity[Y] <= ((y + 0d4) * 0d0008))
+                ) {
+                    entity[GENERAL_PURPOSE] = True;
+                } else {
+                    entity[GENERAL_PURPOSE] = False;
+                }
+            }
+            fun ground_switch_trigger(x, y, callback) {
+                <ACTIVE>[GENERAL_PURPOSE] = False;
+                <INACTIVE>[GENERAL_PURPOSE] = False;
+
+                while(True) {
+                    _ground_switch_trigger(<ACTIVE>, x, y);
+
+                    yield();
+
+                    _ground_switch_trigger(<INACTIVE>, x, y);
+
+                    yield();
+
+                    if(False) {
+                        debug_memory(arg[0x10], arg[0x12]);
+                        sleep(0d10);
+                    }
+
+                    if(<ACTIVE>[GENERAL_PURPOSE] && <INACTIVE>[GENERAL_PURPOSE]) {
+                        callback();
+                        end();
+                    }
+                }
+            }
+
+            fun guard_ground_switch() {
+                if(<INACTIVE>[GENERAL_PURPOSE]) {
+                    nop();
+                } else if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) {
+                    nop();
+                } else {
+                    if(MEMORY.CHEST_2_2) {
+                        error_message(TOO_LIGHT);
+                    } else {
+                        error_message(UNKNOWN);
+                    }
+                    end();
+                }
+            }
+        };
     };
 
     group fallout_mechanics() {
@@ -3455,7 +3509,7 @@ group non_maps() {
         group npc_mario() {
             enum NPC_MARIO {
                 PROGRESS = memory(BYTE, SRAM),
-                SUB_PROGRESS = memory(BYTE, SRAM),
+                // SUB_PROGRESS = memory(BYTE, SRAM),
 
                 MARIO_TEASED = memory(FLAG, SRAM),
 
@@ -3466,24 +3520,23 @@ group non_maps() {
             @install()
             fun npc_mario_dialog_0() {
                 conversation({
-                    if(NPC_MARIO.PROGRESS == 0d0) {
-                        if(NPC_MARIO.SUB_PROGRESS == 0d0) {
+                    if(NPC_MARIO.PROGRESS < 0x10) {
+                        if(NPC_MARIO.PROGRESS == 0x00) {
                             dialog("[SLOW]Hey, you.[B]");
 
-                            NPC_MARIO.SUB_PROGRESS++;
-                        } else if(NPC_MARIO.SUB_PROGRESS == 0d1) {
+                            NPC_MARIO.PROGRESS++;
+                        } else if(NPC_MARIO.PROGRESS == 0x01) {
                             dialog("[SLOW]Have you seen my brother? I seem to have taken a wrong turn down there.[B]");
 
-                            NPC_MARIO.SUB_PROGRESS++;
-                        } else if(NPC_MARIO.SUB_PROGRESS == 0d2) {
+                            NPC_MARIO.PROGRESS++;
+                        } else if(NPC_MARIO.PROGRESS == 0x02) {
                             dialog("[SLOW]The three of us were traveling eastwards to the Sewers, before we were separated.[B]");
 
-                            NPC_MARIO.SUB_PROGRESS++;
-                        } else if(NPC_MARIO.SUB_PROGRESS == 0d3) {
+                            NPC_MARIO.PROGRESS++;
+                        } else if(NPC_MARIO.PROGRESS == 0x03) {
                             dialog("[SLOW]Please look for my brother. He might be injured.[B]");
 
-                            NPC_MARIO.PROGRESS++;
-                            NPC_MARIO.SUB_PROGRESS = 0d0;
+                            NPC_MARIO.PROGRESS = 0x10;
                         }
                     } else {
                         dialog("[SLOW]Please hurry![B]");
@@ -3492,12 +3545,12 @@ group non_maps() {
             }
             @install()
             fun npc_mario_dialog_1() {
-                if(NPC_MARIO.PROGRESS == 0d1) {
-                    if(NPC_MARIO.SUB_PROGRESS == 0d0) {
+                if(NPC_MARIO.PROGRESS < 0x20) {
+                    if(NPC_MARIO.PROGRESS == 0x10) {
                         if(MEMORY.MUSHROOM <= 0d0) {
                             subtext("…");
                         } else {
-                            NPC_MARIO.SUB_PROGRESS++;
+                            NPC_MARIO.PROGRESS++;
 
                             add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
                             face(LAST_ENTITY, WEST);
@@ -3506,7 +3559,7 @@ group non_maps() {
                             
                             subtext("Is that… a… Mushroom?");
                         }
-                    } else if(NPC_MARIO.SUB_PROGRESS == 0d1) {
+                    } else if(NPC_MARIO.PROGRESS == 0x11) {
                         conversation({
                             question("[SLOW]Mushroom… please…[CHOICE]give…[CHOICE]leave…");
 
@@ -3519,11 +3572,11 @@ group non_maps() {
 
                                     dialog("[SLOW]…[B]");
 
-                                    NPC_MARIO.SUB_PROGRESS++;
+                                    NPC_MARIO.PROGRESS++;
                                 }
                             }
                         });
-                    } else if(NPC_MARIO.SUB_PROGRESS == 0d2) {
+                    } else if(NPC_MARIO.PROGRESS == 0x12) {
                         conversation({
                             question("[SLOW]more…[CHOICE]give…[CHOICE]leave…");
 
@@ -3536,8 +3589,7 @@ group non_maps() {
 
                                     dialog("[SLOW]you saved me…[B]");
 
-                                    NPC_MARIO.PROGRESS++;
-                                    NPC_MARIO.SUB_PROGRESS = 0d0;
+                                    NPC_MARIO.PROGRESS = 0x20;
                                 }
                             }
                         });
@@ -3549,12 +3601,12 @@ group non_maps() {
             @install()
             fun npc_mario_dialog_2() {
                 conversation({
-                    if(NPC_MARIO.PROGRESS == 0d2) {
-                        if(NPC_MARIO.SUB_PROGRESS == 0d0) {
+                    if(NPC_MARIO.PROGRESS < 0x30) {
+                        if(NPC_MARIO.PROGRESS == 0x20) {
                             dialog("[SLOW]I followed them to the Sewers all the way from the Kingdom of Mushrooms.[B]");
 
-                            NPC_MARIO.SUB_PROGRESS++;
-                        } else if(NPC_MARIO.SUB_PROGRESS == 0d1) {
+                            NPC_MARIO.PROGRESS++;
+                        } else if(NPC_MARIO.PROGRESS == 0x21) {
                             dialog("[SLOW]This should help you navigate within the Sewers.[B]");
 
                             custom_reward(BIG_MUSHROOM, True);
@@ -3562,8 +3614,7 @@ group non_maps() {
 
                             dialog("[SLOW]Press `Start´ to use the Big Mushroom within the Sewers.[B]");
 
-                            NPC_MARIO.PROGRESS++;
-                            NPC_MARIO.SUB_PROGRESS = 0d0;
+                            NPC_MARIO.PROGRESS = 0x40;
                         }
                     } else {
                         dialog("[SLOW]Use it to help me clear this place from the infestation.[B]");
@@ -3599,7 +3650,7 @@ group non_maps() {
 
                 BODY = ENEMY.VILLAGER_3_4,
 
-                REWARD = ITEM.CHOCOBO_EGG,
+                REWARD = SOULS_MEMORY.REWARD_ISAAC_QUEST,
             }
 
             group maggy_ai() {
@@ -3628,7 +3679,7 @@ group non_maps() {
                                     attach_script(SCRIPT_OWNER, DEATH, reference(@install() {
                                         souls_quest_progress();
 
-                                        reward(NPC_MAGGY.REWARD, True);
+                                        custom_reward(NPC_MAGGY.REWARD, True);
                                     }));
                                 } else { // leave
                                     conversation_dialog("[SLOW]You wasted your chance.[B]");
@@ -17111,11 +17162,11 @@ area east_inbetwixx() {
                 if(SOULS_MEMORY.WITH_SIDE_QUESTS || (NPC_MARIO.PROGRESS == 0d0)) {
                     if(NPC_MARIO.PROGRESS < 0d1) {
                         stone_locked();
-                    } else if(NPC_MARIO.PROGRESS == 0d1) {
+                    } else if((NPC_MARIO.PROGRESS & 0xf0) == 0x10) {
                         add_enemy(STONE_ROUND, 0d222, 0d39);
                         attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
 
-                        if(NPC_MARIO.SUB_PROGRESS > 0x00) {
+                        if((NPC_MARIO.PROGRESS & 0x0f) > 0d0) {
                             add_souls_npc_mario(0d229, 0d39, INACTIVE);
                             face(LAST_ENTITY, WEST);
 
@@ -19240,11 +19291,11 @@ area southern_jungle() {
                 if(SOULS_MEMORY.WITH_METRO) {
                     generic_yeet_waterfall(0d250, 0d200);
 
-                pit_fall_damage_callback(0d500, 0d50, {
-                    map_transition(junkyard_northeast, crash_south, NONE);
-                }, {
-                    dust_unreachable(0d24, 0d34);
-                });
+                    pit_fall_damage_callback(0d500, 0d50, {
+                        map_transition(junkyard_northeast, crash_south, NONE);
+                    }, {
+                        dust_unreachable(0d24, 0d34);
+                    });
                 } else {
                     error_message(DLC);
                 }
@@ -21339,7 +21390,7 @@ area town() {
         };
 
         area level_0() {
-            map temple(HALLS_CENTER) {
+            map temple(HALLS_CENTER) { // center
                 // chests=nothing
 
                 enum entrance {
@@ -21382,13 +21433,19 @@ area town() {
                         debug_subtext("S=5");
                     },
                     exit_south = @install() {
+                        debug_subtext("S=6");
+
                         map_transition(town_market_alley, north, SOUTH);
                     },
                     door_west_2 = @install() {
+                        debug_subtext("S=7");
+
                         map_transition(temple_north_west, east, WEST);
                     },
                     door_west_1 = @install() {
                         debug_subtext("S=8");
+
+                        map_transition(temple_switch2, east, WEST);
                     },
                     door_east_2 = @install() fun trigger_door_east_2() {
                         bombable_trigger(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED, ROOM.DOOR_EAST_2, ((DIRECTION.WEST << 0x0008) | ERROR_TYPE.DOOR_CONTRAPTION), {
@@ -21543,14 +21600,13 @@ area town() {
                     }
 
                     open_doors(True);
-                    object[0x07] = 0x00; // SW
 
                     fake_northern_wall();
                     default_init_room(False, False);
                 }
             };
 
-            map temple_north_west(HALLS_SW) {
+            map temple_north_west(HALLS_SW) { // north-west
                 // chests=vanilla
 
                 enum entrance {
@@ -21570,12 +21626,16 @@ area town() {
 
                 enum stepon_trigger {
                     exit_east = @install() {
+                        debug_subtext("S=0");
+
                         map_transition(temple, west_2, EAST);
                     },
                     stepon_1 = @install() {
                         debug_subtext("S=1");
                     },
                     switch_2 = @install() {
+                        debug_subtext("S=2");
+
                         if((!ROOM.LEFT_OPENED) && (!ROOM.CENTER_OPENED)) {
                             object[0x01] = 0x7e; // activate switch_2
 
@@ -21659,7 +21719,7 @@ area town() {
                 }
             };
 
-            map temple_boss(MEGATAUR) {
+            map temple_boss(MEGATAUR) { // north
                 enum entrance {
                     south = entrance(0x41, 0x53, NORTH)
                 }
@@ -21696,13 +21756,17 @@ area town() {
                 }
             };
 
-            map temple_switch(HALLS_SE) {
+            map temple_switch(HALLS_SE) { // north-east
                 enum entrance {
                     west = entrance(0x01, 0x1b, EAST),
                 }
 
                 enum soundtrack {
                     default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+                }
+
+                enum ROOM {
+                    VANILLA_SWITCH = False,
                 }
 
                 enum BOSS {
@@ -21730,20 +21794,6 @@ area town() {
                     P1_HIT_COUNTER = memory(WORD, TEMP),
                 }
 
-                fun show_switch(show) {
-                    if(show) {
-                        object[0x00] = 0x0a;
-                    } else {
-                        object[0x00] = 0x00;
-                    }
-                }
-
-                @install()
-                fun boss_defeated() {
-                    souls_boss_defeated(DEAD_TEMPLE_MINITAUR, REWARD_TEMPLE_MINITAUR);
-
-                    show_switch(True);
-                }
                 fun switch_activated() {
                     if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
                         AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED = True;
@@ -21753,6 +21803,41 @@ area town() {
                     }
                 }
 
+                @install()
+                @async()
+                fun show_inactive_ground_switch() {
+                    ground_switch_trigger(0d20, 0d30, {
+                        switch_activated();
+                    });
+                }
+
+                fun show_switch(show, active) {
+                    if(show) {
+                        if(active !is None) {
+                            if(active) {
+                                object[0x00] = 0x0b;
+                            } else {
+                                object[0x00] = 0x0a;
+
+                                if!(ROOM.VANILLA_SWITCH) {
+                                    show_inactive_ground_switch();
+                                }
+                            }
+                        } else {
+                            object[0x00] = 0x0a;
+                        }
+                    } else {
+                        object[0x00] = 0x00;
+                    }
+                }
+
+                @install()
+                fun boss_defeated() {
+                    souls_boss_defeated(DEAD_TEMPLE_MINITAUR, REWARD_TEMPLE_MINITAUR);
+
+                    show_switch(True, False);
+                }
+
                 enum stepon_trigger {
                     exit_west = @install() {
                         fog_wall_inside(!SOULS_MEMORY.DEAD_TEMPLE_MINITAUR, EAST);
@@ -21760,7 +21845,12 @@ area town() {
                         map_transition(temple, east_1, WEST);
                     },
                     switch = @install() {
-                        switch_activated();
+                        if(ROOM.VANILLA_SWITCH) {
+                            switch_activated();
+                        } else {
+                            guard_ground_switch();
+                            switch_activated();
+                        }
                     }
                 }
 
@@ -22053,19 +22143,287 @@ area town() {
                         push_music(BOSS);
                     } else {
                         if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
-                            object[0x00] = 0x0b;
+                            show_switch(True, True);
                         } else {
-                            show_switch(True);
+                            show_switch(True, False);
                         }
                     }
 
                     default_init_room(False, False);
                 }
             };
+
+            map temple_switch2(HALLS_NW) { // south-west
+                enum entrance {
+                    east = entrance(0x83, 0xa3, WEST),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+                }
+
+                enum ROOM {
+                    GOURD_LOOTED = memory(FLAG, SRAM),
+                    WALL_COLLAPSED = memory(FLAG, SRAM),
+
+                    BRIDGE_WEST_TIME = 0d14, // 0d16,
+                    BRIDGE_WEST_ACTIVE = memory(FLAG, TEMP),
+                    BRIDGE_EAST_TIME = 0d2, // 0d3,
+                    BRIDGE_EAST_ACTIVE = memory(FLAG, TEMP),
+
+                    PIT_NORTH = 0d625,
+                    PIT_SOUTH = 0d780,
+
+                    BRIDGE_REVEALED = memory(FLAG, SRAM),
+
+                    SWITCH_ACTIVATED = memory(FLAG, SRAM),
+                }
+
+                fun switch_activated() {
+                    if!(ROOM.SWITCH_ACTIVATED) {
+                        ROOM.SWITCH_ACTIVATED = True;
+
+                        generic_switch_floor(0x00, True);
+                    }
+                }
+                @install()
+                @async()
+                fun ground_switch_scanner() {
+                    ground_switch_trigger(0d64, 0d14, {
+                        switch_activated();
+                    });
+                }
+
+                @install()
+                fun pit_triggered() {
+                    guard_z();
+                    
+                    generic_fall(0d100, 0d800);
+
+                    // dust_unreachable(0d143, 0d108);
+                    damage(BOTH, 0d999, True);
+                    sleep(0d30);
+                    damage(BOTH, SYSTEM.HP_MAX, False);
+                }
+                
+                enum stepon_trigger {
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    bridge_west_exit = @install() {
+                        debug_subtext("S=2");
+                    },
+                    fall_ = pit_triggered(),
+                    revealer_hint = @install() {
+                        debug_subtext("S=4");
+                    },
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    bridge_east_exit = @install() {
+                        debug_subtext("S=15");
+                    },
+                    switch_floor = @install() {
+                        debug_subtext("S=16");
+
+                        guard_ground_switch();
+                        switch_activated();
+                    },
+                    exit_east = @install() {
+                        debug_subtext("S=17");
+
+                        map_transition(temple, west_1, EAST);
+                    },
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+
+                    fall_ = pit_triggered(),
+                    stepon_21 = @install() {
+                        debug_subtext("S=21");
+                    },
+                    stepon_22 = @install() {
+                        debug_subtext("S=22");
+                    },
+                    stepon_23 = @install() {
+                        debug_subtext("S=23");
+                    },
+                    stepon_24 = @install() {
+                        debug_subtext("S=24");
+                    },
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                    fall_ = pit_triggered(),
+                }
+
+                enum b_trigger {
+                    gourd_hidden__pixie_dust = @install() {
+                        debug_subtext("B=0");
+                        // _loot_chest(0x0e, CHEST_2_2, 0d01);
+                        object[0x0e] = 0x01;
+                        ROOM.GOURD_LOOTED = True;
+                        reward(CHEST_2_2, True);
+                    },
+                    gourd_x__1_call_beads = @install() {
+                        debug_subtext("B=1");
+                        // _loot_chest(0x0f, CALL_BEADS, 0d01);
+                        _loot_chest(0x0f, IRON, 0d02);
+                    },
+                    gourd_x__3_brimstone = @install() {
+                        debug_subtext("B=2");
+                        // _loot_chest(0x10, BRIMSTONE, 0d03);
+                        _loot_chest(0x10, LIMESTONE_TABLET, 0d01);
+                    },
+                    gourd_x__2_ash = @install() {
+                        debug_subtext("B=3");
+                        // _loot_chest(0x11, ASH, 0d02);
+                        _loot_chest(0x11, DRY_ICE, 0d01);
+                    },
+                    destructable_wall = @install() {
+                        debug_subtext("B=4");
+
+                        guard_weapon(AXE_2, AXE);
+                        sleep(0d15);
+
+                        sound(THRAXX_BRIDGE_COLLAPSING);
+
+                        object[0x05] = 0x7e;
+                        ROOM.WALL_COLLAPSED = True;
+                    },
+                    bridge_switch_south = @install() {
+                        debug_subtext("B=5");
+
+                        fake_b();
+
+                        ROOM.BRIDGE_WEST_ACTIVE = True;
+                        object_animator(SWITCH_SPEAR_HALLS, False, 0x04, True, False);
+                        object_animator(BRIDGE_HALLS_NORTH_WEST, False, 0x03, True, False);
+
+                        sleep(ROOM.BRIDGE_WEST_TIME, S);
+
+                        object_animator(BRIDGE_HALLS_NORTH_WEST, False, 0x03, False, False);
+                        object_animator(SWITCH_SPEAR_HALLS, False, 0x04, False, False);
+                        ROOM.BRIDGE_WEST_ACTIVE = False;
+                    },
+                    bridge_switch_north = @install() {
+                        debug_subtext("B=6");
+
+                        fake_b();
+
+                        ROOM.BRIDGE_EAST_ACTIVE = True;
+                        object_animator(SWITCH_SPEAR_HALLS, False, 0x01, True, False);
+                        object_animator(BRIDGE_HALLS_NORTH_WEST, False, 0x02, True, False);
+
+                        sleep(ROOM.BRIDGE_EAST_TIME, S);
+
+                        object_animator(BRIDGE_HALLS_NORTH_WEST, False, 0x02, False, False);
+                        object_animator(SWITCH_SPEAR_HALLS, False, 0x01, False, False);
+                        ROOM.BRIDGE_EAST_ACTIVE = False;
+                    },
+                }
+
+                @install()
+                @async()
+                fun revealer_approached(entity) {
+                    range_checker(entity, <ACTIVE>, 0d45, 0d45, { pit_triggered(); });
+                }
+
+                fun trigger_enter() {
+                    // object[0x00] = 0x01; // activate switch_floor
+                    // object[0x01] = 0x01; // activate bridge_switch_north
+                    // object[0x02] = 0x7e; // activate bridge_east
+                    // object[0x03] = 0x7e; // activate bridge_west
+                    // object[0x04] = 0x01; // activate bridge_switch_south
+                    // object[0x05] = 0x7e; // collapse wall
+                    // object[0x06] = 0x7e; // show bridge_1
+                    // object[0x07] = 0x7e; // show bridge_2
+                    // object[0x08] = 0x7e; // show bridge_3
+                    // object[0x09] = 0x7e; // show bridge_4
+                    // object[0x0a] = 0x7e; // show bridge_5
+                    // sniff spots?
+                    // object[0x0e] = 0x01; // loot gourd_hidden
+                    // object[0x0f] = 0x01; // loot gourd_
+                    // object[0x10] = 0x01; // loot gourd_
+                    // object[0x11] = 0x01; // loot gourd_
+
+                    player_message(0d43, 0d161, reference(@install() {
+                        player_message_triggered();
+
+                        subtext("visions of fatty…");
+                    }));
+
+                    if!(ROOM.SWITCH_ACTIVATED) {
+                        ground_switch_scanner();
+                    } else {
+                        object[0x00] = 0x01; // activate switch_floor
+                    }
+
+                    if(ROOM.BRIDGE_REVEALED) {
+                        object_animator(REVEALER, False, 0x06, 0d5, True);
+                    } else {
+                        add_enemy(REVEALER_TARGET_ENTITY, 0d102, 0d84);
+
+                        special_script(REVEALER, reference(@install() {
+                            object_animator(REVEALER, False, 0x06, 0d5, False);
+
+                            destroy(SCRIPT_OWNER);
+
+                            ROOM.BRIDGE_REVEALED = True;
+                        }));
+
+                        revealer_approached(<LAST_ENTITY>);
+                    }
+
+                    if(ROOM.GOURD_LOOTED) {
+                        object[0x0e] = 0x01;
+                    }
+                    if(ROOM.WALL_COLLAPSED) {
+                        object[0x05] = 0x7e;
+                    }
+
+                    default_init_room(False, False);
+
+                    // debug_tile();
+
+                    while(True) {
+                        if(ROOM.BRIDGE_WEST_ACTIVE && (<ACTIVE>[Y] < ROOM.PIT_NORTH)) {
+                            ROOM.BRIDGE_WEST_ACTIVE = False;
+
+                            control(NONE);
+
+                            walk(ACTIVE, TILE_ABSOLUTE, 0d51, 0d74, NONE, NONE);
+                            walk(INACTIVE, TILE_ABSOLUTE, 0d51 + 0d4, 0d74, BOTH, BOTH);
+                        } else if(ROOM.BRIDGE_EAST_ACTIVE) {
+                            if(<ACTIVE>[Y] > ROOM.PIT_SOUTH) {
+                                ROOM.BRIDGE_EAST_ACTIVE = False;
+
+                                control(NONE);
+
+                                walk(ACTIVE, TILE_ABSOLUTE, 0d114, 0d100, NONE, NONE);
+                                walk(INACTIVE, TILE_ABSOLUTE, 0d114 + 0d4, 0d100, BOTH, BOTH);
+                            } else if(<ACTIVE>[Y] > ROOM.PIT_NORTH) {
+                                if(((<ACTIVE>[CURRENT_GROUND] & 0xff) == 0x1f) || ((<ACTIVE>[CURRENT_GROUND] & 0xff) == 0x5f)) {
+                                    pit_triggered();
+                                    end();
+                                }
+                            }
+                        }
+
+                        yield();
+                    }
+                }
+            };
         };
 
         area level_1() {
-            map temple_underground(HALLS_CENTER) {
+            map temple_underground(HALLS_CENTER) { // center
                 // chests=nothing
 
                 enum entrance {
@@ -22406,7 +22764,7 @@ area town() {
                 }
             };
 
-            map temple_underground_firepit(FIREPIT_NOBILIA) {
+            map temple_underground_firepit(FIREPIT_NOBILIA) { // south-east
                 enum entrance {
                     west = entrance(0x05, 0x1b, EAST),
 
@@ -22480,7 +22838,7 @@ area town() {
                 }
             };
 
-            map temple_underground_wall_boss(HALLS_BRIDGE) {
+            map temple_underground_wall_boss(HALLS_BRIDGE) { // north-west + north_east
                 enum entrance {
                     test = entrance(0x21, 0x95, NORTH),
                     
@@ -22977,7 +23335,7 @@ area town() {
                 }
             };
 
-            map temple_underground_boss(MEGATAUR) {
+            map temple_underground_boss(MEGATAUR) { // north
                 enum entrance {
                     south = entrance(0x41, 0x53, NORTH)
                 }
@@ -31521,7 +31879,9 @@ area desert_bug() {
                     }
 
                     fun check_defeat() {
-                        debug_memory(BOSS.ID_LEFT[HP], BOSS.ID_RIGHT[HP]);
+                        if(BOSS.DEBUG) {
+                            debug_memory(BOSS.ID_LEFT[HP], BOSS.ID_RIGHT[HP]);
+                        }
 
                         if(_dead(BOSS.ID_LEFT) && _dead(BOSS.ID_RIGHT)) {
                             boss_defeated();
@@ -33964,7 +34324,7 @@ area metro() {
 
             group boss_ai() {
                 enum BOSS {
-                    DEBUG = True,
+                    DEBUG = False,
 
                     RIDER_1_ID = memory(WORD, TEMP),
                     MOUNT_1_ID = memory(WORD, TEMP),
