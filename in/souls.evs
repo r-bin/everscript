@@ -21220,7 +21220,7 @@ area town() {
                 add_enemy(MAGGOT, 0d9, 0d31);
                 add_enemy(MAGGOT, 0d39, 0d38);
 
-                add_enemy(MAGGOT_RED, 0d39, 0d13);
+                add_enemy(MAGGOT, 0d39, 0d13);
             }
 
             init_map(0x0, 0x0, 0x3a, 0xcc);
@@ -21589,14 +21589,14 @@ area town() {
 
                     if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                         // east
-                        add_enemy(MAGGOT_RED, 0d65, 0d78);
+                        add_enemy(MAGGOT, 0d65, 0d78);
 
                         // south
-                        add_enemy(MAGGOT_RED, 0d50, 0d109);
-                        add_enemy(MAGGOT_RED, 0d63, 0d110);
+                        add_enemy(MAGGOT, 0d50, 0d109);
+                        add_enemy(MAGGOT, 0d63, 0d110);
 
                         // west
-                        add_enemy(MAGGOT_RED, 0d26, 0d73);
+                        add_enemy(MAGGOT, 0d26, 0d73);
                     }
 
                     open_doors(True);
@@ -22177,6 +22177,12 @@ area town() {
                     BRIDGE_REVEALED = memory(FLAG, SRAM),
 
                     SWITCH_ACTIVATED = memory(FLAG, SRAM),
+
+                    MUD_STONE = memory(WORD, TEMP),
+                    MUD_STONE_DESTROYED = memory(FLAG, SRAM),
+
+                    PASSAGE_STONE = memory(WORD, TEMP),
+                    PASSAGE_OPENED = memory(FLAG, SRAM),
                 }
 
                 fun switch_activated() {
@@ -22386,6 +22392,68 @@ area town() {
                     }
                     if(ROOM.WALL_COLLAPSED) {
                         object[0x05] = 0x7e;
+                    }
+
+                    // switch east
+                    add_enemy(FLOWER_ORANGE, 0d105, 0d108);
+                    // add_enemy(FRIPPO, 0d85, 0d107, INACTIVE);
+                    // add_enemy(STONE, 0d97, 0d112);
+                    if!(ROOM.MUD_STONE_DESTROYED) {
+                        add_mud_stone(0d97, 0d112, reference(@install() {
+                            guard_mud_stone();
+
+                            ROOM.MUD_STONE_DESTROYED = True;
+                        }), FRIPPO);
+                        ROOM.MUD_STONE = <LAST_ENTITY>;
+                        add_frippo_switch(0d85, 0d107, reference(@install() {
+                            small_explosion(0d97, 0d112);
+
+                            if(alive(ROOM.MUD_STONE)) {
+                                destroy(ROOM.MUD_STONE);
+                                ROOM.MUD_STONE_DESTROYED = True;
+
+                                wait(SCRIPT_OWNER);
+                                destroy(SCRIPT_OWNER);
+                            }
+                        }));
+                    }
+
+                    // normal gourd
+                    add_enemy(FLOWER_ORANGE, 0d75, 0d134);
+
+                    if!(ROOM.PASSAGE_OPENED) {
+                        add_enemy(STONE_ROUND, 0d40, 0d161, INACTIVE_INVISIBLE);
+                        ROOM.PASSAGE_STONE = <LAST_ENTITY>;
+
+                        add_frippo_switch(0d74, 0d102, reference(@install() {
+                            small_explosion(0d40, 0d161);
+
+                            if(alive(ROOM.PASSAGE_STONE)) {
+                                destroy(ROOM.PASSAGE_STONE);
+                                ROOM.PASSAGE_OPENED = True;
+
+                                wait(SCRIPT_OWNER);
+                                destroy(SCRIPT_OWNER);
+                            }
+                        }));
+                    }
+
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // entrance
+                        add_enemy(MAGGOT, 0d99, 0d190);
+
+                        // switch east
+                        add_enemy(MAGGOT, 0d117, 0d126);
+
+                        // bridge west
+                        add_enemy(MAGGOT, 0d49, 0d106);
+
+
+                        // ground switch
+                        add_enemy(MAGGOT, 0d45, 0d45);
+
+                        // switch north
+                        add_enemy(MAGGOT, 0d88, 0d56);
                     }
 
                     default_init_room(False, False);
