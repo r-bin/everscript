@@ -6139,7 +6139,7 @@ group custom_bosses() {
                 animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
                 subtext("FRESH MEAT");
 
-                while(arg[0x10] < 0d30) {
+                while((arg[0x10] < 0d30) && (!arg[0x12])) {
                     arg[0x10]++;
 
                     guard_dead(mount);
@@ -6149,6 +6149,42 @@ group custom_bosses() {
                     sleep(0d10);
 
                     // debug_memory(arg[0x10]);
+
+                    check_range_old(<SCRIPT_OWNER>, <BOY>, 0d30, 0d30, {
+                        arg[0x12] = True;
+
+                        subtext("?");
+
+                        control(BOY, True);
+                        face_target(BOY, SCRIPT_OWNER);
+                        animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+
+                        while(arg[0x14] < 0d300) {
+                            arg[0x14]++;
+
+                            arg[0x16] = CUSTOM_MEMORY.INPUT_P1;
+                            yield();
+
+                            if((arg[0x16] & 0xff00) != (CUSTOM_MEMORY.INPUT_P1 & 0xff00)) {
+                                arg[0x14] += 0d10;
+                            }
+                            if((arg[0x16] & 0xff) != (CUSTOM_MEMORY.INPUT_P1 & 0xff)) {
+                                arg[0x14] += 0d10;
+                            }
+
+                            arg[0x18]++;
+                            if(arg[0x18] > 0d45) {
+                                damage(BOY, 0d5, True, True);
+                                arg[0x18] = 0d0;
+                            }
+                        }
+                        
+                        face_target(BOY, SCRIPT_OWNER);
+                        animate(BOY, ONCE, KNOCKBACK);
+                        control(BOY, False);
+
+                        subtext("!");
+                    });
                 }
 
                 animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
@@ -6269,6 +6305,55 @@ group custom_bosses() {
             
             @install()
             @async()
+            fun pull_boy(mount, rider) {
+                face_each(mount, BOY);
+                if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    arg[0x10] = 0d0;
+                    arg[0x12] = -0d40;
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH_EAST) {
+                    arg[0x10] = 0d30;
+                    arg[0x12] = -0d30;
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    arg[0x10] = 0d40;
+                    arg[0x12] = 0d0;
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_EAST) {
+                    arg[0x10] = 0d30;
+                    arg[0x12] = 0d30;
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    arg[0x10] = 0d0;
+                    arg[0x12] = 0d40;
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_WEST) {
+                    arg[0x10] = -0d30;
+                    arg[0x12] = 0d30;
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    arg[0x10] = -0d40;
+                    arg[0x12] = 0d0;
+                } if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH_WEST) {
+                    arg[0x10] = -0d30;
+                    arg[0x12] = -0d30;
+                }
+
+                // debug_memory(<BOY>[FACE_DIRECTION], mount[FACE_DIRECTION], rider[FACE_DIRECTION]);
+
+                sleep(0d3);
+
+                // arg[0x24] = <BOY>[Z_LEVEL];
+                _drag(BOY, mount[X] + arg[0x10], mount[Y] + arg[0x12]);
+                // <BOY>[Z_LEVEL] = arg[0x24];
+                <BOY>[Z_LEVEL] = mount[Z_LEVEL];
+                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.LANDING);
+                while((arg[0x24] < 0d120) && (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                    arg[0x24]++;
+
+                    yield();
+                }
+                if(<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                    animate(BOY, ONCE, DEFAULT);
+                }
+                attribute(BOY, ROOT, False);
+            }
+            @install()
+            @async()
             fun tesla_line(mount, rider) {
                 while(_alive(rider) && (rider[GENERAL_PURPOSE] > 0d0)) {
                     sleep(0d10);
@@ -6282,12 +6367,50 @@ group custom_bosses() {
                 }
             }
             @install()
+            fun _ai_move_hook(mount, rider, hit) {
+                if(False) {
+                    subtext("?");
+                }
+
+                guard_dead(mount);
+                guard_dead(rider);
+
+                if(hit) {
+                    attribute(BOY, ROOT, True);
+                }
+
+                sleep(0d30);
+
+                guard_dead(mount);
+                guard_dead(rider);
+
+                if(CUSTOM_MEMORY.RETURN) {
+                    pull_boy(mount, rider);
+                }
+                _drag(rider, mount[X], mount[Y]);
+
+                if(False) {
+                    subtext("!");
+                }
+                sleep(0d30);
+
+                guard_dead(mount);
+                guard_dead(rider);
+
+                rider[GENERAL_PURPOSE] = 0d0;
+
+                roar();
+            }
+            @install()
             fun ai_move_hook(mount, rider) {
                 if(BOSS.DEBUG) {
                     debug_subtext("hook");
                 }
 
+                attach_to_script(rider);
+
                 guard_dead(mount);
+                guard_dead(rider);
 
                 control(mount, True);
 
@@ -6305,10 +6428,14 @@ group custom_bosses() {
                 sleep(0d30);
 
                 guard_dead(mount);
+                guard_dead(rider);
 
                 tesla_line(mount, rider);
 
                 sleep(0d30);
+
+                guard_dead(mount);
+                guard_dead(rider);
 
                 rider[GENERAL_PURPOSE] = 0d2;
 
@@ -6358,6 +6485,7 @@ group custom_bosses() {
 
                 while(True) {
                     guard_dead(mount);
+                    guard_dead(rider);
 
                     arg[0x10] = arg[0x14] >> 0d5;
                     arg[0x12] = arg[0x16] >> 0d5;
@@ -6375,20 +6503,13 @@ group custom_bosses() {
                         teleport_relative(rider, -(arg[0x10]), -(arg[0x12]));
                     }
 
-                    if((rider[X] == arg[0x20]) && (rider[Y] == arg[0x22])) {
-                        subtext("?");
+                    _check_range_old(<SCRIPT_OWNER>, <BOY>, 0d30, 0d30);
 
-                        sleep(0d30);
+                    if(((rider[X] == arg[0x20]) && (rider[Y] == arg[0x22])) || CUSTOM_MEMORY.RETURN) {
+                        
+                        _ai_move_hook(mount, rider, CUSTOM_MEMORY.RETURN);
 
-                        _drag(rider, mount[X], mount[Y]);
-
-                        subtext("!");
-
-                        sleep(0d30);
-
-                        rider[GENERAL_PURPOSE] = 0d0;
-
-                        roar();
+                        attribute(BOY, ROOT, False);
                         attribute(mount, ROOT, False);
 
                         control(mount, False);

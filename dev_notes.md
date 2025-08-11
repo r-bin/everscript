@@ -21,8 +21,6 @@
 ## pipe maze side room spawns dog (vanilla script)
 ## basement red maggots after monstro
 ## temple elevator preselect floor
-## dog trap (cat) - dog can walk while gaining items
-## power glove 3 = nothing?
 ## sound glitches: kill radahn
 ## projectiles with entity targets should check range (and not shoot off screen)
 ## scale enemies: before pyramid
