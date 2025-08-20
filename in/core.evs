@@ -9357,6 +9357,149 @@ group functions() {
             }
         }
 
+        fun _raycast(source, target, jumps) {
+            _add_enemy(THRAXX_HEART, source[X], source[Y]);
+            attach_to_script(LAST_ENTITY);
+
+            // while!((<SCRIPT_OWNER>[X] == <INACTIVE>[X]) && (<SCRIPT_OWNER>[Y] == <INACTIVE>[Y])) {
+            while(True) {
+                if(<SCRIPT_OWNER>[X] > target[X]) {
+                    if(<SCRIPT_OWNER>[X] > (target[X] + 0d20)) {
+                        arg[0x10] = -0d20;
+                    } else if(<SCRIPT_OWNER>[X] > (target[X] + 0d5)) {
+                        arg[0x10] = -0d5;
+                    } else {
+                        arg[0x10] = -0d1;
+                    }
+                } else if(<SCRIPT_OWNER>[X] < target[X]) {
+                    if(<SCRIPT_OWNER>[X] < (target[X] - 0d20)) {
+                        arg[0x10] = 0d20;
+                    } else if(<SCRIPT_OWNER>[X] < (target[X] - 0d5)) {
+                        arg[0x10] = 0d5;
+                    } else {
+                        arg[0x10] = 0d1;
+                    }
+                } else {
+                    arg[0x10] = 0d0;
+                }
+
+                if(<SCRIPT_OWNER>[Y] > target[Y]) {
+                    if(<SCRIPT_OWNER>[Y] > (target[Y] + 0d20)) {
+                        arg[0x12] = -0d20;
+                    } else if(<SCRIPT_OWNER>[Y] > (target[Y] + 0d5)) {
+                        arg[0x12] = -0d5;
+                    } else {
+                        arg[0x12] = -0d1;
+                    }
+                } else if(<SCRIPT_OWNER>[Y] < target[Y]) {
+                    if(<SCRIPT_OWNER>[Y] < (target[Y] - 0d20)) {
+                        arg[0x12] = 0d20;
+                    } else if(<SCRIPT_OWNER>[Y] < (target[Y] - 0d5)) {
+                        arg[0x12] = 0d5;
+                    } else {
+                        arg[0x12] = 0d1;
+                    }
+                } else {
+                    arg[0x12] = 0d0;
+                }
+
+                arg[0x14] = <SCRIPT_OWNER>[X];
+                arg[0x16] = <SCRIPT_OWNER>[Y];
+
+                teleport_relative(SCRIPT_OWNER, arg[0x10], arg[0x12]);
+
+                if(False) {
+                    debug_memory(arg[0x10], arg[0x12], arg[0x18]);
+                }
+
+                if((!arg[0x10]) && (!arg[0x12])) {
+                    CUSTOM_MEMORY.RETURN = arg[0x18];
+                    destroy(SCRIPT_OWNER);
+                    
+                    end();
+                } else if((arg[0x14] == <SCRIPT_OWNER>[X]) && (arg[0x16] == <SCRIPT_OWNER>[Y])) {
+                    // subtext("!");
+
+                    if(arg[0x18] < jumps) {
+                        arg[0x18]++;
+
+                        if(True) {
+                            attribute(SCRIPT_OWNER, NO_CLIP, True);
+
+                            if(signed arg[0x10] > 0d0) {
+                                arg[0x10] = 0d1;
+                            } else if(signed arg[0x10] < 0d0) {
+                                arg[0x10] = -0d1;
+                            }
+                            if(signed arg[0x12] > 0d0) {
+                                arg[0x12] = 0d1;
+                            } else if(signed arg[0x12] < 0d0) {
+                                arg[0x12] = -0d1;
+                            }
+
+                            if(False) {
+                                debug_memory(arg[0x10], arg[0x12], arg[0x18]);
+                            }
+
+                            teleport_relative(SCRIPT_OWNER, arg[0x10], arg[0x12]);
+
+                            attribute(SCRIPT_OWNER, NO_CLIP, False);
+                        } else {
+                            _teleport(SCRIPT_OWNER, <SCRIPT_OWNER>[X] + arg[0x10], <SCRIPT_OWNER>[Y] + arg[0x12]);
+                        }
+                    } else {
+                        CUSTOM_MEMORY.RETURN = arg[0x18];
+                        destroy(SCRIPT_OWNER);
+                    
+                        end();
+                    }
+                }
+
+                // sleep(0d5);
+            }
+        }
+        @install()
+        @weak()
+        fun return_raycast(source, target, jumps) {
+            _raycast(source, target, jumps);
+        }
+
+        fun _distance(source, target) {
+            if(source[X] < target[X]) {
+                arg[0x18] = DIRECTION.WEST;
+                arg[0x14] = target[X] - source[X];
+            } else {
+                arg[0x18] = DIRECTION.EAST;
+                arg[0x14] = source[X] - target[X];
+            }
+
+            if(source[Y] < target[Y]) {
+                arg[0x1a] = DIRECTION.NORTH;
+                arg[0x16] = target[Y] - source[Y];
+            } else {
+                arg[0x1a] = DIRECTION.SOUTH;
+                arg[0x16] = source[Y] - target[Y];
+            }
+
+            if(arg[0x14] < arg[0x16]) {
+                arg[0x1c] = arg[0x16];
+                arg[0x1e] = arg[0x14];
+            } else {
+                arg[0x1c] = arg[0x14];
+                arg[0x1e] = arg[0x16];
+            }
+
+            arg[0x20] = arg[0x1c] + (arg[0x1e] >> 0d1);
+        }
+        @install()
+        @weak()
+        fun return_distance(source, target) {
+            _distance(source, target);
+
+            CUSTOM_MEMORY.RETURN = arg[0x20];
+        }
+        
+
         fun check_range_old(entity_1, entity_2, x, y, callback) {
             if(entity_1[X] < entity_2[X]) {
                 arg[0x20] = entity_2[X] - entity_1[X];
@@ -9385,7 +9528,7 @@ group functions() {
         }
         @install()
         @weak()
-        fun _check_range_old(entity_1, entity_2, x, y) {
+        fun return_check_range_old(entity_1, entity_2, x, y) {
             CUSTOM_MEMORY.RETURN = False;
 
             check_range_old(entity_1, entity_2, x, y, {
