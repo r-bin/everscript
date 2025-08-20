@@ -14,7 +14,6 @@
 # nice to have
 ## any door can be opened with a bomb
 ## multiple fanfares seem to be inefficient (long fadeout silence)
-## temple - lvl1 = white maggots, lvl2 = red maggots
 ## bomb arena - leave via bridge
 ## cat ring purchasing is weird
 ## ship: walking south instantly breaks stairs
