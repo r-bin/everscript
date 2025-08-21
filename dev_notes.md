@@ -3,6 +3,11 @@
 
 
 # important
+## finish dialogues
+### castle (king, chicken guy)
+### shrine (black smith, bee boy)
+### npcs (archaeologist)
+### quests (isaac, mario, sphinx)
 ## 9 bees
 ## abomination entrance only works the first time
 ## market: gain brown dropplets
