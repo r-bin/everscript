@@ -1,5 +1,7 @@
 group general_enums() {
     enum SYSTEM {
+        WITH_NO_DOG_DIALOG = True, // can double the compile time for big projects
+
         WITH_DEBUG_SUBTEXT = True,
         WITH_DEBUG_MUSIC = False,
         WITH_DEBUG_SOUND = False,
@@ -5368,13 +5370,6 @@ group functions() {
                     control(SCRIPT_OWNER, False);
                 }
             }
-            fun conversation(callback, face?:CHARACTER) {
-                conversation_start(face);
-
-                callback();
-
-                conversation_end(face);
-            }
             fun conversation_dialog(id, lines) {
                 if(lines is Word) {
                     smart_text_box(<SCRIPT_OWNER>, lines);
@@ -5393,6 +5388,43 @@ group functions() {
                 text(id);
                 await_answer();
                 text_end();
+            }
+            @install()
+            @weak()
+            fun default_conversation_answer() {
+                conversation_dialog("…[B]");
+            }
+            fun conversation(callback, face?:CHARACTER) {
+                conversation_start(face);
+
+                callback(); // todo: compile time increases by 20%
+
+                conversation_end(face);
+            }
+            fun smart_conversation(callback_boy, callback_dog, face?:CHARACTER) {
+                conversation_start(face);
+
+                // todo: compile time increases by 100%
+
+                if!(SYSTEM.WITH_NO_DOG_DIALOG) {
+                    if(<ACTIVE> == <BOY>) {
+                        if(callback_boy is Function) {
+                            callback_boy(); // buggy: cached when installed
+                        } else {
+                            default_conversation_answer();
+                        }
+                    } else {
+                        if(callback_dog is Function) {
+                            callback_dog(); // buggy: cached when installed
+                        } else {
+                            default_conversation_answer();
+                        }
+                    }
+                } else {
+                    callback_boy();
+                }
+
+                conversation_end(face);
             }
 
             @install()
