@@ -9636,6 +9636,18 @@ area inbetwixx_center() {
                 destroy(SCRIPT_OWNER);
             }
         }
+
+        @install()
+        @async()
+        fun intro_subtext() {
+            subtext("`Secret of Nevermore´");
+            sleep(0d2, S);
+
+            subtext("`The Misadventures of Vex´");
+            sleep(0d3, S);
+
+            subtext("v0.9.0 - by r.bin");
+        }
         
         @install()
         fun trigger_enter() {
@@ -9698,13 +9710,10 @@ area inbetwixx_center() {
 
             if!(FLAG.IN_ANIMATION) {
                 if!(SOULS_MEMORY.INTRO_WATCHED) {
-                    set(SOULS_MEMORY.INTRO_WATCHED);
-
-                    subtext("`The Missadventures of Vex´");
+                    SOULS_MEMORY.INTRO_WATCHED = True;
+                    intro_subtext();
 
                     intro();
-
-                    subtext("v0.9.0 - by r.bin");
                 }
                 
                 // code(0xa3, 0x18, "// (a3) CALL 'Prepare room change? North exit/south entrance outdoor-indoor?' (0x26)"); // TODO: 4x4 combinations, not 4
@@ -14521,7 +14530,9 @@ area northwest_inbetwixx() {
             DEBUG = False,
 
             LIFT_ID = memory(WORD, TEMP),
-            LIFT_POSITION = memory(BYTE, SRAM),
+            LIFT_ACTIVE = memory(FLAG, SRAM),
+            LIFT_RIGHT = memory(FLAG, SRAM),
+            LIFT_POSITION = memory(WORD, TEMP),
             CENTER_LINE = 0d272,
 
             SECRET_PASSAGE_TRIGGER = memory(WORD, TEMP),
@@ -14530,16 +14541,30 @@ area northwest_inbetwixx() {
             WALL = retained_object(0x00),
         }
 
-        fun init_lift(position) {
-            if(ROOM.LIFT_POSITION == 0d0) {
-                ROOM.LIFT_POSITION = position;
+        enum LIFT_POSITION {
+            UNINITIALIZED = 0d0,
+
+            LEFT = 0d1,
+            CENTER = 0d2,
+            RIGHT = 0d3,
+        }
+
+        fun init_lift() {
+            if(ROOM.LIFT_POSITION == LIFT_POSITION.UNINITIALIZED) {
+                if!(ROOM.LIFT_ACTIVE) {
+                    ROOM.LIFT_POSITION = LIFT_POSITION.CENTER;
+                } else if(ROOM.LIFT_RIGHT) {
+                    ROOM.LIFT_POSITION = LIFT_POSITION.RIGHT;
+                } else {
+                    ROOM.LIFT_POSITION = LIFT_POSITION.LEFT;
+                }
             }
 
-            if(ROOM.LIFT_POSITION == 0d1) {
+            if(ROOM.LIFT_POSITION == LIFT_POSITION.LEFT) {
                 add_placeholder(LIFT_MOVING, 0d16, 0d15, ONCE_FREEZE);
-            } else if(ROOM.LIFT_POSITION == 0d2) {
+            } else if(ROOM.LIFT_POSITION == LIFT_POSITION.CENTER) {
                 add_placeholder(LIFT_MOVING, 0d33, 0d15, ONCE_FREEZE);
-            } else if(ROOM.LIFT_POSITION == 0d3) {
+            } else if(ROOM.LIFT_POSITION == LIFT_POSITION.RIGHT) {
                 add_placeholder(LIFT_MOVING, 0d49, 0d15, ONCE_FREEZE);
             }
 
@@ -14552,11 +14577,16 @@ area northwest_inbetwixx() {
                 end();
             }
 
-            if(position == 0d1) {
+            if(position == LIFT_POSITION.LEFT) {
                 arg[0x10] = 0d128;
-            } else if(position == 0d2) {
+                ROOM.LIFT_ACTIVE = True;
+                ROOM.LIFT_RIGHT = False;
+            } else if(position == LIFT_POSITION.CENTER) {
+                ROOM.LIFT_ACTIVE = False;
                 arg[0x10] = 0d264;
-            } else if(position == 0d3) {
+            } else if(position == LIFT_POSITION.RIGHT) {
+                ROOM.LIFT_ACTIVE = True;
+                ROOM.LIFT_RIGHT = True;
                 arg[0x10] = 0d392;
             }
 
@@ -14633,12 +14663,20 @@ area northwest_inbetwixx() {
             lift_west = @install() {
                 debug_subtext("S=0");
 
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.LIFT_POSITION, ROOM.LIFT_ACTIVE, ROOM.LIFT_RIGHT);
+                }
+
                 if(ROOM.LIFT_POSITION == 0d1) {
                     move_lift(ROOM.LIFT_ID, 0d3);
                 }
             },
             lift_east = @install() {
                 debug_subtext("S=1");
+
+                if(ROOM.DEBUG) {
+                    debug_memory(ROOM.LIFT_POSITION, ROOM.LIFT_ACTIVE, ROOM.LIFT_RIGHT);
+                }
 
                 if(ROOM.LIFT_POSITION == 0d3) {
                     move_lift(ROOM.LIFT_ID, 0d1);
@@ -14758,7 +14796,7 @@ area northwest_inbetwixx() {
                 }
                 yield();
 
-                if(ROOM.DEBUG) {
+                if(False && ROOM.DEBUG) {
                     debug_memory(arg[0x08], arg[0x0a]);
                     sleep(0x20);
                 }
@@ -33496,6 +33534,8 @@ area metro() {
             }
 
             enum ROOM {
+                DEBUG = False,
+
                 LIGHT_ON = AREA_METRO.LEVER_REACTOR_ROOM,
 
                 LOOTED_HELMET = memory(FLAG, SRAM),
@@ -33553,11 +33593,15 @@ area metro() {
                     debug_subtext("B=0");
 
                     guard_dark_gourd();
+
+                    _loot_chest(0x06, METEORITE, 0d1, 0d2);
                 },
                 gourd_1_2 = @install() {
                     debug_subtext("B=1");
 
-                    guard_dark_gourd();
+                    // _loot_chest(0x05, AMMO, 0d1);
+                    
+                    _loot_chest(0x05, PETAL, 0d1);
                 },
                 gourd_1_1 = @install() {
                     debug_subtext("B=2");
@@ -33577,29 +33621,38 @@ area metro() {
                     debug_subtext("B=3");
 
                     guard_dark_gourd();
+
+                    // _loot_chest(0x03, AMMO, 0d1);
+
+                    _loot_chest(0x03, MONEY, 0d30);
                 },
                 gourd_2_3 = @install() {
                     debug_subtext("B=4");
 
                     guard_dark_gourd();
+
+                    _loot_chest(0x02, HONEY, 0d1);
                 },
                 gourd_2_2 = @install() {
                     debug_subtext("B=5");
 
                     guard_dark_gourd();
+
+                    _loot_chest(0x01, ACORNS, 0d1, 0d1);
                 },
                 gourd_2_1 = @install() {
                     debug_subtext("B=6");
 
                     guard_dark_gourd();
 
-                    _loot_chest(0x00, BAZOOKA, 0d01);
+                    _loot_chest(0x00, DRY_ICE, 0d1, 0d3);
+                    // _loot_chest(0x00, BAZOOKA, 0d01);
                 },
             }
 
             fun trigger_enter() {
-                if(False) {
-                    AREA_METRO.LEVER_REACTOR_ROOM = True;
+                if(ROOM.DEBUG) {
+                    ROOM.LIGHT_ON = True;
                 }
                 
                 // object[0x00] = 0x02; // loot gourd_2_1
@@ -34164,6 +34217,8 @@ area metro() {
                 },
                 gourd = @install() {
                     debug_subtext("B=1");
+
+                    _loot_chest(0x1f, HERBAL_ESSENCE, 0d01);
                 },
             }
 

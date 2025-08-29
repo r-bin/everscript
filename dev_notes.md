@@ -15,6 +15,8 @@
 ## spoon sickness can be healed with heal or miracle cure
 ## ai moves don't cancel on death
 ## dog lady only wants to join when the dog is present
+## metro storage room loot (scanner + meteroite)
+## radiation (more enemies in the entrances)
 
 # nice to have
 ## any door can be opened with a bomb
