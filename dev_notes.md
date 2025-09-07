@@ -3,20 +3,20 @@
 
 
 # important
+## radiation (more enemies in the entrances)
 ## finish dialogues
 ### castle (king, chicken guy)
 ### shrine (black smith, bee boy)
-### npcs (archaeologist)
+### npcs (archaeologist, dog lady + dog dialogue)
 ### quests (isaac, mario, sphinx)
-## 9 bees
-## abomination entrance only works the first time
 ## market: gain brown dropplets
 ## more orbs (every boss)
 ## spoon sickness can be healed with heal or miracle cure
 ## ai moves don't cancel on death
-## dog lady only wants to join when the dog is present
-## metro storage room loot (scanner + meteroite)
-## radiation (more enemies in the entrances)
+## animations/cutscenes
+### abomination entrance only works the first time
+## "wrong weapon" after watching the outro while holding the bronze axe
+## thraxx (kill -> walk to center)
 
 # nice to have
 ## any door can be opened with a bomb
@@ -40,6 +40,9 @@
 ## stats menu - armor name incorrect
 
 
+# hard mode
+## only one spell
+## OHK (1hp)
 
 
 
