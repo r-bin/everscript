@@ -414,6 +414,7 @@ group non_maps() {
             PICKAXE_SHAFT = 0xf304,
             PICKAXE = 0xf305,
             ANGRY_BIRD = 0xf306,
+            UPGRADE_MAGIC_SLOTS = 0xf307,
 
             // misc
             ARCARDE_COIN = 0xf400,
@@ -1026,6 +1027,30 @@ group non_maps() {
             } else if(item == CUSTOM_ITEM.ANGRY_BIRD) {
                 subtext("Gained Angry Bird");
                 MEMORY.CHICKEN++;
+
+                fanfare_item(True, push_music);
+            } else if(item == CUSTOM_ITEM.UPGRADE_MAGIC_SLOTS) {
+                if!(SOULS_MEMORY.MAGIC_SLOTS_2) {
+                    SOULS_MEMORY.MAGIC_SLOTS_2 = True;
+
+                    MEMORY.STRING_PARAMETER_1 = 0d2;
+                } else if!(SOULS_MEMORY.MAGIC_SLOTS_4) {
+                    SOULS_MEMORY.MAGIC_SLOTS_4 = True;
+
+                    MEMORY.STRING_PARAMETER_1 = 0d4;
+                } else if!(SOULS_MEMORY.MAGIC_SLOTS_9) {
+                    SOULS_MEMORY.MAGIC_SLOTS_9 = True;
+
+                    MEMORY.STRING_PARAMETER_1 = 0d9;
+                } else {
+                    MEMORY.STRING_PARAMETER_1 = 0d0;
+                }
+
+                if(MEMORY.STRING_PARAMETER_1) {
+                    subtext("Gained [MEM1] magic slots");
+                } else {
+                    subtext("Gained Nothing");
+                }
 
                 fanfare_item(True, push_music);
             } else if(item == CUSTOM_ITEM.ARCARDE_COIN) { // misc
@@ -3205,7 +3230,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(temple_switch, west, NONE);
+                map_transition(reactor_room, east, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -3517,6 +3542,13 @@ group non_maps() {
             }
 
             group talk_ai() {
+                fun response_positive() {
+                    dialog("[SLOW]positive[B]");
+                }
+                fun response_negative() {
+                    dialog("[SLOW]negative[B]");
+                }
+
                 fun greeting_default() {
                     dialog("[SLOW]Bearer of the curse…[LF]Seek souls. Larger, more powerful souls.[LF]Seek the King, that is the only way.[LF]Lest this land swallow you whole… As it has so many others.[B]");
                 }
@@ -3530,11 +3562,11 @@ group non_maps() {
                 }
 
                 fun upgrade_boy() {
-                    full_heal(BOTH, True);
+                    full_heal(BOTH, False);
                     yield();
                     
                     _level_up(MEMORY.STRING_PARAMETER_1, 0d3, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
-                    question("[SLOW]Level up for [MEM1] Souls?[CHOICE]yes…[CHOICE]no…");
+                    question("[SLOW]Upgrade stats?[CHOICE][MEM1] Souls[CHOICE]no…");
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         level_up(BOY, 0d3, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
@@ -3544,34 +3576,83 @@ group non_maps() {
                     }
                 }
 
+                @install()
+                fun upgrade_magic_slots() {
+                    if!(SOULS_MEMORY.MAGIC_SLOTS_2) {
+                        MEMORY.STRING_PARAMETER_1 = 0d2;
+                    } else if!(SOULS_MEMORY.MAGIC_SLOTS_4) {
+                        MEMORY.STRING_PARAMETER_1 = 0d4;
+                    } else if!(SOULS_MEMORY.MAGIC_SLOTS_9) {
+                        MEMORY.STRING_PARAMETER_1 = 0d9;
+                    } else {
+                        MEMORY.STRING_PARAMETER_1 = 0d0;
+                    }
+
+                    if(MEMORY.STRING_PARAMETER_1) {
+                        MEMORY.STRING_PARAMETER_2 = MEMORY.STRING_PARAMETER_1 * 0d100;
+
+                        show_currency(True);
+                        question("[SLOW]Upgrade to [MEM1] slots?[CHOICE][MEM2] Souls[CHOICE]no.");
+
+                        sleep(0x10);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            if_currency(MEMORY.CURRENCY_CURRENT < MEMORY.STRING_PARAMETER_2) {
+                                response_negative();
+                            } else {
+                                smart_sound(PURCHASE);
+                                currency_take(TALONS, MEMORY.STRING_PARAMETER_2);
+                                show_currency(True);
+                                sleep(0d30);
+                                show_currency(False);
+
+                                custom_reward(UPGRADE_MAGIC_SLOTS, True);
+
+                                response_positive();
+                            }
+                        }
+
+                        show_currency(False);
+                    } else {
+                        dialog("[SLOW]I can't train you any more…");
+                    }
+                }
+
+                @install()
                 fun upgrade_estus() {
                     if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
-                        question("[SLOW]estus upgrade?[CHOICE]yes[CHOICE]no");
+                        question("[SLOW]Estus upgrade?[CHOICE]yes[CHOICE]no");
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) {
                             SOULS_MEMORY.ESTUS_SHARDS--;
 
                             SOULS_MEMORY.ESTUS_CHARGES++;
                         }
+                    } else {
+                        story_estus_shard();
                     }
                 }
 
                 @install()
                 fun shrine_maiden_triggered__first_bonfire() {
-                    if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d0) {
-                        NPC_SHRINE_MAIDEN.PROGRESS++;
-                    
-                        dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
-                    } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d1) {
-                        NPC_SHRINE_MAIDEN.PROGRESS++;
-                    
-                        dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
-                    } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d2) {
-                        NPC_SHRINE_MAIDEN.PROGRESS++;
-                    
-                        dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
+                    if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf0) == 0x00) {
+                        if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d0) {
+                            NPC_SHRINE_MAIDEN.PROGRESS++;
+                        
+                            dialog("[SLOW]Welcome to the bonfire, Unkindled One.[LF]I am a Fire Keeper.[LF]I tend to the flame, and tend to thee.[LF]The Lords have left their thrones, and must be deliver'd to them.[LF]To this end, I am at thy side.[B]");
+                        } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d1) {
+                            NPC_SHRINE_MAIDEN.PROGRESS++;
+                        
+                            dialog("[SLOW]Produce the coiled sword at the bonfire.[LF]The mark of ash will guide thee to the land of the Lords.[LF]To Lothric, where the homes of the Lords converge.[B]");
+                        } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d2) {
+                            NPC_SHRINE_MAIDEN.PROGRESS++;
+                        
+                            dialog("[SLOW]Understood.[LF]Then touch the darkness inside me.[LF]With your power, let us make the 'soul without a master.'[LF]Farewell, ashen one.[B]");
+                        } else {
+                            dialog("[SLOW]Ignite the first bonfire.[B]");
+                        }
                     } else {
-                        dialog("[SLOW]Ignite the first bonfire.[B]");
+                        response_positive();
                     }
                 }
                 @install()
@@ -3588,17 +3669,15 @@ group non_maps() {
                         greeting_default();
                     }
 
-                    if(SOULS_MEMORY.ESTUS_SHARDS > 0x00) {
-                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…[CHOICE]upgrade…");
-                    } else {
-                        question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]level up…");
-                    }
+                    question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade stats…[CHOICE]upgrade magic…[CHOICE]upgrade flask…", 0d5);
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
                         story_estus_shard();
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // level up
                         upgrade_boy();
-                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // upgrade
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // upgrade magic
+                        upgrade_magic_slots();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d3) { // upgrade flask
                         upgrade_estus();
                     }
                 }
