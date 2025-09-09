@@ -4909,6 +4909,7 @@ group functions() {
                 code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
             }
             @install()
+            @weak()
             fun fade_in() {
                 // handles default loot script
                 // handles transition animation (walk x/y into direction z)
@@ -7596,6 +7597,7 @@ group functions() {
 
             @install()
             @async()
+            @weak()
             fun explode_barrier(entity, sound_id:SOUND) {
                 if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
                     _add_enemy(PLACEHOLDER, entity[X] - 0x10, entity[Y] - 0x10);
@@ -8387,6 +8389,7 @@ group functions() {
             }
             @install()
             @async()
+            @weak()
             fun desert_damage(interval, tick_damage) {
                 _desert_damage(interval, tick_damage);
             }
@@ -9010,6 +9013,7 @@ group functions() {
 
             @install()
             @async()
+            @weak()
             fun door_act4_beam_in() {
                 control(NONE);
 
@@ -9041,6 +9045,7 @@ group functions() {
 
             @install()
             @async()
+            @weak()
             fun _door_act4_beam_out(z) {
                 while(True) {
                     z += 0x10;
@@ -9054,6 +9059,7 @@ group functions() {
                 }
             }
             @install()
+            @weak()
             fun door_act4_beam_out(x, y) {
                 control(NONE);
 
@@ -9087,6 +9093,7 @@ group functions() {
             }
 
             @install()
+            @weak()
             fun act4_heater_touched(direction:FACE_DIRECTION) {
                 control(ACTIVE, True);
 
@@ -9112,6 +9119,7 @@ group functions() {
                 }
             }
             @install()
+            @weak()
             fun act4_evermoremachine_in(x, y) {
                 walk(BOY, TILE_ABSOLUTE, x, y, BOY, NONE);
 
@@ -9160,6 +9168,7 @@ group functions() {
 
         group custom() {
             @install()
+            @weak()
             fun shell_boat_move(entity, direction:DIRECTION) {
                 face(ACTIVE, direction);
                 face(INACTIVE, direction);
@@ -9185,6 +9194,7 @@ group functions() {
                 }
             }
             @install()
+            @weak()
             fun shell_boat_out(entity, direction:DIRECTION) {
                 control(NONE);
 
@@ -9202,6 +9212,7 @@ group functions() {
 
             @install()
             @async()
+            @weak()
             fun shell_boat_in(entity, direction:DIRECTION) {
                 control(NONE);
 
@@ -10662,6 +10673,7 @@ group functions() {
         group dog() {
             @install()
             @async()
+            @weak()
             fun _check_dog_stairs() {
                 yield();
 
@@ -10760,6 +10772,7 @@ group functions() {
 
         @install()
         @async()
+        @weak()
         fun _drop_bomb() {
             _add_enemy(BOMB, <BOY>[X], <BOY>[Y]);
             attach_to_script(LAST_ENTITY);
@@ -10774,6 +10787,7 @@ group functions() {
             destroy(SCRIPT_OWNER);
         }
         @install()
+        @weak()
         fun drop_bomb(costs_ingredients) {
             if((<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
                 end();
@@ -13341,6 +13355,64 @@ group functions() {
         }
         @install()
         @weak()
+        fun _poise_break() {
+            if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                debug_subtext("crit triggered!");
+            }
+
+            arg[0x00] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+            if(<ACTIVE>[X] > <SCRIPT_OWNER>[X]) {
+                arg[0x02] = <ACTIVE>[X] - <SCRIPT_OWNER>[X];
+            } else {
+                arg[0x02] = <SCRIPT_OWNER>[X] - <ACTIVE>[X];
+            }
+            if(<ACTIVE>[Y] > <SCRIPT_OWNER>[Y]) {
+                arg[0x04] = <ACTIVE>[Y] - <SCRIPT_OWNER>[Y];
+            } else {
+                arg[0x04] = <SCRIPT_OWNER>[Y] - <ACTIVE>[Y];
+            }
+
+            if!(((arg[0x02] == 0d16) & (arg[0x04] <= 0d8)) ^ ((arg[0x04] == 0d8) && (arg[0x02] <= 0d8))) {
+                if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                    debug_memory(arg[0x02], arg[0x04]);
+                }
+                fake_b();
+
+                end();
+            } else {
+                if(False) {
+                    subtext("bam");
+                }
+            }
+
+            face_target(arg[0x00], <ACTIVE>);
+            damage(arg[0x00], POISE.CRIT_DAMAGE, True);
+            animate(ACTIVE, ONCE, SLASH_1_3);
+
+            if(False) {
+                debug_memory(0d3, _dead(arg[0x00]));
+            }
+            destroy(SCRIPT_OWNER);
+
+            if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                debug_subtext("crit");
+            }
+
+            sleep(0d60);
+
+            while(arg[0x00][FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                yield();
+            }
+
+            arg[0x00][GENERAL_PURPOSE] = POISE.RESETTING;
+
+            if(POISE.DEBUG && POISE.DEBUG_HIT) {
+                debug_subtext("resetting poise");
+            }
+        }
+        @install()
+        @weak()
         fun poise_break() {
             if(_alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[DAMAGE_SOURCE] > 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.RESETTING) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.ONGOING)) {
                 if(POISE.DEBUG && POISE.DEBUG_HIT) {
@@ -13380,62 +13452,7 @@ group functions() {
                         _add_enemy(PLACEHOLDER, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
                     }
                     <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
-                    attach_script(LAST_ENTITY, B, reference(@install() {
-                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
-                            debug_subtext("crit triggered!");
-                        }
-
-                        arg[0x00] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
-
-                        if(<ACTIVE>[X] > <SCRIPT_OWNER>[X]) {
-                            arg[0x02] = <ACTIVE>[X] - <SCRIPT_OWNER>[X];
-                        } else {
-                            arg[0x02] = <SCRIPT_OWNER>[X] - <ACTIVE>[X];
-                        }
-                        if(<ACTIVE>[Y] > <SCRIPT_OWNER>[Y]) {
-                            arg[0x04] = <ACTIVE>[Y] - <SCRIPT_OWNER>[Y];
-                        } else {
-                            arg[0x04] = <SCRIPT_OWNER>[Y] - <ACTIVE>[Y];
-                        }
-
-                        if!(((arg[0x02] == 0d16) & (arg[0x04] <= 0d8)) ^ ((arg[0x04] == 0d8) && (arg[0x02] <= 0d8))) {
-                            if(POISE.DEBUG && POISE.DEBUG_HIT) {
-                                debug_memory(arg[0x02], arg[0x04]);
-                            }
-                            fake_b();
-
-                            end();
-                        } else {
-                            if(False) {
-                                subtext("bam");
-                            }
-                        }
-
-                        face_target(arg[0x00], <ACTIVE>);
-                        damage(arg[0x00], POISE.CRIT_DAMAGE, True);
-                        animate(ACTIVE, ONCE, SLASH_1_3);
-
-                        if(False) {
-                            debug_memory(0d3, _dead(arg[0x00]));
-                        }
-                        destroy(SCRIPT_OWNER);
-
-                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
-                            debug_subtext("crit");
-                        }
-
-                        sleep(0d60);
-
-                        while(arg[0x00][FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
-                            yield();
-                        }
-
-                        arg[0x00][GENERAL_PURPOSE] = POISE.RESETTING;
-
-                        if(POISE.DEBUG && POISE.DEBUG_HIT) {
-                            debug_subtext("resetting poise");
-                        }
-                    }));
+                    attach_script(LAST_ENTITY, B, reference(_poise_break));
 
                     arg[0x00] = <LAST_ENTITY>;
                     if(POISE.POISE_BREAK_DURATION != 0xffff) {
@@ -13513,8 +13530,10 @@ group functions() {
         }
         @install()
         @weak()
-        fun chickens_taunted() {
-            while(True) {
+        fun chickens_taunted(count) {
+            while(count > 0d3) {
+                count -= 0d3;
+
                 _chickens_taunted(<ACTIVE>[X], <ACTIVE>[Y]);
                 sleep(0d20);
                 if(randrange(0d1)) {
