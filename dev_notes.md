@@ -3,22 +3,27 @@
 
 
 # important
-## radiation (more enemies in the entrances)
+## soft lock (volcano dungeon shell used + return to bonfire)
+## radiation (more enemies near the entrances)
 ## finish dialogues
 ### castle (king, chicken guy)
 ### shrine (black smith, bee boy)
 ### npcs (archaeologist, dog lady + dog dialogue)
 ### quests (isaac, mario, sphinx)
+
+# nice to have
 ## market: gain brown dropplets
-## more orbs (every boss)
-## spoon sickness can be healed with heal or miracle cure
+## sound - falling transition
+## basement - door unlock sounds
+## scale enemies: before pyramid
+## projectiles with entity targets should check range (and not shoot off screen)
 ## ai moves don't cancel on death
+## spoon sickness can be healed with heal or miracle cure
+## more orbs (every boss)
 ## animations/cutscenes
 ### abomination entrance only works the first time
 ## "wrong weapon" after watching the outro while holding the bronze axe
 ## thraxx (kill -> walk to center)
-
-# nice to have
 ## any door can be opened with a bomb
 ## multiple fanfares seem to be inefficient (long fadeout silence)
 ## bomb arena - leave via bridge
@@ -26,18 +31,13 @@
 ## ship: walking south instantly breaks stairs
 ## pipe maze side room spawns dog (vanilla script)
 ## basement red maggots after monstro
-## temple elevator preselect floor
 ## sound glitches: kill radahn
-## projectiles with entity targets should check range (and not shoot off screen)
-## scale enemies: before pyramid
 ## raptor arena - don't reuse enemies
 ## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
-## mario dungeon should state "door opened" and sperately "somewhere a door opened"
 ## monstro - bonfire? p2? does not explode?
-## basement - door unlock sounds
-## sound - falling transition
 ## stats menu - armor name incorrect
+## temple elevator preselect floor
 
 
 # hard mode

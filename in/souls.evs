@@ -413,6 +413,7 @@ group non_maps() {
             PICKAXE_HEAD = 0xf303,
             PICKAXE_SHAFT = 0xf304,
             PICKAXE = 0xf305,
+            ANGRY_BIRD = 0xf306,
 
             // misc
             ARCARDE_COIN = 0xf400,
@@ -1016,6 +1017,11 @@ group non_maps() {
             } else if(item == CUSTOM_ITEM.PICKAXE) {
                 subtext("Pickaxe");
                 SOULS_MEMORY.PICKAXE = True;
+
+                fanfare_item(True, push_music);
+            } else if(item == CUSTOM_ITEM.ANGRY_BIRD) {
+                subtext("Gained Angry Bird");
+                MEMORY.CHICKEN++;
 
                 fanfare_item(True, push_music);
             } else if(item == CUSTOM_ITEM.ARCARDE_COIN) { // misc
@@ -2154,12 +2160,14 @@ group non_maps() {
             @install()
             fun chicken_triggered() {
                 CUSTOM_MEMORY.CHICKEN_TAUNT_COUNTER++;
+                
+                // TODO: sound
 
                 if(CUSTOM_MEMORY.CHICKEN_TAUNT_COUNTER == 0d100) {
-                    chickens_taunted();
-                }
+                    chickens_taunted(CUSTOM_MEMORY.CHICKEN_TAUNT_COUNTER);
 
-                // TODO: sound
+                    custom_reward(ANGRY_BIRD, True);
+                }
             }
 
             @install()
@@ -4710,22 +4718,30 @@ group non_maps() {
                 @install()
                 fun dog_lady_dialog_0() {
                     smart_conversation({
-                        if(NPC_DOG_LADY.PROGRESS == 0d0) {
-                            if(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
-                                conversation_question("[SLOW]What a lovely dog… Do you need help training?[CHOICE]invite…[CHOICE]leave…");
+                        if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
+                            if(((NPC_DOG_LADY.PROGRESS & 0x0f) < 0d1) || (!SOULS_MEMORY.BONFIRE_FIRST_TRIGGER)) {
+                                conversation_dialog("[SLOW]I… I don't know where to go now…[B]");
+                            } else {
+                                conversation_question("[SLOW]What a lovely companion you have… Do you need help training?[CHOICE]invite…[CHOICE]leave…");
                                 
                                 if(MEMORY.QUESTION_ANSWER == 0d0) { // help
-                                    NPC_DOG_LADY.PROGRESS++;
+                                    NPC_DOG_LADY.PROGRESS = 0x10;
 
                                     conversation_dialog("[SLOW]I'll be on my way.[B]");
                                 }
-                            } else {
-                                conversation_dialog("[SLOW]I… I don't know where to go now…[B]");
                             }
                         } else {
                             conversation_dialog("[SLOW]I'll be on my way.[B]");
                         }
-                    }, False);
+                    }, {
+                        if(NPC_DOG_LADY.PROGRESS == 0x00) {
+                            NPC_DOG_LADY.PROGRESS++;
+
+                            conversation_dialog("[SLOW]What a lovely dog…[B]");
+                        } else {
+                            conversation_dialog("[SLOW]You should visit me soon![B]");
+                        }
+                    });
                 }
 
                 fun choose_dog() {
@@ -4837,9 +4853,9 @@ group non_maps() {
                     add_enemy(NPC_DOG_LADY.BODY, x, y);
                 }
 
-                if(NPC_DOG_LADY.PROGRESS == 0d0) {
+                if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
                     attach_script(LAST_ENTITY, B, reference(dog_lady_dialog_0));
-                } else if(NPC_DOG_LADY.PROGRESS == 0d1) {
+                } else if((NPC_DOG_LADY.PROGRESS & 0xf0) >= 0x10) {
                     attach_script(LAST_ENTITY, B, reference(dog_lady_dialog_1));
                 }
             }
@@ -8691,7 +8707,7 @@ area shrine_area() {
             // object[0x00] = 0x01; // open gourd_1_1_1
             // object[0x01] = 0x01; // open gourd_1_1_2
 
-            if(NPC_DOG_LADY.PROGRESS >= 0d1) {
+            if((NPC_DOG_LADY.PROGRESS & 0xf0) >= 0x10) {
                 add_souls_npc_dog_lady(0d15, 0d16);
             }
 
@@ -10195,7 +10211,7 @@ area west_inbetwixx() {
 
                     dog_lady_dialog_0();
                 }));
-            } else if(NPC_DOG_LADY.PROGRESS == 0d0) {
+            } else if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
                 add_souls_npc_dog_lady(0x58, 0x0f);
             }
 
@@ -13252,15 +13268,9 @@ area altus_plateau_entry() {
                 }
 
                 enum b_trigger {
-                    chicken_1 = @install() {
-                        debug_subtext("B=0");
-                    },
-                    chicken_2 = @install() {
-                        debug_subtext("B=1");
-                    },
-                    chicken_3 = @install() {
-                        debug_subtext("B=2");
-                    },
+                    chicken_1 =  chicken_triggered(),
+                    chicken_2 =  chicken_triggered(),
+                    chicken_3 = chicken_triggered(),
                     farmer = @install() {
                         debug_subtext("B=3");
                     },
