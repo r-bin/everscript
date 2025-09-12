@@ -739,6 +739,9 @@ group non_maps() {
 
             REWARD_STONEHENGE_TOWN = ITEM.JADE_DISK,
             REWARD_STONEHENGE_BASEMENT = NECTAR, // TODO
+
+            // BOSSES
+            FLASH_BASE_DAMAGE = 0d10,
         }
 
         enum HELPER_START_ABILITY {
@@ -3519,7 +3522,7 @@ group non_maps() {
                     attach_script(LAST_ENTITY, B, reference(@install() {
                         STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.BOSS;
 
-                        dialog("todo[B]");
+                        dialog("[SLOW]Here he comes[B]");
                     }));
                 }
             }
@@ -4381,7 +4384,7 @@ group non_maps() {
                 };
 
                 fun response_greeting() {
-                    arg[0x00] = randrange(0x04);
+                    arg[0x00] = randrange(0d4);
 
                     if(arg[0x00] == 0d0) {
                         dialog("[SLOW]If you bring me the right material I can craft you almost anything. Preferably mushrooms based armor, though.[B]");
@@ -4478,7 +4481,7 @@ group non_maps() {
 
                                     NPC_SHARED.STORY_PICKAXE = True;
                             } else {
-                                subtext("todo");
+                                conversation_dialog("[SLOW]The land is full of burried trasures.[B]");
                             }
                         } else if(MEMORY.QUESTION_ANSWER == 0d1) { // craft
                             craft_armor();
@@ -4576,7 +4579,7 @@ group non_maps() {
                                 if(MEMORY.CURRENT_MAP == MAP.RIVER) {
                                     conversation_dialog("[SLOW]Apparently I missed bringing the heavy gear.[B]");
                                 } else {
-                                    conversation_dialog("[SLOW]Apparently I missed bringing my climbing gear.");
+                                    conversation_dialog("[SLOW]Apparently I missed bringing my climbing gear.[B]");
                                 }
 
                                 conversation_dialog("My sources told me about a second lead. An abandond excavation site South of this dead end.[B]");
@@ -5851,7 +5854,7 @@ group custom_bosses() {
             HEAL_THRESHOLD = 0d20,
             ESTUS_HEAL = 0d20,
 
-            LEVEL_FLASH = 0d5,
+            LEVEL_FLASH = SOULS_MEMORY.FLASH_BASE_DAMAGE + 0d0,
         }
 
         group random_cast_helper() {
@@ -13959,7 +13962,7 @@ area altus_plateau_entry() {
                     if(ROOM.IRON_THRONE_COUNT < ROOM.IRON_THRONE_THRESHOLD) {
                         iron_throne_trade();
                     } else {
-                        debug_subtext("TODO");
+                        dialog("[SLOW]Now leave.[B]");
                     }
 
                     control(BOTH);
@@ -16232,8 +16235,11 @@ area east_inbetwixx() {
         }
 
         enum BOSS {
-            DEBUG = False,
-            IN_PROGRESS = memory(WORD, TEMP),
+            DEBUG = True,
+            DEBUG_STOMP = False,
+            DEBUG_MOUNT = False,
+
+            IN_PROGRESS = memory(FLAG, TEMP),
 
             RIDER_ID = memory(WORD, TEMP),
             MOUNT_ID = memory(WORD, TEMP),
@@ -16241,7 +16247,7 @@ area east_inbetwixx() {
             PHASE = memory(WORD, TEMP),
             TIMER = memory(WORD, TEMP),
 
-            HP = 0x03e8, // 1000
+            HP = 0d1000,
 
             COUNTDOWN = 0x03,
 
@@ -16252,6 +16258,11 @@ area east_inbetwixx() {
             STOMP_DAMAGE_CLOSE = 0x50,
             STOMP_DAMAGE = 0x10,
             STOMP_EXPLOSION_DISTANCE = 0x30,
+
+            FLASH_LEVEL = SOULS_MEMORY.FLASH_BASE_DAMAGE + 0d0,
+
+            CHEESE_COUNT = memory(WORD, TEMP),
+            BEHIND_THRESHOLD = 0d40,
 
             // p1
 
@@ -16272,7 +16283,7 @@ area east_inbetwixx() {
 
             souls_boss_defeated(DEAD_STOMPY_RADAHN, REWARD_STOMPY_RADAHN);
 
-            BOSS.IN_PROGRESS = 0x00;
+            BOSS.IN_PROGRESS = False;
 
             object[0x1f] = 0x00;
         }
@@ -16298,25 +16309,30 @@ area east_inbetwixx() {
             arg[0x04] = <BOY>[X];
             arg[0x06] = <BOY>[Y];
 
-            if(arg[0x00] < arg[0x04]) {
-                arg[0x08] = arg[0x04] - arg[0x00];
+            if(False) {
+                if(arg[0x00] < arg[0x04]) {
+                    arg[0x08] = arg[0x04] - arg[0x00];
+                } else {
+                    arg[0x08] = arg[0x00] - arg[0x04];
+                }
+
+                if(arg[0x02] < arg[0x06]) {
+                    arg[0x0a] = arg[0x06] - arg[0x02];
+                } else {
+                    arg[0x0a] = arg[0x02] - arg[0x06];
+                }
+
+                if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_DISTANCE)) {
+                    damage(BOY, BOSS.STOMP_DAMAGE_CLOSE, True);
+                } else if((arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE)) {
+                    damage(BOY, BOSS.STOMP_DAMAGE, True);
+                }
             } else {
-                arg[0x08] = arg[0x00] - arg[0x04];
+                bomb_entity(BOSS.STOMP_ENTITY, BOSS.STOMP_DISTANCE, BOSS.STOMP_DAMAGE_CLOSE);
+                bomb_entity(BOSS.STOMP_ENTITY, BOSS.STOMP_EXPLOSION_DISTANCE, BOSS.STOMP_DAMAGE);
             }
 
-            if(arg[0x02] < arg[0x06]) {
-                arg[0x0a] = arg[0x06] - arg[0x02];
-            } else {
-                arg[0x0a] = arg[0x02] - arg[0x06];
-            }
-
-            if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_DISTANCE)) {
-                damage(BOY, BOSS.STOMP_DAMAGE_CLOSE, True);
-            } else if((arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE)) {
-                damage(BOY, BOSS.STOMP_DAMAGE, True);
-            }
-
-            if(BOSS.DEBUG) {
+            if(BOSS.DEBUG && BOSS.DEBUG_STOMP) {
                 debug_memory(arg[0x08], arg[0x0a]);
                 sleep(0x20);
             }
@@ -16336,7 +16352,7 @@ area east_inbetwixx() {
 
                 if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
                     arg[0x00] = BOSS.MOUNT_ID[X];
-                    arg[0x02] = BOSS.MOUNT_ID[Y];
+                    arg[0x02] = BOSS.MOUNT_ID[Y] - 0d20;
                     arg[0x04] = <ACTIVE>[X];
                     arg[0x06] = <ACTIVE>[Y];
 
@@ -16352,7 +16368,7 @@ area east_inbetwixx() {
                         arg[0x0a] = arg[0x02] - arg[0x06];
                     }
 
-                    if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_DISTANCE)) {
+                    if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= (BOSS.STOMP_DISTANCE + 0d20))) {
                         BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
 
                         stomp();
@@ -16372,9 +16388,7 @@ area east_inbetwixx() {
 
         fun cast_salvage(target:CHARACTER, level) {
             animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
-            cast(BOSS.RIDER_ID, target, FIREBALL, level);
             cast(BOSS.RIDER_ID, target, FLASH, level);
-            cast(BOSS.RIDER_ID, target, FIREBALL, level);
             cast(BOSS.RIDER_ID, target, FLASH, level);
         }
 
@@ -16382,23 +16396,27 @@ area east_inbetwixx() {
         fun boss_damage() {
             // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
 
-            if(BOSS.PHASE == 0x00) {
-                BOSS.TIMER = 0x00;
+            if(BOSS.PHASE == 0d0) {
+                BOSS.TIMER = 0d0;
 
                 if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
-                    BOSS.PHASE = 0x01;
+                    BOSS.PHASE = 0d1;
                 }
             }
-            if(BOSS.PHASE == 0x01) {
+            if(BOSS.PHASE == 0d1) {
                 if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
-                    BOSS.PHASE = 0x02;
+                    BOSS.PHASE = 0d2;
                 }
             }
-            if(BOSS.PHASE == 0x02) {
-                BOSS.TIMER -= 0x60;
+            if(BOSS.PHASE == 0d2) {
+                if(BOSS.TIMER > 0d100) {
+                    BOSS.TIMER -= 0d100;
+                } else {
+                    BOSS.TIMER = 0d0;
+                }
             }
 
-            if(BOSS.DEBUG) {
+            if(BOSS.DEBUG && False) {
                 MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
                 MEMORY.STRING_PARAMETER_2 = BOSS.HP;
 
@@ -16413,11 +16431,11 @@ area east_inbetwixx() {
                 subtext("phase 0");
             }
 
-            while(BOSS.PHASE == 0x00) {
+            while(BOSS.PHASE == 0d0) {
                 if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, 0x00);
+                    cast_salvage(ACTIVE, BOSS.FLASH_LEVEL);
 
-                    BOSS.TIMER = 0x00;
+                    BOSS.TIMER = 0d0;
                 }
             
                 if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
@@ -16430,15 +16448,15 @@ area east_inbetwixx() {
                 subtext("phase 1");
             }
 
-            BOSS.TIMER = 0x0000;
-            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+            BOSS.TIMER = 0d0;
+            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
 
             while(BOSS.PHASE == 0x01) {
                 if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, 0x00);
+                    cast_salvage(ACTIVE, BOSS.FLASH_LEVEL);
 
-                    BOSS.TIMER = 0x00;
+                    BOSS.TIMER = 0d0;
                 }
             
                 if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
@@ -16447,26 +16465,26 @@ area east_inbetwixx() {
                 yield();
             }
 
-            BOSS.TIMER = 0x0000;
+            BOSS.TIMER = 0d0;
             BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
-            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
 
-            while(BOSS.PHASE == 0x01) {
+            while(BOSS.PHASE == 0d1) {
                 BOSS.TIMER++;
 
                 if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
-                    BOSS.TIMER = 0x0000;
+                    BOSS.TIMER = 0d0;
 
-                    BOSS.RANDOM_SPELL = randrange(0x03);
+                    BOSS.RANDOM_SPELL = randrange(0d3);
 
-                    if(BOSS.RANDOM_SPELL == 0x00) {
-                        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-                        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
-                    } else if(BOSS.RANDOM_SPELL == 0x01) {
-                        cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0x30);
-                    } else if(BOSS.RANDOM_SPELL == 0x02) {
-                        cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0x01);
+                    if(BOSS.RANDOM_SPELL == 0d0) {
+                        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                    } else if(BOSS.RANDOM_SPELL == 0d1) {
+                        cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d30);
+                    } else if(BOSS.RANDOM_SPELL == 0d2) {
+                        cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
                     } 
                 }
                 yield();
@@ -16479,6 +16497,65 @@ area east_inbetwixx() {
             boss_killed();
         }
 
+        fun cast_drake_salvage(target:CHARACTER, level) {
+            call_async(ADDRESS.STERLING_ROAR);
+
+            cast(BOSS.MOUNT_ID, target, FIREBALL, level);
+            cast(BOSS.MOUNT_ID, target, FIREBALL, level);
+        }
+
+        @install()
+        @async()
+        fun cheese_watcher(mount) {
+            attach_to_script(mount);
+
+            while(alive(<SCRIPT_OWNER>)) {
+                if(
+                    (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)
+                    || (<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)
+                    || (<ACTIVE>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)
+                    || (<ACTIVE>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)
+                ) {
+                    nop();
+                } else if((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) && (<BOY>[Y] >= arg[0x12])) {
+                    if(BOSS.CHEESE_COUNT > 0d3) {
+                        BOSS.CHEESE_COUNT -= 0d3;
+                    } else {
+                        BOSS.CHEESE_COUNT = 0d0;
+                    }
+                } else {
+                    if(<BOY>[Y] < arg[0x12]) {
+                        BOSS.CHEESE_COUNT += 0d2;
+                    } else if((arg[0x10] == <SCRIPT_OWNER>[X]) && (arg[0x12] == <SCRIPT_OWNER>[Y])) {
+                        BOSS.CHEESE_COUNT += 0d1;
+                    } else if(BOSS.CHEESE_COUNT > 0d0) {
+                        BOSS.CHEESE_COUNT--;
+                    }
+
+                    if(BOSS.CHEESE_COUNT > BOSS.BEHIND_THRESHOLD) {
+                        BOSS.CHEESE_COUNT = 0d0;
+
+                        cast_drake_salvage(BOY, 0d10);
+                    }
+
+                    if(BOSS.DEBUG && BOSS.DEBUG_MOUNT) {
+                        arg[0x20]++;
+
+                        if(arg[0x20] > 0d20) {
+                            arg[0x20] = 0d0;
+
+                            debug_memory(BOSS.CHEESE_COUNT, BOSS.BEHIND_THRESHOLD);
+                        }
+                    }
+
+                    arg[0x10] = <SCRIPT_OWNER>[X];
+                    arg[0x12] = <SCRIPT_OWNER>[Y];
+                }
+
+                sleep(0d10);
+            }
+        }
+        
         fun spawn_boss(x, y) {
             add_enemy(VERMINATOR, x, y);
             <LAST_ENTITY>[HP] = BOSS.HP;
@@ -16489,9 +16566,11 @@ area east_inbetwixx() {
 
             // add_enemy(STERLING, x, y);
             add_enemy(FORESTDRAKE, x, y);
+            // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.STERLING;
             BOSS.MOUNT_ID = <LAST_ENTITY>;
             // attach_sterling_script_to_last_entity();
             // attribute(LAST_ENTITY, ROOT, True);
+            cheese_watcher(<LAST_ENTITY>);
         }
 
         @install()
@@ -19935,6 +20014,7 @@ area southern_jungle() {
                 BRIDGE_REVEALED = memory(FLAG, SRAM),
                 BRIDGE_REVEALER_ENTITY = memory(WORD, TEMP),
 
+                WITH_TRI_STONE = False,
                 TRI_STONE_LOOTED = memory(FLAG, SRAM),
 
                 CAVE_OPENED = memory(FLAG, SRAM),
@@ -20215,7 +20295,7 @@ area southern_jungle() {
                     set(ROOM.TRI_STONE_LOOTED);
 
                     fake_loot();
-                    subtext("todo");
+                    subtext("unused");
                 }
             }
 
@@ -20309,9 +20389,11 @@ area southern_jungle() {
 
                 player_message(0d134, 0d122, reference(message_triggered));
 
-                if!(ROOM.TRI_STONE_LOOTED) {
-                    add_enemy(PLACEHOLDER, 0d23, 0d134);
-                    attach_script(LAST_ENTITY, B, reference(tri_stones_triggered));
+                if(ROOM.WITH_TRI_STONE) {
+                    if!(ROOM.TRI_STONE_LOOTED) {
+                        add_enemy(PLACEHOLDER, 0d23, 0d134);
+                        attach_script(LAST_ENTITY, B, reference(tri_stones_triggered));
+                    }
                 }
 
                 no_clip_box(0d1126, 0d892, 0d1240, 0d956);
@@ -26577,7 +26659,7 @@ area town() {
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         custom_reward(ISAAC_WANTED_POSTER, True);
 
-                        dialog("`Magdalena O. Moriah, …´[B]");
+                        dialog("… `Magdalena O. Moriah, …´[B]…a hidden basement was where the crimes happened…[B]");
                     }
                 } else {
                     dialog("An old newspaper. Nothing catches your eye.[B]");
@@ -44258,6 +44340,8 @@ area dungeon_podunk() {
         }
 
         enum ROOM {
+            WITH_BUG_COMMENTS = False,
+
             COMMENT_SOUTH = memory(FLAG, TEMP),
 
             COMMENT_BUILDING = memory(FLAG, TEMP),
@@ -44297,7 +44381,9 @@ area dungeon_podunk() {
                     if(<ACTIVE>[X] > ROOM.COORDINATE_CINEMA_REACHED) {
                         set(ROOM.COMMENT_CINEMA);
 
-                        subtext("comment 1");
+                        if(ROOM.WITH_BUG_COMMENTS) {
+                            subtext("todo: comment 1");
+                        }
                     }
                 } else if(<ACTIVE>[X] > ROOM.COORDINATE_EAST_BORDER) {
                     map_transition(mansion_old, west, EAST);
@@ -44308,7 +44394,9 @@ area dungeon_podunk() {
                     if!(ROOM.COMMENT_BUILDING) {
                         set(ROOM.COMMENT_BUILDING);
 
-                        subtext("comment building");
+                        if(ROOM.WITH_BUG_COMMENTS) {
+                            subtext("todo: comment building");
+                        }
                         bug_discovered_1();
 
                         sleep(0d120);
@@ -44332,10 +44420,12 @@ area dungeon_podunk() {
                     if!(ROOM.COMMENT_SOUTH) {
                         set(ROOM.COMMENT_SOUTH);
 
-                        subtext("comment south 1");
-                        sleep(0d120);
-                        subtext("comment south 2");
-                        sleep(0d120);
+                        if(ROOM.WITH_BUG_COMMENTS) {
+                            subtext("todo: comment south 1");
+                            sleep(0d120);
+                            subtext("todo: comment south 2");
+                            sleep(0d120);
+                        }
 
                         bug_discovered_2();
 
@@ -44353,7 +44443,9 @@ area dungeon_podunk() {
         fun cat_triggered() {
             destroy(SCRIPT_OWNER);
 
-            subtext("todo");
+            if(ROOM.WITH_BUG_COMMENTS) {
+                subtext("todo");
+            }
 
             bug_discovered_1();
             bug_discovered_2();
