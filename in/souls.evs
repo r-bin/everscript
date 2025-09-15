@@ -847,7 +847,13 @@ group non_maps() {
         @install()
         fun orb_helper_dialog() {
             if!(SOULS_MEMORY.ORB_USED) {
-                dialog("I should bring the orb to the black smith.[B]", True);
+                dialog("I should bring the orb to the black smith.[B]");
+            }
+        }
+        @install()
+        fun start_menu_helper_dialog() {
+            if!(SOULS_MEMORY.DEBUG_MENU_BUTTON_1) {
+                dialog("A new ring has been added to the ring menu.[B]Selecing an ability binds it to the [START]-button.[B]");
             }
         }
         fun custom_reward(item:CUSTOM_ITEM, push_music) {
@@ -943,6 +949,8 @@ group non_maps() {
                 SOULS_MEMORY.BOMB_ENABLED = True;
                 update_debug_menu();
 
+                start_menu_helper_dialog();
+
                 dialog("[SLOW]Press [START] to drop a bomb.[B]");
             } else if(item == CUSTOM_ITEM.MARIO_YUMP) {
                 subtext("Unlocked Yump");
@@ -951,6 +959,8 @@ group non_maps() {
 
                 SOULS_MEMORY.MARIO_YUMP_ENABLED = True;
                 update_debug_menu();
+
+                start_menu_helper_dialog();
 
                 dialog("[SLOW]Press [START] to yump.[B]");
             } else if(item == CUSTOM_ITEM.ISAAC_TEARS) {
@@ -967,6 +977,8 @@ group non_maps() {
                 SOULS_MEMORY.ROCKET_JUMP_ENABLED = True;
                 update_debug_menu();
 
+                start_menu_helper_dialog();
+
                 dialog("[SLOW]Press [START] to rocket jump.[B]");
             } else if(item == CUSTOM_ITEM.PUPPER_MODE) {
                 subtext("Unlocked Pupper Mode");
@@ -975,6 +987,8 @@ group non_maps() {
 
                 SOULS_MEMORY.PUPPER_ENABLED = True;
                 update_debug_menu();
+
+                start_menu_helper_dialog();
 
                 dialog("[SLOW]Press [START] enable pupper mode.[B]");
             } else if(item == CUSTOM_ITEM.ZELDA_POWER_GLOVE) { // passive abilties
@@ -2245,33 +2259,39 @@ group non_maps() {
 
             @install()
             fun guard_triggered() {
-                if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
-                    arg[0x10] = randrange(0d3);
+                question("[SLOW]Keep moving.[CHOICE]talk…[CHOICE]market…");
 
-                    if(arg[0x10] == 0d0) {
-                        dialog("[SLOW]An evil crawled out of the towns crypt.[B]");
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                        arg[0x10] = randrange(0d3);
+
+                        if(arg[0x10] == 0d0) {
+                            dialog("[SLOW]I've heard that evil spirits crawled out of the towns crypt.[B]");
+                        } else {
+                            dialog("[SLOW]In the center of the town two demons appeared.[B]The guard built a professional barrier to keep everyone safe.[B]");
+                        }
                     } else {
-                        dialog("[SLOW]In the center of the town two demons appeared and brought death with them.[B]The guard built a professional barrier to keep everyone safe.[B]");
+                        dialog("[SLOW]The guard successfully cleansed the crypt.[B]");
                     }
-                }
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // market
+                    MEMORY.STRING_PARAMETER_1 = time[0d0];
 
-                MEMORY.STRING_PARAMETER_1 = time[0d0];
+                    if(time[0d0] < MARKET.START) {
+                        MEMORY.STRING_PARAMETER_2 = ((MARKET.START - time[0d0]) / 0d60) / 0d60;
 
-                if(time[0d0] < MARKET.START) {
-                    MEMORY.STRING_PARAMETER_2 = ((MARKET.START - time[0d0]) / 0d60) / 0d60;
-
-                    if(MEMORY.STRING_PARAMETER_2 > 0d1) {
-                        dialog("[SLOW]Next market will be in [MEM2] minutes.[B]");
+                        if(MEMORY.STRING_PARAMETER_2 > 0d1) {
+                            dialog("[SLOW]Next market will be in [MEM2] minutes.[B]");
+                        } else {
+                            dialog("[SLOW]Next market will be soon.[B]");
+                        }
                     } else {
-                        dialog("[SLOW]Next market will be soon.[B]");
-                    }
-                } else {
-                    MEMORY.STRING_PARAMETER_2 = ((MARKET.END - time[0d0]) / 0d60) / 0d60;
+                        MEMORY.STRING_PARAMETER_2 = ((MARKET.END - time[0d0]) / 0d60) / 0d60;
 
-                    if(MEMORY.STRING_PARAMETER_2 > 0d1) {
-                        dialog("[SLOW]Next break will be in [MEM2] minutes.[B]");
-                    } else {
-                        dialog("[SLOW]Next break will be soon.[B]");
+                        if(MEMORY.STRING_PARAMETER_2 > 0d1) {
+                            dialog("[SLOW]Next break will be in [MEM2] minutes.[B]");
+                        } else {
+                            dialog("[SLOW]Next break will be soon.[B]");
+                        }
                     }
                 }
             }
@@ -3539,6 +3559,7 @@ group non_maps() {
                 PROGRESS = memory(BYTE, SRAM),
 
                 PRICE_LEVEL_UP = 0d100,
+                PRICE_SPELL_SLOT = 0d50,
 
                 // ID = memory(WORD, SRAM),
                 BODY = ENEMY.FIRE_EYES,
@@ -3592,7 +3613,7 @@ group non_maps() {
                     }
 
                     if(MEMORY.STRING_PARAMETER_1) {
-                        MEMORY.STRING_PARAMETER_2 = MEMORY.STRING_PARAMETER_1 * 0d100;
+                        MEMORY.STRING_PARAMETER_2 = MEMORY.STRING_PARAMETER_1 * NPC_SHRINE_MAIDEN.PRICE_SPELL_SLOT;
 
                         show_currency(True);
                         question("[SLOW]Upgrade to [MEM1] slots?[CHOICE][MEM2] Souls[CHOICE]no.");
@@ -5346,7 +5367,7 @@ group non_maps() {
         group npc_alchemists() {
             group alchemist_helper() {
                 fun dialog_alchemist_reward() {
-                    dialog("[SLOW]It's dangerous outside, take this:[B]");
+                    dialog("[SLOW]It's dangerous outside, take this[B]");
                 }
 
                 fun reward_formula(flag:FLAG, formula:ITEM, alchemy_index:ALCHEMY_INDEX, callback) {
@@ -10459,6 +10480,10 @@ area west_inbetwixx() {
                 eternal_dust(0d8, 0d24, reference(@install() {
                     NPC_ISAAC.FOUND = True;
 
+                    if(False) {
+                        animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+                    }
+
                     subtext("Cruel fate…");
                 }));
             }
@@ -10527,7 +10552,7 @@ area west_inbetwixx() {
 
             animate_boy_kneel(BOY);
             
-            question("[SLOW]A trap door under the rug.[CHOICE]Enter…[CHOICE]Leave…");
+            question("[SLOW]A hidden trap door.[LF](No way back in sight…)[CHOICE]Enter…[CHOICE]Leave…");
 
             if(MEMORY.QUESTION_ANSWER == 0d0) {
                 animation_fall_pit(BOY);
@@ -22057,13 +22082,13 @@ area town() {
                 enum b_trigger {
                     gourd_2__3_brimstone = @install() {
                         debug_subtext("B=0");
-                        _loot_chest(0x08, LIMESTONE_TABLET, 0d01);
+                        _loot_chest(0x08, IRON, 0d01);
                     },
                     gourd_1_2__1_nectar = @install() {
                         debug_subtext("B=1");
                         // _loot_chest(0x07, NECTAR, 0d01);
 
-                        _loot_chest(0x07, IRON, 0d01);
+                        _loot_chest(0x07, LIMESTONE_TABLET, 0d01);
                     },
                     gourd_1_1__1_wings = @install() {
                         debug_subtext("B=2");
@@ -22554,7 +22579,7 @@ area town() {
 
                     BRIDGE_WEST_TIME = 0d14, // 0d16,
                     BRIDGE_WEST_ACTIVE = memory(FLAG, TEMP),
-                    BRIDGE_EAST_TIME = 0d2, // 0d3,
+                    BRIDGE_EAST_TIME = 0d150,
                     BRIDGE_EAST_ACTIVE = memory(FLAG, TEMP),
 
                     PIT_NORTH = 0d625,
@@ -22714,7 +22739,7 @@ area town() {
                         object_animator(SWITCH_SPEAR_HALLS, False, 0x01, True, False);
                         object_animator(BRIDGE_HALLS_NORTH_WEST, False, 0x02, True, False);
 
-                        sleep(ROOM.BRIDGE_EAST_TIME, S);
+                        sleep(ROOM.BRIDGE_EAST_TIME);
 
                         object_animator(BRIDGE_HALLS_NORTH_WEST, False, 0x02, False, False);
                         object_animator(SWITCH_SPEAR_HALLS, False, 0x01, False, False);
@@ -26159,8 +26184,11 @@ area town() {
 
                     face(ACTIVE, EAST);
                     damage(ACTIVE, ROOM.DAMAGE_ELLBOW, True);
+                    yield();
 
-                    dealer_triggered();
+                    if(alive(<BOY>)) {
+                        dealer_triggered();
+                    }
 
                     control(BOTH);
                 },
@@ -27346,6 +27374,8 @@ area town() {
 
                 P1_TIMER_THRESHOLD = 0d600,
                 P2_TIMER_THRESHOLD = 0d600,
+
+                LEVEL_FLASH = SOULS_MEMORY.FLASH_BASE_DAMAGE,
             }
 
             enum stepon_trigger {
@@ -27544,17 +27574,17 @@ area town() {
                             animate(BOSS.BOSS_1_ID, ONCE, ANIMATION_ENEMY.PUPPET_1_DANCE);
 
                             if(arg[0x10] == 0d0) {
-                                cast(BOSS.BOSS_1_ID, BOSS.BOSS_2_ID, FORCE_FIELD, 0d0);
+                                cast(BOSS.BOSS_1_ID, BOSS.BOSS_2_ID, FORCE_FIELD);
                             } else if(arg[0x10] == 0d1) {
-                                cast(BOSS.BOSS_1_ID, BOY, CONFOUND, 0d0);
+                                cast(BOSS.BOSS_1_ID, BOY, CONFOUND);
                             } else {
-                                cast(BOSS.BOSS_1_ID, BOY, FLASH, 0d5);
+                                cast(BOSS.BOSS_1_ID, BOY, FLASH, BOSS.LEVEL_FLASH);
                             }
                         } else if(BOSS.NOT_LAST_DAMAGED == BOSS.BOSS_2_ID) {
                             animate(BOSS.BOSS_2_ID, ONCE, ANIMATION_ENEMY.PUPPET_2_DANCE);
 
                             if(arg[0x10] == 0d0) {
-                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, FORCE_FIELD, 0d0);
+                                cast(BOSS.BOSS_2_ID, BOSS.BOSS_1_ID, FORCE_FIELD);
                             } else if(arg[0x10] == 0d1) {
                                 cast(BOSS.BOSS_2_ID, BOSS.BOSS_2_ID, HEAL, 0d15);
                             } else {
@@ -40785,7 +40815,7 @@ area dungeon_volcano() {
         fun trigger_bridge_stone(index) {
             if(index == 0d0) {
                 if(DUNGEON_VOLCANO.BRIDGE_TOP) {
-                    question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
+                    question("Jump into the volcano?[LF](No way back in sight…)[CHOICE]yes…[CHOICE]no…");
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         animation_fall_pit(ACTIVE);
 
@@ -40798,7 +40828,7 @@ area dungeon_volcano() {
                 }
             } else if(index == 0d1) {
                 if(DUNGEON_VOLCANO.BRIDGE_CENTER_TOP) {
-                    question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
+                    question("Jump into the volcano?[LF](No way back in sight…)[CHOICE]yes…[CHOICE]no…");
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
                             animation_fall_pit(ACTIVE);
@@ -40816,7 +40846,7 @@ area dungeon_volcano() {
                 }
             } else if(index == 0d2) {
                 if(DUNGEON_VOLCANO.BRIDGE_CENTER_BOTTOM) {
-                    question("Jump into the volcano?[CHOICE]yes…[CHOICE]no…");
+                    question("Jump into the volcano?[LF](No way back in sight…)[CHOICE]yes…[CHOICE]no…");
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         animation_fall_pit(ACTIVE);
                         
@@ -40973,7 +41003,7 @@ area dungeon_volcano() {
             },
             gourd_inside_2__100_money = @install() {
                 debug_subtext("B=8");
-                _loot_chest(0x0b, MONEY, 0d100);
+                _loot_chest(0x0b, MONEY, 0d20);
             },
             sniff__1_clay = @install() {
                 debug_subtext("B=9");
@@ -41792,7 +41822,7 @@ area dungeon_volcano() {
 
                 fun trigger_enter() {
                     init_room(0d2);
-                    fade_in();
+                    default_init_room();
                 }
             };
             map north_eastern_cave_2(VOLCANO_ROOMS) { // variant: room_es
@@ -42016,7 +42046,7 @@ area dungeon_volcano() {
 
                 fun trigger_enter() {
                     init_room(0d0);
-                    fade_in();
+                    default_init_room();
                 }
             };
         };
