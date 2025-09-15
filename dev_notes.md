@@ -3,6 +3,7 @@
 
 
 # important
+## "positive"/"negative"
 ## soft lock (volcano dungeon shell used + return to bonfire)
 ## radiation (more enemies near the entrances)
 ## finish dialogues
@@ -12,6 +13,7 @@
 ### quests (isaac, mario, sphinx)
 
 # nice to have
+## volcano plate jumps should lock the camera while waiting
 ## market: gain brown dropplets
 ## sound - falling transition
 ## basement - door unlock sounds
