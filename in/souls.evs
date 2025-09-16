@@ -951,7 +951,7 @@ group non_maps() {
 
                 start_menu_helper_dialog();
 
-                dialog("[SLOW]Press [START] to drop a bomb.[B]");
+                dialog("[SLOW]New ability has been added to the ability ring![LF]Bombs require 1 Iron.[B]");
             } else if(item == CUSTOM_ITEM.MARIO_YUMP) {
                 subtext("Unlocked Yump");
                     
@@ -962,7 +962,7 @@ group non_maps() {
 
                 start_menu_helper_dialog();
 
-                dialog("[SLOW]Press [START] to yump.[B]");
+                dialog("[SLOW]New ability has been added to the ability ring![LF]Yumps require 1 Mushroom.[B](Warning: Don't get softlocked, by not carrying Wings!)[B]");
             } else if(item == CUSTOM_ITEM.ISAAC_TEARS) {
                 subtext("Unlocked Tears");
                     
@@ -979,7 +979,7 @@ group non_maps() {
 
                 start_menu_helper_dialog();
 
-                dialog("[SLOW]Press [START] to rocket jump.[B]");
+                dialog("[SLOW]New ability has been added to the ability ring![LF]Rocket jumps damage you.[B]");
             } else if(item == CUSTOM_ITEM.PUPPER_MODE) {
                 subtext("Unlocked Pupper Mode");
                     
@@ -990,7 +990,7 @@ group non_maps() {
 
                 start_menu_helper_dialog();
 
-                dialog("[SLOW]Press [START] enable pupper mode.[B]");
+                dialog("[SLOW]New ability has been added to the ability ring![LF]Puppers require 1 Biscuit.[B]");
             } else if(item == CUSTOM_ITEM.ZELDA_POWER_GLOVE) { // passive abilties
                 if(MEMORY.GLOVE_2_3 == 0d0) {
                     subtext("Gained Power Gloves");
@@ -2507,6 +2507,7 @@ group non_maps() {
 
             RADIATION_LEVEL = memory(WORD, TEMP_RESERVED),
 
+            RADIATION_CURRENT_ACTIVE = memory(FLAG, SRAM),
             RADIATION_CURRENT = memory(BYTE, SRAM),
 
             RADIATION_MAX = 0d255,
@@ -2517,6 +2518,8 @@ group non_maps() {
             RADIATION_BUMP_TOUCH = 0d10,
 
             THRESHOLD_DAMAGE = 0d20,
+
+            HALF_TIME_DURING_SCREEN_TRANSITION = True,
         }
 
         @install()
@@ -2625,10 +2628,20 @@ group non_maps() {
         fun _radiation_handler(source, range) {
             attach_to_script(source);
 
-            sleep(0d60);
+            if(RADIATION.HALF_TIME_DURING_SCREEN_TRANSITION) {
+                RADIATION.RADIATION_CURRENT >>= 0d1;
+            }
 
-            if(SOULS_MEMORY.RADIATION_SOURCE_1) {
+            sleep(0d30);
+
+            if((SOULS_MEMORY.RADIATION_SOURCE_1 != 0x0000) || RADIATION.RADIATION_CURRENT) {
                 radiation_click();
+            } else {
+                if(RADIATION.DEBUG && False) {
+                    debug_memory(SOULS_MEMORY.RADIATION_SOURCE_1, RADIATION.RADIATION_CURRENT_ACTIVE, RADIATION.RADIATION_CURRENT);
+                }
+
+                end();
             }
 
             arg[0x12] = 0d2 + randrange(0d3);
@@ -2670,14 +2683,22 @@ group non_maps() {
                     debug_memory(RADIATION.RADIATION_CURRENT, arg[0x10], arg[0x12]);
                 }
 
-                if((RADIATION.RADIATION_CURRENT > RADIATION.THRESHOLD_DAMAGE) && (!randrange(0d3))) {
-                    MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
-                    damage(BOY, RADIATION.RADIATION_DAMAGE, True);
+                if!(randrange(0d3)) {
+                    if(RADIATION.RADIATION_CURRENT_ACTIVE) {
+                        if(RADIATION.RADIATION_CURRENT == 0d0) {
+                            RADIATION.RADIATION_CURRENT_ACTIVE = False;
+                        } else {
+                            damage(BOY, RADIATION.RADIATION_DAMAGE, True, True);
+                        }
+                    } else if(RADIATION.RADIATION_CURRENT > RADIATION.THRESHOLD_DAMAGE) {
+                        RADIATION.RADIATION_CURRENT_ACTIVE = True;
+                    }
                 }
             }
         }
         fun radiation_handler() {
             _radiation_handler(<BOY>, 0d50);
+            yield();
         }
 
         fun pip_boy(callback) {
@@ -3253,7 +3274,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(reactor_room, east, NONE);
+                map_transition(graveyard, north, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -10392,13 +10413,13 @@ area west_inbetwixx() {
                 // add_enemy(OWL_BLACK, 0d97, 0d55, INACTIVE);
             }
 
+            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_1, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+
             init_map(0x00, 0x06, 0x6e, 0x52);
             default_init_room(True, True);
             if(SOULS_MEMORY.WITH_AREA_NAMES) {
                 subtext("West Inbetwixx");
             }
-
-            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_1, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
         }
     };
 
@@ -11417,6 +11438,8 @@ area altus_plateau_entry() {
 
                 bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
 
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+
                 default_init_room(True, True);
 
                 place_statue(GOMI, 0d24, 0d119);
@@ -11434,8 +11457,6 @@ area altus_plateau_entry() {
                         reward(DIAMOND_EYE, True);
                     }));
                 }
-
-                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
 
                 if(ROOM.WITH_WIND) {
                     start_wind();
@@ -19941,10 +19962,6 @@ area southern_jungle() {
                     }
                 }
 
-                default_init_room(True, True);
-
-                place_statue(HORACE, 0d91, 0d75);
-
                 if(True) {
                     // site - row 1
                     add_enemy(PLACEHOLDER, 0d21, 0d43); // wagon west (skull)
@@ -20020,6 +20037,10 @@ area southern_jungle() {
                     add_enemy(PLACEHOLDER, 0d108, 0d49); // center skull
                     prepare_radiating_entity(<LAST_ENTITY>);
                 }
+
+                default_init_room(True, True);
+
+                place_statue(HORACE, 0d91, 0d75);
             }
         };
     };
@@ -29565,9 +29586,9 @@ area desert_bug() {
                 add_enemy(SPIDER_YELLOW, 0d71, 0d93);
             }
             
-            default_init_room(False, False);
-
             archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_4, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+
+            default_init_room(False, False);
 
             add_enemy(PLACEHOLDER, 0d124, 0d18);
             fake_exit_scanner(<LAST_ENTITY>);
@@ -31893,6 +31914,8 @@ area desert_bug() {
 
                 init_map(0x02, 0x00, 0xa6, 0xd8);
 
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_5, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+
                 default_init_room(False, False);
 
                 movement_amplification(<BOY>, 0xffff, 0d1, True);
@@ -31900,7 +31923,6 @@ area desert_bug() {
                 
                 update_desert();
 
-                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_5, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
 
                 add_enemy(PLACEHOLDER, 0d21 - 0d4, 0d47);
                 fake_exit_scanner(<LAST_ENTITY>);
@@ -42711,10 +42733,10 @@ area dungeon_volcano() {
                         add_enemy(LIZARD, 0d158, 0d238);
                     }
 
+                    archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_2, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+
                     init_room(0d3);
                     default_init_room(False, False);
-
-                    archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_2, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
                 }
             };
             map cave_left_south_west(OGLIN_CAVE) { // variant room_3 (U-shape)
