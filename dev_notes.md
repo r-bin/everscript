@@ -3,8 +3,8 @@
 
 
 # important
+## good loot: moxa stick, silver sheath?
 ## "positive"/"negative"
-## soft lock (volcano dungeon shell used + return to bonfire)
 ## radiation (more enemies near the entrances)
 ## finish dialogues
 ### castle (king, chicken guy)
@@ -13,15 +13,15 @@
 ### quests (isaac, mario, sphinx)
 
 # nice to have
+## scale enemies: before pyramid
+## more orbs (every boss)
+## ai moves don't cancel on death
+## projectiles with entity targets should check range (and not shoot off screen)
+## spoon sickness can be healed with heal or miracle cure
+## basement - door unlock sounds
+## sound - falling transition
 ## volcano plate jumps should lock the camera while waiting
 ## market: gain brown dropplets
-## sound - falling transition
-## basement - door unlock sounds
-## scale enemies: before pyramid
-## projectiles with entity targets should check range (and not shoot off screen)
-## ai moves don't cancel on death
-## spoon sickness can be healed with heal or miracle cure
-## more orbs (every boss)
 ## animations/cutscenes
 ### abomination entrance only works the first time
 ## "wrong weapon" after watching the outro while holding the bronze axe
