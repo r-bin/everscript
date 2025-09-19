@@ -1812,8 +1812,26 @@ class Loot(Function_Base):
         self.reward = self.parse_argument_with_type(self._generator, reward, "LOOT_REWARD")
         self.amount = amount
         self.next = Word(next)
+
     
-        flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, Memory_Alloc.MemoryType.SRAM)
+        if with_kneel_animation:
+            # TODO: error handling, proper data type
+            system = generator.get_identifier("SYSTEM")
+
+            value = None
+            for v in system.values:
+                if v.name == "SNIFF_SPOT_MEMORY_TYPE":
+                    value = v.value
+                    break
+
+            if value.value == 0x01:
+                memory_type = Memory_Alloc.MemoryType.RAM
+            else:
+                memory_type = Memory_Alloc.MemoryType.SRAM
+        else:
+            memory_type = Memory_Alloc.MemoryType.SRAM
+
+        flag = self._generator.get_memory(Memory_Alloc.MemorySize.FLAG, memory_type)
         flag.hint.append(f"loot(reward={self.reward}, amount={self.amount})")
 
         self.object = Object(self._generator, object, flag)
