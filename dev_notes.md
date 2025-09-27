@@ -3,14 +3,8 @@
 
 
 # important
-## good loot: moxa stick, silver sheath?
 ## "positive"/"negative"
 ## radiation (more enemies near the entrances)
-## finish dialogues
-### castle (king, chicken guy)
-### shrine (black smith, bee boy)
-### npcs (archaeologist, dog lady + dog dialogue)
-### quests (isaac, mario, sphinx)
 
 # nice to have
 ## scale enemies: before pyramid
