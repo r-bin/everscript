@@ -2497,57 +2497,26 @@ group non_maps() {
             }
         }
 
-        group ground_switch() {
-            fun _ground_switch_trigger(entity, x, y) {
-                if(
-                    (entity[X] >= (x * 0d0008)) &&
-                    (entity[Y] >= (y * 0d0008)) &&
-                    (entity[X] <= ((x + 0d4) * 0d0008)) &&
-                    (entity[Y] <= ((y + 0d4) * 0d0008))
-                ) {
-                    entity[GENERAL_PURPOSE] = True;
-                } else {
-                    entity[GENERAL_PURPOSE] = False;
-                }
-            }
-            fun ground_switch_trigger(x, y, callback) {
-                <ACTIVE>[GENERAL_PURPOSE] = False;
-                <INACTIVE>[GENERAL_PURPOSE] = False;
-
-                while(True) {
-                    _ground_switch_trigger(<ACTIVE>, x, y);
-
-                    yield();
-
-                    _ground_switch_trigger(<INACTIVE>, x, y);
-
-                    yield();
-
-                    if(False) {
-                        debug_memory(arg[0x10], arg[0x12]);
-                        sleep(0d10);
-                    }
-
-                    if(<ACTIVE>[GENERAL_PURPOSE] && <INACTIVE>[GENERAL_PURPOSE]) {
-                        callback();
-                        end();
-                    }
-                }
-            }
-
-            fun guard_ground_switch() {
-                if(<INACTIVE>[GENERAL_PURPOSE]) {
+        group souls_ground_switch() {
+            fun guard_ground_switch(entity) {
+                if(entity[GENERAL_PURPOSE] >= GROUND_SWITCH.WEIGHT_REQUIRED) {
                     nop();
                 } else if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) {
                     nop();
                 } else {
-                    if(MEMORY.CHEST_2_2) {
+                    if(entity[GENERAL_PURPOSE] > 0d0) {
+                        nop();
+                    } else if(MEMORY.CHEST_2_2) {
                         error_message(TOO_LIGHT);
-                    } else {
+                    } else if(entity[GENERAL_PURPOSE] == 0d0) {
                         error_message(UNKNOWN);
                     }
                     end();
                 }
+            }
+
+            fun souls_ground_switch_trigger(memory, x, y, callback) {
+                ground_switch_trigger(memory, x, y, callback, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2);
             }
         };
     };
@@ -3325,7 +3294,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(graveyard, north, NONE);
+                map_transition(temple_switch2, east, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -22250,6 +22219,7 @@ area town() {
                 enum ROOM {
                     VANILLA_SWITCH = False,
 
+                    SWITCH_ENTITY = memory(WORD, TEMP),
                     SWITCH_ACTIVATED = AREA_TEMPLE.SWITCH_MINTAUR,
                 }
 
@@ -22291,7 +22261,7 @@ area town() {
                 @install()
                 @async()
                 fun show_inactive_ground_switch() {
-                    ground_switch_trigger(0d20, 0d30, {
+                    souls_ground_switch_trigger(ROOM.SWITCH_ENTITY, 0d20, 0d30, {
                         switch_activated();
                     });
                 }
@@ -22333,7 +22303,7 @@ area town() {
                         if(ROOM.VANILLA_SWITCH) {
                             switch_activated();
                         } else {
-                            guard_ground_switch();
+                            guard_ground_switch(ROOM.SWITCH_ENTITY);
                             switch_activated();
                         }
                     }
@@ -22661,6 +22631,7 @@ area town() {
 
                     BRIDGE_REVEALED = memory(FLAG, SRAM),
 
+                    SWITCH_ENTITY = memory(WORD, TEMP),
                     SWITCH_ACTIVATED = AREA_TEMPLE.SWITCH_BRIDGE,
 
                     MUD_STONE = memory(WORD, TEMP),
@@ -22680,8 +22651,8 @@ area town() {
                 }
                 @install()
                 @async()
-                fun ground_switch_scanner() {
-                    ground_switch_trigger(0d64, 0d14, {
+                fun ground_switch_scanner(x, y) {
+                    souls_ground_switch_trigger(ROOM.SWITCH_ENTITY, x, y, {
                         switch_activated();
                     });
                 }
@@ -22725,7 +22696,7 @@ area town() {
                     switch_floor = @install() {
                         debug_subtext("S=16");
 
-                        guard_ground_switch();
+                        guard_ground_switch(ROOM.SWITCH_ENTITY);
                         switch_activated();
                     },
                     exit_east = @install() {
@@ -22852,7 +22823,7 @@ area town() {
                     }));
 
                     if!(ROOM.SWITCH_ACTIVATED) {
-                        ground_switch_scanner();
+                        ground_switch_scanner(0d66, 0d16);
                     } else {
                         object[0x00] = 0x01; // activate switch_floor
                     }

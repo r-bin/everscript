@@ -8529,49 +8529,70 @@ group functions() {
             };
         };
 
-        fun check_switch_check(entity_switch, entity, radius, weight) {
-            if(
-                (entity[X] >= (entity_switch[X] - radius))
-                && (entity[X] <= (entity_switch[X] + radius))
-                && (entity[Y] >= (entity_switch[Y] - radius))
-                && (entity[Y] <= (entity_switch[Y] + radius))
-            ) {
-                arg[0x14] += weight;
+        group ground_switch() {
+            enum GROUND_SWITCH {
+                WEIGHT_REQUIRED = 0d4,
+
+                TRIGGER_RADIUS = 0d20,
             }
-        }
-        fun _check_switch(entity, size) {
-            check_switch_check(entity, <BOY>, size, 0d1); // (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2)
-            check_switch_check(entity, <DOG>, size, 0d1);
 
-            find_all(STONE, {
-                check_switch_check(arg[0x00], arg[0x10], arg[0x02], 0d2);
-            });
-
-            find_all(STONE_ROUND, {
-                check_switch_check(arg[0x00], arg[0x10], arg[0x02], 0d2);
-            });
-
-            // CUSTOM_MEMORY.RETURN = arg[0x14];
-            entity[GENERAL_PURPOSE] = arg[0x14];
-        }
-        @install()
-        fun check_switch(entity, size) {
-            _check_switch(entity, size);
-        }
-        @install()
-        @async()
-        fun check_switch_checker(entity, size) {
-            entity[GENERAL_PURPOSE] = 0d0;
-
-            while(alive(entity)) {
-                arg[0x14] = 0d0;
-                check_switch(entity, 0d30);
-
-                if(False) {
-                    _debug_memory(entity[GENERAL_PURPOSE]);
+            fun check_switch_check(entity_switch, entity, radius, weight) {
+                if(entity[Z] == 0d0) {
+                    if(
+                        (entity[X] >= (entity_switch[X] - radius))
+                        && (entity[X] <= (entity_switch[X] + radius))
+                        && (entity[Y] >= (entity_switch[Y] - radius))
+                        && (entity[Y] <= (entity_switch[Y] + radius))
+                    ) {
+                        arg[0x14] += weight;
+                    }
                 }
             }
-        }
+            fun _check_switch(entity, size, weight_boy, weight_dog, weight_stone) {
+                check_switch_check(entity, <BOY>, size, weight_boy);
+                check_switch_check(entity, <DOG>, size, weight_dog);
+
+                if(arg[0x14] <= 0d1) {
+                    find_all(STONE, {
+                        check_switch_check(arg[0x00], arg[0x10], arg[0x02], arg[0x08]);
+                    });
+                }
+
+                if(arg[0x14] <= 0d1) {
+                    find_all(STONE_ROUND, {
+                        check_switch_check(arg[0x00], arg[0x10], arg[0x02], arg[0x08]);
+                    });
+                }
+
+                // CUSTOM_MEMORY.RETURN = arg[0x14];
+                entity[GENERAL_PURPOSE] = arg[0x14];
+            }
+            @install()
+            fun check_switch(entity, size, weight_boy, weight_dog, weight_stone) {
+                _check_switch(entity, size, weight_boy, weight_dog, weight_stone);
+            }
+            fun ground_switch_trigger(memory, x, y, callback, weight_boy, weight_dog, weight_stone) {
+                add_enemy(PLACEHOLDER, x, y);
+                memory = <LAST_ENTITY>;
+                attach_to_script(LAST_ENTITY);
+
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+
+                while(alive(<SCRIPT_OWNER>)) {
+                    arg[0x14] = 0d0;
+                    check_switch(<SCRIPT_OWNER>, GROUND_SWITCH.TRIGGER_RADIUS, weight_boy, weight_dog, weight_stone);
+
+                    if(False) {
+                        _debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                    }
+
+                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d1) {
+                        callback();
+                        end();
+                    }
+                }
+            }
+        };
     };
 
     group cutscenes() {
