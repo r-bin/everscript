@@ -1009,6 +1009,8 @@ group general_enums() {
             DETECTED_CURRENT_ARMOR_CHEST = <0x2897>, // see ARMOR_STATS
             DETECTED_CURRENT_ARMOR_HELM = <0x2895>, // see ARMOR_STATS
             DETECTED_CURRENT_ARMOR_GLOVE = <0x2893>, // see ARMOR_STATS
+
+            METEOR = <0x2891>, // see meteor()
         }
         enum CUSTOM_FLAG {
             // <0x28fb, x>
@@ -8526,6 +8528,50 @@ group functions() {
                 }
             };
         };
+
+        fun check_switch_check(entity_switch, entity, radius, weight) {
+            if(
+                (entity[X] >= (entity_switch[X] - radius))
+                && (entity[X] <= (entity_switch[X] + radius))
+                && (entity[Y] >= (entity_switch[Y] - radius))
+                && (entity[Y] <= (entity_switch[Y] + radius))
+            ) {
+                arg[0x14] += weight;
+            }
+        }
+        fun _check_switch(entity, size) {
+            check_switch_check(entity, <BOY>, size, 0d1); // (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2)
+            check_switch_check(entity, <DOG>, size, 0d1);
+
+            find_all(STONE, {
+                check_switch_check(arg[0x00], arg[0x10], arg[0x02], 0d2);
+            });
+
+            find_all(STONE_ROUND, {
+                check_switch_check(arg[0x00], arg[0x10], arg[0x02], 0d2);
+            });
+
+            // CUSTOM_MEMORY.RETURN = arg[0x14];
+            entity[GENERAL_PURPOSE] = arg[0x14];
+        }
+        @install()
+        fun check_switch(entity, size) {
+            _check_switch(entity, size);
+        }
+        @install()
+        @async()
+        fun check_switch_checker(entity, size) {
+            entity[GENERAL_PURPOSE] = 0d0;
+
+            while(alive(entity)) {
+                arg[0x14] = 0d0;
+                check_switch(entity, 0d30);
+
+                if(False) {
+                    _debug_memory(entity[GENERAL_PURPOSE]);
+                }
+            }
+        }
     };
 
     group cutscenes() {
@@ -12043,6 +12089,27 @@ group functions() {
                         subtext("Signal: South East, very weak");
                     }
                 }
+            }
+        }
+
+        @install()
+        @async()
+        fun meteor(x, y) {
+            if!(CUSTOM_MEMORY.METEOR) {
+                _add_enemy(STONE, x, y);
+                CUSTOM_MEMORY.METEOR = <LAST_ENTITY>;
+
+                attach_to_script(LAST_ENTITY);
+                <SCRIPT_OWNER>[Z] = 0d3000;
+
+                while(<SCRIPT_OWNER>[Z] > 0d0) {
+                    yield();
+                }
+
+                bomb_entity(<BOY>, 0d50, 0d20);
+                bomb_entity(<SCRIPT_OWNER>, 0d50, 0d20);
+            } else if(False) {
+                subtext("nope");
             }
         }
     };
