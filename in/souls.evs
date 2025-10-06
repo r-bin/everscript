@@ -480,7 +480,10 @@ group non_maps() {
             WITH_METRO = True,
 
             // cheat counter
+            CHEAT_COUNTER = memory(BYTE, SRAM),
             CHEAT_COUNTER_NEVER_LOADED = memory(FLAG, RAM),
+            CHEAT_DEBUG_OR_CHEAT_MODE = memory(FLAG, SRAM),
+            CHEAT_ATLAS_GLITCH = memory(FLAG, SRAM),
 
             // dog
             DOG_PREFERENCE = memory(BYTE, SRAM),
@@ -489,6 +492,7 @@ group non_maps() {
 
             // boy
             SLOW_ON_HIT = memory(FLAG, TEMP_RESERVED),
+            REPUTATION = memory(BYTE, SRAM),
             // boy dust
             DUST_ENTITY = memory(WORD, TEMP_RESERVED),
             DUST_DROP_X = memory(WORD, SRAM),
@@ -617,7 +621,8 @@ group non_maps() {
             ///////////////////////////////////////////////////////
 
             PROGRESS_COUNTER = memory(BYTE, SRAM),
-            FAME_THRESHOLD = 0d20,
+            REPUTATION_THRESHOLD_REVERED = 0d20,
+            REPUTATION_THRESHOLD_CHAMPION = 0d40,
             BOSSES_DEFEATED_COUNTER = memory(BYTE, SRAM),
             COLLECTIBLE_COUNTER = memory(BYTE, SRAM),
 
@@ -764,6 +769,54 @@ group non_maps() {
             // BOSSES
             FLASH_BASE_DAMAGE = 0d10,
         }
+
+        group reputation() {
+            enum REPUTATION {
+                NORMAL = 0d0,
+
+                REVERED = 0d1,
+                CHAMPION = 0d2,
+
+                CHEATER = 0xff,
+            }
+
+            @install()
+            fun update_reputation() {
+                if(SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) {
+                    if((SOULS_MEMORY.PROGRESS_COUNTER >= SOULS_MEMORY.REPUTATION_THRESHOLD_REVERED) || SOULS_MEMORY.DEAD_GIDEON) {
+                        SOULS_MEMORY.REPUTATION = REPUTATION.REVERED;
+                    } else if((SOULS_MEMORY.PROGRESS_COUNTER >= SOULS_MEMORY.REPUTATION_THRESHOLD_CHAMPION) || SOULS_MEMORY.DEAD_FINAL_BOSS) {
+                        SOULS_MEMORY.REPUTATION = REPUTATION.CHAMPION;
+                    }
+                }
+            }
+
+            @install()
+            fun update_reputation_enter() {
+                if!(SOULS_MEMORY.CHEAT_DEBUG_OR_CHEAT_MODE) {
+                    if(SOULS_MEMORY.DEBUG || SOULS_MEMORY.WITH_CHEATS) {
+                        SOULS_MEMORY.CHEAT_DEBUG_OR_CHEAT_MODE = True;
+                        SOULS_MEMORY.CHEAT_COUNTER++;
+                    }
+                }
+                if!(SOULS_MEMORY.CHEAT_ATLAS_GLITCH) {
+                    if(<BOY>[BOOST_ATTACK] > 0d1000) {
+                        SOULS_MEMORY.CHEAT_ATLAS_GLITCH = True;
+                        SOULS_MEMORY.CHEAT_COUNTER++;
+                    }
+                }
+                if!(SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED) {
+                    SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED = True;
+                    SOULS_MEMORY.CHEAT_COUNTER++;
+                }
+
+                if((SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) && SOULS_MEMORY.CHEAT_COUNTER) {
+                    SOULS_MEMORY.REPUTATION = REPUTATION.CHEATER;
+                } else {
+                    update_reputation();
+                }
+            }
+        };
 
         enum HELPER_START_ABILITY {
             BOMB = 0d1,
@@ -1200,6 +1253,8 @@ group non_maps() {
 
             SOULS_MEMORY.BOSSES_DEFEATED_COUNTER++;
             SOULS_MEMORY.PROGRESS_COUNTER++;
+
+            update_reputation();
 
             subtext("Enemy Felled");
 
@@ -2519,6 +2574,17 @@ group non_maps() {
                 ground_switch_trigger(memory, x, y, callback, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2);
             }
         };
+
+        @install()
+        fun print_name_with_title() {
+            if(!SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED) {
+                text("[BOY], the cheater");
+            } else if(False) {
+                text("sir [BOY]");
+            } else {
+                text("stranger");
+            }
+        }
     };
 
     group fallout_mechanics() {
@@ -3000,6 +3066,8 @@ group non_maps() {
             if!(SOULS_MEMORY.INIT) {
                 SOULS_MEMORY.INIT = True;
 
+                SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED = True;
+
                 SOULS_MEMORY.ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES_INIT;
                 refresh_flask();
 
@@ -3122,6 +3190,8 @@ group non_maps() {
         @install()
         fun default_init_room(night, rain) {
             init_hack();
+
+            update_reputation_enter();
 
             if((!FLAG.BAZOOKA) && (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.BAZOOKA_TEMP)) {
                 MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
@@ -3322,6 +3392,19 @@ group non_maps() {
                 rocket_jump();
             } else if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_HOTKEYS) {
                 debug_subtext("Start+R");
+
+                if(False) {
+                    question("rep:[CHOICE]normal[CHOICE]cheater[CHOICE]champ");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        SOULS_MEMORY.REPUTATION = REPUTATION.NORMAL;
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                        SOULS_MEMORY.REPUTATION = REPUTATION.CHEATER;
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                        SOULS_MEMORY.REPUTATION = REPUTATION.CHAMPION;
+                    }
+                    end();
+                }
 
                 if(SOULS_MEMORY.WITH_CHEATS) {
                     if(True) {
@@ -9800,8 +9883,6 @@ area inbetwixx_center() {
         }
 
         fun intro() {
-            SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED = True;
-
             // teleport(BOY, 0x0f, 0x47);
             teleport(DOG, 0x13, 0x49);
 
@@ -13452,7 +13533,15 @@ area altus_plateau_entry() {
 
                 enum stepon_trigger {
                     exit_north = @install() {
-                        map_transition(castle_throne_room, south, NORTH);
+                        if(SOULS_MEMORY.REPUTATION == REPUTATION.CHEATER) {
+                            dialog("[SLOW]Halt stop. Due to your deeds you are permanently banned from entering.[B]");
+
+                            if(False) {
+                                error_walk_back(SOUTH);
+                            }
+                        } else {
+                            map_transition(castle_throne_room, south, NORTH);
+                        }
                     },
                     exit_south_3 = @install() {
                         map_transition(market_west, north, SOUTH);
@@ -13965,7 +14054,7 @@ area altus_plateau_entry() {
                         }
                     }
                 }
-                // @install()
+                @install()
                 fun iron_throne_trade() {
                     dialog("[SLOW]Forfeit 4 of your weapons weapons and I'll grant you a formula.[B]");
 
@@ -14027,13 +14116,25 @@ area altus_plateau_entry() {
 
                 @install()
                 fun king_triggered() {
-                    if(ROOM.IRON_THRONE_COUNT < ROOM.IRON_THRONE_THRESHOLD) {
-                        iron_throne_trade();
-                    } else {
-                        dialog("[SLOW]Now leave.[B]");
-                    }
+                     smart_conversation({
+                        if(SOULS_MEMORY.REPUTATION == REPUTATION.CHEATER) {
+                            conversation_dialog("[SLOW]Ah… Your reputation precedes you.[B]Cheaters are not welcome here. Now leave.[B]");
+                        } else if(SOULS_MEMORY.REPUTATION > REPUTATION.NORMAL) {
+                            if!(FLAG.REVEALER) {
+                                conversation_dialog("[SLOW]Ah… Your reputation precedes you.[B]It's an honor to meet you.[B]");
 
-                    control(BOTH);
+                                reward(REVEALER, True);
+                            }
+
+                            dialog("[SLOW]Now leave.[B]");
+                        } else {
+                            if(ROOM.IRON_THRONE_COUNT < ROOM.IRON_THRONE_THRESHOLD) {
+                                iron_throne_trade();
+                            } else {
+                                dialog("[SLOW]Now leave.[B]");
+                            }
+                        }
+                    }, False, NONE);
                 }
 
                 fun add_king(x, y) {
@@ -29144,7 +29245,9 @@ area ship_caves() {
         @install()
         fun monk_triggered() {
             smart_conversation({
-                if!((SOULS_MEMORY.PROGRESS_COUNTER >= SOULS_MEMORY.FAME_THRESHOLD) || SOULS_MEMORY.DEAD_GIDEON) {
+                if(SOULS_MEMORY.REPUTATION == REPUTATION.CHEATER) {
+                    conversation_dialog("[SLOW]I might be a hermit but but even I have heard about wrongdoings.[B]I'll never share my secrets with you.[B]");
+                } else if(SOULS_MEMORY.REPUTATION == REPUTATION.NORMAL) {
                     arg[0x0e] = randrange(0d3);
                     if(arg[0x0e] == 0d0) {
                         conversation_dialog("[SLOW]Who are you?[B]");
@@ -29168,7 +29271,7 @@ area ship_caves() {
                         error_walk_back(EAST);
                     }
                 }
-            }, False);
+            }, False, NONE);
         }
 
         enum stepon_trigger {
