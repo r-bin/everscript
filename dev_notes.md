@@ -5,6 +5,12 @@
 # important
 ## "positive"/"negative"
 ## radiation (more enemies near the entrances)
+## archaeologist sends you to smith after combining head and shaft
+## no item if hp<=0 (but fanfare)
+## d3: hold up bazooka when winning (if possible)
+## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
+## dog should not be at 0/0 during abombination fight
+## energy core description after looting
 
 # nice to have
 ## scale enemies: before pyramid

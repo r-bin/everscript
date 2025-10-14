@@ -433,6 +433,7 @@ group non_maps() {
             ANGRY_BIRD = 0xf306,
             UPGRADE_MAGIC_SLOTS = 0xf307,
             RANDOM_CHARM = 0xf308,
+            ENERGY_CORE = 0xf309,
 
             // misc
             ARCARDE_COIN = 0xf400,
@@ -687,7 +688,7 @@ group non_maps() {
             DEAD_AQUAGOTH = memory(FLAG, SRAM), // t0
             REWARD_AQUAGOTH = ITEM.NO_ITEM,
             DEAD_SQUIDMAR = memory(FLAG, SRAM), // t2 (nerfed from t3+) - locked: axe2
-            REWARD_SQUIDMAR = CUSTOM_ITEM.SPEAR_ORB,
+            REWARD_SQUIDMAR = CUSTOM_ITEM.AXE_ORB,
 
             // north
 
@@ -1174,6 +1175,12 @@ group non_maps() {
                 } else {
                     reward(NOTHING);
                 }
+            } else if(item == CUSTOM_ITEM.ENERGY_CORE) {
+                CUSTOM_FLAG.NO_START = False;
+
+                reward(ENERGY_CORE, True);
+                    
+                dialog("[SLOW]Abilities can't be supressed anymore.[B]");
             } else if(item == CUSTOM_ITEM.ARCARDE_COIN) { // misc
                 subtext("Arcade Coin");
 
@@ -2478,21 +2485,23 @@ group non_maps() {
                 CODE_GREEN = 0d2,
             }
 
-            fun plot_code() {
-                arg[0x10] = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3; // rgb_1
-                arg[0x12] = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3; // rgb_2
-                arg[0x14] = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3; // rgb_3
-                arg[0x16] = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1; // right
-                arg[0x18] = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1; // left
+            @install()
+            fun plot_code(code) {
+                arg[0x10] = (code >> 0d0) & 0x3; // rgb_1
+                arg[0x12] = (code >> 0d2) & 0x3; // rgb_2
+                arg[0x14] = (code >> 0d4) & 0x3; // rgb_3
+                arg[0x16] = (code >> 0d6) & 0x1; // right
+                arg[0x18] = (code >> 0d7) & 0x1; // left
 
                 if(CODE_RIDDLE.DEBUG) {
                     debug_memory(arg[0x18], arg[0x16]);
                     sleep(0d120);
                     debug_memory(arg[0x10], arg[0x12], arg[0x14]);
                     sleep(0d120);
-                    debug_memory(CODE_RIDDLE.SECRET_CODE);
+                    debug_memory(code);
                 }
             }
+            @install()
             fun create_code() {
                 // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
                 
@@ -2502,13 +2511,15 @@ group non_maps() {
                 arg[0x16] = randrange(0d2); // right
                 arg[0x18] = randrange(0d2); // left
                 
-                CODE_RIDDLE.SECRET_CODE = (arg[0x18] << 0d7) + (arg[0x16] << 0d6) + (arg[0x14] << 0d4) + (arg[0x12] << 0d2) + (arg[0x10] << 0d0);
+                CUSTOM_MEMORY.RETURN = (arg[0x18] << 0d7) + (arg[0x16] << 0d6) + (arg[0x14] << 0d4) + (arg[0x12] << 0d2) + (arg[0x10] << 0d0);
 
                 if(CODE_RIDDLE.DEBUG) {
-                    plot_code();
+                    plot_code(CUSTOM_MEMORY.RETURN);
                 }
             }
 
+            @install()
+            @async()
             fun safe_create_code() {
                 while!(CUSTOM_MEMORY.INPUT_P1) {
                     sleep(randrange(0d60));
@@ -2524,6 +2535,7 @@ group non_maps() {
 
                 while!(CODE_RIDDLE.SECRET_CODE) {
                     create_code();
+                    CODE_RIDDLE.SECRET_CODE = CUSTOM_MEMORY.RETURN;
                 }
             }
         };
@@ -32948,6 +32960,224 @@ area metro() {
             add_colored_enemy(TENTACLE_SPIKE, AREA_METRO.PALETTE_RADIATING_ENEMY, x, y);
             prepare_radiating_entity(<LAST_ENTITY>);
         }
+
+        group fallout_computer() {
+            fun fallout_text_init() {
+                text_box(0d6, 0d10);
+
+                if(False) {
+                    text("[SLOW][INVERTED][BOLD]");
+                } else {
+                    text("[SLOW]");
+                }
+            }
+            fun fallout_text_analyzing() {
+                text("[PAUSE:20].[PAUSE:20].[PAUSE:20].ANALYZING[PAUSE:20].[PAUSE:20].[PAUSE:20].[PAUSE:50][LF][LF]");
+            }
+            fun fallout_text_processing() {
+                text("[PAUSE:20].[PAUSE:20].[PAUSE:20].PROCESSING[PAUSE:20].[PAUSE:20].[PAUSE:20].[PAUSE:50][LF][LF]");
+            }
+            fun fallout_text_insert_item() {
+                text("> INSERT ITEM[PAUSE:50][LF][LF]");
+                fallout_text_analyzing();
+            }
+            fun fallout_text_eject_item() {
+                text("> EJECT ITEM[PAUSE:50][LF][LF]");
+                fallout_text_analyzing();
+            }
+            fun fallout_text_detect_error() {
+                text("ERROR:[PAUSE:20] NO VALID ITEM FOUND[B]");
+            }
+
+            @install()
+            fun fallout_screen_code_plot_color(color) {
+                if(color == 0d0) {
+                    text("RED");
+                } else if(color == 0d1) {
+                    text("BLUE");
+                } else if(color == 0d2) {
+                    text("GREEN");
+                } else {
+                    text("???");
+                }
+            }
+            @install()
+            fun fallout_screen_code_plot_lever(lever) {
+                if(lever == 0d0) {
+                    text("OFF");
+                } else if(lever == 0d1) {
+                    text("ON");
+                } else {
+                    text("???");
+                }
+            }
+            @install()
+            fun fallout_screen_code(code) {
+                fallout_text_init();
+                text("> PANIC ROOM ACCESS[PAUSE:50][LF][LF]");
+                fallout_text_processing();
+
+                arg[0x10] = (code >> 0d0) & 0x3; // rgb_1
+                arg[0x12] = (code >> 0d2) & 0x3; // rgb_2
+                arg[0x14] = (code >> 0d4) & 0x3; // rgb_3
+                arg[0x16] = (code >> 0d6) & 0x1; // right
+                arg[0x18] = (code >> 0d7) & 0x1; // left
+
+                fallout_screen_code_plot_color(arg[0x10]);
+                text("[PAUSE:10][LF]");
+                fallout_screen_code_plot_color(arg[0x12]);
+                text("[PAUSE:10][LF]");
+                fallout_screen_code_plot_color(arg[0x14]);
+                text("[PAUSE:10][LF]");
+
+                fallout_screen_code_plot_lever(arg[0x16]);
+                text("[PAUSE:10][LF]");
+                fallout_screen_code_plot_lever(arg[0x18]);
+                text("[B]");
+
+                text_end();
+            }
+
+            @install()
+            fun fallout_screen_scan_item_magic_gourd() {
+                fallout_text_init();
+
+                if(FLAG.MAGIC_GOURD) {
+                    text("> MAGIC GOURD[PAUSE:50]");
+                    text("[CHOICE][1] INSERT");
+                    text("[CHOICE][2] EXIT");
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                        text_end();
+
+                        fallout_text_init();
+                        text("> SCANNING ITEM[PAUSE:50]");
+                        fallout_text_processing();
+                        text("ERROR:[PAUSE:20] NO EFFECT[B]");
+                        text_end();
+                    }
+                } else {
+                    fallout_text_detect_error();
+                }
+
+                text_end();
+            }
+            @install()
+            fun fallout_screen_scan_item() {
+                while(True) {
+                    fallout_text_init();
+                    text("> DETECTING ITEMS[LF][LF]");
+                    fallout_text_analyzing();
+                    text("> MANUAL LOADED[PAUSE:50]");
+
+                    if(FLAG.MAGIC_GOURD) {
+                        text("[CHOICE][1] MAGIC_GOURD");
+                    } else {
+                        text("[CHOICE][1] …");
+                    }
+
+                    text("[CHOICE][2] EXIT");
+
+                    await_answer(arg[0x10]);
+                    text_end();
+
+                    arg[0x10] = MEMORY.QUESTION_ANSWER;
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // magic gourd
+                        fallout_screen_scan_item_magic_gourd();
+                    } else {
+                        end();
+                    }
+                }
+            }
+            @install()
+            fun fallout_screen_cloning_device() {
+                while(True) {
+                    fallout_text_init();
+                    if!(AREA_METRO.REGENERATION_INN_ROOM) {
+                        text("> DETECTING ITEMS[LF][LF]");
+                        fallout_text_analyzing();
+                        if(FLAG.STAFF_OF_LIFE) {
+                            text("> STAFF OF LIFE[PAUSE:50]");
+                            text("[CHOICE][1] INSERT");
+                            text("[CHOICE][2] EXIT");
+                            await_answer();
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                                sound(PURCHASE);
+
+                                FLAG.STAFF_OF_LIFE = False;
+
+                                AREA_METRO.REGENERATION_INN_ROOM = True;
+                            }
+                        } else {
+                            fallout_text_detect_error();
+                        }
+
+                        text_end();
+                        end();
+                    } else {
+                        text("> CLONING PROTOCOL[PAUSE:50][LF]ACTIVE[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+
+                        text("> STAFF OF LIFE");
+                        text("[CHOICE][1] EJECT");
+                        text("[CHOICE][2] EXIT");
+
+                        await_answer();
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // eject
+                            sound(PURCHASE);
+
+                            FLAG.STAFF_OF_LIFE = True;
+
+                            AREA_METRO.REGENERATION_INN_ROOM = False;
+                        }
+
+                        text_end();
+                        end();
+                    }
+                }
+            }
+            @install()
+            fun fallout_screen_main() {
+                control(NONE);
+
+                sound(UNKNOWN_ALCHEMY);
+                sleep(0d30);
+                sound(HEAL_END);
+                sleep(0d30);
+                sound(HEAL_END);
+                
+                while(True) {
+                    MEMORY.STRING_PARAMETER_1 = AREA_METRO.REGENERATION_INN_ROOM;
+
+                    fallout_text_init();
+                    text("> INSERT ITEM");
+                    text("[CHOICE][1] READ_LOG");
+                    text("[CHOICE][2] SCAN_ITEM");
+                    text("[CHOICE][3] CLONING_DEVICE: [MEM1]");
+                    text("[CHOICE][4] EXIT");
+                    await_answer(arg[0x10]);
+                    text_end();
+
+                    arg[0x10] = MEMORY.QUESTION_ANSWER;
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // energy core
+                        fallout_screen_code(0x0000);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // magic gourd
+                        fallout_screen_scan_item();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // staff of life
+                        fallout_screen_cloning_device();
+                    } else {
+                        control(BOTH);
+                        end();
+                    }
+                }
+            }  
+        };
     };
 
     map metro(OMNITOPIA_METROPLEX) {
@@ -35318,7 +35548,7 @@ area metro() {
 
                         object[0x01] = 0x7e;
 
-                        reward(ENERGY_CORE, True);
+                        custom_reward(ENERGY_CORE, True);
                     }
                 },
                 door_north = @install() {
