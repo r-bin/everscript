@@ -7596,6 +7596,14 @@ group functions() {
                     }
                 }
             }
+            fun guard_axe_2() {
+                if(<ACTIVE> == <DOG>) {
+                    end();
+                }
+                if(MEMORY.CURRENT_WEAPON != WEAPON_INDEX.AXE_2) {
+                    end();
+                }
+            }
 
             enum RETAINABLE_OBJECT {
                 DEFAULT = 0x00,
@@ -8608,6 +8616,10 @@ group functions() {
 
                 SECRET_OPEN = 0x30,
                 SECRET_ACTIVE = 0x31,
+
+                AXE2_DOOR = 0x40,
+                GATE_PYRAMID = 0x41,
+                LOTUS_BRIDGE = 0x42,
             }
 
             fun _object_animator_simple(object_id, value_active, value_inactive, sound_id:SOUND, active, delay, instant) {
@@ -8772,6 +8784,34 @@ group functions() {
                             flag = False;
                         }
                     }
+                } else if(mode == OBJECT_ANIMATOR_MODE.AXE2_DOOR) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator_simple(object_id, 0d4, 0d0, THRAXX_BRIDGE_COLLAPSING, value, 0d0, True);
+                    } else {
+                        _object_animator_simple(object_id, 0d4, 0d0, THRAXX_BRIDGE_COLLAPSING, value, 0d0, True);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
+                } else if(mode == OBJECT_ANIMATOR_MODE.LOTUS_BRIDGE) {
+                    if(value) {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
+
+                        _object_animator_simple(object_id, value, 0d0, THRAXX_BRIDGE_COLLAPSING, value, 0d0, True);
+                    } else {
+                        _object_animator_simple(object_id, value, 0d0, THRAXX_BRIDGE_COLLAPSING, value, 0d0, True);
+
+                        if(flag is Memory) {
+                            flag = False;
+                        }
+                    }
                 }
             }
             fun restore_object_animator(mode:OBJECT_ANIMATOR_MODE, flag, object_id) {
@@ -8889,6 +8929,47 @@ group functions() {
                 sleep(0d30);
 
                 act2_arena_bridge_show(False);
+            }
+
+            fun _act2_axe2_wall(door_id, flag) {
+                guard_axe_2();
+
+                animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+                object_animator(AXE2_DOOR, flag, door_id, True, False);
+            }
+            @install()
+            @weak()
+            fun act2_axe2_wall(door_id) {
+                _act2_axe2_wall(door_id, False);
+            }
+
+            @install()
+            @weak()
+            fun act2_lotus_bridge_1(bridge_id, x, y, value, direction:DIRECTION) {
+                walk(ACTIVE, TILE_ABSOLUTE, x, y, ACTIVE, NONE);
+
+                if(direction == DIRECTION.NORTH) {
+                    walk(ACTIVE, TILE_RELATIVE, 0d0, -0d1, ACTIVE, NONE);
+                } else if(direction == DIRECTION.SOUTH) {
+                    walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, ACTIVE, NONE);
+                }
+                control(ACTIVE, False);
+
+                sound(WATER_PLOP);
+
+                object[bridge_id] = 0x7e; // collpse bridge_west_2
+
+                object_animator(LOTUS_BRIDGE, False, bridge_id, value, True);
+            }
+            @install()
+            @weak()
+            fun act2_lotus_bridge_2(bridge_id, x1, y1, x2, y2, value, direction:DIRECTION) {
+                act2_lotus_bridge_1(bridge_id, x2, y2, value, direction);
+            }
+            @install()
+            @weak()
+            fun act2_lotus_bridge_3(bridge_id, x1, y1, x2, y2, x3, y3, value, direction:DIRECTION) {
+                act2_lotus_bridge_1(bridge_id, x3, y3, value, direction);
             }
         };
 
