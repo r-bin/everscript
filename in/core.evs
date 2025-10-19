@@ -1042,6 +1042,7 @@ group general_enums() {
 
             // <0x289c, x>
             REPLACE_MUSIC_INSTEAD = <0x289c, 0x01>,
+            SLOW_GROUND_SWITCHES = <0x289c, 0x02>,
             // …
         }
     };
@@ -1365,6 +1366,7 @@ group general_enums() {
                 HALLS_3 = 0x66, // used: halls (bridge, monk)
                 ACT3 = 0x60, // used: act3 outside
                 PUPPET_SHOW = 0x58, // used: puppets
+                PYRAMID = 0x20, // used: pyramids
 
                 // event
                 BOSS = 0x24, // required: DRAGON_ROAR
@@ -4040,6 +4042,8 @@ group functions() {
                         music(ACT3);
                     } else if(music == MUSIC.PUPPET_SHOW) {
                         music(PUPPET_SHOW);
+                    } else if(music == MUSIC.PYRAMID) {
+                        music(PYRAMID);
                     } else if(music == MUSIC.BOSS) { // event
                         music(BOSS);
                     } else if(music == MUSIC.BOSS_JUNGLE) {
@@ -8539,7 +8543,7 @@ group functions() {
 
         group ground_switch() {
             enum GROUND_SWITCH {
-                WEIGHT_REQUIRED = 0d4,
+                WEIGHT_REQUIRED = 0d2,
 
                 TRIGGER_RADIUS = 0d20,
             }
@@ -8554,6 +8558,8 @@ group functions() {
                     ) {
                         arg[0x14] += weight;
                     }
+
+                    yield();
                 }
             }
             fun _check_switch(entity, size, weight_boy, weight_dog, weight_stone) {
@@ -8579,24 +8585,48 @@ group functions() {
             fun check_switch(entity, size, weight_boy, weight_dog, weight_stone) {
                 _check_switch(entity, size, weight_boy, weight_dog, weight_stone);
             }
-            fun ground_switch_trigger(memory, x, y, callback, weight_boy, weight_dog, weight_stone) {
+            fun ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, weight_boy, weight_dog, weight_stone, activate_weight, toggleable) {
                 add_enemy(PLACEHOLDER, x, y);
-                memory = <LAST_ENTITY>;
+                if(memory is Memory) {
+                    memory = <LAST_ENTITY>;
+                }
                 attach_to_script(LAST_ENTITY);
 
                 <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                control(SCRIPT_OWNER, False);
 
                 while(alive(<SCRIPT_OWNER>)) {
                     arg[0x14] = 0d0;
                     check_switch(<SCRIPT_OWNER>, GROUND_SWITCH.TRIGGER_RADIUS, weight_boy, weight_dog, weight_stone);
 
                     if(False) {
-                        _debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                        _debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], activate_weight, <SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED);
                     }
 
-                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d1) {
-                        callback();
-                        end();
+                    if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                        if(<SCRIPT_OWNER>[GENERAL_PURPOSE] >= activate_weight) {
+                            if(callback_activated is Function) {
+                                callback_activated();
+                            }
+
+                            if!(toggleable) {
+                                end();
+                            }
+
+                            control(SCRIPT_OWNER, True);
+                        }
+                    } else {
+                        if(<SCRIPT_OWNER>[GENERAL_PURPOSE] < activate_weight) {
+                            if(callback_deactivated is Function) {
+                                callback_deactivated();
+                            }
+
+                            control(SCRIPT_OWNER, False);
+                        }
+                    }
+
+                    if(CUSTOM_FLAG.SLOW_GROUND_SWITCHES) {
+                        sleep(0d60 + randrange(0d60));
                     }
                 }
             }
@@ -8804,9 +8834,9 @@ group functions() {
                             flag = True;
                         }
 
-                        _object_animator_simple(object_id, value, 0d0, THRAXX_BRIDGE_COLLAPSING, value, 0d0, True);
+                        _object_animator_simple(object_id, value, 0d0, False, value, 0d0, True);
                     } else {
-                        _object_animator_simple(object_id, value, 0d0, THRAXX_BRIDGE_COLLAPSING, value, 0d0, True);
+                        _object_animator_simple(object_id, value, 0d0, False, value, 0d0, True);
 
                         if(flag is Memory) {
                             flag = False;
@@ -8855,6 +8885,8 @@ group functions() {
                     } else {
                         _object_animator(object_id, 0d11, 0d09, NONE, 0d8, True);
                     }
+                } else if(mode == OBJECT_ANIMATOR_MODE.AXE2_DOOR) {
+                    _object_animator_simple(object_id, 0x04, 0x00, THRAXX_BRIDGE_COLLAPSING, flag, 0d0, True);
                 }
             }
         };
@@ -8943,33 +8975,29 @@ group functions() {
                 _act2_axe2_wall(door_id, False);
             }
 
-            @install()
-            @weak()
-            fun act2_lotus_bridge_1(bridge_id, x, y, value, direction:DIRECTION) {
-                walk(ACTIVE, TILE_ABSOLUTE, x, y, ACTIVE, NONE);
+            fun act2_lotus_bridge_1(bridge_id, flag, x, y, value, direction:DIRECTION) {
+                if!(flag) {
+                    walk(ACTIVE, TILE_ABSOLUTE, x, y, ACTIVE, NONE);
 
-                if(direction == DIRECTION.NORTH) {
-                    walk(ACTIVE, TILE_RELATIVE, 0d0, -0d1, ACTIVE, NONE);
-                } else if(direction == DIRECTION.SOUTH) {
-                    walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, ACTIVE, NONE);
+                    if(direction == DIRECTION.NORTH) {
+                        walk(ACTIVE, TILE_RELATIVE, 0d0, -0d1, ACTIVE, NONE);
+                    } else if(direction == DIRECTION.SOUTH) {
+                        walk(ACTIVE, TILE_RELATIVE, 0d0, 0d1, ACTIVE, NONE);
+                    }
+                    control(ACTIVE, False);
+
+                    sound(WATER_PLOP);
+
+                    object[bridge_id] = 0x7e; // collpse bridge_west_2
+
+                    object_animator(LOTUS_BRIDGE, flag, bridge_id, value, True);
                 }
-                control(ACTIVE, False);
-
-                sound(WATER_PLOP);
-
-                object[bridge_id] = 0x7e; // collpse bridge_west_2
-
-                object_animator(LOTUS_BRIDGE, False, bridge_id, value, True);
             }
-            @install()
-            @weak()
-            fun act2_lotus_bridge_2(bridge_id, x1, y1, x2, y2, value, direction:DIRECTION) {
-                act2_lotus_bridge_1(bridge_id, x2, y2, value, direction);
+            fun act2_lotus_bridge_2(bridge_id, flag, x1, y1, x2, y2, value, direction:DIRECTION) {
+                act2_lotus_bridge_1(bridge_id, flag, x2, y2, value, direction);
             }
-            @install()
-            @weak()
-            fun act2_lotus_bridge_3(bridge_id, x1, y1, x2, y2, x3, y3, value, direction:DIRECTION) {
-                act2_lotus_bridge_1(bridge_id, x3, y3, value, direction);
+            fun act2_lotus_bridge_3(bridge_id, flag, x1, y1, x2, y2, x3, y3, value, direction:DIRECTION) {
+                act2_lotus_bridge_1(bridge_id, flag, x3, y3, value, direction);
             }
         };
 
