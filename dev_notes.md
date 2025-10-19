@@ -11,6 +11,7 @@
 ## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
 ## dog should not be at 0/0 during abombination fight
 ## energy core description after looting
+## diablo shadow does not die with diablo
 
 # nice to have
 ## scale enemies: before pyramid

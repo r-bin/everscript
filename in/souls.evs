@@ -697,6 +697,9 @@ group non_maps() {
 
             // southern jungle
 
+            DEAD_DIABLO = memory(FLAG, SRAM),
+            REWARD_DIABLO = ITEM.NOTHING,
+
             DEAD_DOUBLE_THRAXX = memory(FLAG, SRAM),
             REWARD_DOUBLE_THRAXX = ITEM.STAFF_OF_LIFE,
             PROGRESS_DOUBLE_THRAXX = memory(FLAG, SRAM),
@@ -2585,7 +2588,11 @@ group non_maps() {
             }
 
             fun souls_ground_switch_trigger(memory, x, y, callback) {
-                ground_switch_trigger(memory, x, y, callback, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2);
+                ground_switch_trigger(memory, x, y, callback, False, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2, GROUND_SWITCH.WEIGHT_REQUIRED, False);
+            }
+
+            fun souls_toggle_switch_trigger(memory, x, y, callback_activated, callback_deactivated) {
+                ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2, 0d2, True);
             }
         };
 
@@ -3378,7 +3385,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(temple_switch2, east, NONE);
+                map_transition(inverted_pyramid_level_0, tunnel, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -20597,29 +20604,64 @@ area southern_jungle() {
 
                     south_short = entrance(0x89, 0x97, SOUTH),
 
-                    test = entrance(0d75, 0d100, NONE),
+                    tunnel = entrance(0d76, 0d100, NONE, { crash_both(); }),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(PYRAMID, 0xff)
+                }
+
+                enum ROOM {
+                    DEBUG = False,
+
+                    DOOR_CENTER_OPENED = memory(FLAG, SRAM),
+                    DOOR_MINI_BOSS_OPENED = memory(FLAG, SRAM),
+                    DOOR_ALCHEMIST_OPENED = memory(FLAG, SRAM),
+                    DOOR_HORACE_OPENED = memory(FLAG, SRAM),
+                    DOOR_DOG_OPENED = memory(FLAG, SRAM),
+
+                    BRIDGE_WEST_1_COLLAPSED = memory(FLAG, TEMP),
+                    BRIDGE_WEST_2_COLLAPSED = memory(FLAG, TEMP),
+                    BRIDGE_WEST_3_COLLAPSED = memory(FLAG, TEMP),
+                    BRIDGE_EAST_1_COLLAPSED = memory(FLAG, TEMP),
+                    BRIDGE_EAST_2_COLLAPSED = memory(FLAG, TEMP),
+                    BRIDGE_EAST_3_COLLAPSED = memory(FLAG, TEMP),
+                    BRIDGE_EAST_4_COLLAPSED = memory(FLAG, TEMP),
+
+                    STONE_TOP_ID = memory(WORD, TEMP),
+                    STONE_TOP_X = memory(WORD, RAM),
+                    STONE_TOP_Y = memory(WORD, RAM),
+                    STONE_CENTER_ID = memory(WORD, TEMP),
+                    STONE_CENTER_X = memory(WORD, RAM),
+                    STONE_CENTER_Y = memory(WORD, RAM),
+
+                    STONE_OFFSET = 0d8 * 0d6,
+                }
+
+                enum BOSS {
+                    PROGRESS = memory(FLAG, TEMP),
                 }
 
                 enum stepon_trigger {
                     bridge_west_2_north = @install() {
                         debug_subtext("S=0");
 
-                        act2_lotus_bridge_1(0x25, 0x35, 0x85, 0d5, NONE);
+                        act2_lotus_bridge_1(0x25, ROOM.BRIDGE_WEST_2_COLLAPSED, 0x35, 0x85, 0d5, NONE);
                     },
                     bridge_west_2_south = @install() {
                         debug_subtext("S=1");
 
-                        act2_lotus_bridge_1(0x25, 0x33, 0x78, 0d5, NORTH);
+                        act2_lotus_bridge_1(0x25, ROOM.BRIDGE_WEST_2_COLLAPSED, 0x33, 0x78, 0d5, NORTH);
                     },
                     bridge_west_1_north = @install() {
                         debug_subtext("S=2");
 
-                        act2_lotus_bridge_1(0x24, 0x2d, 0x85, 0d5, NONE);
+                        act2_lotus_bridge_1(0x24, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x2d, 0x85, 0d5, NONE);
                     },
                     bridge_west_1_south = @install() {
                         debug_subtext("S=3");
 
-                        act2_lotus_bridge_1(0x24, 0x29, 0x78, 0d5, NORTH);
+                        act2_lotus_bridge_1(0x24, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x29, 0x78, 0d5, NORTH);
                     },
                     trap_west_3 = @install() {
                         debug_subtext("S=4");
@@ -20648,33 +20690,43 @@ area southern_jungle() {
 
                         // act2_lotus_bridge_2(0x2a, 0xc4, 0x84, 0xc8, 0x78, 0d7, SOUTH);
 
-                        act2_lotus_bridge_1(0x2a, 0d197, 0d131, 0d8, SOUTH);
+                        act2_lotus_bridge_1(0x2a, ROOM.BRIDGE_EAST_4_COLLAPSED, 0d197, 0d131, 0d8, SOUTH);
                     },
                     bridge_east_3_south = @install() {
                         debug_subtext("S=12");
 
-                        act2_lotus_bridge_1(0x29, 0d183, 0d121, 0d4, NORTH);
+                        act2_lotus_bridge_1(0x29, ROOM.BRIDGE_EAST_3_COLLAPSED, 0d183, 0d121, 0d4, NORTH);
                     },
                     bridge_east_4_south = @install() {
                         debug_subtext("S=13");
 
-                        act2_lotus_bridge_1(0x2a, 0d199, 0d119, 0d8, NORTH);
+                        act2_lotus_bridge_1(0x2a, ROOM.BRIDGE_EAST_4_COLLAPSED, 0d199, 0d119, 0d8, NORTH);
                     },
                     bridge_east_3_north = @install() {
                         debug_subtext("S=14");
 
-                        act2_lotus_bridge_1(0x29, 0d190, 0d132, 0d4, SOUTH);
+                        act2_lotus_bridge_1(0x29, ROOM.BRIDGE_EAST_3_COLLAPSED, 0d190, 0d132, 0d4, SOUTH);
                     },
                     bridge_west_3 = @install() {
                         debug_subtext("S=15");
 
-                        act2_lotus_bridge_1(0x26, 0x55, 0x76, 0d7);
+                        if((<ACTIVE>[FACE_DIRECTION] >= FACE_DIRECTION.SOUTH_EAST) && (<ACTIVE>[FACE_DIRECTION] <= FACE_DIRECTION.SOUTH_WEST)) {
+                            act2_lotus_bridge_1(0x26, ROOM.BRIDGE_WEST_3_COLLAPSED, 0d91, 0d132, 0d7, NONE);
+                        } else {
+                            act2_lotus_bridge_1(0x26, ROOM.BRIDGE_WEST_3_COLLAPSED, 0x55, 0x76, 0d7, NONE);
+                        }
                     },
                     stairs_west = @install() {
                         debug_subtext("S=16");
+
+                        fog_wall_inside(BOSS.PROGRESS, SOUTH);
+
+                        map_transition(inverted_pyramid_level_1, south, NORTH);
                     },
                     stairs_east = @install() {
                         debug_subtext("S=17");
+
+                        fog_wall_inside(BOSS.PROGRESS, SOUTH);
                     },
                     dog_north = @install() {
                         debug_subtext("S=18");
@@ -20750,6 +20802,22 @@ area southern_jungle() {
                     },
                     spawn_boss = @install() {
                         debug_subtext("S=41");
+
+                        if((!SOULS_MEMORY.DEAD_DIABLO) && (!BOSS.PROGRESS)) {
+                            BOSS.PROGRESS = True;
+                            CUSTOM_FLAG.SLOW_GROUND_SWITCHES = True;
+
+                            push_music(BOSS);
+                            
+                            add_custom_boss_diablo(0d85, 0d23, False, {
+                                debug_subtext("-boss");
+                            }, False, 0d10);
+
+                            souls_boss_defeated(DEAD_DIABLO, REWARD_DIABLO);
+
+                            BOSS.PROGRESS = False;
+                            CUSTOM_FLAG.SLOW_GROUND_SWITCHES = False;
+                        }
                     },
                     stepon_42 = @install() {
                         debug_subtext("S=42");
@@ -20757,22 +20825,22 @@ area southern_jungle() {
                     bridge_east_1_south = @install() {
                         debug_subtext("S=43");
 
-                        act2_lotus_bridge_3(0x27, 0x9e, 0x84, 0x9d, 0x7e, 0x9c, 0x78, 0d7, NORTH);
+                        act2_lotus_bridge_3(0x27, ROOM.BRIDGE_EAST_1_COLLAPSED, 0x9e, 0x84, 0x9d, 0x7e, 0x9c, 0x78, 0d7, NORTH);
                     },
                     bridge_east_1_north = @install() {
                         debug_subtext("S=44");
 
-                        act2_lotus_bridge_3(0x27, 0x9c, 0x78, 0x9d, 0x7e, 0x9e, 0x84, 0d7, SOUTH);
+                        act2_lotus_bridge_3(0x27, ROOM.BRIDGE_EAST_1_COLLAPSED, 0x9c, 0x78, 0x9d, 0x7e, 0x9e, 0x84, 0d7, SOUTH);
                     },
                     bridge_east_2_south = @install() {
                         debug_subtext("S=45");
 
-                        act2_lotus_bridge_3(0x28, 0xaa, 0x84, 0xaa, 0x7e, 0xac, 0x78, 0d7, NORTH);
+                        act2_lotus_bridge_3(0x28, ROOM.BRIDGE_EAST_2_COLLAPSED, 0xaa, 0x84, 0xaa, 0x7e, 0xac, 0x78, 0d7, NORTH);
                     },
                     bridge_east_2_north = @install() {
                         debug_subtext("S=46");
 
-                        act2_lotus_bridge_3(0x28, 0xac, 0x78, 0xaa, 0x7e, 0xaa, 0x87, 0d7, SOUTH);
+                        act2_lotus_bridge_3(0x28, ROOM.BRIDGE_EAST_2_COLLAPSED, 0xac, 0x78, 0xaa, 0x7e, 0xaa, 0x87, 0d7, SOUTH);
                     },
                 }
 
@@ -20852,28 +20920,32 @@ area southern_jungle() {
                     door_center = @install() {
                         debug_subtext("B=18");
 
-                        act2_axe2_wall(0x0e);
+                        if((<ACTIVE>[FACE_DIRECTION] >= FACE_DIRECTION.SOUTH_EAST) && (<ACTIVE>[FACE_DIRECTION] <= FACE_DIRECTION.SOUTH_WEST)) {
+                            error_message(DOOR_WRONG_SIDE);
+                        } else {
+                            _act2_axe2_wall(0x0e, ROOM.DOOR_CENTER_OPENED);
+                        }
                     },
                     door_mini_boss = @install() {
                         debug_subtext("B=19");
 
-                        act2_axe2_wall(0x0c);
+                        _act2_axe2_wall(0x0c, ROOM.DOOR_MINI_BOSS_OPENED);
                     },
 
                     door_alchemist = @install() {
                         debug_subtext("B=20");
 
-                        act2_axe2_wall(0x0d);
+                        _act2_axe2_wall(0x0d, ROOM.DOOR_ALCHEMIST_OPENED);
                     },
                     door_horace = @install() {
                         debug_subtext("B=21");
 
-                        act2_axe2_wall(0x10);
+                        _act2_axe2_wall(0x10, ROOM.DOOR_HORACE_OPENED);
                     },
                     door_dog = @install() {
                         debug_subtext("B=22");
 
-                        act2_axe2_wall(0x0f);
+                        _act2_axe2_wall(0x0f, ROOM.DOOR_DOG_OPENED);
                     },
                     gourd_x__1_biscuit = @install() {
                         debug_subtext("B=23");
@@ -20881,12 +20953,134 @@ area southern_jungle() {
                     },
                 }
 
+                @install()
+                @async()
+                fun remember_stone_handler(stone_top, stone_center) {
+                    if(ROOM.STONE_TOP_X && ROOM.STONE_TOP_Y) {
+                        _teleport(stone_top, ROOM.STONE_TOP_X, ROOM.STONE_TOP_Y);
+                    }
+                    if(ROOM.STONE_CENTER_X && ROOM.STONE_CENTER_Y) {
+                        _teleport(stone_center, ROOM.STONE_CENTER_X, ROOM.STONE_CENTER_Y);
+                    }
+
+                    while(True) {
+                        sleep(0d3, S);
+
+                        ROOM.STONE_TOP_X = stone_top[X];
+                        ROOM.STONE_TOP_Y = stone_top[Y];
+
+                        sleep(0d3, S);
+
+                        ROOM.STONE_CENTER_X = stone_center[X];
+                        ROOM.STONE_CENTER_Y = stone_center[Y];
+                    }
+                }
+
+                @install()
+                @async()
+                fun switch_1_handler() {
+                    souls_toggle_switch_trigger(False, 0d130, 0d74, {
+                        if(ROOM.DEBUG) {
+                            subtext("1");
+                        }
+
+                        object[0x04] = 0x01; // activate switch_1
+                        sound(ELEVATOR_DOOR);
+                        object[0x00] = 0x03; // open gate_entry
+                    }, {
+                        if(ROOM.DEBUG) {
+                            subtext("!1");
+                        }
+
+                        object[0x04] = 0x00; // activate switch_1
+                        sound(ELEVATOR_DOOR);
+                        object[0x00] = 0x00; // open gate_entry
+                    });
+                }
+                @install()
+                @async()
+                fun switch_2_handler() {
+                    souls_toggle_switch_trigger(False, 0d130, 0d96, {
+                        if(ROOM.DEBUG) {
+                            subtext("2");
+                        }
+
+                        object[0x06] = 0x01; // activate switch_2
+                        sound(ELEVATOR_DOOR);
+                        object[0x01] = 0x03; // open gate_boss
+                    }, {
+                        if(ROOM.DEBUG) {
+                            subtext("!2");
+                        }
+
+                        object[0x06] = 0x00; // activate switch_2
+                        sound(ELEVATOR_DOOR);
+                        object[0x01] = 0x00; // open gate_boss
+                    });
+                }
+                @install()
+                @async()
+                fun switch_3_handler() {
+                    souls_toggle_switch_trigger(False, 0d156, 0d96, {
+                        if(ROOM.DEBUG) {
+                            subtext("3");
+                        }
+
+                        object[0x07] = 0x01; // activate switch_3
+                        sound(ELEVATOR_DOOR);
+                        object[0x03] = 0x03; // open gate_horace
+                    }, {
+                        if(ROOM.DEBUG) {
+                            subtext("!3");
+                        }
+
+                        object[0x07] = 0x00; // activate switch_3
+                        sound(ELEVATOR_DOOR);
+                        object[0x03] = 0x00; // open gate_horace
+                    });
+                }
+                @install()
+                @async()
+                fun switch_4_handler() {
+                    souls_toggle_switch_trigger(False, 0d156, 0d74, {
+                        if(ROOM.DEBUG) {
+                            subtext("4");
+                        }
+
+                        object[0x05] = 0x01; // activate switch_4
+                        sound(ELEVATOR_DOOR);
+                        object[0x02] = 0x03; // open gate_gourds
+                    }, {
+                        if(ROOM.DEBUG) {
+                            subtext("!4");
+                        }
+
+                        object[0x05] = 0x00; // activate switch_4
+                        sound(ELEVATOR_DOOR);
+                        object[0x02] = 0x00; // open gate_gourds
+                    });
+                }
+
                 fun trigger_enter() {
+                    restore_object_animator(AXE2_DOOR, ROOM.DOOR_CENTER_OPENED, 0x0e);
+                    restore_object_animator(AXE2_DOOR, ROOM.DOOR_MINI_BOSS_OPENED, 0x0c);
+                    restore_object_animator(AXE2_DOOR, ROOM.DOOR_ALCHEMIST_OPENED, 0x0d);
+                    restore_object_animator(AXE2_DOOR, ROOM.DOOR_HORACE_OPENED, 0x10);
+                    restore_object_animator(AXE2_DOOR, ROOM.DOOR_DOG_OPENED, 0x0f);
+                    
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x24);
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_WEST_2_COLLAPSED, 0x25);
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_WEST_3_COLLAPSED, 0x26);
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_1_COLLAPSED, 0x27);
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_2_COLLAPSED, 0x28);
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_3_COLLAPSED, 0x29);
+                    // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_4_COLLAPSED, 0x2a);
+
                     fade_in();
 
                     // test_objects();
 
-                    // ???
+                    // object[0x00] = 0x03; // open gate_entry
                     // object[0x01] = 0x03; // open gate_boss
                     // object[0x02] = 0x03; // open gate_gourds
                     // object[0x03] = 0x03; // open gate_horace
@@ -20915,8 +21109,77 @@ area southern_jungle() {
                     // object[0x29] = 0x05; // collpse bridge_east_3
                     // object[0x2a] = 0x05; // collpse bridge_east_4
 
-                    add_enemy(STONE, 0d141, 0d17);
-                    add_enemy(STONE, 0d136, 0d96);
+                    add_levitate_stone(0d141, 0d17, reference(@install() {
+                        guard_levitate_stone(0d1);
+                    }));
+                    ROOM.STONE_TOP_ID = <LAST_ENTITY>;
+                    add_levitate_stone(0d136, 0d96, reference(@install() {
+                        guard_levitate_stone(0d1);
+                    }));
+                    ROOM.STONE_CENTER_ID = <LAST_ENTITY>;
+
+                    remember_stone_handler(ROOM.STONE_TOP_ID, ROOM.STONE_CENTER_ID);
+
+                    switch_1_handler();
+                    switch_2_handler();
+                    switch_3_handler();
+                    switch_4_handler();
+
+                    special_script(LEVITATE, reference(@install() {
+                        if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                            end();
+                        }
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                        sleep(0d120);
+
+                        while(arg[0x10] < ROOM.STONE_OFFSET) {
+                            arg[0x10]++;
+
+                            <SCRIPT_OWNER>[X]--;
+
+                            sleep(0d3);
+                        }
+
+                        sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    }));
+                }
+            };
+
+            map inverted_pyramid_level_1(RIMSALA) {
+                enum entrance {
+                    south = entrance(0x21, 0x3e, NORTH)
+                }
+
+                enum soundtrack {
+                    default = soundtrack(PYRAMID, 0xff)
+                }
+
+                enum stepon_trigger {
+                    exit_south = @install() {
+                        debug_subtext("S=0");
+
+                        map_transition(inverted_pyramid_level_0, stairs_up_center, SOUTH);
+                    },
+                    stepon_1 = @install() {
+                        debug_subtext("S=1");
+                    },
+                    spawn_boss_2 = @install() {
+                        debug_subtext("S=2");
+                    },
+                    stepon_3 = @install() {
+                        debug_subtext("S=3");
+                    },
+                    spawn_boss_1 = @install() {
+                        debug_subtext("S=4");
+                    }
+                }
+
+                fun trigger_enter() {
+                    fade_in();
                 }
             };
         };
