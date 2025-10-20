@@ -699,6 +699,8 @@ group non_maps() {
 
             DEAD_DIABLO = memory(FLAG, SRAM),
             REWARD_DIABLO = ITEM.NOTHING,
+            DEAD_PUDGE = memory(FLAG, SRAM),
+            REWARD_PUDGE = ITEM.NOTHING,
 
             DEAD_DOUBLE_THRAXX = memory(FLAG, SRAM),
             REWARD_DOUBLE_THRAXX = ITEM.STAFF_OF_LIFE,
@@ -6874,10 +6876,10 @@ group custom_bosses() {
             smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(arg[0x10]));
 
             while!(dead(arg[0x10])) {
-                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp / 0d2))) {
-                    arg[0x0e] = randrange(0d3);
+                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp - (hp / 0d3)))) {
+                    arg[0x0e] = randrange(0d2);
                 } else {
-                    arg[0x0e] = randrange(0d3);
+                    arg[0x0e] = randrange(0d4);
                 }
 
                 if(arg[0x0e] == 0d0) {
@@ -20636,10 +20638,20 @@ area southern_jungle() {
                     STONE_CENTER_Y = memory(WORD, RAM),
 
                     STONE_OFFSET = 0d8 * 0d6,
+
+                    SNAKE_TRAP_TRIGGERED = memory(FLAG, TEMP),
                 }
 
                 enum BOSS {
                     PROGRESS = memory(FLAG, TEMP),
+                }
+
+                @install()
+                fun trap_triggered() {
+                    debug_subtext("S=4…10");
+
+                    teleporter_out();
+                    map_transition(inverted_pyramid_level_0, tunnel, NONE);
                 }
 
                 enum stepon_trigger {
@@ -20663,28 +20675,33 @@ area southern_jungle() {
 
                         act2_lotus_bridge_1(0x24, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x29, 0x78, 0d5, NORTH);
                     },
-                    trap_west_3 = @install() {
-                        debug_subtext("S=4");
-                    },
-                    trap_west_2 = @install() {
-                        debug_subtext("S=5");
-                    },
+                    trap_west_3 = trap_triggered(),
+                    trap_west_2 = trap_triggered(),
                     trap_west_1 = @install() {
                         debug_subtext("S=6");
-                    },
-                    trap_west_4 = @install() {
-                        debug_subtext("S=7");
-                    },
-                    trap_east_3 = @install() {
-                        debug_subtext("S=8");
-                    },
-                    trap_east_2 = @install() {
-                        debug_subtext("S=9");
-                    },
 
-                    trap_east_1 = @install() {
-                        debug_subtext("S=10");
+                        if(!ROOM.SNAKE_TRAP_TRIGGERED) {
+                            ROOM.SNAKE_TRAP_TRIGGERED = True;
+
+                            act2_snake_trap(0d10, 0d34, 0x08, True);
+                            arg[0x10] = <LAST_ENTITY>;
+
+                            cast(arg[0x10], ACTIVE, FLASH, 0d15);
+                            sleep(0d5);
+                            cast(arg[0x10], ACTIVE, FLASH, 0d15);
+
+                            wait(arg[0x10]);
+
+                            animate(arg[0x10], ONCE, SLASH_1);
+
+                            cast(arg[0x10], ACTIVE, FIREBALL, 0d50);
+                        }
                     },
+                    trap_west_4 = trap_triggered(),
+                    trap_east_3 = trap_triggered(),
+                    trap_east_2 = trap_triggered(),
+
+                    trap_east_1 = trap_triggered(),
                     bridge_east_4_north = @install() {
                         debug_subtext("S=11");
 
@@ -20852,20 +20869,22 @@ area southern_jungle() {
                         debug_subtext("B=1");
                         _loot_chest(0x2b, BONE, 0d03);
                     },
-                    b_trigger_2 = @install() {
+                    gourd_regenerate = @install() {
                         debug_subtext("B=2");
+
+                        _loot_chest(0x20, METEORITE, 0d01);
                     },
                     gourd_x__1_call_beads = @install() {
                         debug_subtext("B=3");
-                        _loot_chest(0x1f, CALL_BEADS, 0d01);
+                        _loot_chest(0x1f, IRON, 0d01);
                     },
                     gourd_x__1_herbal_essence = @install() {
                         debug_subtext("B=4");
-                        _loot_chest(0x1e, HERBAL_ESSENCE, 0d01);
+                        _loot_chest(0x1e, OIL, 0d02);
                     },
                     gourd_x__1_honey = @install() {
                         debug_subtext("B=5");
-                        _loot_chest(0x1b, HONEY, 0d01);
+                        _loot_chest(0x1b, WAX, 0d02);
                     },
                     gourd_x__3_ash = @install() {
                         debug_subtext("B=6");
@@ -20881,16 +20900,16 @@ area southern_jungle() {
                     },
                     gourd_x__3_vinegar = @install() {
                         debug_subtext("B=9");
-                        _loot_chest(0x19, VINEGAR, 0d03);
+                        _loot_chest(0x19, MONEY, 0d10);
                     },
 
                     gourd_x__1_biscuit = @install() {
                         debug_subtext("B=10");
-                        _loot_chest(0x18, BISCUIT, 0d01);
+                        _loot_chest(0x18, GREASE, 0d01);
                     },
                     gourd_x__1_petal = @install() {
                         debug_subtext("B=11");
-                        _loot_chest(0x17, PETAL, 0d01);
+                        _loot_chest(0x17, DRY_ICE, 0d01);
                     },
                     gourd_x__2_wax = @install() {
                         debug_subtext("B=12");
@@ -20906,15 +20925,15 @@ area southern_jungle() {
                     },
                     gourd_x__1_call_beads = @install() {
                         debug_subtext("B=15");
-                        _loot_chest(0x15, CALL_BEADS, 0d01);
+                        _loot_chest(0x15, IRON, 0d01);
                     },
                     gourd_x__1_wings = @install() {
                         debug_subtext("B=16");
-                        _loot_chest(0x14, WINGS, 0d01);
+                        _loot_chest(0x14, WATER, 0d04);
                     },
                     gourd_x__3_dry_ice = @install() {
                         debug_subtext("B=17");
-                        _loot_chest(0x23, DRY_ICE, 0d03);
+                        _loot_chest(0x23, HERBAL_ESSENCE, 0d01);
 
                     },
                     door_center = @install() {
@@ -21146,6 +21165,40 @@ area southern_jungle() {
 
                         attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
                     }));
+
+                    // north
+                    add_enemy_spawner(DRAKE, 0d170, 0d36);
+
+                    // center
+                    add_enemy_spawner(DRAKE, 0d142, 0d71);
+
+                    // east
+                    add_enemy_spawner(DRAKE, 0d224, 0d111);
+                    add_enemy_spawner(DRAKE, 0d227, 0d93);
+                    add_enemy_spawner(DRAKE, 0d227, 0d76);
+
+                    add_enemy_spawner(DRAKE, 0d187, 0d54);
+
+                    // south west
+                    add_enemy_spawner(SPIDER, 0d86, 0d115);
+
+                    // west
+                    add_enemy_spawner(SPIDER, 0d11, 0d42);
+                    add_enemy_spawner(SPIDER, 0d15, 0d78);
+                    add_enemy_spawner(SPIDER, 0d11, 0d96);
+                    add_enemy_spawner(SPIDER, 0d11, 0d126);
+
+                    // north west
+                    add_enemy_spawner(SPIDER, 0d50, 0d43);
+
+                    add_enemy_spawner(SPIDER, 0d37, 0d13);
+
+                    // north west - stairs
+                    add_enemy_spawner(SPIDER, 0d40, 0d82);
+
+                    add_enemy_spawner(SPIDER, 0d61, 0d65);
+
+                    add_enemy_spawner(SPIDER, 0d38, 0d55);
                 }
             };
 
@@ -21158,6 +21211,10 @@ area southern_jungle() {
                     default = soundtrack(PYRAMID, 0xff)
                 }
 
+                enum BOSS {
+                    PROGRESS = memory(FLAG, TEMP),
+                }
+
                 enum stepon_trigger {
                     exit_south = @install() {
                         debug_subtext("S=0");
@@ -21167,14 +21224,28 @@ area southern_jungle() {
                     stepon_1 = @install() {
                         debug_subtext("S=1");
                     },
-                    spawn_boss_2 = @install() {
+                    spawn_boss = @install() {
                         debug_subtext("S=2");
+
+                        if((!SOULS_MEMORY.DEAD_PUDGE) && (!BOSS.PROGRESS)) {
+                            BOSS.PROGRESS = True;
+                            push_music(BOSS_DRUMS);
+                            
+                            add_custom_boss_pudge(0d34, 0d24, False, {
+                                debug_subtext("-pudge");
+                            }, False, 0d400);
+
+                            souls_boss_defeated(DEAD_PUDGE, REWARD_PUDGE);
+                            BOSS.PROGRESS = False;
+                        }
                     },
-                    stepon_3 = @install() {
+                    entrance_side = @install() {
                         debug_subtext("S=3");
                     },
-                    spawn_boss_1 = @install() {
+                    entrance = @install() {
                         debug_subtext("S=4");
+
+                        object[0x06] = 0x05; // close door
                     }
                 }
 
