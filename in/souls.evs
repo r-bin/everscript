@@ -2919,7 +2919,7 @@ group non_maps() {
                         flag = True;
                     }
 
-                    if!(no_clean_up !is None) {
+                    if(no_clean_up is None) {
                         destroy(SCRIPT_OWNER);
                     }
                 } else {
@@ -20206,12 +20206,15 @@ area southern_jungle() {
                 BRIDGE_REVEALED = memory(FLAG, SRAM),
                 BRIDGE_REVEALER_ENTITY = memory(WORD, TEMP),
 
-                WITH_TRI_STONE = False,
-                TRI_STONE_LOOTED = memory(FLAG, SRAM),
-
                 CAVE_OPENED = memory(FLAG, SRAM),
 
                 BEE_COLLECTED = memory(FLAG, SRAM),
+
+                DIG_OPENED = memory(FLAG, SRAM),
+                DIG_COUNT = 0d100,
+                DIG_COUNTER = memory(WORD, TEMP),
+                DIG_X = 0d24,
+                DIG_Y = 0d134,
             }
 
             @install()
@@ -20263,6 +20266,17 @@ area southern_jungle() {
                 control(BOTH);
             }
 
+            @install()
+            @async()
+            fun entrance_gate() {
+                object[0x0c] = 0x7e; // activate switch_basement
+                sleep(0d30);
+
+                object[0x0c] = 0x00; // activate switch_basement
+                sleep(0d45);
+                control(BOTH);
+            }
+
             enum entrance {
                 north = entrance(0x66, 0x04, SOUTH),
                 east = entrance(0xa3, 0x71, WEST),
@@ -20271,7 +20285,7 @@ area southern_jungle() {
                     ROOM.CAVE_OPENED = True;
                 }),
 
-                pyramid_1_1 = entrance(0x4c, 0x6b, SOUTH),
+                pyramid_1_1 = entrance(0x4c, 0x6b - 0d2, SOUTH, { entrance_gate(); }),
                 pyramid_2_1 = entrance(0x46, 0x4e, SOUTH),
                 pyramid_2_2 = entrance(0x5e, 0x4e, SOUTH),
                 pyramid_3_1 = entrance(0x52, 0x38, SOUTH),
@@ -20340,8 +20354,10 @@ area southern_jungle() {
                 exit_east = @install() {
                     map_transition(flowers, west, EAST);
                 },
-                stepon_16 = @install() {
+                door_bottom = @install() {
                     debug_subtext("S=16");
+
+                    map_transition(inverted_pyramid_level_0, stairs_up_south_east, NORTH);
                 },
                 door_2_1 = @install() {
                     debug_subtext("S=17");
@@ -20483,11 +20499,22 @@ area southern_jungle() {
 
             @install()
             fun tri_stones_triggered() {
-                if!(ROOM.TRI_STONE_LOOTED) {
-                    set(ROOM.TRI_STONE_LOOTED);
+                guard_boy({
+                    bark();
+                });
 
-                    fake_loot();
-                    subtext("unused");
+                animate_boy_kneel(BOY);
+                
+                question("[SLOW]An ancient golden object[CHOICE]loot…[CHOICE]leave…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    ROOM.DIG_OPENED = True;
+
+                    generic_a1_desert_sandpit_in();
+
+                    map_transition(inverted_pyramid_level_0, tunnel, NONE);
+                } else {
+                    animate(BOY, ONCE, DEFAULT);
                 }
             }
 
@@ -20581,18 +20608,26 @@ area southern_jungle() {
 
                 player_message(0d134, 0d122, reference(message_triggered));
 
-                if(ROOM.WITH_TRI_STONE) {
-                    if!(ROOM.TRI_STONE_LOOTED) {
-                        add_enemy(PLACEHOLDER, 0d23, 0d134);
-                        attach_script(LAST_ENTITY, B, reference(tri_stones_triggered));
-                    }
-                }
-
                 no_clip_box(0d1126, 0d892, 0d1240, 0d956);
 
                 if(False) {
                     fake_pit_scanner(0d512, 0d643, 0d543, 0d684, True, False, True, False);
                     fake_pit_scanner(0d699, 0d643, 0d735, 0d691, True, False, True, False);
+                }
+
+                if!(ROOM.DIG_OPENED) {
+                    archaeology_dig(ROOM.DIG_X, ROOM.DIG_Y, ROOM.DIG_COUNTER, ROOM.DIG_COUNT, reference(@install() {
+                        guard_archaeology_dig(ROOM.DIG_OPENED, ROOM.DIG_COUNTER, True);
+
+                        ROOM.DIG_OPENED = True;
+                        
+                        animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_PLACEHOLDER.SCEPTER);
+                        
+                        tri_stones_triggered();
+                    }), True);
+                } else {
+                    add_placeholder(SCEPTER, ROOM.DIG_X, ROOM.DIG_Y);
+                    attach_script(LAST_ENTITY, B, reference(tri_stones_triggered));
                 }
             }
         };
@@ -20744,6 +20779,8 @@ area southern_jungle() {
                         debug_subtext("S=17");
 
                         fog_wall_inside(BOSS.PROGRESS, SOUTH);
+
+                        map_transition(pyramid, pyramid_1_1, NORTH);
                     },
                     dog_north = @install() {
                         debug_subtext("S=18");
