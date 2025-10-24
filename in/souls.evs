@@ -1580,6 +1580,18 @@ group non_maps() {
             return_to_bonfire();
         }
 
+        fun cleanse_status_effect(status_id:STATUS_ID) {
+            if((<BOY>[STATUS_ID_1] & 0xff) == status_id) {
+                <BOY>[STATUS_TIMER_1] = 0xffff;
+            } else if((<BOY>[STATUS_ID_2] & 0xff) == status_id) {
+                <BOY>[STATUS_TIMER_2] = 0xffff;
+            } else if((<BOY>[STATUS_ID_3] & 0xff) == status_id) {
+                <BOY>[STATUS_TIMER_3] = 0xffff;
+            } else if((<BOY>[STATUS_ID_4] & 0xff) == status_id) {
+                <BOY>[STATUS_TIMER_4] = 0xffff;
+            }
+        }
+
         fun refresh_both(with_animation) {
             if(False) {
                 // TODO: set confound timer to 30s to avaid perma confound
@@ -1631,6 +1643,8 @@ group non_maps() {
                 if(<SCRIPT_OWNER>[DAMAGE_SOURCE] && SOULS_MEMORY.SLOW_ON_HIT) {
                     movement_amplification(<BOY>, 0d180, 0d1, True);
                 }
+
+                cleanse_status_effect(ENERGIZE);
 
                 end();
             }
@@ -9998,20 +10012,20 @@ area inbetwixx_center() {
                 // unlock(SPEAR_1);
                 unlock(AXE_2);
 
-                set(FLAG.REVEALER);
+                FLAG.REVEALER = True;
                 MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.REVEALER;
-                set(FLAG.LEVITATE);
+                FLAG.LEVITATE = True;
                 MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX.LEVITATE;
-                set(FLAG.HARD_BALL);
+                FLAG.HARD_BALL = True;
                 MEMORY.SELECTED_ALCHEMY_2 = ALCHEMY_INDEX.HARD_BALL;
 
-                set(FLAG.ATLAS);
+                FLAG.ATLAS = True;
                 MEMORY.SELECTED_ALCHEMY_3 = ALCHEMY_INDEX.ATLAS;
-                set(FLAG.DEFEND);
+                FLAG.DEFEND = True;
                 MEMORY.SELECTED_ALCHEMY_4 = ALCHEMY_INDEX.DEFEND;
-                set(FLAG.FLASH);
+                FLAG.FLASH = True;
                 MEMORY.SELECTED_ALCHEMY_5 = ALCHEMY_INDEX.FLASH;
-                set(FLAG.SPEED);
+                FLAG.SPEED = True;
                 MEMORY.SELECTED_ALCHEMY_6 = ALCHEMY_INDEX.SPEED;
 
                 SOULS_MEMORY.BOMB_ENABLED = True;
@@ -20677,6 +20691,8 @@ area southern_jungle() {
                         south_2_short = entrance(0x53, 0x7b, NORTH),
 
                         test = entrance(0d103, 0d63, NONE),
+
+                        from_cutscene = entrance(0d182, 0d103, NONE),
                     }
 
                     enum soundtrack {
@@ -20858,6 +20874,16 @@ area southern_jungle() {
                             object[0x0d] = 0x01; // open gourd_x
                         }
 
+                        if!(AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_RIGHT_DROPPED) {
+                            add_enemy(STONE, 0d182, 0d106);
+                            attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+                            attach_script(LAST_ENTITY, B, reference(@install() {
+                                AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_RIGHT_DROPPED = True;
+                                
+                                map_transition(inverted_pyramid_level_1, cutscene_stone_right, NONE);
+                            }));
+                        }
+
                         fade_in();
 
                         add_enemy(RIMSALA_STATUTE_ENTITY, 0d57, 0d25);
@@ -20915,6 +20941,8 @@ area southern_jungle() {
 
                             tunnel_west = entrance(0d76, 0d100, NONE, { crash_both(); }),
                             tunnel_east = entrance(0d111, 0d64, NONE, { crash_both(); }),
+
+                            from_cutscene = entrance(0d138, 0d115, NONE),
                         }
 
                         enum soundtrack {
@@ -21404,6 +21432,16 @@ area southern_jungle() {
                             // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_2_COLLAPSED, 0x28);
                             // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_3_COLLAPSED, 0x29);
                             // restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_4_COLLAPSED, 0x2a);
+                            
+                            if!(AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED) {
+                                add_enemy(STONE, 0d138, 0d121);
+                                attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+                                attach_script(LAST_ENTITY, B, reference(@install() {
+                                    AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED = True;
+                                    
+                                    map_transition(inverted_pyramid_level_1, cutscene_stone_left, NONE);
+                                }));
+                            }
 
                             fade_in();
 
@@ -21574,6 +21612,10 @@ area southern_jungle() {
                             crash = entrance(0d23, 0d27, NONE, { crash_both(); }),
                         }
 
+                        enum soundtrack {
+                            default = soundtrack(AREA_INVERTED_PYRAMID.MUSIC, 0xff)
+                        }
+
                         enum stepon_trigger {
                             exit_south = @install() {
                                 debug_subtext("S=0");
@@ -21601,6 +21643,10 @@ area southern_jungle() {
                             crash = entrance(0d23, 0d27, NONE, { crash_both(); }),
                         }
 
+                        enum soundtrack {
+                            default = soundtrack(AREA_INVERTED_PYRAMID.MUSIC, 0xff)
+                        }
+
                         enum stepon_trigger {
                             exit_south = @install() {
                                 debug_subtext("S=0");
@@ -21621,12 +21667,6 @@ area southern_jungle() {
                     };
 
                     map inverted_pyramid_level_1(TINY) {
-                        enum entrance {
-                            teleporter = entrance(0d129, 0d93, NONE, { teleporter_in(SOUTH); }),
-
-                            teleporter_side = entrance(0d31, 0d36, NONE, { teleporter_in(SOUTH); }),
-                        }
-
                         enum ROOM {
                             DEBUG = False,
 
@@ -21641,6 +21681,49 @@ area southern_jungle() {
                             STONE_RIGHT_ID = memory(WORD, TEMP),
                             STONE_RIGHT_X = memory(WORD, RAM),
                             STONE_RIGHT_Y = memory(WORD, RAM),
+                        }
+
+                        @async()
+                        @install()
+                        fun falling_rock_cutscene(x, y, right_stone) {
+                            yield(); // wait for stones to be initialized
+
+                            if(right_stone) {
+                                ROOM.STONE_RIGHT_ID[Z] = 0d2000;
+                            } else {
+                                ROOM.STONE_LEFT_ID[Z] = 0d2000;
+                            }
+
+                            sleep(0d60);
+                            
+                            sound(MECHANICAL_MOVEMENT);
+
+                            sleep(0d80);
+
+                            if(right_stone) {
+                                map_transition(pyramid_level_1, from_cutscene, NONE);
+                            } else {
+                                map_transition(inverted_pyramid_level_0, from_cutscene, NONE);
+                            }
+                        }
+
+                        enum entrance {
+                            teleporter = entrance(0d129, 0d93, NONE, { teleporter_in(SOUTH); }),
+
+                            teleporter_side = entrance(0d31, 0d36, NONE, { teleporter_in(SOUTH); }),
+
+                            cutscene_stone_left = entrance(0d90, 0d69, NONE, {
+                                CUSTOM_FLAG.CUTSCENE = True;
+                                falling_rock_cutscene(0d78, 0d81, False);
+                            }),
+                            cutscene_stone_right = entrance(0d201, 0d23, NONE, {
+                                CUSTOM_FLAG.CUTSCENE = True;
+                                falling_rock_cutscene(0d78, 0d81, True);
+                            }),
+                        }
+
+                        enum soundtrack {
+                            default = soundtrack(AREA_INVERTED_PYRAMID.MUSIC, 0xff)
                         }
 
                         enum stepon_trigger {
@@ -21945,8 +22028,6 @@ area southern_jungle() {
                         }
 
                         fun trigger_enter() {
-                            fade_in();
-
                             // object[0x00] = 0x03; // open gate_center_2
                             // object[0x01] = 0x03; // open gate_left
                             // object[0x02] = 0x03; // open gate_center_1
@@ -21966,9 +22047,6 @@ area southern_jungle() {
                             switch_2_handler();
                             switch_3_handler();
 
-                            AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED = True;
-                            AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_RIGHT_DROPPED = True;
-
                             if(AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED) {
                                 add_levitate_stone(0d90, 0d69, reference(@install() {
                                     guard_levitate_stone(0d1);
@@ -21981,6 +22059,8 @@ area southern_jungle() {
                                 }));
                                 ROOM.STONE_RIGHT_ID = <LAST_ENTITY>;
                             }
+
+                            fade_in();
                             
                             remember_stone_handler(ROOM.STONE_LEFT_ID, ROOM.STONE_RIGHT_ID);
                         }
@@ -36121,6 +36201,350 @@ area metro() {
                 default_init_room(False, False);
 
                 // plot_code();
+            }
+        };
+
+        map secret_boss(FACE) {
+            enum entrance {
+                south = entrance(0x3a, 0x4e, NONE),
+                
+                test = entrance(0d23, 0d46, NONE),
+            }
+
+            enum soundtrack {
+                default = soundtrack(BOSS, 0xff)
+            }
+
+            enum stepon_trigger {
+                exit_south = @install() {
+                    debug_subtext("S=0");
+                },
+                spawn_boss = @install() {
+                    debug_subtext("S=1");
+                }
+            }
+
+            enum BOSS {
+                DEBUG = True,
+                DEBUG_RADIATION = True,
+                DEBUG_CORE = True,
+
+                BOSS_ID = memory(WORD, TEMP),
+
+                FACE_LEFT_ID = memory(WORD, TEMP),
+                FACE_RIGHT_ID = memory(WORD, TEMP),
+                CORE_TOP_ID = memory(WORD, TEMP),
+                CORE_BOTTOM_ID = memory(WORD, TEMP),
+
+                RADIATION_ACTIVE = memory(FLAG, TEMP),
+            }
+
+            @install()
+            fun update_radiation() {
+                arg[0x10] = BOSS.FACE_LEFT_ID[GENERAL_PURPOSE] + BOSS.FACE_RIGHT_ID[GENERAL_PURPOSE] + BOSS.CORE_TOP_ID[GENERAL_PURPOSE] + BOSS.CORE_BOTTOM_ID[GENERAL_PURPOSE];
+
+                if(BOSS.DEBUG && BOSS.DEBUG_RADIATION) {
+                    debug_memory(BOSS.RADIATION_ACTIVE, arg[0x10], BOSS.BOSS_ID[HP] <= 0d0);
+                }
+                
+                if(BOSS.BOSS_ID[HP] <= 0d0) {
+                    BOSS.RADIATION_ACTIVE = False;
+                } else if(BOSS.RADIATION_ACTIVE) {
+                    if!(arg[0x10]) {
+                        BOSS.RADIATION_ACTIVE = False;
+                    }
+                } else {
+                    if(arg[0x10]) {
+                        BOSS.RADIATION_ACTIVE = True;
+                    }
+                }
+            }
+
+            @install()
+            fun _add_core(x, y, idle_ticks) {
+                add_enemy(GATE_BOT, x, y);
+                attach_to_script(LAST_ENTITY);
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                
+                <SCRIPT_OWNER>[Z] = 0d2000;
+
+                attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                }));
+
+                if(BOSS.DEBUG && BOSS.DEBUG_CORE) {
+                    debug_subtext("+core");
+                }
+                
+                while(BOSS.BOSS_ID[HP] > 0d0) {
+                    if(False) {
+                        animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
+                        sleep(idle_ticks * 0d10);
+                    } else {
+                        arg[0x10] = idle_ticks;
+                        while(arg[0x10] > 0d0) {
+                            arg[0x10]--;
+                            
+                            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
+                            
+                            sleep(0d10);
+                        }
+                    }
+                    
+                    if(False) {
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
+                        sleep(0d5, S);
+                    } else {
+                        arg[0x10] = 0d6 * 0d5;
+                        while(arg[0x10] > 0d0) {
+                            arg[0x10]--;
+                            
+                            animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
+                            
+                            sleep(0d10);
+                        }
+                    }
+                    sound(ACT4_DOOR_OPENING);
+                    animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.ENERGY_CORE_OPENING);
+                    wait(SCRIPT_OWNER);
+                    animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_OPEN);
+
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
+                    update_radiation();
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    yield();
+                    if(False) {
+                        arg[0x10] = 0d0;
+                        while!(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                            arg[0x10]++;
+                            if(arg[0x10] == 0d20) {
+                                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                            }
+
+                            sleep(0d10);
+                        }
+                    } else {
+                        while!(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                            animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_OPEN);
+
+                            sleep(0d10);
+                        }
+                    }
+
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                    update_radiation();
+                    sound(ACT4_DOOR_OPENING);
+
+                    animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
+                    sleep(0d20);
+                }
+
+                if(BOSS.DEBUG && BOSS.DEBUG_CORE) {
+                    debug_subtext("-core");
+                }
+            }
+            @install()
+            @async()
+            fun add_core(x, y, idle_ticks) {
+                _add_core(x, y, idle_ticks);
+
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                    destroy(SCRIPT_OWNER);
+                    sound(ELEVATOR_DOOR);
+                }
+                update_radiation();
+            }
+
+            @install()
+            fun _add_face(x, y, object_id, idle_time) {
+                add_enemy(FACE_ENTITY, x, y);
+                attach_to_script(LAST_ENTITY);
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                
+                attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                }));
+                
+                while(BOSS.BOSS_ID[HP] > 0d0) {
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
+                    update_radiation();
+                    object[object_id] = 0x05;
+                    sound(ELEVATOR_DOOR);
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    yield();
+
+                    while!(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                        sleep(0d10);
+                    }
+
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                    update_radiation();
+                    object[object_id] = 0x00;
+                    sound(ELEVATOR_DOOR);
+
+                    sleep(idle_time);
+                }
+            }
+            @install()
+            @async()
+            fun add_face(x, y, object_id, is_left, idle_time) {
+                _add_face(x, y, object_id, is_left, idle_time);
+
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                    destroy(SCRIPT_OWNER);
+                    object[object_id] = 0x00;
+                    sound(ELEVATOR_DOOR);
+                }
+                update_radiation();
+            }
+
+            @install()
+            fun shift(instant) {
+                sound(WEIRD_SOUND);
+                if!(instant) {
+                    sleep(0d30);
+                }
+
+                arg[0x0e] = randrange(0d10);
+
+                if(arg[0x0e] == 0d0) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.MAGMAR;
+                } else if(arg[0x0e] == 0d1) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.VIGOR;
+                } else if(arg[0x0e] == 0d2) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.MINITAUR;
+                } else if(arg[0x0e] == 0d3) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.MEGATAUR;
+                } else if(arg[0x0e] == 0d4) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.RIMSALA_GOLD;
+                } else if(arg[0x0e] == 0d5) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.FOOTKNIGHT;
+                } else if(arg[0x0e] == 0d6) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.BOY_BLACK;
+                } else if(arg[0x0e] == 0d7) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.PUPPET_1;
+                } else if(arg[0x0e] == 0d8) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.DOG_4_BLACK;
+                } else {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.GUARD_BOT_INTRO;
+                }
+            }
+
+            fun add_boss(x, y) {
+                add_enemy(FOOTKNIGHT, x, y, STONE_LEVITATE);
+                BOSS.BOSS_ID = <LAST_ENTITY>;
+                attach_to_script(LAST_ENTITY);
+                // debug_memory(<LAST_ENTITY>);
+                if(True) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.STONE;
+
+                    special_script(LEVITATE, reference(@install() {
+                        <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.BOY_BLACK;
+
+                        animate(SCRIPT_OWNER, LOOP, ANIMATION_BOY.FALL_2);
+
+                        while(<SCRIPT_OWNER>[Z] > 0d0) {
+                            yield();
+                        }
+
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_BOY.LANDING);
+                        attribute(SCRIPT_OWNER, INVINCIBLE, False);
+                    }));
+                }
+                <SCRIPT_OWNER>[HP] = 0d999;
+                attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
+                    if(False) {
+                        sleep(0d10);
+                        
+                        shift(True);
+                    } else {
+                        nop();
+                    }
+
+                    if(<SCRIPT_OWNER>[TYPE] == CHARACTER_TYPE.VIGOR) {
+                        subtext("!"); // TODO: vigor shield
+                    }
+                }));
+            }
+
+            @install()
+            @async()
+            fun room_radiation_handler() {
+                while(True) {
+                    if((<BOY>[Y] < 0d240) && BOSS.CORE_TOP_ID[GENERAL_PURPOSE]) {
+                        subtext("top");
+                    } else if((<BOY>[Y] > 0d300) && BOSS.CORE_BOTTOM_ID[GENERAL_PURPOSE]) {
+                        subtext("bottom");
+                    } else if((<BOY>[X] < 0d155) && BOSS.FACE_LEFT_ID[GENERAL_PURPOSE]) {
+                        subtext("left");
+                    } else if((<BOY>[X] > 0d230) && BOSS.FACE_RIGHT_ID[GENERAL_PURPOSE]) {
+                        subtext("right");
+                    }
+
+                    sleep(0d60);
+                }
+            }
+
+            fun trigger_enter() {
+                // object[0x00] = 0x05; // show face_left
+                // object[0x01] = 0x05; // show face_right
+                object[0x02] = 0x09; // open gate
+
+                attribute(BOY, INVINCIBLE_TEMP, True);
+                attribute(DOG, INVINCIBLE_TEMP, True);
+
+                fade_in();
+
+                test_stuff();
+
+                add_boss(0d24, 0d42);
+
+                add_core(0d24, 0d22, 0d180);
+                yield();
+                BOSS.CORE_TOP_ID = <LAST_ENTITY>;
+                add_core(0d24, 0d51, 0d180);
+                yield();
+                BOSS.CORE_BOTTOM_ID = <LAST_ENTITY>;
+
+                add_face(0d9, 0d17, 0x00, 0d2100);
+                yield();
+                BOSS.FACE_LEFT_ID = <LAST_ENTITY>;
+                add_face(0d39, 0d17, 0x01, 0d2100);
+                yield();
+                BOSS.FACE_RIGHT_ID = <LAST_ENTITY>;
+
+                room_radiation_handler();
+
+                while(<SCRIPT_OWNER>[TYPE] == CHARACTER_TYPE.STONE) {
+                    sleep(0d10);
+                }
+
+                while(True) {
+                    if(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                        arg[0x10] = 0d0;
+                        shift(True);
+
+                        while(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                            yield();
+                        }
+                    } else if(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                        nop();
+                    } else {
+                        arg[0x10]++;
+
+                        if(arg[0x10] > 0d240) {
+                            arg[0x10] = 0d0;
+
+                            shift(False);
+                        }
+                    }
+
+                    yield();
+                }
             }
         };
     };
