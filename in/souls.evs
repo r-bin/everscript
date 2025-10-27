@@ -2680,13 +2680,13 @@ group non_maps() {
             RADIATION_ROOM_ACTIVE = memory(FLAG, TEMP_RESERVED),
 
             RADIATION_MAX = 0d255,
-            RADIATION_DECAY = 0d10,
+            RADIATION_DECAY = 0d5,
             RADIATION_DAMAGE = 0d1,
 
-            RADIATION_BUMP_PROXIMITY = 0d30,
+            RADIATION_BUMP_PROXIMITY = 0d20,
             RADIATION_BUMP_TOUCH = 0d100,
 
-            THRESHOLD_DAMAGE = 0d200,
+            THRESHOLD_DAMAGE = 0d100,
 
             HALF_TIME_DURING_SCREEN_TRANSITION = True,
         }
@@ -2830,35 +2830,49 @@ group non_maps() {
                 _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_9, range);
                 _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_10, range);
 
-                if(arg[0x10] > 0d0) {
-                    radiation_click();
-                } else if(arg[0x12] == 0d0) {
-                    arg[0x12] = 0d2 + randrange(0d3);
+                if(RADIATION.RADIATION_ROOM_CURRENT) {
+                    arg[0x10] += RADIATION.RADIATION_ROOM_CURRENT;
+                }
 
-                    if(SOULS_MEMORY.RADIATION_SOURCE_1) {
-                        radiation_click();
+                if(arg[0x10] > 0d0) {
+                    if((RADIATION.RADIATION_CURRENT + arg[0x10]) >= 0d255) {
+                        damage(BOY, 0d999, False, True);
+                        end();
                     }
 
-                    if!(RADIATION.RADIATION_LEVEL) {
+                    RADIATION.RADIATION_CURRENT += arg[0x10];
+                    
+                    radiation_click();
+                } else {
+                    // if!(RADIATION.RADIATION_LEVEL) {
                         if(RADIATION.RADIATION_CURRENT > RADIATION.RADIATION_DECAY) {
                             RADIATION.RADIATION_CURRENT -= RADIATION.RADIATION_DECAY;
                         } else {
                             RADIATION.RADIATION_CURRENT = 0d0;
                         }
+                    // }
+                
+                    if(arg[0x12] == 0d0) {
+                        arg[0x12] = 0d2 + randrange(0d3);
+
+                        if(SOULS_MEMORY.RADIATION_SOURCE_1) {
+                            radiation_click();
+                        }
                     }
                 }
 
+                arg[0x14] = randrange(0d2);
                 if(RADIATION.DEBUG) {
-                    debug_memory(RADIATION.RADIATION_CURRENT, arg[0x10], arg[0x12]);
+                    debug_memory(RADIATION.RADIATION_CURRENT, arg[0x10], arg[0x14]);
                 }
 
-                if!(randrange(0d3)) {
+                if!(arg[0x14]) {
                     if(RADIATION.RADIATION_CURRENT_ACTIVE) {
                         if(RADIATION.RADIATION_CURRENT == 0d0) {
                             RADIATION.RADIATION_CURRENT_ACTIVE = False;
                         } else {
-                            damage(BOY, RADIATION.RADIATION_DAMAGE, True, True);
-                            // reduce_max_hp(0d1);
+                            // damage(BOY, RADIATION.RADIATION_DAMAGE, True, True);
+                            reduce_max_hp(0d1);
                         }
                     } else if(RADIATION.RADIATION_CURRENT > RADIATION.THRESHOLD_DAMAGE) {
                         RADIATION.RADIATION_CURRENT_ACTIVE = True;
@@ -3322,8 +3336,6 @@ group non_maps() {
         }
 
         fun fallout_init(night, rain) {
-            init_hack();
-
             RADIATION.RADIATION_LEVEL = 0d1;
 
             default_init_room(night, rain);
@@ -3451,7 +3463,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(inverted_pyramid_level_1_side_entrance, crash, NONE);
+                map_transition(secret_boss, test, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -36254,8 +36266,6 @@ area metro() {
 
             enum soundtrack {
                 default = soundtrack(BOSS, 0xff)
-            }
-
                 default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
@@ -36586,36 +36596,37 @@ area metro() {
                 }));
             }
 
-            fun _room_radiation_handler() {
-                increase_radiation(0d3);
-
-                radiation_click();
-            }
             @install()
             @async()
             fun room_radiation_handler() {
                 while(True) {
+                    arg[0x10] = 0d0;
+
                     if((<BOY>[Y] < 0d240) && BOSS.CORE_TOP_ID[GENERAL_PURPOSE]) {
                         if(BOSS.DEBUG && BOSS.DEBUG_RADIATION) {
                             debug_subtext("top");
                         }
-                        _room_radiation_handler();
+                        arg[0x10]++;
                     } else if((<BOY>[Y] > 0d300) && BOSS.CORE_BOTTOM_ID[GENERAL_PURPOSE]) {
                         if(BOSS.DEBUG && BOSS.DEBUG_RADIATION) {
                             debug_subtext("bottom");
                         }
-                        _room_radiation_handler();
-                    } else if((<BOY>[X] < 0d155) && BOSS.FACE_LEFT_ID[GENERAL_PURPOSE]) {
+                        arg[0x10]++;
+                    }
+                    
+                    if((<BOY>[X] < 0d155) && BOSS.FACE_LEFT_ID[GENERAL_PURPOSE]) {
                         if(BOSS.DEBUG && BOSS.DEBUG_RADIATION) {
                             debug_subtext("left");
                         }
-                        _room_radiation_handler();
+                        arg[0x10]++;
                     } else if((<BOY>[X] > 0d230) && BOSS.FACE_RIGHT_ID[GENERAL_PURPOSE]) {
                         if(BOSS.DEBUG && BOSS.DEBUG_RADIATION) {
                             debug_subtext("right");
                         }
-                        _room_radiation_handler();
+                        arg[0x10]++;
                     }
+
+                    RADIATION.RADIATION_ROOM_CURRENT = arg[0x10] << 0d3;
 
                     sleep(0d60);
                 }
@@ -36715,7 +36726,6 @@ area metro() {
             @install()
             fun boss_triggered() {
                 if!(SOULS_MEMORY.DEAD_SECRET_BOSS) {
-                    RADIATION.RADIATION_ROOM_ACTIVE = True;
                     add_boss(0d24, 0d42);
 
                     boss_handler();
@@ -36741,6 +36751,7 @@ area metro() {
 
                 boss_triggered();
                 
+                RADIATION.RADIATION_ROOM_ACTIVE = True;
                 fallout_init(False, False);
             }
         };
