@@ -1594,6 +1594,40 @@ group non_maps() {
             }
         }
 
+        group max_hp() {
+            @install()
+            fun reset_max_hp() {
+                // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
+
+                <0x0a35> = CUSTOM_MEMORY.NULL_POINTER[0x0a35] + SOULS_MEMORY.REDUCED_MAX_HP;
+                SOULS_MEMORY.REDUCED_MAX_HP = 0d0;
+                damage(BOY, 0d0, False, True);
+            }
+            @install()
+            fun update_max_hp() {
+                // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
+
+                <0x0a35> = CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP;
+                damage(BOY, 0d0, False, True);
+
+            }
+            @install()
+            fun reduce_max_hp(hp_to_remove) {
+                if(hp_to_remove >= CUSTOM_MEMORY.NULL_POINTER[0x0a35]) {
+                    hp_to_remove = CUSTOM_MEMORY.NULL_POINTER[0x0a35] - 0d1;
+                }
+
+                if(hp_to_remove > 0d0) {
+                    // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
+
+                    SOULS_MEMORY.REDUCED_MAX_HP += hp_to_remove;
+                    CUSTOM_MEMORY.NULL_POINTER[0x0a35] -= hp_to_remove;
+                }
+
+                damage(BOY, 0d0, True, True);
+            }
+        };
+
         fun refresh_both(with_animation) {
             if(False) {
                 // TODO: set confound timer to 30s to avaid perma confound
@@ -1623,40 +1657,10 @@ group non_maps() {
 
             yield();
 
+            reset_max_hp();
+
             cure();
             full_heal(BOTH, with_animation);
-        }
-
-        @install()
-        fun reset_max_hp() {
-            // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
-
-            <0x0a35> = CUSTOM_MEMORY.NULL_POINTER[0x0a35] + SOULS_MEMORY.REDUCED_MAX_HP;
-            SOULS_MEMORY.REDUCED_MAX_HP = 0d0;
-            damage(BOY, 0d0, False, True);
-        }
-        @install()
-        fun update_max_hp() {
-            // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
-
-            <0x0a35> = CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP;
-            damage(BOY, 0d0, False, True);
-
-        }
-        @install()
-        fun reduce_max_hp(hp_to_remove) {
-            if(hp_to_remove >= CUSTOM_MEMORY.NULL_POINTER[0x0a35]) {
-                hp_to_remove = CUSTOM_MEMORY.NULL_POINTER[0x0a35] - 0d1;
-            }
-
-            if(hp_to_remove > 0d0) {
-                // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
-
-                SOULS_MEMORY.REDUCED_MAX_HP += hp_to_remove;
-                CUSTOM_MEMORY.NULL_POINTER[0x0a35] -= hp_to_remove;
-            }
-
-            damage(BOY, 0d0, True, True);
         }
 
         fun _boy_death() {
@@ -2678,6 +2682,7 @@ group non_maps() {
             RADIATION_CURRENT_ACTIVE = memory(FLAG, SRAM),
             RADIATION_CURRENT = memory(BYTE, SRAM),
             RADIATION_ROOM_ACTIVE = memory(FLAG, TEMP_RESERVED),
+            RADIATION_ROOM_CURRENT = memory(WORD, TEMP_RESERVED),
 
             RADIATION_MAX = 0d255,
             RADIATION_DECAY = 0d5,
@@ -2724,6 +2729,8 @@ group non_maps() {
                 if(RADIATION.RADIATION_LEVEL) {
                     RADIATION.RADIATION_CURRENT += amount + amount;
                 }
+            } else {
+                RADIATION.RADIATION_CURRENT = RADIATION.RADIATION_MAX;
             }
         }
 
@@ -2835,8 +2842,8 @@ group non_maps() {
                 }
 
                 if(arg[0x10] > 0d0) {
-                    if((RADIATION.RADIATION_CURRENT + arg[0x10]) >= 0d255) {
-                        damage(BOY, 0d999, False, True);
+                    if((RADIATION.RADIATION_CURRENT + arg[0x10]) >= RADIATION.RADIATION_MAX) {
+                        damage(BOY, SYSTEM.HP_MAX, False, True);
                         end();
                     }
 
@@ -10052,9 +10059,11 @@ area inbetwixx_center() {
             } else {
                 unlock(WEAPONS);
                 unlock(ARMOR);
-                unlock(JAGUAR_RING);
                 if(False) {
                     unlock(CHARMS);
+                } else {
+                    unlock(JAGUAR_RING);
+                    unlock(CHOCOBO_EGG);
                 }
                 unlock(CONSUMABLES);
                 unlock(INGREDIENTS);
@@ -36265,7 +36274,6 @@ area metro() {
             }
 
             enum soundtrack {
-                default = soundtrack(BOSS, 0xff)
                 default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
             }
 
@@ -36293,15 +36301,18 @@ area metro() {
 
             @install()
             fun update_radiation() {
+                if(BOSS.BOSS_ID[HP] <= 0d0) {
+                    BOSS.RADIATION_ACTIVE = False;
+                    end();
+                }
+                
                 arg[0x10] = BOSS.FACE_LEFT_ID[GENERAL_PURPOSE] + BOSS.FACE_RIGHT_ID[GENERAL_PURPOSE] + BOSS.CORE_TOP_ID[GENERAL_PURPOSE] + BOSS.CORE_BOTTOM_ID[GENERAL_PURPOSE];
 
                 if(BOSS.DEBUG && BOSS.DEBUG_RADIATION) {
                     debug_memory(BOSS.RADIATION_ACTIVE, arg[0x10], BOSS.BOSS_ID[HP] <= 0d0);
                 }
                 
-                if(BOSS.BOSS_ID[HP] <= 0d0) {
-                    BOSS.RADIATION_ACTIVE = False;
-                } else if(BOSS.RADIATION_ACTIVE) {
+                if(BOSS.RADIATION_ACTIVE) {
                     if!(arg[0x10]) {
                         BOSS.RADIATION_ACTIVE = False;
                     }
@@ -36313,13 +36324,11 @@ area metro() {
             }
 
             @install()
-            fun _add_core(x, y, idle_ticks) {
-                add_enemy(GATE_BOT, 0d0, 0d0, INACTIVE);
-                attach_to_script(LAST_ENTITY);
-                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
-                
+            fun _add_core(entity, x, y, idle_ticks) {
+                attach_to_script(entity);
+
                 while(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    guard_dead(BOSS.BOSS_ID);
                     sleep(0d30);
                 }
                 <SCRIPT_OWNER>[Z] = 0d4000;
@@ -36330,11 +36339,9 @@ area metro() {
                 }));
 
                 if(BOSS.DEBUG && BOSS.DEBUG_CORE) {
-                    debug_subtext("+core");
+                    debug_subtext("core released");
                 }
 
-                debug_memory(<SCRIPT_OWNER>, <SCRIPT_OWNER>[X], x);
-                
                 while(BOSS.BOSS_ID[HP] > 0d0) {
                     if(False) {
                         animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
@@ -36344,6 +36351,7 @@ area metro() {
                         while(arg[0x10] > 0d0) {
                             arg[0x10]--;
                             
+                            guard_dead(BOSS.BOSS_ID);
                             animate(SCRIPT_OWNER, FREEZE, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
                             
                             sleep(0d10);
@@ -36358,11 +36366,15 @@ area metro() {
                         while(arg[0x10] > 0d0) {
                             arg[0x10]--;
                             
+                            guard_dead(BOSS.BOSS_ID);
                             animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
                             
                             sleep(0d10);
                         }
                     }
+                    
+                    guard_dead(BOSS.BOSS_ID);
+
                     sound(ACT4_DOOR_OPENING);
                     animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.ENERGY_CORE_OPENING);
                     wait(SCRIPT_OWNER);
@@ -36384,6 +36396,7 @@ area metro() {
                         }
                     } else {
                         while!(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                            guard_dead(BOSS.BOSS_ID);
                             animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_OPEN);
 
                             sleep(0d10);
@@ -36397,32 +36410,38 @@ area metro() {
                     animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.ENERGY_CORE_CLOSED);
                     sleep(0d20);
                 }
-
-                if(BOSS.DEBUG && BOSS.DEBUG_CORE) {
-                    debug_subtext("-core");
-                }
             }
             @install()
             @async()
             fun add_core(x, y, idle_ticks) {
-                _add_core(x, y, idle_ticks);
-
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
-                    destroy(SCRIPT_OWNER);
-                    sound(ELEVATOR_DOOR);
-                }
-                update_radiation();
-            }
-
-            @install()
-            fun _add_face(x, y, object_id, idle_time) {
-                add_enemy(FACE_ENTITY, 0d0, 0d0, INACTIVE);
+                add_enemy(GATE_BOT, 0d0, 0d0, INACTIVE);
                 attach_to_script(LAST_ENTITY);
                 attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
                 <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
 
+                if(BOSS.DEBUG && BOSS.DEBUG_CORE) {
+                    debug_subtext("+core");
+                }
+
+                _add_core(<SCRIPT_OWNER>, x, y, idle_ticks);
+
+                if(BOSS.DEBUG && BOSS.DEBUG_CORE) {
+                    debug_subtext("-core");
+                }
+
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                destroy(SCRIPT_OWNER);
+                // sound(ELEVATOR_DOOR);
+
+                update_radiation();
+            }
+
+            @install()
+            fun _add_face(entity, x, y, object_id, idle_time) {
+                attach_to_script(entity);
+
                 while(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    guard_dead(BOSS.BOSS_ID);
                     sleep(0d30);
                 }
                 teleport(SCRIPT_OWNER, x, y);
@@ -36432,6 +36451,8 @@ area metro() {
                 }));
                 
                 while(BOSS.BOSS_ID[HP] > 0d0) {
+                    guard_dead(BOSS.BOSS_ID);
+
                     <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
                     update_radiation();
                     object[object_id] = 0x05;
@@ -36440,6 +36461,8 @@ area metro() {
                     yield();
 
                     while!(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                        guard_dead(BOSS.BOSS_ID);
+                        
                         sleep(0d10);
                     }
 
@@ -36454,14 +36477,18 @@ area metro() {
             @install()
             @async()
             fun add_face(x, y, object_id, is_left, idle_time) {
-                _add_face(x, y, object_id, is_left, idle_time);
+                add_enemy(FACE_ENTITY, 0d0, 0d0, INACTIVE);
+                attach_to_script(LAST_ENTITY);
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
 
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
-                    destroy(SCRIPT_OWNER);
-                    object[object_id] = 0x00;
-                    sound(ELEVATOR_DOOR);
-                }
+                _add_face(<SCRIPT_OWNER>, x, y, object_id, is_left, idle_time);
+
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                destroy(SCRIPT_OWNER);
+                object[object_id] = 0x00;
+                // sound(ELEVATOR_DOOR);
+
                 update_radiation();
             }
 
@@ -36599,7 +36626,7 @@ area metro() {
             @install()
             @async()
             fun room_radiation_handler() {
-                while(True) {
+                while(BOSS.BOSS_ID[HP] > 0d0) {
                     arg[0x10] = 0d0;
 
                     if((<BOY>[Y] < 0d240) && BOSS.CORE_TOP_ID[GENERAL_PURPOSE]) {
@@ -36715,10 +36742,12 @@ area metro() {
                     yield();
                 }
 
-                destroy(BOSS.CORE_TOP_ID);
-                destroy(BOSS.CORE_BOTTOM_ID = <LAST_ENTITY>);
-                destroy(BOSS.FACE_LEFT_ID = <LAST_ENTITY>);
-                destroy(BOSS.FACE_RIGHT_ID = <LAST_ENTITY>);
+                if(False) {
+                    destroy(BOSS.CORE_TOP_ID);
+                    destroy(BOSS.CORE_BOTTOM_ID = <LAST_ENTITY>);
+                    destroy(BOSS.FACE_LEFT_ID = <LAST_ENTITY>);
+                    destroy(BOSS.FACE_RIGHT_ID = <LAST_ENTITY>);
+                }
 
                 boss_defeated();
             }
@@ -36746,13 +36775,19 @@ area metro() {
                 // object[0x01] = 0x05; // show face_right
                 // object[0x02] = 0x09; // open gate
 
-                attribute(BOY, INVINCIBLE_TEMP, True);
-                attribute(DOG, INVINCIBLE_TEMP, True);
+                // attribute(BOY, INVINCIBLE_TEMP, True);
+                // attribute(DOG, INVINCIBLE_TEMP, True);
 
                 boss_triggered();
                 
                 RADIATION.RADIATION_ROOM_ACTIVE = True;
                 fallout_init(False, False);
+
+                if(False) {
+                    yield();
+                    <BOY>[HP] = SYSTEM.HP_MAX;
+                    <DOG>[HP] = SYSTEM.HP_MAX;
+                }
             }
         };
     };
