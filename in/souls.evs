@@ -491,6 +491,7 @@ group non_maps() {
             DOG_PREFERENCE = memory(BYTE, SRAM),
             DOG_SHIP = memory(FLAG, SRAM),
             DOG_SHIP_STAIRS = memory(FLAG, SRAM),
+            DOG_TEMP_AGGRO = memory(WORD, RAM),
 
             // boy
             SLOW_ON_HIT = memory(FLAG, TEMP_RESERVED),
@@ -831,6 +832,22 @@ group non_maps() {
                     SOULS_MEMORY.REPUTATION = REPUTATION.CHEATER;
                 } else {
                     update_reputation();
+                }
+            }
+        };
+
+        group dog_aggro() {
+            fun init_dog_aggro() {
+                SOULS_MEMORY.DOG_TEMP_AGGRO = 0xffff;
+            }
+            fun force_dog_aggro(aggro) {
+                SOULS_MEMORY.DOG_TEMP_AGGRO = CUSTOM_MEMORY.NULL_POINTER[0x0b0d];
+                <0x0b0d> = 0x0000;
+            }
+            fun restore_dog_aggro() {
+                if(SOULS_MEMORY.DOG_TEMP_AGGRO != 0xffff) {
+                    <0x0b0d> = SOULS_MEMORY.DOG_TEMP_AGGRO;
+                    SOULS_MEMORY.DOG_TEMP_AGGRO = 0xffff;
                 }
             }
         };
@@ -3182,6 +3199,8 @@ group non_maps() {
                 SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
                 SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
 
+                init_dog_aggro();
+
                 // MEMORY.ALCHEMY_LEVEL_ATLAS = 0d10;
                 // MEMORY.ALCHEMY_LEVEL_DEFEND = 0d3;
                 // MEMORY.ALCHEMY_LEVEL_SPEED = 0d1;
@@ -3300,6 +3319,8 @@ group non_maps() {
             init_hack();
 
             update_reputation_enter();
+
+            restore_dog_aggro();
 
             if((!FLAG.BAZOOKA) && (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.BAZOOKA_TEMP)) {
                 MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
@@ -3784,9 +3805,26 @@ group non_maps() {
             STORY_PICKAXE = memory(FLAG, SRAM), // crafter -> smith (unlocks: PICKAXE_HEAD)
         }
 
+        group npc_shared() {
+            fun test_death() {
+                debug_memory(dead(<SCRIPT_OWNER>), _dead(<SCRIPT_OWNER>), <SCRIPT_OWNER>[HP]);
+
+                guard_dead(<SCRIPT_OWNER>, {
+                    debug_subtext("guard_dead");
+                });
+                _guard_dead(<SCRIPT_OWNER>, {
+                    debug_subtext("_guard_dead");
+                });
+                guard_no_hp(<SCRIPT_OWNER>, {
+                    debug_subtext("guard_no_hp");
+                });
+            }
+        };
+
         group npc_shrine_maiden() {
             enum NPC_SHRINE_MAIDEN {
                 PROGRESS = memory(BYTE, SRAM),
+                DEAD = memory(FLAG, SRAM),
 
                 PRICE_LEVEL_UP = 0d100,
                 PRICE_SPELL_SLOT = 0d50,
@@ -3796,6 +3834,12 @@ group non_maps() {
             }
 
             group talk_ai() {
+                fun guard_dead_npc() {
+                    guard_dead(<SCRIPT_OWNER>, {
+                        NPC_SHRINE_MAIDEN.DEAD = True;
+                    });
+                }
+
                 fun response_positive() {
                     dialog("[SLOW]positive[B]");
                 }
@@ -3889,6 +3933,8 @@ group non_maps() {
 
                 @install()
                 fun shrine_maiden_triggered__first_bonfire() {
+                    guard_dead_npc();
+
                     if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf0) == 0x00) {
                         if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d0) {
                             NPC_SHRINE_MAIDEN.PROGRESS++;
@@ -3911,12 +3957,16 @@ group non_maps() {
                 }
                 @install()
                 fun shrine_maiden_triggered__shrine() {
+                    guard_dead_npc();
+
                     NPC_SHRINE_MAIDEN.PROGRESS = 0x20;
 
                     dialog("[SLOW]Bearer of the curse, seek misery.[LF]For misery will lead you to greater, stronger souls.[LF]You will never meet the King with a soul so frail and pallid.[B]");
                 }
                 @install()
                 fun shrine_maiden_triggered() {
+                    guard_dead_npc();
+
                     if(SOULS_MEMORY.ESTUS_SHARDS > 0d00) {
                         greeting_estus_shard();
                     } else {
@@ -3938,14 +3988,17 @@ group non_maps() {
             };
 
             fun add_souls_npc_shrine_maiden(x, y) {
-                add_enemy(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
+                if!(NPC_SHRINE_MAIDEN.DEAD) {
+                    add_enemy(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
+                    attribute(LAST_ENTITY, INVINCIBLE, False);
 
-                if(NPC_SHRINE_MAIDEN.PROGRESS < 0x10) {
-                    attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered__first_bonfire));
-                } else if(NPC_SHRINE_MAIDEN.PROGRESS < 0x20) {
-                    attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered__shrine));
-                } else {
-                    attach_script(LAST_ENTITY, B, reference(shrine_maiden_triggered));
+                    if(NPC_SHRINE_MAIDEN.PROGRESS < 0x10) {
+                        attach_script(LAST_ENTITY, ALL, reference(shrine_maiden_triggered__first_bonfire));
+                    } else if(NPC_SHRINE_MAIDEN.PROGRESS < 0x20) {
+                        attach_script(LAST_ENTITY, ALL, reference(shrine_maiden_triggered__shrine));
+                    } else {
+                        attach_script(LAST_ENTITY, ALL, reference(shrine_maiden_triggered));
+                    }
                 }
             }
         };
@@ -4154,10 +4207,18 @@ group non_maps() {
 
         group npc_cat() {
             enum NPC_CAT {
+                DEAD = memory(FLAG, SRAM),
+
                 PRICE_RING_CAT = 0d100,
             }
 
             group cat_ai() {
+                fun guard_dead_npc() {
+                    guard_dead(<SCRIPT_OWNER>, {
+                        NPC_CAT.DEAD = True;
+                    });
+                }
+
                 fun response_positive() {
                     if(randrange(0x02) == 0x00) {
                         dialog("[SLOW]Satisfied?[B]");
@@ -4209,6 +4270,8 @@ group non_maps() {
 
                 @install()
                 fun cat_triggered() {
+                    guard_dead_npc();
+                    
                     dialog("[SLOW]Oh, yes. You can call me Shalquoir. Enchante.[B]");
 
                     if!(MEMORY.GLOVE_3_2) {
@@ -4233,19 +4296,23 @@ group non_maps() {
             }
 
             fun add_souls_npc_cat(variant:CAT_VARIANT, x, y) {
-                if(variant == CAT_VARIANT.LOOKING) {
-                    add_placeholder(CAT_LOOKING, x, y);
-                } else {
-                    add_placeholder(CAT_CLEANING_1, x, y);
-                }
+                if!(NPC_CAT.DEAD) {
+                    if(variant == CAT_VARIANT.LOOKING) {
+                        add_placeholder(CAT_LOOKING, x, y);
+                    } else {
+                        add_placeholder(CAT_CLEANING_1, x, y);
+                    }
+                    attribute(LAST_ENTITY, INVINCIBLE, False);
 
-                attach_script(LAST_ENTITY, B, reference(cat_triggered));
+                    attach_script(LAST_ENTITY, ALL, reference(cat_triggered));
+                }
             }
         };
 
         group npc_smith() {
             enum NPC_SMITH {
                 PROGRESS = memory(BYTE, SRAM),
+                DEAD = memory(FLAG, SRAM),
 
                 BODY = ENEMY.TINY,
 
@@ -4253,6 +4320,12 @@ group non_maps() {
             }
             
             group smith_ai() {
+                fun guard_dead_npc() {
+                    guard_dead(<SCRIPT_OWNER>, {
+                        NPC_SMITH.DEAD = True;
+                    });
+                }
+
                 fun response_greeting() {
                     arg[0x00] = randrange(0x04);
 
@@ -4285,6 +4358,8 @@ group non_maps() {
                 group progress_0() {
                     @install()
                     fun smith_0_triggered() {
+                        guard_dead_npc();
+
                         smart_conversation({
                             if(NPC_SMITH.PROGRESS == 0d1) {
                                 dialog("[SLOW]Thanks.[B]");
@@ -4541,6 +4616,8 @@ group non_maps() {
 
                     @install()
                     fun smith_1_triggered() {
+                        guard_dead_npc();
+
                         smart_conversation({
                             response_greeting();
 
@@ -4565,16 +4642,19 @@ group non_maps() {
             };
             
             fun add_souls_npc_smith(x, y, flags:FLAG_ENEMY) {
-                if(flags is Word) {
-                    add_enemy(NPC_SMITH.BODY, x, y, flags);
-                } else {
-                    add_enemy(NPC_SMITH.BODY, x, y, 0d0);
-                }
+                if!(NPC_SMITH.DEAD) {
+                    if(flags is Word) {
+                        add_enemy(NPC_SMITH.BODY, x, y, flags);
+                    } else {
+                        add_enemy(NPC_SMITH.BODY, x, y, 0d0);
+                    }
+                    attribute(LAST_ENTITY, INVINCIBLE, False);
 
-                if(NPC_SMITH.PROGRESS == 0d0) {
-                    attach_script(LAST_ENTITY, B, reference(smith_0_triggered));
-                } else {
-                    attach_script(LAST_ENTITY, B, reference(smith_1_triggered));
+                    if(NPC_SMITH.PROGRESS == 0d0) {
+                        attach_script(LAST_ENTITY, ALL, reference(smith_0_triggered));
+                    } else {
+                        attach_script(LAST_ENTITY, ALL, reference(smith_1_triggered));
+                    }
                 }
             }
         };
@@ -4929,6 +5009,7 @@ group non_maps() {
         group npc_bee_boy() {
             enum NPC_BEE_BOY {
                 PROGRESS = memory(BYTE, SRAM),
+                DEAD = memory(FLAG, SRAM),
 
                 REWARD_1_COLLECTED = memory(FLAG, SRAM),
                 REWARD_2_COLLECTED = memory(FLAG, SRAM),
@@ -4937,6 +5018,12 @@ group non_maps() {
             }
 
             group bee_boy_ai() {
+                fun guard_dead_npc() {
+                    guard_dead(<SCRIPT_OWNER>, {
+                        NPC_BEE_BOY.DEAD = True;
+                    });
+                }
+
                 fun response_positive() {
                     dialog("[SLOW]If you bring me enough bees I'll reward you with some treasures I found…[B]");
                 }
@@ -4991,6 +5078,8 @@ group non_maps() {
 
                 @install()
                 fun bee_boy_triggered_initial() {
+                    guard_dead_npc();
+                    
                     smart_conversation({
                         if!(SOULS_MEMORY.BUG_CATCHER_BROKEN) {
                             conversation_dialog("[SLOW]Something is missing in my life…[B]");
@@ -5013,6 +5102,8 @@ group non_maps() {
                 }
                 @install()
                 fun bee_boy_triggered() {
+                    guard_dead_npc();
+
                     smart_conversation({
                         if(NPC_BEE_BOY.PROGRESS < SOULS_MEMORY.COST_BEE_BOY_QUEST_4) {
                             arg[0x10] = SOULS_MEMORY.BEES - NPC_BEE_BOY.PROGRESS;
@@ -5044,27 +5135,30 @@ group non_maps() {
             };
             
             fun add_souls_npc_bee_boy(x, y) {
-                add_enemy(VILLAGER_1_2, x, y);
-                arg[0x10] = <LAST_ENTITY>;
-                <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
+                if!(NPC_BEE_BOY.DEAD) {
+                    add_enemy(VILLAGER_1_2, x, y);
+                    attribute(LAST_ENTITY, INVINCIBLE, False);
+                    arg[0x10] = <LAST_ENTITY>;
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
 
-                if!(SOULS_MEMORY.BUG_CATCHER) {
-                    attach_script(LAST_ENTITY, B, reference(bee_boy_triggered_initial));
-                } else {
-                    attach_script(LAST_ENTITY, B, reference(bee_boy_triggered));
-                }
+                    if!(SOULS_MEMORY.BUG_CATCHER) {
+                        attach_script(LAST_ENTITY, ALL, reference(bee_boy_triggered_initial));
+                    } else {
+                        attach_script(LAST_ENTITY, ALL, reference(bee_boy_triggered));
+                    }
 
-                if(NPC_BEE_BOY.REWARD_1_COLLECTED) {
-                    add_following_bee(arg[0x10]);
-                }
-                if(NPC_BEE_BOY.REWARD_2_COLLECTED) {
-                    add_following_bee(arg[0x10]);
-                }
-                if(NPC_BEE_BOY.REWARD_3_COLLECTED) {
-                    add_following_bee(arg[0x10]);
-                }
-                if(NPC_BEE_BOY.REWARD_4_COLLECTED) {
-                    add_following_bee(arg[0x10]);
+                    if(NPC_BEE_BOY.REWARD_1_COLLECTED) {
+                        add_following_bee(arg[0x10]);
+                    }
+                    if(NPC_BEE_BOY.REWARD_2_COLLECTED) {
+                        add_following_bee(arg[0x10]);
+                    }
+                    if(NPC_BEE_BOY.REWARD_3_COLLECTED) {
+                        add_following_bee(arg[0x10]);
+                    }
+                    if(NPC_BEE_BOY.REWARD_4_COLLECTED) {
+                        add_following_bee(arg[0x10]);
+                    }
                 }
             }
         };
@@ -8981,6 +9075,7 @@ area shrine_area() {
             // object[0x11] = 0x01; // ignite fire
 
             default_init_room(False, False);
+            force_dog_aggro(0x0000);
 
             add_debug_entity(0d54, 0d84, reference(@install() {
                 SOULS_MEMORY.CLEARED_TRAP_WOLF = True;
@@ -34769,7 +34864,7 @@ area metro() {
                     MEMORY.STRING_PARAMETER_1 = AREA_METRO.REGENERATION_INN_ROOM;
 
                     fallout_text_init();
-                    text("> INSERT ITEM");
+                    text("> WAITING FOR PROMPT");
                     text("[CHOICE][1] READ_LOG");
                     text("[CHOICE][2] SCAN_ITEM");
                     text("[CHOICE][3] CLONING_DEVICE: [MEM1]");
