@@ -4271,7 +4271,7 @@ group non_maps() {
                 @install()
                 fun cat_triggered() {
                     guard_dead_npc();
-                    
+
                     dialog("[SLOW]Oh, yes. You can call me Shalquoir. Enchante.[B]");
 
                     if!(MEMORY.GLOVE_3_2) {
@@ -20374,6 +20374,8 @@ area southern_jungle() {
     area pyramid() {
         enum AREA_PYRAMID {
             MUSIC = MUSIC.JUNGLE_AMBIENT_BIRDS,
+
+            UPPER_PYRAMID_OPENED = memory(FLAG, SRAM),
         }
 
         map pyramid(PYRAMID_EXTERIOR) {
@@ -20381,8 +20383,6 @@ area southern_jungle() {
 
             enum ROOM {
                 DEBUG = False,
-
-                WITH_UPPER_PYRAMID = True,
 
                 BRIDGE_SIZE = 0d45,
                 BRIDGE_REVEALED = memory(FLAG, SRAM),
@@ -20544,29 +20544,21 @@ area southern_jungle() {
                 door_2_1 = @install() {
                     debug_subtext("S=17");
 
-                    if!(ROOM.WITH_UPPER_PYRAMID) {
-                        error_message(DLC, SOUTH);
-                    } else {
-                        map_transition(pyramid_level_1, south_2, NORTH);
-                    }
+                    map_transition(pyramid_level_1, south_2, NORTH);
                 },
                 door_2_2 = @install() {
                     debug_subtext("S=18");
 
-                    if!(ROOM.WITH_UPPER_PYRAMID) {
-                        error_message(DLC, SOUTH);
+                    if(AREA_PYRAMID.UPPER_PYRAMID_OPENED) {
+                        map_transition(pyramid_level_1, south_1, NORTH);    
                     } else {
-                        map_transition(pyramid_level_1, south_1, NORTH);
+                        error_message(DOOR_WRONG_SIDE, SOUTH);
                     }
                 },
                 door_3_2 = @install() {
                     debug_subtext("S=19");
 
-                    if!(ROOM.WITH_UPPER_PYRAMID) {
-                        error_message(DLC, EAST);
-                    } else {
-                        map_transition(pyramid_level_1, stairs_up, WEST);
-                    }
+                    map_transition(pyramid_level_1, stairs_up, WEST);
                 },
 
                 switch_bottom = @install() {
@@ -20823,6 +20815,10 @@ area southern_jungle() {
                     add_placeholder(SCEPTER, ROOM.DIG_X, ROOM.DIG_Y);
                     attach_script(LAST_ENTITY, B, reference(tri_stones_triggered));
                 }
+
+                add_bombable(0d94, 0d79, AREA_PYRAMID.UPPER_PYRAMID_OPENED, reference(@install() {
+                    bombable_object(DEFAULT, True, AREA_PYRAMID.UPPER_PYRAMID_OPENED);
+                }));
             }
         };
 
@@ -21016,6 +21012,8 @@ area southern_jungle() {
                     }
 
                     fun trigger_enter() {
+                        AREA_PYRAMID.UPPER_PYRAMID_OPENED = True;
+                        
                         // object[0x00] = 0x04; // open door_stairs_down_west
                         // object[0x01] = 0x04; // open door_gourd
                         // gourds
@@ -34625,6 +34623,15 @@ area metro() {
         }
 
         group fallout_computer() {
+            enum TERMINAL {
+                SCANNING_MAGIC_GOURD = memory(FLAG, SRAM),
+                SCANNING_ENERGY_CORE = memory(FLAG, SRAM),
+                SCANNING_WHEEL = memory(FLAG, SRAM),
+                SCANNING_GAUGE = memory(FLAG, SRAM),
+                SCANNING_DIAMOND_EYES = memory(FLAG, SRAM),
+                SCANNING_STAFF_OF_LIFE = AREA_METRO.REGENERATION_INN_ROOM,
+            }
+
             fun fallout_text_init() {
                 text_box(0d6, 0d10);
 
@@ -34639,6 +34646,10 @@ area metro() {
             }
             fun fallout_text_processing() {
                 text("[PAUSE:20].[PAUSE:20].[PAUSE:20].PROCESSING[PAUSE:20].[PAUSE:20].[PAUSE:20].[PAUSE:50][LF][LF]");
+            }
+            fun fallout_text_portal_progress() {
+                MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_WHEEL + TERMINAL.SCANNING_GAUGE + TERMINAL.SCANNING_DIAMOND_EYES;
+                text("PROGRESS=[MEM1]");
             }
             fun fallout_text_insert_item() {
                 text("> INSERT ITEM[PAUSE:50][LF][LF]");
@@ -34706,6 +34717,15 @@ area metro() {
                 fallout_text_init();
                 text("> ACCESS GRANTED[PAUSE:50][LF][LF]");
                 fallout_text_processing();
+                text("[PAGE]");
+
+                text("> CLONING_PROTOCOL[PAUSE:50][LF]");
+                if!(TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                    text("INACTIVE[PAUSE:50][LF][LF]");
+                } else {
+                    text("ACTIVE[PAUSE:50][LF][LF]");
+                }
+                text("[B]");
 
                 text("> EMERGENCY PROTOCOL[PAUSE:20][LF]");
                 text("ACTIVE[PAUSE:50][LF][LF]");
@@ -34718,9 +34738,13 @@ area metro() {
             fun fallout_screen_scan_item_magic_gourd() {
                 fallout_text_init();
 
-                if(FLAG.MAGIC_GOURD) {
+                if(FLAG.MAGIC_GOURD || TERMINAL.SCANNING_MAGIC_GOURD) {
                     text("> MAGIC GOURD[PAUSE:50]");
-                    text("[CHOICE][1] INSERT");
+                    if!(TERMINAL.SCANNING_MAGIC_GOURD) {
+                        text("[CHOICE][1] INSERT");
+                    } else {
+                        text("[CHOICE][1] EJECT");
+                    }
                     text("[CHOICE][2] EXIT");
                     await_answer();
                     text_end();
@@ -34729,9 +34753,22 @@ area metro() {
                         text_end();
 
                         fallout_text_init();
-                        text("> SCANNING ITEM[PAUSE:50][LF]");
-                        fallout_text_processing();
-                        text("ERROR:[PAUSE:20] NO EFFECT[B]");
+
+                        if!(TERMINAL.SCANNING_MAGIC_GOURD) {
+                            TERMINAL.SCANNING_MAGIC_GOURD = True;
+                            FLAG.MAGIC_GOURD = False;
+
+                            text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                            text("ERROR:[PAUSE:20] NO EFFECT[B]");
+                        } else {
+                            TERMINAL.SCANNING_MAGIC_GOURD = False;
+                            FLAG.MAGIC_GOURD = True;
+
+                            text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                        }
+
                         text_end();
                     }
                 } else {
@@ -34744,9 +34781,13 @@ area metro() {
             fun fallout_screen_scan_item_energy_core() {
                 fallout_text_init();
 
-                if(FLAG.MAGIC_GOURD) {
-                    text("> ENERGY CORE[PAUSE:50]");
-                    text("[CHOICE][1] INSERT");
+                if(FLAG.ENERGY_CORE || TERMINAL.SCANNING_ENERGY_CORE) {
+                    text("> ENERGY_CORE[PAUSE:50]");
+                    if!(TERMINAL.SCANNING_ENERGY_CORE) {
+                        text("[CHOICE][1] INSERT");
+                    } else {
+                        text("[CHOICE][1] EJECT");
+                    }
                     text("[CHOICE][2] EXIT");
                     await_answer();
                     text_end();
@@ -34755,9 +34796,200 @@ area metro() {
                         text_end();
 
                         fallout_text_init();
-                        text("> SCANNING ITEM[LF][LF]");
-                        fallout_text_processing();
-                        text("SUCCESS:[PAUSE:20] BYPASSES ABILITY SUPRRESION IN THE BUNKER[B]");
+
+                        if!(TERMINAL.SCANNING_ENERGY_CORE) {
+                            TERMINAL.SCANNING_ENERGY_CORE = True;
+                            FLAG.ENERGY_CORE = False;
+
+                            text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                            text("ERROR:[PAUSE:20] NO EFFECT[B]");
+                        } else {
+                            TERMINAL.SCANNING_ENERGY_CORE = False;
+                            FLAG.ENERGY_CORE = True;
+
+                            text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                        }
+
+                        text_end();
+                    }
+                } else {
+                    fallout_text_detect_error();
+                }
+
+                text_end();
+            }
+            @install()
+            fun fallout_screen_scan_item_wheel() {
+                fallout_text_init();
+
+                if(FLAG.WHEEL || TERMINAL.SCANNING_WHEEL) {
+                    text("> WHEEL[PAUSE:50]");
+                    if!(TERMINAL.SCANNING_WHEEL) {
+                        text("[CHOICE][1] INSERT");
+                    } else {
+                        text("[CHOICE][1] EJECT");
+                    }
+                    text("[CHOICE][2] EXIT");
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                        text_end();
+
+                        fallout_text_init();
+
+                        if!(TERMINAL.SCANNING_WHEEL) {
+                            TERMINAL.SCANNING_WHEEL = True;
+                            FLAG.WHEEL = False;
+
+                            text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                            text("SUCCESS:[PAUSE:20] ");
+                            fallout_text_portal_progress();
+                            text("[B]");
+                        } else {
+                            TERMINAL.SCANNING_WHEEL = False;
+                            FLAG.WHEEL = True;
+
+                            text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                        }
+
+                        text_end();
+                    }
+                } else {
+                    fallout_text_detect_error();
+                }
+
+                text_end();
+            }
+            @install()
+            fun fallout_screen_scan_item_gauge() {
+                fallout_text_init();
+
+                if(FLAG.GAUGE || TERMINAL.SCANNING_GAUGE) {
+                    text("> GAUGE[PAUSE:50]");
+                    if!(TERMINAL.SCANNING_GAUGE) {
+                        text("[CHOICE][1] INSERT");
+                    } else {
+                        text("[CHOICE][1] EJECT");
+                    }
+                    text("[CHOICE][2] EXIT");
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                        text_end();
+
+                        fallout_text_init();
+
+                        if!(TERMINAL.SCANNING_GAUGE) {
+                            TERMINAL.SCANNING_GAUGE = True;
+                            FLAG.GAUGE = False;
+
+                            text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                            text("SUCCESS:[PAUSE:20] ");
+                            fallout_text_portal_progress();
+                            text("[B]");
+                        } else {
+                            TERMINAL.SCANNING_GAUGE = False;
+                            FLAG.GAUGE = True;
+
+                            text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                        }
+
+                        text_end();
+                    }
+                } else {
+                    fallout_text_detect_error();
+                }
+
+                text_end();
+            }
+            @install()
+            fun fallout_screen_scan_item_diamond_eyes() {
+                fallout_text_init();
+
+                if(FLAG.DIAMOND_EYES || TERMINAL.SCANNING_DIAMOND_EYES) {
+                    text("> DIAMOND_EYES[PAUSE:50]");
+                    if!(TERMINAL.SCANNING_DIAMOND_EYES) {
+                        text("[CHOICE][1] INSERT");
+                    } else {
+                        text("[CHOICE][1] EJECT");
+                    }
+                    text("[CHOICE][2] EXIT");
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                        text_end();
+
+                        fallout_text_init();
+
+                        if!(TERMINAL.SCANNING_DIAMOND_EYES) {
+                            TERMINAL.SCANNING_DIAMOND_EYES = True;
+                            FLAG.DIAMOND_EYES = False;
+
+                            text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                            text("SUCCESS:[PAUSE:20] ");
+                            fallout_text_portal_progress();
+                            text("[B]");
+                        } else {
+                            TERMINAL.SCANNING_DIAMOND_EYES = False;
+                            FLAG.DIAMOND_EYES = True;
+
+                            text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                        }
+
+                        text_end();
+                    }
+                } else {
+                    fallout_text_detect_error();
+                }
+
+                text_end();
+            }
+            @install()
+            fun fallout_screen_scan_item_staff_of_life() {
+                fallout_text_init();
+
+                if(FLAG.STAFF_OF_LIFE || TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                    text("> STAFF_OF_LIFE[PAUSE:50]");
+                    if!(TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                        text("[CHOICE][1] INSERT");
+                    } else {
+                        text("[CHOICE][1] EJECT");
+                    }
+                    text("[CHOICE][2] EXIT");
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                        text_end();
+
+                        fallout_text_init();
+
+                        if!(TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                            TERMINAL.SCANNING_STAFF_OF_LIFE = True;
+                            FLAG.STAFF_OF_LIFE = False;
+
+                            text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                            text("ERROR:[PAUSE:20] NO EFFECT[B]");
+                        } else {
+                            TERMINAL.SCANNING_STAFF_OF_LIFE = False;
+                            FLAG.STAFF_OF_LIFE = True;
+
+                            text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                            fallout_text_processing();
+                        }
+
                         text_end();
                     }
                 } else {
@@ -34770,22 +35002,54 @@ area metro() {
             fun fallout_screen_scan_item() {
                 while(True) {
                     fallout_text_init();
-                    text("> DETECTING ITEMS[LF][LF]");
-                    fallout_text_analyzing();
+
+                    if!(arg[0x0e]) {
+                        arg[0x0e] = True;
+                        text("> DETECTING ITEMS[LF][LF]");
+                        fallout_text_analyzing();
+                        text("[PAGE]");
+                    }
+                    
                     text("> MANUAL LOADED[PAUSE:50]");
 
-                    if(FLAG.MAGIC_GOURD) {
-                        text("[CHOICE][1] MAGIC_GOURD");
+                    if(FLAG.MAGIC_GOURD || TERMINAL.SCANNING_MAGIC_GOURD) {
+                        MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_MAGIC_GOURD;
+                        text("[CHOICE][1] MAGIC_GOURD: [MEM1]");
                     } else {
                         text("[CHOICE][1] …");
                     }
-                    if(FLAG.ENERGY_CORE) {
-                        text("[CHOICE][2] ENERGY_CORE");
+                    if(FLAG.ENERGY_CORE || TERMINAL.SCANNING_ENERGY_CORE) {
+                        MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_ENERGY_CORE;
+                        text("[CHOICE][2] ENERGY_CORE: [MEM1]");
                     } else {
                         text("[CHOICE][2] …");
                     }
+                    if(FLAG.WHEEL || TERMINAL.SCANNING_WHEEL) {
+                        MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_WHEEL;
+                        text("[CHOICE][3] WHEEL: [MEM1]");
+                    } else {
+                        text("[CHOICE][3] …");
+                    }
+                    if(FLAG.DIAMOND_EYES || TERMINAL.SCANNING_DIAMOND_EYES) {
+                        MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_DIAMOND_EYES;
+                        text("[CHOICE][4] DIAMOND_EYES: [MEM1]");
+                    } else {
+                        text("[CHOICE][4] …");
+                    }
+                    if(FLAG.GAUGE || TERMINAL.SCANNING_GAUGE) {
+                        MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_GAUGE;
+                        text("[CHOICE][5] GAUGE: [MEM1]");
+                    } else {
+                        text("[CHOICE][5] …");
+                    }
+                    if(FLAG.STAFF_OF_LIFE || TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                        MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_STAFF_OF_LIFE;
+                        text("[CHOICE][6] STAFF_OF_LIFE: [MEM1]");
+                    } else {
+                        text("[CHOICE][6] …");
+                    }
 
-                    text("[CHOICE][2] EXIT");
+                    text("[CHOICE][7] EXIT");
 
                     await_answer(arg[0x10]);
                     text_end();
@@ -34796,60 +35060,20 @@ area metro() {
                         fallout_screen_scan_item_magic_gourd();
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // energy core
                         fallout_screen_scan_item_energy_core();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // wheel
+                        fallout_screen_scan_item_wheel();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d3) { // diamond eyes
+                        fallout_screen_scan_item_diamond_eyes();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d4) { // gauge
+                        fallout_screen_scan_item_gauge();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d5) { // staff of life
+                        fallout_screen_scan_item_staff_of_life();
                     } else {
                         end();
                     }
                 }
             }
-            @install()
-            fun fallout_screen_cloning_device() {
-                while(True) {
-                    fallout_text_init();
-                    if!(AREA_METRO.REGENERATION_INN_ROOM) {
-                        text("> DETECTING ITEMS[LF][LF]");
-                        fallout_text_analyzing();
-                        if(FLAG.STAFF_OF_LIFE) {
-                            text("> STAFF OF LIFE[PAUSE:50]");
-                            text("[CHOICE][1] INSERT");
-                            text("[CHOICE][2] EXIT");
-                            await_answer();
 
-                            if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
-                                sound(PURCHASE);
-
-                                FLAG.STAFF_OF_LIFE = False;
-
-                                AREA_METRO.REGENERATION_INN_ROOM = True;
-                            }
-                        } else {
-                            fallout_text_detect_error();
-                        }
-
-                        text_end();
-                        end();
-                    } else {
-                        text("> CLONING PROTOCOL[PAUSE:50][LF]ACTIVE[PAUSE:50][LF][LF]");
-                        fallout_text_processing();
-
-                        text("> STAFF OF LIFE");
-                        text("[CHOICE][1] EJECT");
-                        text("[CHOICE][2] EXIT");
-
-                        await_answer();
-
-                        if(MEMORY.QUESTION_ANSWER == 0d0) { // eject
-                            sound(PURCHASE);
-
-                            FLAG.STAFF_OF_LIFE = True;
-
-                            AREA_METRO.REGENERATION_INN_ROOM = False;
-                        }
-
-                        text_end();
-                        end();
-                    }
-                }
-            }
             @install()
             fun fallout_screen_main() {
                 control(NONE);
@@ -34861,13 +35085,14 @@ area metro() {
                 sound(HEAL_END);
                 
                 while(True) {
-                    MEMORY.STRING_PARAMETER_1 = AREA_METRO.REGENERATION_INN_ROOM;
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_STAFF_OF_LIFE;
+                    MEMORY.STRING_PARAMETER_2 = TERMINAL.SCANNING_DIAMOND_EYES && TERMINAL.SCANNING_GAUGE && TERMINAL.SCANNING_WHEEL;
 
                     fallout_text_init();
                     text("> WAITING FOR PROMPT");
                     text("[CHOICE][1] READ_LOG");
                     text("[CHOICE][2] SCAN_ITEM");
-                    text("[CHOICE][3] CLONING_DEVICE: [MEM1]");
+                    text("[CHOICE][3] EMERGENCY_EXIT: [MEM2]");
                     text("[CHOICE][4] EXIT");
                     await_answer(arg[0x10]);
                     text_end();
@@ -34879,8 +35104,9 @@ area metro() {
                         fallout_screen_read_log();
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // scan item
                         fallout_screen_scan_item();
-                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // cloning device (staff of life)
-                        fallout_screen_cloning_device();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // emergency exit (DEs, wheel, gauge)
+                        teleporter_out(0d48, 0d71);
+                        map_transition(metro, center, NONE);
                     } else {
                         control(BOTH);
                         end();
@@ -34985,6 +35211,7 @@ area metro() {
             door_d4 = entrance(ROOM.COLUMN_4, ROOM.ROW_4, NONE, { door_act4_airlock_in(0x14); }),
 
             door_center = entrance(ROOM.COLUMN_CENTER, ROOM.ROW_CENTER, NONE, { door_act4_airlock_in(0x25); }),
+            center = entrance(0d119, 0d84, NONE, { teleporter_in(NONE); }),
         }
         
         enum soundtrack {
