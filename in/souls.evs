@@ -5813,6 +5813,31 @@ group non_maps() {
             };
 
             // "E"
+            group npc_alchemist_energize() {
+                fun add_souls_npc_alchemist_energize(x, y, direction:DIRECTION) {
+                    if(direction is Word) {
+                        add_enemy(VILLAGER_2_8, x, y, INACTIVE);
+                        face(LAST_ENTITY, direction);
+                    } else {
+                        add_enemy(VILLAGER_2_8, x, y);
+                    }
+                    
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        smart_conversation({
+                            reward_formula(ENERGIZE, ENERGIZE, ENERGIZE);
+
+                            arg[0x10] = randrange(0d3);
+                            if(arg[0x10] == 0d0) {
+                                dialog("[SLOW]The hunt quickens![B]");
+                            } else if(arg[0x10] == 0d1) {
+                                dialog("[SLOW]Precission through speed.[B]");
+                            } else if(arg[0x10] == 0d2) {
+                                dialog("[SLOW]Acceleration… Exhilarating.[B]");
+                            }
+                        }, False);
+                    }));
+                }
+            };
             group npc_alchemist_escape() {
                 fun add_souls_npc_alchemist_escape(x, y, direction:DIRECTION) {
                     if(direction is Word) {
@@ -21790,7 +21815,37 @@ area southern_jungle() {
                         }
                     };
 
-                    map inverted_pyramid_level_1_secret_side_entrance(PYRAMID_CAVE) {
+                    map inverted_pyramid_level_1_secret_side_entrance_west(PYRAMID_CAVE) {
+                        enum entrance {
+                            teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
+                            south = entrance(0x15, 0x23, NORTH),
+                            
+                            crash = entrance(0d23, 0d27, NONE, { crash_both(); }),
+                        }
+
+                        enum soundtrack {
+                            default = soundtrack(AREA_INVERTED_PYRAMID.MUSIC, 0xff)
+                        }
+
+                        enum stepon_trigger {
+                            exit_south = @install() {
+                                debug_subtext("S=0");
+
+                                map_transition(northern_jungle, tunnel, SOUTH);
+                            },
+                            exit_teleporter = @install() {
+                                debug_subtext("S=1");
+
+                                teleporter_out(0d23, 0d17);
+                                map_transition(inverted_pyramid_level_1, teleporter_barrier, NONE);
+                            },
+                        }
+
+                        fun trigger_enter() {
+                            fade_in();
+                        }
+                    };
+                    map inverted_pyramid_level_1_secret_side_entrance_east(PYRAMID_CAVE) {
                         enum entrance {
                             teleporter = entrance(0d23, 0d18, NONE, { teleporter_in(SOUTH); }),
                             south = entrance(0x15, 0x23, NORTH),
@@ -21866,7 +21921,8 @@ area southern_jungle() {
                             teleporter = entrance(0d129, 0d93, NONE, { teleporter_in(SOUTH); }),
 
                             teleporter_side = entrance(0d31, 0d36, NONE, { teleporter_in(SOUTH); }),
-
+                            teleporter_barrier = entrance(0d201, 0d14, NONE, { teleporter_in(SOUTH); }),
+                            
                             cutscene_stone_left = entrance(0d90, 0d69, NONE, {
                                 CUSTOM_FLAG.CUTSCENE = True;
                                 falling_rock_cutscene(0d78, 0d81, False);
@@ -21951,19 +22007,15 @@ area southern_jungle() {
                             teleporter_north_east_2 = @install() {
                                 debug_subtext("S=10");
 
-                                teleporter_out(0d201, 0d14);
+                                generic_tunnel_enter(TELEPORT_IN, 0d167, 0d14);
+                                generic_tunnel(DEFAULT, 0d31, 0d36);
+                                generic_tunnel_exit(TELEPORT_OUT, SOUTH);
                             },
                             teleporter_north_east_1 = @install() {
                                 debug_subtext("S=11");
 
-                                if(False) {
-                                    teleporter_out(0d167, 0d14);
-                                    map_transition(inverted_pyramid_level_1, teleporter, NONE);
-                                } else {
-                                    generic_tunnel_enter(TELEPORT_IN, 0d167, 0d14);
-                                    generic_tunnel(DEFAULT, 0d129, 0d93);
-                                    generic_tunnel_exit(TELEPORT_OUT, SOUTH);
-                                }
+                                teleporter_out(0d201, 0d14);
+                                map_transition(inverted_pyramid_level_1_secret_side_entrance_west, teleporter, NONE);
                             },
                             teleporter_east = @install() {
                                 debug_subtext("S=12");
@@ -21983,9 +22035,9 @@ area southern_jungle() {
                             teleporter_side = @install() {
                                 debug_subtext("S=15");
 
-                                if(False) {
+                                if(True) {
                                     teleporter_out(0d31, 0d36);
-                                    map_transition(inverted_pyramid_level_1, teleporter, NONE);
+                                    map_transition(inverted_pyramid_level_1_secret_side_entrance_east, teleporter, NONE);
                                 } else {
                                     generic_tunnel_enter(TELEPORT_IN, 0d31, 0d36);
                                     generic_tunnel(DEFAULT, 0d129, 0d93);
@@ -22197,6 +22249,37 @@ area southern_jungle() {
                             // object[0x0b] = 0x01; // open gourd_south_west
                             // object[0x0c] = 0x01; // open gourd_east
                             // object[0x0d] = 0x01; // open axe3_barrier
+
+                            add_souls_npc_alchemist_energize(0d133, 0d40);
+
+                            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                                // center
+                                add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d129, 0d64);
+
+                                add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d107, 0d42);
+
+                                add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d112, 0d22);
+
+                                add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d153, 0d14);
+
+                                add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d142, 0d44);
+
+                                // right
+                                add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d167, 0d101);
+
+                                add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d176, 0d48);
+
+                                // east
+                                add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d90, 0d63);
+
+                                add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d66, 0d103);
+
+                                // north east room
+                                add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d78, 0d26);
+
+                                // south east room
+                                add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d72, 0d70);
+                            }
 
                             switch_1_handler();
                             switch_2_handler();
@@ -22539,7 +22622,7 @@ area southern_jungle() {
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
                         animation_fall_pit(ACTIVE);
 
-                        map_transition(inverted_pyramid_level_1_secret_side_entrance, crash, NONE);
+                        map_transition(inverted_pyramid_level_1_secret_side_entrance_east, crash, NONE);
                     }
             }));
 
@@ -22632,6 +22715,8 @@ area southern_jungle() {
                 teleporter = entrance(0d82, 0d61, NONE, {
                     teleporter_in();
                 }),
+
+                tunnel = entrance(0d82, 0d61, NONE, { swirl_entrance(); }),
             }
 
             enum soundtrack {
@@ -22786,6 +22871,16 @@ area southern_jungle() {
                 }
 
                 default_init_room(True, True);
+
+                add_enemy(PLACEHOLDER, 0d95, 0d51);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    question("Jump into the tomb?[LF](No way back in sight…)[CHOICE]yes…[CHOICE]no…");
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            animation_fall_pit(ACTIVE);
+
+                            map_transition(inverted_pyramid_level_1_secret_side_entrance_west, crash, NONE);
+                        }
+                }));
             }
         };
 
