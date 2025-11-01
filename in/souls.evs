@@ -1612,36 +1612,62 @@ group non_maps() {
         }
 
         group max_hp() {
+            enum MAX_HP {
+                WITH_REDUCED_MAX_HP = True,
+                DEBUG = True,
+
+                UPDATE_HP = True,
+
+                MIN = 0d1,
+            }
+
             @install()
             fun reset_max_hp() {
-                // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
+                if(MAX_HP.WITH_REDUCED_MAX_HP) {
+                    if(MAX_HP.DEBUG) {
+                        debug_memory(MEMORY.BOY_MAX_HP, SOULS_MEMORY.REDUCED_MAX_HP, MEMORY.BOY_MAX_HP - SOULS_MEMORY.REDUCED_MAX_HP);
+                    }
 
-                <0x0a35> = CUSTOM_MEMORY.NULL_POINTER[0x0a35] + SOULS_MEMORY.REDUCED_MAX_HP;
-                SOULS_MEMORY.REDUCED_MAX_HP = 0d0;
-                damage(BOY, 0d0, False, True);
+                    MEMORY.BOY_MAX_HP += SOULS_MEMORY.REDUCED_MAX_HP;
+                    SOULS_MEMORY.REDUCED_MAX_HP = 0d0;
+                    if(MAX_HP.UPDATE_HP) {
+                        damage(BOY, 0d0, False, True);
+                    }
+                }
             }
             @install()
             fun update_max_hp() {
-                // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
+                if(MAX_HP.WITH_REDUCED_MAX_HP) {
+                    if(MAX_HP.DEBUG) {
+                        debug_memory(MEMORY.BOY_MAX_HP, SOULS_MEMORY.REDUCED_MAX_HP, MEMORY.BOY_MAX_HP - SOULS_MEMORY.REDUCED_MAX_HP);
+                    }
 
-                <0x0a35> = CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP;
-                damage(BOY, 0d0, False, True);
-
+                    MEMORY.BOY_MAX_HP -= SOULS_MEMORY.REDUCED_MAX_HP;
+                    if(MAX_HP.UPDATE_HP) {
+                        damage(BOY, 0d0, False, True);
+                    }
+                }
             }
             @install()
             fun reduce_max_hp(hp_to_remove) {
-                if(hp_to_remove >= CUSTOM_MEMORY.NULL_POINTER[0x0a35]) {
-                    hp_to_remove = CUSTOM_MEMORY.NULL_POINTER[0x0a35] - 0d1;
+                if(MAX_HP.WITH_REDUCED_MAX_HP) {
+                    if(hp_to_remove >= MEMORY.BOY_MAX_HP) {
+                        hp_to_remove = MEMORY.BOY_MAX_HP - MAX_HP.MIN;
+                    }
+
+                    if(hp_to_remove > 0d0) {
+                        if(MAX_HP.DEBUG) {
+                            debug_memory(MEMORY.BOY_MAX_HP, SOULS_MEMORY.REDUCED_MAX_HP, MEMORY.BOY_MAX_HP - SOULS_MEMORY.REDUCED_MAX_HP);
+                        }
+
+                        SOULS_MEMORY.REDUCED_MAX_HP += hp_to_remove;
+                        MEMORY.BOY_MAX_HP -= hp_to_remove;
+                    }
+
+                    if(MAX_HP.UPDATE_HP) {
+                        damage(BOY, 0d0, False, True);
+                    }
                 }
-
-                if(hp_to_remove > 0d0) {
-                    // debug_memory(CUSTOM_MEMORY.NULL_POINTER[0x0a35], SOULS_MEMORY.REDUCED_MAX_HP, CUSTOM_MEMORY.NULL_POINTER[0x0a35] - SOULS_MEMORY.REDUCED_MAX_HP);
-
-                    SOULS_MEMORY.REDUCED_MAX_HP += hp_to_remove;
-                    CUSTOM_MEMORY.NULL_POINTER[0x0a35] -= hp_to_remove;
-                }
-
-                damage(BOY, 0d0, True, True);
             }
         };
 

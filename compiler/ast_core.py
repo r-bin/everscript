@@ -600,7 +600,11 @@ class Memory(Function_Base, Calculatable, Memorable):
             case ["xx", None, int(), _]:
                 code = [Operand("test"), self.code(params)]
             case ["xx", None, _, _]:
+                # derefs the actual address from CUSTOM_MEMORY.NULL_POINTER (0x0000) and reverts the overflow (0xDDA8) from the writing workaround
+                workaround = [Operand("read temp word"), Memory(0x28ef).code(params), Operand("push") , Operand("word"), Memory(self.address - 0xDDA8).code(params), Operand("+"), Operand("deref")]
+                
                 code = [Operand("read word"), self.code(params)]
+                code = workaround
 
             case ["char", _, _, _]:
                 code = [self.eval(params), Operand("push")] + offset.calculate([]) + [Operand("+")]
