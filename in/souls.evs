@@ -548,6 +548,8 @@ group non_maps() {
             MAGIC_SLOTS_4 = memory(FLAG, SRAM),
             MAGIC_SLOTS_9 = memory(FLAG, SRAM),
 
+            FORMULA_USED = memory(FLAG, SRAM),
+
             ORB_USED = memory(FLAG, SRAM),
             ORB_SWORD = memory(BYTE, SRAM),
             ORB_AXE = memory(BYTE, SRAM),
@@ -985,6 +987,12 @@ group non_maps() {
             }
         }
         @install()
+        fun formula_helper_dialog() {
+            if!(SOULS_MEMORY.FORMULA_USED) {
+                dialog("I should bring the formula to a trainer.[B]");
+            }
+        }
+        @install()
         fun start_menu_helper_dialog() {
             if!(SOULS_MEMORY.DEBUG_MENU_BUTTON_1) {
                 dialog("A new ring has been added to the ring menu.[B]Selecing an ability binds it to the [START]-button.[B]");
@@ -1000,7 +1008,9 @@ group non_maps() {
         fun add_alchemy_recipe(level_high, level_low, push_music) {
             fanfare_item(True, push_music);
 
-            MEMORY.LEVEL_LOW_ACID_RAIN++;
+            level_low++;
+
+            formula_helper_dialog();
         }
         fun custom_reward(item:CUSTOM_ITEM, push_music) {
             if(item < 0xf000) {
@@ -1835,7 +1845,9 @@ group non_maps() {
                     movement_amplification(<BOY>, 0d180, 0d1, True);
                 }
 
-                cleanse_status_effect(ENERGIZE);
+                if(MEMORY.LEVEL_HIGH_ENERGIZE < 0d1) {
+                    cleanse_status_effect(ENERGIZE);
+                }
 
                 end();
             }
@@ -10932,183 +10944,189 @@ area west_inbetwixx() {
         }
     };
 
-    map west_hut_outside(STRONGHEART_EXTERIOR) {
-        enum entrance {
-            hut = entrance(0x13, 0x13, SOUTH), // TODO: 13/15
-            east = entrance(0x25, 0x12, WEST),
+    area west_hut() {
+        map west_hut_outside(STRONGHEART_EXTERIOR) {
+            enum entrance {
+                hut = entrance(0x13, 0x13, SOUTH), // TODO: 13/15
+                east = entrance(0x25, 0x12, WEST),
 
-            backdoor = entrance(0d15, 0d16, WEST),
-        }
-
-        enum soundtrack {
-            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
-        }
-
-        enum stepon_trigger {
-            stepon_0 = @install() {
-                map_transition(west_hut_inside, door, NORTH);
-            },
-            stepon_1 = @install() {
-                map_transition(west_inbetwixx, west, EAST);
+                backdoor = entrance(0d15, 0d16, WEST),
             }
-        }
 
-        fun trigger_enter() {
-            default_init_room(True, True);
+            enum soundtrack {
+                default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
+            }
 
-            player_message(0d24, 0d22, reference(@install() {
-                player_message_triggered();
+            enum stepon_trigger {
+                stepon_0 = @install() {
+                    map_transition(west_hut_inside, door, NORTH);
+                },
+                stepon_1 = @install() {
+                    map_transition(west_inbetwixx, west, EAST);
+                }
+            }
 
-                subtext("prisoner ahead and then bonfire!");
-            }));
+            fun trigger_enter() {
+                default_init_room(True, True);
 
-            add_enemy(PLACEHOLDER, 0d13, 0d18);
-            attach_script(LAST_ENTITY, B, reference(@install() {
-                sound(WEIRD_SOUND);
+                player_message(0d24, 0d22, reference(@install() {
+                    player_message_triggered();
 
-                map_transition(potato_room, stairs, NONE);
-            }));
-        }
-    };
+                    subtext("prisoner ahead and then bonfire!");
+                }));
 
-    map potato_room(EBON_CELLAR) {
-        // chests=vanilla
+                add_enemy(PLACEHOLDER, 0d13, 0d18);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    sound(WEIRD_SOUND);
 
-        enum soundtrack {
-            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
-        }
-
-        enum entrance {
-            stairs = entrance(0x29, 0x0d, WEST),
-
-            floor = entrance(0d29, 0d27, NONE, { bonfire_wakeup(0d0, 0d0, -0d24, 0d0); }),
-        }
-
-        enum stepon_trigger {
-            exit_stairs = @install() {
-                map_transition(west_hut_outside, backdoor, EAST);
-            },
-        }
-
-        enum b_trigger {
-            chest_1__3_feather = @install() {
-                debug_subtext("B=0");
-                _loot_chest(0x00, FEATHER, 0d03);
-            },
-            chest_2__4_brimstone = @install() {
-                debug_subtext("B=1");
-                _loot_chest(0x01, BRIMSTONE, 0d04);
-            },
-            chest_3__2_acorns = @install() {
-                debug_subtext("B=2");
-                _loot_chest(0x02, SPOON, 0d01);
-            },
-        }
-
-        fun trigger_enter() {
-            if!(NPC_ISAAC.FOUND) {
-                eternal_dust(0d8, 0d24, reference(@install() {
-                    NPC_ISAAC.FOUND = True;
-
-                    if(False) {
-                        animate(BOY, ONCE, ANIMATION_BOY.LOOT);
-                    }
-
-                    subtext("Cruel fate…");
+                    map_transition(potato_room, stairs, NONE);
                 }));
             }
+        };
 
-            default_init_room(True, False);
-        }
-    };
+        map potato_room(EBON_CELLAR) {
+            // chests=vanilla
 
-    map west_hut_inside(STRONGHEART) {
-        enum entrance {
-            door = entrance(0x12, 0x23, NORTH)
-        }
-
-        enum soundtrack {
-            default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
-        }
-
-        enum ROOM {
-            CLUE_1 = memory(FLAG, SRAM),
-            CLUE_2 = memory(FLAG, SRAM),
-        }
-
-        enum stepon_trigger {
-            stepon_0 = @install() {
-                map_transition(west_hut_outside, hut, SOUTH);
-            }
-        }
-
-        enum b_trigger {
-            gourd_1__1_oil = @install() {
-                fake_loot_gourd();
-
-                object[0x00] = 0x01; // unload gourd_1
-                custom_reward(ISAAC_LETTER, True);
-
-                dialog("[SLOW]The letter seems to be old, it's barely readable.[B]But it clearly states the phrases `To Maggy´, `child´ and something about leaving.[B]Based on the coat of arms the origin seems to be a town.[B]Maybe I can find more clues there.[B]");
-            },
-            gourd_2__1_wax = @install() {
-                fake_loot_gourd();
-
-                object[0x02] = 0x01; // unload gourd_2
-                subtext("Locked away childrens toys.");
-                set(ROOM.CLUE_1);
-            },
-            gourd_3__1_wax = @install() {
-                fake_loot_gourd();
-
-                object[0x01] = 0x01; // unload gourd_3
-                subtext("Cheap religious artifacts.");
-                set(ROOM.CLUE_2);
-            },
-        }
-
-        @install()
-        fun trap_door() {
-            if!(SOULS_MEMORY.WITH_SIDE_QUESTS) {
-                error_message();
-                end();
-            }
-            if((!ROOM.CLUE_1) || (!ROOM.CLUE_2)) {
-                fake_b();
-                end();
+            enum soundtrack {
+                default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
             }
 
-            sound(WEIRD_SOUND);
+            enum entrance {
+                stairs = entrance(0x29, 0x0d, WEST),
 
-            animate_boy_kneel(BOY);
+                floor = entrance(0d29, 0d27, NONE, { bonfire_wakeup(0d0, 0d0, -0d24, 0d0); }),
+            }
+
+            enum stepon_trigger {
+                exit_stairs = @install() {
+                    map_transition(west_hut_outside, backdoor, EAST);
+                },
+            }
+
+            enum b_trigger {
+                chest_1__3_feather = @install() {
+                    debug_subtext("B=0");
+                    // _loot_chest(0x00, FEATHER, 0d03);
+
+                    _loot_chest(0x00, {
+                        custom_reward(FORMULA_ENERGIZE, True);
+                    });
+                },
+                chest_2__4_brimstone = @install() {
+                    debug_subtext("B=1");
+                    _loot_chest(0x01, BRIMSTONE, 0d04);
+                },
+                chest_3__2_acorns = @install() {
+                    debug_subtext("B=2");
+                    _loot_chest(0x02, SPOON, 0d01);
+                },
+            }
+
+            fun trigger_enter() {
+                if!(NPC_ISAAC.FOUND) {
+                    eternal_dust(0d8, 0d24, reference(@install() {
+                        NPC_ISAAC.FOUND = True;
+
+                        if(False) {
+                            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+                        }
+
+                        subtext("Cruel fate…");
+                    }));
+                }
+
+                default_init_room(True, False);
+            }
+        };
+
+        map west_hut_inside(STRONGHEART) {
+            enum entrance {
+                door = entrance(0x12, 0x23, NORTH)
+            }
+
+            enum soundtrack {
+                default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
+            }
+
+            enum ROOM {
+                CLUE_1 = memory(FLAG, SRAM),
+                CLUE_2 = memory(FLAG, SRAM),
+            }
+
+            enum stepon_trigger {
+                stepon_0 = @install() {
+                    map_transition(west_hut_outside, hut, SOUTH);
+                }
+            }
+
+            enum b_trigger {
+                gourd_1__1_oil = @install() {
+                    fake_loot_gourd();
+
+                    object[0x00] = 0x01; // unload gourd_1
+                    custom_reward(ISAAC_LETTER, True);
+
+                    dialog("[SLOW]The letter seems to be old, it's barely readable.[B]But it clearly states the phrases `To Maggy´, `child´ and something about leaving.[B]Based on the coat of arms the origin seems to be a town.[B]Maybe I can find more clues there.[B]");
+                },
+                gourd_2__1_wax = @install() {
+                    fake_loot_gourd();
+
+                    object[0x02] = 0x01; // unload gourd_2
+                    subtext("Locked away childrens toys.");
+                    set(ROOM.CLUE_1);
+                },
+                gourd_3__1_wax = @install() {
+                    fake_loot_gourd();
+
+                    object[0x01] = 0x01; // unload gourd_3
+                    subtext("Cheap religious artifacts.");
+                    set(ROOM.CLUE_2);
+                },
+            }
+
+            @install()
+            fun trap_door() {
+                if!(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+                    error_message();
+                    end();
+                }
+                if((!ROOM.CLUE_1) || (!ROOM.CLUE_2)) {
+                    fake_b();
+                    end();
+                }
+
+                sound(WEIRD_SOUND);
+
+                animate_boy_kneel(BOY);
+                
+                question("[SLOW]A hidden trap door.[LF](No way back in sight…)[CHOICE]Enter…[CHOICE]Leave…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    animation_fall_pit(BOY);
+
+                    map_transition(basement_0_start, center, NONE);
+                } else {
+                    animate(BOY, ONCE, DEFAULT);
+                }
+            }
             
-            question("[SLOW]A hidden trap door.[LF](No way back in sight…)[CHOICE]Enter…[CHOICE]Leave…");
+            fun trigger_enter() {
+                if(SOULS_MEMORY.ISAAC_LETTER) {
+                    object[0x00] = 0x01; // unload gourd_1
+                }
+                if(ROOM.CLUE_1) {
+                    object[0x02] = 0x01; // unload gourd_2
+                }
+                if(ROOM.CLUE_2) {
+                    object[0x01] = 0x01; // unload gourd_3
+                }
 
-            if(MEMORY.QUESTION_ANSWER == 0d0) {
-                animation_fall_pit(BOY);
+                add_enemy(PLACEHOLDER, 0x0f, 0x12);
+                attach_script(LAST_ENTITY, B, reference(trap_door));
 
-                map_transition(basement_0_start, center, NONE);
-            } else {
-                animate(BOY, ONCE, DEFAULT);
+                default_init_room(True, False);
             }
-        }
-        
-        fun trigger_enter() {
-            if(SOULS_MEMORY.ISAAC_LETTER) {
-                object[0x00] = 0x01; // unload gourd_1
-            }
-            if(ROOM.CLUE_1) {
-                object[0x02] = 0x01; // unload gourd_2
-            }
-            if(ROOM.CLUE_2) {
-                object[0x01] = 0x01; // unload gourd_3
-            }
-
-            add_enemy(PLACEHOLDER, 0x0f, 0x12);
-            attach_script(LAST_ENTITY, B, reference(trap_door));
-
-            default_init_room(True, False);
-        }
+        };
     };
 };
 
