@@ -451,16 +451,18 @@ group non_maps() {
             FORMULA_ESCAPE = 0xf40b,
             FIRE_POWER = 0xf40c,
             FORMULA_FIRE_POWER = 0xf40d,
-            FORCE_FIELD = 0xf40e,
-            FORMULA_FORCE_FIELD = 0xf40f,
-            HEAL = 0xf410,
-            FORMULA_HEAL = 0xf411,
-            REVIVE = 0xf412,
-            FORMULA_REVIVE = 0xf413,
-            SPEED = 0xf414,
-            FORMULA_SPEED = 0xf415,
-            STOP = 0xf416,
-            FORMULA_STOP = 0xf417,
+            FLASH = 0xf40e,
+            FORMULA_FLASH = 0xf40f,
+            FORCE_FIELD = 0xf410,
+            FORMULA_FORCE_FIELD = 0xf411,
+            HEAL = 0xf412,
+            FORMULA_HEAL = 0xf413,
+            REVIVE = 0xf414,
+            FORMULA_REVIVE = 0xf415,
+            SPEED = 0xf416,
+            FORMULA_SPEED = 0xf417,
+            STOP = 0xf418,
+            FORMULA_STOP = 0xf419,
 
             // misc
             ARCARDE_COIN = 0xf500,
@@ -1306,6 +1308,12 @@ group non_maps() {
                 subtext("Gained Fire Power Formula");
 
                 add_alchemy_recipe(MEMORY.LEVEL_HIGH_FIRE_POWER, MEMORY.LEVEL_LOW_FIRE_POWER, push_music);
+            } else if(item == CUSTOM_ITEM.FLASH) {
+                learn_alchemy(FLASH, FLASH, MEMORY.LEVEL_HIGH_FLASH, MEMORY.LEVEL_LOW_FLASH, push_music);
+            } else if(item == CUSTOM_ITEM.FORMULA_FLASH) {
+                subtext("Gained Flash Formula");
+
+                add_alchemy_recipe(MEMORY.LEVEL_HIGH_FLASH, MEMORY.LEVEL_LOW_FLASH, push_music);
             } else if(item == CUSTOM_ITEM.FORCE_FIELD) {
                 learn_alchemy(FORCE_FIELD, FORCE_FIELD, MEMORY.LEVEL_HIGH_FORCE_FIELD, MEMORY.LEVEL_LOW_FORCE_FIELD, push_music);
             } else if(item == CUSTOM_ITEM.FORMULA_FORCE_FIELD) {
@@ -3994,6 +4002,20 @@ group non_maps() {
                     debug_subtext("guard_no_hp");
                 });
             }
+
+            fun upgrade_alchemy(alchemy:CUSTOM_ITEM, level_low, price, callback_positive, callback_negative) {
+                item_pay(MONEY, price, False);
+                
+                if(CUSTOM_MEMORY.RETURN) {
+                    level_low--;
+                    
+                    custom_reward(alchemy, True);
+
+                    callback_positive();
+                } else {
+                    callback_negative();
+                }
+            }
         };
 
         group npc_shrine_maiden() {
@@ -5338,6 +5360,180 @@ group non_maps() {
             }
         };
 
+        group npc_pyromancer() {
+            enum NPC_PYROMANCER {
+                DEBUG = True,
+                PROGRESS = memory(BYTE, SRAM),
+
+                BODY = ENEMY.VILLAGER_2_4,
+
+                SUM_RECIPES = MEMORY.LEVEL_LOW_FLASH + MEMORY.LEVEL_LOW_FIRE_POWER,
+
+                PRICE_FLASH = (0d1 + FLAG.FLASH + MEMORY.LEVEL_HIGH_FLASH) * 0d30,
+                PRICE_FIRE_POWER = (0d1 + FLAG.FIRE_POWER + MEMORY.LEVEL_HIGH_FIRE_POWER) * 0d100,
+            }
+
+            group pyromancer_ai() {
+                fun response_greeting() {
+                    arg[0x00] = randrange(0d3);
+
+                    if(arg[0x00] == 0d0) {
+                        dialog("[SLOW]How may I help you?[B]");
+                    } else if(arg[0x00] == 0d0) {
+                        dialog("[SLOW]I'm glad to see you're well.[B]");
+                    } else {
+                        dialog("[SLOW]Hello again! How have you been?[B]");
+                    }
+                }
+
+                fun response_positive() {
+                    arg[0x00] = randrange(0d2);
+
+                    if(arg[0x00] == 0d0) {
+                        dialog("[SLOW]Be safe.[B]");
+                    } else {
+                        dialog("[SLOW]I'm always here, so come and see me when you're in town![B]");
+                    }
+                }
+                fun response_negative() {
+                    dialog("[SLOW]Wait! Where are you… cough…[B]");
+                }
+
+                @install()
+                fun pyromancer_dialog_0() {
+                    if(NPC_PYROMANCER.DEBUG) {
+                        debug_memory(NPC_PYROMANCER.PROGRESS, SOULS_MEMORY.BONFIRE_FIRST_TRIGGER);
+                        sleep(0d60);
+                    }
+
+                    smart_conversation({
+                        if((NPC_PYROMANCER.PROGRESS & 0xf0) < 0x10) {
+                            if((NPC_PYROMANCER.PROGRESS & 0x0f) < 0d1) {
+                                smart_text_box(<SCRIPT_OWNER>, 0d5);
+                                text("[SLOW]Er… Could you spare me something to wear?");
+                                if(MEMORY.CHEST_1_1) {
+                                    text("[CHOICE]Green Tunic…");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                if(MEMORY.CHEST_2_3) {
+                                    text("[CHOICE]Red Tunic…");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                text("[CHOICE]no…");
+                                await_answer();
+                                text_end();
+
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // green tunic
+                                    if(MEMORY.CHEST_1_1) {
+                                        MEMORY.CHEST_1_1--;
+                                    }
+                                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // red tunic
+                                    if(MEMORY.CHEST_2_3) {
+                                        MEMORY.CHEST_2_3--;
+                                    }
+                                } else {
+                                    response_negative();
+                                    end();
+                                }
+
+                                sound(PURCHASE);
+                                NPC_PYROMANCER.PROGRESS++;
+
+                                conversation_dialog("[SLOW]Thank you so much![B]");
+                            } else if(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
+                                conversation_question("[SLOW]Do you need teaching?[CHOICE]invite…[CHOICE]leave…");
+                                
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                                    NPC_PYROMANCER.PROGRESS = 0x10;
+
+                                    conversation_dialog("[SLOW]I'll be on my way.[B]");
+                                }
+                            } else {
+                                conversation_dialog("[SLOW]I… I don't know where to go now…[B]");
+                            }
+                        } else {
+                            conversation_dialog("[SLOW]I'll be on my way.[B]");
+                        }
+                    }, False);
+                }
+
+                fun pyromancer_upgrade_alchemy(alchemy:CUSTOM_ITEM, level_low, price) {
+                    upgrade_alchemy(alchemy, level_low, price, {
+                        response_positive();
+                    }, {
+                        response_negative();
+                    });
+                }
+
+                fun train() {
+                    text_box(0d6, 0d10);
+                    text("Do you need training?");
+
+                    if(MEMORY.LEVEL_LOW_FLASH) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_PYROMANCER.PRICE_FLASH;
+                        text("[CHOICE]Flash ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    if(MEMORY.LEVEL_LOW_FIRE_POWER) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_PYROMANCER.PRICE_FIRE_POWER;
+                        text("[CHOICE]Fire Power ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // flash
+                        if(MEMORY.LEVEL_LOW_FLASH) {
+                            pyromancer_upgrade_alchemy(FLASH, MEMORY.LEVEL_LOW_FLASH, NPC_PYROMANCER.PRICE_FLASH);
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // fire power
+                        if(MEMORY.LEVEL_LOW_FIRE_POWER) {
+                            pyromancer_upgrade_alchemy(FIRE_POWER, MEMORY.LEVEL_LOW_FIRE_POWER, NPC_PYROMANCER.PRICE_FIRE_POWER);
+                        }
+                    }
+                }
+
+                @install()
+                fun pyromancer_dialog_1() {
+                    smart_conversation({
+                        response_greeting();
+                        
+                        question("[SLOW]Do you require pyromancy?[CHOICE]talk…[CHOICE]train…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                            conversation_dialog("[SLOW]The only thing I can help you with is pyromancy, but if that might help you, come to me.[B]");
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // train
+                            if(NPC_PYROMANCER.SUM_RECIPES) {
+                                train();
+                            } else {
+                                conversation_dialog("[SLOW]Bring me more recipes.[B]");
+                            }
+                        } else {
+                            response_negative();
+                        }
+                    }, False);
+                }
+            };
+            
+            fun add_souls_npc_pyromancer(x, y, flags:FLAG_ENEMY) {
+                if(flags is Word) {
+                    add_enemy(NPC_PYROMANCER.BODY, x, y, flags);
+                } else {
+                    add_enemy(NPC_PYROMANCER.BODY, x, y);
+                }
+
+                if((NPC_PYROMANCER.PROGRESS & 0xf0) < 0x10) {
+                    attach_script(LAST_ENTITY, B, reference(pyromancer_dialog_0));
+                } else if((NPC_PYROMANCER.PROGRESS & 0xf0) >= 0x10) {
+                    attach_script(LAST_ENTITY, B, reference(pyromancer_dialog_1));
+                }
+            }
+        };
+
         group npc_dog_lady() {
             enum NPC_DOG_LADY {
                 PROGRESS = memory(BYTE, SRAM),
@@ -5376,7 +5572,7 @@ group non_maps() {
                     smart_conversation({
                         if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
                             if(((NPC_DOG_LADY.PROGRESS & 0x0f) < 0d1) || (!SOULS_MEMORY.BONFIRE_FIRST_TRIGGER)) {
-                                conversation_dialog("[SLOW]I… I don't know where to go now…[B]");
+                                conversation_dialog("[SLOW]…at least one safety biscuit…[B]");
                             } else {
                                 conversation_question("[SLOW]What a lovely companion you have… Do you need help training?[CHOICE]invite…[CHOICE]leave…");
                                 
@@ -8781,7 +8977,7 @@ area shrine_area() {
             hut_2 = entrance(0x33, 0x2d, SOUTH),
             hut_3__bee_boy = entrance(0x53, 0x2f, SOUTH),
             hut_4__crafter = entrance(0x65, 0x35, SOUTH),
-            hut_5 = entrance(0x6f, 0x49, SOUTH),
+            hut_5__pyromancer = entrance(0x6f, 0x49, SOUTH),
             hut_6__fire_eyes = entrance(0x45, 0x53, SOUTH),
             hut_7__smith = entrance(0x25, 0x5b, SOUTH),
             hut_8__cat = entrance(0x21, 0x3b, SOUTH),
@@ -9091,7 +9287,7 @@ area shrine_area() {
                 map_transition(hut_crafter, door, NORTH);
             },
             exit_hut_5 = @install() {
-                map_transition(hut_5, door, NORTH);
+                map_transition(hut_pyromancer, door, NORTH);
             },
             exit_hut_6 = @install() {
                 map_transition(hut_6__fire_eyes, door, NORTH);
@@ -9242,7 +9438,7 @@ area shrine_area() {
             
             add_door(0d101, 0d57, NPC_CRAFTER.PROGRESS < 0x20); // crafter
             
-            add_door(0d111, 0d75, True); // ???
+            add_door(0d111, 0d75, NPC_PYROMANCER.PROGRESS < 0x10); // pyromancer
             
             add_door(0d69, 0d85, True); // shrine maiden
             if(ROOM.SHRINE_BONFIRE_LIT) {
@@ -9673,7 +9869,7 @@ area shrine_area() {
         }
     };
 
-    map hut_5(VILLAGE_HUTS) { // variant 2_1
+    map hut_pyromancer(VILLAGE_HUTS) { // variant 2_1
         enum entrance {
             door = entrance(0x10, 0x49, NORTH),
         }
@@ -9685,7 +9881,7 @@ area shrine_area() {
             exit_door_2_3 = nop(),
             exit_door_2_2 = nop(),
             exit_door = @install() {
-                map_transition(shrine, hut_5, SOUTH);
+                map_transition(shrine, hut_5__pyromancer, SOUTH);
             },
             exit_door_1_3 = nop(),
             exit_door_1_2 = nop(),
@@ -9759,6 +9955,10 @@ area shrine_area() {
             // object[0x08] = 0x01; // open gourd_2_1_1
             // object[0x09] = 0x01; // open gourd_2_1_2
             // object[0x0a] = 0x01; // open gourd_2_1_3
+
+            if((NPC_PYROMANCER.PROGRESS & 0xf0) >= 0x10) {
+                add_souls_npc_pyromancer(0d16, 0d59);
+            }
 
             default_init_room(False, False);
         }
@@ -10910,10 +11110,10 @@ area west_inbetwixx() {
                 branch_lady(VILLAGER_2_4, 0x58, 0x0f, WEST, reference(@install() {
                     guard_branch_lady(ROOM.BRANCH_USED);
 
-                    dog_lady_dialog_0();
+                    pyromancer_dialog_0();
                 }));
-            } else if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
-                add_souls_npc_dog_lady(0x58, 0x0f);
+            } else if((NPC_PYROMANCER.PROGRESS & 0xf0) < 0x10) {
+                add_souls_npc_pyromancer(0x58, 0x0f);
             }
 
             if!(SOULS_MEMORY.DEAD_OWL_BOY) {
@@ -14166,6 +14366,10 @@ area altus_plateau_entry() {
                         if(MARKET.DEBUG) {
                             debug_subtext("market empty");
                         }
+                    }
+
+                    if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
+                        add_souls_npc_dog_lady(0d15, 0d22);
                     }
 
                     init_map(0x0, 0x0, 0x3a, 0xcc);
@@ -24303,8 +24507,11 @@ area town() {
                     gourd_1_2__1_nectar = @install() {
                         debug_subtext("B=1");
                         // _loot_chest(0x07, NECTAR, 0d01);
+                        // _loot_chest(0x07, LIMESTONE_TABLET, 0d01);
 
-                        _loot_chest(0x07, LIMESTONE_TABLET, 0d01);
+                        _loot_chest(0x07, {
+                            custom_reward(FORMULA_FLASH, True);
+                        });
                     },
                     gourd_1_1__1_wings = @install() {
                         debug_subtext("B=2");
