@@ -1809,7 +1809,10 @@ class Loot(Function_Base):
         else:
             self.animation = Word(0x3a, 1)
         self.object = object
-        self.reward = self.parse_argument_with_type(self._generator, reward, "LOOT_REWARD")
+        if not isinstance(reward.value, Function):
+            self.reward = self.parse_argument_with_type(self._generator, reward, "LOOT_REWARD")
+        else:
+            self.reward = reward.value
         self.amount = amount
         self.next = Word(next)
 

@@ -6876,6 +6876,44 @@ group functions() {
         };
     };
 
+    group cutscene_helper() {
+        fun fake_loot() {
+            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+            sleep(0d15);
+            sound(CLICK_3);
+            sleep(0d15);
+        }
+
+        fun fake_loot_gourd() {
+            sound(CLICK_3);
+        }
+
+        fun fake_b() {
+            animate(ACTIVE, ONCE, SLASH_1);
+        }
+
+        fun fake_chest(flag, object_index, object_value) {
+            fake_loot_gourd();
+
+            flag = True;
+
+            if(object_value !is None) {
+                object[object_index] = object_value;
+            } else {
+                object[object_index] = 0x01;
+            }
+        }
+        fun fake_chest_init(flag, object_index, object_value) {
+            if(flag) {
+                if(object_value !is None) {
+                    object[object_index] = object_value;
+                } else {
+                    object[object_index] = 0x01;
+                }
+            }
+        }
+    };
+
     group complex() {
         group running() {
             fun update_no_running() {
@@ -7555,14 +7593,39 @@ group functions() {
             }
         }
 
-        fun loot(animation:ADDRESS_ID, flag, object_id, reward:LOOT_REWARD, amount, next) {
-            if!(flag) {
-                if(reward < 0x1000) {
-                    MEMORY.LOOT_ITEM = reward;
+        fun loot(animation:ADDRESS_ID, flag, object_id, loot_reward:LOOT_REWARD, amount, next) {
+            if(flag) {
+                end();
+            }
+
+            if(loot_reward is Function) {
+                if(True) {
+                    MEMORY.LOOT_ITEM = LOOT_REWARD.NOTHING;
+                    MEMORY.LOOT_OBJECT = object_id;
+
+                    enable_subtext(False);
+                    call_id(animation);
+                    enable_subtext(True);
+                } else {
+                    if(animation == ADDRESS_ID.LOOT_SNIFF) {
+                        fake_loot();
+                    } else {
+                        fake_loot_gourd();
+                    }
+                }
+
+                loot_reward();
+
+                if(flag is Memory) {
+                    flag = True;
+                }
+            } else {
+                if(loot_reward < 0x1000) {
+                    MEMORY.LOOT_ITEM = loot_reward;
 
                     MEMORY.LOOT_OBJECT = object_id;
 
-                    if(reward < 0x0100) { 
+                    if(loot_reward < 0x0100) { 
                         if(amount > 0d0) {
                             MEMORY.LOOT_AMOUNT_CURRENCY = amount;
                         }
@@ -7596,31 +7659,31 @@ group functions() {
                     }
 
                     if(FLAG.LOOT_SUCCESSFUL) {
-                        if(reward == LOOT_REWARD.SPOON) {
+                        if(loot_reward == LOOT_REWARD.SPOON) {
                             MEMORY.SPOON += amount;
 
                             subtext("Found a Spoon");
-                        } else if(reward == LOOT_REWARD.TICKET_FOR_EXHIBITION) {
+                        } else if(loot_reward == LOOT_REWARD.TICKET_FOR_EXHIBITION) {
                             MEMORY.TICKET_FOR_EXHIBITION += amount;
 
                             subtext("Found a Ticket");
-                        } else if(reward == LOOT_REWARD.LIMESTONE_TABLET) {
+                        } else if(loot_reward == LOOT_REWARD.LIMESTONE_TABLET) {
                             MEMORY.LIMESTONE_TABLET += amount;
 
                             subtext("Found a Limestone Tablet");
-                        } else if(reward == LOOT_REWARD.JEWELED_SCARAB) {
+                        } else if(loot_reward == LOOT_REWARD.JEWELED_SCARAB) {
                             MEMORY.JEWELED_SCARAB += amount;
 
                             subtext("Found a Jeweled Scarab");
-                        } else if(reward == LOOT_REWARD.GOLDEN_JACKAL) {
+                        } else if(loot_reward == LOOT_REWARD.GOLDEN_JACKAL) {
                             MEMORY.GOLDEN_JACKAL += amount;
 
                             subtext("Found a Golden Jackal");
-                        } else if(reward == LOOT_REWARD.BAZOOKA) {
+                        } else if(loot_reward == LOOT_REWARD.BAZOOKA) {
                             MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_1;
 
                             subtext("Found a Bazooka");
-                        } else if(reward == LOOT_REWARD.CHOCOBO_EGG) {
+                        } else if(loot_reward == LOOT_REWARD.CHOCOBO_EGG) {
                             unlock(CHOCOBO_EGG);
 
                             subtext("Found a Chocobo Egg");
@@ -9552,42 +9615,6 @@ group functions() {
                 control(BOTH);
             }
         };
-
-        fun fake_loot() {
-            animate(BOY, ONCE, ANIMATION_BOY.LOOT);
-            sleep(0d15);
-            sound(CLICK_3);
-            sleep(0d15);
-        }
-
-        fun fake_loot_gourd() {
-            sound(CLICK_3);
-        }
-
-        fun fake_b() {
-            animate(ACTIVE, ONCE, SLASH_1);
-        }
-
-        fun fake_chest(flag, object_index, object_value) {
-            fake_loot_gourd();
-
-            flag = True;
-
-            if(object_value !is None) {
-                object[object_index] = object_value;
-            } else {
-                object[object_index] = 0x01;
-            }
-        }
-        fun fake_chest_init(flag, object_index, object_value) {
-            if(flag) {
-                if(object_value !is None) {
-                    object[object_index] = object_value;
-                } else {
-                    object[object_index] = 0x01;
-                }
-            }
-        }
 
         fun animation_fall_pit(character:CHARACTER) {
             face(character, SOUTH);
