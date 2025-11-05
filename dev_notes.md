@@ -3,23 +3,22 @@
 
 
 # important
+## crafter talk dialog does not lock the player???
 ## boss rush door is always active
-## diablo p2? + diablo clone should not actually die
 ## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
-## verminator double barrage?
-## wall-boss exit calls dog
 ## "positive"/"negative"
-## radiation (more enemies near the entrances)
 ## archaeologist sends you to smith after combining head and shaft
 ## no item if hp<=0 (but fanfare)
 ## d3: hold up bazooka when winning (if possible)
 ## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
 ## dog should not be at 0/0 during abombination fight
 ## energy core description after looting
-## diablo shadow does not die with diablo
 
 # nice to have
+## radiation (more enemies near the entrances)
+## wall-boss exit calls dog
+## diablo p2? + diablo clone should not actually die
 ## more orbs (every boss)
 ## ai moves don't cancel on death
 ## projectiles with entity targets should check range (and not shoot off screen)
