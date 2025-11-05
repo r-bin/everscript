@@ -496,7 +496,7 @@ group non_maps() {
             // cheats
             WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_FULL_INGREDIENTS = True,
-            WITH_CHEATS_EVERYTHING = True,
+            WITH_CHEATS_EVERYTHING = False,
             WITH_CHEATS_HOTKEYS = True,
             WITH_CHEATS_ALL_BONFIRES = False,
             WITH_CHEATS_MARIO_YUMP = False,
@@ -508,6 +508,16 @@ group non_maps() {
             WITH_CODE = True,
             WITH_SATURN_ROOM = True,
             WITH_METRO = True,
+
+            // challenges
+            CHALLENGE_NO_CHEATS = False,
+            CHALLENGE_NO_DOG = False,
+            CHALLENGE_NO_MAGIC_GOURD = False,
+            CHALLENGE_NO_LEVITATE = False,
+            CHALLENGE_NO_REVEALER = False,
+            CHALLENGE_NO_AXE_ORB = False,
+            CHALLENGE_NO_SPEAR_ORB = False,
+            CHALLENGE_NO_SWORD_ORB = False,
 
             // cheat counter
             CHEAT_COUNTER = memory(BYTE, SRAM),
@@ -523,6 +533,7 @@ group non_maps() {
 
             // boy
             SLOW_ON_HIT = memory(FLAG, TEMP_RESERVED),
+            SLOW_ON_HIT_ENTITY = memory(WORD, TEMP_RESERVED),
             REPUTATION = memory(BYTE, SRAM),
             REDUCED_MAX_HP = memory(WORD, RAM),
             // boy dust
@@ -858,7 +869,7 @@ group non_maps() {
                     SOULS_MEMORY.CHEAT_COUNTER++;
                 }
 
-                if((SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) && SOULS_MEMORY.CHEAT_COUNTER) {
+                if(SOULS_MEMORY.CHALLENGE_NO_CHEATS && (SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) && SOULS_MEMORY.CHEAT_COUNTER) {
                     SOULS_MEMORY.REPUTATION = REPUTATION.CHEATER;
                 } else {
                     update_reputation();
@@ -1793,7 +1804,7 @@ group non_maps() {
                     }
 
                     if(MAX_HP.UPDATE_HP) {
-                        damage(BOY, 0d0, False, True);
+                        damage(BOY, 0d0, True, True);
                     }
                 }
             }
@@ -1849,8 +1860,10 @@ group non_maps() {
                     }
                 }
 
-                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] && SOULS_MEMORY.SLOW_ON_HIT) {
-                    movement_amplification(<BOY>, 0d180, 0d1, True);
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE]) {
+                    if(SOULS_MEMORY.SLOW_ON_HIT || (<SCRIPT_OWNER>[DAMAGE_SOURCE] == SOULS_MEMORY.SLOW_ON_HIT_ENTITY)) {
+                        movement_amplification(<BOY>, 0d180, 0d1, True);
+                    }
                 }
 
                 if(MEMORY.LEVEL_HIGH_ENERGIZE < 0d1) {
@@ -5574,7 +5587,7 @@ group non_maps() {
                             if(((NPC_DOG_LADY.PROGRESS & 0x0f) < 0d1) || (!SOULS_MEMORY.BONFIRE_FIRST_TRIGGER)) {
                                 conversation_dialog("[SLOW]…at least one safety biscuit…[B]");
                             } else {
-                                conversation_question("[SLOW]What a lovely companion you have… Do you need help training?[CHOICE]invite…[CHOICE]leave…");
+                                conversation_question("[SLOW]What a lovely companion you have… Do you need help training?[CHOICE]invite…[CHOICE]leave…", 0d5);
                                 
                                 if(MEMORY.QUESTION_ANSWER == 0d0) { // help
                                     NPC_DOG_LADY.PROGRESS = 0x10;
@@ -7018,12 +7031,16 @@ group custom_bosses() {
                 }
 
                 guard_dead(mount);
+                while(mount[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                    yield();
+                }
+                guard_dead(mount);
 
                 control(mount, True);
                 animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
                 subtext("FRESH MEAT");
 
-                while((arg[0x10] < 0d30) && (!arg[0x12])) {
+                while((arg[0x10] < 0d30) && (!arg[0x12]) && (!(mount[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
                     arg[0x10]++;
 
                     guard_dead(mount);
@@ -7037,7 +7054,9 @@ group custom_bosses() {
                     check_range_old(<SCRIPT_OWNER>, <BOY>, 0d30, 0d30, {
                         arg[0x12] = True;
 
-                        subtext("?");
+                        if(BOSS.DEBUG) {
+                            debug_subtext("?");
+                        }
 
                         control(BOY, True);
                         face_target(BOY, SCRIPT_OWNER);
@@ -7067,7 +7086,9 @@ group custom_bosses() {
                         animate(BOY, ONCE, KNOCKBACK);
                         control(BOY, False);
 
-                        subtext("!");
+                        if(BOSS.DEBUG) {
+                            debug_subtext("!");
+                        }
                     });
                 }
 
@@ -7165,7 +7186,9 @@ group custom_bosses() {
                     }
 
                     if((mount[X] == arg[0x20]) && (mount[Y] == arg[0x22])) {
-                        subtext("?");
+                        if(BOSS.DEBUG) {
+                            debug_subtext("?");
+                        }
 
                         sfx_effect(SHAKING, True);
 
@@ -7253,7 +7276,7 @@ group custom_bosses() {
             @install()
             fun _ai_move_hook(mount, rider, hit) {
                 if(False) {
-                    subtext("?");
+                    debug_subtext("?");
                 }
 
                 guard_dead(mount);
@@ -7409,7 +7432,7 @@ group custom_bosses() {
         @install()
         @async()
         fun holding_spider(mount, rider) {
-            while!(dead(mount)) {
+            while(_alive(mount) && _alive(rider)) {
                 if(rider[GENERAL_PURPOSE] == 0d0) {
                     if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
                         _teleport(rider, mount[X], mount[Y] + 0d1);
@@ -7428,6 +7451,27 @@ group custom_bosses() {
 
                 sleep(0d2);
             }
+
+            if(BOSS.DEBUG) {
+                subtext("-holding");
+            }
+        }
+
+        fun add_spider(out_mount, out_rider) {
+            _add_enemy(SPIDER, out_mount[X], out_mount[Y] + 0d5, INACTIVE);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+            <LAST_ENTITY>[HP] = 0d1;
+            out_rider = <LAST_ENTITY>;
+
+            holding_spider(out_mount, out_rider);
+        }
+
+        fun stomp(entity) {
+            if(alive(entity)) {
+                animate(entity, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+                wait(entity);
+                bomb_entity(entity, 0d100);
+            }
         }
 
         @install()
@@ -7440,30 +7484,43 @@ group custom_bosses() {
 
             yield();
 
-            _add_enemy(SPIDER, <LAST_ENTITY>[X], <LAST_ENTITY>[Y] + 0d5, INACTIVE);
-            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
-            arg[0x12] = <LAST_ENTITY>;
-
-            holding_spider(arg[0x10], arg[0x12]);
+            add_spider(arg[0x10], arg[0x12]);
 
             smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(arg[0x10]));
 
-            while!(dead(arg[0x10])) {
-                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp - (hp / 0d3)))) {
-                    arg[0x0e] = randrange(0d2);
+            while(alive(arg[0x10])) {
+                if(dead(arg[0x12])) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("new spider");
+                    }
+
+                    add_spider(arg[0x10], arg[0x12]);
+                    arg[0x12][Z] = 0d2000;
+
+                    stomp(arg[0x10]);
+                    stomp(arg[0x10]);
+                    stomp(arg[0x10]);
+
+                    if(alive(arg[0x10])) {
+                        ai_move_charge(arg[0x10], arg[0x12]);
+                    }
                 } else {
-                    arg[0x0e] = randrange(0d4);
+                    if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] > (hp - (hp / 0d3)))) {
+                        arg[0x0e] = randrange(0d2);
+                    } else {
+                        arg[0x0e] = randrange(0d4);
+                    }
+
+                    if(arg[0x0e] == 0d0) {
+                        ai_move_fresh_meat(arg[0x10], arg[0x12]);
+                    } else if(arg[0x0e] == 0d1) {
+                        ai_move_charge(arg[0x10], arg[0x12]);
+                    } else {
+                        ai_move_hook(arg[0x10], arg[0x12]);
+                    }
                 }
 
-                if(arg[0x0e] == 0d0) {
-                    ai_move_fresh_meat(arg[0x10], arg[0x12]);
-                } else if(arg[0x0e] == 0d1) {
-                    ai_move_charge(arg[0x10], arg[0x12]);
-                } else {
-                    ai_move_hook(arg[0x10], arg[0x12]);
-                }
-
-                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(arg[0x10]));
+                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, _alive(arg[0x10]) && _alive(arg[0x12]));
             }
 
             destroy(arg[0x12]); // TODO: delayed
@@ -7753,6 +7810,7 @@ group custom_bosses() {
         enum BOSS {
             DEBUG = False,
 
+            HP_SHADOW = 0d1,
             MOVE_COOLDOWN = 0d300,
 
             WITH_CHANNEL_PROTECTION = False,
@@ -7798,7 +7856,7 @@ group custom_bosses() {
                 guard_dead(<SCRIPT_OWNER>);
 
                 _add_enemy(LIZARD, arg[0x10], arg[0x12]);
-                <LAST_ENTITY>[HP] = 0d1;
+                <LAST_ENTITY>[HP] = BOSS.HP_SHADOW;
                 <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
                 attach_to_script(<LAST_ENTITY>);
                 attach_script(LAST_ENTITY, DEATH, reference(@install() {
@@ -7827,6 +7885,7 @@ group custom_bosses() {
                     } else {
                         animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
                         attribute(SCRIPT_OWNER, ROOT, True);
+                        control(SCRIPT_OWNER, True);
                         if(BOSS.WITH_CHANNEL_PROTECTION) {
                             attribute(SCRIPT_OWNER, INVINCIBLE, True);
                         }
@@ -7836,6 +7895,7 @@ group custom_bosses() {
                         if(BOSS.WITH_CHANNEL_PROTECTION) {
                             attribute(SCRIPT_OWNER, INVINCIBLE, False);
                         }
+                        control(SCRIPT_OWNER, False);
                         attribute(SCRIPT_OWNER, ROOT, False);
                         animate(SCRIPT_OWNER, ONCE, DEFAULT);
                     }
@@ -7850,8 +7910,9 @@ group custom_bosses() {
         fun _add_custom_boss_diablo(x, y, force_phase, hp) {
             add_enemy(LIZARD, x, y);
             <LAST_ENTITY>[HP] = hp;
-            attach_to_script(<LAST_ENTITY>);
+            attach_to_script(LAST_ENTITY);
             <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+            SOULS_MEMORY.SLOW_ON_HIT_ENTITY = <LAST_ENTITY>;
 
             yield();
 
@@ -7866,7 +7927,9 @@ group custom_bosses() {
                     arg[0x0e] = randrange(0d3);
                 }
 
-                debug_memory(arg[0x0e]);
+                if(BOSS.DEBUG) {
+                    debug_memory(arg[0x0e]);
+                }
 
                 if(arg[0x0e] == 0d0) {
                     animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
@@ -7879,6 +7942,7 @@ group custom_bosses() {
                 } else if(arg[0x0e] == 0d1) {
                     animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
                     attribute(SCRIPT_OWNER, ROOT, True);
+                    control(SCRIPT_OWNER, True);
                     if(BOSS.WITH_CHANNEL_PROTECTION) {
                         attribute(SCRIPT_OWNER, INVINCIBLE, True);
                     }
@@ -7888,6 +7952,7 @@ group custom_bosses() {
                     if(BOSS.WITH_CHANNEL_PROTECTION) {
                         attribute(SCRIPT_OWNER, INVINCIBLE, False);
                     }
+                    control(SCRIPT_OWNER, False);
                     attribute(SCRIPT_OWNER, ROOT, False);
                     animate(SCRIPT_OWNER, ONCE, DEFAULT);
                 } else {
@@ -7904,6 +7969,8 @@ group custom_bosses() {
                     arg[0x10] = False;
                 }
             }
+
+            SOULS_MEMORY.SLOW_ON_HIT_ENTITY = 0x0000;
         }
         fun add_custom_boss_diablo(x, y, flag_dead, callback_dead, force_phase, hp) {
             _add_custom_boss_diablo(x, y, force_phase, hp);
@@ -21568,6 +21635,8 @@ area southern_jungle() {
 
                         enum BOSS {
                             PROGRESS = memory(FLAG, TEMP),
+
+                            HP = 0d500,
                         }
 
                         @install()
@@ -21754,7 +21823,7 @@ area southern_jungle() {
                                     
                                     add_custom_boss_diablo(0d85, 0d23, False, {
                                         debug_subtext("-boss");
-                                    }, False, 0d10);
+                                    }, False, BOSS.HP);
 
                                     souls_boss_defeated(DEAD_DIABLO, REWARD_DIABLO);
 
@@ -22169,10 +22238,12 @@ area southern_jungle() {
                                     
                                     add_custom_boss_pudge(0d34, 0d24, False, {
                                         debug_subtext("-pudge");
-                                    }, False, 0d400);
+                                    }, False, 0d800);
 
                                     souls_boss_defeated(DEAD_PUDGE, REWARD_PUDGE);
                                     BOSS.PROGRESS = False;
+
+                                    object[0x06] = 0x00; // close door
                                 }
                             },
                             entrance_side = @install() {
@@ -22181,7 +22252,9 @@ area southern_jungle() {
                             entrance = @install() {
                                 debug_subtext("S=4");
 
-                                object[0x06] = 0x05; // close door
+                                if((!SOULS_MEMORY.DEAD_PUDGE) && (!BOSS.PROGRESS)) {
+                                    object[0x06] = 0x05; // close door
+                                }
                             }
                         }
 

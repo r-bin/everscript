@@ -3,6 +3,15 @@
 
 
 # important
+## boss rush door is always active
+## diablo p2?
+## diablo clone should not actually die
+## softlock after diable (no axe2) -> bonfire
+## drakes are way too strong
+## npcs have 1 hp
+## aquagoth gives 0 souls?
+## verminator double barrage?
+## wall-boss exit calls dog
 ## "positive"/"negative"
 ## radiation (more enemies near the entrances)
 ## archaeologist sends you to smith after combining head and shaft
@@ -44,8 +53,13 @@
 
 
 # hard mode
-## only one spell
+## only one spell (no slot upgrades)
+## no stat upgrades
 ## OHK (1hp)
+## revealer says "nope"
+## levitate says "nope"
+## bomb says "nope"
+## yump says "nope"
 
 
 
