@@ -4,11 +4,8 @@
 
 # important
 ## boss rush door is always active
-## diablo p2?
-## diablo clone should not actually die
-## softlock after diable (no axe2) -> bonfire
-## drakes are way too strong
-## npcs have 1 hp
+## diablo p2? + diablo clone should not actually die
+## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
 ## verminator double barrage?
 ## wall-boss exit calls dog
@@ -23,7 +20,6 @@
 ## diablo shadow does not die with diablo
 
 # nice to have
-## scale enemies: before pyramid
 ## more orbs (every boss)
 ## ai moves don't cancel on death
 ## projectiles with entity targets should check range (and not shoot off screen)
