@@ -649,6 +649,7 @@ group non_maps() {
             BONFIRE_VOLCANO_TOWER = memory(FLAG, SRAM),
 
             // south
+            BONFIRE_INVERTED_PYRAMID = memory(FLAG, SRAM),
             BONFIRE_JUNGLE_PIT = memory(FLAG, SRAM),
 
             BONFIRE_BUG = memory(FLAG, SRAM),
@@ -2086,6 +2087,8 @@ group non_maps() {
                 SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
             } else if(MEMORY.CURRENT_MAP == MAP.CHESSBOARD_STAIRS) {
                 SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
+            } else if(MEMORY.CURRENT_MAP == MAP.PYRAMID_1) { // south
+                SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID = True;
             } else if(MEMORY.CURRENT_MAP == MAP.VOLCANO_ROOMS) {
                 SOULS_MEMORY.BONFIRE_BUG = True;
             } else if(MEMORY.CURRENT_MAP == MAP.HALLS_NE) {
@@ -3435,6 +3438,7 @@ group non_maps() {
                     SOULS_MEMORY.BONFIRE_VOLCANO_TOWER = True;
 
                     // south
+                    SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID = True;
                     SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
                     SOULS_MEMORY.BONFIRE_BUG = True;
                     SOULS_MEMORY.BONFIRE_DESERT = True;
@@ -9214,8 +9218,13 @@ area shrine_area() {
             guard_boy_damage();
 
             control(NONE);
-            text_box(0x0a, 0d5); // text_start();
+            text_box(0x0a, 0d6); // text_start();
             text("[SLOW]Return to Southern Jungle?");
+            if(SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID) {
+                text("[CHOICE]Inverted Pyramid…");
+            } else {
+                text("[CHOICE]…");
+            }
             if(SOULS_MEMORY.BONFIRE_JUNGLE_PIT) {
                 text("[CHOICE]Jungle Pit…");
             } else {
@@ -9236,17 +9245,22 @@ area shrine_area() {
             control(BOTH);
 
             if(MEMORY.QUESTION_ANSWER == 0d0) {
+                if(SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID) {
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.PYRAMID_1;
+                    map_transition(inverted_pyramid_level_0, bonfire, NONE);
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
                 if(SOULS_MEMORY.BONFIRE_JUNGLE_PIT) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_JUNGLE;
                     map_transition(jungle_firepit, bonfire, NONE);
                 }
-            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
                 if(SOULS_MEMORY.BONFIRE_BUG) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.VOLCANO_ROOMS;
                     SOULS_MEMORY.BONFIRE_VARIANT = 0d2;
                     map_transition(bugmuck_cave_1, bonfire, NONE);
                 }
-            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+            } else if(MEMORY.QUESTION_ANSWER == 0d3) {
                 if(SOULS_MEMORY.BONFIRE_DESERT) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.HALLS_NE;
                     SOULS_MEMORY.BONFIRE_VARIANT = 0d1;
@@ -9328,7 +9342,7 @@ area shrine_area() {
 
             bonfire_portal(0d61, 0d104, (SOULS_MEMORY.BONFIRE_ISAAC_DUNGEON || SOULS_MEMORY.BONFIRE_VOLCANO_TOWER), ((SOULS_MEMORY.BONFIRE_MAP == MAP.DARK_FOREST) || (SOULS_MEMORY.BONFIRE_MAP == MAP.STERLING)), reference(bonfire_triggered_west)); // west inbetwixx
 
-            bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_JUNGLE_PIT || SOULS_MEMORY.BONFIRE_BUG || SOULS_MEMORY.BONFIRE_DESERT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) || (SOULS_MEMORY.BONFIRE_MAP == MAP.VOLCANO_ROOMS) || (SOULS_MEMORY.BONFIRE_MAP == MAP.HALLS_NE)), reference(bonfire_triggered_jungle)); // southern jungle
+            bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID || SOULS_MEMORY.BONFIRE_JUNGLE_PIT || SOULS_MEMORY.BONFIRE_BUG || SOULS_MEMORY.BONFIRE_DESERT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.PYRAMID_1) || (SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) || (SOULS_MEMORY.BONFIRE_MAP == MAP.VOLCANO_ROOMS) || (SOULS_MEMORY.BONFIRE_MAP == MAP.HALLS_NE)), reference(bonfire_triggered_jungle)); // southern jungle
 
             bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_ALTUS_STAIRS || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || (SOULS_MEMORY.BONFIRE_MAP == MAP.CHESSBOARD_STAIRS) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
 
@@ -21598,6 +21612,8 @@ area southern_jungle() {
                             tunnel_east = entrance(0d111, 0d64, NONE, { crash_both(); }),
 
                             from_cutscene = entrance(0d138, 0d115, NONE),
+
+                            bonfire = entrance(0d97, 0d70, NONE, { bonfire_wakeup(0d0, -0d24, -0d24, -0d8); }),
                         }
 
                         enum soundtrack {
@@ -21645,6 +21661,11 @@ area southern_jungle() {
 
                             teleporter_out();
                             map_transition(inverted_pyramid_level_0, tunnel_west, NONE);
+                        }
+
+                        @install()
+                        fun show_bonfire() {
+                            bonfire(0d97, 0d70, SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID);
                         }
 
                         enum stepon_trigger {
@@ -21829,6 +21850,7 @@ area southern_jungle() {
 
                                     BOSS.PROGRESS = False;
                                     CUSTOM_FLAG.SLOW_GROUND_SWITCHES = False;
+                                    show_bonfire();
                                 }
                             },
                             stepon_42 = @install() {
@@ -22098,6 +22120,10 @@ area southern_jungle() {
                                     
                                     map_transition(inverted_pyramid_level_1, cutscene_stone_left, NONE);
                                 }));
+                            }
+
+                            if(SOULS_MEMORY.DEAD_DIABLO) {
+                                show_bonfire();
                             }
 
                             default_init_room(False, False);
