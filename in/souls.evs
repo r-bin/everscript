@@ -35298,6 +35298,10 @@ area metro() {
             }
         }
 
+        fun permission_denied() {
+            dialog("[SLOW]…Unautorized user… access denied… Please present clearance…[B]");
+        }
+
         @install()
         fun _guard_entrance_gate(flag, radiation_check) {
             CUSTOM_MEMORY.RETURN = False;
@@ -35327,7 +35331,7 @@ area metro() {
 
                 error_walk_back(SOUTH);
 
-                dialog("[SLOW]…Unautorized user… access denied… Please present clearance…[B]");
+                permission_denied();
                 face(ACTIVE, NORTH);
 
                 end();
@@ -35364,6 +35368,9 @@ area metro() {
                 SCANNING_DIAMOND_EYES = memory(FLAG, SRAM),
                 SCANNING_STAFF_OF_LIFE = AREA_METRO.REGENERATION_INN_ROOM,
             }
+            enum TERMINAL_HELPER {
+                POWER = AREA_METRO.LEVER_REACTOR_ROOM || TERMINAL.SCANNING_ENERGY_CORE,
+            }
 
             fun fallout_text_init() {
                 text_box(0d6, 0d10);
@@ -35394,6 +35401,40 @@ area metro() {
             }
             fun fallout_text_detect_error() {
                 text("ERROR:[PAUSE:20] NO VALID ITEM FOUND[B]");
+            }
+
+            @install()
+            fun fallout_screen_permission_general() {
+                sound(PIPING_SOUND);
+
+                fallout_text_init();
+                text("> ACCESS DENIED[PAUSE:50][LF][LF]");
+                
+                text("UNAUTHORIZED USER[PAUSE:50][LF][LF]");
+                text("PRESENT CLEARANCE");
+
+                text("[B]");
+
+                text_end();
+            }
+            @install()
+            fun fallout_screen_permission_portal() {
+                sound(PIPING_SOUND);
+
+                fallout_text_init();
+                text("> ACCESS DENIED[PAUSE:50][LF][LF]");
+                
+                fallout_text_analyzing();
+
+                MEMORY.STRING_PARAMETER_1 = TERMINAL_HELPER.POWER;
+                text("POWER:[PAUSE:50] [MEM1][LF][PAUSE:50]");
+
+                MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_DIAMOND_EYES && TERMINAL.SCANNING_GAUGE && TERMINAL.SCANNING_WHEEL;
+                text("RELICS:[PAUSE:50] [MEM1]");
+
+                text("[B]");
+
+                text_end();
             }
 
             @install()
@@ -35540,6 +35581,12 @@ area metro() {
                         } else {
                             TERMINAL.SCANNING_ENERGY_CORE = False;
                             FLAG.ENERGY_CORE = True;
+
+                            if(!AREA_METRO.LEVER_REACTOR_ROOM) {
+                                text("[SLOW]> SHUTTING DOWN[B]");
+                                text_end();
+                                end();
+                            }
 
                             text("> EJECTING ITEM[PAUSE:50][LF][LF]");
                             fallout_text_processing();
@@ -35733,7 +35780,7 @@ area metro() {
             }
             @install()
             fun fallout_screen_scan_item() {
-                while(True) {
+                while(TERMINAL_HELPER.POWER) {
                     fallout_text_init();
 
                     if!(arg[0x0e]) {
@@ -35808,7 +35855,7 @@ area metro() {
             }
 
             @install()
-            fun fallout_screen_main() {
+            fun _fallout_screen_main() {
                 control(NONE);
 
                 sound(UNKNOWN_ALCHEMY);
@@ -35817,7 +35864,7 @@ area metro() {
                 sleep(0d30);
                 sound(HEAL_END);
                 
-                while(True) {
+                while(TERMINAL_HELPER.POWER) {
                     MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_STAFF_OF_LIFE;
                     MEMORY.STRING_PARAMETER_2 = TERMINAL.SCANNING_DIAMOND_EYES && TERMINAL.SCANNING_GAUGE && TERMINAL.SCANNING_WHEEL;
 
@@ -35838,13 +35885,45 @@ area metro() {
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // scan item
                         fallout_screen_scan_item();
                     } else if(MEMORY.QUESTION_ANSWER == 0d2) { // emergency exit (DEs, wheel, gauge)
-                        teleporter_out(0d48, 0d71);
-                        map_transition(metro, center, NONE);
+                        if(MEMORY.STRING_PARAMETER_2) {
+                            teleporter_out(0d48, 0d71);
+                            map_transition(metro, center, NONE);
+                        } else {
+                            fallout_screen_permission_portal();
+                        }
                     } else {
                         control(BOTH);
                         end();
                     }
                 }
+            }
+            @install()
+            fun fallout_screen_main() {
+                if!(TERMINAL_HELPER.POWER) {
+                    if(FLAG.ENERGY_CORE) {
+                        question("[SLOW]Insert Energy Core[CHOICE]insert…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                            TERMINAL.SCANNING_ENERGY_CORE = True;
+                        } else {
+                            error_walk_back(SOUTH);
+                            control(BOTH);
+                            end();
+                        }
+                    } else {
+                        error_message(SWITCH_ENERGY, SOUTH);
+                        end();
+                    }
+                }
+
+                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE != ARMOR_STATS.GLOVE_4_2) {
+                    fallout_screen_permission_general();
+                } else {
+                    _fallout_screen_main();
+                }
+
+
+                error_walk_back(SOUTH);
             }  
         };
     };
@@ -36811,6 +36890,8 @@ area metro() {
 
                 ENTERED_FROM_SOUTH = memory(FLAG, TEMP),
 
+                POWER_ON = AREA_METRO.LEVER_REACTOR_ROOM,
+
                 CLONE_OPENED = memory(FLAG, TEMP),
             }
 
@@ -36864,6 +36945,10 @@ area metro() {
                 },
                 inn = @install() {
                     debug_subtext("S=6");
+
+                    guard_boy({
+                        subtext("…");
+                    });
 
                     fallout_screen_main();
                 },
