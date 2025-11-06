@@ -3,7 +3,6 @@
 
 
 # important
-## crafter talk dialog does not lock the player???
 ## boss rush door is always active
 ## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
@@ -13,7 +12,6 @@
 ## d3: hold up bazooka when winning (if possible)
 ## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
 ## dog should not be at 0/0 during abombination fight
-## energy core description after looting
 
 # nice to have
 ## radiation (more enemies near the entrances)
