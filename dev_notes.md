@@ -3,7 +3,6 @@
 
 
 # important
-## boss rush door is always active
 ## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
 ## "positive"/"negative"

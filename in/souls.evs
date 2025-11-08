@@ -627,6 +627,7 @@ group non_maps() {
             // bonfire
             ///////////////////////////////////////////////////////
 
+            BONFIRE_ID = memory(WORD, TEMP_RESERVED),
             BONFIRE_FIRST_TRIGGER = memory(FLAG, SRAM),
             BONFIRE_X = memory(WORD, SRAM),
             BONFIRE_Y = memory(WORD, SRAM),
@@ -675,6 +676,9 @@ group non_maps() {
             // west
             DEAD_OWL_BOY = memory(FLAG, SRAM), // t0+
             REWARD_OWL_BOY = CUSTOM_ITEM.PICKAXE_HEAD,
+
+            DEAD_WINDY_DRAGON = memory(FLAG, SRAM),
+            REWARD_WINDY_DRAGON = ITEM.NOTHING, // TODO
 
             DEAD_MONSTRO = memory(FLAG, SRAM), // t0
             REWARD_MONSTRO = CUSTOM_ITEM.SWORD_ORB,
@@ -2028,6 +2032,8 @@ group non_maps() {
             <LAST_ENTITY>[Z_LEVEL] = entity[Z_LEVEL];
             attach_script(LAST_ENTITY, DAMAGE, trigger);
 
+            SOULS_MEMORY.BONFIRE_ID = <LAST_ENTITY>;
+
             attribute(LAST_ENTITY, ROOT, True);
             <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
 
@@ -2138,6 +2144,8 @@ group non_maps() {
                 add_enemy(LANTERN_LIGHT, x, y, INACTIVE);
                 attach_script(LAST_ENTITY, DAMAGE, reference(bonfire_lit));
             }
+
+            SOULS_MEMORY.BONFIRE_ID = <LAST_ENTITY>;
             
             attribute(LAST_ENTITY, ROOT, True);
             <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
@@ -11927,8 +11935,13 @@ area altus_plateau_entry() {
             // sniff=vannilla
 
             enum ROOM {
+                WINDWALKER_ID = memory(WORD, TEMP),
+
+                COLLECTIBLE_ID = memory(WORD, TEMP),
+                COLLECTIBLE_ID = memory(WORD, TEMP),
                 COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
 
+                DIAMOND_EYE_ID = memory(WORD, TEMP),
                 DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
 
                 WITH_WIND = True,
@@ -11942,7 +11955,7 @@ area altus_plateau_entry() {
 
             enum entrance {
                 south = entrance(0x55, 0xf9, NORTH),
-                platform = entrance(0x51, 0x2f, NORTH),
+                platform = entrance(0x51, 0x2f, NONE),
 
                 bonfire = entrance(0d67, 0d159, NONE, { bonfire_wakeup(0d0, 0d8, -0d24, 0d0); }),
 
@@ -11984,6 +11997,324 @@ area altus_plateau_entry() {
                 });
             }
 
+            fun load_room(load, with_message) {
+                if(with_message) {
+                    if(load) {
+                        subtext("(loading room)");
+                    } else {
+                        subtext("(unloading room)");
+                    }
+                }
+
+                if(load) {
+                    bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
+                } else {
+                    _destroy(SOULS_MEMORY.BONFIRE_ID);
+                }
+
+                if(load) {
+                    add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0d24, 0d109);
+                    attach_script(LAST_ENTITY, B, reference(lift_off));
+                    ROOM.WINDWALKER_ID = <LAST_ENTITY>;
+                } else {
+                    _destroy(ROOM.WINDWALKER_ID);
+                }
+
+                if(load) {
+                    add_souls_npc_alchemist_drain(0d15, 0d204);
+
+                    if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                        // level 0
+                        // add_enemy_spawner(FLOWER_PURPLE, 0d81, 0d239, 0d1);
+
+                        // level 1
+                        add_enemy(MONK, 0d93, 0d209);
+                        add_enemy(MONK, 0d54, 0d186);
+
+                        // level 2
+                        add_enemy(MONK, 0d25, 0d175);
+
+                        // level 3
+                        add_enemy(MONK, 0d41, 0d160);
+
+                        // level 5
+                        // add_enemy_spawner(BUZZARD_1, 0d29, 0d123, 0d1);
+                        // add_enemy_spawner(RAT, 0d29, 0d123, 0d1);
+                        // add_enemy_spawner(RAT, 0d29, 0d123, 0d1);
+                    }
+                } else {
+                    find_all(MONK, {
+                        destroy(current_id);
+                    });
+                }
+            }
+
+            group boss_ai() {
+
+                enum BOSS {
+                    DEBUG = False,
+
+                    WITH_DRAG_DOG = True,
+
+                    PROGRESS = memory(FLAG, TEMP),
+
+                    RIDER_ID = memory(WORD, TEMP),
+                    MOUNT_ID = memory(WORD, TEMP),
+
+                    PHASE = memory(WORD, TEMP),
+                    TIMER = memory(WORD, TEMP),
+
+                    HP = 0d1000,
+
+                    GRAB_DISTANCE = 0d30,
+                    GRAB_DAMAGE = 0d10,
+
+                    // p1
+
+                    P1_THRESHOLD = 0d800,
+                    P1_TIME_BEFORE_SALVAGE = 0d1200,
+
+                    // p2
+
+                    P2_THRESHOLD = 0d500,
+                    P2_TIME_BEFORE_SALVAGE = 0d780,
+
+                    RANDOM_SPELL = memory(WORD, TEMP),
+                    TIME_BEFORE_RANDOM_SPELL = 0d780,
+                }
+
+                fun boss_killed() {
+                    nop();
+                }
+
+                @install()
+                @async()
+                fun stack_t01_offset() {
+                    while(alive(BOSS.MOUNT_ID)) {
+                        BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                        BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d20;
+                        BOSS.RIDER_ID[VELOCITY] = BOSS.MOUNT_ID[VELOCITY];
+                        
+                        sleep(0d2);
+                    }
+                }
+
+                fun cast_salvage(target:CHARACTER, count, level) {
+                    // TODO: flash/fireball, depending whether or not it's dodgeable?
+
+                    animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+
+                    if(count > 0d2) {
+                        cast(BOSS.RIDER_ID, target, FIREBALL, level);
+                    }
+                    cast(BOSS.RIDER_ID, target, FLASH, level);
+                    if(count > 0d2) {
+                        cast(BOSS.RIDER_ID, target, FIREBALL, level);
+                    }
+                    cast(BOSS.RIDER_ID, target, FLASH, level);
+                }
+
+                @install()
+                fun boss_damage() {
+                    // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+                    if(BOSS.PHASE == 0x00) {
+                        BOSS.TIMER = 0x00;
+
+                        if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
+                            BOSS.PHASE = 0x01;
+                        }
+                    } else if(BOSS.PHASE == 0x01) {
+                        if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
+                            BOSS.PHASE = 0x02;
+                        }
+                    } else if(BOSS.PHASE == 0x02) {
+                        BOSS.TIMER -= 0x60;
+                    }
+
+                    if(BOSS.DEBUG) {
+                        MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
+                        MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+                        subtext("Rider = [MEM1]/[MEM2]");
+                    }
+                }
+
+                @install()
+                @async()
+                fun boss_watcher() {
+                    if(BOSS.DEBUG) {
+                        subtext("phase 0");
+                    }
+
+                    while(BOSS.PHASE == 0x00) {
+                        if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                            cast_salvage(ACTIVE, 0d2, 0x00);
+
+                            BOSS.TIMER = 0x00;
+                        }
+                    
+                        if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                            BOSS.TIMER += 0d10;
+                        }
+                        
+                        sleep(0d10);
+                    }
+
+                    if(BOSS.DEBUG) {
+                        subtext("phase 1");
+                    }
+
+                    BOSS.TIMER = 0x0000;
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+                    cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+
+                    while(BOSS.PHASE == 0x01) {
+                        if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                            cast_salvage(ACTIVE, 0d2, 0x00);
+
+                            BOSS.TIMER = 0d0;
+                        }
+                    
+                        if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                            BOSS.TIMER += 0d10;
+                        }
+                        
+                        sleep(0d10);
+                    }
+
+                    BOSS.TIMER = 0x0000;
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+                    cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+
+                    while(BOSS.PHASE == 0x01) {
+                        BOSS.TIMER += 0d10;
+
+                        if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                            BOSS.TIMER = 0x0000;
+
+                            BOSS.RANDOM_SPELL = randrange(0x03);
+
+                            if(BOSS.RANDOM_SPELL == 0x00) {
+                                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+                                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+                            } else if(BOSS.RANDOM_SPELL == 0x01) {
+                                cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0x30);
+                            } else if(BOSS.RANDOM_SPELL == 0x02) {
+                                cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0x01);
+                            } 
+                        }
+                        
+                        sleep(0d10);
+                    }
+
+                    if(BOSS.DEBUG) {
+                        subtext("phase 2");
+                    }
+
+                    boss_killed();
+                }
+
+                @install()
+                @async()
+                fun sterling_flapping(entity, duration, slow) {
+                    while(
+                        (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                        && !(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)
+                        && duration
+                    ) {
+                        duration--;
+
+                        _move_towards(<BOY>, entity, 0d3, True);
+                        sleep(0d2);
+
+                        if(BOSS.WITH_DRAG_DOG) {
+                            _move_towards(<DOG>, entity, 0d3, True);
+                            sleep(0d2);
+                        }
+                    }
+                }
+
+                fun hold(entity:CHARACTER, callback) {
+                    // control(entity, True);
+                    attribute(entity, ROOT, True);
+
+                    callback();
+
+                    attribute(entity, ROOT, False);
+                    // control(entity, False);
+                }
+
+                fun spawn_boss(x, y) {
+                    add_enemy(VERMINATOR, x, y);
+                    <LAST_ENTITY>[HP] = BOSS.HP;
+                    BOSS.RIDER_ID = <LAST_ENTITY>;
+                    attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+                    attribute(LAST_ENTITY, ROOT, True);
+
+                    add_enemy(STERLING, x, y);
+                    BOSS.MOUNT_ID = <LAST_ENTITY>;
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                        if(<SCRIPT_OWNER>[TYPE] != CHARACTER_TYPE.STERLING) {
+                            <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.STERLING;
+                        } else {
+                            if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                                <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
+
+                                yield();
+
+                                hold(SCRIPT_OWNER, {
+                                    debug_subtext("?");
+
+                                    while(
+                                        (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                                        || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
+                                    ) {
+                                        yield();
+                                    }
+
+                                    debug_subtext("!");
+
+                                    face(SCRIPT_OWNER, SOUTH);
+                                    animate(LAST_ENTITY, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+                                    sterling_flapping(<SCRIPT_OWNER>, 0d600);
+                                    yield();
+
+                                    while(
+                                        (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                                        || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
+                                    ) {
+                                        yield();
+                                    }
+                                });
+
+                                while(
+                                    (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                                    || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
+                                ) {
+                                    yield();
+                                }
+
+                                debug_subtext(".");
+
+                                <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                            }
+                        }
+                    }));
+                    // attach_sterling_script_to_last_entity();
+                    // attribute(LAST_ENTITY, ROOT, True);
+                    // animate(LAST_ENTITY, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+                    // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.RAPTOR_BLACK;
+                    // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.MOSQUITO;
+                    // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.RAT;
+
+                    attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.GRAB_DISTANCE, 0d40, 0d25, 0x0118, BOSS.GRAB_DAMAGE);
+                    stack_t01_offset();
+                    boss_watcher();
+                }
+            };
+
             enum stepon_trigger {
                 elevator_bottom = @install() {
                     debug_subtext("S=0");
@@ -11997,6 +12328,18 @@ area altus_plateau_entry() {
                 },
                 spawn_boss = @install() {
                     debug_subtext("S=2");
+
+                    if((!SOULS_MEMORY.DEAD_WINDY_DRAGON) && (!BOSS.PROGRESS)) {
+                        BOSS.PROGRESS = True;
+
+                        load_room(False, True);
+
+                        yield();
+
+                        push_music(BOSS);
+                        
+                        spawn_boss(0d49, 0d27);
+                    }
                 },
                 trapdoor_4 = @install() {
                     debug_subtext("S=3");
@@ -12164,6 +12507,16 @@ area altus_plateau_entry() {
 
             fun start_wind() {
                 while(True) {
+                    if(BOSS.MOUNT_ID && BOSS.MOUNT_ID[GENERAL_PURPOSE]) {
+                        subtext("-wind");
+
+                        while(BOSS.MOUNT_ID && BOSS.MOUNT_ID[GENERAL_PURPOSE]) {
+                            sleep(0d10);
+                        }
+                        
+                        subtext("+wind");
+                    }
+
                     if(<BOY>[Y] < 0d180) {
                         arg[0x10] = 0d3;
                     } else if(<BOY>[Y] < 0d350) {
@@ -12222,51 +12575,11 @@ area altus_plateau_entry() {
                 // object[0x09] = 0x01; // open chest_4
                 // object[0x0a] = 0x01; // block elevator_top
 
-                if!(ROOM.COLLECTIBLE_LOOTED) {
-                    add_collectible(0x00, 0d43, 0d10, reference(@install() {
-                        collectible_collected();
-
-                        set(ROOM.COLLECTIBLE_LOOTED);
-                        destroy(SCRIPT_OWNER);
-                    }));
-                }
-
                 if(NPC_ARCHAEOLOGIST.PROGRESS == 0d1) {
                     add_souls_npc_archaeologist(0d71, 0d238);
                 }
 
-                add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0d24, 0d109);
-                attach_script(LAST_ENTITY, B, reference(lift_off));
-
-                if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
-                    // level 0
-                    // add_enemy(FLOWER_PURPLE, 0d81, 0d239);
-
-                    // level 1
-                    add_enemy(MONK, 0d93, 0d209);
-                    add_enemy(HEDGEHOG, 0d54, 0d186);
-
-                    // level 2
-                    add_enemy(MONK, 0d25, 0d175);
-
-                    // level 3
-                    add_enemy(HEDGEHOG, 0d41, 0d160);
-
-                    // level 5
-                    // add_enemy(BUZZARD_1, 0d29, 0d123);
-                    // add_enemy(RAT, 0d29, 0d123);
-                    // add_enemy(RAT, 0d29, 0d123);
-                }
-
-                bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
-
-                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
-
-                default_init_room(True, True);
-
-                place_statue(GOMI, 0d24, 0d119);
-
-                add_souls_npc_alchemist_drain(0d63, 0d31);
+                load_room(True, False);
 
                 if!(ROOM.DIAMOND_EYE_LOOTED) {
                     add_placeholder(DIAMOND_EYE_1, 0d66, 0d19);
@@ -12278,7 +12591,25 @@ area altus_plateau_entry() {
 
                         reward(DIAMOND_EYE, True);
                     }));
+                    ROOM.DIAMOND_EYE_ID = <LAST_ENTITY>;
                 }
+
+                if(SOULS_MEMORY.DEAD_WINDY_DRAGON) {
+                    if!(ROOM.COLLECTIBLE_LOOTED) {
+                        add_collectible(0x00, 0d43, 0d10, reference(@install() {
+                            collectible_collected();
+
+                            set(ROOM.COLLECTIBLE_LOOTED);
+                            destroy(SCRIPT_OWNER);
+                        }));
+                        ROOM.COLLECTIBLE_ID = <LAST_ENTITY>;
+                    }
+                }
+
+                default_init_room(True, True);
+
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+                place_statue(GOMI, 0d24, 0d119);
 
                 if(ROOM.WITH_WIND) {
                     start_wind();
