@@ -10361,8 +10361,10 @@ group functions() {
 
             animate_landing(character, True);
 
-            if(falling_damage > 0d0) {
-                damage(SCRIPT_OWNER, falling_damage, True);
+            if(falling_damage > 0d5) {
+                damage(SCRIPT_OWNER, falling_damage, True, True);
+            } else if(falling_damage > 0d0) {
+                damage(SCRIPT_OWNER, falling_damage, True, False);
             }
         }
         @install()
@@ -10378,8 +10380,18 @@ group functions() {
         }
         @install()
         @weak()
-        fun generic_fall_gomi(x, y, depth, falling_damage) {
+        fun generic_fall_gomi(x, y, depth, falling_damage, reduced_damage) {
             control(NONE);
+
+            if(reduced_damage) {
+                if(falling_damage >= 0d5) {
+                    falling_damage -= 0d5;
+                } else {
+                    falling_damage = 0d0;
+                }
+                
+                falling_damage >>= 0d1;
+            }
 
             x *= 0d8;
             y *= 0d8;
@@ -13596,7 +13608,7 @@ group functions() {
         @install()
         @weak()
         @async()
-        fun attach_sterling_script(entity, with_roar, stomp_radius, drop_x, drop_y, falling_threshold, damage_boy) {
+        fun attach_sterling_script(entity, with_roar, stomp_radius, drop_x, drop_y, falling_threshold, damage_boy, with_return) {
             if(False) {
                 <0x283d> = entity;
                 
@@ -13612,6 +13624,7 @@ group functions() {
                         if!(entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
                             arg[0x10] = entity[X];
                             arg[0x12] = entity[Y];
+                            arg[0x1c] = entity[Z_LEVEL];
                             arg[0x14] = <BOY>[X];
                             arg[0x16] = <BOY>[Y];
 
@@ -13647,6 +13660,11 @@ group functions() {
                                     sterling_grab(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
                                 } else {
                                     sterling_grab_3d(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
+                                }
+
+                                if(with_return) {
+                                    _drag(entity, arg[0x10], arg[0x12]);
+                                    entity[Z_LEVEL] = arg[0x1c];
                                 }
 
                                 sleep(0d300);
