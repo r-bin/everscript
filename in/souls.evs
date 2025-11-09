@@ -435,6 +435,8 @@ group non_maps() {
             UPGRADE_MAGIC_SLOTS = 0xf307,
             RANDOM_CHARM = 0xf308,
             ENERGY_CORE = 0xf309,
+            DRAGON_SCALES_RED = 0xf30a,
+            DRAGON_SCALES_GREEN = 0xf30b,
 
             // fake alchemy
             ACID_RAIN = 0xf400,
@@ -580,6 +582,8 @@ group non_maps() {
             PICKAXE_HEAD = memory(FLAG, SRAM),
             PICKAXE_SHAFT = memory(FLAG, SRAM),
             PICKAXE = memory(FLAG, SRAM),
+            DRAGON_SCALES_RED = memory(FLAG, SRAM),
+            DRAGON_SCALES_GREEN = memory(FLAG, SRAM),
 
             CLEARANCE_VAULT_NORTH_EAST = memory(FLAG, SRAM),
 
@@ -677,8 +681,8 @@ group non_maps() {
             DEAD_OWL_BOY = memory(FLAG, SRAM), // t0+
             REWARD_OWL_BOY = CUSTOM_ITEM.PICKAXE_HEAD,
 
-            DEAD_WINDY_DRAGON = memory(FLAG, SRAM),
-            REWARD_WINDY_DRAGON = ITEM.NOTHING, // TODO
+            DEAD_FLAPPY_DRAGON = memory(FLAG, SRAM),
+            REWARD_FLAPPY_DRAGON = CUSTOM_ITEM.DRAGON_SCALES_RED,
 
             DEAD_MONSTRO = memory(FLAG, SRAM), // t0
             REWARD_MONSTRO = CUSTOM_ITEM.SWORD_ORB,
@@ -702,7 +706,7 @@ group non_maps() {
             DEAD_ARENA_RADAHN = memory(FLAG, SRAM), // t?
             REWARD_ARENA_RADAHN = CUSTOM_ITEM.ROCKET_JUMP,
             DEAD_STOMPY_RADAHN = memory(FLAG, SRAM), // t?
-            REWARD_STOMPY_RADAHN = CUSTOM_ITEM.RANDOM_CHARM, // TODO
+            REWARD_STOMPY_RADAHN = CUSTOM_ITEM.DRAGON_SCALES_GREEN,
             
             DEAD_ARENA_MOSQUITO = memory(FLAG, SRAM), // t0
             REWARD_ARENA_MOSQUITO = ITEM.PIXIE_DUST,
@@ -2719,6 +2723,9 @@ group non_maps() {
                 } else {
                     callback_unreduced();
                 }
+            }
+            fun souls_generic_fall_gomi(x, y, depth, falling_damage) {
+                generic_fall_gomi(x, y, depth, falling_damage, CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2);
             }
 
             fun pit_fall_damage_callback(fall_damage, fall_damage_reduced, callback_success, callback_death) {
@@ -11935,6 +11942,9 @@ area altus_plateau_entry() {
             // sniff=vannilla
 
             enum ROOM {
+                DEBUG = False,
+                DEBUG_WIND = False,
+
                 WINDWALKER_ID = memory(WORD, TEMP),
 
                 COLLECTIBLE_ID = memory(WORD, TEMP),
@@ -11951,6 +11961,11 @@ area altus_plateau_entry() {
                 CODE_BOT_DIG_COUNT = 0d100,
                 CODE_BOT_X = 0d39,
                 CODE_BOT_Y = 0d233,
+
+                TRAP_1_TRIGGERED = memory(FLAG, TEMP),
+                TRAP_2_TRIGGERED = memory(FLAG, TEMP),
+                TRAP_3_TRIGGERED = memory(FLAG, TEMP),
+                TRAP_4_TRIGGERED = memory(FLAG, TEMP),
             }
 
             enum entrance {
@@ -11972,29 +11987,34 @@ area altus_plateau_entry() {
                 default = soundtrack(WIND_AMBIENT_BIRDS, 0xff),
             }
 
+            fun guard_cat_ring() {
+                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2) {
+                    end();
+                }
+            }
+
+            fun trapdoor_trigger(flag, object_id, x, y, y_end, damage) {
+                if!(flag) {
+                    guard_cat_ring();
+                }
+
+                object[object_id] = 0x03; // activate trapdoor_3
+                flag = True;
+
+                souls_generic_fall_gomi(x, y, y_end, damage);
+            }
+
             @install()
             fun trapdoor_3() {
                 debug_subtext("S=10/11");
 
-                object[0x05] = 0x03; // activate trapdoor_3
-
-                pit_fall_callback({
-                    generic_fall_gomi(0d91, 0d191, 0d1640);
-                }, {
-                    generic_fall_gomi(0d91, 0d191, 0d1640, 0d5);
-                });
+                trapdoor_trigger(ROOM.TRAP_3_TRIGGERED, 0x05, 0d91, 0d191, 0d1640, 0d5);
             }
             @install()
             fun trapdoor_4() {
                 debug_subtext("S=3/7");
 
-                object[0x03] = 0x03; // activate trapdoor_4
-
-                pit_fall_callback({
-                    generic_fall_gomi(0d43, 0d96, 0d1280);
-                }, {
-                    generic_fall_gomi(0d43, 0d96, 0d1280, 0d5);
-                });
+                trapdoor_trigger(ROOM.TRAP_4_TRIGGERED, 0x03, 0d43, 0d96, 0d1280, 0d20);
             }
 
             fun load_room(load, with_message) {
@@ -12052,7 +12072,8 @@ area altus_plateau_entry() {
             group boss_ai() {
 
                 enum BOSS {
-                    DEBUG = False,
+                    DEBUG = True,
+                    DEBUG_PHASE = True,
 
                     WITH_DRAG_DOG = True,
 
@@ -12084,7 +12105,15 @@ area altus_plateau_entry() {
                 }
 
                 fun boss_killed() {
-                    nop();
+                    while(BOSS.MOUNT_ID[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                        yield();
+                    }
+
+                    _destroy(BOSS.MOUNT_ID);
+
+                    souls_boss_defeated(DEAD_FLAPPY_DRAGON, REWARD_FLAPPY_DRAGON);
+
+                    load_room(True, True);
                 }
 
                 @install()
@@ -12118,18 +12147,22 @@ area altus_plateau_entry() {
                 fun boss_damage() {
                     // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
 
-                    if(BOSS.PHASE == 0x00) {
-                        BOSS.TIMER = 0x00;
+                    if(BOSS.PHASE == 0d0) {
+                        BOSS.TIMER = 0d0;
 
                         if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
-                            BOSS.PHASE = 0x01;
+                            BOSS.PHASE = 0d1;
                         }
-                    } else if(BOSS.PHASE == 0x01) {
+                    }
+                    if(BOSS.PHASE == 0d1) {
                         if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
-                            BOSS.PHASE = 0x02;
+                            BOSS.PHASE = 0d2;
                         }
-                    } else if(BOSS.PHASE == 0x02) {
-                        BOSS.TIMER -= 0x60;
+                    }
+                    if(BOSS.PHASE == 0d2) {
+                        if(BOSS.RIDER_ID[HP] <= 0d0) {
+                            BOSS.PHASE = 0d3;
+                        }
                     }
 
                     if(BOSS.DEBUG) {
@@ -12143,11 +12176,11 @@ area altus_plateau_entry() {
                 @install()
                 @async()
                 fun boss_watcher() {
-                    if(BOSS.DEBUG) {
+                    if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
                         subtext("phase 0");
                     }
 
-                    while(BOSS.PHASE == 0x00) {
+                    while(BOSS.PHASE == 0d0) {
                         if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
                             cast_salvage(ACTIVE, 0d2, 0x00);
 
@@ -12161,7 +12194,7 @@ area altus_plateau_entry() {
                         sleep(0d10);
                     }
 
-                    if(BOSS.DEBUG) {
+                    if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
                         subtext("phase 1");
                     }
 
@@ -12169,7 +12202,7 @@ area altus_plateau_entry() {
                     cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
                     cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
-                    while(BOSS.PHASE == 0x01) {
+                    while(BOSS.PHASE == 0d1) {
                         if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
                             cast_salvage(ACTIVE, 0d2, 0x00);
 
@@ -12183,11 +12216,15 @@ area altus_plateau_entry() {
                         sleep(0d10);
                     }
 
+                    if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                        subtext("phase 2");
+                    }
+
                     BOSS.TIMER = 0x0000;
                     cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
                     cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
 
-                    while(BOSS.PHASE == 0x01) {
+                    while(BOSS.PHASE == 0d2) {
                         BOSS.TIMER += 0d10;
 
                         if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
@@ -12208,8 +12245,8 @@ area altus_plateau_entry() {
                         sleep(0d10);
                     }
 
-                    if(BOSS.DEBUG) {
-                        subtext("phase 2");
+                    if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                        subtext("phase 3");
                     }
 
                     boss_killed();
@@ -12265,16 +12302,12 @@ area altus_plateau_entry() {
                                 yield();
 
                                 hold(SCRIPT_OWNER, {
-                                    debug_subtext("?");
-
                                     while(
                                         (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
                                         || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
                                     ) {
                                         yield();
                                     }
-
-                                    debug_subtext("!");
 
                                     face(SCRIPT_OWNER, SOUTH);
                                     animate(LAST_ENTITY, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
@@ -12296,8 +12329,6 @@ area altus_plateau_entry() {
                                     yield();
                                 }
 
-                                debug_subtext(".");
-
                                 <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
                             }
                         }
@@ -12309,7 +12340,7 @@ area altus_plateau_entry() {
                     // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.MOSQUITO;
                     // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.RAT;
 
-                    attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.GRAB_DISTANCE, 0d40, 0d25, 0x0118, BOSS.GRAB_DAMAGE);
+                    attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.GRAB_DISTANCE, 0d58, 0d12, 0d250, BOSS.GRAB_DAMAGE, True);
                     stack_t01_offset();
                     boss_watcher();
                 }
@@ -12329,7 +12360,7 @@ area altus_plateau_entry() {
                 spawn_boss = @install() {
                     debug_subtext("S=2");
 
-                    if((!SOULS_MEMORY.DEAD_WINDY_DRAGON) && (!BOSS.PROGRESS)) {
+                    if((!SOULS_MEMORY.DEAD_FLAPPY_DRAGON) && (!BOSS.PROGRESS)) {
                         BOSS.PROGRESS = True;
 
                         load_room(False, True);
@@ -12364,14 +12395,8 @@ area altus_plateau_entry() {
                 },
                 trapdoor_2 = @install() {
                     debug_subtext("S=8");
-                    
-                    object[0x06] = 0x03; // activate trapdoor_2
 
-                    pit_fall_callback({
-                        generic_fall_gomi(0d61, 0d160, 0d1408);
-                    }, {
-                        generic_fall_gomi(0d61, 0d160, 0d1408, 0d5);
-                    });
+                    trapdoor_trigger(ROOM.TRAP_2_TRIGGERED, 0x06, 0d61, 0d160, 0d1408, 0d5);
                 },
                 stepon_9 = @install() {
                     debug_subtext("S=9");
@@ -12508,13 +12533,17 @@ area altus_plateau_entry() {
             fun start_wind() {
                 while(True) {
                     if(BOSS.MOUNT_ID && BOSS.MOUNT_ID[GENERAL_PURPOSE]) {
-                        subtext("-wind");
+                        if(ROOM.DEBUG && ROOM.DEBUG_WIND) {
+                            debug_subtext("-wind");
+                        }
 
                         while(BOSS.MOUNT_ID && BOSS.MOUNT_ID[GENERAL_PURPOSE]) {
                             sleep(0d10);
                         }
                         
-                        subtext("+wind");
+                        if(ROOM.DEBUG && ROOM.DEBUG_WIND) {
+                            debug_subtext("+wind");
+                        }
                     }
 
                     if(<BOY>[Y] < 0d180) {
@@ -12594,7 +12623,7 @@ area altus_plateau_entry() {
                     ROOM.DIAMOND_EYE_ID = <LAST_ENTITY>;
                 }
 
-                if(SOULS_MEMORY.DEAD_WINDY_DRAGON) {
+                if(SOULS_MEMORY.DEAD_FLAPPY_DRAGON) {
                     if!(ROOM.COLLECTIBLE_LOOTED) {
                         add_collectible(0x00, 0d43, 0d10, reference(@install() {
                             collectible_collected();
