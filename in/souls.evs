@@ -4912,47 +4912,6 @@ group non_maps() {
             }
 
             group crafter_ai() {
-                group crafting() {
-                    fun _craft_armor(armor:ITEM, price) {
-                        trade_items(NO_ITEM, 0d0, TAPESTRY, 0d1, MUSHROOM, price);
-                        
-                        if(CUSTOM_MEMORY.RETURN) {
-                            reward(armor, True);
-                        }
-
-                        control(BOTH);
-                    }
-                    
-                    fun craft_armor() {
-                        MEMORY.STRING_PARAMETER_1 = NPC_CRAFTER.PRICE_MUSHROM_HELMET;
-                        MEMORY.STRING_PARAMETER_2 = NPC_CRAFTER.PRICE_MUSHROM_CHEST;
-                        MEMORY.STRING_PARAMETER_3 = NPC_CRAFTER.PRICE_MUSHROM_GLOVE;
-                        question("[SLOW]This is what I can offer for a tapestry and some mushrooms…[CHOICE]Helm ([MEM1])[CHOICE]Chest ([MEM2])[CHOICE]Glove ([MEM3])", 0d6);
-
-                        if(MEMORY.QUESTION_ANSWER == 0d0) {
-                            _craft_armor(HELM_1_1, MEMORY.STRING_PARAMETER_1);
-                        } else if(MEMORY.QUESTION_ANSWER == 0d1) {
-                            _craft_armor(CHEST_1_1, MEMORY.STRING_PARAMETER_2);
-                        } else if(MEMORY.QUESTION_ANSWER == 0d2) {
-                            _craft_armor(GLOVE_1_1, MEMORY.STRING_PARAMETER_3);
-                        }
-
-                        if(SOULS_MEMORY.DEAD_STOMPY_RADAHN && (MEMORY.GLOVE_3_3 == 0d0)) {
-                            question("[SLOW]Are those actual dragon claws? With two tapestry I can craft you the perfect gloves…[CHOICE]yes…[CHOICE]no…", 0d5);
-
-                            if(MEMORY.QUESTION_ANSWER == 0d0) {
-                                trade_items(NO_ITEM, 0d0, TAPESTRY, 0d2);
-                                
-                                if(CUSTOM_MEMORY.RETURN) {
-                                    reward(GLOVE_3_3, True);
-                                }
-
-                                control(BOTH);
-                            }
-                        }
-                    }
-                };
-
                 fun response_greeting() {
                     arg[0x00] = randrange(0d4);
 
@@ -4968,11 +4927,11 @@ group non_maps() {
                 }
 
                 fun response_positive() {
-                    arg[0x00] = randrange(0x03);
+                    arg[0x00] = randrange(0d3);
 
-                    if(arg[0x00] == 0x00) {
+                    if(arg[0x00] == 0d0) {
                         conversation_dialog("[SLOW]Go and slay some big game with that armor.[B]");
-                    } else if(arg[0x00] == 0x01) {
+                    } else if(arg[0x00] == 0d1) {
                         conversation_dialog("[SLOW]Go and hunt some monster with that armor.[B]");
                     } else {
                         conversation_dialog("[SLOW]That armor really suits you.[B]");
@@ -4980,6 +4939,113 @@ group non_maps() {
                 }
                 fun response_negative() {
                     conversation_dialog("[SLOW]I assume you're not into crafting.[B]");
+                }
+
+                group crafting() {
+                    fun _craft_mushroom_armor(armor:ITEM, price) {
+                        trade_items(NO_ITEM, 0d0, TAPESTRY, 0d1, MUSHROOM, price);
+                        
+                        if(CUSTOM_MEMORY.RETURN) {
+                            reward(armor, True);
+                        }
+
+                        control(BOTH);
+                    }
+                    
+                    fun craft_mushroom_armor() {
+                        MEMORY.STRING_PARAMETER_1 = NPC_CRAFTER.PRICE_MUSHROM_HELMET;
+                        MEMORY.STRING_PARAMETER_2 = NPC_CRAFTER.PRICE_MUSHROM_CHEST;
+                        MEMORY.STRING_PARAMETER_3 = NPC_CRAFTER.PRICE_MUSHROM_GLOVE;
+                        conversation_question("[SLOW]This is what I can offer for a tapestry and some mushrooms…[CHOICE]Helm ([MEM1])[CHOICE]Chest ([MEM2])[CHOICE]Glove ([MEM3])", 0d6);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            _craft_mushroom_armor(HELM_1_1, MEMORY.STRING_PARAMETER_1);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                            _craft_mushroom_armor(CHEST_1_1, MEMORY.STRING_PARAMETER_2);
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                            _craft_mushroom_armor(GLOVE_1_1, MEMORY.STRING_PARAMETER_3);
+                        }
+                    }
+                    
+                    fun craft_green_dragon_scale_armor() {
+                        conversation_question("[SLOW]Are those actual dragon claws? With two tapestry I can craft you the perfect gloves…[CHOICE]yes…[CHOICE]no…", 0d6);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            trade_items(NO_ITEM, 0d0, TAPESTRY, 0d2);
+                            
+                            if(CUSTOM_MEMORY.RETURN) {
+                                SOULS_MEMORY.DRAGON_SCALES_GREEN = False;
+                                reward(GLOVE_3_3, True);
+
+                                response_positive();
+                            } else {
+                                response_negative();
+                            }
+                        }
+                    }
+                    
+                    fun craft_red_dragon_scale_armor() {
+                        conversation_question("[SLOW]Are those actual dragon scales? With three tapestry I can upgrade your green tunic…[CHOICE]yes…[CHOICE]no…", 0d6);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            if(MEMORY.CHEST_1_1) {
+                                trade_items(NO_ITEM, 0d0, TAPESTRY, 0d3);
+                                
+                                if(CUSTOM_MEMORY.RETURN) {
+                                    SOULS_MEMORY.DRAGON_SCALES_RED = False;
+                                    reward(GLOVE_3_3, True);
+
+                                    response_positive();
+                                } else {
+                                    response_negative();
+                                }
+                            } else {
+                                response_negative();
+                            }
+                        }
+                    }
+                };
+
+                fun craft_prompt() {
+                    // Craft or upgrade
+                    // -> Mushroom armor: 8
+                    //    Green dragon scales: 1
+                    //    Red dragon scales: 1
+
+                    MEMORY.STRING_PARAMETER_1 = MEMORY.MUSHROOM;
+                    MEMORY.STRING_PARAMETER_2 = SOULS_MEMORY.DRAGON_SCALES_GREEN;
+                    MEMORY.STRING_PARAMETER_3 = SOULS_MEMORY.DRAGON_SCALES_RED;
+
+                    smart_text_box(<SCRIPT_OWNER>, 0d5);
+                    text("[SLOW]Craft or upgrade[CHOICE]Mushroom armor: [MEM1]");
+                    if(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
+                        text("[CHOICE]Green dragon scales: [MEM2]");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    if(SOULS_MEMORY.DEAD_FLAPPY_DRAGON) {
+                        text("[CHOICE]Red dragon scales: [MEM3]");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        craft_mushroom_armor();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                        if(SOULS_MEMORY.DEAD_STOMPY_RADAHN && SOULS_MEMORY.DRAGON_SCALES_GREEN) {
+                            craft_green_dragon_scale_armor();
+                        } else {
+                            response_negative();
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                        if(SOULS_MEMORY.DEAD_FLAPPY_DRAGON && SOULS_MEMORY.DRAGON_SCALES_RED) {
+                            craft_red_dragon_scale_armor();
+                        } else {
+                            response_negative();
+                        }
+                    }
                 }
 
                 @install()
@@ -5054,7 +5120,7 @@ group non_maps() {
                                 conversation_dialog("[SLOW]The land is full of burried trasures.[B]");
                             }
                         } else if(MEMORY.QUESTION_ANSWER == 0d1) { // craft
-                            craft_armor();
+                            craft_prompt();
                         } else {
                             response_negative();
                         }
