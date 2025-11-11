@@ -8,11 +8,11 @@
 ## "positive"/"negative"
 ## archaeologist sends you to smith after combining head and shaft
 ## no item if hp<=0 (but fanfare)
-## d3: hold up bazooka when winning (if possible)
 ## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
-## dog should not be at 0/0 during abombination fight
+## dog should not be at 0/0 during abomination fight
 
 # nice to have
+## d3: hold up bazooka when winning (if possible)
 ## radiation (more enemies near the entrances)
 ## wall-boss exit calls dog
 ## diablo p2? + diablo clone should not actually die
@@ -35,11 +35,9 @@
 ## ship: walking south instantly breaks stairs
 ## pipe maze side room spawns dog (vanilla script)
 ## basement red maggots after monstro
-## sound glitches: kill radahn
 ## raptor arena - don't reuse enemies
 ## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
-## monstro - bonfire? p2? does not explode?
 ## stats menu - armor name incorrect
 ## temple elevator preselect floor
 
