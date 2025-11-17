@@ -707,8 +707,11 @@ group non_maps() {
             DEAD_INVISIBLE_GATE_KEEPER = memory(FLAG, SRAM),
             REWARD_INVISIBLE_GATE_KEEPER = ITEM.WINGS,
 
+            DEAD_RAT_BOY = memory(FLAG, SRAM),
+            REWARD_RAT_BOY = ITEM.NOTHING,
+
             DEAD_UNNAMED_STAIRWELL_BOSS = memory(FLAG, SRAM),
-            REWARD_UNNAMED_STAIRWELL_BOSS = CUSTOM_ITEM.WIZARDS_COIN,
+            REWARD_UNNAMED_STAIRWELL_BOSS = ITEM.WIZARDS_COIN,
 
             // east
             DEAD_PIT_EGG = memory(FLAG, SRAM), // t0
@@ -8158,14 +8161,45 @@ group custom_bosses() {
             }
         };
 
+
+        @install()
+        @async()
+        fun anti_cheese_stuck(entity, x, y) {
+            while(alive(entity)) {
+                // debug_memory(arg[0x1a], BOSS.RIDER_ID[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, BOSS.RIDER_ID[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION);
+                // debug_memory(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK);
+
+                arg[0x10] = entity[X];
+                arg[0x12] = entity[Y];
+                arg[0x14] = 0d0;
+
+                while((entity[X] == arg[0x10]) && (entity[Y] == arg[0x12]) && (arg[0x14] < 0d60)) {
+                    if((entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)  || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                        if(arg[0x14] > 0d0) {
+                            arg[0x14]--;
+                        }
+                    } else {
+                        arg[0x14]++;
+                    }
+
+                    yield();
+                }
+
+                if((entity[X] == arg[0x10]) && (entity[Y] == arg[0x12])) {
+                    move_towards(entity, <BOY>, 0d10, False);
+                }
+            }
+        }
+
         @install()
         @async()
         fun _add_custom_boss_rat_boy(x, y, force_phase, hp) {
-            add_enemy(BOY_BLACK, 0d35, 0d40);
+            add_enemy(BOY_BLACK, x, y);
             <LAST_ENTITY>[HP] = hp;
             attach_to_script(LAST_ENTITY);
+            anti_cheese_stuck(<LAST_ENTITY>);
 
-            attach_sterling_script(<SCRIPT_OWNER>, True, 0d10, 0d32, 0d40, 0d400, 0d15);
+            attach_sterling_script(<SCRIPT_OWNER>, True, 0d20, x, y - 0d10, y * 0d8, 0d15, True);
 
             smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
 
@@ -8174,8 +8208,8 @@ group custom_bosses() {
                     debug_subtext("+rng");
                 }
 
-                while(alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) || (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)  || (<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
-                    yield();
+                while(alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) || (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)  || (<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                    sleep(0d10);
                 }
 
                 if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp / 0d2))) {
@@ -8183,7 +8217,10 @@ group custom_bosses() {
                 } else {
                     arg[0x0e] = randrange(0d4);
                 }
-                debug_memory(arg[0x0e]);
+                
+                if(BOSS.DEBUG) {
+                    debug_memory(arg[0x0e]);
+                }
 
                 if(arg[0x0e]) {
                     rat_split();
@@ -14238,7 +14275,7 @@ area altus_plateau_entry() {
             };
 
             area inner_castle() {
-                enum INNER_CASTLE {
+                enum AREA_INNER_CASTLE {
                     DEFAULT_MUSIC = MUSIC.CAVE_AMBIENT_PIANO,
                 }
 
@@ -14253,7 +14290,7 @@ area altus_plateau_entry() {
                     }
 
                     enum soundtrack {
-                        default = soundtrack(INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+                        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
                     }
 
                     enum stepon_trigger {
@@ -14338,7 +14375,7 @@ area altus_plateau_entry() {
                     }
 
                     enum soundtrack {
-                        default = soundtrack(INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+                        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
                     }
 
                     enum stepon_trigger {
@@ -14398,18 +14435,22 @@ area altus_plateau_entry() {
                 };
 
                 map hidden_castle_entry(VERMINATOR) {
+                    enum ROOM {
+                        DOOR_EAST_OPENED = memory(FLAG, SRAM),
+                        DOOR_WEST_OPENED = memory(FLAG, SRAM),
+                    }
+
                     enum entrance {
                         north = entrance(0x16, 0x09, SOUTH),
-                        east = entrance(0x29, 0x38, WEST),
+                        east = entrance(0x29, 0x38, WEST, { ROOM.DOOR_EAST_OPENED = True; }),
                         south = entrance(0x16, 0x65, NORTH),
-                        west = entrance(0x03, 0x38, EAST),
+                        west = entrance(0x03, 0x38, EAST, { ROOM.DOOR_WEST_OPENED = True; }),
                         stairs = entrance(0x19, 0x4d, EAST)
                     }
 
                     enum soundtrack {
-                        default = soundtrack(INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+                        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
                     }
-
                     group boss_ai() {
                         enum BOSS {
                             DEBUG = False,
@@ -14909,14 +14950,116 @@ area altus_plateau_entry() {
                         exit_west = @install() {
                             debug_subtext("S=8");
 
-                            map_transition(inner_castle_dining_room, east, WEST);
+                            if!(ROOM.DOOR_WEST_OPENED) {
+                                error_message(DOOR_WRONG_SIDE, NONE);
+                            } else {
+                                map_transition(inner_castle_dining_room, east, WEST);
+                            }
                         },
                         exit_east = @install() {
                             debug_subtext("S=9");
+
+                            if!(ROOM.DOOR_EAST_OPENED) {
+                                error_message(DOOR_WRONG_SIDE, NONE);
+                            } else {
+                                map_transition(inner_castle_hallway, west, EAST);
+                            }
                         }
                     }
 
                     fun trigger_enter() {
+                        default_init_room(False, False);
+
+                        add_bombable(0d7, 0d56, ROOM.DOOR_WEST_OPENED, reference(@install() {
+                            bombable_object(DEFAULT, True, ROOM.DOOR_WEST_OPENED);
+                        }));
+                        add_bombable(0d37, 0d56, ROOM.DOOR_EAST_OPENED, reference(@install() {
+                            bombable_object(DEFAULT, True, ROOM.DOOR_EAST_OPENED);
+                        }));
+                    }
+                };
+
+                map inner_castle_hallway(EBON_GLASS) {
+                    enum entrance {
+                        east = entrance(0x2d, 0x19, WEST),
+                        west = entrance(0x03, 0x19, EAST),
+
+                        crash = entrance(0d35, 0d24, NONE, { crash_both(); }),
+                    }
+
+                    enum soundtrack {
+                        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+                    }
+
+                    enum ROOM {
+                        PROGRESS = memory(FLAG, TEMP),
+                    }
+
+                    @install()
+                    @async()
+                    fun clean_up_rats() {
+                        find_all(RAT, {
+                            walk(current_id, TILE_ABSOLUTE_DIRECT, 0d50, 0d25, False, False);
+                        });
+
+                        sleep(0d2, S);
+
+                        find_all(RAT, {
+                            destroy(current_id);
+                        });
+                    }
+
+                    enum stepon_trigger {
+                        exit_east = @install() {
+                            debug_subtext("S=0");
+                        },
+                        exit_west = @install() {
+                            debug_subtext("S=1");
+
+                            if(SOULS_MEMORY.DEAD_RAT_BOY) {
+                                map_transition(hidden_castle_entry, east, WEST);
+                            } else if(!ROOM.PROGRESS) {
+                                ROOM.PROGRESS = True;
+
+                                object[0x04] = 0x01; // hide image_5
+
+                                clean_up_rats();
+
+                                ROOM.PROGRESS = True;
+
+                                push_music(BOSS_DRUMS);
+
+                                add_custom_boss_rat_boy(0d39, 0d25, False, {
+                                    ROOM.PROGRESS = False;
+                                    souls_boss_defeated(DEAD_RAT_BOY, REWARD_RAT_BOY);
+                                }, False, 0d100);
+                            } else {
+                                fog_wall_inside(!SOULS_MEMORY.DEAD_RAT_BOY, EAST);
+                            }
+                        },
+                    }
+
+                    fun trigger_enter() {
+                        object[0x00] = 0x01; // hide image_1
+                        object[0x01] = 0x01; // hide image_2
+                        object[0x02] = 0x01; // hide image_3
+                        object[0x03] = 0x01; // hide image_4
+
+                        if(!SOULS_MEMORY.DEAD_RAT_BOY) {
+                            if(True) {
+                                // east
+                                add_enemy(RAT, 0d12, 0d24);
+
+                                // center
+                                add_enemy(RAT, 0d24, 0d24);
+
+                                // west
+                                add_enemy(RAT, 0d38, 0d27);
+                            }
+                        } else {
+                            object[0x04] = 0x01; // hide image_5
+                        }
+
                         default_init_room(False, False);
                     }
                 };
@@ -14987,6 +15130,8 @@ area altus_plateau_entry() {
 
                 LUIGI_LIMIT_TOP = 0d433,
                 LUIGI_LIMIT_BOTTOM = 0d447,
+
+                TUNNEL_OPENED = memory(FLAG, SRAM),
             }
 
             fun crank_well() {
@@ -15070,6 +15215,14 @@ area altus_plateau_entry() {
                 bonfire(0d30, 0d20, SOULS_MEMORY.BONFIRE_ALTUS_WELL);
                 
                 default_init_room(True, True);
+
+                archaeology_dig(0d1, 0d41, DEFAULT, False, reference(@install() {
+                    guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+
+                    jump_hole({
+                        map_transition(inner_castle_hallway, crash, NONE);
+                    });
+                }));
             }
         };
 
