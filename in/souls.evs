@@ -114,6 +114,11 @@ group non_maps() {
         fun dog_4_black_prize_chance() {
             code(0x0000, "// DOG_4_BLACK prize chance");
         }
+
+        @install(CHARM_DATA.WIZARDS_COIN_BONUS, False)
+        fun wizards_coin_magic_res() {
+            code(CHARM_DATA.WIZARDS_COIN_BASE + 0d3, "// wizards coin magic res");
+        }
     };
 
     // group alchemy_ingredients() {
@@ -415,6 +420,7 @@ group non_maps() {
             ISAAC_WANTED_POSTER = 0xf103, // unlocks ?
             BUG_CATCHER_BROKEN = 0xf104, // unlocks bee collecting
             BUG_CATCHER = 0xf105, // unlocks bee collecting
+            PATTERN_DRAGON_LEATHERWORK = 0xf106, // unlocks dragon items
 
             // active abilities
             ZELDA_POWER_GLOVE = 0xf200, // unlocks levitate stones
@@ -698,8 +704,11 @@ group non_maps() {
             DEAD_CHESS = memory(FLAG, SRAM), // t0
             REWARD_CHESS = CUSTOM_ITEM.AXE_ORB,
 
+            DEAD_INVISIBLE_GATE_KEEPER = memory(FLAG, SRAM),
+            REWARD_INVISIBLE_GATE_KEEPER = ITEM.WINGS,
+
             DEAD_UNNAMED_STAIRWELL_BOSS = memory(FLAG, SRAM),
-            REWARD_UNNAMED_STAIRWELL_BOSS = CUSTOM_ITEM.TUNIC_RED,
+            REWARD_UNNAMED_STAIRWELL_BOSS = CUSTOM_ITEM.WIZARDS_COIN,
 
             // east
             DEAD_PIT_EGG = memory(FLAG, SRAM), // t0
@@ -805,8 +814,10 @@ group non_maps() {
             REWARD_BEE_BOY_QUEST_2 = ITEM.FORCE_FIELD,
             COST_BEE_BOY_QUEST_3 = 0d5,
             REWARD_BEE_BOY_QUEST_3 = ITEM.GLOVE_1_3,
-            COST_BEE_BOY_QUEST_4 = 0d8,
-            REWARD_BEE_BOY_QUEST_4 = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
+            COST_BEE_BOY_QUEST_4 = 0d7,
+            REWARD_BEE_BOY_QUEST_4 = CUSTOM_ITEM.PATTERN_DRAGON_LEATHERWORK,
+            COST_BEE_BOY_QUEST_5 = 0d10,
+            REWARD_BEE_BOY_QUEST_5 = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
 
             REWARD_SQUIDMAR_QUEST = CUSTOM_ITEM.RANDOM_CHARM, // TODO
 
@@ -4148,7 +4159,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(volcano_tower, south, NONE);
+                map_transition(inner_castle_court, crash, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -5765,6 +5776,7 @@ group non_maps() {
                 REWARD_2_COLLECTED = memory(FLAG, SRAM),
                 REWARD_3_COLLECTED = memory(FLAG, SRAM),
                 REWARD_4_COLLECTED = memory(FLAG, SRAM),
+                REWARD_5_COLLECTED = memory(FLAG, SRAM),
             }
 
             group bee_boy_ai() {
@@ -5775,10 +5787,10 @@ group non_maps() {
                 }
 
                 fun response_positive() {
-                    dialog("[SLOW]If you bring me enough bees I'll reward you with some treasures I found…[B]");
+                    conversation_dialog("[SLOW]If you bring me enough bees I'll reward you with some treasures I found…[B]");
                 }
                 fun response_negative() {
-                    dialog("[SLOW]Bring me more bees…[B]");
+                    conversation_dialog("[SLOW]Bring me more bees…[B]");
                 }
 
                 @install()
@@ -5802,24 +5814,26 @@ group non_maps() {
                     add_following_bee(<SCRIPT_OWNER>);
                     arg[0x10] = True;
                 }
+                fun bee_reward_check(flag, item, cost) {
+                    if((!flag) && (NPC_BEE_BOY.PROGRESS >= cost)) {
+                        bee_reward(flag, item);
+                    }
+                }
 
+                @install()
                 fun request_reward() {
-                    if((!NPC_BEE_BOY.REWARD_1_COLLECTED) && (NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_1)) {
-                        bee_reward(NPC_BEE_BOY.REWARD_1_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_1);
+                    if(NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_5) {
+                        conversation_dialog("[SLOW]That was my last treasure…[B]");
+                        end();
                     }
-                    if((!NPC_BEE_BOY.REWARD_2_COLLECTED) && (NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_2)) {
-                        bee_reward(NPC_BEE_BOY.REWARD_2_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_2);
-                    }
-                    if((!NPC_BEE_BOY.REWARD_3_COLLECTED) && (NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_3)) {
-                        bee_reward(NPC_BEE_BOY.REWARD_3_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_3);
-                    }
-                    if((!NPC_BEE_BOY.REWARD_4_COLLECTED) && (NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_4)) {
-                        bee_reward(NPC_BEE_BOY.REWARD_4_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_4);
-                    }
+
+                    bee_reward_check(NPC_BEE_BOY.REWARD_1_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_1, SOULS_MEMORY.COST_BEE_BOY_QUEST_1);
+                    bee_reward_check(NPC_BEE_BOY.REWARD_2_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_2, SOULS_MEMORY.COST_BEE_BOY_QUEST_2);
+                    bee_reward_check(NPC_BEE_BOY.REWARD_3_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_3, SOULS_MEMORY.COST_BEE_BOY_QUEST_3);
+                    bee_reward_check(NPC_BEE_BOY.REWARD_4_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_4, SOULS_MEMORY.COST_BEE_BOY_QUEST_4);
+                    bee_reward_check(NPC_BEE_BOY.REWARD_5_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_5, SOULS_MEMORY.COST_BEE_BOY_QUEST_5);
                     
-                    if(NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_4) {
-                        dialog("[SLOW]That was my last treasure…[B]");
-                    } else if(arg[0x10]) {
+                    if(arg[0x10]) {
                         response_positive();
                     } else {
                         response_negative();
@@ -5907,6 +5921,9 @@ group non_maps() {
                         add_following_bee(arg[0x10]);
                     }
                     if(NPC_BEE_BOY.REWARD_4_COLLECTED) {
+                        add_following_bee(arg[0x10]);
+                    }
+                    if(NPC_BEE_BOY.REWARD_5_COLLECTED) {
                         add_following_bee(arg[0x10]);
                     }
                 }
@@ -14221,6 +14238,10 @@ area altus_plateau_entry() {
             };
 
             area inner_castle() {
+                enum INNER_CASTLE {
+                    DEFAULT_MUSIC = MUSIC.CAVE_AMBIENT_PIANO,
+                }
+
                 map inner_castle_court(EBON_COURT) {
                     enum entrance {
                         north = entrance(0d20, 0d17, SOUTH),
@@ -14229,6 +14250,10 @@ area altus_plateau_entry() {
                         south = entrance(0x13, 0x4d, NORTH),
 
                         crash = entrance(0d20, 0d68, NONE, { crash_both(); }),
+                    }
+
+                    enum soundtrack {
+                        default = soundtrack(INNER_CASTLE.DEFAULT_MUSIC, 0xff)
                     }
 
                     enum stepon_trigger {
@@ -14241,12 +14266,11 @@ area altus_plateau_entry() {
                         exit_south = @install() {
                             debug_subtext("S=2");
 
+                            fog_wall_inside(!SOULS_MEMORY.DEAD_INVISIBLE_GATE_KEEPER, NORTH);
                             map_transition(chessboard, tunnel, SOUTH);
                         },
                         gate_north = @install() {
                             debug_subtext("S=3");
-
-                            map_transition(inner_castle_dining_room, south, NORTH);
                         },
                         gate_side_left = @install() {
                             debug_subtext("S=4");
@@ -14256,15 +14280,54 @@ area altus_plateau_entry() {
                         },
                         exit_north = @install() {
                             debug_subtext("S=6");
+
+                            fog_wall_inside(!SOULS_MEMORY.DEAD_INVISIBLE_GATE_KEEPER, SOUTH);
+                            map_transition(inner_castle_dining_room, south, NORTH);
                         },
                     }
 
-                    fun trigger_enter() {
-                        object[0x00] = 0x7e; // open gate_north
-                        // object[0x01] = 0x7e; // open gate_side_left
-                        // object[0x02] = 0x7e; // open gate_side_right
+                    group boss_ai() {
+                        enum BOSS {
+                            BOSS_ID = memory(WORD, TEMP),
+                            REVEALER_ID = memory(WORD, TEMP),
 
-                        fade_in();
+                            HP = 0d150,
+                        }
+
+                        fun add_boss(x, y) {
+                            add_enemy(MAGMAR, x, y);
+                            attribute(LAST_ENTITY, INVISIBLE, True);
+                            BOSS.BOSS_ID = <LAST_ENTITY>;
+                            <LAST_ENTITY>[HP] = BOSS.HP;
+                            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                                souls_boss_defeated(DEAD_INVISIBLE_GATE_KEEPER, REWARD_INVISIBLE_GATE_KEEPER);
+
+                                object[0x00] = 0x7e; // open gate_north
+                            }));
+
+                            add_enemy(REVEALER_TARGET_ENTITY, x, y);
+                            BOSS.REVEALER_ID = <LAST_ENTITY>;
+                            special_script(REVEALER, reference(@install() {
+                                guard_challenge_revealer();
+
+                                destroy(BOSS.REVEALER_ID);
+
+                                attribute(BOSS.BOSS_ID, INVISIBLE, False);
+                            }));
+                            stack_sprite(BOSS.BOSS_ID, BOSS.REVEALER_ID);
+
+                            push_music(BOSS_MINI);
+                        }
+                    };
+
+                    fun trigger_enter() {
+                        if!(SOULS_MEMORY.DEAD_INVISIBLE_GATE_KEEPER) {
+                            add_boss(0d20, 0d42);
+                        } else {
+                            object[0x00] = 0x7e; // open gate_north
+                        }
+
+                        default_init_room(False, False);
                     }
                 };
 
@@ -14272,6 +14335,10 @@ area altus_plateau_entry() {
                     enum entrance {
                         east = entrance(0x3b, 0x21, WEST),
                         south = entrance(0x1e, 0x39, NORTH),
+                    }
+
+                    enum soundtrack {
+                        default = soundtrack(INNER_CASTLE.DEFAULT_MUSIC, 0xff)
                     }
 
                     enum stepon_trigger {
@@ -14326,7 +14393,7 @@ area altus_plateau_entry() {
                         // object[0x18] = 0x01; // loot chest_west
                         // object[0x19] = 0x01; // loot chest_east
 
-                        fade_in();
+                        default_init_room(False, False);
                     }
                 };
 
@@ -14340,7 +14407,7 @@ area altus_plateau_entry() {
                     }
 
                     enum soundtrack {
-                        default = soundtrack(CAVE_AMBIENT_PIANO, 0xff)
+                        default = soundtrack(INNER_CASTLE.DEFAULT_MUSIC, 0xff)
                     }
 
                     group boss_ai() {
@@ -50123,14 +50190,6 @@ area experimental_room() {
             center = nop(),
         }
 
-        enum ROOM {
-            REVEALER_ID = memory(WORD, TEMP),
-        }
-
-        enum BOSS {
-            BOSS_ID = memory(WORD, TEMP),
-        }
-
         fun close_exits(close) {
             if(close) {
                 object[0x04] = 0x04;
@@ -50139,47 +50198,42 @@ area experimental_room() {
             }
         }
 
-        @install()
-        fun boss_defeated4() {
-            general_boss_defeated();
-
-            map_transition(invisible_arena, right, NONE);
-        }
-
-        @install()
-        fun revealer_triggered() {
-            guard_challenge_revealer();
-
-            destroy(ROOM.REVEALER_ID);
-
-            attribute(BOSS.BOSS_ID, INVISIBLE, False);
-        }
-
-        @install()
-        @async()
-        fun stack_revealer_boss() {
-            while(alive(ROOM.REVEALER_ID)) {
-                ROOM.REVEALER_ID[X] = BOSS.BOSS_ID[X];
-                ROOM.REVEALER_ID[Y] = BOSS.BOSS_ID[Y];
-                yield();
+        group boss_ai() {
+            enum BOSS {
+                BOSS_ID = memory(WORD, TEMP),
+                REVEALER_ID = memory(WORD, TEMP),
             }
-        }
+
+            fun add_boss(x, y) {
+                add_enemy(MAGMAR, x, y);
+                attribute(LAST_ENTITY, INVISIBLE, True);
+                BOSS.BOSS_ID = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                    general_boss_defeated();
+
+                    map_transition(invisible_arena, right, NONE);
+                }));
+
+                add_enemy(REVEALER_TARGET_ENTITY, x, y);
+                BOSS.REVEALER_ID = <LAST_ENTITY>;
+
+                special_script(REVEALER, reference(@install() {
+                    guard_challenge_revealer();
+
+                    destroy(BOSS.REVEALER_ID);
+
+                    attribute(BOSS.BOSS_ID, INVISIBLE, False);
+                }));
+                stack_sprite(BOSS.BOSS_ID, BOSS.REVEALER_ID);
+            }
+        };
 
         fun trigger_enter() {
             close_exits(True);
 
-            add_enemy(MAGMAR, 0x1e, 0x21);
-            attribute(LAST_ENTITY, INVISIBLE, True);
-            BOSS.BOSS_ID = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DEATH, reference(boss_defeated4));
+            add_boss(0x1e, 0x21);
 
             default_init_room(True, False);
-
-            add_enemy(REVEALER_TARGET_ENTITY, 0x1e, 0x21);
-            ROOM.REVEALER_ID = <LAST_ENTITY>;
-
-            special_script(REVEALER, reference(revealer_triggered));
-            stack_revealer_boss();
 
             countdown(0x03);
             attribute(BOY, INVINCIBLE, False);
