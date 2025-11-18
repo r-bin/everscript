@@ -3,6 +3,7 @@
 
 
 # important
+## rocket jump into trigger = soft lock
 ## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
 ## "positive"/"negative"
