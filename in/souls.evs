@@ -3375,6 +3375,69 @@ group non_maps() {
                 }
             }
         };
+
+        group metroidvania() {
+            fun vanishing_stone_triggered(flag) {
+                flag = True;
+                destroy(SCRIPT_OWNER);
+                sound(WEIRD_SOUND);
+            }
+            fun add_vanishing_rock(x, y, stone_trigger) {
+                add_enemy(STONE_ROUND, x, y, INACTIVE_INVISIBLE);
+                // animate(LAST_ENTITY, LOOP, INVISIBLE);
+                attach_script(LAST_ENTITY, B, stone_trigger);
+            }
+
+            fun _add_morph_ball_stone(with_walk_in, with_phasing, with_fake_b, callback) {
+                if(<ACTIVE>[TYPE] == CHARACTER_TYPE.RAT) {
+                    if(with_walk_in) {
+                        arg[0x10] = <ACTIVE>[FACE_DIRECTION];
+                    
+                        if(True) { // TODO: sound often missing
+                            control(ACTIVE, False);
+                            yield();
+                            sound(WEIRD_SOUND);
+                            yield();
+                        }
+                        
+                        sound(WEIRD_SOUND);
+
+                        if(with_phasing) {
+                            walk(ACTIVE, COORDINATE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], ACTIVE, ACTIVE);
+                        } else {
+                            walk(ACTIVE, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], ACTIVE, ACTIVE);
+                        }
+
+                        _face(<ACTIVE>, arg[0x10]);
+                    } else {
+                        sound(WEIRD_SOUND);
+                    }
+
+                    if(callback !is None) {
+                        callback();
+                    }
+                } else {
+                    if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                        subtext("(too narrow)");
+                    }
+
+                    if(with_fake_b) {
+                        fake_b();
+                    }
+                }
+            }
+            fun add_morph_ball_stone(x, y, trigger) {
+                add_enemy(STONE_ROUND, x, y, INACTIVE_INVISIBLE);
+
+                if(trigger !is None) {
+                    attach_script(LAST_ENTITY, B, trigger);
+                } else {
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        _add_morph_ball_stone(True, False, True);
+                    }));
+                }
+            }
+        };
     };
 
     group fallout_mechanics() {
@@ -15284,6 +15347,10 @@ area altus_plateau_entry() {
                 default = soundtrack(ALTUS.MUSIC, 0xff)
             }
 
+            enum ROOM {
+                POCKET_2_OPENED = memory(FLAG, SRAM),
+            }
+
             enum stepon_trigger {
                 east_north = @install() {
                     map_transition(castle_center, south_2, NORTH);
@@ -15379,6 +15446,21 @@ area altus_plateau_entry() {
             }
 
             fun trigger_enter() {
+                // pocket south
+                add_morph_ball_stone(0d66, 0d115);
+
+                // pocket south west
+                if!(ROOM.POCKET_2_OPENED) {
+                    add_vanishing_rock(0d42, 0d105, reference(@install() {
+                        vanishing_stone_triggered(ROOM.POCKET_2_OPENED);
+                    }));
+                }
+
+                add_morph_ball_stone(0d9, 0d99);            
+
+                // pocket north west
+                add_morph_ball_stone(0d25, 0d19);
+
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     // north
                     add_enemy(DRAKE, 0d58, 0d28);
@@ -22442,6 +22524,12 @@ area southern_jungle() {
                     remove_water(True);
                 }
 
+                add_morph_ball_stone(0d82, 0d54, reference(@install() {
+                    _add_morph_ball_stone(True, True, True, {
+                        map_transition(pyramid_level_2, south, NORTH);
+                    });
+                }));
+
                 if(False) {
                     if!(ROOM.BRIDGE_REVEALED) {
                         add_enemy(REVEALER_TARGET_ENTITY, 0d148, 0d119);
@@ -22777,7 +22865,9 @@ area southern_jungle() {
                         exit_south = @install() {
                             debug_subtext("S=0");
 
-                            map_transition(pyramid, pyramid_3_1, SOUTH);
+                            _add_morph_ball_stone(False, True, False, {
+                                map_transition(pyramid, pyramid_3_1, SOUTH);
+                            });
                         },
                         stepon_1 = @install() {
                             debug_subtext("S=1");
@@ -35909,17 +35999,6 @@ area desert_bug() {
                 @async()
                 fun revealer_approached(entity) {
                     range_checker(entity, <ACTIVE>, 0d45, 0d45, { pit2_triggered(); });
-                }
-
-                fun vanishing_stone_triggered(flag) {
-                    flag = True;
-                    destroy(SCRIPT_OWNER);
-                    sound(WEIRD_SOUND);
-                }
-                fun add_vanishing_rock(x, y, stone_trigger) {
-                    add_enemy(STONE_ROUND, x, y, INACTIVE_INVISIBLE);
-                    // animate(LAST_ENTITY, LOOP, INVISIBLE);
-                    attach_script(LAST_ENTITY, B, stone_trigger);
                 }
 
                 @install()
