@@ -639,6 +639,14 @@ group non_maps() {
             ROCKET_JUMP_ENABLED = memory(FLAG, SRAM),
             QUANTUM_JUMP_ENABLED = memory(FLAG, SRAM),
 
+            FORM_PREFERENCE = memory(WORD, SRAM), // could be byte+enum
+
+            UNLOCKED_FORM_STONE = memory(FLAG, SRAM),
+            UNLOCKED_FORM_BOMB = memory(FLAG, SRAM),
+            UNLOCKED_FORM_OGLIN = memory(FLAG, SRAM),
+            UNLOCKED_FORM_RIMSALA = memory(FLAG, SRAM),
+            UNLOCKED_FORM_MOSQUITO = memory(FLAG, SRAM),
+
             ///////////////////////////////////////////////////////
             // bonfire
             ///////////////////////////////////////////////////////
@@ -675,6 +683,7 @@ group non_maps() {
             // altus
             BONFIRE_ALTUS_WELL = memory(FLAG, SRAM),
             BONFIRE_ALTUS_STAIRS = memory(FLAG, SRAM),
+            BONFIRE_ALTUS_CELLAR = memory(FLAG, SRAM),
             BONFIRE_CASTLE_PIT = memory(FLAG, SRAM),
 
             // omnitopia
@@ -870,6 +879,8 @@ group non_maps() {
             ONLY_AVAILABLE = CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.NO_BOY,
             ONLY_BOY = FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY,
             ONLY_DOG = CUSTOM_FLAG.NO_BOY,
+
+            ALL_FORMS = SOULS_MEMORY.UNLOCKED_FORM_STONE && SOULS_MEMORY.UNLOCKED_FORM_BOMB && SOULS_MEMORY.UNLOCKED_FORM_OGLIN && SOULS_MEMORY.UNLOCKED_FORM_RIMSALA && SOULS_MEMORY.UNLOCKED_FORM_MOSQUITO,
         }
 
         group cheat_menu() {
@@ -2550,6 +2561,8 @@ group non_maps() {
                 SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
             } else if(MEMORY.CURRENT_MAP == MAP.CHESSBOARD_STAIRS) {
                 SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
+            } else if(MEMORY.CURRENT_MAP == MAP.EBON_CELLAR) {
+                SOULS_MEMORY.BONFIRE_ALTUS_CELLAR = True;
             } else if(MEMORY.CURRENT_MAP == MAP.PYRAMID_1) { // south
                 SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID = True;
             } else if(MEMORY.CURRENT_MAP == MAP.VOLCANO_ROOMS) {
@@ -2754,7 +2767,7 @@ group non_maps() {
             } else if(index == HELPER_START_ABILITY.PUPPER) {
                 MEMORY.DOG_WRITE = DOG.PUPPER;
             } else if(index == HELPER_START_ABILITY.MORPH_RAT) {
-                morph_toggle(RAT);
+                morph_toggle(<ACTIVE>, SOULS_MEMORY.FORM_PREFERENCE, True);
             } else if(index == HELPER_START_ABILITY.ROCKET_JUMP) {
                 rocket_jump();
             } else if(index == HELPER_START_ABILITY.QUANTUM_JUMP) {
@@ -3380,7 +3393,7 @@ group non_maps() {
             fun vanishing_stone_triggered(flag) {
                 flag = True;
                 destroy(SCRIPT_OWNER);
-                sound(WEIRD_SOUND);
+                smart_sound(WEIRD_SOUND);
             }
             fun add_vanishing_rock(x, y, stone_trigger) {
                 add_enemy(STONE_ROUND, x, y, INACTIVE_INVISIBLE);
@@ -3396,11 +3409,11 @@ group non_maps() {
                         if(True) { // TODO: sound often missing
                             control(ACTIVE, False);
                             yield();
-                            sound(WEIRD_SOUND);
+                            // smart_sound(WEIRD_SOUND);
                             yield();
                         }
                         
-                        sound(WEIRD_SOUND);
+                        smart_sound(WEIRD_SOUND);
 
                         if(with_phasing) {
                             walk(ACTIVE, COORDINATE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], ACTIVE, ACTIVE);
@@ -3410,7 +3423,7 @@ group non_maps() {
 
                         _face(<ACTIVE>, arg[0x10]);
                     } else {
-                        sound(WEIRD_SOUND);
+                        smart_sound(WEIRD_SOUND);
                     }
 
                     if(callback !is None) {
@@ -3972,6 +3985,8 @@ group non_maps() {
 
                 // CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
+                SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.RAT;
+
                 if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_FULL_INGREDIENTS) {
                     unlock(INGREDIENTS);
                 }
@@ -4012,6 +4027,7 @@ group non_maps() {
                     // altus
                     SOULS_MEMORY.BONFIRE_ALTUS_WELL = True;
                     SOULS_MEMORY.BONFIRE_ALTUS_STAIRS = True;
+                    SOULS_MEMORY.BONFIRE_ALTUS_CELLAR = True;
                     SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
                 }
             }
@@ -4111,7 +4127,7 @@ group non_maps() {
             show_currency(False);
 
             if(<BOY>[TYPE] != CHARACTER_TYPE.BOY) {
-                morph(<BOY>[TYPE]);
+                morph_toggle(<BOY>, <BOY>[TYPE], False);
             }
 
             fade_in();
@@ -4263,7 +4279,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(hidden_castle_entry, stairs, NONE);
+                map_transition(inner_castle_cellar, stairs, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -7120,6 +7136,263 @@ group non_maps() {
                 }
             };
         };
+
+        group npc_rat() {
+            enum NPC_RAT {
+                PROGRESS = memory(BYTE, SRAM),
+                DEAD = memory(FLAG, SRAM),
+
+                BODY = ENEMY.RAT_RED,
+
+                HP = 0d100,
+
+                COST_FORM_STONE = 0d2,
+                COST_FORM_BOMB = 0d2,
+                COST_FORM_OGLIN = 0d3,
+                COST_FORM_RIMSALA = 0d5,
+                COST_FORM_MOSQUITO = 0d5,
+            }
+
+            group rat_ai() {
+                fun guard_dead_npc() {
+                    guard_dead(<SCRIPT_OWNER>, {
+                        NPC_RAT.DEAD = True;
+                    });
+                    guard_b(<SCRIPT_OWNER>);
+                }
+
+                fun response_positive() {
+                    if(MEMORY.ATLAS_MEDALLION == 0d1) {
+                        dialog("[SLOW]The first one is free they say… I don't think they mean that literally.[B]");
+                    } else {
+                        dialog("[SLOW]He he he…[B]");
+                    }
+                }
+                fun response_negative() {
+                    if(randrange(0x02) == 0x00) {
+                        dialog("[SLOW]Sooner or later you'll need me…[B]");
+                    } else {
+                        dialog("[SLOW]Sooner or later you'll need me… They all do…[B]");
+                    }
+                }
+                fun response_cancel() {
+                    dialog("[SLOW]Oh my, haste makes waste. Hee hee hee…[B]");
+                }
+
+                fun response_already_known() {
+                    response_negative();
+                }
+
+                fun guard_critter(callback) {
+                    if(<ACTIVE>[TYPE] != CHARACTER_TYPE.RAT) {
+                        if(callback !is None) {
+                            callback();
+                        }
+                        end();
+                    }
+                }
+
+                @install()
+                fun rat_dialog_0() {
+                    guard_dead_npc();
+                    guard_critter({
+                        fake_b();
+                    });
+
+                    conversation({
+                        if((NPC_RAT.PROGRESS & 0xf0) < 0x10) {
+                            conversation_dialog("[SLOW]1.[B]");
+
+                            sound(WEIRD_SOUND);
+
+                            NPC_RAT.PROGRESS = 0x10;
+                            <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.VERMINATOR;
+                        } else {
+                            conversation_dialog("[SLOW]2.[B]");
+                        }
+                    });
+                }
+
+                fun unlock_form(flag:SOULS_MEMORY, price:NPC_RAT) {
+                    if!(flag) {
+                        item_pay(ANNIHILATION_AMULET, price);
+
+                        if(CUSTOM_MEMORY.RETURN) {
+                            flag = True;
+
+                            response_positive();
+                        } else {
+                            response_negative();
+                        }
+                    } else {
+                        response_already_known();
+                    }
+                }
+
+                @install()
+                fun rat_dialog_1() {
+                    guard_dead_npc();
+
+                    smart_conversation({
+                        MEMORY.STRING_PARAMETER_1 = MEMORY.ANNIHILATION_AMULET;
+                        MEMORY.STRING_PARAMETER_2 = MEMORY.ACORN;
+
+                        if!(SOULS_MEMORY_HELPER.ALL_FORMS) {
+                            smart_text_box(<SCRIPT_OWNER>, 0d7);
+                        } else {
+                            smart_text_box(<SCRIPT_OWNER>, 0d4);
+                        }
+                        text("2.[CHOICE]talk…");
+                        if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                            text("[CHOICE]form…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if!(SOULS_MEMORY_HELPER.ALL_FORMS) {
+                            text("[CHOICE]shop… ([MEM1])[CHOICE]trade… ([MEM2])");
+                        }
+                        await_answer();
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                            response_positive(); // TODO
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // form
+                            if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                                smart_text_box(<SCRIPT_OWNER>, 0d9);
+                                if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.RAT;
+                                    text("[SLOW]Favorite?[CHOICE]Rat: [MEM1]");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                if(SOULS_MEMORY.UNLOCKED_FORM_STONE) {
+                                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.STONE;
+                                    text("[CHOICE]Stone: [MEM1]");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                if(SOULS_MEMORY.UNLOCKED_FORM_BOMB) {
+                                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.BOMB;
+                                    text("[CHOICE]Bomb: [MEM1]");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                if(SOULS_MEMORY.UNLOCKED_FORM_OGLIN) {
+                                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.OGLIN;
+                                    text("[CHOICE]Oglin: [MEM1]");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                if(SOULS_MEMORY.UNLOCKED_FORM_RIMSALA) {
+                                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.RIMSALA;
+                                    text("[CHOICE]Rimsala: [MEM1]");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                if(SOULS_MEMORY.UNLOCKED_FORM_MOSQUITO) {
+                                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.MOSQUITO;
+                                    text("[CHOICE]Mosquito: [MEM1]");
+                                } else {
+                                    text("[CHOICE]…");
+                                }
+                                await_answer();
+                                text_end();
+
+                                if(MEMORY.QUESTION_ANSWER == 0d0) { // rat
+                                    SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.RAT;
+                                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // stone
+                                    SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.STONE;
+                                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // bomb
+                                    SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.BOMB;
+                                } else if(MEMORY.QUESTION_ANSWER == 0d3) { // oglin
+                                    SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.OGLIN;
+                                } else if(MEMORY.QUESTION_ANSWER == 0d4) { // rimsala
+                                    SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.RIMSALA;
+                                } else if(MEMORY.QUESTION_ANSWER == 0d5) { // mosquito
+                                    SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.MOSQUITO;
+                                }
+                            } else {
+                                response_negative();
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // shop
+                            smart_text_box(<SCRIPT_OWNER>, 0d8);
+                            text("[SLOW]What form do you desire?");
+                            if!(SOULS_MEMORY.UNLOCKED_FORM_STONE) {
+                                MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_STONE;
+                                text("[CHOICE]Stone ([MEM1])");
+                            } else {
+                                text("[CHOICE]…");
+                            }
+                            if!(SOULS_MEMORY.UNLOCKED_FORM_BOMB) {
+                                MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_BOMB;
+                                text("[CHOICE]Bomb ([MEM1])");
+                            } else {
+                                text("[CHOICE]…");
+                            }
+                            if!(SOULS_MEMORY.UNLOCKED_FORM_OGLIN) {
+                                MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_OGLIN;
+                                text("[CHOICE]Oglin ([MEM1])");
+                            } else {
+                                text("[CHOICE]…");
+                            }
+                            if!(SOULS_MEMORY.UNLOCKED_FORM_RIMSALA) {
+                                MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_RIMSALA;
+                                text("[CHOICE]Rimsala ([MEM1])");
+                            } else {
+                                text("[CHOICE]…");
+                            }
+                            if!(SOULS_MEMORY.UNLOCKED_FORM_MOSQUITO) {
+                                MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_MOSQUITO;
+                                text("[CHOICE]Mosquito ([MEM1])");
+                            } else {
+                                text("[CHOICE]…");
+                            }
+                            await_answer();
+                            text_end();
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // stone
+                                unlock_form(UNLOCKED_FORM_STONE, COST_FORM_STONE);
+                            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // bomb
+                                unlock_form(UNLOCKED_FORM_BOMB, COST_FORM_BOMB);
+                            } else if(MEMORY.QUESTION_ANSWER == 0d2) { // oglin
+                                unlock_form(UNLOCKED_FORM_OGLIN, COST_FORM_OGLIN);
+                            } else if(MEMORY.QUESTION_ANSWER == 0d3) { // rimsala
+                                unlock_form(UNLOCKED_FORM_RIMSALA, COST_FORM_RIMSALA);
+                            } else if(MEMORY.QUESTION_ANSWER == 0d4) { // mosquito
+                                unlock_form(UNLOCKED_FORM_MOSQUITO, COST_FORM_MOSQUITO);
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d3) { // trade
+                            MEMORY.STRING_PARAMETER_1 = MEMORY.ACORN;
+                            conversation_question("[SLOW]Are those Acorns?[CHOICE]Acorn 5:1 ([MEM1])");
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                                trade_items(ANNIHILATION_AMULET, 0d1, ACORN, 0d5);
+                            }
+                        }
+                    }, False);
+                }
+
+                fun add_souls_npc_rat(x, y, flags:FLAG_ENEMY) {
+                    if!(NPC_RAT.DEAD) {
+                        if(flags is Word) {
+                            add_enemy(NPC_RAT.BODY, x, y);
+                        } else {
+                            add_enemy(NPC_RAT.BODY, x, y);
+                        }
+                        if(NPC_RAT.PROGRESS >= 0x10) {
+                            <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.VERMINATOR;
+                        }
+                        <LAST_ENTITY>[HP] = NPC_RAT.HP;
+
+                        if((NPC_RAT.PROGRESS & 0xf0) < 0x10) {
+                            attach_script(LAST_ENTITY, ALL, reference(rat_dialog_0));
+                        } else if((NPC_RAT.PROGRESS & 0xf0) >= 0x10) {
+                            attach_script(LAST_ENTITY, ALL, reference(rat_dialog_1));
+                        }
+                    }
+                }
+            };
+        };
     };
 };
 
@@ -9841,7 +10114,7 @@ area shrine_area() {
         fun bonfire_triggered_altus() {
             guard_boy_damage();
 
-            text_start();
+            text_box(0x0a, 0d5); // text_start();
             text("[SLOW]Return to Altus Plateu?");
             if(SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.CHEAT_ALL_BONFIRES) {
                 text("[CHOICE]Well…");
@@ -9850,6 +10123,11 @@ area shrine_area() {
             }
             if(SOULS_MEMORY.BONFIRE_ALTUS_STAIRS || SOULS_MEMORY.CHEAT_ALL_BONFIRES) {
                 text("[CHOICE]Stairs…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(SOULS_MEMORY.BONFIRE_ALTUS_CELLAR || SOULS_MEMORY.CHEAT_ALL_BONFIRES) {
+                text("[CHOICE]Cellar…");
             } else {
                 text("[CHOICE]…");
             }
@@ -9873,6 +10151,12 @@ area shrine_area() {
                     map_transition(stairs, bonfire, NONE);
                 }
             } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                if(SOULS_MEMORY.BONFIRE_ALTUS_CELLAR || SOULS_MEMORY.CHEAT_ALL_BONFIRES) {
+                    SOULS_MEMORY.BONFIRE_MAP = MAP.EBON_CELLAR;
+                    SOULS_MEMORY.BONFIRE_VARIANT = 0d2;
+                    map_transition(inner_castle_cellar, bonfire, NONE);
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d3) {
                 if(SOULS_MEMORY.BONFIRE_CASTLE_PIT || SOULS_MEMORY.CHEAT_ALL_BONFIRES) {
                     SOULS_MEMORY.BONFIRE_MAP = MAP.FIREPIT_NOBILIA;
                     SOULS_MEMORY.BONFIRE_VARIANT = 0d0;
@@ -9913,7 +10197,7 @@ area shrine_area() {
 
             bonfire_portal(0d53, 0d100, (SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID || SOULS_MEMORY.BONFIRE_JUNGLE_PIT || SOULS_MEMORY.BONFIRE_BUG || SOULS_MEMORY.BONFIRE_DESERT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.PYRAMID_1) || (SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_JUNGLE) || (SOULS_MEMORY.BONFIRE_MAP == MAP.VOLCANO_ROOMS) || (SOULS_MEMORY.BONFIRE_MAP == MAP.HALLS_NE)), reference(bonfire_triggered_jungle)); // southern jungle
 
-            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_ALTUS_STAIRS || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || (SOULS_MEMORY.BONFIRE_MAP == MAP.CHESSBOARD_STAIRS) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
+            bonfire_portal(0d51, 0d92, (SOULS_MEMORY.BONFIRE_ALTUS_WELL || SOULS_MEMORY.BONFIRE_ALTUS_STAIRS || SOULS_MEMORY.BONFIRE_ALTUS_CELLAR || SOULS_MEMORY.BONFIRE_CASTLE_PIT), ((SOULS_MEMORY.BONFIRE_MAP == MAP.WELL) || (SOULS_MEMORY.BONFIRE_MAP == MAP.CHESSBOARD_STAIRS) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.EBON_CELLAR) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d2)) || ((SOULS_MEMORY.BONFIRE_MAP == MAP.FIREPIT_NOBILIA) && (SOULS_MEMORY.BONFIRE_VARIANT == 0d0))), reference(bonfire_triggered_altus)); // altus plateau 
 
             // bonfire_portal(0d59, 0d88, …); // omnitopia
         }
@@ -14542,549 +14826,635 @@ area altus_plateau_entry() {
                     }
                 };
 
-                map hidden_castle_entry(VERMINATOR) {
-                    enum ROOM {
-                        DOOR_EAST_OPENED = memory(FLAG, SRAM),
-                        DOOR_WEST_OPENED = memory(FLAG, SRAM),
-                    }
-
-                    enum entrance {
-                        north = entrance(0x16, 0x09, SOUTH),
-                        east = entrance(0x29, 0x38, WEST, { ROOM.DOOR_EAST_OPENED = True; }),
-                        south = entrance(0x16, 0x65, NORTH),
-                        west = entrance(0x03, 0x38, EAST, { ROOM.DOOR_WEST_OPENED = True; }),
-                        stairs = entrance(0x19, 0x4d, EAST)
-                    }
-
-                    enum soundtrack {
-                        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
-                    }
-                    group boss_ai() {
-                        enum BOSS {
-                            DEBUG = False,
-                            PROGRESS = memory(FLAG, TEMP),
-
-                            HP = 0d600,
-
-                            ID_RIDER = memory(WORD, TEMP),
-                            ID_MOUNT = memory(WORD, TEMP),
-
-                            ID_PROJECTILE = memory(WORD, TEMP),
-
-                            PHASE = memory(WORD, TEMP), // TODO: doesn't work with BYTE
-                            BOSS_RAT_KILL_COUNT = memory(WORD, TEMP), // TODO: doesn't work with BYTE
-                            BOSS_RAT_KILLS_P1 = 0d3,
-                            BOSS_RAT_HP = 0d50,
-                            BOSS_RAT_HEALING = memory(FLAG, TEMP),
-
-                            TIMER = memory(WORD, TEMP),
-                            TIMER_T0 = 0d60,
-                            TIMER_T1 = 0d300,
-                            TIMER_T2 = 0d300,
-
-                            STACKING = memory(FLAG, TEMP),
-                            STACK_ROLL = memory(WORD, TEMP),
-                            STACK_ROLL_COUNT = 0d5,
-
-                            CRATES_X = 0d22,
-                            CRATES_Y = 0d12,
-
-                            CHEESE_RANGE = 0d10,
+                area inner_castle_main_entrance() {
+                    map hidden_castle_entry(VERMINATOR) {
+                        enum ROOM {
+                            DOOR_EAST_OPENED = memory(FLAG, SRAM),
+                            DOOR_WEST_OPENED = memory(FLAG, SRAM),
                         }
 
-                        fun boss_killed() {
-                            destroy(BOSS.ID_MOUNT);
-
-                            souls_boss_defeated(DEAD_UNNAMED_STAIRWELL_BOSS, REWARD_UNNAMED_STAIRWELL_BOSS);
-
-                            object[0x00] = 0x00; // close gate
-                            free_map();
+                        enum entrance {
+                            north = entrance(0x16, 0x09 + 0d3, SOUTH),
+                            east = entrance(0x29, 0x38, WEST, { ROOM.DOOR_EAST_OPENED = True; }),
+                            south = entrance(0x16, 0x65, NORTH),
+                            west = entrance(0x03, 0x38, EAST, { ROOM.DOOR_WEST_OPENED = True; }),
+                            stairs = entrance(0x19, 0x4d, EAST)
                         }
 
-                        fun prepare_rat(entity) {
-                            entity[HP] = 0d1;
-                            attach_script(entity, DAMAGE, reference(@install() {
-                                if(script[0x9] == 0x100) {
-                                    heal(SCRIPT_OWNER, 0d0, False);
+                        enum soundtrack {
+                            default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+                        }
+
+                        group boss_ai() {
+                            enum BOSS {
+                                DEBUG = False,
+                                PROGRESS = memory(FLAG, TEMP),
+
+                                HP = 0d600,
+
+                                ID_RIDER = memory(WORD, TEMP),
+                                ID_MOUNT = memory(WORD, TEMP),
+
+                                ID_PROJECTILE = memory(WORD, TEMP),
+
+                                PHASE = memory(WORD, TEMP), // TODO: doesn't work with BYTE
+                                BOSS_RAT_KILL_COUNT = memory(WORD, TEMP), // TODO: doesn't work with BYTE
+                                BOSS_RAT_KILLS_P1 = 0d3,
+                                BOSS_RAT_HP = 0d50,
+                                BOSS_RAT_HEALING = memory(FLAG, TEMP),
+
+                                TIMER = memory(WORD, TEMP),
+                                TIMER_T0 = 0d60,
+                                TIMER_T1 = 0d300,
+                                TIMER_T2 = 0d300,
+
+                                STACKING = memory(FLAG, TEMP),
+                                STACK_ROLL = memory(WORD, TEMP),
+                                STACK_ROLL_COUNT = 0d5,
+
+                                CRATES_X = 0d22,
+                                CRATES_Y = 0d12,
+
+                                CHEESE_RANGE = 0d10,
+                            }
+
+                            fun boss_killed() {
+                                destroy(BOSS.ID_MOUNT);
+
+                                souls_boss_defeated(DEAD_UNNAMED_STAIRWELL_BOSS, REWARD_UNNAMED_STAIRWELL_BOSS);
+
+                                object[0x00] = 0x00; // close gate
+                                free_map();
+                            }
+
+                            fun prepare_rat(entity) {
+                                entity[HP] = 0d1;
+                                attach_script(entity, DAMAGE, reference(@install() {
+                                    if(script[0x9] == 0x100) {
+                                        heal(SCRIPT_OWNER, 0d0, False);
+                                        yield();
+                                        damage(SCRIPT_OWNER, 0d0, True);
+
+                                        // walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], NONE, NONE);
+                                        // animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                                        control(SCRIPT_OWNER, True);
+
+                                        if(BOSS.DEBUG) {
+                                            subtext("stunned");
+                                        }
+                                    }
+                                }));
+                            }
+
+                            @install()
+                            @async()
+                            fun cheese_protection(entity_mount) {
+                                while(alive(entity_mount)) {
+                                    if(entity_mount[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                                        arg[0x10] = entity_mount[X];
+                                        arg[0x12] = entity_mount[Y];
+
+                                        while(entity_mount[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                                            yield();
+                                        }
+
+                                        if(entity_mount[X] < arg[0x10]) {
+                                            arg[0x10] = arg[0x10] - entity_mount[X];
+                                        } else {
+                                            arg[0x10] = entity_mount[X] - arg[0x10];
+                                        }
+
+                                        if(entity_mount[Y] < arg[0x12]) {
+                                            arg[0x12] = arg[0x12] - entity_mount[Y];
+                                        } else {
+                                            arg[0x12] = entity_mount[Y] - arg[0x12];
+                                        }
+
+                                        if((arg[0x10] == arg[0x14]) && (arg[0x12] == arg[0x16])) {
+                                            arg[0x18]++;
+                                        } else {
+                                            arg[0x18] = 0d0;
+                                        }
+
+                                        if(BOSS.DEBUG && False) {
+                                            debug_memory(arg[0x10], arg[0x12], arg[0x18]);
+                                        }
+
+                                        BOSS.STACK_ROLL++;
+                                        if(BOSS.STACK_ROLL >= BOSS.STACK_ROLL_COUNT) {
+                                            if(BOSS.DEBUG) {
+                                                MEMORY.STRING_PARAMETER_1 = BOSS.STACK_ROLL;
+                                                debug_subtext("cheese: roll=[MEM1]");
+                                            }
+
+                                            BOSS.STACKING = False;
+                                            end();
+                                        } else if(
+                                            ((arg[0x10] <= BOSS.CHEESE_RANGE) && (arg[0x12] <= BOSS.CHEESE_RANGE)) ||
+                                            (arg[0x18] >= 0d2)
+                                        ) {
+                                            if(BOSS.DEBUG) {
+                                                MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                                                MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                                                debug_subtext("cheese: dx=[MEM1] dy=[MEM2]");
+                                            }
+
+                                            BOSS.STACKING = False;
+                                            end();
+                                        }
+
+                                        arg[0x14] = arg[0x10];
+                                        arg[0x16] = arg[0x12];
+                                    }
+
                                     yield();
-                                    damage(SCRIPT_OWNER, 0d0, True);
+                                }
+                            }
 
-                                    // walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], NONE, NONE);
-                                    // animate(SCRIPT_OWNER, ONCE, DEFAULT);
-                                    control(SCRIPT_OWNER, True);
+                            fun bench_enemy(enemy, benched_enemy) {
+                                control(enemy, True);
+                                swap_enemies(enemy, benched_enemy);
+                                // animate(benched_enemy, ONCE_FREEZE, INVISIBLE);
+                                control(benched_enemy, False);
+                            }
 
-                                    if(BOSS.DEBUG) {
-                                        subtext("stunned");
+                            @install()
+                            @async()
+                            fun _heal_rat(entity) {
+                                sleep(0d120);
+                                while(entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+                                    sleep(0d10);
+                                }
+                                animate(entity, ONCE, DEFAULT);
+
+                                while!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                                    sleep(0d10);
+                                }
+
+                                attribute(entity, INVINCIBLE_TEMP, False);
+
+                                if(BOSS.DEBUG) {
+                                    subtext("!");
+                                }
+
+                                BOSS.BOSS_RAT_HEALING = False;
+                            }
+                            @install()
+                            fun heal_rat(entity) {
+                                guard_not_flag(BOSS.BOSS_RAT_HEALING);
+                                BOSS.BOSS_RAT_HEALING = True;
+
+                                attribute(entity, INVINCIBLE_TEMP, True);
+
+                                animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
+                                cast(BOSS.ID_RIDER, entity, HEAL, BOSS.BOSS_RAT_HP);
+
+                                // animate(entity, ONCE_FREEZE, DEFAULT);
+
+                                cast(BOSS.ID_RIDER, entity, HEAL, BOSS.BOSS_RAT_HP);
+                                animate(BOSS.ID_MOUNT, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+
+                                _heal_rat(entity);
+                                yield();
+                            }
+                            @install()
+                            // @async()
+                            fun _ride_rat(entity_rider, entity_mount, offset_x, offset_y, with_heal) {
+                                if(with_heal) {
+                                    heal_rat(entity_mount);
+                                }
+
+                                arg[0x10] = entity_mount[Z_LEVEL];
+                                arg[0x12] = entity_rider[Z_LEVEL];
+
+                                if!(with_heal) {
+                                    attribute(entity_mount, INVINCIBLE_TEMP, True);
+                                    attribute(entity_mount, ROOT, True);
+                                    animate(entity_mount, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+                                }
+
+                                entity_mount[TYPE] = CHARACTER_TYPE.MEGATAUR;
+
+                                animate(entity_rider, ONCE, ANIMATION_ALL.CAST);
+                                wait(entity_rider);
+
+                                // entity_rider[VELOCITY] = 0d30;
+                                _drag(entity_rider, entity_mount[X] + offset_x, entity_mount[Y] - offset_y);
+                                entity_rider[Z_LEVEL] = arg[0x10];
+
+                                entity_rider[VELOCITY] = 0d20;
+                                guard_dead(entity_rider);
+                                sleep(0d50);
+                                entity_rider[Z] = 0d0;
+
+                                if!(with_heal) {
+                                    animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+                                    attribute(entity_mount, ROOT, False);
+                                    attribute(entity_mount, INVINCIBLE_TEMP, False);
+                                }
+                                guard_dead(entity_rider);
+
+                                cheese_protection(entity_mount);
+                                
+                                BOSS.STACK_ROLL = 0d0;
+                                while(BOSS.STACKING && _alive(entity_rider) && _alive(entity_mount)) {
+                                    _teleport(entity_rider, entity_mount[X] + offset_x, entity_mount[Y] - offset_y);
+
+                                    yield();
+                                }
+
+                                guard_dead(entity_rider);
+
+                                animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
+                                entity_mount[TYPE] = CHARACTER_TYPE.RAT_RED;
+                                animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+
+                                drag(entity_rider, BOSS.CRATES_X, BOSS.CRATES_Y);
+                                entity_rider[Z_LEVEL] = arg[0x12];
+
+                                guard_dead(entity_mount);
+                                wait(entity_mount);
+                            }
+                            fun ride_rat(with_heal) {
+                                BOSS.STACKING = True;
+
+                                _ride_rat(BOSS.ID_RIDER, BOSS.ID_MOUNT, 0d0, 0d40, with_heal);
+
+                                BOSS.STACKING = False;
+                            }
+
+                            fun toss_bomb() {
+                                arg[0x10] = <ACTIVE>[X];
+                                arg[0x12] = <ACTIVE>[Y];
+                                if(<ACTIVE>[X] < 0d180) {
+                                    arg[0x14] = -0d20;
+                                } else {
+                                    arg[0x14] = 0d20;
+                                }
+
+                                animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
+                                sleep(0d30);
+                                ai_move_bomb_toss(BOSS.ID_RIDER, BOTTLE, <ACTIVE>, arg[0x14], -0d20);
+                            }
+                            @install()
+                            fun toss_bombs(amount) {
+                                while(amount > 0d0) {
+                                    amount--;
+
+                                    toss_bomb();
+                                }
+                            }
+
+                            fun toss_rock(x, y, overshoot) {
+                                animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
+                                sleep(0d30);
+                                shoot_entity_absolute(BOSS.ID_RIDER, ROCK, arg[0x10], arg[0x12], 0d50, overshoot);
+                                animate(BOSS.ID_RIDER, ONCE, DEFAULT);
+                            }
+                            @install()
+                            fun toss_rocks(amount) {
+                                arg[0x10] = <ACTIVE>[X];
+                                arg[0x12] = <ACTIVE>[Y];
+                                
+                                while(amount > 0d0) {
+                                    amount--;
+
+                                    toss_rock(arg[0x10], arg[0x12], arg[0x14]);
+
+                                    arg[0x14] += 0d50;
+                                }
+                            }
+
+                            @install()
+                            fun toss_rat(boss_rat) {
+                                if(BOSS.DEBUG) {
+                                    debug_memory(_dead(BOSS.ID_MOUNT), BOSS.ID_MOUNT, boss_rat);
+                                }
+
+                                animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
+                                sleep(0d20);
+
+                                if(boss_rat) {
+                                    _add_enemy(RAT_RED, BOSS.ID_RIDER[X] - 0d15, BOSS.ID_RIDER[Y] - 0d30, INVINCIBLE);
+                                    BOSS.ID_MOUNT = <LAST_ENTITY>;
+                                } else {
+                                    _add_enemy(RAT, BOSS.ID_RIDER[X] - 0d15, BOSS.ID_RIDER[Y] - 0d30, INVINCIBLE);
+                                }
+                                arg[0x10] = <LAST_ENTITY>;
+                                sleep(0d10);
+
+                                arg[0x10][Z] = 0d100;
+                                _drag(arg[0x10], <ACTIVE>[X], <ACTIVE>[Y]);
+
+                                if(boss_rat) {
+                                    replace_enemy(arg[0x10], RAT_RED);
+                                    BOSS.ID_MOUNT = <LAST_ENTITY>;
+                                    <LAST_ENTITY>[HP] = BOSS.BOSS_RAT_HP;
+                                    attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                                        BOSS.BOSS_RAT_KILL_COUNT++;
+
+                                        if(BOSS.PHASE == 0d0) {
+                                            if(BOSS.DEBUG) {
+                                                debug_memory(BOSS.BOSS_RAT_KILL_COUNT);
+                                            }
+
+                                            if(BOSS.BOSS_RAT_KILL_COUNT == BOSS.BOSS_RAT_KILLS_P1) {
+                                                BOSS.PHASE++;
+                                            }
+                                        } else if(BOSS.PHASE == 0d1) {
+                                            if!(BOSS.STACKING) {
+                                                heal(SCRIPT_OWNER, 0d1, False);
+
+                                                ride_rat(True);
+                                            } else {
+                                                wait(SCRIPT_OWNER);
+                                                destroy(SCRIPT_OWNER);
+                                            }
+                                        }
+                                    }));
+
+                                    if(False && BOSS.DEBUG) {
+                                        <LAST_ENTITY>[HP] = 0d1;
+                                    }
+                                } else {
+                                    replace_enemy(arg[0x10], RAT);
+                                }
+                                arg[0x10] = <LAST_ENTITY>;
+                                
+                                if((arg[0x10][CURRENT_GROUND] & 0xff) != 0d16) {
+                                    bomb_entity(arg[0x10], 0d50);
+                                    animate(arg[0x10], ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
+                                    wait(arg[0x10]);
+
+                                    destroy(arg[0x10]);
+                                } else {
+                                    if!(boss_rat) {
+                                        hatch_enemy(arg[0x10], MINITAUR);
                                     }
                                 }
-                            }));
-                        }
+                            }
 
-                        @install()
-                        @async()
-                        fun cheese_protection(entity_mount) {
-                            while(alive(entity_mount)) {
-                                if(entity_mount[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
-                                    arg[0x10] = entity_mount[X];
-                                    arg[0x12] = entity_mount[Y];
+                            @install()
+                            @async()
+                            fun boss_watcher() {
+                                while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                                    yield();
+                                }
 
-                                    while(entity_mount[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                                if(BOSS.DEBUG) {
+                                    subtext("phase 0");
+                                }
+
+                                // BOSS.PHASE = 0d1;
+
+                                while(BOSS.PHASE == 0d0) {
+                                    BOSS.TIMER++;
+
+                                    if(BOSS.TIMER > BOSS.TIMER_T0) {
+                                        arg[0x10] = randrange(0d3);
+
+                                        if(BOSS.DEBUG) {
+                                            debug_memory(arg[0x10], dead(BOSS.ID_MOUNT));
+                                        }
+
+                                        if((BOSS.ID_MOUNT == 0d0) || _dead(BOSS.ID_MOUNT)) {
+                                            toss_rat(True);
+                                        } else if(arg[0x10] == 0d0) {
+                                            toss_bombs(0d1);
+                                        } else {
+                                            toss_rocks(0d1);
+                                        }
+
+                                        BOSS.TIMER = 0d0;
+                                    }
+
+                                    yield();
+                                }
+
+                                if(BOSS.DEBUG) {
+                                    subtext("phase 1");
+                                }
+
+                                BOSS.TIMER = 0d0;
+
+                                while(BOSS.PHASE == 0d1) {
+                                    BOSS.TIMER++;
+
+                                    while(BOSS.STACKING) {
                                         yield();
                                     }
 
-                                    if(entity_mount[X] < arg[0x10]) {
-                                        arg[0x10] = arg[0x10] - entity_mount[X];
-                                    } else {
-                                        arg[0x10] = entity_mount[X] - arg[0x10];
-                                    }
+                                    if(BOSS.TIMER > BOSS.TIMER_T1) {
+                                        arg[0x10] = randrange(0d5);
 
-                                    if(entity_mount[Y] < arg[0x12]) {
-                                        arg[0x12] = arg[0x12] - entity_mount[Y];
-                                    } else {
-                                        arg[0x12] = entity_mount[Y] - arg[0x12];
-                                    }
-
-                                    if((arg[0x10] == arg[0x14]) && (arg[0x12] == arg[0x16])) {
-                                        arg[0x18]++;
-                                    } else {
-                                        arg[0x18] = 0d0;
-                                    }
-
-                                    if(BOSS.DEBUG && False) {
-                                        debug_memory(arg[0x10], arg[0x12], arg[0x18]);
-                                    }
-
-                                    BOSS.STACK_ROLL++;
-                                    if(BOSS.STACK_ROLL >= BOSS.STACK_ROLL_COUNT) {
-                                        if(BOSS.DEBUG) {
-                                            MEMORY.STRING_PARAMETER_1 = BOSS.STACK_ROLL;
-                                            debug_subtext("cheese: roll=[MEM1]");
+                                        if(dead(BOSS.ID_MOUNT)) {
+                                            toss_rat(True);
+                                        } else if(arg[0x10] == 0d0) {
+                                            toss_bombs(0d2);
+                                        } else if(arg[0x10] == 0d1) {
+                                            toss_rocks(0d4);
+                                        } else if(arg[0x10] == 0d2) {
+                                            toss_rat();
+                                        } else {
+                                            ride_rat(False);
                                         }
 
-                                        BOSS.STACKING = False;
-                                        end();
-                                    } else if(
-                                        ((arg[0x10] <= BOSS.CHEESE_RANGE) && (arg[0x12] <= BOSS.CHEESE_RANGE)) ||
-                                        (arg[0x18] >= 0d2)
-                                    ) {
-                                        if(BOSS.DEBUG) {
-                                            MEMORY.STRING_PARAMETER_1 = arg[0x10];
-                                            MEMORY.STRING_PARAMETER_2 = arg[0x12];
-                                            debug_subtext("cheese: dx=[MEM1] dy=[MEM2]");
-                                        }
-
-                                        BOSS.STACKING = False;
-                                        end();
+                                        BOSS.TIMER = 0d0;
                                     }
-
-                                    arg[0x14] = arg[0x10];
-                                    arg[0x16] = arg[0x12];
+                                    
+                                    yield();
                                 }
 
-                                yield();
-                            }
-                        }
+                                if(BOSS.DEBUG) {
+                                    subtext("yatta");
+                                }
 
-                        fun bench_enemy(enemy, benched_enemy) {
-                            control(enemy, True);
-                            swap_enemies(enemy, benched_enemy);
-                            // animate(benched_enemy, ONCE_FREEZE, INVISIBLE);
-                            control(benched_enemy, False);
-                        }
-
-                        @install()
-                        @async()
-                        fun _heal_rat(entity) {
-                            sleep(0d120);
-                            while(entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
-                                sleep(0d10);
-                            }
-                            animate(entity, ONCE, DEFAULT);
-
-                            while!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
-                                sleep(0d10);
+                                boss_killed();
                             }
 
-                            attribute(entity, INVINCIBLE_TEMP, False);
-
-                            if(BOSS.DEBUG) {
-                                subtext("!");
-                            }
-
-                            BOSS.BOSS_RAT_HEALING = False;
-                        }
-                        @install()
-                        fun heal_rat(entity) {
-                            guard_not_flag(BOSS.BOSS_RAT_HEALING);
-                            BOSS.BOSS_RAT_HEALING = True;
-
-                            attribute(entity, INVINCIBLE_TEMP, True);
-
-                            animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
-                            cast(BOSS.ID_RIDER, entity, HEAL, BOSS.BOSS_RAT_HP);
-
-                            // animate(entity, ONCE_FREEZE, DEFAULT);
-
-                            cast(BOSS.ID_RIDER, entity, HEAL, BOSS.BOSS_RAT_HP);
-                            animate(BOSS.ID_MOUNT, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
-
-                            _heal_rat(entity);
-                            yield();
-                        }
-                        @install()
-                        // @async()
-                        fun _ride_rat(entity_rider, entity_mount, offset_x, offset_y, with_heal) {
-                            if(with_heal) {
-                                heal_rat(entity_mount);
-                            }
-
-                            arg[0x10] = entity_mount[Z_LEVEL];
-                            arg[0x12] = entity_rider[Z_LEVEL];
-
-                            if!(with_heal) {
-                                attribute(entity_mount, INVINCIBLE_TEMP, True);
-                                attribute(entity_mount, ROOT, True);
-                                animate(entity_mount, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
-                            }
-
-                            entity_mount[TYPE] = CHARACTER_TYPE.MEGATAUR;
-
-                            animate(entity_rider, ONCE, ANIMATION_ALL.CAST);
-                            wait(entity_rider);
-
-                            // entity_rider[VELOCITY] = 0d30;
-                            _drag(entity_rider, entity_mount[X] + offset_x, entity_mount[Y] - offset_y);
-                            entity_rider[Z_LEVEL] = arg[0x10];
-
-                            entity_rider[VELOCITY] = 0d20;
-                            guard_dead(entity_rider);
-                            sleep(0d50);
-                            entity_rider[Z] = 0d0;
-
-                            if!(with_heal) {
-                                animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
-                                attribute(entity_mount, ROOT, False);
-                                attribute(entity_mount, INVINCIBLE_TEMP, False);
-                            }
-                            guard_dead(entity_rider);
-
-                            cheese_protection(entity_mount);
-                            
-                            BOSS.STACK_ROLL = 0d0;
-                            while(BOSS.STACKING && _alive(entity_rider) && _alive(entity_mount)) {
-                                _teleport(entity_rider, entity_mount[X] + offset_x, entity_mount[Y] - offset_y);
-
-                                yield();
-                            }
-
-                            guard_dead(entity_rider);
-
-                            animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_DUCK);
-                            entity_mount[TYPE] = CHARACTER_TYPE.RAT_RED;
-                            animate(entity_mount, ONCE, ANIMATION_ENEMY.MEGATAUR_EXIT);
-
-                            drag(entity_rider, BOSS.CRATES_X, BOSS.CRATES_Y);
-                            entity_rider[Z_LEVEL] = arg[0x12];
-
-                            guard_dead(entity_mount);
-                            wait(entity_mount);
-                        }
-                        fun ride_rat(with_heal) {
-                            BOSS.STACKING = True;
-
-                            _ride_rat(BOSS.ID_RIDER, BOSS.ID_MOUNT, 0d0, 0d40, with_heal);
-
-                            BOSS.STACKING = False;
-                        }
-
-                        fun toss_bomb() {
-                            arg[0x10] = <ACTIVE>[X];
-                            arg[0x12] = <ACTIVE>[Y];
-                            if(<ACTIVE>[X] < 0d180) {
-                                arg[0x14] = -0d20;
-                            } else {
-                                arg[0x14] = 0d20;
-                            }
-
-                            animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
-                            sleep(0d30);
-                            ai_move_bomb_toss(BOSS.ID_RIDER, BOTTLE, <ACTIVE>, arg[0x14], -0d20);
-                        }
-                        @install()
-                        fun toss_bombs(amount) {
-                            while(amount > 0d0) {
-                                amount--;
-
-                                toss_bomb();
-                            }
-                        }
-
-                        fun toss_rock(x, y, overshoot) {
-                            animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
-                            sleep(0d30);
-                            shoot_entity_absolute(BOSS.ID_RIDER, ROCK, arg[0x10], arg[0x12], 0d50, overshoot);
-                            animate(BOSS.ID_RIDER, ONCE, DEFAULT);
-                        }
-                        @install()
-                        fun toss_rocks(amount) {
-                            arg[0x10] = <ACTIVE>[X];
-                            arg[0x12] = <ACTIVE>[Y];
-                            
-                            while(amount > 0d0) {
-                                amount--;
-
-                                toss_rock(arg[0x10], arg[0x12], arg[0x14]);
-
-                                arg[0x14] += 0d50;
-                            }
-                        }
-
-                        @install()
-                        fun toss_rat(boss_rat) {
-                            if(BOSS.DEBUG) {
-                                debug_memory(_dead(BOSS.ID_MOUNT), BOSS.ID_MOUNT, boss_rat);
-                            }
-
-                            animate(BOSS.ID_RIDER, ONCE, ANIMATION_ALL.CAST);
-                            sleep(0d20);
-
-                            if(boss_rat) {
-                                _add_enemy(RAT_RED, BOSS.ID_RIDER[X] - 0d15, BOSS.ID_RIDER[Y] - 0d30, INVINCIBLE);
-                                BOSS.ID_MOUNT = <LAST_ENTITY>;
-                            } else {
-                                _add_enemy(RAT, BOSS.ID_RIDER[X] - 0d15, BOSS.ID_RIDER[Y] - 0d30, INVINCIBLE);
-                            }
-                            arg[0x10] = <LAST_ENTITY>;
-                            sleep(0d10);
-
-                            arg[0x10][Z] = 0d100;
-                            _drag(arg[0x10], <ACTIVE>[X], <ACTIVE>[Y]);
-
-                            if(boss_rat) {
-                                replace_enemy(arg[0x10], RAT_RED);
-                                BOSS.ID_MOUNT = <LAST_ENTITY>;
-                                <LAST_ENTITY>[HP] = BOSS.BOSS_RAT_HP;
+                            fun add_boss(x, y) {
+                                add_enemy(VERMINATOR, x, y);
+                                BOSS.ID_RIDER = <LAST_ENTITY>;
+                                <LAST_ENTITY>[HP] = BOSS.HP;
                                 attach_script(LAST_ENTITY, DEATH, reference(@install() {
-                                    BOSS.BOSS_RAT_KILL_COUNT++;
-
-                                    if(BOSS.PHASE == 0d0) {
-                                        if(BOSS.DEBUG) {
-                                            debug_memory(BOSS.BOSS_RAT_KILL_COUNT);
-                                        }
-
-                                        if(BOSS.BOSS_RAT_KILL_COUNT == BOSS.BOSS_RAT_KILLS_P1) {
-                                            BOSS.PHASE++;
-                                        }
-                                    } else if(BOSS.PHASE == 0d1) {
-                                        if!(BOSS.STACKING) {
-                                            heal(SCRIPT_OWNER, 0d1, False);
-
-                                            ride_rat(True);
-                                        } else {
-                                            wait(SCRIPT_OWNER);
-                                            destroy(SCRIPT_OWNER);
+                                    if(BOSS.PHASE == 0d1) {
+                                        if(script[0x9] == 0x200) {
+                                            BOSS.PHASE = 0d2;
                                         }
                                     }
                                 }));
 
-                                if(False && BOSS.DEBUG) {
-                                    <LAST_ENTITY>[HP] = 0d1;
-                                }
-                            } else {
-                                replace_enemy(arg[0x10], RAT);
+                                boss_watcher();
                             }
-                            arg[0x10] = <LAST_ENTITY>;
-                            
-                            if((arg[0x10][CURRENT_GROUND] & 0xff) != 0d16) {
-                                bomb_entity(arg[0x10], 0d50);
-                                animate(arg[0x10], ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
-                                wait(arg[0x10]);
+                        };
 
-                                destroy(arg[0x10]);
-                            } else {
-                                if!(boss_rat) {
-                                    hatch_enemy(arg[0x10], MINITAUR);
+                        enum stepon_trigger {
+                            exit_north = @install() {
+                                debug_subtext("S=0");
+
+                                if(False) {
+                                    _add_morph_ball_stone(False, True, False, {
+                                        map_transition(inner_castle_cellar, stairs, NORTH);
+                                    });
+                                } else {
+                                    map_transition(inner_castle_cellar, stairs, NORTH);
+                                }
+                            },
+                            stepon_1 = @install() {
+                                debug_subtext("S=1");
+                            },
+                            stepon_2 = @install() {
+                                debug_subtext("S=2");
+                            },
+                            stepon_3 = @install() {
+                                debug_subtext("S=3");
+                            },
+                            stepon_4 = @install() {
+                                debug_subtext("S=4");
+                            },
+                            spawn_boss = @install() {
+                                debug_subtext("S=5");
+
+                                if!(SOULS_MEMORY.DEAD_UNNAMED_STAIRWELL_BOSS) {
+                                    set(BOSS.PROGRESS);
+
+                                    control(NONE);
+
+                                    push_music(BOSS);
+                                    add_boss(BOSS.CRATES_X, BOSS.CRATES_Y);
+
+                                    set_camera(COORDINATE_CENTER, 0xb0, 0x78, 0x80 >> 0d2);
+                                    wait(CAMERA_PAN_Y);
+
+                                    init_map(0x00, 0x00, 0x2e, 0x1e);
+
+                                    walk(ACTIVE, TILE_ABSOLUTE, 0x14, 0x16, ACTIVE, NONE);
+                                    face(ACTIVE, NORTH);
+
+                                    if!(SOULS_MEMORY_HELPER.ONLY_AVAILABLE) {
+                                        walk(INACTIVE, TILE_ABSOLUTE, 0x18, 0x16, INACTIVE, NONE);
+                                        face(INACTIVE, NORTH);
+                                    }
+
+                                    object[0x00] = 0x7e; // close gate
+
+                                    free_camera();
+
+                                    control(BOTH); // TODO: unlocks unavailable dog
+                                }
+                            },
+                            exit_stairs = @install() {
+                                map_transition(stairs, stairs_east_top, WEST);
+                            },
+                            exit_south = @install() {
+                                debug_subtext("S=7");
+                            },
+                            exit_west = @install() {
+                                debug_subtext("S=8");
+
+                                if!(ROOM.DOOR_WEST_OPENED) {
+                                    error_message(DOOR_WRONG_SIDE, NONE);
+                                } else {
+                                    map_transition(inner_castle_dining_room, east, WEST);
+                                }
+                            },
+                            exit_east = @install() {
+                                debug_subtext("S=9");
+
+                                if!(ROOM.DOOR_EAST_OPENED) {
+                                    error_message(DOOR_WRONG_SIDE, NONE);
+                                } else {
+                                    map_transition(inner_castle_hallway, west, EAST);
                                 }
                             }
                         }
 
-                        @install()
-                        @async()
-                        fun boss_watcher() {
-                            while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                                yield();
-                            }
+                        fun trigger_enter() {
+                            default_init_room(False, False);
 
-                            if(BOSS.DEBUG) {
-                                subtext("phase 0");
-                            }
-
-                            // BOSS.PHASE = 0d1;
-
-                            while(BOSS.PHASE == 0d0) {
-                                BOSS.TIMER++;
-
-                                if(BOSS.TIMER > BOSS.TIMER_T0) {
-                                    arg[0x10] = randrange(0d3);
-
-                                    if(BOSS.DEBUG) {
-                                        debug_memory(arg[0x10], dead(BOSS.ID_MOUNT));
-                                    }
-
-                                    if((BOSS.ID_MOUNT == 0d0) || _dead(BOSS.ID_MOUNT)) {
-                                        toss_rat(True);
-                                    } else if(arg[0x10] == 0d0) {
-                                        toss_bombs(0d1);
-                                    } else {
-                                        toss_rocks(0d1);
-                                    }
-
-                                    BOSS.TIMER = 0d0;
-                                }
-
-                                yield();
-                            }
-
-                            if(BOSS.DEBUG) {
-                                subtext("phase 1");
-                            }
-
-                            BOSS.TIMER = 0d0;
-
-                            while(BOSS.PHASE == 0d1) {
-                                BOSS.TIMER++;
-
-                                while(BOSS.STACKING) {
-                                    yield();
-                                }
-
-                                if(BOSS.TIMER > BOSS.TIMER_T1) {
-                                    arg[0x10] = randrange(0d5);
-
-                                    if(dead(BOSS.ID_MOUNT)) {
-                                        toss_rat(True);
-                                    } else if(arg[0x10] == 0d0) {
-                                        toss_bombs(0d2);
-                                    } else if(arg[0x10] == 0d1) {
-                                        toss_rocks(0d4);
-                                    } else if(arg[0x10] == 0d2) {
-                                        toss_rat();
-                                    } else {
-                                        ride_rat(False);
-                                    }
-
-                                    BOSS.TIMER = 0d0;
-                                }
-                                
-                                yield();
-                            }
-
-                            if(BOSS.DEBUG) {
-                                subtext("yatta");
-                            }
-
-                            boss_killed();
-                        }
-
-                        fun add_boss(x, y) {
-                            add_enemy(VERMINATOR, x, y);
-                            BOSS.ID_RIDER = <LAST_ENTITY>;
-                            <LAST_ENTITY>[HP] = BOSS.HP;
-                            attach_script(LAST_ENTITY, DEATH, reference(@install() {
-                                if(BOSS.PHASE == 0d1) {
-                                    if(script[0x9] == 0x200) {
-                                        BOSS.PHASE = 0d2;
-                                    }
-                                }
+                            add_bombable(0d7, 0d56, ROOM.DOOR_WEST_OPENED, reference(@install() {
+                                bombable_object(DEFAULT, True, ROOM.DOOR_WEST_OPENED);
+                            }));
+                            add_bombable(0d37, 0d56, ROOM.DOOR_EAST_OPENED, reference(@install() {
+                                bombable_object(DEFAULT, True, ROOM.DOOR_EAST_OPENED);
                             }));
 
-                            boss_watcher();
+                            add_morph_ball_stone(0d22, 0d15, reference(@install() {
+                                _add_morph_ball_stone(True, True, True, {
+                                    map_transition(inner_castle_cellar, stairs, NORTH);
+                                });
+                            }));
                         }
                     };
 
-                    enum stepon_trigger {
-                        exit_north = @install() {
-                            debug_subtext("S=0");
-                        },
-                        stepon_1 = @install() {
-                            debug_subtext("S=1");
-                        },
-                        stepon_2 = @install() {
-                            debug_subtext("S=2");
-                        },
-                        stepon_3 = @install() {
-                            debug_subtext("S=3");
-                        },
-                        stepon_4 = @install() {
-                            debug_subtext("S=4");
-                        },
-                        spawn_boss = @install() {
-                            debug_subtext("S=5");
+                    map inner_castle_cellar(EBON_CELLAR) {
+                        enum entrance {
+                            stairs = entrance(0x29, 0x0d, WEST),
 
-                            if!(SOULS_MEMORY.DEAD_UNNAMED_STAIRWELL_BOSS) {
-                                set(BOSS.PROGRESS);
-
-                                control(NONE);
-
-                                push_music(BOSS);
-                                add_boss(BOSS.CRATES_X, BOSS.CRATES_Y);
-
-                                set_camera(COORDINATE_CENTER, 0xb0, 0x78, 0x80 >> 0d2);
-                                wait(CAMERA_PAN_Y);
-
-                                init_map(0x00, 0x00, 0x2e, 0x1e);
-
-                                walk(ACTIVE, TILE_ABSOLUTE, 0x14, 0x16, ACTIVE, NONE);
-                                face(ACTIVE, NORTH);
-
-                                if!(SOULS_MEMORY_HELPER.ONLY_AVAILABLE) {
-                                    walk(INACTIVE, TILE_ABSOLUTE, 0x18, 0x16, INACTIVE, NONE);
-                                    face(INACTIVE, NORTH);
-                                }
-
-                                object[0x00] = 0x7e; // close gate
-
-                                free_camera();
-
-                                control(BOTH); // TODO: unlocks unavailable dog
-                            }
-                        },
-                        exit_stairs = @install() {
-                            map_transition(stairs, stairs_east_top, WEST);
-                        },
-                        exit_south = @install() {
-                            debug_subtext("S=7");
-                        },
-                        exit_west = @install() {
-                            debug_subtext("S=8");
-
-                            if!(ROOM.DOOR_WEST_OPENED) {
-                                error_message(DOOR_WRONG_SIDE, NONE);
-                            } else {
-                                map_transition(inner_castle_dining_room, east, WEST);
-                            }
-                        },
-                        exit_east = @install() {
-                            debug_subtext("S=9");
-
-                            if!(ROOM.DOOR_EAST_OPENED) {
-                                error_message(DOOR_WRONG_SIDE, NONE);
-                            } else {
-                                map_transition(inner_castle_hallway, west, EAST);
-                            }
+                            bonfire = entrance(0d34, 0d24, NONE, { bonfire_wakeup(0d0, 0d24, -0d24, 0d24); }),
                         }
-                    }
 
-                    fun trigger_enter() {
-                        default_init_room(False, False);
+                        enum soundtrack {
+                            default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+                        }
 
-                        add_bombable(0d7, 0d56, ROOM.DOOR_WEST_OPENED, reference(@install() {
-                            bombable_object(DEFAULT, True, ROOM.DOOR_WEST_OPENED);
-                        }));
-                        add_bombable(0d37, 0d56, ROOM.DOOR_EAST_OPENED, reference(@install() {
-                            bombable_object(DEFAULT, True, ROOM.DOOR_EAST_OPENED);
-                        }));
-                    }
+                        enum ROOM {
+                            BONFIRE_REVEALED = memory(FLAG, SRAM),
+                        }
+
+                        enum stepon_trigger {
+                            stepon_0 = @install() {
+                                debug_subtext("S=0");
+
+                                _add_morph_ball_stone(False, True, False, {
+                                    map_transition(hidden_castle_entry, north, EAST);
+                                });
+                            },
+                        }
+
+                        @install()
+                        fun show_bonfire() {
+                            bonfire(0d34, 0d24, SOULS_MEMORY.BONFIRE_ALTUS_CELLAR);
+                        }
+
+                        enum b_trigger {
+                            chest_1__3_feather = @install() {
+                                debug_subtext("B=0");
+                                _loot_chest(0x00, FEATHER, 0d03);
+                            },
+                            chest_2__4_brimstone = @install() {
+                                debug_subtext("B=1");
+                                _loot_chest(0x01, BRIMSTONE, 0d04);
+                            },
+                            chest_3__2_acorns = @install() {
+                                debug_subtext("B=2");
+                                
+                                object[0x02] = 0x01; // open chest_3
+                                ROOM.BONFIRE_REVEALED = True;
+                                sound(WEIRD_SOUND);
+                                show_bonfire();
+                            },
+                        }
+                        
+                        fun trigger_enter() {
+                            // object[0x00] = 0x01; // open chest_1
+                            // object[0x01] = 0x01; // open chest_2
+                            // object[0x02] = 0x01; // open chest_3
+
+                            if(ROOM.BONFIRE_REVEALED) {
+                                object[0x02] = 0x01; // open chest_3
+                                show_bonfire();
+                            }
+
+                            if(NPC_RAT.PROGRESS < 0x10) {
+                                add_souls_npc_rat(0d12, 0d24);
+                            } else {
+                                add_souls_npc_rat(0d14, 0d18);
+                            }
+
+                            default_init_room(False, False);
+                        }
+                    };
                 };
 
                 map inner_castle_hallway(EBON_GLASS) {

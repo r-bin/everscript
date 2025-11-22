@@ -4007,7 +4007,14 @@ group functions() {
             @install()
             @weak()
             fun _smart_sound(sound_effect:SOUND) {
-                if(sound_effect == SOUND.PURCHASE) {
+                if(sound_effect == SOUND.WEIRD_SOUND) {
+                    if(MEMORY.CURRENT_MUSIC == MUSIC.BOSS) {
+                        nop();
+                    } else {
+                        sound(sound_effect);
+                        end();
+                    }
+                } else if(sound_effect == SOUND.PURCHASE) {
                     if(MEMORY.CURRENT_MUSIC == MUSIC.SEWER_AMBIENT_WATER) {
                         nop();
                     } else {
@@ -4024,7 +4031,10 @@ group functions() {
                 }
             }
             fun smart_sound(sound_effect:SOUND) {
-                if(sound_effect == SOUND.PURCHASE) {
+                if(
+                    (sound_effect == SOUND.PURCHASE)
+                    || (sound_effect == SOUND.WEIRD_SOUND)
+                ) {
                     _smart_sound(sound_effect);
                 } else {
                     sound(sound_effect);
@@ -9147,6 +9157,15 @@ group functions() {
                 }
             }
 
+            fun guard_b(entity, callback) {
+                if(entity[LAST_DAMAGE]) {
+                    if(callback is Function) {
+                        callback();
+                    }
+                    end();
+                }
+            }
+
             fun _guard_dead(entity:CHARACTER, callback) {
                 if(_dead(entity)) {
                     if(callback is Function) {
@@ -12538,10 +12557,11 @@ group functions() {
                     vanilla_bomb_explosion(True);
                 }
             } else {
-                if(<SCRIPT_OWNER> == <ACTIVE>) {
-                    while(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
-                        yield();
-                    }
+                if(
+                    (<SCRIPT_OWNER> == <ACTIVE>)
+                    && (!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED))
+                    && (!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION))
+                ) {
                     
                     if((MEMORY.INPUT_P1 & INPUT.B) == INPUT.B) {
                         if(
@@ -12676,9 +12696,11 @@ group functions() {
                 sleep(0d30);
             }
 
-            single_animation(<SCRIPT_OWNER>, TELEPORT_OUT, 0d0, 0d1);
+            if(with_toggle) {
+                single_animation(<SCRIPT_OWNER>, TELEPORT_OUT, 0d0, 0d1);
+            }
 
-            if((with_toggle) && (<SCRIPT_OWNER>[TYPE] != arg[0x12])) {
+            if(with_toggle && (<SCRIPT_OWNER>[TYPE] != arg[0x12])) {
                 if(SYSTEM.WITH_DEBUG_START) {
                     subtext("1");
                 }
