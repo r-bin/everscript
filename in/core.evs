@@ -1129,6 +1129,7 @@ group general_enums() {
             // <0x289c, x>
             REPLACE_MUSIC_INSTEAD = <0x289c, 0x01>,
             SLOW_GROUND_SWITCHES = <0x289c, 0x02>,
+            NO_MORPHING = <0x289c, 0x04>,
             // …
         }
     };
@@ -7064,6 +7065,7 @@ group functions() {
                 DLC = 0x01,
                 WRONG_WEAPON = 0x02,
                 TOO_LIGHT = 0x03,
+                TOO_NARROW = 0x04,
 
                 DOOR_LOCKED = 0x10,
                 DOOR_CONTRAPTION = 0x11,
@@ -7104,6 +7106,10 @@ group functions() {
                 } else if(error == ERROR_TYPE.TOO_LIGHT) {
                     if(SYSTEM.WITH_HINT_INTERACTION) {
                         subtext("(Too light…)");
+                    }
+                } else if(error == ERROR_TYPE.TOO_NARROW) {
+                    if(SYSTEM.WITH_HINT_INTERACTION) {
+                        subtext("(Too narrow…)");
                     }
                 } else if(error == ERROR_TYPE.DOOR_LOCKED) {
                     subtext("Locked.");
@@ -8416,6 +8422,41 @@ group functions() {
 
                 add_bombable(x, y + door_width - 0d1, flag, trigger);
             }
+
+            group hole() {
+                enum HOLE {
+                    DEBUG = True,
+                }
+
+                enum HOLE_SIZE {
+                    NONE = 0d0,
+
+                    SMALL = 0d1,
+                    NORMAL = 0d7,
+                    BIG = 0d10,
+                }
+
+                fun add_hole(size:HOLE_SIZE) {
+                    _add_placeholder(SANDPIT_PUKE, <BOY>[X], <BOY>[Y]);
+                    sleep(size);
+                    animate(LAST_ENTITY, PAUSE, DEFAULT);
+                }
+                fun _animate_hole(entity, size:HOLE_SIZE) {
+                    if(HOLE.DEBUG) {
+                        _debug_memory(entity, size);
+                    }
+
+                    animate(entity, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+                    sleep(size);
+                    animate(entity, PAUSE, DEFAULT);
+                }
+                @install()
+                @async()
+                @weak()
+                fun animate_hole(entity, size:HOLE_SIZE) {
+                    _animate_hole(entity, size);
+                }
+            };
         };
 
         @install()
@@ -9222,6 +9263,18 @@ group functions() {
                 guard_boy();
                 
                 if(MEMORY.CURRENT_WEAPON != WEAPON_INDEX.SWORD_1) {
+                    end();
+                }
+            }
+
+            fun guard_critter(entity, callback) {
+                if(
+                    (entity[TYPE] != CHARACTER_TYPE.RAT)
+                    && (entity[TYPE] != CHARACTER_TYPE.MOSQUITO)
+                ) {
+                    if(callback !is None) {
+                        callback();
+                    }
                     end();
                 }
             }
