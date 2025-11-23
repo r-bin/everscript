@@ -3353,15 +3353,22 @@ group non_maps() {
         }
 
         group jump() {
-            fun jump_hole(callback) {
-                animate_boy_kneel(BOY);
+            fun jump_hole(callback, no_animation) {
+                if(no_animation is None) {
+                    animate_boy_kneel(BOY);
+                }
+
                 question("[SLOW]Jump into the hole?[LF](No way back in sight…)[CHOICE]yes…[CHOICE]no…");
                 if(MEMORY.QUESTION_ANSWER == 0d0) {
-                    animation_fall_pit(ACTIVE);
+                    if(no_animation is None) {
+                        animation_fall_pit(ACTIVE);
+                    }
 
                     callback();
                 } else {
-                    animate(BOY, ONCE, DEFAULT);
+                    if(no_animation is None) {
+                        animate(BOY, ONCE, DEFAULT);
+                    }
                 }
             }
         };
@@ -3431,7 +3438,7 @@ group non_maps() {
                     }
                 } else {
                     if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
-                        subtext("(too narrow)");
+                        error_message(TOO_NARROW);
                     }
 
                     if(with_fake_b) {
@@ -3449,6 +3456,21 @@ group non_maps() {
                         _add_morph_ball_stone(True, False, True);
                     }));
                 }
+            }
+
+            fun guard_critter_door() {
+                guard_critter(<ACTIVE>, {
+                    if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                        error_message(TOO_NARROW);
+                    }
+
+                    fake_b();
+                });
+            }
+
+            fun add_critter_door(x, y, trigger) {
+                add_enemy(PLACEHOLDER, x, y);
+                attach_script(LAST_ENTITY, B, trigger);
             }
         };
     };
@@ -3727,17 +3749,36 @@ group non_maps() {
             attribute(DOG, INVINCIBLE_TEMP, False);
         }
 
-        fun archaeology_dig(x, y, digs:ARCHAEOLOGY_DIG_DEPTH, flag, callback, detectable) {
-            if!(flag) {
-                add_enemy(PLACEHOLDER, x, y);
-                attach_script(LAST_ENTITY, B, callback);
-                <LAST_ENTITY>[GENERAL_PURPOSE] = digs;
+        fun _archaeology_dig(x, y, digs:ARCHAEOLOGY_DIG_DEPTH, flag, callback, detectable?, size?:HOLE_SIZE) {
+            add_enemy(PLACEHOLDER, x, y);
+            attach_script(LAST_ENTITY, B, callback);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = digs;
 
-                if(detectable !is None) {
-                    if(detectable) {
-                        SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+            if(detectable !is None) {
+                if(detectable) {
+                    SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
+                }
+            }
+
+            if(size !is None) {
+                if(size != HOLE_SIZE.NONE) {
+                    if(flag) {
+                        animate_hole(<LAST_ENTITY>, size);
                     }
                 }
+            }
+        }
+        fun archaeology_dig(x, y, digs:ARCHAEOLOGY_DIG_DEPTH, flag, callback, detectable?, size?:HOLE_SIZE) {
+            if(size is None) {
+                if!(flag) {
+                    if(detectable !is None) {
+                        _archaeology_dig(x, y, digs, flag, callback, detectable);
+                    } else {
+                        _archaeology_dig(x, y, digs, flag, callback);
+                    }
+                }
+            } else {
+                _archaeology_dig(x, y, digs, flag, callback, detectable, size);
             }
         }
 
@@ -3786,21 +3827,34 @@ group non_maps() {
                 sound(WEIRD_SOUND);
             }
         }
-        fun guard_archaeology_dig(flag, no_clean_up) {
+        fun guard_archaeology_dig(flag, no_clean_up, size:HOLE_SIZE) {
             if!(flag) {
                 if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
                     _guard_archaeology_dig();
                     end();
+                } else {
+                    if(size !is None) {
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+                        if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                            _animate_hole(<SCRIPT_OWNER>, size);
+                        }
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    }
+
+                    if(flag is Memory) {
+                        flag = True;
+                    }
                 }
                 guard_boy({
                     bark();
                 });
 
-                if(flag is Memory) {
-                    flag = True;
-                }
-                if(no_clean_up is None) {
-                    destroy(SCRIPT_OWNER);
+                if(no_clean_up !is None) {
+                    if!(no_clean_up) {
+                        destroy(SCRIPT_OWNER);
+                    }
                 }
             }
         }
@@ -4087,6 +4141,15 @@ group non_maps() {
                 attribute(DOG, NO_CLIP, False);
             }
 
+            if!(CUSTOM_FLAG.NO_MORPHING) {
+                if(<BOY>[TYPE] != CHARACTER_TYPE.BOY) {
+                    morph_toggle(<BOY>, <BOY>[TYPE], False);
+                }
+            } else {
+                <BOY>[TYPE] = CHARACTER_TYPE.BOY;
+                <DOG>[TYPE] = CHARACTER_TYPE.DOG;
+            }
+
             _init_souls();
 
             radiation_handler();
@@ -4126,10 +4189,6 @@ group non_maps() {
 
             show_currency(False);
 
-            if(<BOY>[TYPE] != CHARACTER_TYPE.BOY) {
-                morph_toggle(<BOY>, <BOY>[TYPE], False);
-            }
-
             fade_in();
         }
 
@@ -4139,6 +4198,7 @@ group non_maps() {
         }
 
         fun isaac_init(night, rain) {
+            CUSTOM_FLAG.NO_MORPHING = True;
             init_hack();
 
             CUSTOM_FLAG.NO_DOG = True;
@@ -4279,7 +4339,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(inner_castle_cellar, stairs, NONE);
+                map_transition(well, west, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -7183,19 +7243,10 @@ group non_maps() {
                     response_negative();
                 }
 
-                fun guard_critter(callback) {
-                    if(<ACTIVE>[TYPE] != CHARACTER_TYPE.RAT) {
-                        if(callback !is None) {
-                            callback();
-                        }
-                        end();
-                    }
-                }
-
                 @install()
                 fun rat_dialog_0() {
                     guard_dead_npc();
-                    guard_critter({
+                    guard_critter(<ACTIVE>, {
                         fake_b();
                     });
 
@@ -9896,6 +9947,8 @@ area shrine_area() {
             hut_8__cat = entrance(0x21, 0x3b, SOUTH),
 
             crash = entrance(0d75, 0d95, NONE, { crash_both(); }),
+
+            critter_door = entrance(0d20, 0d61, SOUTH),
         }
 
         enum soundtrack {
@@ -10425,16 +10478,24 @@ area shrine_area() {
                 destroy(SCRIPT_OWNER);
             }));
 
-            archaeology_dig(0d20, 0d61, DEFAULT, ROOM.TREASURE_LOOTED, reference(@install() {
-                guard_archaeology_dig(ROOM.TREASURE_LOOTED);
+            if(False) {
+                archaeology_dig(0d20, 0d61, DEFAULT, ROOM.TREASURE_LOOTED, reference(@install() {
+                    guard_archaeology_dig(ROOM.TREASURE_LOOTED);
 
-                animate(BOY, ONCE, ANIMATION_BOY.LOOT);
-                wait(BOY);
+                    animate(BOY, ONCE, ANIMATION_BOY.LOOT);
+                    wait(BOY);
 
-                reward(MAGIC_GOURD, True);
+                    reward(MAGIC_GOURD, True);
 
-                add_bonfire();
-            }));
+                    add_bonfire();
+                }), False);
+            } else {
+                add_critter_door(0d20, 0d61, reference(@install() {
+                    guard_critter_door();
+
+                    map_transition(west_inbetwixx, critter_door, NORTH);
+                }));
+            }
         }
     };
 
@@ -11829,13 +11890,13 @@ area north_inbetwixx() {
 
             default_init_room(True, True);
 
-            archaeology_dig(0d13, 0d4, DEFAULT, False, reference(@install() {
-                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+            archaeology_dig(0d13, 0d4, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
 
                 jump_hole({
                     map_transition(inverted_pyramid_level_1_secret_entrance_room_north_west, crash, NONE);
                 });
-            }), True);
+            }), True, NORMAL);
 
             add_custom_boss_gideon(0d66, 0d35, SOULS_MEMORY.DEAD_GIDEON, {
                 souls_boss_defeated(DEAD_GIDEON, REWARD_GIDEON);
@@ -11876,6 +11937,8 @@ area west_inbetwixx() {
 
                 hacking_wakeup(0d32, -0d8, 0d24, -0d24);
             }),
+
+            critter_door = entrance(0d40, 0d26, SOUTH),
         }
 
         enum soundtrack {
@@ -12079,6 +12142,12 @@ area west_inbetwixx() {
             if(SOULS_MEMORY.WITH_AREA_NAMES) {
                 subtext("West Inbetwixx");
             }
+
+            add_critter_door(0d40, 0d26, reference(@install() {
+                guard_critter_door();
+
+                map_transition(shrine, critter_door, NORTH);
+            }));
         }
     };
 
@@ -14578,13 +14647,13 @@ area altus_plateau_entry() {
                         }));
                     }
 
-                    archaeology_dig(0d44, 0d45, DEFAULT, False, reference(@install() {
-                        guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+                    archaeology_dig(0d44, 0d45, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                        guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
 
                         jump_hole({
                             map_transition(inner_castle_court, crash, NONE);
                         });
-                    }), True);
+                    }), True, NORMAL);
 
                     if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                         // east
@@ -15609,6 +15678,7 @@ area altus_plateau_entry() {
                 LUIGI_LIMIT_TOP = 0d433,
                 LUIGI_LIMIT_BOTTOM = 0d447,
 
+                DIGGING_REQUIRED = SOULS_MEMORY.PICKAXE || MEMORY.GLOVE_3_3,
                 TUNNEL_OPENED = memory(FLAG, SRAM),
             }
 
@@ -15694,13 +15764,32 @@ area altus_plateau_entry() {
                 
                 default_init_room(True, True);
 
-                archaeology_dig(0d1, 0d41, DEFAULT, False, reference(@install() {
-                    guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+                if(ROOM.DIGGING_REQUIRED) {
+                    archaeology_dig(0d2, 0d42, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                        guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
 
-                    jump_hole({
-                        map_transition(inner_castle_hallway, crash, NONE);
-                    });
-                }));
+                        jump_hole({
+                            map_transition(inner_castle_hallway, crash, NONE);
+                        });
+                    }), True, NORMAL);
+                } else {
+                    add_enemy(PLACEHOLDER, 0d2, 0d42);
+                    attach_script(LAST_ENTITY, B, reference(@install() {
+                        if!(ROOM.TUNNEL_OPENED) {
+                            ROOM.TUNNEL_OPENED = True;
+                            sound(WEIRD_SOUND);
+
+                            animate_hole(<SCRIPT_OWNER>, NORMAL);
+                        } else {
+                            jump_hole({
+                                map_transition(inner_castle_hallway, crash, NONE);
+                            });
+                        }
+                    }));
+                    if(ROOM.TUNNEL_OPENED) {
+                        animate_hole(<LAST_ENTITY>, NORMAL);
+                    }
+                }
             }
         };
 
@@ -17580,13 +17669,13 @@ area northwest_inbetwixx() {
 
             add_bombable(0d64, 0d17, ROOM.WALL, reference(trigger_wall));
 
-            archaeology_dig(0d3, 0d12, DEFAULT, False, reference(@install() {
-                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+            archaeology_dig(0d3, 0d12, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
 
                 jump_hole({
                     map_transition(inverted_pyramid_level_1_secret_entrance_room_west, crash, NONE);
                 });
-            }), True);
+            }), True, NORMAL);
         }
     };
 
@@ -22232,6 +22321,8 @@ area southern_jungle() {
                 north = entrance(0x53, 0x04, SOUTH),
                 east = entrance(0x81, 0x31, WEST),
                 south = entrance(0x55, 0x6e, NORTH),
+
+                critter_door = entrance(0d17, 0d22, SOUTH),
             }
 
             enum soundtrack {
@@ -22534,6 +22625,14 @@ area southern_jungle() {
                 default_init_room(True, True);
 
                 place_statue(HORACE, 0d91, 0d75);
+
+                add_critter_door(0d17, 0d22, reference(@install() {
+                    guard_critter_door();
+
+                    jump_hole({
+                        map_transition(basement_0_start, center, NORTH);
+                    }, True);
+                }));
             }
         };
     };
@@ -22977,7 +23076,7 @@ area southern_jungle() {
                 }
 
                 if!(ROOM.DIG_OPENED) {
-                    archaeology_dig(ROOM.DIG_X, ROOM.DIG_Y, DEFAULT, False, reference(@install() {
+                    archaeology_dig(ROOM.DIG_X, ROOM.DIG_Y, ROOM.DIG_OPENED, False, reference(@install() {
                         guard_archaeology_dig(ROOM.DIG_OPENED, True);
 
                         ROOM.DIG_OPENED = True;
@@ -24893,20 +24992,20 @@ area southern_jungle() {
             add_enemy(PLACEHOLDER, 0x72, 0x75);
             ROOM.LIFT_TRIGGER = <LAST_ENTITY>;
 
-            archaeology_dig(0d1, 0d84, DEFAULT, False, reference(@install() {
-                guard_archaeology_dig(ROOM.TUNNEL_WEST_OPENED, True);
+            archaeology_dig(0d1, 0d84, DEFAULT, ROOM.TUNNEL_WEST_OPENED, reference(@install() {
+                guard_archaeology_dig(ROOM.TUNNEL_WEST_OPENED, True, NORMAL);
 
                 jump_hole({
                     map_transition(inverted_pyramid_level_1_secret_side_entrance_east, crash, NONE);
                 });
-            }));
-            archaeology_dig(0d51, 0d139, DEFAULT, False, reference(@install() {
-                guard_archaeology_dig(ROOM.TUNNEL_SOUTH_OPENED, True);
+            }), False, NORMAL);
+            archaeology_dig(0d51, 0d139, DEFAULT, ROOM.TUNNEL_SOUTH_OPENED, reference(@install() {
+                guard_archaeology_dig(ROOM.TUNNEL_SOUTH_OPENED, True, NORMAL);
 
                 jump_hole({
                     map_transition(inverted_pyramid_level_1_side_entrance, crash, NONE);
                 });
-            }));
+            }), False, NORMAL);
 
             hidden_lift_check();
         }
@@ -25146,13 +25245,13 @@ area southern_jungle() {
 
                 default_init_room(True, True);
 
-                archaeology_dig(0d95, 0d51, DEFAULT, False, reference(@install() {
-                    guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+                archaeology_dig(0d95, 0d51, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                    guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
 
                     jump_hole({
                         map_transition(inverted_pyramid_level_1_secret_side_entrance_west, crash, NONE);
                     });
-                }));
+                }), False, NORMAL);
             }
         };
 
@@ -32608,13 +32707,13 @@ area bog_crossing() {
 
             default_init_room(True, True);
             
-            archaeology_dig(0d2, 0d23, DEFAULT, False, reference(@install() {
-                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True);
+            archaeology_dig(0d2, 0d23, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
 
                 jump_hole({
                     map_transition(inverted_pyramid_level_1_secret_entrance_room_east, crash, NONE);
                 });
-            }), True);
+            }), True, NORMAL);
         }
     };
 };
