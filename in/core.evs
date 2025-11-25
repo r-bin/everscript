@@ -7006,10 +7006,17 @@ group functions() {
                     wait(entity);
 
                     destroy(entity);
+                    subtext("cleaned up");
+                } else {
+                    subtext("not cleaned up");
                 }
             }
-            fun clean_up(entity:CHARACTER) {
-                if(dead(entity)) {
+            fun clean_up(entity, callback) {
+                if(entity[HP] <= 0d0) {
+                    if(callback !is None) {
+                        callback();
+                    }
+                    
                     wait(entity);
 
                     destroy(entity);
@@ -11667,6 +11674,56 @@ group functions() {
             }
 
             @install()
+            @async()
+            fun punish_yump(x, y) {
+                arg[0x14] = <BOY>[X];
+                arg[0x16] = <BOY>[Y];
+
+                yield();
+
+                if((arg[0x14] == <BOY>[X]) && (arg[0x16] == <BOY>[Y])) {
+                    teleport_relative(BOY, 0d0, -0d1);
+                    if(arg[0x16] == <BOY>[Y]) {
+                        arg[0x18]++;
+                        arg[0x1a] |= 0x01;
+                    }
+                    _teleport(BOY, arg[0x14], arg[0x16]);
+
+                    teleport_relative(BOY, 0d1, 0d0);
+                    if(arg[0x14] == <BOY>[X]) {
+                        arg[0x18]++;
+                        arg[0x1a] |= 0x02;
+                    }
+                    _teleport(BOY, arg[0x14], arg[0x16]);
+
+                    teleport_relative(BOY, 0d0, 0d1);
+                    if(arg[0x16] == <BOY>[Y]) {
+                        arg[0x18]++;
+                        arg[0x1a] |= 0x04;
+                    }
+                    _teleport(BOY, arg[0x14], arg[0x16]);
+
+                    teleport_relative(BOY, -0d1, 0d0);
+                    if(arg[0x14] == <BOY>[X]) {
+                        arg[0x18]++;
+                        arg[0x1a] |= 0x08;
+                    }
+                    _teleport(BOY, arg[0x14], arg[0x16]);
+                } else {
+                    arg[0x1a] = 0xffff;
+                }
+
+                if(False) {
+                    _debug_memory(arg[0x18], arg[0x1a]);
+                }
+
+                if(arg[0x18] >= 0d4) {
+                    _teleport(BOY, x, y);
+
+                    damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
+                }
+            }
+            @install()
             @weak()
             fun mario_yump(costs_ingredients) {
                 if(CUSTOM_FLAG.START_MARIO_YUMP) {
@@ -11809,7 +11866,7 @@ group functions() {
                                 }
                             }
                         }
-                    } else {
+                    } else if(False) {
                         animate(BOY, ONCE, ANIMATION_BOY.LANDING);
 
                         yield();
@@ -11855,6 +11912,10 @@ group functions() {
 
                             damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
                         }
+                    } else {
+                        animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+
+                        punish_yump(arg[0x10], arg[0x12]);
                     }
 
                     bomb_entity(BOY, START_GIMMICK.YUMP_DAMAGE_RADIUS);
