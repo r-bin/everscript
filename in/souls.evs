@@ -3537,6 +3537,18 @@ group non_maps() {
                 attach_script(LAST_ENTITY, B, trigger);
             }
         };
+
+        group enemies() {
+            @install()
+            fun default_damage_death_script() {
+                guard_alchemy_animation_damage(<SCRIPT_OWNER>, CRUSH, CRUSH, {
+                    heal(SCRIPT_OWNER, 0d0, False);
+                    _teleport(BOY, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+                });
+
+                _clean_up(SCRIPT_OWNER);
+            }
+        };
     };
 
     group fallout_mechanics() {
@@ -3772,8 +3784,12 @@ group non_maps() {
             DEBUG = False,
 
             DOG = 0d10,
-            BOY = 0d1,
-            BOY_PICKAXE = 0d30,
+            BOY = 0d0,
+            BOY_PICKAXE = 0d20,
+            BOY_CLAW = 0d30,
+
+            THRESHOLD_DOG = 0d100,
+            THRESHOLD_PICKAXE = 0d200,
 
             WITH_BOY = False,
 
@@ -3785,7 +3801,7 @@ group non_maps() {
             CODE_5 = 0x04,
         }
         enum ARCHAEOLOGY_DIG_DEPTH {
-            DEFAULT = 0d100,
+            DEFAULT = 0d250,
 
             SHALLOW = 0d50,
             DEEP = 0d200,
@@ -3847,70 +3863,87 @@ group non_maps() {
         }
 
         @install()
-        fun _guard_archaeology_dig() {
-            if(ARCHAEOLOGY_DIG.DEBUG) {
-                debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+        fun _guard_archaeology_dig(size:HOLE_SIZE) {
+            if(<SCRIPT_OWNER>[GENERAL_PURPOSE] <= 0d0) {
+                end();
+            } else {
+                arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
             }
 
-            if(<ACTIVE> == <DOG>) {
-                sound(IMPACT);
-                animate(DOG, ONCE, ANIMATION_DOG.ACT1_ANGRY); // TODO
-
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > ARCHAEOLOGY_DIG.DOG) {
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE] -= ARCHAEOLOGY_DIG.DOG;
+            if(<ACTIVE>[TYPE] == CHARACTER_TYPE.DOG) {
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] <= ARCHAEOLOGY_DIG.THRESHOLD_DOG) {
+                    arg[0x12] = ARCHAEOLOGY_DIG.DOG;
                 } else {
-                    <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+                    arg[0x12] = 0d1;
                 }
-            } else {
-                if(SOULS_MEMORY_HELPER.COULD_DIG) {
-                    sound(IMPACT);
-                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
-
-                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > ARCHAEOLOGY_DIG.BOY_PICKAXE) {
-                        <SCRIPT_OWNER>[GENERAL_PURPOSE] -= ARCHAEOLOGY_DIG.BOY_PICKAXE;
+            } else if(<ACTIVE>[TYPE] == CHARACTER_TYPE.BOY) {
+                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_3) {
+                    arg[0x12] = ARCHAEOLOGY_DIG.BOY_CLAW;
+                } else if(SOULS_MEMORY.PICKAXE) {
+                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] <= ARCHAEOLOGY_DIG.THRESHOLD_PICKAXE) {
+                        arg[0x12] = ARCHAEOLOGY_DIG.BOY_PICKAXE;
                     } else {
-                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
-                        sound(WEIRD_SOUND);
+                        arg[0x12] = 0d1;
                     }
-                } else if(ARCHAEOLOGY_DIG.WITH_BOY) {
-                    sound(IMPACT);
-                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
-
-                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > ARCHAEOLOGY_DIG.BOY) {
-                        <SCRIPT_OWNER>[GENERAL_PURPOSE] -= ARCHAEOLOGY_DIG.BOY;
-                    } else {
-                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
-                        sound(WEIRD_SOUND);
-                    }
-                } else {
-                    fake_b();
                 }
             }
             
+            if(arg[0x12] > 0d0) {
+                if(<ACTIVE>[TYPE] == CHARACTER_TYPE.DOG) {
+                    animate(DOG, ONCE, ANIMATION_DOG.ACT1_ANGRY); // TODO
+                } else if(<ACTIVE>[TYPE] == CHARACTER_TYPE.BOY) {
+                    animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+                }
+
+                if(arg[0x12] > 0d1) {
+                    sound(IMPACT);
+                }
+
+                safe_subtract(<SCRIPT_OWNER>[GENERAL_PURPOSE], arg[0x12]);
+            } else {
+                fake_b();
+            }
+
+            if(ARCHAEOLOGY_DIG.DEBUG) {
+                debug_memory(arg[0x10], arg[0x12], <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+            }
+
             if(<SCRIPT_OWNER>[GENERAL_PURPOSE] <= 0d0) {
                 sound(WEIRD_SOUND);
+                
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                _animate_hole(<SCRIPT_OWNER>, size);
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+            } else if((size > HOLE_SIZE.SMALL) && (arg[0x10] > ARCHAEOLOGY_DIG.THRESHOLD_PICKAXE) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] <= ARCHAEOLOGY_DIG.THRESHOLD_PICKAXE)) {
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                _animate_hole(<SCRIPT_OWNER>, SMALL);
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
             }
         }
-        fun guard_archaeology_dig(flag, no_clean_up, size:HOLE_SIZE) {
+        fun guard_archaeology_dig(flag, no_clean_up, size?:HOLE_SIZE) {
             if!(flag) {
-                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
-                    _guard_archaeology_dig();
-                    end();
-                } else {
-                    if(size !is None) {
-                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-
-                        if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
-                            _animate_hole(<SCRIPT_OWNER>, size);
+                if(size !is None) {
+                    if((size != HOLE_SIZE.NONE) && (<ACTIVE>[TYPE] == CHARACTER_TYPE.RAT) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] <= ARCHAEOLOGY_DIG.THRESHOLD_PICKAXE)) {
+                        nop();
+                    } else if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
+                        _guard_archaeology_dig(size);
+                        end();
+                    } else {
+                        if(flag is Memory) {
+                            flag = True;
                         }
-
-                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
                     }
-
-                    if(flag is Memory) {
-                        flag = True;
+                } else {
+                    if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
+                        _guard_archaeology_dig();
+                        end();
+                    } else {
+                        if(flag is Memory) {
+                            flag = True;
+                        }
                     }
                 }
+
                 guard_boy({
                     bark();
                 });
@@ -22711,7 +22744,7 @@ area southern_jungle() {
 
                     jump_hole({
                         map_transition(basement_0_start, center, NORTH);
-                    }, True);
+                    });
                 }));
             }
         };
