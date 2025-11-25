@@ -3,9 +3,8 @@
 
 
 # important
+## dog statue guards dialog
 ## mole hole = morph rat entry
-### hole connects west-imbetwixx <-> horace camp
-### inner castle side side entry
 ## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
 ## "positive"/"negative"

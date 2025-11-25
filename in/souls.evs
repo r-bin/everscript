@@ -503,6 +503,7 @@ group non_maps() {
             WITH_WEATHER = False, // TODO: has to be persistent to be playable
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             WITH_AREA_NAMES = False,
+            WITH_FORMULAS = False,
             // cheats
             WITH_CHEATS = True, // fixes no clip after screen transitions
             WITH_CHEATS_FULL_INGREDIENTS = True,
@@ -535,6 +536,11 @@ group non_maps() {
             CHEAT_ALL_BONFIRES = memory(FLAG, SRAM),
             CHEAT_OPEN_WORLD = memory(FLAG, SRAM),
             CHEAT_FREE_START_ABILITY = memory(FLAG, SRAM),
+
+            // cheat menu: debug
+            DEBUG_LOADOUT = memory(FLAG, SRAM),
+            DEBUG_ENTITIES = memory(FLAG, SRAM),
+            DEBUG_HOTKEYS = memory(FLAG, SRAM),
 
             // cheat counter
             CHEAT_COUNTER = memory(BYTE, SRAM),
@@ -827,11 +833,11 @@ group non_maps() {
             COST_BEE_BOY_QUEST_1 = 0d1,
             REWARD_BEE_BOY_QUEST_1 = ITEM.FLASH,
             COST_BEE_BOY_QUEST_2 = 0d3,
-            REWARD_BEE_BOY_QUEST_2 = ITEM.FORCE_FIELD,
+            REWARD_BEE_BOY_QUEST_2 = ITEM.GLOVE_1_3,
             COST_BEE_BOY_QUEST_3 = 0d5,
-            REWARD_BEE_BOY_QUEST_3 = ITEM.GLOVE_1_3,
+            REWARD_BEE_BOY_QUEST_3 = CUSTOM_ITEM.PATTERN_DRAGON_LEATHERWORK,
             COST_BEE_BOY_QUEST_4 = 0d7,
-            REWARD_BEE_BOY_QUEST_4 = CUSTOM_ITEM.PATTERN_DRAGON_LEATHERWORK,
+            REWARD_BEE_BOY_QUEST_4 = ITEM.FORCE_FIELD,
             COST_BEE_BOY_QUEST_5 = 0d10,
             REWARD_BEE_BOY_QUEST_5 = CUSTOM_ITEM.ZELDA_POWER_GLOVE,
 
@@ -867,6 +873,9 @@ group non_maps() {
             FLASH_BASE_DAMAGE = 0d10,
         }
         enum SOULS_MEMORY_HELPER {
+            COULD_DIG = SOULS_MEMORY.PICKAXE || MEMORY.GLOVE_3_3,
+            COULD_AXE2_WALL = FLAG.AXE_2 || FLAG.AXE_3 || FLAG.AXE_4,
+
             SUM_WEAPONS = FLAG.SWORD_1 + FLAG.SWORD_2 + FLAG.SWORD_3 + FLAG.SWORD_4 + FLAG.AXE_1 + FLAG.AXE_2 + FLAG.AXE_3 + FLAG.AXE_4 + FLAG.SPEAR_1 + FLAG.SPEAR_2 + FLAG.SPEAR_3 + FLAG.SPEAR_4 + FLAG.BAZOOKA,
             SUM_ARMOR_CHEST = MEMORY.CHEST_1_1 + MEMORY.CHEST_1_2 + MEMORY.CHEST_1_3 + MEMORY.CHEST_2_1 + MEMORY.CHEST_2_2 + MEMORY.CHEST_2_3 + MEMORY.CHEST_3_1 + MEMORY.CHEST_3_2 + MEMORY.CHEST_3_3 + MEMORY.CHEST_4_1 + MEMORY.CHEST_4_2 + MEMORY.CHEST_4_3,
             SUM_ARMOR_GLOVE = MEMORY.GLOVE_1_1 + MEMORY.GLOVE_1_2 + MEMORY.GLOVE_1_3 + MEMORY.GLOVE_2_1 + MEMORY.GLOVE_2_2 + MEMORY.GLOVE_2_3 + MEMORY.GLOVE_3_1 + MEMORY.GLOVE_3_2 + MEMORY.GLOVE_3_3 + MEMORY.GLOVE_4_1 + MEMORY.GLOVE_4_2 + MEMORY.GLOVE_4_3,
@@ -875,6 +884,7 @@ group non_maps() {
 
             SUM_CHALLENGES = SOULS_MEMORY.CHALLENGE_NO_DOG, // TODO: incomplete
             SUM_CHEATS = SOULS_MEMORY.CHEAT_ALL_BONFIRES, // TODO: incomplete
+            SUM_DEBUG_FEATURES = SOULS_MEMORY.DEBUG_LOADOUT, // TODO: incomplete
 
             ONLY_AVAILABLE = CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.NO_BOY,
             ONLY_BOY = FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY,
@@ -1150,6 +1160,39 @@ group non_maps() {
                 }
             }
             @install()
+            fun cheat_menu_debug() {
+                MEMORY.QUESTION_ANSWER = 0d0;
+                while(MEMORY.QUESTION_ANSWER != 0xffff) {
+                    // text_start();
+                    open_message_box(TRANSPARENT_CENTERED, 0x04, 0x04, 0x18, 0x14 + 0d2);
+                    // open_message_box(TRANSPARENT_CENTERED, 0x03, 0x00, 0x18 + 0d4, 0x14 + 0d4);
+
+                    font(OUTRO);
+                    text("Debug Menu: Debug");
+
+                    font(DEFAULT);
+                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.DEBUG_LOADOUT;
+                    text("[CHOICE][MEM1] - Debug Loadout - [MEM1]");
+                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.DEBUG_ENTITIES;
+                    text("[CHOICE][MEM1] - Debug Entities - [MEM1]");
+                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.DEBUG_HOTKEYS;
+                    text("[CHOICE][MEM1] - Debug Hotkeys - [MEM1]");
+
+                    await_answer(MEMORY.QUESTION_ANSWER);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // debug loadout
+                        SOULS_MEMORY.DEBUG_LOADOUT = !SOULS_MEMORY.DEBUG_LOADOUT;
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // debug entities
+                        SOULS_MEMORY.DEBUG_ENTITIES = !SOULS_MEMORY.DEBUG_ENTITIES;
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // debug hotkeys
+                        SOULS_MEMORY.DEBUG_HOTKEYS = !SOULS_MEMORY.DEBUG_HOTKEYS;
+                    }
+
+                    text_end();
+                    control(BOTH);
+                }
+            }
+            @install()
             fun cheat_menu_challenge() {
                 MEMORY.QUESTION_ANSWER = 0d0;
                 while(MEMORY.QUESTION_ANSWER != 0xffff) {
@@ -1220,6 +1263,10 @@ group non_maps() {
                     text("[CHOICE][MEM1] - Challenge - [MEM1]");
                     MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY_HELPER.SUM_CHEATS;
                     text("[CHOICE][MEM1] - Cheats - [MEM1]");
+                    if(SOULS_MEMORY.DEBUG) {
+                        MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY_HELPER.SUM_DEBUG_FEATURES;
+                        text("[CHOICE][MEM1] - Debug - [MEM1]");
+                    }
 
                     debug_marker();
                     await_answer(MEMORY.QUESTION_ANSWER);
@@ -1246,6 +1293,8 @@ group non_maps() {
                         cheat_menu_challenge();
                     } else if(MEMORY.QUESTION_ANSWER == 0d5) { // cheats
                         cheat_menu_cheat();
+                    } else if(MEMORY.QUESTION_ANSWER == 0d6) { // debug
+                        cheat_menu_debug();
                     } else {
                         arg[0x12] = True;
                     }
@@ -1568,6 +1617,16 @@ group non_maps() {
                 fanfare_item(push_music);
 
                 SOULS_MEMORY.PATTERN_DRAGON_LEATHERWORK = True;
+            } else if(item == CUSTOM_ITEM.DRAGON_SCALES_RED) {
+                subtext("Red Dragon Scales");
+                SOULS_MEMORY.DRAGON_SCALES_RED = True;
+
+                fanfare_item(True, push_music);
+            } else if(item == CUSTOM_ITEM.DRAGON_SCALES_GREEN) {
+                subtext("Green Dragon Scales");
+                SOULS_MEMORY.DRAGON_SCALES_GREEN = True;
+
+                fanfare_item(True, push_music);
             } else if(item == CUSTOM_ITEM.ISAAC_BOMB) { // active abilties
                 subtext("Unlocked Bombs");
                     
@@ -2727,9 +2786,14 @@ group non_maps() {
         };
 
         fun add_debug_entity(x, y, debug_triggered) {
-            if(SOULS_MEMORY.WITH_DEBUG_ENTITIES) {
-                if(FLAG.DEBUG) {
-                    add_placeholder(DOVES_1, x, y);
+            if(SOULS_MEMORY.DEBUG) {
+                if(SOULS_MEMORY.WITH_DEBUG_ENTITIES || SOULS_MEMORY.DEBUG_ENTITIES) {
+                    if(False) {
+                        add_placeholder(DOVES_1, x, y);
+                    } else {
+                        add_enemy(BOY, x, y, INACTIVE_IMORTAL);
+                        <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.OWL_BLACK;
+                    }
                     attach_script(LAST_ENTITY, B, debug_triggered);
                 }
             }
@@ -3798,7 +3862,7 @@ group non_maps() {
                     <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
                 }
             } else {
-                if((SOULS_MEMORY.PICKAXE) || (CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_3)) {
+                if(SOULS_MEMORY_HELPER.COULD_DIG) {
                     sound(IMPACT);
                     animate(BOY, ONCE, ANIMATION_BOY.LANDING);
 
@@ -4332,7 +4396,7 @@ group non_maps() {
                 wow_archaeology(SOULS_MEMORY.ARCHAEOLOGY_TARGET);
             } else if(SOULS_MEMORY.MARIO_YUMP_ENABLED && (CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0)) {
                 rocket_jump();
-            } else if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_HOTKEYS) {
+            } else if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && (SOULS_MEMORY.WITH_CHEATS_HOTKEYS || SOULS_MEMORY.DEBUG_HOTKEYS)) {
                 debug_subtext("Start+L");
 
                 // return_to_bonfire();
@@ -4365,7 +4429,7 @@ group non_maps() {
                 }
             } else if(SOULS_MEMORY.ROCKET_JUMP_ENABLED && CUSTOM_FLAG.START_MARIO_YUMP) {
                 rocket_jump();
-            } else if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_HOTKEYS) {
+            } else if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && (SOULS_MEMORY.WITH_CHEATS_HOTKEYS || SOULS_MEMORY.DEBUG_HOTKEYS)) {
                 debug_subtext("Start+R");
 
                 if(False) {
@@ -5631,7 +5695,7 @@ group non_maps() {
                                 
                                 if(CUSTOM_MEMORY.RETURN) {
                                     SOULS_MEMORY.DRAGON_SCALES_RED = False;
-                                    reward(GLOVE_3_3, True);
+                                    custom_reward(TUNIC_RED, True);
 
                                     response_positive();
                                 } else {
@@ -5669,15 +5733,15 @@ group non_maps() {
                     await_answer();
                     text_end();
 
-                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // mushroom menu
                         craft_mushroom_armor();
-                    } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // green
                         if(NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK && SOULS_MEMORY.DEAD_STOMPY_RADAHN && SOULS_MEMORY.DRAGON_SCALES_GREEN) {
                             craft_green_dragon_scale_armor();
                         } else {
                             response_negative();
                         }
-                    } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // red
                         if(NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK && SOULS_MEMORY.DEAD_FLAPPY_DRAGON && SOULS_MEMORY.DRAGON_SCALES_RED) {
                             craft_red_dragon_scale_armor();
                         } else {
@@ -11303,7 +11367,7 @@ area inbetwixx_center() {
 
             WITH_FLOWER_TRIGGER = False,
 
-            WITH_ILLUSORY_WALL = True,
+            WITH_ILLUSORY_WALL = !(SOULS_MEMORY_HELPER.COULD_AXE2_WALL),
 
             WITH_CUSTOM_GOURD = True,
             CUSTOM_GOURD_LOOTED = memory(FLAG, SRAM),
@@ -11618,7 +11682,7 @@ area inbetwixx_center() {
         @install()
         fun trigger_enter() {
             add_debug_entity(0d16, 0d63, reference(debug_triggered));
-            if(SOULS_MEMORY.WITH_CHEATS_EVERYTHING) {
+            if(SOULS_MEMORY.WITH_CHEATS_EVERYTHING || SOULS_MEMORY.DEBUG_LOADOUT) {
                 debug_triggered();
             }
 
@@ -12213,11 +12277,14 @@ area west_inbetwixx() {
             enum b_trigger {
                 chest_1__3_feather = @install() {
                     debug_subtext("B=0");
-                    // _loot_chest(0x00, FEATHER, 0d03);
 
-                    _loot_chest(0x00, {
-                        custom_reward(FORMULA_ENERGIZE, True);
-                    });
+                    if(SOULS_MEMORY.WITH_FORMULAS) {
+                        _loot_chest(0x00, {
+                            custom_reward(FORMULA_ENERGIZE, True);
+                        });
+                    } else {
+                        _loot_chest(0x00, FEATHER, 0d03);
+                    }
                 },
                 chest_2__4_brimstone = @install() {
                     debug_subtext("B=1");
@@ -12851,6 +12918,7 @@ area altus_plateau_entry() {
 
                 WITH_WIND = True,
                 WIND_ACTIVE = memory(FLAG, TEMP),
+                WIND_ONLY_ACTIVE = True,
 
                 CODE_BOT_HACKED = memory(FLAG, TEMP),
                 CODE_BOT_DIG_COUNT = 0d100,
@@ -12968,6 +13036,7 @@ area altus_plateau_entry() {
                 enum BOSS {
                     DEBUG = False,
                     DEBUG_PHASE = True,
+                    DEBUG_HP = True,
 
                     WITH_DRAG_DOG = True,
 
@@ -12979,19 +13048,19 @@ area altus_plateau_entry() {
                     PHASE = memory(WORD, TEMP),
                     TIMER = memory(WORD, TEMP),
 
-                    HP = 0d1000,
+                    HP = 0d600,
 
                     GRAB_DISTANCE = 0d30,
                     GRAB_DAMAGE = 0d10,
 
                     // p1
 
-                    P1_THRESHOLD = 0d800,
+                    P1_THRESHOLD = 0d500,
                     P1_TIME_BEFORE_SALVAGE = 0d1200,
 
                     // p2
 
-                    P2_THRESHOLD = 0d500,
+                    P2_THRESHOLD = 0d100,
                     P2_TIME_BEFORE_SALVAGE = 0d780,
 
                     RANDOM_SPELL = memory(WORD, TEMP),
@@ -13008,6 +13077,7 @@ area altus_plateau_entry() {
                     souls_boss_defeated(DEAD_FLAPPY_DRAGON, REWARD_FLAPPY_DRAGON);
 
                     load_room(True, True);
+                    object[0x0a] = 0x00; // block elevator_top
                 }
 
                 @install()
@@ -13022,6 +13092,14 @@ area altus_plateau_entry() {
                     }
                 }
 
+                @install()
+                fun reset_cooldown() {
+                    if(BOSS.PHASE == 0d0) {
+                        BOSS.TIMER = BOSS.P1_THRESHOLD;
+                    } else {
+                        BOSS.TIMER = BOSS.P2_THRESHOLD;
+                    }
+                }
                 fun cast_salvage(target:CHARACTER, count, level) {
                     // TODO: flash/fireball, depending whether or not it's dodgeable?
 
@@ -13040,6 +13118,7 @@ area altus_plateau_entry() {
                 @install()
                 fun boss_damage() {
                     // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+                    reset_cooldown();
 
                     if(BOSS.PHASE == 0d0) {
                         BOSS.TIMER = 0d0;
@@ -13054,31 +13133,30 @@ area altus_plateau_entry() {
                         }
                     }
                     if(BOSS.PHASE == 0d2) {
-                        if(BOSS.RIDER_ID[HP] <= 0d0) {
+                        if(dead(BOSS.RIDER_ID)) {
                             BOSS.PHASE = 0d3;
                         }
                     }
 
-                    if(BOSS.DEBUG) {
+                    if(BOSS.DEBUG && BOSS.DEBUG_HP) {
                         MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
                         MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+                        MEMORY.STRING_PARAMETER_3 = BOSS.PHASE;
 
-                        subtext("Rider = [MEM1]/[MEM2]");
+                        subtext("Rider = [MEM1]/[MEM2] ([MEM3])");
                     }
                 }
 
                 @install()
                 fun morph() {
-                    arg[0x10] = randrange(0d4);
+                    arg[0x10] = randrange(0d3);
 
                     if(arg[0x10] == 0d0) {
-                        <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.RAPTOR_BLACK;
+                        BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.BUZZARD_1;
                     } else if(arg[0x10] == 0d1) {
-                        <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.BUZZARD_1;
+                        BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.RAT;
                     } else if(arg[0x10] == 0d2) {
-                        <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.RAT;
-                    } else {
-                        <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.MOSQUITO;
+                        BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.MOSQUITO;
                     }
                 }
 
@@ -13134,8 +13212,8 @@ area altus_plateau_entry() {
                     animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
                     morph();
                     BOSS.TIMER = 0x0000;
-                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-                    cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                    cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
 
                     while(BOSS.PHASE == 0d2) {
                         BOSS.TIMER += 0d10;
@@ -13143,15 +13221,15 @@ area altus_plateau_entry() {
                         if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
                             BOSS.TIMER = 0x0000;
 
-                            BOSS.RANDOM_SPELL = randrange(0x03);
+                            BOSS.RANDOM_SPELL = randrange(0d3);
 
-                            if(BOSS.RANDOM_SPELL == 0x00) {
-                                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
-                                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
-                            } else if(BOSS.RANDOM_SPELL == 0x01) {
-                                cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0x30);
-                            } else if(BOSS.RANDOM_SPELL == 0x02) {
-                                cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0x01);
+                            if(BOSS.RANDOM_SPELL == 0d0) {
+                                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                            } else if(BOSS.RANDOM_SPELL == 0d1) {
+                                cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d10);
+                            } else if(BOSS.RANDOM_SPELL == 0d2) {
+                                cast(BOSS.RIDER_ID, ACTIVE, PLAGUE);
                             } 
                         }
                         
@@ -13196,7 +13274,8 @@ area altus_plateau_entry() {
                 }
 
                 fun spawn_boss(x, y) {
-                    add_enemy(VERMINATOR, x, y);
+                    add_enemy(STERLING, x, y);
+                    <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.VERMINATOR;
                     <LAST_ENTITY>[HP] = BOSS.HP;
                     BOSS.RIDER_ID = <LAST_ENTITY>;
                     attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
@@ -13223,7 +13302,7 @@ area altus_plateau_entry() {
                                     }
 
                                     face(SCRIPT_OWNER, SOUTH);
-                                    animate(LAST_ENTITY, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+                                    animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
                                     sterling_flapping(<SCRIPT_OWNER>, 0d600);
                                     yield();
 
@@ -13466,31 +13545,17 @@ area altus_plateau_entry() {
                         }
                     }
 
-                    if(<BOY>[Y] < 0d180) {
+                    if(<ACTIVE>[Y] < 0d180) {
                         arg[0x10] = 0d3;
-                    } else if(<BOY>[Y] < 0d350) {
+                    } else if(<ACTIVE>[Y] < 0d350) {
                         arg[0x10] = 0d4;
-                    } else if(<BOY>[Y] < 0d400) {
+                    } else if(<ACTIVE>[Y] < 0d400) {
                         arg[0x10] = 0d3;
-                    } else if(<BOY>[Y] < 0d670) {
+                    } else if(<ACTIVE>[Y] < 0d670) {
                         arg[0x10] = 0d1;
                     } else {
                         arg[0x10] = 0d0;
                     }
-
-                    if(<DOG>[Y] < 0d180) {
-                        arg[0x12] = 0d3;
-                    } else if(<DOG>[Y] < 0d350) {
-                        arg[0x12] = 0d4;
-                    } else if(<DOG>[Y] < 0d400) {
-                        arg[0x12] = 0d3;
-                    } else if(<DOG>[Y] < 0d670) {
-                        arg[0x12] = 0d1;
-                    } else {
-                        arg[0x12] = 0d0;
-                    }
-
-                    // if(<BOY>[STAMINA] > STAMINA.PERCENTAGE_50) {
 
                     if(arg[0x10] > 0d0) {
                         increment_no_running(ROOM.WIND_ACTIVE);
@@ -13498,13 +13563,16 @@ area altus_plateau_entry() {
                         decrement_no_running(ROOM.WIND_ACTIVE);
                     }
 
-                    if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST != ARMOR_STATS.CHEST_2_2) {
-                        if!(<BOY>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
-                            teleport_relative(BOY, 0d0, arg[0x10]);
+                    if(<ACTIVE> == <BOY>) {
+                        if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST != ARMOR_STATS.CHEST_2_2) {
+                            if!(<BOY>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                                teleport_relative(BOY, 0d0, arg[0x10]);
+                            }
                         }
-                    }
-                    if!(<DOG>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
-                        teleport_relative(DOG, 0d0, arg[0x12]);
+                    } else {
+                        if!(<DOG>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                            teleport_relative(DOG, 0d0, arg[0x12]);
+                        }
                     }
 
                     sleep(0d3);
@@ -15678,7 +15746,7 @@ area altus_plateau_entry() {
                 LUIGI_LIMIT_TOP = 0d433,
                 LUIGI_LIMIT_BOTTOM = 0d447,
 
-                DIGGING_REQUIRED = SOULS_MEMORY.PICKAXE || MEMORY.GLOVE_3_3,
+                DIGGING_REQUIRED = SOULS_MEMORY_HELPER.COULD_DIG,
                 TUNNEL_OPENED = memory(FLAG, SRAM),
             }
 
@@ -18888,20 +18956,20 @@ area east_inbetwixx() {
             FLASH_LEVEL = SOULS_MEMORY.FLASH_BASE_DAMAGE + 0d0,
 
             CHEESE_COUNT = memory(WORD, TEMP),
-            BEHIND_THRESHOLD = 0d40,
+            BEHIND_THRESHOLD = 0d60,
 
             // p1
 
-            P1_THRESHOLD = 0x320, // 800
-            P1_TIME_BEFORE_SALVAGE = 0x500,
+            P1_THRESHOLD = 0d800,
+            P1_TIME_BEFORE_SALVAGE = 0d25 * 0d0060,
 
             // p2
 
-            P2_THRESHOLD = 0x1f4, // 500
-            P2_TIME_BEFORE_SALVAGE = 0x300,
+            P2_THRESHOLD = 0d300,
+            P2_TIME_BEFORE_SALVAGE = 0d15 * 0d0060,
 
             RANDOM_SPELL = memory(WORD, TEMP),
-            TIME_BEFORE_RANDOM_SPELL = 0x300,
+            TIME_BEFORE_RANDOM_SPELL = 0d15 * 0d0060,
         }
 
         fun boss_killed() {
@@ -19019,7 +19087,17 @@ area east_inbetwixx() {
         }
 
         @install()
+        fun reset_cooldown() {
+            if(BOSS.PHASE == 0d0) {
+                BOSS.TIMER = BOSS.P1_THRESHOLD;
+            } else {
+                BOSS.TIMER = BOSS.P2_THRESHOLD;
+            }
+        }
+
+        @install()
         fun boss_damage() {
+            reset_cooldown();
             // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
 
             if(BOSS.PHASE == 0d0) {
@@ -19233,6 +19311,8 @@ area east_inbetwixx() {
         enum stepon_trigger {
             exit_north = @install() {
                 debug_subtext("S=0");
+
+                map_transition(north_eastern_cave_3, south, NORTH);
             },
             exit_south = @install() {
                 fog_wall_inside(!SOULS_MEMORY.DEAD_STOMPY_RADAHN, NORTH);
@@ -31063,6 +31143,10 @@ area town() {
                     door_backroom = entrance(0x8c, 0x10, SOUTH),
                 }
 
+                enum soundtrack {
+                    default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+                }
+
                 enum ROOM {
                     BIG_CHEST_LOOTED = memory(FLAG, SRAM),
                     SMALL_CHEST_LOOTED = memory(FLAG, SRAM),
@@ -31130,7 +31214,7 @@ area town() {
                     gourd_backroom_2chests_1 = @install() {
                         debug_subtext("B=8");
 
-                        _loot_chest(0x05, WATER, 0d01);
+                        _loot_chest(0x05, IRON, 0d01);
                     },
                     gourd_upstairs_1 = nop(),
 
@@ -31199,6 +31283,10 @@ area town() {
             map town_house_maggy_upstairs(IVOR_EBON_HOUSES) { // house_2_1 upstairs
                 enum entrance {
                     stairs = entrance(0xaa, 0x23, NORTH),
+                }
+
+                enum soundtrack {
+                    default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
                 }
 
                 enum stepon_trigger {
