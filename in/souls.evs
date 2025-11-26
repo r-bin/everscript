@@ -899,6 +899,14 @@ group non_maps() {
         }
 
         group cheat_menu() {
+            enum CHEAT_MENU {
+                DEBUG = False,
+
+                SKIP_CODE = SOULS_MEMORY.DEBUG,
+
+                DELAY = 0d5,
+            }
+
             @install()
             fun cheat_menu_weapon() {
                 MEMORY.QUESTION_ANSWER = 0d0;
@@ -1288,7 +1296,6 @@ group non_maps() {
                     }
 
                     text_end();
-                    control(BOTH);
 
                     if(MEMORY.QUESTION_ANSWER == 0d2) { // cheat in weapon
                         cheat_menu_weapon();
@@ -1309,16 +1316,37 @@ group non_maps() {
 
             @install()
             fun handle_cheat_menu() {
+                if(CHEAT_MENU.DEBUG) {
+                    _fade_in();
+                }
+                
                 while((MEMORY.INPUT_P1 & (INPUT.L | INPUT.R)) == (INPUT.L | INPUT.R)) {
                     arg[0x10]++;
                     arg[0x12] = MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R));
 
-                    if(arg[0x10] == 0d60) {
-                        subtext("???");
-                    } else if(arg[0x10] == 0d120) {
-                        cheat_menu();
+                    if(CHEAT_MENU.SKIP_CODE) {
+                        if(arg[0x10] == 0d60) {
+                            cheat_menu();
+                        }
+                    } else {
+                        check_code_konami(arg[0x16], arg[0x12], {
+                            cheat_menu();
+                        });
+                        if(CHEAT_MENU.DEBUG) {
+                            debug_memory(arg[0x12], arg[0x16]);
+                        }
+
+                        sleep(CHEAT_MENU.DELAY);
+                        while((MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R))) == arg[0x12]) {
+                            yield();
+                        }
+                        sleep(CHEAT_MENU.DELAY);
                     }
+
+                    yield();
                 }
+
+                reset_timer();
             }
         };
 
