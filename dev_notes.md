@@ -4,7 +4,6 @@
 
 # important
 ## dog statue guards dialog
-## mole hole = morph rat entry
 ## scale enemies: before pyramid
 ## aquagoth gives 0 souls?
 ## "positive"/"negative"
@@ -14,33 +13,30 @@
 ## dog should not be at 0/0 during abomination fight
 
 # nice to have
+## more orbs (every boss)
+## animations/cutscenes
+### sound - falling transition
+### ship: walking south instantly breaks stairs
+### pipe maze side room spawns dog (vanilla script)
+### abomination entrance only works the first time
+### volcano plate jumps should lock the camera while waiting
+### thraxx (kill -> walk to center)
+### wall-boss exit calls dog
+### bomb arena - leave via bridge
+## "wrong weapon" after watching the outro while holding the bronze axe
+## stats menu - armor name incorrect
 ## d3: hold up bazooka when winning (if possible)
 ## radiation (more enemies near the entrances)
-## wall-boss exit calls dog
 ## diablo p2? + diablo clone should not actually die
-## more orbs (every boss)
 ## ai moves don't cancel on death
 ## projectiles with entity targets should check range (and not shoot off screen)
 ## spoon sickness can be healed with heal or miracle cure
 ## basement - door unlock sounds
-## sound - falling transition
-## volcano plate jumps should lock the camera while waiting
 ## market: gain brown dropplets
-## animations/cutscenes
-### abomination entrance only works the first time
-## "wrong weapon" after watching the outro while holding the bronze axe
-## thraxx (kill -> walk to center)
 ## any door can be opened with a bomb
-## multiple fanfares seem to be inefficient (long fadeout silence)
-## bomb arena - leave via bridge
 ## cat ring purchasing is weird
-## ship: walking south instantly breaks stairs
-## pipe maze side room spawns dog (vanilla script)
 ## basement red maggots after monstro
-## raptor arena - don't reuse enemies
-## raptor arena - bushes are not hidden on enter
 ## fan boss too easy
-## stats menu - armor name incorrect
 ## temple elevator preselect floor
 
 
