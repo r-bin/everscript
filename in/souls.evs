@@ -4892,22 +4892,22 @@ group non_maps() {
                 }
 
                 fun response_positive() {
-                    conversation_dialog("[SLOW]positive[B]");
+                    conversation_dialog("[SLOW]Come back if you need aid.[B]");
                 }
                 fun response_negative() {
-                    conversation_dialog("[SLOW]negative[B]");
+                    conversation_dialog("[SLOW]Come back later.[B]");
                 }
 
                 fun greeting_default() {
-                    conversation_dialog("[SLOW]Bearer of the curse…[LF]Seek souls. Larger, more powerful souls.[LF]Seek the King, that is the only way.[LF]Lest this land swallow you whole… As it has so many others.[B]");
+                    conversation_dialog("[SLOW]Seek the land for larger and larger souls.[B]");
                 }
 
                 fun greeting_estus_shard() {
-                    conversation_dialog("[SLOW]Is that a shard you've found?[LF]Here, let me see it. So that I may help you.[LF]To see light, to see hope…[LF]However faint it might be…[B]");
+                    conversation_dialog("[SLOW]Let me see that…[B]");
                 }
 
                 fun story_estus_shard() {
-                    conversation_dialog("[SLOW]If you find an Estus Shard, bring it to me.[LF]So that I may ease your burden.[B]");
+                    conversation_dialog("[SLOW]If you find an Estus Shard, bring it to me.[B]");
                 }
 
                 fun upgrade_boy() {
@@ -19062,126 +19062,83 @@ area east_inbetwixx() {
             // default = soundtrack(BOSS, 0xff)
         }
 
-        enum BOSS {
-            DEBUG = False,
-            DEBUG_STOMP = False,
-            DEBUG_MOUNT = False,
+        group boss_ai() {
+            enum BOSS {
+                DEBUG = False,
+                DEBUG_STOMP = False,
+                DEBUG_MOUNT = False,
 
-            IN_PROGRESS = memory(FLAG, TEMP),
+                IN_PROGRESS = memory(FLAG, TEMP),
 
-            RIDER_ID = memory(WORD, TEMP),
-            MOUNT_ID = memory(WORD, TEMP),
+                RIDER_ID = memory(WORD, TEMP),
+                MOUNT_ID = memory(WORD, TEMP),
 
-            PHASE = memory(WORD, TEMP),
-            TIMER = memory(WORD, TEMP),
+                PHASE = memory(WORD, TEMP),
+                TIMER = memory(WORD, TEMP),
 
-            HP = 0d1000,
+                HP = 0d1000,
 
-            COUNTDOWN = 0x03,
+                COUNTDOWN = 0x03,
 
-            STOMP_ENTITY = memory(WORD, TEMP),
-            STOMP_DISTANCE = 0x20,
-            STOMP_COOL_DOWN_TIMER = memory(WORD, TEMP),
-            STOMP_COOL_DOWN = 0x100,
-            STOMP_DAMAGE_CLOSE = 0x50,
-            STOMP_DAMAGE = 0x10,
-            STOMP_EXPLOSION_DISTANCE = 0x30,
+                STOMP_ENTITY = memory(WORD, TEMP),
+                STOMP_DISTANCE = 0x20,
+                STOMP_COOL_DOWN_TIMER = memory(WORD, TEMP),
+                STOMP_COOL_DOWN = 0x100,
+                STOMP_DAMAGE_CLOSE = 0x50,
+                STOMP_DAMAGE = 0x10,
+                STOMP_EXPLOSION_DISTANCE = 0x30,
 
-            FLASH_LEVEL = SOULS_MEMORY.FLASH_BASE_DAMAGE + 0d0,
+                FLASH_LEVEL = SOULS_MEMORY.FLASH_BASE_DAMAGE + 0d0,
 
-            CHEESE_COUNT = memory(WORD, TEMP),
-            BEHIND_THRESHOLD = 0d60,
+                CHEESE_COUNT = memory(WORD, TEMP),
+                BEHIND_THRESHOLD = 0d60,
 
-            // p1
+                // p1
 
-            P1_THRESHOLD = 0d800,
-            P1_TIME_BEFORE_SALVAGE = 0d25 * 0d0060,
+                P1_THRESHOLD = 0d800,
+                P1_TIME_BEFORE_SALVAGE = 0d25 * 0d0060,
 
-            // p2
+                // p2
 
-            P2_THRESHOLD = 0d300,
-            P2_TIME_BEFORE_SALVAGE = 0d15 * 0d0060,
+                P2_THRESHOLD = 0d300,
+                P2_TIME_BEFORE_SALVAGE = 0d15 * 0d0060,
 
-            RANDOM_SPELL = memory(WORD, TEMP),
-            TIME_BEFORE_RANDOM_SPELL = 0d15 * 0d0060,
-        }
-
-        fun boss_killed() {
-            souls_boss_defeated(DEAD_STOMPY_RADAHN, REWARD_STOMPY_RADAHN);
-
-            BOSS.IN_PROGRESS = False;
-
-            object[0x1f] = 0x00;
-        }
-
-        @install()
-        @async()
-        fun stomp() {
-            BOSS.RIDER_ID[VELOCITY] = 0x38;
-            BOSS.MOUNT_ID[VELOCITY] = 0x30;
-
-            // attribute(BOSS.MOUNT_ID, ROOT, True);
-            // animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
-
-            sleep(0x60);
-
-            add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_3, 0x00, 0x00);
-            BOSS.STOMP_ENTITY = <LAST_ENTITY>;
-            <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
-            <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y] + 0x10;
-
-            arg[0x00] = BOSS.STOMP_ENTITY[X];
-            arg[0x02] = BOSS.STOMP_ENTITY[Y];
-            arg[0x04] = <BOY>[X];
-            arg[0x06] = <BOY>[Y];
-
-            if(False) {
-                if(arg[0x00] < arg[0x04]) {
-                    arg[0x08] = arg[0x04] - arg[0x00];
-                } else {
-                    arg[0x08] = arg[0x00] - arg[0x04];
-                }
-
-                if(arg[0x02] < arg[0x06]) {
-                    arg[0x0a] = arg[0x06] - arg[0x02];
-                } else {
-                    arg[0x0a] = arg[0x02] - arg[0x06];
-                }
-
-                if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_DISTANCE)) {
-                    damage(BOY, BOSS.STOMP_DAMAGE_CLOSE, True);
-                } else if((arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE)) {
-                    damage(BOY, BOSS.STOMP_DAMAGE, True);
-                }
-            } else {
-                bomb_entity(BOSS.STOMP_ENTITY, BOSS.STOMP_DISTANCE, BOSS.STOMP_DAMAGE_CLOSE);
-                bomb_entity(BOSS.STOMP_ENTITY, BOSS.STOMP_EXPLOSION_DISTANCE, BOSS.STOMP_DAMAGE);
+                RANDOM_SPELL = memory(WORD, TEMP),
+                TIME_BEFORE_RANDOM_SPELL = 0d15 * 0d0060,
             }
 
-            if(BOSS.DEBUG && BOSS.DEBUG_STOMP) {
-                debug_memory(arg[0x08], arg[0x0a]);
-                sleep(0x20);
+            fun boss_killed() {
+                _destroy(BOSS.MOUNT_ID);
+
+                souls_boss_defeated(DEAD_STOMPY_RADAHN, REWARD_STOMPY_RADAHN);
+
+                BOSS.IN_PROGRESS = False;
+
+                object[0x1f] = 0x00;
             }
 
-            sleep(0x30);
-            destroy(BOSS.STOMP_ENTITY);
-            // attribute(BOSS.MOUNT_ID, ROOT, False);
-        }
+            @install()
+            @async()
+            fun stomp() {
+                BOSS.RIDER_ID[VELOCITY] = 0x38;
+                BOSS.MOUNT_ID[VELOCITY] = 0x30;
 
-        @install()
-        @async()
-        fun stack_t01_offset() {
-            while(alive(BOSS.MOUNT_ID)) {
-                BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
-                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
-                yield();
+                // attribute(BOSS.MOUNT_ID, ROOT, True);
+                // animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
 
-                if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
-                    arg[0x00] = BOSS.MOUNT_ID[X];
-                    arg[0x02] = BOSS.MOUNT_ID[Y] - 0d20;
-                    arg[0x04] = <ACTIVE>[X];
-                    arg[0x06] = <ACTIVE>[Y];
+                sleep(0x60);
 
+                add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_GREEN_3, 0x00, 0x00);
+                BOSS.STOMP_ENTITY = <LAST_ENTITY>;
+                <LAST_ENTITY>[X] = BOSS.MOUNT_ID[X];
+                <LAST_ENTITY>[Y] = BOSS.MOUNT_ID[Y] + 0x10;
+
+                arg[0x00] = BOSS.STOMP_ENTITY[X];
+                arg[0x02] = BOSS.STOMP_ENTITY[Y];
+                arg[0x04] = <BOY>[X];
+                arg[0x06] = <BOY>[Y];
+
+                if(False) {
                     if(arg[0x00] < arg[0x04]) {
                         arg[0x08] = arg[0x04] - arg[0x00];
                     } else {
@@ -19194,251 +19151,305 @@ area east_inbetwixx() {
                         arg[0x0a] = arg[0x02] - arg[0x06];
                     }
 
-                    if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= (BOSS.STOMP_DISTANCE + 0d20))) {
-                        BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
-
-                        stomp();
-                        call_async(ADDRESS.STERLING_ROAR);
+                    if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_DISTANCE)) {
+                        damage(BOY, BOSS.STOMP_DAMAGE_CLOSE, True);
+                    } else if((arg[0x08] <= BOSS.STOMP_EXPLOSION_DISTANCE) && (arg[0x0a] <= BOSS.STOMP_EXPLOSION_DISTANCE)) {
+                        damage(BOY, BOSS.STOMP_DAMAGE, True);
                     }
+                } else {
+                    bomb_entity(BOSS.STOMP_ENTITY, BOSS.STOMP_DISTANCE, BOSS.STOMP_DAMAGE_CLOSE);
+                    bomb_entity(BOSS.STOMP_ENTITY, BOSS.STOMP_EXPLOSION_DISTANCE, BOSS.STOMP_DAMAGE);
+                }
+
+                if(BOSS.DEBUG && BOSS.DEBUG_STOMP) {
+                    debug_memory(arg[0x08], arg[0x0a]);
+                    sleep(0x20);
+                }
+
+                sleep(0x30);
+                destroy(BOSS.STOMP_ENTITY);
+                // attribute(BOSS.MOUNT_ID, ROOT, False);
+            }
+
+            @install()
+            @async()
+            fun stack_t01_offset() {
+                while(alive(BOSS.MOUNT_ID)) {
+                    BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                    BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0x15;
                     yield();
 
-                    // if(BOSS.DEBUG) {
-                    //     debug_memory(arg[0x08], arg[0x0a]);
-                    //     sleep(0x20);
-                    // }
-                } else {
-                    BOSS.STOMP_COOL_DOWN_TIMER--;
-                }
-            }
-        }
+                    if(BOSS.STOMP_COOL_DOWN_TIMER == 0x0000) {
+                        arg[0x00] = BOSS.MOUNT_ID[X];
+                        arg[0x02] = BOSS.MOUNT_ID[Y] - 0d20;
+                        arg[0x04] = <ACTIVE>[X];
+                        arg[0x06] = <ACTIVE>[Y];
 
-        fun cast_salvage(target:CHARACTER, level) {
-            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
-            cast(BOSS.RIDER_ID, target, FLASH, level);
-            cast(BOSS.RIDER_ID, target, FLASH, level);
-        }
-
-        @install()
-        fun reset_cooldown() {
-            if(BOSS.PHASE == 0d0) {
-                BOSS.TIMER = BOSS.P1_THRESHOLD;
-            } else {
-                BOSS.TIMER = BOSS.P2_THRESHOLD;
-            }
-        }
-
-        @install()
-        fun boss_damage() {
-            reset_cooldown();
-            // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
-
-            if(BOSS.PHASE == 0d0) {
-                BOSS.TIMER = 0d0;
-
-                if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
-                    BOSS.PHASE = 0d1;
-                }
-            }
-            if(BOSS.PHASE == 0d1) {
-                if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
-                    BOSS.PHASE = 0d2;
-                }
-            }
-            if(BOSS.PHASE == 0d2) {
-                if(BOSS.TIMER > 0d100) {
-                    BOSS.TIMER -= 0d100;
-                } else {
-                    BOSS.TIMER = 0d0;
-                }
-            }
-
-            if(BOSS.DEBUG && False) {
-                MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
-                MEMORY.STRING_PARAMETER_2 = BOSS.HP;
-
-                subtext("Rider = [MEM1]/[MEM2]");
-            }
-        }
-
-        @install()
-        @async()
-        fun boss_watcher() {
-            if(BOSS.DEBUG) {
-                subtext("phase 0");
-            }
-
-            while(BOSS.PHASE == 0d0) {
-                if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, BOSS.FLASH_LEVEL);
-
-                    BOSS.TIMER = 0d0;
-                }
-            
-                if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER++;
-                }
-                yield();
-            }
-
-            if(BOSS.DEBUG) {
-                subtext("phase 1");
-            }
-
-            BOSS.TIMER = 0d0;
-            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
-            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
-
-            while(BOSS.PHASE == 0x01) {
-                if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
-                    cast_salvage(ACTIVE, BOSS.FLASH_LEVEL);
-
-                    BOSS.TIMER = 0d0;
-                }
-            
-                if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
-                    BOSS.TIMER++;
-                }
-                yield();
-            }
-
-            BOSS.TIMER = 0d0;
-            BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
-            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
-            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
-
-            while(BOSS.PHASE == 0d1) {
-                BOSS.TIMER++;
-
-                if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
-                    BOSS.TIMER = 0d0;
-
-                    BOSS.RANDOM_SPELL = randrange(0d3);
-
-                    if(BOSS.RANDOM_SPELL == 0d0) {
-                        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
-                        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
-                    } else if(BOSS.RANDOM_SPELL == 0d1) {
-                        cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d30);
-                    } else if(BOSS.RANDOM_SPELL == 0d2) {
-                        cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
-                    } 
-                }
-                yield();
-            }
-
-            if(BOSS.DEBUG) {
-                subtext("phase 2");
-            }
-
-            boss_killed();
-        }
-
-        fun cast_drake_salvage(target:CHARACTER, level) {
-            call_async(ADDRESS.STERLING_ROAR);
-
-            cast(BOSS.MOUNT_ID, target, FIREBALL, level);
-            cast(BOSS.MOUNT_ID, target, FIREBALL, level);
-        }
-
-        @install()
-        @async()
-        fun cheese_watcher(mount) {
-            attach_to_script(mount);
-
-            while(alive(<SCRIPT_OWNER>)) {
-                if(
-                    (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)
-                    || (<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)
-                    || (<ACTIVE>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)
-                    || (<ACTIVE>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)
-                ) {
-                    nop();
-                } else if((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) && (<BOY>[Y] >= arg[0x12])) {
-                    if(BOSS.CHEESE_COUNT > 0d3) {
-                        BOSS.CHEESE_COUNT -= 0d3;
-                    } else {
-                        BOSS.CHEESE_COUNT = 0d0;
-                    }
-                } else {
-                    if(<BOY>[Y] < arg[0x12]) {
-                        BOSS.CHEESE_COUNT += 0d2;
-                    } else if((arg[0x10] == <SCRIPT_OWNER>[X]) && (arg[0x12] == <SCRIPT_OWNER>[Y])) {
-                        BOSS.CHEESE_COUNT += 0d1;
-                    } else if(BOSS.CHEESE_COUNT > 0d0) {
-                        BOSS.CHEESE_COUNT--;
-                    }
-
-                    if(BOSS.CHEESE_COUNT > BOSS.BEHIND_THRESHOLD) {
-                        BOSS.CHEESE_COUNT = 0d0;
-
-                        cast_drake_salvage(BOY, 0d10);
-                    }
-
-                    if(BOSS.DEBUG && BOSS.DEBUG_MOUNT) {
-                        arg[0x20]++;
-
-                        if(arg[0x20] > 0d20) {
-                            arg[0x20] = 0d0;
-
-                            debug_memory(BOSS.CHEESE_COUNT, BOSS.BEHIND_THRESHOLD);
+                        if(arg[0x00] < arg[0x04]) {
+                            arg[0x08] = arg[0x04] - arg[0x00];
+                        } else {
+                            arg[0x08] = arg[0x00] - arg[0x04];
                         }
-                    }
 
-                    arg[0x10] = <SCRIPT_OWNER>[X];
-                    arg[0x12] = <SCRIPT_OWNER>[Y];
-                }
+                        if(arg[0x02] < arg[0x06]) {
+                            arg[0x0a] = arg[0x06] - arg[0x02];
+                        } else {
+                            arg[0x0a] = arg[0x02] - arg[0x06];
+                        }
 
-                sleep(0d10);
-            }
-        }
-        
-        fun spawn_boss(x, y) {
-            add_enemy(VERMINATOR, x, y);
-            <LAST_ENTITY>[HP] = BOSS.HP;
-            BOSS.RIDER_ID = <LAST_ENTITY>;
-            attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
-            attribute(LAST_ENTITY, ROOT, True);
-            // attribute(LAST_ENTITY, NO_CLIP, True);
+                        if((arg[0x08] <= BOSS.STOMP_DISTANCE) && (arg[0x0a] <= (BOSS.STOMP_DISTANCE + 0d20))) {
+                            BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
 
-            // add_enemy(STERLING, x, y);
-            add_enemy(FORESTDRAKE, x, y);
-            // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.STERLING;
-            BOSS.MOUNT_ID = <LAST_ENTITY>;
-            // attach_sterling_script_to_last_entity();
-            // attribute(LAST_ENTITY, ROOT, True);
-            cheese_watcher(<LAST_ENTITY>);
-        }
-
-        @install()
-        @async()
-        fun boss_triggered() {
-            if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
-                if!(BOSS.IN_PROGRESS) {
-                    push_music(BOSS);
-
-                    spawn_boss(0x39, 0x23);
-                    control(BOSS.MOUNT_ID, True);
-                    stack_t01_offset();
-
-                    set_camera(COORDINATE_CORNER, 0x0108, 0xa0, 0x18);
-
-                    while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                            stomp();
+                            call_async(ADDRESS.STERLING_ROAR);
+                        }
                         yield();
+
+                        // if(BOSS.DEBUG) {
+                        //     debug_memory(arg[0x08], arg[0x0a]);
+                        //     sleep(0x20);
+                        // }
+                    } else {
+                        BOSS.STOMP_COOL_DOWN_TIMER--;
                     }
-
-                    walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
-                    walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, BOTH);
-                    free_camera();
-
-                    BOSS.IN_PROGRESS = True;
-                    object[0x1f] = 0x7e;
-                    object[0x00] = 0x00;
-                    
-                    control(BOSS.MOUNT_ID, False);
-                    boss_watcher();
                 }
             }
-        }
+
+            fun cast_salvage(target:CHARACTER, level) {
+                animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+                cast(BOSS.RIDER_ID, target, FLASH, level);
+                cast(BOSS.RIDER_ID, target, FLASH, level);
+            }
+
+            @install()
+            fun reset_cooldown() {
+                if(BOSS.PHASE == 0d0) {
+                    BOSS.TIMER = BOSS.P1_THRESHOLD;
+                } else {
+                    BOSS.TIMER = BOSS.P2_THRESHOLD;
+                }
+            }
+
+            @install()
+            fun boss_damage() {
+                reset_cooldown();
+                // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+                if(BOSS.PHASE == 0d0) {
+                    BOSS.TIMER = 0d0;
+
+                    if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
+                        BOSS.PHASE = 0d1;
+                    }
+                }
+                if(BOSS.PHASE == 0d1) {
+                    if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
+                        BOSS.PHASE = 0d2;
+                    }
+                }
+                if(BOSS.PHASE == 0d2) {
+                    if(BOSS.TIMER > 0d100) {
+                        BOSS.TIMER -= 0d100;
+                    } else {
+                        BOSS.TIMER = 0d0;
+                    }
+
+                    if(BOSS.RIDER_ID[HP] <= 0d0) {
+                        BOSS.PHASE = 0xff;
+                    }
+                }
+
+                if(BOSS.DEBUG) {
+                    MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
+                    MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+                    MEMORY.STRING_PARAMETER_3 = BOSS.PHASE;
+
+                    subtext("Rider = [MEM1]/[MEM2] ([MEM3])");
+                }
+            }
+
+            @install()
+            @async()
+            fun boss_watcher() {
+                if(BOSS.DEBUG) {
+                    subtext("phase 0");
+                }
+
+                while(BOSS.PHASE == 0d0) {
+                    if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                        cast_salvage(ACTIVE, BOSS.FLASH_LEVEL);
+
+                        BOSS.TIMER = 0d0;
+                    }
+                
+                    if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                        BOSS.TIMER++;
+                    }
+                    yield();
+                }
+                if(BOSS.DEBUG) {
+                    subtext("phase 1");
+                }
+
+                BOSS.TIMER = 0d0;
+                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+
+                while(BOSS.PHASE == 0d1) {
+                    if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                        cast_salvage(ACTIVE, BOSS.FLASH_LEVEL);
+
+                        BOSS.TIMER = 0d0;
+                    }
+                
+                    if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                        BOSS.TIMER++;
+                    }
+                    yield();
+                }
+                if(BOSS.DEBUG) {
+                    subtext("phase 2");
+                }
+
+                BOSS.TIMER = 0d0;
+                BOSS.STOMP_COOL_DOWN_TIMER = BOSS.STOMP_COOL_DOWN;
+                cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+
+                while(BOSS.PHASE == 0d2) {
+                    BOSS.TIMER++;
+
+                    if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                        BOSS.TIMER = 0d0;
+
+                        BOSS.RANDOM_SPELL = randrange(0d3);
+
+                        if(BOSS.RANDOM_SPELL == 0d0) {
+                            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                        } else if(BOSS.RANDOM_SPELL == 0d1) {
+                            cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d30);
+                        } else if(BOSS.RANDOM_SPELL == 0d2) {
+                            cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
+                        } 
+                    }
+                    yield();
+                }
+
+                if(BOSS.DEBUG) {
+                    subtext("yatta");
+                }
+
+                boss_killed();
+            }
+
+            fun cast_drake_salvage(target:CHARACTER, level) {
+                call_async(ADDRESS.STERLING_ROAR);
+
+                cast(BOSS.MOUNT_ID, target, FIREBALL, level);
+                cast(BOSS.MOUNT_ID, target, FIREBALL, level);
+            }
+
+            @install()
+            @async()
+            fun cheese_watcher(mount) {
+                attach_to_script(mount);
+
+                while(alive(<SCRIPT_OWNER>)) {
+                    if(
+                        (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)
+                        || (<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED)
+                        || (<ACTIVE>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)
+                        || (<ACTIVE>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)
+                    ) {
+                        nop();
+                    } else if((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) && (<BOY>[Y] >= arg[0x12])) {
+                        if(BOSS.CHEESE_COUNT > 0d3) {
+                            BOSS.CHEESE_COUNT -= 0d3;
+                        } else {
+                            BOSS.CHEESE_COUNT = 0d0;
+                        }
+                    } else {
+                        if(<BOY>[Y] < arg[0x12]) {
+                            BOSS.CHEESE_COUNT += 0d2;
+                        } else if((arg[0x10] == <SCRIPT_OWNER>[X]) && (arg[0x12] == <SCRIPT_OWNER>[Y])) {
+                            BOSS.CHEESE_COUNT += 0d1;
+                        } else if(BOSS.CHEESE_COUNT > 0d0) {
+                            BOSS.CHEESE_COUNT--;
+                        }
+
+                        if(BOSS.CHEESE_COUNT > BOSS.BEHIND_THRESHOLD) {
+                            BOSS.CHEESE_COUNT = 0d0;
+
+                            cast_drake_salvage(BOY, 0d10);
+                        }
+
+                        if(BOSS.DEBUG && BOSS.DEBUG_MOUNT) {
+                            arg[0x20]++;
+
+                            if(arg[0x20] > 0d20) {
+                                arg[0x20] = 0d0;
+
+                                debug_memory(BOSS.CHEESE_COUNT, BOSS.BEHIND_THRESHOLD);
+                            }
+                        }
+
+                        arg[0x10] = <SCRIPT_OWNER>[X];
+                        arg[0x12] = <SCRIPT_OWNER>[Y];
+                    }
+
+                    sleep(0d10);
+                }
+            }
+            
+            fun spawn_boss(x, y) {
+                add_enemy(VERMINATOR, x, y);
+                <LAST_ENTITY>[HP] = BOSS.HP;
+                BOSS.RIDER_ID = <LAST_ENTITY>;
+                attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(boss_damage));
+                attribute(LAST_ENTITY, ROOT, True);
+                // attribute(LAST_ENTITY, NO_CLIP, True);
+
+                // add_enemy(STERLING, x, y);
+                add_enemy(FORESTDRAKE, x, y);
+                // <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.STERLING;
+                BOSS.MOUNT_ID = <LAST_ENTITY>;
+                // attach_sterling_script_to_last_entity();
+                // attribute(LAST_ENTITY, ROOT, True);
+                cheese_watcher(<LAST_ENTITY>);
+            }
+
+            @install()
+            @async()
+            fun boss_triggered() {
+                if!(SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
+                    if!(BOSS.IN_PROGRESS) {
+                        push_music(BOSS);
+
+                        spawn_boss(0x39, 0x23);
+                        control(BOSS.MOUNT_ID, True);
+                        stack_t01_offset();
+
+                        set_camera(COORDINATE_CORNER, 0x0108, 0xa0, 0x18);
+
+                        while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                            yield();
+                        }
+
+                        walk(BOY, TILE_ABSOLUTE, 0x2d, 0x25, NONE);
+                        walk(DOG, TILE_ABSOLUTE, 0x36, 0x25, BOTH, BOTH);
+                        free_camera();
+
+                        BOSS.IN_PROGRESS = True;
+                        object[0x1f] = 0x7e;
+                        object[0x00] = 0x00;
+                        
+                        control(BOSS.MOUNT_ID, False);
+                        boss_watcher();
+                    }
+                }
+            }
+        };
 
         enum stepon_trigger {
             exit_north = @install() {
@@ -50300,9 +50311,13 @@ area dungeon_podunk() {
                 debug_subtext("B=0");
             },
             door_north = @install() {
-                door_act4_airlock_out(0x3e, 0x14, object[0d26]);
+                debug_subtext("B=1");
+                
+                // door_act4_airlock_out(0x3e, 0x14, object[0d26]);
             },
             lever = @install() {
+                debug_subtext("B=2");
+
                 map_transition(podunk_new, cinema_left, NONE);
             },
         }
