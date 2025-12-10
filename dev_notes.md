@@ -3,18 +3,29 @@
 
 
 # important
-## dog statue guards dialog
-## scale enemies: before pyramid
-## aquagoth gives 0 souls?
+## stompy radahn ends before dead
 ## "positive"/"negative"
-## archaeologist sends you to smith after combining head and shaft
-## no item if hp<=0 (but fanfare)
 ## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
-## dog should not be at 0/0 during abomination fight
 
 # nice to have
+## no item if hp<=0 (but fanfare)
+## aquagoth gives 0 souls?
+## scale enemies: before pyramid
+## dog statue guards dialog
+## archaologist replies with crafter quotes
+## does the hacking game work? robots start invisible
+## code switches update poorly
+## isaac glyphs only accessible via bomb (start is overwritten by tears)
+## pyramid spiders sometimes missing
+## fire eyes before northern inbetwixx
 ## more orbs (every boss)
 ## animations/cutscenes
+### dog should not be at 0/0 during abomination fight
+### axe2 doors no sound
+### thraxx kill pulls dog
+### code door pulls dog
+### gomi lift pulls dog
+### forest drake pulls dog
 ### sound - falling transition
 ### ship: walking south instantly breaks stairs
 ### pipe maze side room spawns dog (vanilla script)
