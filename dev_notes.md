@@ -3,22 +3,19 @@
 
 
 # important
-## stompy radahn ends before dead
-## "positive"/"negative"
-## during the AR game you can go back through the floor door, which softlocks you (also gourd and exit don't respond)
 
 # nice to have
-## no item if hp<=0 (but fanfare)
+## "wrong weapon" after watching the outro while holding the bronze axe
+## more orbs (every boss)
+## code switches update poorly
 ## aquagoth gives 0 souls?
 ## scale enemies: before pyramid
 ## dog statue guards dialog
 ## archaologist replies with crafter quotes
 ## does the hacking game work? robots start invisible
-## code switches update poorly
 ## isaac glyphs only accessible via bomb (start is overwritten by tears)
 ## pyramid spiders sometimes missing
 ## fire eyes before northern inbetwixx
-## more orbs (every boss)
 ## animations/cutscenes
 ### dog should not be at 0/0 during abomination fight
 ### axe2 doors no sound
@@ -34,8 +31,8 @@
 ### thraxx (kill -> walk to center)
 ### wall-boss exit calls dog
 ### bomb arena - leave via bridge
-## "wrong weapon" after watching the outro while holding the bronze axe
 ## stats menu - armor name incorrect
+## no item if hp<=0 (but fanfare)
 ## d3: hold up bazooka when winning (if possible)
 ## radiation (more enemies near the entrances)
 ## diablo p2? + diablo clone should not actually die
