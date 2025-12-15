@@ -11,6 +11,7 @@ import os, subprocess
 from subprocess import call
 import pathlib
 import shutil
+import re
 
 
 class PatchHandlerAsm(PatchHandler):
@@ -18,8 +19,26 @@ class PatchHandlerAsm(PatchHandler):
     def __init__(self, patch_handler_ips: PatchHandlerIps):
         self._patch_handler_ips = patch_handler_ips
 
-    def prepare_patch(self, rom_file, directory_patch, patch):
+
+    def handle_params(self, patch, params):
+        with open(patch, 'r') as file:
+            filedata = file.read()
+        
+        filedata_new = filedata
+        for param in params:
+            filedata_new = re.sub(f"(!{param.name}) = ([^ \n]+)([ \n])", f"\\1 = {param.value} ; <REGEX_REPLACE>\\2 -> {param.value}</REGEX_REPLACE>\\3", filedata_new)
+
+        if filedata_new == filedata:
+            raise Exception(f"patch '{patch.name}' failed to replace params: {params}")
+
+        with open(patch, 'w') as file:
+            file.write(filedata_new)
+
+    def prepare_patch(self, rom_file, directory_patch, patch, params=[]):
         # print(f" - compiling patch {patch} ({os.path.getsize(patch)})")
+
+        if params:
+            self.handle_params(patch, params)
 
         tmp_rom = os.path.join(directory_patch, patch.stem)
         tmp_rom = Path(tmp_rom)
@@ -28,7 +47,7 @@ class PatchHandlerAsm(PatchHandler):
 
         args = arg_utils.parse()
 
-        process_utils.call([args.asm, patch, tmp_rom], True)
+        process_utils.call([args.asm, patch, tmp_rom], False)
 
         diff = os.path.join(directory_patch, patch.stem)
         diff = Path(tmp_rom)

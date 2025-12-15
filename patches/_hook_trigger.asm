@@ -1,5 +1,4 @@
 hirom
-header
 
 !HOOK_MEMORY = $FE6000
 

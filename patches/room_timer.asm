@@ -1,6 +1,14 @@
 ; Created by Skarsnik (See https://github.com/Skarsnik/sneshacking/blob/master/SoE/soepractice.asm)
 hirom
-header
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INPUT                                                                                                                 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+!ROM_HOOK = $FE5000
+!ROM_EXTENSION = $F00000 ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 macro a8()
   sep #$20
 endmacro
@@ -24,9 +32,6 @@ endmacro
 macro i16()
   rep #$10
 endmacro
-
-
-!HOOK_MEMORY = $FE5000
 
 !MAP_ID = $ADB
 !PREVIOUS_MAP_ID = $7FF200
@@ -85,7 +90,7 @@ org $C08CAD
 ;  NOP ; size 1
 ;  NOP ; size 1
 
-org !HOOK_MEMORY+4
+org !ROM_HOOK+4
   JSL start_practice_stuff
 
 
@@ -97,8 +102,8 @@ org $CF8826
   ;; DW #$0080, #$8000, #$4000, #$0040, #$0020, #$0010, #$0100, #$0200, #$0400, #$0800, #$1000, #$2000,
   
 ;; let do what we want
-org $F00000
-  print "Practice stuff Start at: ", pc
+org !ROM_EXTENSION
+  ; print "Practice stuff Start at: ", pc
 mni_begin:
   lda !MNI_GLOBAL_FRAME_COUNT
   INC A

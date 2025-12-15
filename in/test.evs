@@ -1,0 +1,98 @@
+#memory(
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    // reserved: <0x23b9>
+    <0x2265>..<0x22D9>, // vanilla sniff spots
+    <0x236D>..<0x2378>, // act4 codes
+    // <0x2379>..<0x237C>, // landing spots
+    <0x253d>..<0x2558>, // sliver extension "save_file_growth" (excluded string params)
+
+    <0x2834>..<0x28fb> // 199 room specific bytes
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "skip_intro",
+    // "brian",
+    // "camera_hack",
+    // "free_graveyard_ids",
+    // "save_file_growth",
+
+    // asm
+    // "debug_menu", // uses 0x3f0000…???
+    "_hook_input", // 0x3f0000…0x310000
+        "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
+)
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(brians_room, center, NONE, True);
+}
+
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
+@count_limit(0x20)
+fun hotkey_start_l() {
+    debug_subtext("Start+L");
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
+fun hotkey_start_r() {
+    debug_subtext("Start+R");
+
+    debug_boy();
+}
+
+map brians_room(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x17, 0x19, NONE)
+    }
+
+    enum TEST {
+        FLAG_TMP = memory(FLAG, TEMP),
+        FLAG2_TMP = memory(FLAG, TEMP),
+        BYTE_TMP = memory(BYTE, TEMP),
+        BYTE2_TMP = memory(BYTE, TEMP),
+        MEMORY_TMP = memory(WORD, TEMP),
+
+        FLAG = memory(FLAG, SRAM),
+        MEMORY = memory(WORD, SRAM),
+
+        INT = 0d01,
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // open gourd
+        // … sniff spots?
+        // object[0x11] = 0x01; // ignite fire
+
+        // debug_marker();
+
+        fade_in();
+
+        subtext("hello world");
+
+        if(False) {
+            drop_bomb(False);
+        }
+        
+        if(True) {
+            TEST.FLAG_TMP = True;
+            sleep(0d60);
+            TEST.FLAG2_TMP = True;
+            sleep(0d60);
+            TEST.BYTE_TMP = 0xff;
+            sleep(0d60);
+            TEST.BYTE2_TMP = 0xff;
+            sleep(0d60);
+            TEST.MEMORY_TMP = 0xffff;
+        }
+    }
+};

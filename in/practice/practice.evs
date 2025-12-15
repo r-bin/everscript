@@ -1,0 +1,886 @@
+#memory(
+    // <0x2266>,
+
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    // string_key(0x0000)..string_key(0x232b), // all string keys
+    function_key(0x0000)..function_key(0x1716), // 0x1719 seems to be used by the engine
+
+    0x350000..0x3fffff, // extension
+
+    <0x2834>..<0x28ff>
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "camera_hack",
+    "five_status_effects_fix",
+    // "free_graveyard_ids",
+    // "fix_bridges",
+    // "fix_a4_doors",
+    // "connect_a1_a2",
+    // "connect_a3_a4",
+
+    // asm
+    // "temp_jaguar_ring(!ROM_EXTENSION=$FE6000)",
+    "debug_menu(!ROM_EXTENSION=$FE0000)",
+    "_hook_input(!ROM_EXTENSION=$FE5000)",
+        "hotkeys(!ROM_EXTENSION=$FD0000, !ROM_HOOK=$FE5000, !WITH_HOTKEY_B=0)",
+        "room_timer(!ROM_EXTENSION=$F00000, !ROM_HOOK=$FE5000)",
+    // "five_status_effects_fix(!ROM_EXTENSION=$FE7000)",
+    // "scale_enemies(!ROM_EXTENSION=$FE8000, !WITH_DEBUG_PALETTE=0)",
+)
+
+enum STRING {
+    MENU_PRESETS = "[CHOICE_INLINE]Speedrun[CHOICE]Speedrun+[CHOICE]God Mode[CHOICE]Normal(ish)",
+    MENU_DOG = "[CHOICE_INLINE]Podunk[CHOICE]Wolf[CHOICE]Greyhound[CHOICE]Poodle[CHOICE]Toaster",
+    MENU_ENEMY = "Enemies: (Locked, no AI)[CHOICE]Mosquito[CHOICE]Thraxx[CHOICE]Magmar[CHOICE]Vigor[CHOICE]Aquagoth[CHOICE]FootKnight[CHOICE]Sterling[CHOICE]Mungola[CHOICE]Coleoptera[CHOICE]Toaster[CHOICE]Carltron",
+    MENU_MEMORY_FLAGS = "[CHOICE_INLINE]+Debug[CHOICE]-Debug",
+    MENU_TARGET = "[CHOICE_INLINE]Boy[CHOICE]Dog[CHOICE]Both[CHOICE]None",
+    MENU_TARGET_2 = "[CHOICE_INLINE]Boy[CHOICE]Dog",
+    MENU_UNLOCK = "[CHOICE_INLINE]All[CHOICE]Ingredients[CHOICE]Consumables[CHOICE]Alchemy[CHOICE]Weapons[CHOICE]Armor[CHOICE]Trading Goods[CHOICE]Charms[CHOICE]Money",
+    MENU_MISC = "[CHOICE_INLINE]Available Character[CHOICE]Measure Speed",
+
+    PORTAL_ACT_1 = "Act 1:[CHOICE]Oil[CHOICE]Intro skip[CHOICE]Thraxx[CHOICE]Graveyard[CHOICE]Salabog[CHOICE]Solar[CHOICE]Magmar",
+
+    PORTAL_ACT_1_THRAXX = "[CHOICE_INLINE]Normal[CHOICE]Intro skip[CHOICE]Zombie boy",
+    
+    PORTAL_ACT_2 = "Act 2:[CHOICE]Blimp[CHOICE]Atlas[CHOICE]Market[CHOICE]Vigor[CHOICE]No Clip Dog[CHOICE]Temple[CHOICE]Pyramid[CHOICE]Diamon Eyes[CHOICE]Aegis[CHOICE]Aquagoth",
+
+    PORTAL_ACT_2_ATLAS = "[CHOICE_INLINE]Normal[CHOICE]Poisoned[CHOICE]Speed",
+    PORTAL_ACT_2_MARKET = "[CHOICE_INLINE]Normal[CHOICE]Wealthy",
+    
+    PORTAL_ACT_3 = "Act 3:[CHOICE]Market[CHOICE]Banquet[CHOICE]Dog Maze[CHOICE]FootKnight[CHOICE]Dark Forest[CHOICE]Bad Boys[CHOICE]Timberdrake[CHOICE]Verminator[CHOICE]Sterling[CHOICE]Mungola[CHOICE]Tiny[CHOICE]Gauge[CHOICE]Wheel",
+    PORTAL_ACT_3_MARKET = "[CHOICE_INLINE]Normal[CHOICE]Wealthy",
+    PORTAL_ACT_3_STERLING = "[CHOICE_INLINE]Normal[CHOICE]Top (Less random)",
+    
+    PORTAL_ACT_4 = "Act 4:[CHOICE]Saturn[CHOICE]Carltron"
+}
+
+fun fake_level(level) {
+    MEMORY.BOY_LEVEL = level;
+    MEMORY.BOY_XP_REQUIRED = 0d0;
+
+    MEMORY.DOG_LEVEL = level;
+    MEMORY.DOG_XP_REQUIRED = 0d0;
+
+    add_enemy(ENEMY.MOSQUITO, 0d0, 0d0, FLAG_ENEMY.MOSQUITO);
+    // attribute(LAST_ENTITY, MUTE, True);
+
+    damage(LAST_ENTITY, 0x03e8, False);
+}
+
+fun fake_atlas(character:CHARACTER) {
+    if(character == CHARACTER.BOY) {
+        <0x0A3F> = 0xefff;
+        <0x0A41> = 0xefff;
+
+        <0x4F29> = 0xefff;
+        <0x4F2B> = 0xefff;
+        
+        // <0x4ECF> = 0x0008;
+        // eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+        // yield();
+        // <0x4ECF> = 0xFFFF;
+        // eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+
+        if(False) {
+            attribute(BOY, INVINCIBLE, True);
+        } else {
+            <BOY>[FLAGS_5] = <BOY>[FLAGS_5] | ATTRIBUTE_FLAGS.ATLAS_GLITCH;
+        }
+    } else if(character == CHARACTER.DOG) {
+        <0x0A89> = 0xefff;
+        <0x0A8B> = 0xefff;
+
+        <0x4FD7> = 0xefff;
+        <0x4FD9> = 0xefff;
+
+        if(False) {
+            attribute(DOG, INVINCIBLE, True);
+        } else {
+            <DOG>[FLAGS_5] = <DOG>[FLAGS_5] | ATTRIBUTE_FLAGS.ATLAS_GLITCH;
+        }
+    }
+}
+fun unfake_atlas(character:CHARACTER) {
+    if(character == CHARACTER.BOY) {
+        <0x0A3F> = 0x0010;
+        <0x0A41> = 0x0010;
+
+        <0x4F29> = 0x0000;
+        <0x4F2B> = 0x0000;
+        
+        if(False) {
+            attribute(BOY, INVINCIBLE, False);
+        } else {
+            <BOY>[FLAGS_5] = <BOY>[FLAGS_5] & (~ATTRIBUTE_FLAGS.ATLAS_GLITCH);
+        }
+    } else if(character == CHARACTER.DOG) {
+        <0x0A89> = 0x0010;
+        <0x0A8B> = 0x0010;
+
+        <0x4FD7> = 0x0000;
+        <0x4FD9> = 0x0000;
+
+        if(False) {
+            attribute(DOG, INVINCIBLE, False);
+        } else {
+            <BOY>[FLAGS_5] = <DOG>[FLAGS_5] & (~ATTRIBUTE_FLAGS.ATLAS_GLITCH);
+        }
+    }
+}
+
+fun fake_poison(start) {
+    <0x4ECF> = 0x0090;
+    <0x4ED1> = start;
+    <0x4ED3> = start;
+    eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+}
+
+fun fake_confound(start) {
+    cast(BOY, BOTH, 0x18, 0xdc);
+
+    // <0x4ECF> = 0x0060;
+    sleep(0xf0);
+    yield();
+    <0x4ED1> = start;
+    // eval("10 5a ed 07 5a ed 29 31 9a // write status effect count += 1");
+}
+
+fun fake_dog(dog:DOG) {
+    MEMORY.DOG_WRITE = dog;
+    yield();
+}
+
+fun fake_noclip(character:CHARACTER) {
+    attribute(character, NO_CLIP, True);
+}
+fun unfake_noclip(character:CHARACTER) {
+    attribute(character, NO_CLIP, False);
+}
+
+fun portal_activated() {
+    animate(BOY, ONCE_FREEZE, ANIMATION_PLACEHOLDER.TELEPORT_OUT);
+    animate(DOG, ONCE_FREEZE, ANIMATION_PLACEHOLDER.TELEPORT_OUT);
+    sleep(0x10);
+    fade_out();
+    music_fade(False);
+    sleep(0x40);
+    available(BOTH);
+    show_hud(True);
+}
+
+fun portal_activated_slow() {
+    portal_activated();
+
+    sleep(0x00);
+}
+
+// dialogues
+
+@install()
+fun enemy_kill_script() {
+    debug_subtext("nice.");
+}
+
+fun prepare_enemy(enemy) {
+    _add_enemy(enemy, <BOY>[X], <BOY>[Y] - 0d20);
+
+    MEMORY.PACIFIED = 0x0000;
+    attribute(LAST_ENTITY, ROOT, True);
+
+    attach_script(LAST_ENTITY, SCRIPT_TRIGGER.DEATH, reference(enemy_kill_script));
+}
+fun prepare_invisible_enemy(enemy) {
+    prepare_enemy(enemy);
+
+    attach_to_script(LAST_ENTITY);
+
+    while(alive(<SCRIPT_OWNER>)) {
+        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.COOK_RUNNING);
+
+        yield();
+    }
+}
+
+@install()
+fun portal_act_1() {
+    conversation({
+        conversation_question(STRING.PORTAL_ACT_1, 0d08);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // Oil
+            portal_activated();
+
+            transition(0x25, 0x6f, 0x49, NORTH, SOUTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // Intro skip
+            portal_activated();
+
+            transition(0x17, 0x39, 0x44, NORTH, WEST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // Thraxx
+            conversation_question(STRING.PORTAL_ACT_1_THRAXX);
+        
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // Normal
+                portal_activated();
+
+                transition(MAP.THRAXX, 0x17, 0x3f, NORTH, NORTH, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // Intro skip
+                portal_activated();
+
+                transition(MAP.THRAXX, 0x17, 0x3f, NORTH, WEST, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // Zombie boy
+                portal_activated();
+
+                MEMORY.BOY_CURRENT_HP = 0x0000;
+
+                transition(MAP.THRAXX, 0x17, 0x3f, NORTH, NORTH, True);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // graveyard
+            portal_activated();
+            
+            fake_level(0x0007);
+
+            transition(0x27, 0x2f, 0x5f, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x04) { // salabog
+            portal_activated();
+            
+            fake_level(0x0007);
+
+            transition(0x01, 0x1c, 0x61, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x05) { // Solar
+            portal_activated();
+            
+            fake_level(0x0007);
+
+            transition(0x3b, 0x51, 0xb1, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x06) { // Magmar
+            portal_activated();
+            
+            fake_level(0x0007);
+
+            transition(MAP.MAGMAR, 0x18, 0x47, NORTH, NORTH, True);
+        }
+    }, NONE);
+}
+
+@install()
+fun portal_act_2() {
+    conversation({
+        conversation_question(STRING.PORTAL_ACT_2, 0d11);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // blimp
+            portal_activated();
+
+            set(FLAG.DOG_UNAVAILABLE);
+            fake_level(0x0005);
+
+            transition(0x4f, 0x01, 0x4b, EAST, EAST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // atlas
+            conversation_question(STRING.PORTAL_ACT_2_ATLAS);
+        
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // Normal
+                set(FLAG.DOG_UNAVAILABLE);
+                set(FLAG.BLIMP_BRIDGE);
+
+                fake_level(0x0005);
+
+                portal_activated();
+                transition(0x1b, 0x49, 0xc7, NORTH, NORTH, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // Poisoned
+                portal_activated();
+                
+                set(FLAG.DOG_UNAVAILABLE);
+                set(FLAG.BLIMP_BRIDGE);
+
+                fake_level(0x0005);
+                fake_poison(0x0115);
+
+                transition(0x4f, 0x27, 0x01, UNKNOWN, SOUTH, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x02) { // Speed
+                portal_activated();
+
+                set(FLAG.DOG_UNAVAILABLE);
+                set(FLAG.BLIMP_BRIDGE);
+
+                fake_level(0x0007);
+                fake_poison(0x0115);
+
+                transition(0x4f, 0x27, 0x01, UNKNOWN, SOUTH, True);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // market
+            conversation_question(STRING.PORTAL_ACT_2_MARKET);
+        
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // normal
+                portal_activated();
+
+                fake_dog(DOG.GREYHOUND);
+                fake_level(0x0005);
+
+                transition(0x0a, 0x05, 0x4b, NORTH, EAST, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // wealthy
+                portal_activated();
+
+                fake_dog(DOG.GREYHOUND);
+                fake_level(0x0005);
+
+                unlock(ITEM.MONEY);
+                unlock(ITEM.TRADING_GOODS);
+
+                transition(0x0a, 0x05, 0x4b, NORTH, EAST, True);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // vigor
+            portal_activated();
+
+            fake_level(0x000c);
+
+            load_map(0x1d, 0x20, 0x07);
+        } else if(MEMORY.QUESTION_ANSWER == 0x04) { // no clip
+            portal_activated();
+
+            transition(0x07, 0x44, 0x44, NORTH, WEST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x05) { // temple
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x2a, 0x41, 0x53, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x06) { // pyramid
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x58, 0x21, 0x3e, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x07) { // diamond eyes
+            portal_activated();
+
+            set(<0x22d8, 0x40>);
+            set(<0x22d8, 0x80>);
+
+            fake_level(0x000c);
+            fake_confound(0x0630);
+
+            transition(0x05, 0x04, 0x71, NORTH, EAST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x08) { // aegis
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x09, 0x21, 0x41, NORTH, EAST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x09) { // aquagoth
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x6d, 0x1b, 0x51, NORTH, NORTH, True);
+        }
+    }, NONE);
+}
+
+@install()
+fun portal_act_3() {
+    conversation({
+        conversation_question(STRING.PORTAL_ACT_3, 0d14);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // market
+            conversation_question(STRING.PORTAL_ACT_3_MARKET);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // normal
+                portal_activated();
+
+                fake_level(0x000c);
+                fake_dog(DOG.POODLE);
+
+                transition(0x7b, 0x1c, 0x5f, NORTH, NORTH, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // wealthy
+                portal_activated();
+
+                fake_level(0x000c);
+                fake_dog(DOG.POODLE);
+
+                unlock(ITEM.MONEY);
+                unlock(ITEM.TRADING_GOODS);
+
+                transition(0x7b, 0x1c, 0x5f, NORTH, NORTH, True);
+            }
+
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // banquet
+            portal_activated();
+
+            fake_level(0x000c);
+            set(<0x22de, 0x10>); // ?
+            <0x234b> = 0x8989; // ?
+            available(BOY);
+
+            transition(0x6f, 0x1e, 0x39, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // dog maze
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x71, 0xe5, 0x91, NORTH, WEST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // footknight
+            portal_activated();
+
+            fake_dog(DOG.POODLE);
+            fake_level(0x000c);
+
+            transition(0x19, 0x01, 0x42, NORTH, EAST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x04) { // dark forest
+            portal_activated();
+
+            fake_dog(DOG.POODLE);
+            fake_level(0x000c);
+
+            transition(0x21, 0x0b, 0x0b, NORTH, SOUTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x05) { // bad boys
+            portal_activated();
+
+            fake_dog(DOG.POODLE);
+            fake_level(0x000c);
+
+            transition(0x1f, 0x05, 0x20, NORTH, EAST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x06) { // timberdrake
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x20, 0x1b, 0x29, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x07) { // verminator
+            portal_activated();
+
+            fake_dog(DOG.POODLE);
+            fake_level(0x000c);
+
+            transition(0x5e, 0x16, 0x65, NORTH, NORTH, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x08) { // sterling
+            conversation_question(STRING.PORTAL_ACT_3_STERLING);
+
+            if(MEMORY.QUESTION_ANSWER == 0x00) { // normal
+                portal_activated();
+
+                fake_level(0x000c);
+
+                transition(0x37, 0x55, 0xf9, NORTH, NORTH, True);
+            } else if(MEMORY.QUESTION_ANSWER == 0x01) { // top
+                portal_activated();
+
+                fake_level(0x000c);
+
+                transition(0x37, 0x51, 0x30, NORTH, NORTH, True);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0x09) { // mungola
+            portal_activated();
+
+            set(<0x22dd, 0x02>);
+            fake_level(0x000c);
+
+            transition(0x77, 0x39, 0x24, NORTH, WEST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // tiny
+            portal_activated();
+
+            set(FLAG.IN_ANIMATION);
+            set(<0x22dc, 0x08>);
+            <0x238f> = 0x05;
+            call_id(0x2e);
+
+            transition(0x57, 0x81, 0x5d, NORTH, NONE, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x0b) { // gauge
+            portal_activated();
+
+            fake_level(0x000c);
+
+            transition(0x69, 0x6d, 0x83, NORTH, WEST, True);
+        } else if(MEMORY.QUESTION_ANSWER == 0x0c) { // wheel
+            portal_activated();
+
+            fake_level(0x000c);
+
+            set(<0x2260, 0x10>);
+            set(<0x22dc, 0x08>);
+
+            transition(MAP.THRAXX, 0x17, 0x3f, NORTH, NORTH, True);
+            nop();
+        }
+    }, NONE);
+}
+
+@install()
+fun portal_act_4() {
+    conversation({
+        conversation_question(STRING.PORTAL_ACT_4);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // saturn
+            portal_activated_slow();
+
+            fake_dog(DOG.TOASTER);
+            fake_level(0x000c);
+
+            load_map(0x48, 0x17, 0x00);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // carltron
+            portal_activated_slow();
+
+            fake_level(0x000c);
+
+            transition(0x4a, 0x14, 0x25, NORTH, NORTH, True);
+        }
+    }, NONE);
+}
+
+// DEBUG
+
+@install(0x99aac0)
+fun debug_dark_forest_room_transition() {
+    MEMORY.STRING_PARAMETER_1 = MEMORY.DARK_FOREST_LAYOUT;
+    MEMORY.STRING_PARAMETER_2 = MEMORY.DARK_FOREST_XY;
+
+    debug_subtext("layout = [MEM1], x/y = [MEM2]");
+}
+
+// debug ring menu
+
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_1)
+fun menu_presets() {
+    question(STRING.MENU_PRESETS);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // speedrun
+        unlock(ITEM.BASICS);
+        unlock(ITEM.ALCHEMY);
+        unlock(ITEM.INGREDIENTS);
+
+        fake_atlas(BOY);
+        unfake_noclip(BOY);
+
+        unfake_atlas(DOG);
+        fake_noclip(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // speedrun+
+        unlock(ITEM.ALL);
+        unlock(ITEM.WEAPON_LEVEL_3);
+
+        fake_atlas(BOY);
+        unfake_noclip(BOY);
+
+        unfake_atlas(DOG);
+        fake_noclip(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // god mode
+        unlock(ITEM.ALL);
+        unlock(ITEM.WEAPON_LEVEL_3);
+
+        fake_atlas(BOY);
+        fake_noclip(BOY);
+
+        fake_atlas(DOG);
+        fake_noclip(DOG);
+
+        if(True) {
+            MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.HARD_BALL;
+            MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX.DEFEND;
+            MEMORY.SELECTED_ALCHEMY_2 = ALCHEMY_INDEX.ATLAS;
+            MEMORY.SELECTED_ALCHEMY_3 = ALCHEMY_INDEX.LEVITATE;
+            MEMORY.SELECTED_ALCHEMY_4 = ALCHEMY_INDEX.REVEALER;
+        }
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // normal
+        unfake_atlas(BOY);
+        unfake_noclip(BOY);
+
+        unfake_atlas(DOG);
+        unfake_noclip(DOG);
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_2)
+fun menu_dog() {
+    question(STRING.MENU_DOG, 0d05);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // podunk
+        fake_dog(DOG.PUPPER);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // wolf
+        fake_dog(DOG.WOLF);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // greyhound
+        fake_dog(DOG.GREYHOUND);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // poodle
+        fake_dog(DOG.POODLE);
+    } else if(MEMORY.QUESTION_ANSWER == 0x04) { // toaster
+        fake_dog(DOG.TOASTER);
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_3)
+fun menu_atlas() {
+    question(STRING.MENU_TARGET);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+        fake_atlas(BOY);
+        unfake_atlas(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+        unfake_atlas(BOY);
+        fake_atlas(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+        fake_atlas(BOY);
+        fake_atlas(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // none
+        unfake_atlas(BOY);
+        unfake_atlas(DOG);
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_4)
+fun menu_noclip() {
+    question(STRING.MENU_TARGET);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+        fake_noclip(BOY);
+        unfake_noclip(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+        unfake_noclip(BOY);
+        fake_noclip(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+        fake_noclip(BOY);
+        fake_noclip(DOG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // none
+        unfake_noclip(BOY);
+        unfake_noclip(DOG);
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_5)
+fun menu_misc() {
+    question(STRING.MENU_MISC);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // available character
+        question(STRING.MENU_TARGET);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+            available(BOY);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+            available(DOG);
+        } else if(MEMORY.QUESTION_ANSWER == 0x02) { // both
+            available(BOTH);
+        } else if(MEMORY.QUESTION_ANSWER == 0x03) { // none
+            available(NONE);
+        }
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // measure speed
+        question(STRING.MENU_TARGET_2);
+
+        if(MEMORY.QUESTION_ANSWER == 0x00) { // boy
+            track_speed(<BOY>, 0d10);
+        } else if(MEMORY.QUESTION_ANSWER == 0x01) { // dog
+            track_speed(<DOG>, 0d10);
+        }
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_6)
+fun menu_memory_flags() {
+    question(STRING.MENU_MEMORY_FLAGS);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // +debug
+        set(FLAG.DEBUG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // -debug
+        unset(FLAG.DEBUG);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // nop
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // nop
+        nop();
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_7)
+fun menu_enemy() {
+    question(STRING.MENU_ENEMY, 0d12);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // mosquito
+        prepare_enemy(ENEMY.MOSQUITO);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // thraxx
+        prepare_enemy(ENEMY.THRAXX_HEART);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // magmar
+        prepare_enemy(ENEMY.MAGMAR);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // vigor
+        prepare_enemy(ENEMY.VIGOR);
+    } else if(MEMORY.QUESTION_ANSWER == 0x04) { // aquagoth
+        prepare_invisible_enemy(ENEMY.AQUAGOTH_ENTITY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x05) { // footknight
+        prepare_enemy(ENEMY.FOOTKNIGHT);
+    } else if(MEMORY.QUESTION_ANSWER == 0x06) { // sterling
+        prepare_enemy(ENEMY.STERLING);
+    } else if(MEMORY.QUESTION_ANSWER == 0x07) { // mungola
+        prepare_invisible_enemy(ENEMY.MUNGOLA_ENTITY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x08) { // coleoptera
+        prepare_enemy(ENEMY.THRAXX2_HEART);
+    } else if(MEMORY.QUESTION_ANSWER == 0x09) { // toaster
+        prepare_enemy(ENEMY.DOG_4_BLACK);
+    } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // carltron
+        prepare_enemy(ENEMY.CARLTRON_ROBOT);
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_8)
+fun menu_unlock() {
+    question(STRING.MENU_UNLOCK, 0d09);
+
+    if(MEMORY.QUESTION_ANSWER == 0x00) { // all
+        unlock(ITEM.ALL);
+    } else if(MEMORY.QUESTION_ANSWER == 0x01) { // ingredients
+        unlock(ITEM.INGREDIENTS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x02) { // consumables
+        unlock(ITEM.CONSUMABLES);
+    } else if(MEMORY.QUESTION_ANSWER == 0x03) { // alchemy
+        unlock(ITEM.ALCHEMY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x04) { // weapons
+        unlock(ITEM.WEAPONS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x05) { // armor
+        unlock(ITEM.ARMOR);
+    } else if(MEMORY.QUESTION_ANSWER == 0x06) { // trading goods
+        unlock(ITEM.TRADING_GOODS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x07) { // charms
+        unlock(ITEM.CHARMS);
+    } else if(MEMORY.QUESTION_ANSWER == 0x08) { // money
+        unlock(ITEM.MONEY);
+    } else if(MEMORY.QUESTION_ANSWER == 0x09) { // nop
+        nop();
+    } else if(MEMORY.QUESTION_ANSWER == 0x0a) { // nop
+        nop();
+    }
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_9)
+fun menu_windwalker() {
+    set(FLAG.WINDWALKER_UNLOCKED);
+    MEMORY.WINDWALKER_TYPE = 0x02;
+    call(ADDRESS.MODE7_SPACESHIP);
+}
+@install(ADDRESS.DEBUG_MENU_BUTTON_10)
+fun debug_menu_10_alchemy() {
+    select_alchemy();
+}
+@install()
+@inject(ADDRESS.DEBUG_MENU_BUTTON_11)
+fun menu_brians_room() {
+    map_transition(brians_room, center, NONE);
+}
+
+// hotkeys
+
+@install()
+@inject(ADDRESS.HOTKEY_START)
+@count_limit(0x20)
+fun hotkey_start() {
+    debug_subtext("Start");
+
+    if(False) {
+        drop_bomb();
+    }
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
+@count_limit(0x20)
+fun hotkey_start_l() {
+    debug_subtext("Start+L");
+
+    if(False) {
+        test_palette(SLIME_GREEN, 0d45451, False);
+    }
+
+    if(False) {
+        debug_status_effects_helper();
+    }
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
+@count_limit(0x20)
+fun hotkey_start_r() {
+    debug_subtext("Start+R");
+    
+    if(False) {
+        find_all(FLOWER_PURPLE, @install() { destroy(arg[0x00]); });
+    }
+}
+@install()
+@inject(ADDRESS.HOTKEY_L)
+@count_limit(0x20)
+fun hotkey_l() {
+    if(False) {
+        debug_subtext("L");
+    }
+}
+@install()
+@inject(ADDRESS.HOTKEY_R)
+@count_limit(0x20)
+fun hotkey_r() {
+    if(False) {
+        debug_subtext("R");
+    }
+}
+@install()
+@inject(ADDRESS.HOTKEY_B)
+@count_limit(0x20)
+fun hotkey_b() {
+    debug_subtext("B");
+    nop();
+}
+
+// maps
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(brians_room, center, NONE);
+}
+
+map brians_room(BRIAN) {
+    enum entrance {
+        center = entrance(0x17, 0d40, NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(EBON_KEEP, 0x64)
+    }
+
+    enum ROOM {
+        WITH_RPG_SETUP = True,
+        WITH_PORTALS = True,
+    }
+
+    fun trigger_enter() {
+        if(ROOM.WITH_PORTALS) {
+            // FE
+            add_enemy(ENEMY.FIRE_EYES, 0x10, 0x05, FLAG_ENEMY.INACTIVE_IMORTAL);
+            attach_script(LAST_ENTITY, B, reference(portal_act_1));
+            
+            // horace
+            add_enemy(ENEMY.HORACE, 0x14, 0x05, FLAG_ENEMY.INACTIVE_IMORTAL);
+            attach_script(LAST_ENTITY, B, reference(portal_act_2));
+
+            // queen
+            add_enemy(ENEMY.QUEEN, 0x19, 0x05, FLAG_ENEMY.INACTIVE_IMORTAL);
+            attach_script(LAST_ENTITY, B, reference(portal_act_3));
+
+            // prof
+            add_enemy(ENEMY.PROFESSOR, 0x1e, 0x05);
+            attach_script(LAST_ENTITY, B, reference(portal_act_4));
+            entity_script_controlled(LAST_ENTITY);
+        }
+
+        animate(ACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+        animate(INACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+
+        set(FLAG.FLOWERS_CUTSCENE_WATCHED);
+
+        face(BOY, NORTH);
+        teleport(DOG, 0x1a, 0x19);
+        
+        fade_in();
+
+        yield();
+
+        if(ROOM.WITH_RPG_SETUP) {
+            MEMORY.PACIFIED = True;
+            show_hud(False);
+        }
+
+        teleporter_animation_in(<ACTIVE>);
+        teleporter_animation_in(<INACTIVE>);
+
+        subtext("v1.3.0 - by r.bin - debug ring menu :)");
+    }
+};

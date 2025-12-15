@@ -1,8 +1,12 @@
 ; Created by XaserLE (See https://www.romhacking.net/hacks/4638/)
 hirom
 
-!RING_MENU_MEMORY = $FE0000
-!BUTTON_MEMORY = $FE0300
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; INPUT                                                                                                                 ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+!ROM_EXTENSION = $FE0000 ;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 !NUMBER_OF_BUTTONS = #$000B
 
@@ -15,7 +19,7 @@ hirom
 !BUTTON_4_TITLE_MEMORY = $c46614 ; "Debug: Turn off both backgrounds[END]" (33 bytes)
 !BUTTON_4_TITLE = "No-Clip"
 !BUTTON_5_TITLE_MEMORY = $c46635 ; "Debug: Show background 1 only[END]" (30 bytes)
-!BUTTON_5_TITLE = "Available Character (Careful)"
+!BUTTON_5_TITLE = "Misc."
 !BUTTON_6_TITLE_MEMORY = $c46653 ; "Debug: Show background 2 only[END]" (30 bytes)
 !BUTTON_6_TITLE = "Set/Unset Flags"
 !BUTTON_7_TITLE_MEMORY = $c46671 ; "Debug: Show both backgrounds[END]" (29 bytes)
@@ -44,7 +48,7 @@ ORG $CE9A86
 ORG $CEA439  ; This is a LDA we will repeat in extended space.
     JSL CLICK_EVENT  ; Jump to extended space.
 
-ORG !RING_MENU_MEMORY
+ORG !ROM_EXTENSION
 
 ; Go to extended space to load the debug ring.
 LOAD_DEBUG_RING:
@@ -124,8 +128,6 @@ CLICK_EVENT:
     BNE $04      ;  | ROM Creation Date
     JML BUTTON_11_PRESSED  ; /
     RTL          ; Item was not from the debug ring, so go back to normal execution.
-
-ORG !BUTTON_MEMORY
 
 START_SCRIPT:
     JSL $8ccf18

@@ -1,0 +1,327 @@
+#memory(
+    // <0x2266>,
+
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    // string_key(0x0000)..string_key(0x232b), // all string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x350000..0x3fffff, // extension
+
+    <0x2834>..<0x28ff>
+)
+#include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "camera_hack",
+    // "free_graveyard_ids",
+
+    // asm
+    "_hook_input", // 0x3f0000…0x310000
+    "debug_menu", // uses 0x3f0000…???
+    "hotkeys", // uses 0x3f00000…???
+    // "room_timer" // uses 0x300000…???
+)
+
+enum USB_BRIDGE {
+    MEMORY_1 = <0x2834>,
+    MEMORY_2 = <0x2564>,
+}
+
+// hotkeys
+
+@install()
+@inject(ADDRESS.HOTKEY_START)
+@count_limit(0x20)
+fun hotkey_start() {
+    subtext("Start");
+
+    // drop_bomb();
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_L)
+@count_limit(0x20)
+fun hotkey_start_l() {
+    subtext("Start+L");
+
+    map_transition(brians_room, center, NONE, True);
+}
+@install()
+@inject(ADDRESS.HOTKEY_START_R)
+@count_limit(0x20)
+fun hotkey_start_r() {
+    subtext("Start+R");
+
+    USB_BRIDGE.MEMORY_2 = 0d10;
+}
+
+// maps
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(brians_room, center, NONE, True);
+}
+
+map brians_room(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x17, 0x19, NONE)
+    }
+
+    group effects() {
+        fun effect_1() {
+            // 1. Boy 1 hp - Boys HP are set to 1
+
+            <0x4EB3> = 0d01;
+        }
+        fun effect_2() {
+            // 2. Dog 1 hp - Dogs HP are set to 1
+
+            <0x4F61> = 0d01;
+        }
+        fun effect_3() {
+            // 3. Full Heal - Boy and dog get full HP
+
+            full_heal(BOTH, True);
+        }
+        fun effect_4() {
+            // 4. Level up - Boy and dog get a level up
+            
+            MEMORY.BOY_XP_REQUIRED = 0x00;
+            MEMORY.DOG_XP_REQUIRED = 0x00;
+
+            add_enemy(ENEMY.MOSQUITO, 0x00, 0x00, FLAG_ENEMY.MOSQUITO);
+            damage(LAST_ENTITY, 0x03e8, False);
+        }
+        fun effect_5() {
+            // 5. Level down - Boy and dog get a level down
+
+            if(<0x0A50> > 0d00) {
+                <0x0A50> -= 0d01;
+            }
+            if(<0x0A9A> > 0d00) {
+                <0x0A9A> -= 0d01;
+            }
+        }
+        fun effect_6() {
+            // 6. Dog OOB - Dog is OOB (for given time)
+
+            attribute(DOG, NO_CLIP, True);
+        }
+        fun effect_7() {
+            // 7. Wings - "Wings" effect is triggered to teleport player out of dungeon
+
+            debug_subtext("doable (with a lot of time)");
+        }
+        fun effect_8() {
+            // 8. Disable swap - prevent player from swapping characters (for a given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_9() {
+            // 9. No magic - magic disabled (for given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_10() {
+            // 10. Slow mode - Neither boy nor dog can run anymore (for given time)
+
+            unset(FLAG.JAGUAR_RING);
+        }
+        fun effect_11() {
+            // 11. Fast mode - Boy and dog have infinit energy (for given time)
+
+            debug_subtext("maybe doable");
+        }
+        fun effect_12() {
+            // 12. Inflation - All magic costs twice as much ingredients (for a given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_13() {
+            // 13. Black death - Boy and dog are poisened and loosing 5 hp per second, uncurable (for given time)
+
+            debug_subtext("doable");
+        }
+        fun effect_14() {
+            // 14. Health insurance - Boy and dog are getting +5 hp each second (for given time)
+
+            debug_subtext("doable");
+        }
+        fun effect_15() {
+            // 15. Free magic - Magic usage is not decreasing the amount of incredients player has (for a given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_16() {
+            // 16. Blind - Neither boy nor dog can hit anything (only misses, for given time)
+
+            <0x0A47> = 0d00;
+            <0x0A91> = 0d00;
+        }
+        fun effect_17() {
+            // 17. Perfect sight - Boy and dog can no longer miss (for given time)
+
+            debug_subtext("doable");
+        }
+        fun effect_18() {
+            // 18. Little confusion - direction inputs mixed (for given time)
+
+            cast(BOY, BOY, CONFOUND, 0d01);
+        }
+        fun effect_19() {
+            // 19. Big confusion - direction and action inputs are randomly mixed (for given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_20() {
+            // 20. Enemies healed - all enemies on screen have full health again
+
+            debug_subtext("doable (with a lot of time)");
+        }
+        fun effect_21() {
+            // 21. Darkness - the ring overlay, like in water tunnel before aquagoth, is present (for given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_22() {
+            // 22. Raging boner - Boy equips bone as weapon and can't change it (for a given time)
+
+            MEMORY.GAIN_WEAPON = GAIN_WEAPON.SWORD_1;
+        }
+        fun effect_23() {
+            // 23. Random exits - randomize which of the exits of the current map lead to
+
+            debug_subtext("nope");
+        }
+        fun effect_24() {
+            // 24. Wind of change - "wind effect" pressing the characters arround (for given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_25() {
+            // 25. Random sandpits - randomly spawn sandpits, if player gets sucked in "wings effect" (for given time)
+
+            debug_subtext("nope");
+        }
+        fun effect_26() {
+            // 26. Super Bazooka - Player gets equips a special bazooka (and can't change it) that makes 999 damage and always hits and has infinite ammo (for a given time) 
+
+            debug_subtext("partly doable");
+        }
+        fun effect_27() {
+            // 27. One hit kill - Boy and dog die on the next hit by enemy (even if the enemy misses, for given time)
+
+            debug_subtext("doable");
+        }
+    };
+
+    fun handle_memory_change(memory) {
+         if(memory == 0d01) {
+            effect_1();
+        } else if(memory == 0d02) {
+            effect_2();
+        } else if(memory == 0d03) {
+            effect_3();
+        } else if(memory == 0d04) {
+            effect_4();
+        } else if(memory == 0d05) {
+            effect_5();
+        } else if(memory == 0d06) {
+            effect_6();
+        } else if(memory == 0d07) {
+            effect_7();
+        } else if(memory == 0d08) {
+            effect_8();
+        } else if(memory == 0d09) {
+            effect_9();
+        } else if(memory == 0d10) {
+            effect_10();
+        } else if(memory == 0d11) {
+            effect_11();
+        } else if(memory == 0d12) {
+            effect_12();
+        } else if(memory == 0d13) {
+            effect_13();
+        } else if(memory == 0d14) {
+            effect_14();
+        } else if(memory == 0d15) {
+            effect_15();
+        } else if(memory == 0d16) {
+            effect_16();
+        } else if(memory == 0d17) {
+            effect_17();
+        } else if(memory == 0d18) {
+            effect_18();
+        } else if(memory == 0d19) {
+            effect_19();
+        } else if(memory == 0d20) {
+            effect_20();
+        } else if(memory == 0d21) {
+            effect_21();
+        } else if(memory == 0d22) {
+            effect_22();
+        } else if(memory == 0d23) {
+            effect_23();
+        } else if(memory == 0d24) {
+            effect_24();
+        } else if(memory == 0d25) {
+            effect_25();
+        } else if(memory == 0d26) {
+            effect_26();
+        } else if(memory == 0d27) {
+            effect_27();
+        } else {
+            debug_memory(USB_BRIDGE.MEMORY_1, USB_BRIDGE.MEMORY_2);
+        }
+
+        memory = 0x0000;
+    }
+
+    fun server_watcher(memory1, memory2) {
+        while(True) {
+            if(memory1 > 0x0000) {
+                handle_memory_change(memory2);
+
+                sleep(0d60);
+            }
+            if(memory2 > 0x0000) {
+                handle_memory_change(memory2);
+
+                sleep(0d60);
+            }
+
+            yield();
+        }
+    }
+
+    fun trigger_enter() {
+        set(FLAG.FLOWERS_CUTSCENE_WATCHED);
+
+        teleport(BOY, 0x17, 0x19);
+        face(BOY, NORTH);
+
+        teleport(DOG, 0x1a, 0x19);
+        
+        add_enemy(ENEMY.PLACEHOLDER, 0x17, 0x1a);
+        animate(LAST_ENTITY, ONCE, ANIMATION_BOY.TELEPORT_IN);
+
+        add_enemy(ENEMY.PLACEHOLDER, 0x1a, 0x1a);
+        animate(LAST_ENTITY, ONCE, ANIMATION_BOY.TELEPORT_IN);
+
+        unlock(ALL);
+        // attribute(BOY, INVINCIBLE, True);
+        // attribute(DOG, INVINCIBLE, True);
+
+        add_enemy(MAGMAR, 0x17, 0x15, INACTIVE);
+
+        // MEMORY.PACIFIED = 0x0001;
+        // show_hud(False);
+        music_volume(0x62, 0x64);
+        fade_in();
+
+        subtext("Crowd Control PoC (0x2834, 0x2564)");
+
+        server_watcher(USB_BRIDGE.MEMORY_1, USB_BRIDGE.MEMORY_2);
+    }
+};

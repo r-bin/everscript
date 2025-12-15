@@ -11,7 +11,7 @@ class PatchHandlerTxt(PatchHandler):
     def __init__(self, patch_handler_ips: PatchHandlerIps):
         self._patch_handler_ips = patch_handler_ips
 
-    def prepare_patch(self, rom_file, directory_patch, patch):
+    def prepare_patch(self, rom_file, directory_patch, patch, params=[]):
         # print(f" - compiling patch {patch} ({os.path.getsize(patch)})")
 
         with patch.open() as file_in:

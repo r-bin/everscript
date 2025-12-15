@@ -1,0 +1,117 @@
+#memory(
+    string_key(0x0546)..string_key(0x232b), // last half of string keys
+    function_key(0x0000)..function_key(0x232b), // TODO: all function keys?
+
+    0x300000..0x3fffff, // extension
+
+    <0x2265>..<0x22D9>, // vanilla sniff spots
+    <0x236D>..<0x2378>, // act4 codes
+    // <0x2379>..<0x237C>, // landing spots
+    <0x253d>..<0x2558>, // sliver extension "save_file_growth" (excluded string params)
+
+    <0x2834>..<0x28fb> // 199 room specific bytes
+)
+// #include("in/core.evs")
+
+#patch(
+    // "void_maps",
+
+    "skip_intro",
+    // "brian",
+    // "camera_hack",
+    // "free_graveyard_ids",
+    // "save_file_growth",
+
+    // asm
+    // "debug_menu", // uses 0x3f0000…???
+    "_hook_input", // 0x3f0000…0x310000
+        "hotkeys", // uses 0x3f00000…???
+        // "room_timer", // uses 0x300000…???
+    // "_hook_trigger",
+)
+
+group core_copy() {
+    enum MEMORY_TYPE {
+        SRAM = 0x0,
+        RAM = 0x1,
+        TEMP_RESERVED = 0x2,
+        TEMP = 0x3,
+    }
+    enum MEMORY_SIZE {
+        FLAG = 0x0,
+        BYTE = 0x1,
+        WORD = 0x2,
+    }
+
+    enum DIRECTION {
+        NORTH = 0x26,
+        EAST = 0x1d,
+        SOUTH = 0x21,
+        WEST = 0x19,
+        
+        NONE = 0x00,
+        UNKNOWN = 0x01
+    }
+
+    enum ADDRESS {
+        INTRO_FIRST_CODE_EXECUTED = 0x92e0ca,
+    }
+    enum MAP {
+        BRIAN = 0x15,
+    }
+
+    enum FLAG {
+        DEBUG = <0x22eb, 0x08>,
+    }
+    
+    fun call_id(script_id:ADDRESS_ID) {
+        code(0xa3, script_id, "// (a3) CALL 'Unnamed Global script 0x3d' (0x3d)");
+    }
+
+    fun fade_in() {
+        if(False) {
+            code(0x26, "// (26) UNTRACED INSTR, writing to VRAM"); // fades brightness to `brightness(0x??)`
+        } else {
+            call_id(0x36);
+        }
+    }
+
+    fun load_map(map:MAP, x, y) {
+        code(0x22, x, y, map, 0x00, "// (22) CHANGE MAP = 0x34 @ [ 0x0090 | 0x0118 ]: ...");
+    }
+    fun transition(map:MAP, x, y, direction_in:DIRECTION, direction_out:DIRECTION, change_music) {
+        load_map(map, x, y);
+    }
+};
+
+@install(ADDRESS.INTRO_FIRST_CODE_EXECUTED)
+fun intro_skip() {
+    map_transition(brians_room, center, NONE, True);
+}
+
+map brians_room(MAP.BRIAN) {
+    enum entrance {
+        center = entrance(0x17, 0x19, NONE)
+    }
+
+    enum TEST {
+        WORD = memory(WORD, SRAM),
+        BYTE = memory(BYTE, SRAM),
+
+        WORD_TMP = memory(WORD, TEMP),
+        BYTE_TMP = memory(BYTE, TEMP),
+
+        FLAG = memory(FLAG, SRAM),
+        FLAG_TMP = memory(FLAG, TEMP),
+
+        INT = 0d01,
+    }
+    
+    @install()
+    fun trigger_enter() {
+        fade_in();
+
+
+        // TODO
+    }
+};
