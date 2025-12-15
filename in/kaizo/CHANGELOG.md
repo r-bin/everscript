@@ -12,8 +12,5 @@
 
 ## [0.9.0] - 2025-12-11
 
-### Added
-- First release
-
 ### Notes
-- Beta version for public testing
+- Initial release (Beta version for public testing)
