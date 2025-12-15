@@ -5,28 +5,19 @@ hirom
 ; Hook into the routine that loads the config ring.
 ;ORG $8EE524
 ORG $8EE520
-    ; JMP $e543
+    ; JSL $8EA091 ; original code
 
     JSL LOAD_DEBUG_RING  ; NOP-out original code we will repeat in extended space. Jump to extended space to load the debug ring.
-    ;NOP
-    ;NOP
 
-    ;JMP LOAD_DEBUG_RING  ; NOP-out original code we will repeat in extended space. Jump to extended space to load the debug ring.
+ORG $8EE53f
+    ; JSL $8EA091 ; original code
+
+    JSL LOAD_DEBUG_RING  ; NOP-out original code we will repeat in extended space. Jump to extended space to load the debug ring.
 
 ORG !RING_MENU_MEMORY
 
 ; Go to extended space to load the debug ring.
 LOAD_DEBUG_RING:
-    ;JMP $e543   ; Repeat a part of the original code that loads the config ring.
-    ;LDA #$0004
-
-    ;JML hotkey_pressed_start_r
-
-    ;RTL          ; Jump back to original code to finish loading the config ring.
-    ;JMP $E527
-
-
-
     JSL $8EA091 ; Repeat a part of the original code that loads the config ring.
 
     JML hotkey_pressed_start_r
