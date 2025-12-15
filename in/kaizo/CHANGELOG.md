@@ -4,6 +4,7 @@
 
 ### In Progress
 - Complete missing animations (List of imperfections is required)
+- Open source loot script (Check type, z-value)
 
 ### On Hold
 - Weather system (Opening menus resets the screen tint)
