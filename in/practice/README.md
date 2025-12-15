@@ -4,6 +4,21 @@ A romhack of the SNES game "Secret of Evermore" built with the everscript compil
 
 ## Overview
 
+Extends the ROM and patches in “Brian’s Test Chamber” as hub and the debug ring menu to manipulate the game.
+
+### Hub features:
+- Teleports to various locations from the speedruns
+
+### Ring Menu Features:
+- Built in cheats for atlas glitch, no-clip and items (consumables, weapons, armor, etc.)
+- Spawning various enemies
+- Access to the wind walker (Mode7 flying)
+- etc.
+
+### Optional Patches: (Pre-integrated in the main patch)
+- Unlocks the camera
+- Room Timer
+
 ## Patches
 
 - `patches/camera_hack.evs` — Unrestricted camera (optional)
@@ -25,5 +40,5 @@ python everscript.py --rom "Secret of Evermore (U) [!].smc" --patches ./patches 
 ## Credits
 
 - [SoETilesViewer](https://github.com/black-sliver/SoETilesViewer) - Black Sliver
-- `patches/hotkeys.asm` - Skarsnikus
+- `patches/room_timer*` - Skarsnikus
 - `patches/debug_menu_*` - XaserLE
