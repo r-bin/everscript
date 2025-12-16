@@ -9369,70 +9369,6 @@ group custom_bosses() {
 group helper_global() {
     enum AREA_GLOBAL {
         ROCK_MOVED_SHIP = memory(FLAG, SRAM),
-        ROCK_MOVED_SHIP_OFFSET = 0d8 * 0d5,
-
-        SHELL_SHIP_EAST = memory(FLAG, SRAM),
-    }
-
-    @install()
-    fun add_levitate_stone_ship(x, y) {
-        add_mud_stone(x, y, reference(@install() {
-            guard_mud_stone();
-
-            _add_levitate_stone(<SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], reference(@install() {
-                guard_levitate_stone(0d1);
-
-                AREA_GLOBAL.ROCK_MOVED_SHIP = True;
-            }));
-        }), RAPTOR_PURPLE);
-        
-        if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
-            <LAST_ENTITY>[Y] += AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET;
-        }
-        special_script(LEVITATE, reference(@install() {
-            guard_challenge_levitate();
-
-            if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
-                end();
-            }
-
-            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-
-            if!(AREA_GLOBAL.ROCK_MOVED_SHIP) {
-                sleep(0d60);
-
-                AREA_GLOBAL.ROCK_MOVED_SHIP = True;
-                object[0x03] = 0x01; // open door_NW
-
-                sleep(0d60);
-
-                while(arg[0x10] < AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET) {
-                    arg[0x10]++;
-
-                    <SCRIPT_OWNER>[Y]++;
-
-                    sleep(0d3);
-                }
-
-                sleep(0d360 - 0d3 * AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET);
-            } else {
-                sleep(0d120);
-
-                while(arg[0x10] < AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET) {
-                    arg[0x10]++;
-
-                    <SCRIPT_OWNER>[Y]--;
-
-                    sleep(0d3);
-                }
-
-                sleep(0d360 - 0d3 * AREA_GLOBAL.ROCK_MOVED_SHIP_OFFSET);
-
-                AREA_GLOBAL.ROCK_MOVED_SHIP = False;
-            }
-
-            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
-        }));
     }
 };
 
@@ -18564,8 +18500,6 @@ area east_inbetwixx() {
             exit_east = @install() {
                 if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
                     map_transition(ship, west, EAST);
-                } else {
-                    error_message(DOOR_CONTRAPTION);
                 }
             },
 
@@ -18726,7 +18660,14 @@ area east_inbetwixx() {
                 add_souls_npc_archaeologist(0d55, 0d46);
             }
 
-            add_levitate_stone_ship(0d65, 0d75);
+            if!(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+                add_enemy(STONE_ROUND, 0d65, 0d75);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    AREA_GLOBAL.ROCK_MOVED_SHIP = True;
+
+                    destroy(SCRIPT_OWNER);
+                }));
+            }
 
             if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                 // upstairs
@@ -18772,20 +18713,6 @@ area east_inbetwixx() {
                 ROOM.ID_STONE_HOLE = <LAST_ENTITY>;
 
                 stone_hole_scanner();
-            }
-
-            if!(AREA_GLOBAL.SHELL_SHIP_EAST) {
-                add_placeholder(SHELL_BOAT, ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    shell_boat_out(<SCRIPT_OWNER>, EAST);
-
-                    AREA_GLOBAL.SHELL_SHIP_EAST = True;
-                    map_transition(ship, shell_boat, NONE);
-                }));
-
-                if(ROOM.SHELL_BOAT_INTRO) {
-                    shell_boat_in(<LAST_ENTITY>, WEST);
-                }
             }
 
             default_init_room(True, False);
@@ -22786,11 +22713,15 @@ area southern_jungle() {
                 }
 
                 attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                    guard_crush_teleport();
+                    
                     ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]--;
 
                     if(ROOM.DEBUG) {
                         debug_memory(ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]);
                     }
+
+                    clean_up(<SCRIPT_OWNER>);
                 }));
             }
 
@@ -22854,20 +22785,20 @@ area southern_jungle() {
                 if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
                     if!(FLAG.ACID_RAIN) {
                         // east
-                        add_basic_souls_enemy(RAPTOR_PURPLE, 0d95, 0d30);
+                        add_raptor(RAPTOR_PURPLE, 0d95, 0d30);
 
-                        add_basic_souls_enemy(RAPTOR_PURPLE, 0d99, 0d63);
+                        add_raptor(RAPTOR_PURPLE, 0d99, 0d63);
 
-                        add_basic_souls_enemy(FLOWER_PURPLE, 0d96, 0d60);
+                        add_raptor(FLOWER_PURPLE, 0d96, 0d60);
 
                         // west
-                        add_basic_souls_enemy(RAPTOR_GREEN, 0d40, 0d47);
+                        add_raptor(RAPTOR_GREEN, 0d40, 0d47);
 
                         add_raptor(RAPTOR_GREEN, 0d61, 0d81);
 
                         // river
                         if(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
-                            add_basic_souls_enemy(RAPTOR_PURPLE, 0d82, 0d38);
+                            add_raptor(RAPTOR_PURPLE, 0d82, 0d38);
                         }   
                     }
                 }
@@ -30523,9 +30454,9 @@ area town() {
                     question("[SLOW]Do you want to trade me your Roots?[CHOICE]Rice 1:1[CHOICE]Spice 1:1, [CHOICE]Essence 3:1", 0d5);
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
-                        trade_items(RICE, 0d1, ROOT, 0d1);
+                        trade_items(RICE, 0d1, ROOT, 0d5);
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
-                        trade_items(SPICE, 0d1, ROOT, 0d1);
+                        trade_items(SPICE, 0d1, ROOT, 0d4);
                     } else if(MEMORY.QUESTION_ANSWER == 0d2) { // essence
                         trade_items(HERBAL_ESSENCE, 0d1, ROOT, ROOM.PRICE_ESSENCE);
                     }
@@ -30607,9 +30538,9 @@ area town() {
                     question("[SLOW]Do you want to trade me your Mud Pepper?[CHOICE]Rice 1:1[CHOICE]Spice 1:1", 0d5);
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
-                        trade_items(RICE, 0d1, IRON, 0d1);
+                        trade_items(RICE, 0d1, MUD_PEPPER, 0d1);
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
-                        trade_items(SPICE, 0d1, IRON, 0d1);
+                        trade_items(SPICE, 0d1, MUD_PEPPER, 0d1);
                     }
                 },
                 vendor_1_1__spice = @install() {
@@ -32003,7 +31934,7 @@ area town() {
             enum ROOM {
                 WITH_GUARD_TRAP = True,
                 GUARD_STATE = memory(WORD, TEMP),
-                GUARD_STATE_THRESHOLD = 0d5,
+                GUARD_STATE_THRESHOLD = 0d1,
                 GUARD_KNOCKBAC_DAMAGE = 0d5,
 
                 HINT_ESCAPE_TRIGGERED = memory(FLAG, TEMP),
@@ -32632,6 +32563,7 @@ map bog_curve(TIMBERDRAKE) {
         ai_move_projectile_puke(<SCRIPT_OWNER>, ONION, <BOY>, 0d4);
 
         if(dead(<SCRIPT_OWNER>)) {
+            // CUSTOM_FLAG.NO_XP_MONEY = False;
             boss_defeated();
         } else if((BOSS.PHASE == 0d0) && (<SCRIPT_OWNER>[HP] < BOSS.P1_THRESHOLD)) {
             BOSS.PHASE = 0d1;
@@ -32656,6 +32588,7 @@ map bog_curve(TIMBERDRAKE) {
     fun boss_triggered() {
         if!(BOSS.PROGRESS) {
             BOSS.PROGRESS = True;
+            // CUSTOM_FLAG.NO_XP_MONEY = True;
 
             push_music(BOSS_JUNGLE);
 
@@ -33144,7 +33077,7 @@ area ship_caves() {
                 if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
                     map_transition(east_crossing, east, WEST);
                 } else {
-                    error_message(DOOR_CONTRAPTION);
+                    error_message(DOOR_WRONG_SIDE);
                 }
             },
             door_3_1 = @install() {
@@ -33224,27 +33157,15 @@ area ship_caves() {
                 add_basic_souls_enemy(RAPTOR_GREEN, 0d41, 0d78);
             }
 
-            add_levitate_stone_ship(0d0, 0d89);
+            if!(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+                add_enemy(STONE_ROUND, 0d0, 0d89);
+            }
 
-            if(True) {
+            if(False) {
                 add_levitate_stone(0d48, 0d38);
                 add_levitate_stone(0d45, 0d42);
                 add_levitate_stone(0d44, 0d40);
                 add_levitate_stone(0d49, 0d39);
-            }
-
-            if(AREA_GLOBAL.SHELL_SHIP_EAST) {
-                add_placeholder(SHELL_BOAT, ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y);
-                attach_script(LAST_ENTITY, B, reference(@install() {
-                    shell_boat_out(<SCRIPT_OWNER>, WEST);
-
-                    AREA_GLOBAL.SHELL_SHIP_EAST = False;
-                    map_transition(east_crossing, shell_boat, NONE);
-                }));
-
-                if(ROOM.SHELL_BOAT_INTRO) {
-                    shell_boat_in(<LAST_ENTITY>, EAST);
-                }
             }
 
             default_init_room(True, True);
@@ -46754,6 +46675,7 @@ area dungeon_volcano() {
 
         enum ROOM {
             ID_STONE = memory(WORD, TEMP),
+            ALCHEMIST_STONE = memory(WORD, TEMP),
 
             Z_UPSTAIRS = 0x10,
             Z_DOWNSTAIRS = 0x20,
@@ -46781,6 +46703,11 @@ area dungeon_volcano() {
         enum b_trigger {
             gourd_north_2__1_mud_pepper = @install() fun gourd_north_2__1_mud_pepper() {
                 debug_subtext("B=0/1");
+
+                if((ROOM.BLOCKED_GOURD) || ((<ACTIVE>[Z_LEVEL] & 0xff) != 0x20)) {
+                    fake_b();
+                    end();
+                }
                 
                 ROOM.BLOCKED_GOURD = True;
                 object[0x03] = 0x01;
@@ -46987,6 +46914,20 @@ area dungeon_volcano() {
             _desert_damage(0d180, 0d3, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_3) || (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2));
         }
 
+        @install()
+        @async()
+        fun protect_rock() {
+            while(True) {
+                if((<ACTIVE>[Z_LEVEL] & 0xff) == 0x10) {
+                    attribute(ROOM.ALCHEMIST_STONE, INVINCIBLE_TEMP, False);
+                } else {
+                    attribute(ROOM.ALCHEMIST_STONE, INVINCIBLE_TEMP, True);
+                }
+
+                sleep(0d30);
+            }
+        }
+
         fun trigger_enter() {
             if(DUNGEON_VOLCANO.BRIDGE_TOP) {
                 object[0x00] = 0x7e; // show bridge_north
@@ -47010,6 +46951,7 @@ area dungeon_volcano() {
             add_levitate_stone(0d90, 0d126, reference(@install() {
                 guard_levitate_stone(0d1);
             }));
+            ROOM.ALCHEMIST_STONE = <LAST_ENTITY>;
             <LAST_ENTITY>[Z_LEVEL] = 0x10;
             add_spike(0d90, 0d124, True);
             add_spike(0d87, 0d128, True);
@@ -47061,6 +47003,7 @@ area dungeon_volcano() {
             add_spike(0d55, 0d45);
 
             heat_hazard();
+            protect_rock();
         }
     };
 
