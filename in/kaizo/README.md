@@ -28,6 +28,11 @@ A romhack of the SNES game "Secret of Evermore" built with the everscript compil
 - `Wings glitch` is explicitly allowed.
 - Please inform me about any glitches/bugs/typos/weird text boxes.
 
+### Known limitations of the Secret of Evermore engine
+
+- Color palettes are limited. If there are more than a few enemies with different colors are in a map, they will start sharing colors.
+- Lag quickly builds up, when there are too many enemies or scripts active at the same time.
+
 ## Patches
 
 - `patches/scale_enemies.asm` — Scale enemy stats to a more flat baseline
