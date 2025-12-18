@@ -10,6 +10,14 @@
 - Weather system (Opening menus resets the screen tint)
 - Scaling all enemies to all levels (Scaling in this game is a nightmare)
 
+## [0.9.4] - 2025-12-19
+
+### Added
+- Restructured money logic
+
+### Bugfix
+- Sound logic used the wrong memory
+
 ## [0.9.3] - 2025-12-18
 
 ### Bugfix
