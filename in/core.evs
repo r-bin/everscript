@@ -423,6 +423,8 @@ group general_enums() {
             BOY_BLACK = 0d58,
             TUMBLING_WEED = 0d59,
             // …
+            AEGIS_ENTITY = 0d71,
+            // …
             AQUAGOTH = 0d74,
             SPARK = 0d75,
             TIMBERDRAKE = 0d76,
@@ -1137,8 +1139,8 @@ group general_enums() {
             REPLACE_MUSIC_INSTEAD = <0x289c, 0x01>,
             SLOW_GROUND_SWITCHES = <0x289c, 0x02>,
             NO_MORPHING = <0x289c, 0x04>,
-            WEATHER_EFFECT_NIGHT = <0x289c, 0x02>,
-            WEATHER_EFFECT_RAIN = <0x289c, 0x01>,
+            WEATHER_EFFECT_NIGHT = <0x289c, 0x08>,
+            WEATHER_EFFECT_RAIN = <0x289c, 0x10>,
         }
     };
 
@@ -3860,10 +3862,10 @@ group functions() {
         }
         
         fun hide_non_dialog_layers() {
-            <0x235b> = 0x04;
-            <0x235c> = 0x00;
-            <0x235e> = 0x00;
-            <0x235d> = 0x00;
+            (Byte) <0x235b> = 0x04;
+            (Byte) <0x235c> = 0x00;
+            (Byte) <0x235e> = 0x00;
+            (Byte) <0x235d> = 0x00;
 
             code(0x82, "// (82) Also change visible layers?");
         }
@@ -4237,8 +4239,9 @@ group functions() {
                 if(SYSTEM.WITH_DEBUG_MUSIC) {
                     MEMORY.STRING_PARAMETER_1 = music;
                     MEMORY.STRING_PARAMETER_2 = clear_stack;
+                    MEMORY.STRING_PARAMETER_3 = CUSTOM_FLAG.REPLACE_MUSIC_INSTEAD;
                     
-                    _subtext("push_music([MEM1], [MEM2])");
+                    _subtext("push_music([MEM1], [MEM2], [MEM3])");
                     sleep(0d60);
                 }
 
@@ -4741,9 +4744,9 @@ group functions() {
                 }
             }
 
-            fun damage(character:CHARACTER, value, animation, no_knockbac) {
-                if(no_knockbac is Word) {
-                    if(no_knockbac > 0d0) {
+            fun damage(character:CHARACTER, value, animation, no_knockback) {
+                if(no_knockback is Word) {
+                    if(no_knockback > 0d0) {
                         MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
                     }
                 }
@@ -5880,7 +5883,7 @@ group functions() {
                 music_fade(True);
             }
             fun fanfare_end() {
-                sleep(0x08);
+                sleep(0d8);
 
                 call(0x92bf33); // (29) CALL 0x92bf33 Hold up weapon
 
@@ -6835,36 +6838,43 @@ group functions() {
                 } else if(item == ITEM.PETAL) { // consumables
                     MEMORY.LOOT_ITEM = LOOT_REWARD.PETAL;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                     
                 } else if(item == ITEM.NECTAR) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.NECTAR;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                     
                 } else if(item == ITEM.BISCUIT) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.BISCUIT;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                     
                 } else if(item == ITEM.WINGS) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.WINGS;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                     
                 } else if(item == ITEM.HERBAL_ESSENCE) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.HERBAL_ESSENCE;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                     
                 } else if(item == ITEM.PIXIE_DUST) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.PIXIE_DUST;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                     
                 } else if(item == ITEM.CALL_BEADS) {
                     MEMORY.LOOT_ITEM = LOOT_REWARD.CALL_BEADS;
                     MEMORY.LOOT_OBJECT = 0xff;
+                    MEMORY.LOOT_AMOUNT = 0d0;
                     call_id(LOOT_GOURD);
                 } else if(item == ITEM.RICE) { // tradable
                     MEMORY.RICE++;
@@ -7494,7 +7504,10 @@ group functions() {
                         }
 
                         sleep(CHEAT_MENU.DELAY);
-                        while((MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R))) == arg[0x12]) {
+                        while(
+                            ((MEMORY.INPUT_P1 & (INPUT.L | INPUT.R)) == (INPUT.L | INPUT.R))
+                            && ((MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R))) == arg[0x12])
+                        ) {
                             yield();
                         }
                         sleep(CHEAT_MENU.DELAY);
@@ -12167,8 +12180,7 @@ group functions() {
                 if(CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT >= 0d3) {
                     end();
                 } else {
-                    MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
-                    damage(BOY, CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT * 0d5, True);
+                    damage(BOY, CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT * 0d5, True, True);
 
                     CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT++;
                 }
@@ -14023,8 +14035,7 @@ group functions() {
                     arg[0x10] = False;
                     arg[0x12] = 0d3;
 
-                    MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
-                    damage(ACTIVE, 0d5, True);
+                    damage(ACTIVE, 0d5, True, True);
                 } else if(arg[0x12] > 0d0){
                     arg[0x12]--;
                 }
