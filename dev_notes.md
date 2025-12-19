@@ -3,12 +3,11 @@
 
 
 # important
+## alchemy screen removes weather
 
 # nice to have
-## "wrong weapon" after watching the outro while holding the bronze axe
 ## more orbs (every boss)
 ## code switches update poorly
-## aquagoth gives 0 souls?
 ## scale enemies: before pyramid
 ## dog statue guards dialog
 ## archaologist replies with crafter quotes

@@ -24,6 +24,7 @@ A romhack of the SNES game "Secret of Evermore" built with the everscript compil
 ### How to play the game
 
 - Hold `START` when starting a new game for settings.
+- The game becomes exponentially easier with every level.
 - Loading the game is considered cheating, I'm afraid.
 - `Wings glitch` is explicitly allowed.
 - Please inform me about any glitches/bugs/typos/weird text boxes.
