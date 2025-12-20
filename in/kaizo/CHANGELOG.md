@@ -10,6 +10,11 @@
 - Weather system (Opening menus resets the screen tint)
 - Scaling all enemies to all levels (Scaling in this game is a nightmare)
 
+## [0.9.5] - 2025-12-20
+
+### Added
+- Restructured boy attack scaling
+
 ## [0.9.4] - 2025-12-19
 
 ### Added
