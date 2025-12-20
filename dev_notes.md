@@ -4,6 +4,7 @@
 
 # important
 ## alchemy screen removes weather
+## armor nerf: monk, rimsala_gold
 
 # nice to have
 ## more orbs (every boss)
