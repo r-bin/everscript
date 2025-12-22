@@ -3,10 +3,28 @@
 
 
 # important
-## alchemy screen removes weather
-## armor nerf: monk, rimsala_gold
+## pressure plate soft lock (top left)
+## temple axe2 wall can't be bombed
+## dog lady room no music
+## chessboard secret does not trigger after fight
+## basement bonfire + dying = soft lock
+## bee boy hp too low
+## boy aggression also to 0
+## mosquito arena to 1000hp?
+## drop to market tiny makes dog stuck
+## isaac projectiles deal 1 damage
+## sprint with stone vest?
+## smith dialog soft lock?!?!?!?!?
+## hack game at gomis tower did not require you to win
+## pyromancer does not require an actual item
+## pyramid cutscenes restores lotus bridges
+## one offs
+### bunker exit made solar fall down again?
+### flower death = game over?
 
 # nice to have
+## armor nerf: monk, rimsala_gold
+## alchemy screen removes weather
 ## more orbs (every boss)
 ## code switches update poorly
 ## scale enemies: before pyramid
@@ -17,6 +35,7 @@
 ## pyramid spiders sometimes missing
 ## fire eyes before northern inbetwixx
 ## animations/cutscenes
+### jungle lift calls dog
 ### dog should not be at 0/0 during abomination fight
 ### axe2 doors no sound
 ### thraxx kill pulls dog

@@ -15,7 +15,7 @@ hirom
 !DOG_HP_INCREMENT = 9 ;
 
 !BOY_ATTACK_ADDRESS = $8c9359+(2*!TABLE_OFFSET) ; table for boy attack
-!BOY_ATTACK_BASE = 0 ;
+!BOY_ATTACK_BASE = 5 ;
 !BOY_ATTACK_INCREMENT = 2 ;
 !BOY_ATTACK_DIVISOR = 1 ; allows 0.5 steps
 
@@ -43,7 +43,7 @@ org !DOG_HP_ADDRESS
 org !BOY_ATTACK_ADDRESS
   !counter = 0
   while !counter < !TABLE_ENTRIES
-    dw #(!BOY_ATTACK_BASE+(!BOY_ATTACK_INCREMENT*!counter)/!BOY_ATTACK_DIVISOR)
+    dw #!BOY_ATTACK_BASE+((!BOY_ATTACK_INCREMENT*!counter)/!BOY_ATTACK_DIVISOR)
 
     !counter #= !counter+1
   endwhile
