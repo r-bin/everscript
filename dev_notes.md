@@ -21,6 +21,8 @@
 ## one offs
 ### bunker exit made solar fall down again?
 ### flower death = game over?
+## bazooka returns prvious weapon
+## souls in arenas should be returned to the entrance (if locked)
 
 # nice to have
 ## armor nerf: monk, rimsala_gold
