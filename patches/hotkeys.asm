@@ -38,6 +38,20 @@ org !ROM_HOOK+!INJECT_OFFSET
 
 org !ROM_EXTENSION
 start_practice_stuff:
+  if !WITH_ARMOR_DUMP
+    LDA $0ABE ; current armor collar
+    STA $7e0000+!CURRENT_ARMOR_COLLAR_DUMP
+    
+    LDA $0AC0 ; current armor chest
+    STA $7e0000+!CURRENT_ARMOR_CHEST_DUMP
+    
+    LDA $0AC2 ; current armor helm
+    STA $7e0000+!CURRENT_ARMOR_HELM_DUMP
+    
+    LDA $0AC4 ; current armor armlet
+    STA $7e0000+!CURRENT_ARMOR_ARMLET_DUMP
+  endif
+
   ; sanity check to prevent crashes
 
   LDA $7e22eb
@@ -54,20 +68,6 @@ start_practice_stuff:
   if !WITH_INPUT_P1_DUMP
     LDA $4218 ; "JOY1L"
     STA $7e0000+!INPUT_P1_DUMP
-  endif
-
-  if !WITH_ARMOR_DUMP
-    LDA $0ABE ; current armor collar
-    STA $7e0000+!CURRENT_ARMOR_COLLAR_DUMP
-    
-    LDA $0AC0 ; current armor chest
-    STA $7e0000+!CURRENT_ARMOR_CHEST_DUMP
-    
-    LDA $0AC2 ; current armor helm
-    STA $7e0000+!CURRENT_ARMOR_HELM_DUMP
-    
-    LDA $0AC4 ; current armor armlet
-    STA $7e0000+!CURRENT_ARMOR_ARMLET_DUMP
   endif
   
   ldx !PREV_INPUT
