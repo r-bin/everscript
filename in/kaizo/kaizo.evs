@@ -2196,6 +2196,8 @@ group non_maps() {
         fun _souls_boss_defeated(reward_item:SOULS_MEMORY, force) {
             if(reward_item is Function) {
                 reward_item();
+
+                fanfare_item(False);
             } else {
                 if(reward_item != ITEM.NO_ITEM) {
                     if(reward_item < 0xf000) {
@@ -2335,11 +2337,24 @@ group non_maps() {
             attribute(DOG, INVINCIBLE_TEMP, False);
         }
 
-        fun dust_unreachable(x, y) {
+        fun dust_unreachable(x, y, map_id?:MAP, variant?) {
             SOULS_MEMORY.DUST_UNREACHABLE = True;
 
             SOULS_MEMORY.DUST_DROP_X = x * 0x0008;
             SOULS_MEMORY.DUST_DROP_Y = y * 0x0008;
+
+            if(map_id is Word) {
+                SOULS_MEMORY.DUST_DROP_MAP = map_id;
+
+                if(variant is Word) {
+                    SOULS_MEMORY.DUST_DROP_VARIANT = variant;
+                } else {
+                    SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
+                }
+            } else {
+                SOULS_MEMORY.DUST_DROP_MAP = MEMORY.CURRENT_MAP;
+                SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
+            }
         }
 
         fun refresh_flask() {
@@ -3817,10 +3832,11 @@ group non_maps() {
                 if!(SOULS_MEMORY.DUST_UNREACHABLE) {
                     SOULS_MEMORY.DUST_DROP_X = <SCRIPT_OWNER>[X];
                     SOULS_MEMORY.DUST_DROP_Y = <SCRIPT_OWNER>[Y];
+
+                    SOULS_MEMORY.DUST_DROP_MAP = MEMORY.CURRENT_MAP;
+                    SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
                 }
                 SOULS_MEMORY.DUST_UNREACHABLE = False;
-                SOULS_MEMORY.DUST_DROP_MAP = MEMORY.CURRENT_MAP;
-                SOULS_MEMORY.DUST_DROP_VARIANT = MEMORY.CURRENT_MAP_VARIANT;
 
                 if!(CUSTOM_FLAG.NO_CURRENCY_DISPLAY) {
                     show_currency(True);
@@ -29927,6 +29943,8 @@ area town() {
 
             enum BOSS {
                 DEBUG = False,
+
+                HP = 0d500,
             }
 
             @install()
@@ -29960,7 +29978,7 @@ area town() {
                     souls_boss_defeated(DEAD_DOG_STATUE, MONEY_DOG_STATUE, REWARD_DOG_STATUE);
 
                     map_transition(town_center, center_north, NONE);
-                }, 0d32, 0d24, 0d35, 0d40, 0d20);
+                }, 0d32, 0d24, 0d35, 0d40, BOSS.HP);
             }
         };
 
@@ -30346,6 +30364,7 @@ area town() {
 
                 FORCE_FULL_MARKET = False,
 
+                PRICE_MUD_PEPPER = 0d5,
                 PRICE_ESSENCE = 0d3,
                 PRICE_WINGS = 0d3,
                 PRICE_BISCUIT = 0d3,
@@ -30419,14 +30438,15 @@ area town() {
                             trade_items(FEATHER, 0d1, SPICE, 0d2);
                         }
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
-                        question("[SLOW]Sell Feathers?[CHOICE]Rice 1:2[CHOICE]Spice 1:2, [CHOICE]Wings 1:3", 0d5);
+                        MEMORY.STRING_PARAMETER_1 = ROOM.PRICE_WINGS;
+                        question("[SLOW]Sell Feathers?[CHOICE]Rice 2:1[CHOICE]Spice 2:1, [CHOICE]Wings [MEM1]:1", 0d5);
                         
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
                             trade_items(RICE, 0d1, FEATHER, 0d2);
                         } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
                             trade_items(SPICE, 0d1, FEATHER, 0d2);
                         } else if(MEMORY.QUESTION_ANSWER == 0d2) { // wings
-                            trade_items(WINGS, 0d1, FEATHER, ROOM.PRICE_WINGS);
+                            trade_items(WINGS, 0d1, FEATHER, MEMORY.STRING_PARAMETER_1);
                         }
                     }
                 },
@@ -30450,14 +30470,16 @@ area town() {
                             trade_items(BONE, 0d1, SPICE, 0d2);
                         }
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
-                        question("[SLOW]Sell Bones?[CHOICE]Rice 1:2[CHOICE]Spice 1:3[CHOICE]Biscuit 1:3", 0d5);
+                        MEMORY.STRING_PARAMETER_1 = ROOM.PRICE_BISCUIT;
+
+                        question("[SLOW]Sell Bones?[CHOICE]Rice 2:1[CHOICE]Spice 3:1[CHOICE]Biscuit [MEM1]:1", 0d5);
                         
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
                             trade_items(RICE, 0d1, BONE, 0d2);
                         } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
                             trade_items(SPICE, 0d1, BONE, 0d3);
                         } else if(MEMORY.QUESTION_ANSWER == 0d2) { // biscuit
-                            trade_items(BISCUIT, 0d1, BONE, ROOM.PRICE_BISCUIT);
+                            trade_items(BISCUIT, 0d1, BONE, MEMORY.STRING_PARAMETER_1);
                         }
                     }
                 },
@@ -30609,7 +30631,7 @@ area town() {
                             trade_items(ASH, 0d1, SPICE, 0d2);
                         }
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
-                        question("[SLOW]Sell Ash?[CHOICE]Rice 1:4[CHOICE]Spice 1:3", 0d5);
+                        question("[SLOW]Sell Ash?[CHOICE]Rice 4:1[CHOICE]Spice 3:1", 0d5);
                         
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
                             trade_items(RICE, 0d1, ASH, 0d4);
@@ -30632,7 +30654,7 @@ area town() {
                             trade_items(WATER, 0d4, SPICE, 0d1);
                         }
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
-                        question("[SLOW]Sell Water?[CHOICE]Rice 1:10[CHOICE]Spice 1:10", 0d5);
+                        question("[SLOW]Sell Water?[CHOICE]Rice 10:1[CHOICE]Spice 10:1", 0d5);
                         
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
                             trade_items(RICE, 0d1, WATER, 0d10);
@@ -30681,14 +30703,16 @@ area town() {
                             trade_items(ROOT, 0d1, SPICE, 0d2);
                         }
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
-                        question("[SLOW]Sell Roots?[CHOICE]Rice 1:1[CHOICE]Spice 1:1[CHOICE]Essence 1:3", 0d5);
+                        MEMORY.STRING_PARAMETER_1 = ROOM.PRICE_ESSENCE;
+
+                        question("[SLOW]Sell Roots?[CHOICE]Rice 5:1[CHOICE]Spice 4:1[CHOICE]Essence [MEM1]:1", 0d5);
                         
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
                             trade_items(RICE, 0d1, ROOT, 0d5);
                         } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
                             trade_items(SPICE, 0d1, ROOT, 0d4);
                         } else if(MEMORY.QUESTION_ANSWER == 0d2) { // essence
-                            trade_items(HERBAL_ESSENCE, 0d1, ROOT, ROOM.PRICE_ESSENCE);
+                            trade_items(HERBAL_ESSENCE, 0d1, ROOT, MEMORY.STRING_PARAMETER_1);
                         }
                     }
                 },
@@ -30809,10 +30833,12 @@ area town() {
                     question("[SLOW]Mud Pepper?[CHOICE]buy…[CHOICE]sell…");
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) { // buy
-                        question("[SLOW]Mud Pepper?[CHOICE]Spice 8:1");
+                        MEMORY.STRING_PARAMETER_1 = ROOM.PRICE_MUD_PEPPER;
+
+                        question("[SLOW]Mud Pepper?[CHOICE]Spice [MEM1]:1");
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // spice
-                            trade_items(MUD_PEPPER, 0d1, SPICE, 0d8);
+                            trade_items(MUD_PEPPER, 0d1, SPICE, MEMORY.STRING_PARAMETER_1);
                         }
                     } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
                         question("[SLOW]Sell Mud Pepper?[CHOICE]Rice 1:3[CHOICE]Spice 1:2", 0d5);
@@ -31902,6 +31928,8 @@ area town() {
 
                 WITH_RAT = True,
                 WITH_BIRDS = False,
+
+                PRICE_TAPESTRY = 0d3,
             }
 
             enum stepon_trigger {
@@ -32123,10 +32151,12 @@ area town() {
                     attach_script(LAST_ENTITY, B, reference(@install() {
                         guard_market_break(True);
 
-                        question("[SLOW]Buy Tapestry?[CHOICE]Rice 5:1", 0d5);
+                        MEMORY.STRING_PARAMETER_1 = ROOM.PRICE_TAPESTRY;
+
+                        question("[SLOW]Buy Tapestry?[CHOICE]Rice [MEM1]:1", 0d5);
 
                         if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
-                            trade_items(TAPESTRY, 0d1, RICE, 0d5);
+                            trade_items(TAPESTRY, 0d1, RICE, MEMORY.STRING_PARAMETER_1);
                         }
 
                         control(BOTH);
@@ -40229,7 +40259,7 @@ area metro() {
                 exit_south = @install() {
                     debug_subtext("S=0");
 
-                    fog_wall_inside(!SOULS_MEMORY.DEAD_SECRET_BOSS, SOUTH);
+                    fog_wall_inside(BOSS.PROGRESS, SOUTH);
 
                     door_act4_beam_out(0d57, 0d78);
                     map_transition(control_room, north, NONE);
@@ -41564,6 +41594,8 @@ area metro() {
                     callback();
                 }
             }
+            @install()
+            @async()
             fun desert_damage() {
                 while(True) {
                     sleep(ROOM.DAMAGE_TIME);
@@ -41620,9 +41652,14 @@ area metro() {
                     PATTERN_SHOOTING = memory(FLAG, TEMP),
                     PATTERN_BOMBS = memory(FLAG, TEMP),
                     PATTERN_AUTOATTACK = memory(FLAG, TEMP),
+
+                    DAMAGE_BONK = 0d5,
+
+                    TILT = memory(FLAG, TEMP),
                 }
 
                 fun boss_defeated() {
+                    ROOM.PAUSE = 0xffff; // TODO auto scrolling without collision and nobilia would be better
                     attribute(BOY, NO_CLIP, True);
 
                     control(NONE);
@@ -41928,8 +41965,6 @@ area metro() {
                     attribute(ROOM.SHIP_ID, INVISIBLE, True);
                     attribute(ROOM.SHIP_FIRE_ID, INVISIBLE, True);
                 }
-                
-                unlock(JAGUAR_RING);
 
                 yield();
 
@@ -41937,9 +41972,17 @@ area metro() {
 
                 yield();
 
-                // spaceship_loop();
+                desert_damage();
 
                 while(True) {
+                    if!(BOSS.TILT) {
+                        if(<BOY>[HP] <= 0d0) {
+                            BOSS.TILT = True;
+
+                            dust_unreachable(0d62, 0d27, OMNITOPIA_PROFESSOR, 0d0);
+                        }
+                    }
+
                     arg[0x10] = <BOY>[Y];
                     if!(ROOM.PAUSE) {
                         teleport_relative(BOY, 0d0, -0d2);
@@ -41976,7 +42019,7 @@ area metro() {
                     } else if!(ROOM.PAUSE) {
                         attribute(BOY, NO_CLIP, True);
                         face(BOY, NORTH);
-                        damage(BOY, 0d1, True);
+                        damage(BOY, BOSS.DAMAGE_BONK, True);
                         // animate(BOY, ONCE, KNOCKBACK);
                         
                         ROOM.PAUSE = 0d90;
@@ -41989,8 +42032,6 @@ area metro() {
                     
                     yield();
                 }
-
-                desert_damage();
             }
         };
     };
