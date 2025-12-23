@@ -4,7 +4,7 @@
 
 # important
 ## pressure plate soft lock (top left)
-## temple axe2 wall can't be bombed
+## bombable: temple axe2 wall, graveyard
 ## dog lady room no music
 ## chessboard secret does not trigger after fight
 ## basement bonfire + dying = soft lock
@@ -20,9 +20,10 @@
 ## pyramid cutscenes restores lotus bridges
 ## one offs
 ### bunker exit made solar fall down again?
-### flower death = game over?
 ## bazooka returns prvious weapon
 ## souls in arenas should be returned to the entrance (if locked)
+## souls in space desert
+## gomi pits should not
 
 # nice to have
 ## armor nerf: monk, rimsala_gold
