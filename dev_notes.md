@@ -5,7 +5,6 @@
 # important
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## dog lady room no music
 ## chessboard secret does not trigger after fight
 ## basement bonfire + dying = soft lock
 ## bee boy hp too low
@@ -16,13 +15,11 @@
 ## sprint with stone vest?
 ## smith dialog soft lock?!?!?!?!?
 ## hack game at gomis tower did not require you to win
-## pyromancer does not require an actual item
 ## pyramid cutscenes restores lotus bridges
 ## one offs
 ### bunker exit made solar fall down again?
-## bazooka returns prvious weapon
+## bazooka returns previous weapon
 ## souls in arenas should be returned to the entrance (if locked)
-## souls in space desert
 ## gomi pits should not
 
 # nice to have
