@@ -10,6 +10,11 @@
 - Weather system (Opening menus resets the screen tint)
 - Scaling all enemies to all levels (Scaling in this game is a nightmare)
 
+## [0.9.6] - 2025-12-23
+
+### Known Bugs
+- Dying as dog can lead to him glitching out until the room has been left
+
 ## [0.9.5] - 2025-12-20
 
 ### Added
@@ -50,7 +55,6 @@
 
 ### Known Bugs
 - Weather effect is broken by: Alchemy selection/save screen, some items/alchemy
-
 
 ## [0.9.0] - 2025-12-11
 
