@@ -19,6 +19,12 @@
 ### bunker exit made solar fall down again?
 ## bazooka returns previous weapon
 ## souls in arenas should be returned to the entrance (if locked)
+## matroidvania
+### defend = cat ring
+### stone vest ^= cat ring (weight++ and weight--), heavy weight = more fall damage
+### yump activates one time switches
+### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
+### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 
 # nice to have
 ## armor nerf: monk, rimsala_gold
