@@ -4305,12 +4305,16 @@ group non_maps() {
             }
         }
 
-        fun add_code_bot(x, y, index, dig_counter, hacked) {
+        fun handle_code_bot_entrance(entity, flag) {
+            flag = entity[GENERAL_PURPOSE] >> 0x08;
+        }
+
+        fun add_code_bot(x, y, index, hacked) {
             add_enemy(DUSTER_BOT, x, y, INACTIVE_IMORTAL);
             if!(hacked) {
                 attribute(LAST_ENTITY, INVISIBLE, True);
             }
-            <LAST_ENTITY>[GENERAL_PURPOSE] = dig_counter;
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d100;
             SOULS_MEMORY.ARCHAEOLOGY_TARGET = <LAST_ENTITY>;
             face_target(LAST_ENTITY, ACTIVE);
             prepare_radiating_entity(<LAST_ENTITY>);
@@ -4319,7 +4323,7 @@ group non_maps() {
 
             if!(hacked) {
                 attach_script(LAST_ENTITY, B, reference(@install() {
-                    guard_archaeology_dig(False, <SCRIPT_OWNER>[GENERAL_PURPOSE], True);
+                    guard_archaeology_dig(False, True);
 
                     attribute(SCRIPT_OWNER, INVISIBLE, False);
 
@@ -4357,11 +4361,11 @@ group non_maps() {
             }
         }
 
-        fun archaeology_dig_code_bot(x, y, index, dig_counter, flag) {
+        fun archaeology_dig_code_bot(x, y, index, flag) {
             if!(flag) {
-                add_code_bot(x, y, index, dig_counter, False);
+                add_code_bot(x, y, index, False);
             } else {
-                add_code_bot(x, y, index, dig_counter, True);
+                add_code_bot(x, y, index, True);
             }
         }
     };
@@ -12311,7 +12315,6 @@ area west_inbetwixx() {
             FAKE_SLASH_GRASS_Y = memory(WORD, TEMP),
 
             CODE_BOT_HACKED = memory(FLAG, TEMP),
-            CODE_BOT_DIG_COUNT = 0d100,
             CODE_BOT_X = 0d45,
             CODE_BOT_Y = 0d78,
 
@@ -12326,7 +12329,7 @@ area west_inbetwixx() {
             west = entrance(0x01, 0x37, EAST),
 
             code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
-                ROOM.CODE_BOT_HACKED = <BOY>[GENERAL_PURPOSE] >> 0x08;
+                handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
 
                 hacking_wakeup(0d32, -0d8, 0d24, -0d24);
             }),
@@ -12528,7 +12531,7 @@ area west_inbetwixx() {
                 // add_basic_souls_enemy(OWL_BLACK, 0d97, 0d55, INACTIVE);
             }
 
-            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_1, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_1, ROOM.CODE_BOT_HACKED);
 
             init_map(0x00, 0x06, 0x6e, 0x52);
             default_init_room(True, True);
@@ -13250,7 +13253,6 @@ area altus_plateau_entry() {
                 WIND_ONLY_ACTIVE = True,
 
                 CODE_BOT_HACKED = memory(FLAG, TEMP),
-                CODE_BOT_DIG_COUNT = 0d100,
                 CODE_BOT_X = 0d39,
                 CODE_BOT_Y = 0d233,
 
@@ -13269,7 +13271,7 @@ area altus_plateau_entry() {
                 crash = entrance(0d23, 0d249, NONE, { crash_both(); }),
 
                 code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
-                    ROOM.CODE_BOT_HACKED = True;
+                    handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
 
                     hacking_wakeup(-0d8, 0d24, 0d24, 0d24);
                 }),
@@ -13955,7 +13957,7 @@ area altus_plateau_entry() {
 
                 default_init_room(True, True);
 
-                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_HACKED);
                 place_statue(GOMI, 0d24, 0d119);
 
                 if(ROOM.WITH_WIND) {
@@ -27732,13 +27734,7 @@ area town() {
                     pit_2 = pit_triggered(),
                     pit_1 = pit_triggered(),
                     exit_south = @install() fun trigger_door_south() {
-                        if(<SCRIPT_OWNER> == <ACTIVE>) {
-                            if((!ROOM.DOOR_SOUTH_OPENED) && (!AREA_TEMPLE.UNLOCKED_LEVEL_2) && FLAG.QUEENS_KEY) {
-                                dialog("[SLOW]Weird. The key seems to fit, but the door still does not open from this side.[B]What on earth was sealed behind that door?[B]");
-                            }
-                        }
-
-                        bombable_trigger(AREA_TEMPLE.UNLOCKED_LEVEL_2, ROOM.DOOR_SOUTH_OPENED, ((DIRECTION.NORTH << 0x0008) | ERROR_TYPE.DOOR_WRONG_SIDE), {
+                        bombable_trigger(AREA_TEMPLE.UNLOCKED_LEVEL_2 || FLAG.QUEENS_KEY, ROOM.DOOR_SOUTH_OPENED, ((DIRECTION.NORTH << 0x0008) | ERROR_TYPE.DOOR_LOCKED), {
                             map_transition(temple_underground_castle_stairs, north_2, SOUTH);
                         });
                     },
@@ -34122,7 +34118,6 @@ area desert_bug() {
     map bugmuck(BUGMUCK) {
         enum ROOM {
             CODE_BOT_HACKED = memory(FLAG, TEMP),
-            CODE_BOT_DIG_COUNT = 0d100,
             CODE_BOT_X = 0d138,
             CODE_BOT_Y = 0d44,
         }
@@ -34142,7 +34137,7 @@ area desert_bug() {
             dungeon_west_3 = entrance(0x73, 0x34, WEST, { dungeon_legs(True); }),
 
             code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
-                ROOM.CODE_BOT_HACKED = True;
+                handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
 
                 hacking_wakeup(0d24, 0d0, 0d24, 0d16);
             }),
@@ -34464,7 +34459,7 @@ area desert_bug() {
                 add_basic_souls_enemy(SPIDER_YELLOW, 0d71, 0d93);
             }
             
-            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_4, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+            archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_4, ROOM.CODE_BOT_HACKED);
 
             default_init_room(False, False);
 
@@ -36450,7 +36445,6 @@ area desert_bug() {
                 HAS_ALCHEMIST = memory(FLAG, TEMP),
 
                 CODE_BOT_HACKED = memory(FLAG, TEMP),
-                CODE_BOT_DIG_COUNT = 0d100,
                 CODE_BOT_X = 0d21,
                 CODE_BOT_Y = 0d150,
             }
@@ -36480,7 +36474,7 @@ area desert_bug() {
                 swirl_secret = entrance(0d28, 0d47, NONE, { enter_sandpit(); }),
 
                 code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
-                    ROOM.CODE_BOT_HACKED = True;
+                    handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
 
                     hacking_wakeup(0d0, 0d24, 0d40, 0d40);
                 }),
@@ -36797,7 +36791,7 @@ area desert_bug() {
 
                 init_map(0x02, 0x00, 0xa6, 0xd8);
 
-                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_5, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+                archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_5, ROOM.CODE_BOT_HACKED);
 
                 default_init_room(False, False);
 
@@ -48614,7 +48608,6 @@ area dungeon_volcano() {
             map cave_left_south_east(OGLIN_CAVE) { // variant room_3 (U-shape)
                 enum ROOM {
                     CODE_BOT_HACKED = memory(FLAG, TEMP),
-                    CODE_BOT_DIG_COUNT = 0d100,
                     CODE_BOT_X = 0d138,
                     CODE_BOT_Y = 0d218,
                 }
@@ -48626,7 +48619,7 @@ area dungeon_volcano() {
                     teleporter = entrance(0x89, 0xe0, NONE, { teleporter_in(SOUTH); }),
 
                     code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
-                        ROOM.CODE_BOT_HACKED = True;
+                        handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
 
                         hacking_wakeup(0d0, 0d24, 0d40, 0d40);
                     }),
@@ -48783,7 +48776,7 @@ area dungeon_volcano() {
                         add_basic_souls_enemy(LIZARD, 0d158, 0d238);
                     }
 
-                    archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_2, ROOM.CODE_BOT_DIG_COUNT, ROOM.CODE_BOT_HACKED);
+                    archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_2, ROOM.CODE_BOT_HACKED);
 
                     init_room(0d3);
                     default_init_room(False, False);

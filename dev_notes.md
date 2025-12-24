@@ -14,13 +14,11 @@
 ## isaac projectiles deal 1 damage
 ## sprint with stone vest?
 ## smith dialog soft lock?!?!?!?!?
-## hack game at gomis tower did not require you to win
 ## pyramid cutscenes restores lotus bridges
 ## one offs
 ### bunker exit made solar fall down again?
 ## bazooka returns previous weapon
 ## souls in arenas should be returned to the entrance (if locked)
-## gomi pits should not
 
 # nice to have
 ## armor nerf: monk, rimsala_gold
