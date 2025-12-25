@@ -10,10 +10,15 @@
 - Weather system (Opening menus resets the screen tint)
 - Scaling all enemies to all levels (Scaling in this game is a nightmare)
 
-## [0.9.6] - 2025-12-23
+## [0.9.6] - 2025-12-25
 
-### Known Bugs
+### Added
+- Improved scaling (Work in progress)
+
+### Bugfix
 - Dying as dog can lead to him glitching out until the room has been left
+- XP overflow
+- Various logic problems
 
 ## [0.9.5] - 2025-12-20
 
