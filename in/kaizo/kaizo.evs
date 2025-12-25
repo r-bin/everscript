@@ -589,6 +589,7 @@ group non_maps() {
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             WITH_AREA_NAMES = False,
             WITH_FORMULAS = False,
+            WITH_FREE_START_ABILITIES = False,
             // cheats
             WITH_CHEATS = False, // fixes no clip after screen transitions
             WITH_CHEATS_FULL_INGREDIENTS = False,
@@ -1546,18 +1547,24 @@ group non_maps() {
                 }
             }
 
+            fun bump_cheat_counter() {
+                if(SOULS_MEMORY.CHEAT_COUNTER < 0xff) {
+                    SOULS_MEMORY.CHEAT_COUNTER++;
+                }
+            }
+
             @install()
             fun update_reputation_enter() {
                 if!(SOULS_MEMORY.CHEAT_DEBUG_OR_CHEAT_MODE) {
                     if(SOULS_MEMORY.DEBUG || SOULS_MEMORY.WITH_CHEATS) {
                         SOULS_MEMORY.CHEAT_DEBUG_OR_CHEAT_MODE = True;
-                        SOULS_MEMORY.CHEAT_COUNTER++;
+                        bump_cheat_counter();
                     }
                 }
                 if!(SOULS_MEMORY.CHEAT_ATLAS_GLITCH) {
                     if(<BOY>[BOOST_ATTACK] > 0d1000) {
                         SOULS_MEMORY.CHEAT_ATLAS_GLITCH = True;
-                        SOULS_MEMORY.CHEAT_COUNTER++;
+                        bump_cheat_counter();
                     }
                 }
                 if(True) { // TODO: SOULS_MEMORY.CHEAT_OVER_LEVELED
@@ -1565,7 +1572,7 @@ group non_maps() {
                         MEMORY.BOY_LEVEL = 0d5;
 
                         // SOULS_MEMORY.CHEAT_OVER_LEVELED = True;
-                        SOULS_MEMORY.CHEAT_COUNTER++;
+                        bump_cheat_counter();
                     }
                 }
                 if!(SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED) {
@@ -1584,7 +1591,7 @@ group non_maps() {
                     }
                     
                     SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED = True;
-                    SOULS_MEMORY.CHEAT_COUNTER++;
+                    bump_cheat_counter();
                 }
 
                 if(SOULS_MEMORY.CHALLENGE_NO_CHEATS && (SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) && SOULS_MEMORY.CHEAT_COUNTER) {
@@ -2763,7 +2770,9 @@ group non_maps() {
         @install()
         fun start_feature_selected(index:HELPER_START_ABILITY) {
             if(index == HELPER_START_ABILITY.BOMB) {
-                if(FLAG.ENERGY_CORE) {
+                bump_cheat_counter();
+
+                if(FLAG.ENERGY_CORE && SOULS_MEMORY.WITH_FREE_START_ABILITIES) {
                     drop_bomb(False);
                 } else {
                     drop_bomb(True);
@@ -2771,7 +2780,9 @@ group non_maps() {
             } else if(index == HELPER_START_ABILITY.TEAR) {
                 _isaac_tear(True);
             } else if(index == HELPER_START_ABILITY.YUMP) {
-                if(FLAG.ENERGY_CORE) {
+                bump_cheat_counter();
+
+                if(FLAG.ENERGY_CORE && SOULS_MEMORY.WITH_FREE_START_ABILITIES) {
                     mario_yump(False);
                 } else {
                     mario_yump(True);
@@ -2783,6 +2794,8 @@ group non_maps() {
             } else if(index == HELPER_START_ABILITY.ROCKET_JUMP) {
                 rocket_jump();
             } else if(index == HELPER_START_ABILITY.QUANTUM_JUMP) {
+                bump_cheat_counter();
+
                 quantum_jump();
             }
         }
@@ -8305,6 +8318,20 @@ group custom_bosses() {
             DEBUG = False,
 
             MOVE_COOLDOWN = 0d300,
+
+            SPIDER_HP = 0d15,
+            
+            STOMP_RANGE = 0d100,
+            STOMP_DAMAGE = 0d10,
+
+            DURATION_EAT = 0d0060 * 0d15,
+            DAMAGE_EAT = 0d5,
+            ESCAPE_EAT = 0d10,
+
+            DAMAGE_CHARGE = 0d20,
+            RANGE_CHARGE = 0d150,
+
+            DURATION_STUN_PULL = 0d120
         }
 
         @install()
@@ -8370,22 +8397,22 @@ group custom_bosses() {
                         face_target(BOY, SCRIPT_OWNER);
                         animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
 
-                        while(arg[0x14] < 0d300) {
+                        while(arg[0x14] < BOSS.DURATION_EAT) {
                             arg[0x14]++;
 
                             arg[0x16] = CUSTOM_MEMORY.INPUT_P1;
                             yield();
 
                             if((arg[0x16] & 0xff00) != (CUSTOM_MEMORY.INPUT_P1 & 0xff00)) {
-                                arg[0x14] += 0d10;
+                                arg[0x14] += BOSS.ESCAPE_EAT;
                             }
                             if((arg[0x16] & 0xff) != (CUSTOM_MEMORY.INPUT_P1 & 0xff)) {
-                                arg[0x14] += 0d10;
+                                arg[0x14] += BOSS.ESCAPE_EAT;
                             }
 
                             arg[0x18]++;
                             if(arg[0x18] > 0d45) {
-                                damage(BOY, 0d5, True, True);
+                                damage(BOY, BOSS.DAMAGE_EAT, True, True);
                                 arg[0x18] = 0d0;
                             }
                         }
@@ -8500,7 +8527,7 @@ group custom_bosses() {
 
                         sfx_effect(SHAKING, True);
 
-                        bomb_entity(mount, 0d150);
+                        bomb_entity(mount, BOSS.RANGE_CHARGE, BOSS.DAMAGE_CHARGE);
 
                         animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
                         attribute(mount, ROOT, False);
@@ -8557,7 +8584,7 @@ group custom_bosses() {
                 // <BOY>[Z_LEVEL] = arg[0x24];
                 <BOY>[Z_LEVEL] = mount[Z_LEVEL];
                 animate(BOY, ONCE_FREEZE, ANIMATION_BOY.LANDING);
-                while((arg[0x24] < 0d120) && (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                while((arg[0x24] < BOSS.DURATION_STUN_PULL) && (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) {
                     arg[0x24]++;
 
                     yield();
@@ -8768,7 +8795,7 @@ group custom_bosses() {
         fun add_spider(out_mount, out_rider) {
             _add_enemy(SPIDER, out_mount[X], out_mount[Y] + 0d5, INACTIVE);
             <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
-            <LAST_ENTITY>[HP] = 0d1;
+            <LAST_ENTITY>[HP] = BOSS.SPIDER_HP;
             out_rider = <LAST_ENTITY>;
 
             holding_spider(out_mount, out_rider);
@@ -8778,7 +8805,7 @@ group custom_bosses() {
             if(alive(entity)) {
                 animate(entity, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
                 wait(entity);
-                bomb_entity(entity, 0d100);
+                bomb_entity(entity, BOSS.STOMP_RANGE, BOSS.STOMP_DAMAGE);
             }
         }
 
@@ -11988,6 +12015,8 @@ area inbetwixx_center() {
                 // unlock(SPEAR_1);
                 unlock(AXE_2);
 
+                MEMORY.BOY_LEVEL = 0d5;
+
                 FLAG.REVEALER = True;
                 MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.REVEALER;
                 FLAG.LEVITATE = True;
@@ -12035,7 +12064,7 @@ area inbetwixx_center() {
             subtext("`The Misadventures of Vex´");
             sleep(0d3, S);
 
-            subtext("v0.9.5 - by r.bin");
+            subtext("v0.9.6 - by r.bin");
         }
         
         @install()
@@ -24464,6 +24493,8 @@ area southern_jungle() {
 
                         enum BOSS {
                             PROGRESS = memory(FLAG, TEMP),
+
+                            HP = 0d800,
                         }
 
                         enum stepon_trigger {
@@ -24486,7 +24517,7 @@ area southern_jungle() {
                                         if(False) {
                                             debug_subtext("-pudge");
                                         }
-                                    }, False, 0d800);
+                                    }, False, BOSS.HP);
 
                                     souls_boss_defeated(DEAD_PUDGE, MONEY_PUDGE, REWARD_PUDGE);
                                     BOSS.PROGRESS = False;
@@ -35891,6 +35922,9 @@ area desert_bug() {
 
                     // PROGRESS = memory(FLAG, TEMP),
 
+                    HP_LEFT = 0d600,
+                    HP_RIGHT = 0d1200,
+
                     ARM_LEFT_X = 0d152,
                     ARM_LEFT_Y = 0d112,
 
@@ -36344,12 +36378,13 @@ area desert_bug() {
                     show_thraxx(True);
                     // show_cocoon();
 
-                    // add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
-                    add_enemy(ENEMY.THRAXX_HEART, 0d26, 0d20);
+                    add_enemy(ENEMY.THRAXX2_HEART, 0d26, 0d20);
+                    <LAST_ENTITY>[HP] = BOSS.HP_RIGHT;
                     <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
                     attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(thraxx_white_triggered));
                     BOSS.HEART_WHITE_ID = <LAST_ENTITY>;
                     add_enemy(ENEMY.THRAXX_HEART, 0d22, 0d20);
+                    <LAST_ENTITY>[HP] = BOSS.HP_LEFT;
                     <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
                     attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(thraxx_orange_triggered));
                     BOSS.HEART_ORANGE_ID = <LAST_ENTITY>;
