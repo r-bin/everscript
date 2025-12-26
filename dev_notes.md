@@ -3,6 +3,7 @@
 
 
 # important
+## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
 ## chessboard secret does not trigger after fight
@@ -26,6 +27,7 @@
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 ## sting guy in desert
+## thraxx just gave the reward
 
 # nice to have
 ## armor nerf: monk, rimsala_gold
