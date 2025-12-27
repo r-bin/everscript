@@ -10,6 +10,14 @@
 - Weather system (Opening menus resets the screen tint)
 - Scaling all enemies to all levels (Scaling in this game is a nightmare)
 
+## [0.9.7] - 2025-12-27
+
+### Added
+- Improved scaling (Work in progress)
+
+### Bugfix
+- Various logic problems
+
 ## [0.9.6] - 2025-12-25
 
 ### Added

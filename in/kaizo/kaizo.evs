@@ -589,7 +589,7 @@ group non_maps() {
             WITH_COLOR_FILTER = True, // produces lag, requires an ASM to not change the filter during menus
             WITH_AREA_NAMES = False,
             WITH_FORMULAS = False,
-            WITH_FREE_START_ABILITIES = False,
+            WITH_FREE_START_ABILITIES = True,
             // cheats
             WITH_CHEATS = False, // fixes no clip after screen transitions
             WITH_CHEATS_FULL_INGREDIENTS = False,
@@ -4852,11 +4852,7 @@ group non_maps() {
             } else {
                 if(SOULS_MEMORY.WEAPON_CYCLE_ENABLED) {
                     cycle_weapon();
-                }
-
-                MEMORY.BOY_XP = 0d0;
-                MEMORY.BOY_XP_2 = 0d0;
-                subtext("(XP reset)");
+                }              
             }
         }
         @install()
@@ -12076,7 +12072,7 @@ area inbetwixx_center() {
             subtext("`The Misadventures of Vex´");
             sleep(0d3, S);
 
-            subtext("v0.9.6 - by r.bin");
+            subtext("v0.9.7 - by r.bin");
         }
         
         @install()
@@ -16242,7 +16238,7 @@ area altus_plateau_entry() {
                         jump_hole({
                             map_transition(inner_castle_hallway, crash, NONE);
                         });
-                    }), True, NORMAL);
+                    }), False, NORMAL);
                 } else {
                     add_enemy(PLACEHOLDER, 0d2, 0d42);
                     attach_script(LAST_ENTITY, B, reference(@install() {
@@ -29898,6 +29894,13 @@ area town() {
                     face(LAST_ENTITY, WEST);
                 }
 
+                if(ROOM.DEBUG) {
+                    AREA_TOWN_TEMPLE.DONATED_INGREDIENTS = AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX;
+
+                    STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.AEGIS;
+                    FLAG.DIAMOND_EYES = True;
+                }
+                
                 // object[0x0e] = 0x01;
 
                 // object[0x00] = 0x01; // show crowd_1_1
@@ -29915,7 +29918,7 @@ area town() {
                 // object[0x0c] = same as crowd_1_3 ???
                 if(SOULS_MEMORY.DEAD_DOG_STATUE) {
                     object[0x0d] = 0x02; // show statue, crater, statue_reparing
-                } else if(ROOM.DEBUG || (AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX)) {
+                } else if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX) {
                     object[0x0d] = 0x00; // show statue, crater, statue_reparing
                     object[0x0e] = 0x01; // show guard_statue
 
@@ -29930,7 +29933,7 @@ area town() {
 
                             _add_placeholder(DIAMOND_EYE_2, 0d346 + 0d12, 0d274);
                         } else {
-                            if!(ROOM.DEBUG || (FLAG.ORACLE_BONE && FLAG.DIAMOND_EYES)) {
+                            if!(FLAG.DIAMOND_EYES && ((FLAG.ORACLE_BONE) || (STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.AEGIS))) {
                                 subtext("…");
                             } else {
                                 question("[SLOW]Touch the statue[CHOICE]touch…[CHOICE]leave…");
@@ -30009,7 +30012,7 @@ area town() {
             enum BOSS {
                 DEBUG = False,
 
-                HP = 0d500,
+                HP = 0d300,
             }
 
             @install()
@@ -30036,6 +30039,14 @@ area town() {
                 
                 CUSTOM_FLAG.NO_DOG = True;
                 default_init_room(False, False);
+
+                attach_script(BOY, DAMAGE_DEATH, reference(@install() {
+                    if(<BOY>[HP] <= 0d0) {
+                        dust_unreachable(0d44, 0d50, NOBILIA_SQUARE, 0d0);
+                    }
+
+                    boy_death();
+                }));
 
                 add_custom_boss_aegis(0d32, 0d28, SOULS_MEMORY.DEAD_DOG_STATUE, {
                     object[0x03] = 0d18; // change layout_statue (0 = normal, 1-13 = statue exploding, 14-17 = aegis, 18 = empty, 19-21 = bridge)
@@ -37672,6 +37683,8 @@ area metro() {
             sleep(0d60);
 
             fade_out();
+            
+            refresh_flask();
             refresh_both(False);
             
             callback();
