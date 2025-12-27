@@ -3,6 +3,7 @@
 
 
 # important
+## start+r buggy
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
@@ -28,6 +29,9 @@
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 ## sting guy in desert
 ## thraxx just gave the reward
+## radahn room has boss music
+## rubble monk walk back soft locks you
+## staff of life "no effect"
 
 # nice to have
 ## armor nerf: monk, rimsala_gold

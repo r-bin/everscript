@@ -609,7 +609,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(0) ; "Guardbot" (68) = 0
   %default_stats(320) ; "Guardbot" (69) = 320
   %default_stats(160) ; "Mechaduster" (70) = 160
-  %default_stats(80) ; "Aegis" (71) = 80
+  dw #50, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Aegis" (71) = 80
   %default_stats(160) ; "Tentacle" (72) = 160
   %default_stats(160) ; "Tiny Tentacle" (73) = 160
   %default_stats(0) ; "Aquagoth" (74) = 0
