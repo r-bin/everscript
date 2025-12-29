@@ -7,9 +7,6 @@
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## chessboard secret does not trigger after fight
-## basement bonfire + dying = soft lock
-## bee boy hp too low
 ## boy aggression also to 0
 ## mosquito arena to 1000hp?
 ## drop to market tiny makes dog stuck
@@ -32,6 +29,9 @@
 ## radahn room has boss music
 ## rubble monk walk back soft locks you
 ## staff of life "no effect"
+## verify hacking mini game
+## crush cave
+### trash too much armor
 
 # nice to have
 ## armor nerf: monk, rimsala_gold
