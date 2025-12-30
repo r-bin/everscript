@@ -7,7 +7,6 @@
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## boy aggression also to 0
 ## mosquito arena to 1000hp?
 ## drop to market tiny makes dog stuck
 ## isaac projectiles deal 1 damage

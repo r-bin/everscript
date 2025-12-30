@@ -537,9 +537,11 @@ group general_enums() {
 
             // boy
             BOY_MAX_HP = <0x0a35>,
+            BOY_COMBATIVENESS = <0x0B09>,
 
             // dog
             DOG_MAX_HP = <0x0a7f>,
+            DOG_COMBATIVENESS = <0x0b0d>,
 
             // currency
             TALONS = <0x0ac6>,
@@ -1114,6 +1116,12 @@ group general_enums() {
             NULL_POINTER = <0x28ef>, // 0x0000
 
             POINTER = <0x28ed>,
+
+            // RAM
+
+            BOY_TEMP_AGGRO = (Byte) <0x2512>,
+
+            DOG_TEMP_AGGRO = (Byte) <0x2511>,
         }
         enum CUSTOM_FLAG {
             // <0x28fb, x>
@@ -1149,6 +1157,7 @@ group general_enums() {
             NO_MORPHING = <0x289c, 0x04>,
             WEATHER_EFFECT_NIGHT = <0x289c, 0x08>,
             WEATHER_EFFECT_RAIN = <0x289c, 0x10>,
+            FAKE_PACIFIED = <0x289c, 0x20>,
         }
     };
 
@@ -4425,6 +4434,58 @@ group functions() {
             fun attach_to_script(character:CHARACTER) {
                 code(0x4e, entity_t(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
             }
+
+            group fake_pacifism() {
+                enum AI_BEHAVIOR {
+                    DEBUG = False,
+
+                    COMBATIVENESS_0 = 0x0000,
+                    COMBATIVENESS_1 = 0x0001,
+                    COMBATIVENESS_2 = 0x0002,
+                    COMBATIVENESS_3 = 0x0003,
+                    COMBATIVENESS_4 = 0x0004,
+                    COMBATIVENESS_5 = 0x0005,
+                    COMBATIVENESS_6 = 0x0006,
+
+                    COMBATIVENESS_UNKNOWN = 0xffff,
+                }
+
+                fun _fake_compativeness(memory_combativeness_temp, memory_combativeness, value:AI_BEHAVIOR) {
+                    memory_combativeness_temp = 0x80 | memory_combativeness;
+                    memory_combativeness = value;
+                }
+                @install()
+                @weak()
+                fun fake_compativeness(aggro:AI_BEHAVIOR) {
+                    if(AI_BEHAVIOR.DEBUG) {
+                        MEMORY.STRING_PARAMETER_1 = aggro;
+                        MEMORY.STRING_PARAMETER_2 = CUSTOM_MEMORY.BOY_TEMP_AGGRO;
+                        _subtext("fake compativeness: [MEM2]->[MEM1]");
+                    }
+                    
+                    _fake_compativeness(CUSTOM_MEMORY.BOY_TEMP_AGGRO, MEMORY.BOY_COMBATIVENESS, aggro);
+                    _fake_compativeness(CUSTOM_MEMORY.DOG_TEMP_AGGRO, MEMORY.DOG_COMBATIVENESS, aggro);
+                }
+
+                fun _restore_fake_compativeness(memory_combativeness_temp, memory_combativeness) {
+                    if(memory_combativeness_temp & 0x80) {
+                        memory_combativeness = memory_combativeness_temp & 0x7f;
+                        memory_combativeness_temp = 0x00;
+                    }
+                }
+                @install()
+                @weak()
+                fun restore_fake_compativeness() {
+                    if(AI_BEHAVIOR.DEBUG) {
+                        MEMORY.STRING_PARAMETER_1 = CUSTOM_MEMORY.BOY_TEMP_AGGRO;
+                        MEMORY.STRING_PARAMETER_2 = CUSTOM_MEMORY.DOG_TEMP_AGGRO;
+                        _subtext("restore fake compativeness: [MEM1]/[MEM2]");
+                    }
+                    
+                    _restore_fake_compativeness(CUSTOM_MEMORY.BOY_TEMP_AGGRO, MEMORY.BOY_COMBATIVENESS);
+                    _restore_fake_compativeness(CUSTOM_MEMORY.DOG_TEMP_AGGRO, MEMORY.DOG_COMBATIVENESS);
+                }
+            };            
         };
 
         group sprite() {
@@ -5102,6 +5163,16 @@ group functions() {
 
                 if!(CUSTOM_FLAG.CUTSCENE) {
                     show_hud(True);
+                }
+
+                if(CUSTOM_FLAG.FAKE_PACIFIED) {
+                    if!(CUSTOM_MEMORY.BOY_TEMP_AGGRO) {
+                        fake_compativeness(COMBATIVENESS_0); 
+                    }
+                } else {
+                    if(CUSTOM_MEMORY.BOY_TEMP_AGGRO) {
+                        restore_fake_compativeness();
+                    }
                 }
 
                 if(CUSTOM_FLAG.NO_DOG && !CUSTOM_FLAG.WITH_DOG) {
