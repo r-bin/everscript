@@ -27,7 +27,6 @@
 ## thraxx just gave the reward
 ## radahn room has boss music
 ## rubble monk walk back soft locks you
-## staff of life "no effect"
 ## verify hacking mini game
 ## crush cave
 ### trash too much armor
