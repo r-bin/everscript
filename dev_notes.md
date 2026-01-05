@@ -7,15 +7,10 @@
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## mosquito arena to 1000hp?
 ## drop to market tiny makes dog stuck
 ## isaac projectiles deal 1 damage
-## sprint with stone vest?
 ## smith dialog soft lock?!?!?!?!?
 ## pyramid cutscenes restores lotus bridges
-## one offs
-### bunker exit made solar fall down again?
-## bazooka returns previous weapon
 ## souls in arenas should be returned to the entrance (if locked)
 ## matroidvania
 ### defend = cat ring
@@ -23,15 +18,17 @@
 ### yump activates one time switches
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
-## sting guy in desert
 ## thraxx just gave the reward
 ## radahn room has boss music
 ## rubble monk walk back soft locks you
-## verify hacking mini game
-## crush cave
-### trash too much armor
+## crush cave trash too much armor
+## mosquito arena to 1000hp?
+## one offs
+### bunker exit made solar fall down again?
+### sprint with stone vest?
 
 # nice to have
+## bazooka returns previous weapon
 ## armor nerf: monk, rimsala_gold
 ## alchemy screen removes weather
 ## more orbs (every boss)
