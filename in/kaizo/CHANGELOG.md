@@ -68,6 +68,7 @@
 
 ### Known Bugs
 - Weather effect is broken by: Alchemy selection/save screen, some items/alchemy
+- Item name indices are overwritten (only affects status screen)
 
 ## [0.9.0] - 2025-12-11
 
