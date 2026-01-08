@@ -14007,7 +14007,11 @@ area altus_plateau_entry() {
                     yield();
                 }
 
-                map_transition(windwalker_sidescroller, west, NONE);
+                if!(SOULS_MEMORY.DEAD_SIDESCROLLER) {
+                    map_transition(windwalker_sidescroller, west, NONE);
+                } else {
+                    map_transition(well, crash, NONE);
+                }
             }
 
             fun start_wind() {
@@ -14136,9 +14140,9 @@ area altus_plateau_entry() {
 
                 ENEMIES_ALIVE = memory(BYTE, TEMP),
 
-                LANE_1 = 0x05,
-                LANE_2 = 0x0c,
-                LANE_3 = 0x15,
+                LANE_1 = 0d5,
+                LANE_2 = 0d12,
+                LANE_3 = 0d21,
             }
 
             enum BOSS {
@@ -14147,11 +14151,13 @@ area altus_plateau_entry() {
                 ID = memory(WORD, TEMP),
                 PHASE = memory(WORD, TEMP),
 
-                HP = 0d4,
+                HP = SYSTEM.HP_MAX,
 
                 TURN_TIME = 0x30,
 
-                P1_THRESHOLD = 0x04,
+                HIT_COUNTER = memory(WORD, TEMP),
+                P1_THRESHOLD = 0d4,
+                P2_THRESHOLD = 0d12,
 
                 RING_TIMER = memory(WORD, TEMP),
                 RING_X = memory(WORD, TEMP),
@@ -14258,22 +14264,13 @@ area altus_plateau_entry() {
                 while(alive(<SCRIPT_OWNER>)) {
                     if((BOSS.RING_TIMER == 0d0) && (<SCRIPT_OWNER>[Z] == 0d0) && !(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
                         sound(PROJECTILE_SHOOTING);
-                        shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0x10, 0xff);
+                        shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0d16, 0xff);
                     }
 
-                    sleep(0x40);
+                    sleep(0d60);
                     <SCRIPT_OWNER>[VELOCITY] = 0d5;
-                    sleep(0x40);
+                    sleep(0d60);
                     <SCRIPT_OWNER>[VELOCITY] = 0d5;
-                }
-            }
-
-            @install()
-            fun fan_damage() {
-                if(BOSS.PHASE == 0d0) {
-                    if(BOSS.ID[HP] <= BOSS.P1_THRESHOLD) {
-                        BOSS.PHASE = 0d1;
-                    }
                 }
             }
 
@@ -14281,18 +14278,52 @@ area altus_plateau_entry() {
             @async()
             fun shooting_fan() {
                 add_enemy(FAN_BOT, 0x20, ROOM.LANE_2);
-                control(LAST_ENTITY, True);
-                BOSS.ID = <LAST_ENTITY>;
-                <LAST_ENTITY>[HP] = BOSS.HP;
-                face(LAST_ENTITY, WEST);
-                // attribute(LAST_ENTITY, ROOT, True);
-                attach_script(LAST_ENTITY, DAMAGE, reference(fan_damage));
-                
                 attach_to_script(LAST_ENTITY);
+                control(SCRIPT_OWNER, True);
+                BOSS.ID = <SCRIPT_OWNER>;
+                <SCRIPT_OWNER>[HP] = BOSS.HP;
+                face(SCRIPT_OWNER, WEST);
+                // attribute(SCRIPT_OWNER, ROOT, True);
+                attach_script(SCRIPT_OWNER, DAMAGE_DEATH, reference(@install() {
+                    heal(SCRIPT_OWNER, 0d0, False);
 
-                attribute(LAST_ENTITY, INVINCIBLE, True);
+                    if(<SCRIPT_OWNER>[Z] > 0d10) {
+                        if(BOSS.DEBUG) {
+                            debug_memory(<SCRIPT_OWNER>[Z]);
+                        }
+
+                        end();
+                    }
+
+                    yield();
+                    damage(SCRIPT_OWNER, 0d1, True, True);
+
+                    if!(<SCRIPT_OWNER>[FLAGS_4] & ATTRIBUTE_FLAGS.ROOT) {
+                        <SCRIPT_OWNER>[VELOCITY] = 0d15;
+                    }
+
+                    BOSS.HIT_COUNTER++;
+
+                    if(BOSS.DEBUG && False) {
+                        debug_memory(BOSS.PHASE, <SCRIPT_OWNER>[HP], alive(<SCRIPT_OWNER>));
+                    }
+
+                    if(BOSS.PHASE == 0d0) {
+                        if(BOSS.HIT_COUNTER >= BOSS.P1_THRESHOLD) {
+                            BOSS.PHASE = 0d1;
+                        }
+                    } else if(BOSS.PHASE == 0d1) {
+                        if(BOSS.HIT_COUNTER >= BOSS.P2_THRESHOLD) {
+                            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                            yield();
+                            damage(SCRIPT_OWNER, SYSTEM.HP_MAX, False);
+                        }
+                    }
+                }));
+
+                attribute(SCRIPT_OWNER, INVINCIBLE, True);
                 walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, 0x17, ROOM.LANE_2, SCRIPT_OWNER);
-                attribute(LAST_ENTITY, INVINCIBLE, False);
+                attribute(SCRIPT_OWNER, INVINCIBLE, False);
                 shooting_fan_2();
 
                 while(alive(<SCRIPT_OWNER>)) {
@@ -14349,13 +14380,6 @@ area altus_plateau_entry() {
                 map_transition(well, crash, NONE);
             }
 
-            @install()
-            fun debug_triggered() {
-                destroy(SCRIPT_OWNER);
-
-                exit_map();
-            }
-
             fun pause() {
                 sleep(0d60);
 
@@ -14371,7 +14395,11 @@ area altus_plateau_entry() {
             }
 
             fun trigger_enter() {
-                add_debug_entity(0d3, 0d3, reference(debug_triggered));
+                add_debug_entity(0d3, 0d3, reference(@install() {
+                    destroy(SCRIPT_OWNER);
+
+                    exit_map();
+                }));
 
                 CUSTOM_FLAG.NO_DOG = True;
                 face(BOY, EAST);
@@ -14438,7 +14466,7 @@ area altus_plateau_entry() {
 
                 if(ROOM.PROGRESS == 0d2) {
                     shooting_fan();
-                    sleep(0x60);
+                    sleep(0d100);
 
                     if(BOSS.DEBUG) {
                         subtext("boss start");
@@ -14449,8 +14477,6 @@ area altus_plateau_entry() {
                     if(BOSS.DEBUG) {
                         subtext("boss end");
                     }
-
-                    sleep(0d250);
 
                     ROOM.PROGRESS = 0d3;
                 }
@@ -19035,7 +19061,7 @@ area east_inbetwixx() {
             }
 
             enum soundtrack {
-                default = soundtrack(BOSS_JUNGLE, 0xff)
+                default = soundtrack(SEWER_AMBIENT_WATER, 0xff),
             }
 
             enum stepon_trigger {
@@ -19305,16 +19331,18 @@ area east_inbetwixx() {
             }
 
             fun trigger_enter() {
-                default_init_room(True, False);
                 character_selection(BOY);
 
                 if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
                     close_exits(True);
 
+                    push_music(BOSS_JUNGLE);
                     spawn_boss(0d16, 0d19);
                     stack_sprite(BOSS.MOUNT_ID, BOSS.RIDER_ID, 0d0, 0d20);
                     boss_watcher();
                 }
+
+                default_init_room(True, False);
             }
         };
     };

@@ -57,7 +57,6 @@
 ### wall-boss exit calls dog
 ### bomb arena - leave via bridge
 ## stats menu - armor name incorrect
-## no item if hp<=0 (but fanfare)
 ## d3: hold up bazooka when winning (if possible)
 ## radiation (more enemies near the entrances)
 ## diablo p2? + diablo clone should not actually die
