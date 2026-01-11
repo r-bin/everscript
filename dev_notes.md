@@ -3,13 +3,11 @@
 
 
 # important
+## thraxx just gave the reward
 ## start+r buggy
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## drop to market tiny makes dog stuck
-## isaac projectiles deal 1 damage
-## smith dialog soft lock?!?!?!?!?
 ## pyramid cutscenes restores lotus bridges
 ## souls in arenas should be returned to the entrance (if locked)
 ## matroidvania
@@ -18,12 +16,12 @@
 ### yump activates one time switches
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
-## thraxx just gave the reward
-## radahn room has boss music
-## rubble monk walk back soft locks you
-## crush cave trash too much armor
-## mosquito arena to 1000hp?
+## balancing
+### isaac projectiles deal 1 damage
+### mosquito arena to 1000hp?
+#### crush cave trash too much armor
 ## one offs
+### smith dialog soft lock?!?!?!?!?
 ### bunker exit made solar fall down again?
 ### sprint with stone vest?
 
@@ -41,6 +39,8 @@
 ## pyramid spiders sometimes missing
 ## fire eyes before northern inbetwixx
 ## animations/cutscenes
+### rubble monk walk back soft locks you
+### drop to market tiny makes dog stuck
 ### jungle lift calls dog
 ### dog should not be at 0/0 during abomination fight
 ### axe2 doors no sound
