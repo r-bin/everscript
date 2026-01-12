@@ -11,11 +11,15 @@ group general_enums() {
         WITH_DEBUG_START = False,
         WITH_DEBUG_CAVE = False,
         WITH_DEBUG_POISE = False,
+        WITH_DEBUG_FALL = False,
 
         WITH_HINT_INTERACTION = True,
 
         HP_MAX = 0x7fff,
         ITEM_MAX = 0d99,
+
+        WEIGHT_BOY = 0d1,
+        WEIGHT_DOG = 0d1,
     }
 
     group rom() {
@@ -1143,6 +1147,9 @@ group general_enums() {
             POINTER = <0x28ed>,
 
             PACIFIED = (Byte) <0x28ec>, // see PACIFIED
+
+            WEIGHT_BOY = (Byte) <0x28eb>,
+            WEIGHT_DOG = (Byte) <0x28ea>,
 
             // RAM
 
@@ -6672,11 +6679,11 @@ group functions() {
                 } else if(item == ITEM.CHEST_2_1) {
                     unlock(item);
 
-                    subtext("Chest 2-1"); // ?
+                    subtext("Bronze Armor"); // ?
                 } else if(item == ITEM.CHEST_2_2) {
                     unlock(item);
 
-                    subtext("Chest 2-2"); // ?
+                    subtext("Stone Vest"); // ?
                 } else if(item == ITEM.CHEST_2_3) {
                     unlock(item);
 
@@ -9621,9 +9628,9 @@ group functions() {
                     yield();
                 }
             }
-            fun _check_switch(entity, size, weight_boy, weight_dog, weight_stone) {
-                check_switch_check(entity, <BOY>, size, weight_boy);
-                check_switch_check(entity, <DOG>, size, weight_dog);
+            fun _check_switch(entity, size) {
+                check_switch_check(entity, <BOY>, size, SYSTEM.WEIGHT_BOY);
+                check_switch_check(entity, <DOG>, size, SYSTEM.WEIGHT_DOG);
 
                 if(arg[0x14] <= 0d1) {
                     find_all(STONE, {
@@ -9641,10 +9648,10 @@ group functions() {
                 entity[GENERAL_PURPOSE] = arg[0x14];
             }
             @install()
-            fun check_switch(entity, size, weight_boy, weight_dog, weight_stone) {
-                _check_switch(entity, size, weight_boy, weight_dog, weight_stone);
+            fun check_switch(entity, size) {
+                _check_switch(entity, size);
             }
-            fun ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, weight_boy, weight_dog, weight_stone, activate_weight, toggleable) {
+            fun ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, activate_weight, toggleable) {
                 add_enemy(PLACEHOLDER, x, y);
                 if(memory is Memory) {
                     memory = <LAST_ENTITY>;
@@ -9656,7 +9663,7 @@ group functions() {
 
                 while(alive(<SCRIPT_OWNER>)) {
                     arg[0x14] = 0d0;
-                    check_switch(<SCRIPT_OWNER>, GROUND_SWITCH.TRIGGER_RADIUS, weight_boy, weight_dog, weight_stone);
+                    check_switch(<SCRIPT_OWNER>, GROUND_SWITCH.TRIGGER_RADIUS);
 
                     if(False) {
                         _debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], activate_weight, <SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED);
@@ -10566,78 +10573,192 @@ group functions() {
             }
         };
 
-        fun animation_fall_pit(character:CHARACTER) {
-            face(character, SOUTH);
-            smart_animate(character, LOOP, ANIMATION_BOY.FALL_2);
-            sleep(0d20);
-        }
+        group falling() {
+            enum FALL_DAMAGE_TYPE {
+                NONE = 0x00,
+                DEFAULT = 0x01,
+                DEADLY = 0x02,
 
-        fun crash_land(character:CHARACTER, fall_damage) {
-            if(character == CHARACTER.BOY) {
-                <BOY>[Z] = 0x1068;
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
-                sleep(0x60);
-                <BOY>[VELOCITY] = 0x10;
-                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
-                sleep(0x10);
-                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
-                sleep(0x10);
-                animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
-            } else if(character == CHARACTER.DOG) {
-                <DOG>[Z] = 0x1068;
-                animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
-                sleep(0x60);
-                <DOG>[VELOCITY] = 0x10;
-                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
-                sleep(0x10);
-                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_FALL1);
-                sleep(0x10);
-                animate(DOG, ONCE, ANIMATION_DOG.ACT1_SIT);
-            } else if(character == CHARACTER.BOTH) {
-                <BOY>[Z] = 0x1068;
-                animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
-                <DOG>[Z] = 0x1068;
-                animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
-                sleep(0x60);
-                <BOY>[VELOCITY] = 0x10;
-                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
-                <DOG>[VELOCITY] = 0x10;
-                animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
-                sleep(0x10);
-                animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
-                animate(DOG, ONCE, ANIMATION_DOG.ACT1_FALL1);
-                sleep(0x10);
-                animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+                DROP = 0x10, // e.g. gomi tower fall
+                DROP_DEEP = 0x11, // e.g. jumping into a pit
+                
+                CLIFF = 0x20,
+                CLIFF_DEEP = 0x21,
             }
-
-            if(fall_damage !is None) {
-                if(fall_damage > 0d0) {
-                    damage(character, fall_damage, True);
+            @install()
+            @async()
+            @weak()
+            fun delayed_fall_damage_deadly(character:CHARACTER) {
+                sleep(0d30);
+                damage(character, SYSTEM.HP_MAX, False);
+            }
+            @install()
+            @weak()
+            fun _fall_damage(character:CHARACTER, type:FALL_DAMAGE_TYPE) {
+                if(SYSTEM.WITH_DEBUG_FALL) {
+                    _debug_memory(character, type, CUSTOM_MEMORY.WEIGHT_BOY);
                 }
-            }
-        }
-        @install()
-        @weak()
-        @async()
-        fun crash_both(radius, damage) {
-            if!(radius) {
-                <DOG>[X] -= 0x20;
-                <DOG>[Y] -= 0x20;
-            } else {
-                if(rand(0d1)) {
-                    <DOG>[X] += randrange(radius);
+
+                if(type == FALL_DAMAGE_TYPE.NONE) {
+                    end();
+                } else if(type == FALL_DAMAGE_TYPE.DEADLY) {
+                    damage(character, 0d999, True);
+                    delayed_fall_damage_deadly(character);
+                    end();
+                }
+
+                arg[0x12] = CUSTOM_MEMORY.WEIGHT_BOY < SYSTEM.WEIGHT_BOY;
+                arg[0x14] = CUSTOM_MEMORY.WEIGHT_BOY > SYSTEM.WEIGHT_BOY;
+
+                if(type & 0x10) {
+                    if(type == FALL_DAMAGE_TYPE.DROP_DEEP) {
+                        arg[0x10] = 0d10;
+
+                        if(arg[0x12]) {
+                            arg[0x10] >>= 0d2;
+                        } else if(arg[0x14]) {
+                            arg[0x10] <<= 0d1;
+                        }
+                    } else {
+                        arg[0x10] = 0d5;
+
+                        if(arg[0x12]) {
+                            end();
+                        }
+                    }
+                } else if(type & 0x20) {
+                    if(type == FALL_DAMAGE_TYPE.CLIFF_DEEP) {
+                        arg[0x10] = 0d500;
+                    } else {
+                        arg[0x10] = 0d300;
+                    }
+
+                    if(arg[0x12]) {
+                        arg[0x10] /= 0d10;
+                    } else if(arg[0x14]) {
+                        arg[0x10] *= 0d10;
+                    }
                 } else {
-                    <DOG>[X] -= randrange(radius);
+                    arg[0x10] = 0d5;
+
+                    if(arg[0x12]) {
+                        arg[0x16] = True;
+                    }
                 }
-                if(rand(0d1)) {
-                    <DOG>[Y] += randrange(radius);
-                } else {
-                    <DOG>[Y] -= randrange(radius);
+
+                if(SYSTEM.WITH_DEBUG_FALL) {
+                    sleep(0d30);
+                    _debug_memory(arg[0x10], arg[0x12], arg[0x14]);
+                }
+
+                if(arg[0x10]) {
+                    if!(arg[0x16]) {
+                        damage(character, arg[0x10], True);
+                    } else {
+                        damage(character, arg[0x10], True, False);
+                    }
                 }
             }
+            fun fall_damage(character:CHARACTER, type:FALL_DAMAGE_TYPE, callback_success, callback_death) {
+                _fall_damage(character, type);
 
-            crash_land(BOTH, damage);
-        }
+                if(callback_death is Function) {
+                    yield();
+                    
+                    if(<BOY>[HP] <= 0d0) {
+                        callback_death();
+                    } else {
+                        control(NONE);
+                        sleep(0d60);
+
+                        callback_success();
+                    }
+                } else if(callback_success is Function) {
+                    yield();
+                    
+                    if(<BOY>[HP] > 0d0) {
+                        control(NONE);
+                        sleep(0d60);
+
+                        callback_success();
+                    }
+                }
+            }
+            
+            fun animation_fall_pit(character:CHARACTER) {
+                face(character, SOUTH);
+                smart_animate(character, LOOP, ANIMATION_BOY.FALL_2);
+                sleep(0d20);
+            }
+
+            fun crash_land(character:CHARACTER, fall_damage) {
+                if(character == CHARACTER.BOY) {
+                    <BOY>[Z] = 0x1068;
+                    animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+                    sleep(0x60);
+                    <BOY>[VELOCITY] = 0x10;
+                    animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+                    sleep(0x10);
+                    animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+                    sleep(0x10);
+                    animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+                } else if(character == CHARACTER.DOG) {
+                    <DOG>[Z] = 0x1068;
+                    animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
+                    sleep(0x60);
+                    <DOG>[VELOCITY] = 0x10;
+                    animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+                    sleep(0x10);
+                    animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_FALL1);
+                    sleep(0x10);
+                    animate(DOG, ONCE, ANIMATION_DOG.ACT1_SIT);
+                } else if(character == CHARACTER.BOTH) {
+                    <BOY>[Z] = 0x1068;
+                    animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+                    <DOG>[Z] = 0x1068;
+                    animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
+                    sleep(0x60);
+                    <BOY>[VELOCITY] = 0x10;
+                    animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+                    <DOG>[VELOCITY] = 0x10;
+                    animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+                    sleep(0x10);
+                    animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+                    animate(DOG, ONCE, ANIMATION_DOG.ACT1_FALL1);
+                    sleep(0x10);
+                    animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+                }
+
+                if(fall_damage !is None) {
+                    if(fall_damage > 0d0) {
+                        damage(character, fall_damage, True);
+                    }
+                }
+            }
+            fun _crash_both(radius) {
+                if!(radius) {
+                    <DOG>[X] -= 0x20;
+                    <DOG>[Y] -= 0x20;
+                } else {
+                    if(rand(0d1)) {
+                        <DOG>[X] += randrange(radius);
+                    } else {
+                        <DOG>[X] -= randrange(radius);
+                    }
+                    if(rand(0d1)) {
+                        <DOG>[Y] += randrange(radius);
+                    } else {
+                        <DOG>[Y] -= randrange(radius);
+                    }
+                }
+            }
+            @install()
+            @weak()
+            @async()
+            fun crash_both(radius) {
+                _crash_both(radius);
+            }
+        };
 
         fun character_selection(character:CHARACTER) {
             if(character == CHARACTER.BOY) {
@@ -11234,7 +11355,7 @@ group functions() {
             attribute_bit(DOG, INVISIBLE, True);
         }
 
-        fun _generic_fall_gomi(character:CHARACTER, x, y, depth, falling_damage) {
+        fun _generic_fall_gomi(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
             attach_to_script(character);
 
             walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER);
@@ -11252,43 +11373,29 @@ group functions() {
 
             animate_landing(character, True);
 
-            if(falling_damage > 0d5) {
-                damage(SCRIPT_OWNER, falling_damage, True, True);
-            } else if(falling_damage > 0d0) {
-                damage(SCRIPT_OWNER, falling_damage, True, False);
-            }
+            fall_damage(character, fall_damage_type);
         }
         @install()
         @weak()
         @async()
-        fun _generic_fall_gomi_async(character:CHARACTER, x, y, depth, falling_damage) {
-            _generic_fall_gomi(character, x, y, depth, falling_damage);
+        fun _generic_fall_gomi_async(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
+            _generic_fall_gomi(character, x, y, depth, fall_damage_type);
         }
         @install()
         @weak()
-        fun _generic_fall_gomi_sync(character:CHARACTER, x, y, depth, falling_damage) {
-            _generic_fall_gomi(character, x, y, depth, falling_damage);
+        fun _generic_fall_gomi_sync(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
+            _generic_fall_gomi(character, x, y, depth, fall_damage_type);
         }
         @install()
         @weak()
-        fun generic_fall_gomi(x, y, depth, falling_damage, reduced_damage) {
+        fun generic_fall_gomi(x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
             control(NONE);
-
-            if(reduced_damage) {
-                if(falling_damage >= 0d5) {
-                    falling_damage -= 0d5;
-                } else {
-                    falling_damage = 0d0;
-                }
-                
-                falling_damage >>= 0d1;
-            }
 
             x *= 0d8;
             y *= 0d8;
 
-            _generic_fall_gomi_async(<INACTIVE>, x + 0d8, y, depth, falling_damage);
-            _generic_fall_gomi_sync(<ACTIVE>, x - 0d8, y, depth, falling_damage);
+            _generic_fall_gomi_async(<INACTIVE>, x + 0d8, y, depth, fall_damage_type);
+            _generic_fall_gomi_sync(<ACTIVE>, x - 0d8, y, depth, fall_damage_type);
 
             control(BOTH);
         }
@@ -12408,12 +12515,12 @@ group functions() {
                 if(arg[0x18] >= 0d4) {
                     _teleport(BOY, x, y);
 
-                    damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
+                    fall_damage(<BOY>, DEFAULT);
                 }
             }
             @install()
             @weak()
-            fun mario_yump(costs_ingredients) {
+            fun mario_yump(costs_ingredients, unrestricted) {
                 if(CUSTOM_FLAG.START_MARIO_YUMP) {
                     end();
                 }
@@ -12463,7 +12570,15 @@ group functions() {
                 arg[0x10] = <BOY>[X];
                 arg[0x12] = <BOY>[Y];
 
-                <BOY>[VELOCITY] = START_GIMMICK.YUMP_VELOCITY;
+                if(unrestricted || (CUSTOM_MEMORY.WEIGHT_BOY < SYSTEM.WEIGHT_BOY)) {
+                    arg[0x0e] = START_GIMMICK.YUMP_VELOCITY;
+                } else if(CUSTOM_MEMORY.WEIGHT_BOY > SYSTEM.WEIGHT_BOY) {
+                    arg[0x0e] = START_GIMMICK.YUMP_VELOCITY / 0d2;
+                } else {
+                    arg[0x0e] = START_GIMMICK.YUMP_VELOCITY - 0d8;
+                }
+
+                <BOY>[VELOCITY] = arg[0x0e];
                 if(START_GIMMICK.YUMP_ANIMATION_START) {
                     animate(BOY, ONCE, ANIMATION_BOY.LANDING);
                 }
@@ -12599,7 +12714,7 @@ group functions() {
                             <BOY>[X] = arg[0x10];
                             <BOY>[Y] = arg[0x12];
 
-                            damage(BOY, START_GIMMICK.YUMP_DAMAGE, True);
+                            fall_damage(<BOY>);
                         }
                     } else {
                         animate(BOY, ONCE, ANIMATION_BOY.LANDING);

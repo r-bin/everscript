@@ -1072,6 +1072,11 @@ group non_maps() {
             ONLY_DOG = CUSTOM_FLAG.NO_BOY,
 
             ALL_FORMS = SOULS_MEMORY.UNLOCKED_FORM_RAT && SOULS_MEMORY.UNLOCKED_FORM_STONE && SOULS_MEMORY.UNLOCKED_FORM_BOMB && SOULS_MEMORY.UNLOCKED_FORM_OGLIN && SOULS_MEMORY.UNLOCKED_FORM_RIMSALA && SOULS_MEMORY.UNLOCKED_FORM_MOSQUITO,
+
+            WEIGHT_BOY_REDUCED = CUSTOM_MEMORY.WEIGHT_BOY < SYSTEM.WEIGHT_BOY,
+            WEIGHT_BOY_INCREASED = CUSTOM_MEMORY.WEIGHT_BOY > SYSTEM.WEIGHT_BOY,
+            WEIGHT_DOG_REDUCED = CUSTOM_MEMORY.WEIGHT_DOG < SYSTEM.WEIGHT_DOG,
+            WEIGHT_DOG_INCREASED = CUSTOM_MEMORY.WEIGHT_DOG > SYSTEM.WEIGHT_DOG,
         }
 
         group cheat_menu() {
@@ -2335,7 +2340,7 @@ group non_maps() {
             }
         }
 
-        fun _update_armor_effects_hit_bonus(armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS, helper_flag:SOULS_MEMORY, bonus) {
+        fun _update_armor_effects_hit_bonus(helper_flag:SOULS_MEMORY, bonus, armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS) {
             if(armor_slot == armor) {
                 if!(helper_flag) {
                     helper_flag = True;
@@ -2350,11 +2355,19 @@ group non_maps() {
                 }
             }
         }
-        fun _update_armor_effects_no_running(armor_slot:CUSTOM_MEMORY, armor:ARMOR_STATS, helper_flag:SOULS_MEMORY) {
-            if(armor_slot == armor) {
-                increment_no_running(helper_flag);
+        fun _update_armor_effects_no_running(helper_flag:SOULS_MEMORY, armor_slot:CUSTOM_MEMORY, armor_1:ARMOR_STATS, armor_2:ARMOR_STATS) {
+            if(armor_2 !is None) {
+                if((armor_slot == armor_1) || (armor_slot == armor_2)) {
+                    increment_no_running(helper_flag);
+                } else {
+                    decrement_no_running(helper_flag);
+                }
             } else {
-                decrement_no_running(helper_flag);
+                if(armor_slot == armor_1) {
+                    increment_no_running(helper_flag);
+                } else {
+                    decrement_no_running(helper_flag);
+                }
             }
         }
         @install()
@@ -2367,11 +2380,16 @@ group non_maps() {
             // NO_RUNNING = CHEST_2_2
             // pip boy = GLOVE_4_2
 
-            _update_armor_effects_hit_bonus(CURRENT_ARMOR_CHEST, CHEST_1_1, HIT_BONUS_CHEST, 0d15);
-            _update_armor_effects_hit_bonus(CURRENT_ARMOR_HELM, HELM_1_1, HIT_BONUS_HELM, 0d15);
-            _update_armor_effects_hit_bonus(CURRENT_ARMOR_GLOVE, GLOVE_1_1, HIT_BONUS_ARMLET, 0d15);
+            _update_armor_effects_hit_bonus(HIT_BONUS_CHEST, 0d15, CURRENT_ARMOR_CHEST, CHEST_1_1);
+            _update_armor_effects_hit_bonus(HIT_BONUS_HELM, 0d15, CURRENT_ARMOR_HELM, HELM_1_1);
+            _update_armor_effects_hit_bonus(HIT_BONUS_ARMLET, 0d15, CURRENT_ARMOR_GLOVE, GLOVE_1_1);
 
-            _update_armor_effects_no_running(CURRENT_ARMOR_CHEST, CHEST_2_2, NO_RUNNING_CHEST);
+            _update_armor_effects_no_running(NO_RUNNING_CHEST, CURRENT_ARMOR_CHEST, CHEST_2_2, CHEST_2_1);
+
+            CUSTOM_MEMORY.WEIGHT_DOG = SYSTEM.WEIGHT_DOG;
+            arg[0x10] = (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) || (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_1);
+            arg[0x12] = CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2;
+            CUSTOM_MEMORY.WEIGHT_BOY = SYSTEM.WEIGHT_BOY + arg[0x10] + arg[0x10] - arg[0x12];
         }
 
         @install()
@@ -3246,37 +3264,6 @@ group non_maps() {
         };
 
         group helper_metro_entrance() {
-            fun pit_fall_callback(callback_reduced, callback_unreduced) {
-                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2) {
-                    callback_reduced();
-                } else {
-                    callback_unreduced();
-                }
-            }
-            fun souls_generic_fall_gomi(x, y, depth, falling_damage) {
-                generic_fall_gomi(x, y, depth, falling_damage, CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2);
-            }
-
-            fun pit_fall_damage_callback(fall_damage, fall_damage_reduced, callback_success, callback_death) {
-                control(NONE);
-                
-                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2) {
-                    damage(BOTH, fall_damage_reduced, True);
-                } else {
-                    damage(BOTH, fall_damage, True);
-                }
-
-                yield();
-
-                if(<BOY>[HP] > 0d0) {
-                    sleep(0d60);
-
-                    callback_success();
-                } else {
-                    callback_death();
-                }
-            }
-
             @install()
             @async()
             fun swirl_entrance() {
@@ -3379,12 +3366,12 @@ group non_maps() {
             fun guard_ground_switch(entity) {
                 if(entity[GENERAL_PURPOSE] >= GROUND_SWITCH.WEIGHT_REQUIRED) {
                     nop();
-                } else if(CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) {
+                } else if((<ACTIVE> == <BOY>) && (SOULS_MEMORY_HELPER.WEIGHT_BOY_INCREASED)) {
                     nop();
                 } else {
                     if(entity[GENERAL_PURPOSE] > 0d0) {
                         nop();
-                    } else if(MEMORY.CHEST_2_2) {
+                    } else if(MEMORY.CHEST_2_1 || MEMORY.CHEST_2_2) {
                         error_message(TOO_LIGHT);
                     } else if(entity[GENERAL_PURPOSE] == 0d0) {
                         error_message(UNKNOWN);
@@ -3394,11 +3381,11 @@ group non_maps() {
             }
 
             fun souls_ground_switch_trigger(memory, x, y, callback) {
-                ground_switch_trigger(memory, x, y, callback, False, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2, GROUND_SWITCH.WEIGHT_REQUIRED, False);
+                ground_switch_trigger(memory, x, y, callback, False, GROUND_SWITCH.WEIGHT_REQUIRED, False);
             }
 
             fun souls_toggle_switch_trigger(memory, x, y, callback_activated, callback_deactivated) {
-                ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, (CUSTOM_MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) + 0d1, 0d1, 0d2, 0d2, True);
+                ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, 0d2, True);
             }
         };
 
@@ -4756,6 +4743,7 @@ group non_maps() {
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.BOMBS) {
                 drop_bomb(False);
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.MARIO) {
+                // mario_yump(False, True);
                 mario_yump(False);
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.PUPPER) {
                 MEMORY.DOG_WRITE = DOG.PUPPER; // TODO
@@ -13431,13 +13419,13 @@ area altus_plateau_entry() {
             }
 
             fun guard_cat_ring() {
-                if(CUSTOM_MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2) {
+                if(SOULS_MEMORY_HELPER.WEIGHT_BOY_REDUCED) {
                     subtext("*crackling sounds*");
                     end();
                 }
             }
 
-            fun trapdoor_trigger(flag, object_id, x, y, y_end, damage) {
+            fun trapdoor_trigger(flag, object_id, x, y, y_end, fall_damage_type:FALL_DAMAGE_TYPE) {
                 if!(flag) {
                     guard_cat_ring();
                 }
@@ -13445,20 +13433,20 @@ area altus_plateau_entry() {
                 object[object_id] = 0x03; // activate trapdoor_3
                 flag = True;
 
-                souls_generic_fall_gomi(x, y, y_end, damage);
+                generic_fall_gomi(x, y, y_end, fall_damage_type);
             }
 
             @install()
             fun trapdoor_3() {
                 debug_subtext("S=10/11");
 
-                trapdoor_trigger(ROOM.TRAP_3_TRIGGERED, 0x05, 0d91, 0d191, 0d1640, 0d5);
+                trapdoor_trigger(ROOM.TRAP_3_TRIGGERED, 0x05, 0d91, 0d191, 0d1640, DEFAULT);
             }
             @install()
             fun trapdoor_4() {
                 debug_subtext("S=3/7");
 
-                trapdoor_trigger(ROOM.TRAP_4_TRIGGERED, 0x03, 0d43, 0d96, 0d1280, 0d20);
+                trapdoor_trigger(ROOM.TRAP_4_TRIGGERED, 0x03, 0d43, 0d96, 0d1280, DROP_DEEP);
             }
 
             fun load_room(load, with_message) {
@@ -13876,7 +13864,7 @@ area altus_plateau_entry() {
                 trapdoor_2 = @install() {
                     debug_subtext("S=8");
 
-                    trapdoor_trigger(ROOM.TRAP_2_TRIGGERED, 0x06, 0d61, 0d160, 0d1408, 0d5);
+                    trapdoor_trigger(ROOM.TRAP_2_TRIGGERED, 0x06, 0d61, 0d160, 0d1408, DEFAULT);
                 },
                 stepon_9 = @install() {
                     debug_subtext("S=9");
@@ -18276,7 +18264,7 @@ area northwest_inbetwixx() {
             if(SOULS_MEMORY.WITH_METRO) {
                 generic_yeet_waterfall(0d250, 0d200);
 
-                pit_fall_damage_callback(0d500, 0d50, {
+                fall_damage(BOTH, CLIFF_DEEP, {
                     map_transition(junkyard_northwest, crash_north, NONE);
                 }, {
                     dust_unreachable(0d24, 0d34);
@@ -18797,7 +18785,7 @@ area east_inbetwixx() {
         fun ravine_triggered() {
             generic_fall(0d100, 0d170);
 
-            pit_fall_damage_callback(0d300, 0d30, {
+            fall_damage(BOTH, CLIFF_DEEP, {
                 map_transition(radahn_arena, center, NONE);
             }, {
                 dust_unreachable(0d47, 0d6);
@@ -22873,7 +22861,7 @@ area southern_jungle() {
                 if(SOULS_MEMORY.WITH_METRO) {
                     generic_yeet_waterfall(0d250, 0d200);
 
-                    pit_fall_damage_callback(0d500, 0d50, {
+                    fall_damage(BOTH, CLIFF_DEEP, {
                         map_transition(junkyard_northeast, crash_south, NONE);
                     }, {
                         dust_unreachable(0d24, 0d34);
@@ -23343,9 +23331,7 @@ area southern_jungle() {
                 generic_fall(0d100, 0d1030);
 
                 dust_unreachable(0d143, 0d108);
-                damage(BOTH, 0d999, True);
-                sleep(0d30);
-                damage(BOTH, SYSTEM.HP_MAX, False);
+                fall_damage(BOTH, DEADLY);
             }
 
             enum stepon_trigger {
@@ -27617,7 +27603,7 @@ area town() {
                         
                         _loot_chest(0x0e, {
                             ROOM.GOURD_LOOTED = True;
-                            reward(CHEST_2_2, True);
+                            reward(CHEST_2_1, True);
                         });
                     },
                     gourd_x__1_call_beads = @install() {
@@ -47194,11 +47180,9 @@ area dungeon_volcano() {
         @install()
         @async()
         fun falling_rock_transition() {
-            pit_fall_callback({
-                crash_both(0d5, 0d2);
-            }, {
-                crash_both(0d5, 0d10);
-            });
+            _crash_both(0d50);
+
+            fall_damage(BOTH, DROP_DEEP);
         }
     };
 
