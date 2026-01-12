@@ -3,6 +3,7 @@
 
 
 # important
+## morph quest broken
 ## start+r buggy
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
