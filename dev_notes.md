@@ -24,14 +24,13 @@
 ## bazooka returns previous weapon
 ## armor nerf: monk, rimsala_gold
 ## alchemy screen removes weather
-## more orbs (every boss)
 ## code switches update poorly
 ## scale enemies: before pyramid
 ## dog statue guards dialog
 ## archaologist replies with crafter quotes
 ## isaac glyphs only accessible via bomb (start is overwritten by tears)
 ## pyramid spiders sometimes missing
-## fire eyes before northern inbetwixx
+## fire eyes before northern inbetwixx?
 ## animations/cutscenes
 ### rubble monk walk back soft locks you
 ### drop to market tiny makes dog stuck
@@ -50,7 +49,6 @@
 ### thraxx (kill -> walk to center)
 ### wall-boss exit calls dog
 ### bomb arena - leave via bridge
-## stats menu - armor name incorrect
 ## d3: hold up bazooka when winning (if possible)
 ## radiation (more enemies near the entrances)
 ## diablo p2? + diablo clone should not actually die

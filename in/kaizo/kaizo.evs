@@ -4579,11 +4579,11 @@ group non_maps() {
 
                 // CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
 
-                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && (SOULS_MEMORY.WITH_CHEATS_FULL_INGREDIENTS || SOULS_MEMORY.DEBUG_LOADOUT)) {
+                if(SOULS_MEMORY.DEBUG && (SOULS_MEMORY.WITH_CHEATS_FULL_INGREDIENTS || SOULS_MEMORY.DEBUG_LOADOUT)) {
                     unlock(INGREDIENTS);
                 }
 
-                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS_MARIO_YUMP) {
                     if(FLAG.DEBUG) {
                         SOULS_MEMORY.MENU_CHOICE = 0x01;
                         
@@ -4594,7 +4594,7 @@ group non_maps() {
                     }
                 }
 
-                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS && SOULS_MEMORY.WITH_CHEATS_ALL_BONFIRES) {
+                if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.WITH_CHEATS_ALL_BONFIRES) {
                     FLAG.MAGIC_GOURD = True;
 
                     // center
@@ -4633,7 +4633,7 @@ group non_maps() {
                 damage(LAST_ENTITY, 0d999, False);
             }
 
-            if((<ACTIVE>[X] == 0x00) && (<ACTIVE>[Y] == 0x00)) {
+            if((<ACTIVE>[X] == 0d0) && (<ACTIVE>[Y] == 0d0)) {
                 set(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED); // TODO
             }
 
@@ -4641,10 +4641,10 @@ group non_maps() {
 
             if(SOULS_MEMORY.BONFIRE_TELEPORT_REQUIRED) {
                 if(
-                    // (SOULS_MEMORY.BONFIRE_MAP == 0x00) ||
-                    // (SOULS_MEMORY.BONFIRE_VARIANT == 0x00) ||
-                    (SOULS_MEMORY.BONFIRE_X == 0x00) ||
-                    (SOULS_MEMORY.BONFIRE_Y == 0x00)
+                    // (SOULS_MEMORY.BONFIRE_MAP == 0d0) ||
+                    // (SOULS_MEMORY.BONFIRE_VARIANT == 0d0) ||
+                    (SOULS_MEMORY.BONFIRE_X == 0d0) ||
+                    (SOULS_MEMORY.BONFIRE_Y == 0d0)
                 ) {
                     if(False) {
                         _fade_in();
@@ -11001,7 +11001,7 @@ area shrine_area() {
             add_door(0d51, 0d47, True); // ???
             
             add_souls_npc_bee_boy(0d60, 0d60);
-            add_door(0d83, 0d49, randrange(0d20)); // bee boy
+            add_door(0d83, 0d49, randrange(0d30)); // bee boy
             
             add_door(0d101, 0d57, NPC_CRAFTER.PROGRESS < 0x20); // crafter
             
@@ -12219,7 +12219,7 @@ area inbetwixx_center() {
             subtext("`The Misadventures of Vex´");
             sleep(0d3, S);
 
-            subtext("v0.9.7 - by r.bin");
+            subtext("v0.9.8 - by r.bin");
         }
         
         @install()
@@ -18407,6 +18407,14 @@ area east_inbetwixx() {
 
         enum ROOM {
             BRANCH_USED = memory(FLAG, SRAM),
+
+            SANDPIT_DAMAGE = 0d5 + randrange(0d5),
+            SANDPIT_THRESHOLD = 0d500,
+            SANDPIT_TIMEOUT = 0d120,
+
+            SANDPIT_BOSS_DAMAGE = 0d99,
+            SANDPIT_BOSS_THRESHOLD = 0d400,
+            SANDPIT_BOSS_TIMEOUT = 0d60,
         }
 
         enum BOSS {
@@ -18712,7 +18720,7 @@ area east_inbetwixx() {
         @async()
         fun pit_scanner_boy() {
             while(True) {
-                pit_scanner_entity(<BOY>, 0d500, 0d05, 0d120);
+                pit_scanner_entity(<BOY>, ROOM.SANDPIT_THRESHOLD, ROOM.SANDPIT_DAMAGE, ROOM.SANDPIT_TIMEOUT);
             }
         }
         @install()
@@ -18721,14 +18729,14 @@ area east_inbetwixx() {
             yield();
             
             while(True) {
-                pit_scanner_entity(<DOG>, 0d500, 0d05, 0d120);
+                pit_scanner_entity(<DOG>, ROOM.SANDPIT_THRESHOLD, ROOM.SANDPIT_DAMAGE, ROOM.SANDPIT_TIMEOUT);
             }
         }
         @install()
         @async()
         fun pit_scanner_boss() {
             while(alive(BOSS.ID)) {
-                pit_scanner_entity(BOSS.ID, 0d400, 0d100, 0d60);
+                pit_scanner_entity(BOSS.ID, ROOM.SANDPIT_BOSS_THRESHOLD, ROOM.SANDPIT_BOSS_DAMAGE, ROOM.SANDPIT_BOSS_TIMEOUT);
             }
         }
 
@@ -18744,42 +18752,44 @@ area east_inbetwixx() {
         }
         @install()
         fun boss_triggered() {
-            if!(BOSS.PROGRESS) {
-                BOSS.PROGRESS = True;
+            guard_false(BOSS.PROGRESS);
+            BOSS.PROGRESS = True;
+
+            if(BOSS.DEBUG) {
+                subtext("boss triggered");
+            }
+
+            push_music(BOSS);
+
+            attach_script(BOSS.ID, DEATH, reference(boss_defeated));
+
+            control(BOSS.ID, False);
+
+            if(BOSS.DEBUG) {
+                debug_subtext("+pit");
+            }
+
+            sleep(BOSS.VOLCANO_DELAY);
+
+            while(alive(BOSS.ID)) {
+                arg[0x10] = randrange(0d4);
 
                 if(BOSS.DEBUG) {
-                    subtext("boss triggered");
+                    MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                    debug_subtext("pit: [MEM1]");
                 }
 
-                push_music(BOSS);
-
-                attach_script(BOSS.ID, DEATH, reference(boss_defeated));
-
-                control(BOSS.ID, False);
-
-                if(BOSS.DEBUG) {
-                    debug_subtext("+pit");
+                if(arg[0x10]) {
+                    pit_projectile(BOSS.ID, <ACTIVE>);
+                } else {
+                    pit_projectile(BOSS.ID, <INACTIVE>);
                 }
 
-                sleep(BOSS.VOLCANO_DELAY);
+                sleep(BOSS.VOLCANO_TIMER);
+            }
 
-                while(alive(BOSS.ID)) {
-                    if(BOSS.DEBUG) {
-                        debug_subtext("pit");
-                    }
-
-                    if(randrange(0d4)) {
-                        pit_projectile(BOSS.ID, <ACTIVE>);
-                    } else {
-                        pit_projectile(BOSS.ID, <INACTIVE>);
-                    }
-
-                    sleep(BOSS.VOLCANO_TIMER);
-                }
-
-                if(BOSS.DEBUG) {
-                    debug_subtext("-pit");
-                }
+            if(BOSS.DEBUG) {
+                debug_subtext("-pit");
             }
         }
 
@@ -20425,11 +20435,21 @@ area east_inbetwixx() {
                 },
             }
 
+            enum ROOM {
+                WITH_STERLING_RATS = True,
+            }
+
             enum BOSS {
+                DEBUG = True,
+                
                 PROGRESS = memory(FLAG, TEMP),
                 BOSS_ID = memory(WORD, TEMP),
 
                 HP = 0d800,
+
+                PHASE = memory(WORD, TEMP),
+                THRESHOLD_P1 = 0d400,
+                THRESHOLD_P2 = 0d200,
 
                 BOSS_START_X = memory(WORD, TEMP),
                 BOSS_START_Y = memory(WORD, TEMP),
@@ -20447,6 +20467,9 @@ area east_inbetwixx() {
                 MOSQUITO_4_ID = memory(WORD, TEMP),
                 MOSQUITO_4_X = 0x29,
                 MOSQUITO_4_Y = 0x2b,
+
+                DAMAGE_FIREBALL_BOSS = 0d200 + randrange(0d100),
+                DAMAGE_FIREBALL_BOY = 0d10,
             }
 
             fun close_exits(close) {
@@ -20458,17 +20481,64 @@ area east_inbetwixx() {
             }
 
             @install()
-            fun boss_defeated() {
-                BOSS.PROGRESS = False;
+            @async()
+            fun clear_room() {
+                find_all(MOSQUITO, {
+                    damage(arg[0x10], 0d999, False);
+                });
+                find_all(RAT_RED, {
+                    damage(arg[0x10], 0d999, False);
+                });
+            }
+            @install()
+            fun boss_triggered() {
+                if(BOSS.DEBUG) {
+                    debug_memory(BOSS.BOSS_ID[HP], BOSS.PHASE);
+                }
 
-                souls_boss_defeated_helper(ARENA_MOSQUITO);
+                if(BOSS.PHASE == 0d0) {
+                    if(BOSS.BOSS_ID[HP] < BOSS.THRESHOLD_P1) {
+                        BOSS.PHASE = 0d1;
 
-                close_exits(False);
+                        if(ROOM.WITH_STERLING_RATS) {
+                            if(randrange(0d1)) {
+                                arg[0x10] = 0d19;
+                                arg[0x12] = 0d21;
+                            } else {
+                                arg[0x10] = 0d18;
+                                arg[0x12] = 0d21;
+                            }
 
-                damage(BOSS.MOSQUITO_1_ID, 0d999, True);
-                damage(BOSS.MOSQUITO_2_ID, 0d999, True);
-                damage(BOSS.MOSQUITO_3_ID, 0d999, True);
-                damage(BOSS.MOSQUITO_4_ID, 0d999, True);
+                            add_sterling_rat(arg[0x10], arg[0x12], 0d29, 0d17, 0d30 * 0d0008);
+                        }
+                    }
+                }
+                if(BOSS.PHASE == 0d1) {
+                    if(BOSS.BOSS_ID[HP] < BOSS.THRESHOLD_P2) {
+                        BOSS.PHASE = 0d2;
+
+                        if(ROOM.WITH_STERLING_RATS) {
+                            if(randrange(0d1)) {
+                                arg[0x10] = 0d19;
+                                arg[0x12] = 0d37;
+                            } else {
+                                arg[0x10] = 0d41;
+                                arg[0x12] = 0d39;
+                            }
+
+                            add_sterling_rat(arg[0x10], arg[0x12], 0d29, 0d17, 0d30 * 0d0008);
+                        }
+                    }
+                }
+                if(BOSS.PROGRESS && (BOSS.BOSS_ID[HP] <= 0d0)) {
+                    BOSS.PROGRESS = False;
+
+                    clear_room();
+
+                    souls_boss_defeated_helper(ARENA_MOSQUITO);
+
+                    close_exits(False);
+                }
             }
 
             fun mosquito_dead(id, x, y) {
@@ -20478,9 +20548,9 @@ area east_inbetwixx() {
                     attribute(SCRIPT_OWNER, INVINCIBLE, True);
 
                     if((BOSS.BOSS_ID[X] >= MEMORY.CAMERA_X_MIN) && ((BOSS.BOSS_ID[X] <= MEMORY.CAMERA_X_MAX)) && (BOSS.BOSS_ID[Y] >= MEMORY.CAMERA_Y_MIN) && ((BOSS.BOSS_ID[Y] <= MEMORY.CAMERA_Y_MAX))) {
-                        cast(id, BOSS.BOSS_ID, FIREBALL, 0d250);
+                        cast(id, BOSS.BOSS_ID, FIREBALL, BOSS.DAMAGE_FIREBALL_BOSS);
                     } else {
-                        cast(id, BOY, FIREBALL, 0d10);
+                        cast(id, BOY, FIREBALL, BOSS.DAMAGE_FIREBALL_BOY);
                     }
 
                     sleep(0d30);
@@ -20548,7 +20618,7 @@ area east_inbetwixx() {
                     <LAST_ENTITY>[HP] = BOSS.HP;
                     animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
                     BOSS.BOSS_ID = <LAST_ENTITY>;
-                    attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(boss_triggered));
                     lock_temporary();
 
                     CUSTOM_FLAG.NO_DOG = True;
@@ -23209,8 +23279,6 @@ area southern_jungle() {
 
                         add_raptor(RAPTOR_PURPLE, 0d99, 0d77);
 
-                        add_basic_souls_enemy(FLOWER_PURPLE, 0d96, 0d60);
-
                         // west
                         add_raptor(RAPTOR_GREEN, 0d40, 0d47);
 
@@ -23221,6 +23289,9 @@ area southern_jungle() {
                             add_raptor(RAPTOR_PURPLE, 0d82, 0d38);
                         }   
                     }
+
+                    // east
+                    add_basic_souls_enemy(FLOWER_PURPLE, 0d102, 0d58);
                 }
 
                 if(True) {
@@ -30346,7 +30417,9 @@ area town() {
                 },
             }
 
-            enum ROOM {
+            enum BOSS {
+                DEBUG = False,
+
                 RIDER_1_ID = memory(WORD, TEMP),
                 MOUNT_1_ID = memory(WORD, TEMP),
                 RIDER_2_ID = memory(WORD, TEMP),
@@ -30358,47 +30431,79 @@ area town() {
                 HITS_BOXER_2 = memory(WORD, TEMP),
                 HITS_BOXER_3 = memory(WORD, TEMP),
 
-                HITS_THRESHOLD = 0x05,
+                HITS_THRESHOLD = 0d5,
+                HIT_DISTANCE = 0d35,
 
                 BOXERS_BEATEN = memory(WORD, TEMP),
 
-                BOXERS_BEATEN_THRESHOLD = 0x03,
+                BOXERS_BEATEN_THRESHOLD = 0d3,
             }
 
             @install()
             @async()
             fun stack_boxer1() {
-                while(alive(ROOM.RIDER_1_ID)) {
-                    ROOM.RIDER_1_ID[X] = ROOM.MOUNT_1_ID[X];
-                    ROOM.RIDER_1_ID[Y] = ROOM.MOUNT_1_ID[Y];
+                while(alive(BOSS.RIDER_1_ID)) {
+                    BOSS.RIDER_1_ID[X] = BOSS.MOUNT_1_ID[X];
+                    BOSS.RIDER_1_ID[Y] = BOSS.MOUNT_1_ID[Y];
                     yield();
                 }
             }
             @install()
             @async()
             fun stack_boxer2() {
-                while(alive(ROOM.RIDER_2_ID)) {
-                    ROOM.RIDER_2_ID[X] = ROOM.MOUNT_2_ID[X];
-                    ROOM.RIDER_2_ID[Y] = ROOM.MOUNT_2_ID[Y];
+                while(alive(BOSS.RIDER_2_ID)) {
+                    BOSS.RIDER_2_ID[X] = BOSS.MOUNT_2_ID[X];
+                    BOSS.RIDER_2_ID[Y] = BOSS.MOUNT_2_ID[Y];
                     yield();
                 }
             }
             @install()
             @async()
             fun stack_boxer3() {
-                while(alive(ROOM.RIDER_3_ID)) {
-                    ROOM.RIDER_3_ID[X] = ROOM.MOUNT_3_ID[X];
-                    ROOM.RIDER_3_ID[Y] = ROOM.MOUNT_3_ID[Y];
+                while(alive(BOSS.RIDER_3_ID)) {
+                    BOSS.RIDER_3_ID[X] = BOSS.MOUNT_3_ID[X];
+                    BOSS.RIDER_3_ID[Y] = BOSS.MOUNT_3_ID[Y];
                     yield();
                 }
             }
 
+            fun boxer_killed() {
+                BOSS.BOXERS_BEATEN++;
+
+                if(BOSS.BOXERS_BEATEN >= BOSS.BOXERS_BEATEN_THRESHOLD) {
+                    souls_boss_defeated_helper(TAVERN_BOXERS);
+                }
+            }
+
             fun boxer_hit(rider_id, mount_id, hit_counter) { // TODO: buggy
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] <= 0d0) {
+                    heal(SCRIPT_OWNER, 0d0, False);
+
+                    if(BOSS.DEBUG) {
+                        debug_memory(0d0, arg[0x20], <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+                    }
+                    end();
+                }
+                
+                return_distance(<SCRIPT_OWNER>, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+                if(CUSTOM_MEMORY.RETURN >= BOSS.HIT_DISTANCE) {
+                    heal(SCRIPT_OWNER, 0d0, False);
+
+                    subtext("*miss*");
+
+                    if(BOSS.DEBUG) {
+                        debug_memory(0d1, CUSTOM_MEMORY.RETURN, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+                    }
+                    end();
+                }
+                
                 hit_counter++;
 
-                debug_memory(hit_counter, ROOM.HITS_THRESHOLD);
+                if(BOSS.DEBUG) {
+                    debug_memory(0d2, CUSTOM_MEMORY.RETURN, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+                }
 
-                if(hit_counter >= ROOM.HITS_THRESHOLD) {
+                if(hit_counter >= BOSS.HITS_THRESHOLD) {
                     add_enemy(PLACEHOLDER, 0x00, 0x00);
                     animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
                     <LAST_ENTITY>[X] = rider_id[X];
@@ -30407,76 +30512,26 @@ area town() {
                     destroy(mount_id);
                     destroy(rider_id);
 
-                    ROOM.BOXERS_BEATEN++;
-                    
-                }
-            }
-
-            fun boxer_killed() {
-                ROOM.BOXERS_BEATEN++;
-
-                if(ROOM.BOXERS_BEATEN >= ROOM.BOXERS_BEATEN_THRESHOLD) {
-                    souls_boss_defeated_helper(TAVERN_BOXERS);
+                    boxer_killed();
                 }
             }
 
             @install()
             fun boxer1dead() {
-                // boxer_hit(ROOM.RIDER_1_ID, ROOM.MOUNT_1_ID ,ROOM.HITS_BOXER_1);
-
-                ROOM.HITS_BOXER_1++;
-
-                if(ROOM.HITS_BOXER_1 >= ROOM.HITS_THRESHOLD) {
-                    add_enemy(PLACEHOLDER, 0x00, 0x00);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
-                    <LAST_ENTITY>[X] = ROOM.RIDER_1_ID[X];
-                    <LAST_ENTITY>[Y] = ROOM.RIDER_1_ID[Y];
-
-                    destroy(ROOM.MOUNT_1_ID);
-                    destroy(ROOM.RIDER_1_ID);
-
-                    boxer_killed();
-                }
+                boxer_hit(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, BOSS.HITS_BOXER_1);
             }
             @install()
             fun boxer2dead() {
-                // boxer_hit(ROOM.RIDER_2_ID, ROOM.MOUNT_2_ID ,ROOM.HITS_BOXER_2);
-
-                ROOM.HITS_BOXER_2++;
-
-                if(ROOM.HITS_BOXER_2 >= ROOM.HITS_THRESHOLD) {
-                    add_enemy(PLACEHOLDER, 0x00, 0x00);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
-                    <LAST_ENTITY>[X] = ROOM.RIDER_2_ID[X];
-                    <LAST_ENTITY>[Y] = ROOM.RIDER_2_ID[Y];
-
-                    destroy(ROOM.RIDER_2_ID);
-                    destroy(ROOM.MOUNT_2_ID);
-
-                    boxer_killed();
-                }
+                boxer_hit(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, BOSS.HITS_BOXER_2);
             }
             @install()
             fun boxer3dead() {
-                // boxer_hit(ROOM.RIDER_3_ID, ROOM.MOUNT_3_ID ,ROOM.HITS_BOXER_3);
-
-                ROOM.HITS_BOXER_3++;
-
-                if(ROOM.HITS_BOXER_3 >= ROOM.HITS_THRESHOLD) {
-                    add_enemy(PLACEHOLDER, 0x00, 0x00);
-                    animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
-                    <LAST_ENTITY>[X] = ROOM.RIDER_3_ID[X];
-                    <LAST_ENTITY>[Y] = ROOM.RIDER_3_ID[Y];
-
-                    destroy(ROOM.RIDER_3_ID);
-                    destroy(ROOM.MOUNT_3_ID);
-
-                    boxer_killed();
-                }
+                boxer_hit(BOSS.RIDER_3_ID, BOSS.MOUNT_3_ID, BOSS.HITS_BOXER_3);
             }
 
             fun add_boxer(id_rider, id_mount, enemy:ENEMY, x, y, trigger) {
                 add_enemy(enemy, x, y);
+                <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
                 id_rider = <LAST_ENTITY>;
                 <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
                 attach_script(LAST_ENTITY, DAMAGE, trigger);
@@ -30507,9 +30562,9 @@ area town() {
                 if!(SOULS_MEMORY.DEAD_TAVERN_BOXERS) {
                     push_music(BOSS_MINI);
 
-                    add_boxer(ROOM.RIDER_1_ID, ROOM.MOUNT_1_ID, BOXER_1, 0x5c, 0x49, reference(boxer1dead));
-                    add_boxer(ROOM.RIDER_2_ID, ROOM.MOUNT_2_ID, BOXER_2, 0x80, 0x3d, reference(boxer2dead));
-                    add_boxer(ROOM.RIDER_3_ID, ROOM.MOUNT_3_ID, BOXER_2, 0x80, 0x45, reference(boxer3dead));
+                    add_boxer(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, BOXER_1, 0x5c, 0x49, reference(boxer1dead));
+                    add_boxer(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, BOXER_2, 0x80, 0x3d, reference(boxer2dead));
+                    add_boxer(BOSS.RIDER_3_ID, BOSS.MOUNT_3_ID, BOXER_2, 0x80, 0x45, reference(boxer3dead));
 
                     stack_boxer1();
                     stack_boxer2();
@@ -47575,7 +47630,7 @@ area dungeon_volcano() {
                 debug_subtext("S=33");
                 // _loot_chest(0x05, PETAL, 0d01);
 
-                _loot_chest(0x05, IRON, 0d01);
+                _loot_chest(0x05, MUD_PEPPER, 0d01);
             },
         }
 
