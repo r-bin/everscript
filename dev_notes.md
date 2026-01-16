@@ -3,7 +3,6 @@
 
 
 # important
-## morph quest broken
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
