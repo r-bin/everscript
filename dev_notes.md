@@ -4,11 +4,9 @@
 
 # important
 ## morph quest broken
-## start+r buggy
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## pyramid cutscenes restores lotus bridges
 ## souls in arenas should be returned to the entrance (if locked)
 ## matroidvania
 ### defend = cat ring
@@ -32,7 +30,6 @@
 ## scale enemies: before pyramid
 ## dog statue guards dialog
 ## archaologist replies with crafter quotes
-## does the hacking game work? robots start invisible
 ## isaac glyphs only accessible via bomb (start is overwritten by tears)
 ## pyramid spiders sometimes missing
 ## fire eyes before northern inbetwixx

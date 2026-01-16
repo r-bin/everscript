@@ -14,7 +14,7 @@ hirom
 !INJECT_OFFSET = 0 ; injected into "_hook_input"
 !WITH_HOTKEY_B = 1 ; hotkey "b" enabled
 !WITH_INPUT_P1_DUMP = 1 ; dumps inputs into $28e2 space enabled
-!WITH_ARMOR_DUMP = 1 ; dumps inputs into $28e2 space enabled
+!WITH_ARMOR_DUMP = 0 ; dumps inputs into $28e2 space enabled
 !INPUT_P1_DUMP = $28e2
 !CURRENT_ARMOR_COLLAR_DUMP = $28e0
 !CURRENT_ARMOR_CHEST_DUMP = $28ce
