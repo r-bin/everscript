@@ -19,6 +19,11 @@
 ## one offs
 ### smith dialog soft lock?!?!?!?!?
 ### bunker exit made solar fall down again?
+## bosses to re-check
+### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
+### puppets (only take 16 damage with t2 weapon)
+### squad (switch should be clickable as well, oglins need 20 attack to be 2-shot = t3 weapon)
+### wall (15 attack = 8…9 damage)
 
 # nice to have
 ## bazooka returns previous weapon

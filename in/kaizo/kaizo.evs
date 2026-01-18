@@ -2333,7 +2333,7 @@ group non_maps() {
                 souls_boss_defeated(DEAD_TEMPLE_SQUAD, MONEY_HELPER.T1_BOSS, CUSTOM_ITEM.AXE_ORB);
             },
             WALL = { // major
-                souls_boss_defeated(DEAD_WALL, MONEY_HELPER.T2_BOSS, MONEY_HELPER.T2_BOSS, CUSTOM_ITEM.SWORD_ORB, ITEM.MAGIC_GOURD, CUSTOM_ITEM.PICKAXE_SHAFT);
+                souls_boss_defeated(DEAD_WALL, MONEY_HELPER.T2_BOSS, CUSTOM_ITEM.SWORD_ORB, ITEM.MAGIC_GOURD, CUSTOM_ITEM.PICKAXE_SHAFT);
             },
             NARIS = {
                 SOULS_MEMORY.PROGRESS_NARIS = False;
@@ -5273,17 +5273,18 @@ group non_maps() {
                 }
 
                 fun upgrade_boy() {
-                    full_heal(BOTH, False);
-                    yield();
-                    
-                    _level_up(MEMORY.STRING_PARAMETER_1, 0d3, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
+                    MEMORY.STRING_PARAMETER_1 = MEMORY.BOY_LEVEL * NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP;
                     conversation_question("[SLOW]Upgrade stats?[CHOICE][MEM1] Souls[CHOICE]no…");
 
                     if(MEMORY.QUESTION_ANSWER == 0d0) {
-                        level_up(BOY, 0d3, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
+                        level_up(BOTH, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
 
-                        yield();
-                        MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+                        if(CUSTOM_MEMORY.RETURN) {
+                            yield();
+                            MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+                        } else {
+                            response_negative();
+                        }
                     }
                 }
 
@@ -5893,6 +5894,7 @@ group non_maps() {
                         conversation_dialog("[SLOW]Bring me a weapon orb, and I'll forge you a better weapon.[B]");
                     }
 
+                    @install()
                     fun response_upgrade_weapon() {
                         if(
                             ((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) ||
@@ -28491,7 +28493,18 @@ area town() {
                     BRIDGE_12 = memory(WORD, TEMP),
                     BRIDGE_12_RESTORED = memory(FLAG, TEMP),
 
+                    HIT_WINDOW = 0d220,
+
                     STEP_SIZE = 0d60,
+
+                    THRESHOLD_STEP_NORMAL = 0d10,
+                    THRESHOLD_STEP_BIG = 0d20,
+
+                    BARRAGE_COOLDOWN = 0d1,
+                    BARRAGE_REPEAT = 0d2,
+                    BARRAGE_LEVEL = 0d1, // unused
+                    BARRAGE_SHOT_COOLDOWN = 0d60,
+                    BARRAGE_SHOT_PAUSE = 0d20 + randrange(0d10),
                 }
 
                 fun bridge_triggered(flag) {
@@ -28694,16 +28707,16 @@ area town() {
 
                 @install()
                 @async()
-                fun _barage(y_offset, level) {
+                fun _barrage(y_offset, level, time) {
                     shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d30, 0d0, 0d20, 0d0);
 
-                    sleep(0d20);
+                    sleep(time);
                     shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d100, 0d0, 0d20, 0d0);
 
-                    sleep(0d20);
+                    sleep(time);
                     shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d150, 0d0, 0d20, 0d0);
 
-                    sleep(0d20);
+                    sleep(time);
                     shoot_entity_offset_relative(BOSS.ID, ONION, 0d0, y_offset, -0d200, 0d0, 0d20, 0d0);
 
                     // sleep(0d20);
@@ -28748,15 +28761,15 @@ area town() {
                 }
                 @install()
                 @async()
-                fun barage(repeat, level) {
+                fun barrage(repeat, level) {
                     while(arg[0x10] < repeat) {
                         arg[0x10]++;
 
                         prepare_rng();
 
-                        _barage(arg[0x12], level);
+                        _barrage(arg[0x12], level, BOSS.BARRAGE_SHOT_PAUSE);
 
-                        sleep(0d60);
+                        sleep(BOSS.BARRAGE_SHOT_COOLDOWN);
                     }
                 }
 
@@ -28768,7 +28781,8 @@ area town() {
                     while(alive(<SCRIPT_OWNER>)) {
                         arg[0x10] = <SCRIPT_OWNER>[HP];
 
-                        sleep(0d180);
+                        sleep(BOSS.HIT_WINDOW);
+                        guard_dead(<SCRIPT_OWNER>);
 
                         arg[0x12] = arg[0x10] - <SCRIPT_OWNER>[HP];
 
@@ -28778,12 +28792,13 @@ area town() {
 
                         sound(ELEVATOR_DOOR);
                         sleep(0d30);
+                        guard_dead(<SCRIPT_OWNER>);
 
                         if(arg[0x12] == 0d0) {
                             move_left(BOSS.STEP_SIZE);
-                        } else if(arg[0x12] > 0d80) {
+                        } else if(arg[0x12] >= BOSS.THRESHOLD_STEP_BIG) {
                             move_right(BOSS.STEP_SIZE * 0d2);
-                        } else if(arg[0x12] > 0d10) {
+                        } else if(arg[0x12] >= BOSS.THRESHOLD_STEP_NORMAL) {
                             move_right(BOSS.STEP_SIZE);
                         }
                         sound(ELEVATOR_DOOR);
@@ -28791,11 +28806,9 @@ area town() {
                         if(arg[0x14] > 0d0) {
                             arg[0x14]--;
                         } else {
-                            barage(0d2, 0d1);
+                            barrage(BOSS.BARRAGE_REPEAT, BOSS.BARRAGE_LEVEL);
 
-                            if(0d2 > 0d1) {
-                                arg[0x14] = 0d2 - 0d1;
-                            }
+                            arg[0x14] = BOSS.BARRAGE_COOLDOWN;
                         }
                     }
                 }
