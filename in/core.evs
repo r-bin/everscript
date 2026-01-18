@@ -10056,6 +10056,20 @@ group functions() {
             }
         };
 
+        group generic() {
+            @install()
+            @async()
+            @weak()
+            fun generic_impact(duration) {
+                sfx_effect(SHAKING, True);
+                sound(IMPACT);
+                
+                sleep(duration);
+
+                sfx_effect(SHAKING, False);
+            }
+        };
+
         group act_2() {
             fun act2_arena_bridge_show(show) {
                 if(show) {
@@ -11348,6 +11362,57 @@ group functions() {
 
             attribute_bit(BOY, INVISIBLE, True);
             attribute_bit(DOG, INVISIBLE, True);
+        }
+
+        fun generic_pit() {
+            nop();
+        }
+        fun generic_crash() {
+            nop();
+        }
+
+        @install()
+        @weak()
+        fun _generic_crash_through__fall(entity, z) {
+            entity[Z] = z;
+
+            yield();
+            while(entity[Z] > 0d0) {
+                yield();
+            }
+
+            bomb_entity(entity, 0d50, 0d20);
+            generic_impact(0d20);
+        }
+        @install()
+        @weak()
+        fun _generic_crash_through__fallthrough(entity, depth, cutoff) {
+            depth += entity[Y];
+
+            while(entity[Y] < cutoff) {
+                entity[Y] += 0d2;
+
+                yield();
+            }
+
+            attribute(SCRIPT_OWNER, INVISIBLE, True);
+            
+            while(entity[Y] < depth) {
+                entity[Y] += 0d2;
+
+                yield();
+            }
+
+            generic_impact(0d40);
+        }
+        fun generic_crash_through(entity, z, depth, cutoff, callback_landing) {
+            _generic_crash_through__fall(entity, z);
+            
+            if(callback_landing is Function) {
+                callback_landing();
+            }
+
+            _generic_crash_through__fallthrough(entity, depth, cutoff);
         }
 
         fun _generic_fall_gomi(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {

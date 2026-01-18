@@ -28463,6 +28463,30 @@ area town() {
                     default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
                 }
 
+                enum ROOM {
+                    DEBUG = False,
+                    DEBUG_STONE_POSITION = False,
+
+                    BRIDGE_1 = memory(WORD, TEMP), // trap 1
+                    BRIDGE_2 = memory(WORD, TEMP),
+                    BRIDGE_3 = memory(WORD, TEMP),
+                    BRIDGE_4 = memory(WORD, TEMP), // always 1
+                    BRIDGE_5 = memory(WORD, TEMP),
+                    BRIDGE_6 = memory(WORD, TEMP),
+                    BRIDGE_7 = memory(WORD, TEMP),
+                    BRIDGE_8 = memory(WORD, TEMP),
+                    BRIDGE_9 = memory(WORD, TEMP),
+                    BRIDGE_10 = memory(WORD, TEMP), // trap 2
+                    BRIDGE_11 = memory(WORD, TEMP),
+                    BRIDGE_12 = memory(WORD, TEMP), // always 2
+                    BRIDGE_13 = memory(WORD, TEMP),
+                    BRIDGE_14 = memory(WORD, TEMP),
+                    BRIDGE_15 = memory(WORD, TEMP),
+
+                    TRAP_1_TRIGGERED = memory(FLAG, TEMP),
+                    TRAP_2_TRIGGERED = memory(FLAG, TEMP),
+                }
+
                 fun lift_east_switch_triggered() {
                     object_animator(SWITCH_SPEAR_HALLS, False, 0x04, True, False);
                     object_animator(GATE_HALLS, False, 0x03, True, False);
@@ -28479,19 +28503,96 @@ area town() {
                     sleep(0d10);
                 }
 
+                group brigde_helper() {
+                    @install()
+                    fun levitate_triggered() {
+                        guard_challenge_revealer();
+
+                        if(ROOM.DEBUG) {
+                            debug_memory(<SCRIPT_OWNER>, alive(<SCRIPT_OWNER>), <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+                        }
+
+                        teleport(SCRIPT_OWNER, 0d0, 0d0);
+
+                        object[<SCRIPT_OWNER>[GENERAL_PURPOSE]] = 0x00;
+
+                        destroy(SCRIPT_OWNER);
+                    }
+
+                    @install()
+                    fun _bridge_triggered(segment_memory) {
+                        if(ROOM.DEBUG) {
+                            debug_memory(segment_memory, _alive(segment_memory), segment_memory[GENERAL_PURPOSE]);
+                        }
+
+                        generic_fall(0d50, 0d1100);
+
+                        dust_unreachable(0d39, 0d129);
+                        damage(BOTH, 0d999, True);
+                        sleep(0d30);
+                        damage(BOTH, SYSTEM.HP_MAX, False);
+                    }
+                    fun bridge_triggered(segment_memory) {
+                        if(segment_memory != 0x0000) {
+                            if(_alive(segment_memory) && (segment_memory[Z] == 0d0)) {
+                                _bridge_triggered(segment_memory);
+                            }
+                        }
+                    }
+
+                    fun _break_bridge(memory_entity, object_id, x) {
+                        if(ROOM.DEBUG && ROOM.DEBUG_STONE_POSITION) {
+                            add_enemy(STONE, x, 0d138, STONE_LEVITATE);
+                        } else {
+                            add_enemy(STONE, x, 0d138, STONE_LEVITATE_INVISIBLE); // bridge_3, trigger=17
+                        }
+                        <LAST_ENTITY>[GENERAL_PURPOSE] = object_id;
+                        memory_entity = <LAST_ENTITY>;
+
+                        object[object_id] = 0x7e;
+                    }
+                    @install()
+                    fun break_bridge(index) {
+                        if(index == 0d1) {
+                            _break_bridge(ROOM.BRIDGE_1, 0x11, 0d46);
+                        } else if(index == 0d2) {
+                            _break_bridge(ROOM.BRIDGE_2, 0x12, 0d50);
+                        } else if(index == 0d3) {
+                            _break_bridge(ROOM.BRIDGE_3, 0x13, 0d54);
+                        } else if(index == 0d4) {
+                            _break_bridge(ROOM.BRIDGE_4, 0x14, 0d58);
+                        } else if(index == 0d5) {
+                            _break_bridge(ROOM.BRIDGE_5, 0x15, 0d62);
+                        } else if(index == 0d6) {
+                            _break_bridge(ROOM.BRIDGE_6, 0x16, 0d66);
+                        } else if(index == 0d7) {
+                            _break_bridge(ROOM.BRIDGE_7, 0x17, 0d70);
+                        } else if(index == 0d8) {
+                            _break_bridge(ROOM.BRIDGE_8, 0x18, 0d74);
+                        } else if(index == 0d9) {
+                            _break_bridge(ROOM.BRIDGE_9, 0x19, 0d78);
+                        } else if(index == 0d10) {
+                            _break_bridge(ROOM.BRIDGE_10, 0x1a, 0d82);
+                        } else if(index == 0d11) {
+                            _break_bridge(ROOM.BRIDGE_11, 0x1b, 0d86);
+                        } else if(index == 0d12) {
+                            _break_bridge(ROOM.BRIDGE_12, 0x1c, 0d90);
+                        } else if(index == 0d13) {
+                            _break_bridge(ROOM.BRIDGE_13, 0x1d, 0d94);
+                        } else if(index == 0d14) {
+                            _break_bridge(ROOM.BRIDGE_14, 0x1e, 0d98);
+                        } else if(index == 0d15) {
+                            _break_bridge(ROOM.BRIDGE_15, 0x1f, 0d102);
+                        }
+                    }
+                };
+
                 enum BOSS {
                     DEBUG = False,
 
                     ID = memory(WORD, TEMP),
                     BARRIER_1_ID = memory(WORD, TEMP),
                     BARRIER_2_ID = memory(WORD, TEMP),
-
-                    BRIDGE_3 = memory(WORD, TEMP),
-                    BRIDGE_3_RESTORED = memory(FLAG, TEMP),
-                    BRIDGE_6 = memory(WORD, TEMP),
-                    BRIDGE_6_RESTORED = memory(FLAG, TEMP),
-                    BRIDGE_12 = memory(WORD, TEMP),
-                    BRIDGE_12_RESTORED = memory(FLAG, TEMP),
 
                     HIT_WINDOW = 0d220,
 
@@ -28505,19 +28606,6 @@ area town() {
                     BARRAGE_LEVEL = 0d1, // unused
                     BARRAGE_SHOT_COOLDOWN = 0d60,
                     BARRAGE_SHOT_PAUSE = 0d20 + randrange(0d10),
-                }
-
-                fun bridge_triggered(flag) {
-                    if!(flag) {
-                        // debug_subtext("ded");
-
-                        generic_fall(0d50, 0d1100);
-
-                        dust_unreachable(0d39, 0d129);
-                        damage(BOTH, 0d999, True);
-                        sleep(0d30);
-                        damage(BOTH, SYSTEM.HP_MAX, False);
-                    }
                 }
 
                 fun update_camera_limit(x) {
@@ -28540,6 +28628,108 @@ area town() {
                     souls_boss_defeated_helper(WALL);
 
                     update_camera_limit(0xfff);
+                }
+
+                fun set_bridge(index, entity) {
+                    if(index == 0d1) {
+                        ROOM.BRIDGE_1 = entity;
+                    } else if(index == 0d2) {
+                        ROOM.BRIDGE_2 = entity;
+                    } else if(index == 0d3) {
+                        ROOM.BRIDGE_3 = entity;
+                    } else if(index == 0d4) {
+                        ROOM.BRIDGE_4 = entity;
+                    } else if(index == 0d5) {
+                        ROOM.BRIDGE_5 = entity;
+                    } else if(index == 0d6) {
+                        ROOM.BRIDGE_6 = entity;
+                    } else if(index == 0d7) {
+                        ROOM.BRIDGE_7 = entity;
+                    } else if(index == 0d8) {
+                        ROOM.BRIDGE_8 = entity;
+                    } else if(index == 0d9) {
+                        ROOM.BRIDGE_9 = entity;
+                    } else if(index == 0d10) {
+                        ROOM.BRIDGE_10 = entity;
+                    } else if(index == 0d11) {
+                        ROOM.BRIDGE_11 = entity;
+                    } else if(index == 0d12) {
+                        ROOM.BRIDGE_12 = entity;
+                    } else if(index == 0d13) {
+                        ROOM.BRIDGE_13 = entity;
+                    } else if(index == 0d14) {
+                        ROOM.BRIDGE_14 = entity;
+                    } else if(index == 0d15) {
+                        ROOM.BRIDGE_15 = entity;
+                    }
+                }
+                fun get_bridge(index, entity) {
+                    if(index == 0d1) {
+                        entity = ROOM.BRIDGE_1;
+                    } else if(index == 0d2) {
+                        entity = ROOM.BRIDGE_2;
+                    } else if(index == 0d3) {
+                        entity = ROOM.BRIDGE_3;
+                    } else if(index == 0d4) {
+                        entity = ROOM.BRIDGE_4;
+                    } else if(index == 0d5) {
+                        entity = ROOM.BRIDGE_5;
+                    } else if(index == 0d6) {
+                        entity = ROOM.BRIDGE_6;
+                    } else if(index == 0d7) {
+                        entity = ROOM.BRIDGE_7;
+                    } else if(index == 0d8) {
+                        entity = ROOM.BRIDGE_8;
+                    } else if(index == 0d9) {
+                        entity = ROOM.BRIDGE_9;
+                    } else if(index == 0d10) {
+                        entity = ROOM.BRIDGE_10;
+                    } else if(index == 0d11) {
+                        entity = ROOM.BRIDGE_11;
+                    } else if(index == 0d12) {
+                        entity = ROOM.BRIDGE_12;
+                    } else if(index == 0d13) {
+                        entity = ROOM.BRIDGE_13;
+                    } else if(index == 0d14) {
+                        entity = ROOM.BRIDGE_14;
+                    } else if(index == 0d15) {
+                        entity = ROOM.BRIDGE_15;
+                    }
+                }
+
+                @install()
+                fun collapse_bridge(index) {
+                    if(False) {
+                        get_bridge(index, arg[0x10]);
+
+                        if(arg[0x10] != 0x0000 && _alive(arg[0x10])) {
+                            debug_memory(arg[0x10], _alive(arg[0x10]));
+
+                            end();
+                        }
+                    }
+
+                    arg[0x10] = 0d42 + index * 0d4;
+
+                    add_enemy(STONE, arg[0x10], 0d138);
+                    arg[0x12] = <LAST_ENTITY>[X];
+                    arg[0x14] = <LAST_ENTITY>[Y];
+                    _teleport(LAST_ENTITY, <LAST_ENTITY>[X], <ACTIVE>[Y]);
+
+                    attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+                    attach_to_script(LAST_ENTITY);
+
+                    set_bridge(index, <LAST_ENTITY>);
+
+                    generic_crash_through(<SCRIPT_OWNER>, 0d2000, arg[0x14] - <LAST_ENTITY>[Y], 0d1100, {
+                        break_bridge(arg[0x00]);
+                    });
+
+                    if(False) { // TODO: reuse stone
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    } else {
+                        destroy(SCRIPT_OWNER);
+                    }
                 }
 
                 enum stepon_trigger {
@@ -28587,69 +28777,105 @@ area town() {
 
                         // TODO: close gate
                     },
-                    bridge_1 = @install() {
+                    bridge_start_1 = @install() {
                         debug_subtext("S=11");
                     },
-                    bridge_2 = @install() {
+                    bridge_start_2 = @install() {
                         debug_subtext("S=12");
                     },
-                    bridge_18 = @install() {
+                    bridge_end_1 = @install() {
                         debug_subtext("S=13");
                     },
-                    bridge_19 = @install() {
+                    bridge_end_2 = @install() {
                         debug_subtext("S=14");
                     },
-                    bridge_3 = @install() {
+                    bridge_1 = @install() {
                         debug_subtext("S=15");
+
+                        bridge_triggered(ROOM.BRIDGE_1);
                     },
-                    bridge_4 = @install() {
+                    bridge_2 = @install() {
                         debug_subtext("S=16");
+
+                        bridge_triggered(ROOM.BRIDGE_2);
+
+                        if!(ROOM.TRAP_1_TRIGGERED) {
+                            ROOM.TRAP_1_TRIGGERED = True;
+
+                            collapse_bridge(0d1);
+                        }
                     },
-                    bridge_5 = @install() {
+                    bridge_3 = @install() {
                         debug_subtext("S=17");
 
-                        bridge_triggered(BOSS.BRIDGE_3_RESTORED);
+                        bridge_triggered(ROOM.BRIDGE_3);
                     },
-                    bridge_6 = @install() {
+                    bridge_4 = @install() {
                         debug_subtext("S=18");
+
+                        bridge_triggered(ROOM.BRIDGE_4);
                     },
-                    bridge_7 = @install() {
+                    bridge_5 = @install() {
                         debug_subtext("S=19");
+
+                        bridge_triggered(ROOM.BRIDGE_5);
                     },
 
-                    bridge_8 = @install() {
+                    bridge_6 = @install() {
                         debug_subtext("S=20");
 
-                        bridge_triggered(BOSS.BRIDGE_6_RESTORED);
+                        bridge_triggered(ROOM.BRIDGE_6);
+                    },
+                    bridge_7 = @install() {
+                        debug_subtext("S=21");
+
+                        bridge_triggered(ROOM.BRIDGE_7);
+                    },
+                    bridge_8 = @install() {
+                        debug_subtext("S=22");
+
+                        bridge_triggered(ROOM.BRIDGE_8);
                     },
                     bridge_9 = @install() {
-                        debug_subtext("S=21");
+                        debug_subtext("S=23");
+
+                        bridge_triggered(ROOM.BRIDGE_9);
                     },
                     bridge_10 = @install() {
-                        debug_subtext("S=22");
+                        debug_subtext("S=24");
+
+                        bridge_triggered(ROOM.BRIDGE_10);
+
+                        if!(ROOM.TRAP_2_TRIGGERED) {
+                            ROOM.TRAP_2_TRIGGERED = True;
+
+                            collapse_bridge(0d10);
+                        }
                     },
                     bridge_11 = @install() {
-                        debug_subtext("S=23");
+                        debug_subtext("S=25");
+
+                        bridge_triggered(ROOM.BRIDGE_11);
                     },
                     bridge_12 = @install() {
-                        debug_subtext("S=24");
-                    },
-                    bridge_13 = @install() {
-                        debug_subtext("S=25");
-                    },
-                    bridge_14 = @install() {
                         debug_subtext("S=26");
 
-                        bridge_triggered(BOSS.BRIDGE_12_RESTORED);
+                        bridge_triggered(ROOM.BRIDGE_12);
+                    },
+                    bridge_13 = @install() {
+                        debug_subtext("S=27");
+
+                        bridge_triggered(ROOM.BRIDGE_13);
+                    },
+                    bridge_14 = @install() {
+                        debug_subtext("S=28");
+
+                        bridge_triggered(ROOM.BRIDGE_14);
                     },
                     bridge_15 = @install() {
-                        debug_subtext("S=27");
-                    },
-                    bridge_16 = @install() {
-                        debug_subtext("S=28");
-                    },
-                    bridge_17 = @install() {
                         debug_subtext("S=29");
+
+                        bridge_triggered(ROOM.BRIDGE_15);
                     },
 
                     secret_passage_1 = @install() {
@@ -28831,33 +29057,31 @@ area town() {
                         BOSS.BARRIER_1_ID[X] = BOSS.ID[X] - 0d40;
                         BOSS.BARRIER_2_ID[X] = BOSS.ID[X] - 0d40;
 
-                        sleep(0d2);
+                        sleep(0d5);
 
                         punish_position(<BOY>, 0d50);
-                        yield();
-                        punish_position(<DOG>, 0d20);
-                        yield();
+
+                        if(False) {
+                            yield();
+                            punish_position(<DOG>, 0d20);
+                            yield();
+                        }
                     }
                 }
 
                 @install()
-                fun levitate_triggered() {
-                    guard_challenge_revealer();
+                @async()
+                fun raining_rocks() {
+                    while(alive(BOSS.ID)) {
+                        if(False) {
+                            projectile(BOSS.ID, ROCK, 0d0, 0d0, <BOY>[X], <BOY>[Y], 0d30, 0d0);
+                            sleep(0d5, S);
+                        } else {
+                            // TODO
 
-                    teleport(SCRIPT_OWNER, 0d0, 0d0);
-
-                    if(<SCRIPT_OWNER> == BOSS.BRIDGE_3) {
-                        object[0x13] = 0x00;
-                        BOSS.BRIDGE_3_RESTORED = True;
-                    } else if(<SCRIPT_OWNER> == BOSS.BRIDGE_6) {
-                        object[0x16] = 0x00;
-                        BOSS.BRIDGE_6_RESTORED = True;
-                    } else if(<SCRIPT_OWNER> == BOSS.BRIDGE_12) {
-                        object[0x1c] = 0x00;
-                        BOSS.BRIDGE_12_RESTORED = True;
+                            sleep(0d5, S);
+                        }
                     }
-
-                    destroy(SCRIPT_OWNER);
                 }
 
                 fun trigger_enter() {
@@ -28913,51 +29137,10 @@ area town() {
 
                         push_music(BOSS);
 
-                        // object[0x11] = 0x7e; // collapse bridge_1
-                        // object[0x12] = 0x7e; // collapse bridge_2
-                        object[0x13] = 0x7e; // collapse bridge_3
-                        // object[0x14] = 0x7e; // collapse bridge_4
-                        // object[0x15] = 0x7e; // collapse bridge_5
-                        // object[0x16] = 0x7e; // collapse bridge_6
-                        // object[0x17] = 0x7e; // collapse bridge_7
-                        // object[0x18] = 0x7e; // collapse bridge_8
-                        // object[0x19] = 0x7e; // collapse bridge_9
-                        // object[0x1a] = 0x7e; // collapse bridge_10
-                        // object[0x1b] = 0x7e; // collapse bridge_11
-                        object[0x1c] = 0x7e; // collapse bridge_12
-                        // object[0x1d] = 0x7e; // collapse bridge_13
-                        // object[0x1e] = 0x7e; // collapse bridge_14
-                        // object[0x1f] = 0x7e; // collapse bridge_15
+                        break_bridge(0d4);
+                        break_bridge(0d12);
 
-                        if(False) {
-                            add_enemy(REVEALER_TARGET_ENTITY, 0d54, 0d129); // bridge_3, trigger=17
-                            BOSS.BRIDGE_3 = <LAST_ENTITY>;
-
-                            // add_enemy(REVEALER_TARGET_ENTITY, 0d65, 0d129); // bridge_6, trigger=20
-                            // BOSS.BRIDGE_6 = <LAST_ENTITY>;
-                            BOSS.BRIDGE_6_RESTORED = True;
-
-                            add_enemy(REVEALER_TARGET_ENTITY, 0d89, 0d129); // bridge_12, trigger=26
-                            BOSS.BRIDGE_12 = <LAST_ENTITY>;
-
-                            special_script(REVEALER, reference(levitate_triggered));
-                        } else {
-                            add_enemy(STONE, 0d54, 0d138, STONE_LEVITATE_INVISIBLE); // bridge_3, trigger=17
-                            BOSS.BRIDGE_3 = <LAST_ENTITY>;
-
-                            // add_enemy(REVEALER_TARGET_ENTITY, 0d65, 0d138, STONE_LEVITATE); // bridge_6, trigger=20
-                            // BOSS.BRIDGE_6 = <LAST_ENTITY>;
-                            BOSS.BRIDGE_6_RESTORED = True;
-
-                            add_enemy(STONE, 0d89, 0d138, STONE_LEVITATE_INVISIBLE); // bridge_12, trigger=26
-                            BOSS.BRIDGE_12 = <LAST_ENTITY>;
-
-                            special_script(LEVITATE, reference(levitate_triggered));
-                        }
-                    } else {
-                        BOSS.BRIDGE_3_RESTORED = True;
-                        BOSS.BRIDGE_6_RESTORED = True;
-                        BOSS.BRIDGE_12_RESTORED = True;
+                        special_script(LEVITATE, reference(levitate_triggered));
                     }
                 }
             };
