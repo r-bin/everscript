@@ -4890,7 +4890,7 @@ group non_maps() {
                 
                 // map_transition(hidden_castle_entry, stairs, NONE);
                 // map_transition(mansion_modern, west, NONE);
-                map_transition(pyramid, east, NONE);
+                map_transition(town_level_3, south, NONE);
                 
                 // MEMORY.MAP_PALETTE--;
             } else {
@@ -32850,6 +32850,9 @@ area town() {
                 P2_TIMER_THRESHOLD = 0d600,
 
                 LEVEL_FLASH = SOULS_MEMORY.FLASH_BASE_DAMAGE,
+
+                PALETTE_DONOR = memory(WORD, TEMP),
+                PALETTE_DEFAULT = memory(WORD, TEMP),
             }
 
             enum stepon_trigger {
@@ -32993,11 +32996,36 @@ area town() {
                 }
             }
 
+            @install()
+            @async()
+            fun palette_watcher(entity) {
+                arg[0x10] = entity[PALETTE];
+
+                while(alive(entity)) {
+                    // debug_memory(entity[PALETTE], arg[0x10], BOSS.PALETTE_DONOR[PALETTE]);
+
+                    if(entity == BOSS.LAST_DAMAGED) {
+                        entity[PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
+                    } else {
+                        entity[PALETTE] = arg[0x10];
+                    }
+
+                    sleep(0d5);
+                }
+            }
+            fun add_palette_donors() {
+                add_enemy(BOY_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+                BOSS.PALETTE_DONOR = <LAST_ENTITY>;
+            }
+
             fun puppet_damaged(other, dance_animation) {
                 if(BOSS.PHASE == 0d0) {
                     BOSS.PHASE = 0d1;
 
                     cast(SCRIPT_OWNER, SCRIPT_OWNER, FORCE_FIELD, 0d1);
+
+                    palette_watcher(BOSS.BOSS_1_ID);
+                    palette_watcher(BOSS.BOSS_2_ID);
                 }
                 if(BOSS.PHASE == 0d1) {
                     if(dead(<SCRIPT_OWNER>)) {
@@ -33140,6 +33168,8 @@ area town() {
 
                 if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
                     BOSS.PROGRESS = True;
+
+                    add_palette_donors();
 
                     push_music(BOSS);
 
