@@ -3,6 +3,10 @@
 
 
 # important
+## code door = janky
+## mushroom armor glitchy (65k)
+## secure pyramid entry better
+## market: beads, random weapon orb
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
@@ -17,13 +21,25 @@
 ### mosquito arena to 1000hp?
 #### crush cave trash too much armor
 ## one offs
-### smith dialog soft lock?!?!?!?!?
 ### bunker exit made solar fall down again?
 ## bosses to re-check
+### arenas are too easy
 ### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
 ### puppets (only take 16 damage with t2 weapon)
 ### squad (switch should be clickable as well, oglins need 20 attack to be 2-shot = t3 weapon)
 ### wall (15 attack = 8…9 damage)
+### chess (p2 - maybe an oglin?, persistent palette, secret does not open during fight)
+### gideon (new abilities: bottle+explosion, wall projectile?, remove tesla base line, pudge?, more new projectiles: minitaur=backpack?, chess, puppets=confound?, rimsala, arenas, abomination, spaceship=bomb?, diablo=slow?)
+### turret arena (only 10dmg, too much hp?)
+### squidmar (20dmg, too easy?, red and black sparks?)
+### sterling (8 dmg vs 60 hp)
+### abomination: no music, 20 weapon = 5 dmg (low), 25 weapon = 15 dmg (good)
+### diablo: 25 weapon = 30 dmg (high), clones give money
+### pudge: 25 weapon = 30 dmg (high-good), spiders give money, too much hp?, hooks can place you out of the map, hook can get stuck in the wall
+### O+S: damage too low (5-10 per hit), 25 weapon = 50 vigor damage
+### thraxx: 5 damage way too low, enrage does not guard_dead, walk back after kill is buggy, much hp, maggots don't die
+### secret boss: requires levitate?, too much hp?, "fog wall active"
+## horace npc causes palette glitch
 
 # nice to have
 ## bazooka returns previous weapon
