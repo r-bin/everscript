@@ -17,9 +17,8 @@
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 ## balancing
-### isaac projectiles deal 1 damage
-### mosquito arena to 1000hp?
-#### crush cave trash too much armor
+### basement: spiders should explode, isaac projectiles deal 1 damage
+### crush cave trash too much armor
 ## one offs
 ### bunker exit made solar fall down again?
 ## bosses to re-check
@@ -39,6 +38,10 @@
 ### O+S: damage too low (5-10 per hit), 25 weapon = 50 vigor damage
 ### thraxx: 5 damage way too low, enrage does not guard_dead, walk back after kill is buggy, much hp, maggots don't die
 ### secret boss: requires levitate?, too much hp?, "fog wall active"
+### monstro: 12weapon->8 (low), 20weapon->18 (high)
+### mario dungeon: yump weight independent?
+### bowser: no fog gate outside, remove flowers
+## trash to improve
 ## horace npc causes palette glitch
 
 # nice to have
