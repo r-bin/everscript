@@ -4,7 +4,6 @@
 
 # important
 ## code door = janky
-## mushroom armor glitchy (65k)
 ## secure pyramid entry better
 ## market: beads, random weapon orb
 ## move ARCHAEOLOGY_DIG.CODE_5
