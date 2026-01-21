@@ -24,12 +24,11 @@
 ### arenas are too easy
 ### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
 ### puppets (only take 16 damage with t2 weapon)
-### squad (switch should be clickable as well, oglins need 20 attack to be 2-shot = t3 weapon)
+### squad (oglins need 20 attack to be 2-shot = t3 weapon)
 ### wall (15 attack = 8…9 damage)
 ### chess (p2 - maybe an oglin?, persistent palette, secret does not open during fight)
 ### gideon (new abilities: bottle+explosion, wall projectile?, remove tesla base line, pudge?, more new projectiles: minitaur=backpack?, chess, puppets=confound?, rimsala, arenas, abomination, spaceship=bomb?, diablo=slow?)
 ### turret arena (only 10dmg, too much hp?)
-### squidmar (20dmg, too easy?, red and black sparks?)
 ### sterling (8 dmg vs 60 hp)
 ### abomination: no music, 20 weapon = 5 dmg (low), 25 weapon = 15 dmg (good)
 ### diablo: 25 weapon = 30 dmg (high), clones give money
@@ -38,7 +37,6 @@
 ### thraxx: 5 damage way too low, enrage does not guard_dead, walk back after kill is buggy, much hp, maggots don't die
 ### secret boss: requires levitate?, too much hp?, "fog wall active"
 ### monstro: 12weapon->8 (low), 20weapon->18 (high)
-### mario dungeon: yump weight independent?
 ### bowser: no fog gate outside, remove flowers
 ## trash to improve
 ## horace npc causes palette glitch

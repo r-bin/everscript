@@ -1521,14 +1521,14 @@ group non_maps() {
                         helper_flag = True;
 
                         <BOY>[BOOST_HIT] += bonus;
-                        BOY.BOY_HIT += bonus;
+                        MEMORY.BOY_HIT += bonus;
                     }
                 } else {
                     if(helper_flag) {
                         helper_flag = False;
 
                         <BOY>[BOOST_HIT] -= bonus;
-                        BOY.BOY_HIT -= bonus;
+                        MEMORY.BOY_HIT -= bonus;
                     }
                 }
             }
@@ -4859,8 +4859,7 @@ group non_maps() {
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.BOMBS) {
                 drop_bomb(False);
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.MARIO) {
-                // mario_yump(False, True);
-                mario_yump(False);
+                mario_yump(False, True);
             } else if(CUSTOM_MEMORY.HOTKEY_START == BUTTON_MAP.PUPPER) {
                 MEMORY.DOG_WRITE = DOG.PUPPER; // TODO
             } else {
@@ -28117,6 +28116,8 @@ area town() {
 
                 @install()
                 fun switch_triggered() {
+                    ROOM.BOSS_DOOR_OPENED = True;
+
                     object[0x06] = 0x7e;
 
                     while(arg[0x10] <= 0d7) {
@@ -28143,7 +28144,6 @@ area town() {
                         if!(ROOM.BOSS_DOOR_OPENED) {
                             guard_spear_2(NORTH, MEMORY.CAMERA_X_MIN, 0x0008);
                             
-                            ROOM.BOSS_DOOR_OPENED = True;
                             switch_triggered();
                         }
                     },
@@ -28267,6 +28267,19 @@ area town() {
 
                 fun trigger_enter() {
                     add_bombable(0d42, 0d133, ROOM.DOOR_SOUTH_OPENED, reference(trigger_door_south));
+
+                    if!(ROOM.BOSS_DOOR_OPENED) {
+                        add_enemy(PLACEHOLDER, 0d40, 0d12);
+                        attach_script(LAST_ENTITY, B, reference(@install() {
+                            fake_b();
+
+                            if!(ROOM.BOSS_DOOR_OPENED) {
+                                switch_triggered();
+                            }
+
+                            destroy(SCRIPT_OWNER);
+                        }));
+                    }
 
                     // object[0x00] = 0x7e; // enroll bridge
                     // object[0x01] = 0x01; // open gourde_2
@@ -48078,8 +48091,13 @@ area dungeon_volcano() {
             ID = memory(WORD, TEMP),
 
             PROGRESS = memory(FLAG, TEMP),
+            PHASE = memory(WORD, TEMP),
 
-            HP = 0d400,
+            HP = 0d500,
+            P1_THRESHOLD = 0d300,
+            P2_THRESHOLD = 0d100,
+
+            HP_SPARK = 0d100,
 
             ENERGY_LEVEL = memory(WORD, TEMP),
             ENERGY_LEVEL_THRESHOLD = 0d15,
@@ -48088,6 +48106,8 @@ area dungeon_volcano() {
 
             WAVE_COUNT = memory(WORD, TEMP),
             WAVE_COUNT_P0 = 0d5,
+
+            SPAWN_COOLDOWN = 0d30,
         }
 
         fun fog_wall(exit_direction:DIRECTION) {
@@ -48108,10 +48128,14 @@ area dungeon_volcano() {
         }
 
         fun boss_defeated() {
-            object[0x01] = 0x01; // hide aquagoth
-            object[0x00] = 0x00; // close door
+            if(BOSS.PROGRESS) {
+                BOSS.PROGRESS = False;
+                
+                object[0x01] = 0x01; // hide aquagoth
+                object[0x00] = 0x00; // close door
 
-            souls_boss_defeated_helper(SQUIDMAR);
+                souls_boss_defeated_helper(SQUIDMAR);
+            }
         }
 
         fun max_energy_check() {
@@ -48152,24 +48176,37 @@ area dungeon_volcano() {
         }
         @install()
         fun wave_enemy_dead() {
-            _wave_enemy_dead();
+            if(BOSS.DEBUG) {
+                _debug_memory(_alive(<SCRIPT_OWNER>), <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff, _alive(<SCRIPT_OWNER>) && ((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) > 0d0));
+            }
+
+            if(_alive(<SCRIPT_OWNER>) && ((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) > 0d1)) {
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] |= 0xff00;
+                <SCRIPT_OWNER>[GENERAL_PURPOSE]--;
+            } else {
+                _wave_enemy_dead();
+            }
         }
 
         @install()
         @async()
-        fun spawn_enemy(type:ENEMY) {
+        fun spawn_enemy(hits) {
             BOSS.WAVE_COUNT++;
 
-            if(type == ENEMY.SPARK) {
+            if(hits <= 0d1) {
                 add_enemy(SPARK, 0d26, 0d51);
-            } else if(type == ENEMY.MAGGOT) {
-                add_enemy(MAGGOT, 0d26, 0d51);
+            } else if(hits == 0d2) {
+                add_colored_enemy(SPARK, EVIL_FIRE_EYES, 0d26, 0d51);
+                attribute(LAST_ENTITY, INVINCIBLE, False);
+            } else {
+                add_colored_enemy(SPARK, DOG_4_BLACK, 0d26, 0d51);
             }
+            <LAST_ENTITY>[GENERAL_PURPOSE] = hits;
+            <LAST_ENTITY>[HP] = BOSS.HP_SPARK;
 
             attach_to_script(LAST_ENTITY);
             attribute(SCRIPT_OWNER, AI_RUN, True);
-            // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-            attach_script(SCRIPT_OWNER, DEATH, reference(wave_enemy_dead));
+            attach_script(SCRIPT_OWNER, DAMAGE_DEATH, reference(wave_enemy_dead));
 
             arg[0x10] = randrange(0d4);
             if(arg[0x10] == 0d0) { // north
@@ -48190,79 +48227,112 @@ area dungeon_volcano() {
             control(SCRIPT_OWNER, False);
             // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
 
-            if(type == ENEMY.SPARK) {
-                while(alive(<SCRIPT_OWNER>)) { 
-                    if(dead(BOSS.ID)) {
-                        destroy(SCRIPT_OWNER);
-                        end();
-                    } else if(arg[0x16] < <SCRIPT_OWNER>[X]) {
-                        arg[0x16] = <SCRIPT_OWNER>[X];
-                        arg[0x18] = 0d0;
-                    } else if(arg[0x16] == <SCRIPT_OWNER>[X]) {
-                        arg[0x18]++;
+            while(alive(<SCRIPT_OWNER>)) { 
+                if(dead(BOSS.ID)) {
+                    destroy(SCRIPT_OWNER);
+                    end();
+                } else if(arg[0x16] < <SCRIPT_OWNER>[X]) {
+                    arg[0x16] = <SCRIPT_OWNER>[X];
+                    arg[0x18] = 0d0;
+                } else if(arg[0x16] == <SCRIPT_OWNER>[X]) {
+                    arg[0x18]++;
 
-                        if(arg[0x18] > 0d20) {
-                            attribute(SCRIPT_OWNER, ROOT, True);
+                    if(arg[0x18] > 0d20) {
+                        attribute(SCRIPT_OWNER, ROOT, True);
+
+                        if(True) {
+                            sound(TESLA);
+                            shoot_entity_entity(SCRIPT_OWNER, LIGHTNING, BOSS.ID, 0d30, 0d0);
+                            sleep(0d50);
+                        }
+
+                        attribute(SCRIPT_OWNER, INVISIBLE, True);
+                        sleep(0d10);
+
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                        yield();
+
+                        if(alive(<SCRIPT_OWNER>)) {
+                            BOSS.ENERGY_LEVEL++;
+                            max_energy_check();
 
                             if(True) {
-                                sound(TESLA);
-                                shoot_entity_entity(SCRIPT_OWNER, LIGHTNING, BOSS.ID, 0d30, 0d0);
-                                sleep(0d50);
+                                MEMORY.STRING_PARAMETER_1 = BOSS.ENERGY_LEVEL;
+                                MEMORY.STRING_PARAMETER_2 = BOSS.ENERGY_LEVEL_THRESHOLD;
+                                subtext("Energy: [MEM1]/[MEM2]");
                             }
 
-                            attribute(SCRIPT_OWNER, INVISIBLE, True);
-                            sleep(0d10);
-
-                            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
-                            yield();
-
-                            if(alive(<SCRIPT_OWNER>)) {
-                                BOSS.ENERGY_LEVEL++;
-                                max_energy_check();
-
-                                if(True) {
-                                    MEMORY.STRING_PARAMETER_1 = BOSS.ENERGY_LEVEL;
-                                    MEMORY.STRING_PARAMETER_2 = BOSS.ENERGY_LEVEL_THRESHOLD;
-                                    subtext("Energy: [MEM1]/[MEM2]");
-                                }
-
-                                _wave_enemy_dead();
-                            }
-
-                            end();
+                            _wave_enemy_dead();
                         }
-                    }
 
-                    sleep(0d10);
+                        end();
+                    }
+                }
+
+                sleep(0d10);
+
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff00) {
+                    if((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) == 0d1) {
+                        replace_enemy(<SCRIPT_OWNER>, SPARK);
+                        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d1;
+                        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(wave_enemy_dead));
+                    } else if((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) == 0d2) {
+                        replace_enemy(<SCRIPT_OWNER>, EVIL_FIRE_EYES);
+                        attribute(LAST_ENTITY, INVINCIBLE, False);
+                        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d2;
+                        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(wave_enemy_dead));
+                    }
+                    <LAST_ENTITY>[HP] = BOSS.HP_SPARK;
+                    attach_to_script(LAST_ENTITY);
                 }
             }
         }
 
         fun spawn_wave() {
-            while(BOSS.WAVE_COUNT < BOSS.WAVE_COUNT_P0) {
-                spawn_enemy(SPARK);
+            if(BOSS.DEBUG && False) {
+                debug_memory(BOSS.PHASE, BOSS.WAVE_COUNT, BOSS.WAVE_COUNT_P0);
+            }
 
-                sleep(0d30);
+            while(BOSS.WAVE_COUNT < BOSS.WAVE_COUNT_P0) {
+                if(BOSS.PHASE == 0d0) {
+                    spawn_enemy();
+                } else if(BOSS.PHASE == 0d1) {
+                    spawn_enemy(randrange(0d3));
+                } else if(BOSS.PHASE == 0d2) {
+                    spawn_enemy(0d2 + randrange(0d2));
+                }
+
+                sleep(BOSS.SPAWN_COOLDOWN);
             }
         }
 
         @install()
         fun squidmar_triggered() {
+            guard_dead(BOSS.ID, {
+                boss_defeated();
+                end();
+            });
+
+            if(BOSS.DEBUG) {
+                debug_memory(BOSS.PHASE, BOSS.ID[HP], BOSS.SPAWNING);
+            }
+
+            if(BOSS.PHASE == 0d0) {
+                if(BOSS.ID[HP] < BOSS.P1_THRESHOLD) {
+                    BOSS.PHASE = 0d1;
+                }
+            }
+            if(BOSS.PHASE == 0d1) {
+                if(BOSS.ID[HP] < BOSS.P2_THRESHOLD) {
+                    BOSS.PHASE = 0d2;
+                }
+            }
+
             if!(BOSS.SPAWNING) {
                 BOSS.SPAWNING = True;
-                yield();
-                yield();
-                yield();
+                sleep(0d3);
 
-                if(dead(BOSS.ID)) {
-                    boss_defeated();
-                } else {
-                    if(BOSS.DEBUG) {
-                        debug_memory(BOSS.ID[HP], 0d0);
-                    }
-
-                    spawn_wave();
-                }
+                spawn_wave();
 
                 BOSS.SPAWNING = False;
             }
