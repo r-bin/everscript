@@ -1,20 +1,32 @@
 hirom
 
+incsrc "_evermore.asm"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; INPUT                                                                                                                 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 !ROM_EXTENSION = $FE7000 ;
+!WITH_VANILLA_STAT_CALCULATION = 1 ; 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+macro original_code()
+  PLY ; (1 byte)
+  INY ; (1 byte)
+  INY ; (1 byte)
+  JML $91ACF6 ; (4 bytes, BRA -> JML)
+endmacro
+
 ; after status effect is being applied
 org $91ad0e
-  ; PLY (1 bytes)
-  ; INY (1 bytes)
-  ; INY (1 bytes)
+  ; PLY (1 byte)
+  ; INY (1 byte)
+  ; INY (1 byte)
   ; BRA $91ACF6 (2 bytes)
-  JML fix_status_effects ; size 4
-  NOP
+  JML fix_status_effects ; (4 bytes)
+  NOP ; (1 byte)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 org !ROM_EXTENSION
 db "+5StatusEffects"
@@ -24,115 +36,112 @@ macro remove_flag(character_byte, flag)
   AND #~<flag>
   STA <character_byte>,Y
 endmacro
-
-macro remove_outline(flag)
-  LDA #$0000
-
-  STA $009e,Y ; reset outline timer (to prevent lingering colors)
-
-  %remove_flag($009a, <flag>)
+macro compare_status(offset_slot, status_id)
+  LDA <offset_slot>,Y
+  AND #$00ff
+  CMP #<status_id>
 endmacro
 
-macro fix_flag(status_id, character_byte, character_flag, outline_id)
-  LDA $0046,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  LDA $004c,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  LDA $0052,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  LDA $0058,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  %remove_flag(<character_byte>, <character_flag>)
-  %remove_outline(<outline_id>)
-
-  ?not_fix_status
+macro fix_entity(entity, stat, boost)
+  CMP <entity> : BNE ?end
+    LDA <stat>
+    SEC : SBC <boost>,Y
+    STA <stat>
+  ?end
 endmacro
-macro fix_stat(status_id, stat_boy, stat_dog, boost, outline_id)
-  LDA $0046,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  LDA $004c,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  LDA $0052,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-  
-  LDA $0058,Y ; status effect #1
-  AND #$00ff
-  CMP #<status_id> : BEQ ?not_fix_status
-
-  TYA ; target stats
-  CMP #$4e89 : BNE ?not_boy
-    LDA <stat_boy>
-    SEC : SBC <boost>,Y
-    STA <stat_boy>
-
-    BRA ?not_dog
-  ?not_boy
-
-  CMP #$4F37 : BNE ?not_dog
-    LDA <stat_dog>
-    SEC : SBC <boost>,Y
-    STA <stat_dog>
-  ?not_dog
-
+macro clear_boost(boost)
   LDA #$0000
   STA <boost>,Y
+endmacro
+macro clear_outline(flag)
+  LDA #$0000
+  STA !OFFSET_OUTLINE__TIMER,Y ; reset outline timer (to prevent lingering colors)
 
-  %remove_outline(<outline_id>)
+  %remove_flag(!OFFSET_OUTLINE, <flag>)
+endmacro
+macro _fix_boost_status(status_id, stat_boy, stat_dog, boost, outline_id)
+  ; IN; X=Y = boy/dog
 
-  ?not_fix_status
+  ; check status effect #1-#4
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_1, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_2, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_3, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_4, <status_id>) : BEQ ?end
+
+  TYA ; A=Y = boy/dog
+
+  if !WITH_VANILLA_STAT_CALCULATION == 0 ; handled by !FUNCTION_UPDATE_STATS
+    %fix_entity(!POINTER_BOY, <stat_boy>, <boost>)
+    %fix_entity(!POINTER_DOG, <stat_dog>, <boost>)
+  endif
+
+  %clear_boost(<boost>)
+  %clear_outline(<outline_id>)
+
+  ?end
+endmacro
+macro fix_boost_status(alchemy, boost)
+  %_fix_boost_status(!{STATUS_ID_<alchemy>}, !{BOY_<boost>}, !{DOG_<boost>}, !{OFFSET_BOOST_<boost>}, !{OUTLINE_ID_<alchemy>})
+endmacro
+
+macro _fix_flag_status(status_id, character_byte, character_flag, outline_id)
+  ; IN; X=Y = boy/dog
+
+  ; check status effect #1-#4
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_1, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_2, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_3, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_STATUS_EFFECT_ID_4, <status_id>) : BEQ ?end
+  
+  if <character_byte> && <character_flag>
+    %remove_flag(<character_byte>, <character_flag>)
+  endif
+  %clear_outline(<outline_id>)
+
+  ?end
+endmacro
+macro fix_flag_status(alchemy)
+  %_fix_flag_status(!{STATUS_ID_<alchemy>}, !{CHARACTER_STATUS_<alchemy>__OFFSET}, !{CHARACTER_STATUS_<alchemy>__FLAG}, !{OUTLINE_ID_<alchemy>})
 endmacro
 
 macro fix_all_status_effects()
-  %fix_stat($0000, $0A3F, $0A89, $00a0, $0001) ; atlas
-  %fix_stat($0018, $0A41, $0A8B, $00a2, $0010) ; defend
-  %fix_stat($0048, $0A47, $0A91, $00a4, $0008) ; speed (hit%)
-  %fix_stat($0048, $0A45, $0A8F, $00a6, $0008) ; speed (evasion)
+  %fix_boost_status(!A_ATLAS, !S_ATTACK)
+  %fix_boost_status(!A_DEFEND, !S_DEFENSE)
+  %fix_boost_status(!A_SPEED, !S_HIT)
+  %fix_boost_status(!A_SPEED, !S_EVASION)
 
-  %fix_flag($0008, $0014, $0001, $0002) ; aura
-  %fix_flag($0010, $0014, $0004, $0004) ; barrier
-  ; %fix_flag($0020, $0014, $????, $0020) ; energize (neither flag nor stat)
-  %fix_flag($0028, $0014, $0002, $0040) ; force_field
-  %fix_flag($0030, $0014, $0040, $0080) ; reflect
-  %fix_flag($0038, $0013, $0020, $0100) ; shield
-  ; %fix_flag($0040, $0014, $????, $0400) ; regrowth (neither flag nor stat)
-  %fix_flag($0050, $00ac, $0001, $0200) ; pixie dust (neither flag nor stat)
+  %fix_flag_status(!A_AURA)
+  %fix_flag_status(!A_BARRIER)
+  %fix_flag_status(!A_ENERGIZE) ; neither flag nor stat
+  %fix_flag_status(!A_FORCEFIELD)
+  %fix_flag_status(!A_REFLECT)
+  %fix_flag_status(!A_SHIELD)
+  %fix_flag_status(!A_REGROWTH) ; neither flag nor stat
+  %fix_flag_status(!C_PIXIEDUST) ; uses 2 bytes, but works like a flag
 endmacro
 
 fix_status_effects:
-  ; IN: A=??, X=0, Y=4e89=target(BOY)
+  ; IN: A=??, X=Y=entity
 
-  PHA
+  PHA ; store A
 
-  TXA ; character type
-  CMP #$4e89 : BEQ .boy_or_dog
-  CMP #$4f37 : BEQ .boy_or_dog
+  TXA ; A=X = entity
+  CMP !POINTER_BOY : BEQ .boy_or_dog
+  CMP !POINTER_DOG : BEQ .boy_or_dog
+  ; A = boy/dog
 
   JMP .not_boy_or_dog
 
-  .boy_or_dog
-  
-  %fix_all_status_effects()
+  .boy_or_dog %fix_all_status_effects()
+
+  if !WITH_VANILLA_STAT_CALCULATION == 1
+    JSL !FUNCTION_UPDATE_STATS
+  endif
 
   .not_boy_or_dog
 
-  PLA
+  PLA ; restore A
 
-  PLY ; original code
-  INY ; original code
-  INY ; original code
-  JML $91ACF6 ; original code (BRA -> JML)
+  %original_code()
 
 db "-5StatusEffects"
