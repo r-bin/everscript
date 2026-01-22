@@ -1,5 +1,8 @@
 hirom
 
+incsrc "_evermore.asm"
+incsrc "_helpers.asm"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DESCRIPTION                                                                                                           ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -14,8 +17,8 @@ hirom
 ;   - … (31)
 ;   - carltron = df3a (141)
 ; - There are at least two special sprites, that are being excluded from any calculations
-;   - !ID_BOY = #$0a26
-;   - !ID_DOG = #$0a70
+;   - !TYPE_BOY = #$0a26
+;   - !TYPE_DOG = #$0a70
 ; - The scaling covers:
 ;   - HP (Triggered when the entity spawns, also injects the sprites level)
 ;   - Attack
@@ -41,45 +44,60 @@ hirom
 ;
 !WITH_INVERTED_MAGIC_DEFEND = 0 ; currently disabled, because calculating $40-x was too difficult
 !WITH_DEBUG_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
+;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 !MEMORY_TABLE_HP := !ROM_EXTENSION+$1000+($4000*0)
 !MEMORY_TABLE_ATTACK := !ROM_EXTENSION+$1000+($4000*1)
 !MEMORY_TABLE_DEFEND := !ROM_EXTENSION+$1000+($4000*2)
-!MEMORY_TABLE_MAGIC_DEFEND := !ROM_EXTENSION+$1000+($4000*3)
+!MEMORY_TABLE_MAGICDEFENSE := !ROM_EXTENSION+$1000+($4000*3)
 !MEMORY_TABLE_EXPERIENCE := !ROM_EXTENSION+$1000+($4000*4)
 !MEMORY_TABLE_MONEY := !ROM_EXTENSION+$1000+($4000*5)
 
 !OFFSET_FIRST_ID = $B678
-!OFFSET_TABLE_WIMPY = $d5fa-!OFFSET_FIRST_ID
 !SIZE_MONSTER_BLOCK = $4a
 
-!ID_BOY = #$0a26
-!ID_DOG = #$0a70
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-!M7A = $00211b
-!M7B = $00211c
-!MPYM = $002135
-
+macro original_code__palette()
+endmacro
 org $90cd44
   if !WITH_DEBUG_PALETTE
     JSL hook_palette_calculation ; size 4
   endif
 
+macro original_code__hp()
+  LDA $8e000f,x ; (4 bytes)
+endmacro
 ; hp calculation (when sprite is created, includes boy and dog)
 org $8fb15b
   JSL hp_calculation ; size 4
 
+macro original_code__attack()
+  TAX ; (1 byte)
+  LDA $8e0019,x ; (4 bytes)
+endmacro
 ; attack calculation (when hit, instantly dies at 0hp, includes boy and dog)
 org $8fc041
   NOP ; TAX (size 1)
   JSL attack_calculation ; LDA $8e0019,x (size 4)
 
+macro original_code__defense()
+  LDA $8e001b,x ; (4 bytes)
+endmacro
 ; defend calculation (when hit, includes boy and dog)
 org $8fc072
   JSL defend_calculation ; size 4
 
+macro original_code__magicdefense()
+  LDA #$40 ; (size 2)
+  SBC $8e001d,x ; (size 4)
+  STA !M7B ; (4 bytes)
+  REP #$30 ; (2 bytes)
+  LDA !MPYM ; (4 bytes)
+  PLX ; (1 byte)
+endmacro
 ; magic defend calculation (when hit)
 ; range: #$40 - x (min: 0, max: 64/65473)
 org $919cce
@@ -98,32 +116,38 @@ org $919cce
     NOP
     NOP
     NOP ; PLX (size 1)
-  
+
+macro original_code__experience()
+  LDA $8e0023,x ; (4 bytes)
+endmacro
 ; experience calculation (when dies)
 org $8f8292
   JSL experience_calculation ; LDA $8e0023,x (size 4)
 org $8f82d4
   JSL experience_calculation ; LDA $8e0023,x (size 4)
- 
+
+macro original_code__money()
+  LDA $8e0027,x ; (4 bytes)
+endmacro
 ; money calculation (when hit, includes boy and dog)
 org $8f868e
   JSL money_calculation ; LDA $8e0027,x (size 4)
-
 
 org !ROM_EXTENSION
 db "+ScaleEnemies"
 
 macro get_scaled_value(table, is_negative)
-  ; [IN] A:#$____ (source type) X:#$____ y:#$____ (source id)
+  ; [IN] A:#$____ (????) X:#$____ (entity type) y:#$____ (pointer sprite splot)
 
   if 0
     CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
   else
-    CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y
+    CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y ; A = entity[SCALING_LEVEL] (via sprite slot)
   endif
 
-  TAX ; tranfer "source type"
-  LDA <table>-!OFFSET_FIRST_ID,x ; example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack
+  ASL 1 ; A = 2 * entity level (16 bit table addressing) = table offset
+  TAX ; X = table offset
+  LDA <table>-!OFFSET_FIRST_ID,x ; table[offset] (example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack)
   
   if <is_negative> > 0
     ; TODO: currently doesn't calculates $40-x, but a weird indirect memory value
@@ -144,27 +168,26 @@ hook_palette_calculation:
   RTL
 
 hp_calculation:
-  TXA
-  CMP !ID_BOY : BEQ .skipBoyDog
-  CMP !ID_DOG : BEQ .skipBoyDog
+  ; [IN]     A:#$0000 X:#$ce2c (entity type) Y:#$3f8f (pointer entity)
 
-  PHX ; push "source type"
+  TXA
+  CMP !TYPE_BOY : BEQ .not_boy_dog
+  CMP !TYPE_DOG : BEQ .not_boy_dog
+
+  PHX ; push "type entity"
 
   %inject_level()
   TXA
   
   %get_scaled_value(!MEMORY_TABLE_HP, 0)
   
-  PLX ; pull "source type"
+  PLX ; pull "type entity"
 
-  BRA .doneModifying
-  .skipBoyDog
+  BRA .end
 
-  LDA $8e000f,x ; original code
+  .not_boy_dog %original_code__hp()
 
-  .doneModifying
-
-  RTL
+  .end RTL
 
 attack_calculation:
   ; example: wimpy #1 attacks boy
@@ -172,50 +195,45 @@ attack_calculation:
   ; [DURING] A:#$____ (todo) X:#$d5fa (wimpy) Y:#$401d (wimpy id #1)
   ; [OUT]    A:#$0009 (wimpy attack) X:#$d5fa (wimpy) Y:#$4e89 (boy)
 
-  PHA ; push "source type"
+  PHA ; push "type entity"
 
-  CMP !ID_BOY : BEQ .skipBoyDog
-  CMP !ID_DOG : BEQ .skipBoyDog
+  CMP !TYPE_BOY : BEQ .not_boy_dog
+  CMP !TYPE_DOG : BEQ .not_boy_dog
 
-  PLA ; pull "source type"
-  PHY ; push "target id"
-
-  TXY ; transfer "source id"
+  PLA ; pull "type entity"
+  
+  PHY ; push "pointer entity"
+  TXY ; Y = X = "type entity"
+  
   %get_scaled_value(!MEMORY_TABLE_ATTACK, 0)
 
-  PLY ; pull "target id"
+  PLY ; pull "pointer entity"
 
-  BRA .doneModifying
-  .skipBoyDog
+  BRA .end
+  
+  .not_boy_dog PLA ; pull "type entity"
 
-  PLA ; pull "source type"
+  %original_code__attack()
 
-  TAX ; original code
-  LDA $8e0019,x ; original code
-
-  .doneModifying
-
-  RTL
+  .end RTL
 defend_calculation:
-  TXA ; transfer "source type"
+  TXA ; A = X = "type entity"
 
-  CMP !ID_BOY : BEQ .skipBoyDog
-  CMP !ID_DOG : BEQ .skipBoyDog
+  CMP !TYPE_BOY : BEQ .not_boy_dog
+  CMP !TYPE_DOG : BEQ .not_boy_dog
 
-  PHX ; push "source type"
+  PHX ; push "type entity"
   
   %get_scaled_value(!MEMORY_TABLE_DEFEND, 0)
   
-  PLX ; pull "source type"
+  PLX ; pull "type entity"
 
-  BRA .doneModifying
-  .skipBoyDog
+  BRA .end
+  
+  .not_boy_dog %original_code__defense()
 
-  LDA $8e001b,x ; original code
+  .end RTL
 
-  .doneModifying
-
-  RTL
 magic_defend_calculation:
   ; [IN]     A:#$____ (unknown) X:#$d5fa (wimpy) Y:#$3364 (unknown)
   ; [DURING] A:#$d5fa (wimpy) (todo) X:#$d5fa (wimpy) Y:#$3364 (unknown)
@@ -226,24 +244,24 @@ magic_defend_calculation:
   PHP ; push "original flags"
   REP #$ff ; clear "all flags"
 
-  TXA ; transfer "target type" ; TODO: not in memory mode?
+  TXA ; A = X = "target type" ; TODO: not in memory mode?
   
   PLP ; pull "original flags"
-  PLX ; pull "target id" ; TODO: for whatever reason needs to be in memory mode?
-  PHX ; push "target id"
+  PLX ; pull "pointer entity" ; TODO: for whatever reason needs to be in memory mode?
+  PHX ; push "pointer entity"
   PHP ; push "original flags"
   REP #$ff ; clear "all flags"
 
   PHY ; push "unknown"
   
-  TXY ; transfer "target id"
-  TAX ; transfer "target type"
+  TXY ; Y = X = "pointer entity"
+  TAX ; X = A = "target type"
   PHX ; push "target type"
 
   if !WITH_INVERTED_MAGIC_DEFEND
-    %get_scaled_value(!MEMORY_TABLE_MAGIC_DEFEND, $40)
+    %get_scaled_value(!MEMORY_TABLE_MAGICDEFENSE, $40)
   else
-    %get_scaled_value(!MEMORY_TABLE_MAGIC_DEFEND, 0)
+    %get_scaled_value(!MEMORY_TABLE_MAGICDEFENSE, 0)
   endif
 
   PLX ; pull "target type"
@@ -251,98 +269,75 @@ magic_defend_calculation:
   
   PLP ; pull "original flags"
 
-  STA !M7B ; original code
-  REP #$30 ; original code
-  LDA !MPYM ; original code
-  PLX ; original code
+  %original_code__magicdefense()
 
   JML magic_defend_calculation_return ; TODO: JSL and RTL instead of JML and JML back
+
 experience_calculation:
-  LDA $28fb
-  BIT #$0020
-  
-  BEQ .withXp ; 
+  %compare_no_money_no_xp() : BEQ .with_xp ; 
 
   LDA #$0000
-  BRA .doneModifying
+  BRA .end
 
-  .withXp
+  .with_xp
 
-  TXA ; transfer "source type"
+  TXA ; A = X = "type entity"
 
-  CMP !ID_BOY : BEQ .skipBoyDog
-  CMP !ID_DOG : BEQ .skipBoyDog
+  CMP !TYPE_BOY : BEQ .not_boy_dog
+  CMP !TYPE_DOG : BEQ .not_boy_dog
 
-  PHX ; push "source type"
-
-
+  PHX ; push "type entity"
   
   %get_scaled_value(!MEMORY_TABLE_EXPERIENCE, 0)
 
-  PLX ; pull "source type"
+  PLX ; pull "type entity"
   REP #$ff
 
-  BRA .doneModifying
-  .skipBoyDog
-
-  LDA $8e0023,x ; original code
-
-  .doneModifying
-
-  RTL
-money_calculation:
-  LDA $28fb
-  BIT #$0020
+  BRA .end
   
-  BEQ .withMoney ; 
+  .not_boy_dog %original_code__experience()
+
+  .end RTL
+
+money_calculation:
+  %compare_no_money_no_xp() : BEQ .with_money ; 
 
   LDA #$0000
-  BRA .doneModifying
+  BRA .end
 
-  .withMoney
+  .with_money
 
   TXA
-  CMP !ID_BOY : BEQ .skipBoyDog
-  CMP !ID_DOG : BEQ .skipBoyDog
+  CMP !TYPE_BOY : BEQ .not_boy_dog
+  CMP !TYPE_DOG : BEQ .not_boy_dog
 
-  PHX ; push "source type"
+  PHX ; push "type entity"
   
   %get_scaled_value(!MEMORY_TABLE_MONEY, 0)
   
-  PLX ; pull "source type"
+  PLX ; pull "type entity"
 
-  BRA .doneModifying
-  .skipBoyDog
+  BRA .end
+  
+  .not_boy_dog %original_code__money()
 
-  LDA $8e0027,x ; original code
+  .end RTL
 
-  .doneModifying
-
-  RTL
-
-
-; ALL UPCOMMING TABLES:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; SCALING TABLES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; #$4a (37) per entry (unmodified "monster" stat size)
 ; currently uses FE9000…FEc000
 ; available space: fe9000-ffffff
-
-macro pad_monster_stat(number, value)
-  ;skip !OFFSET_TABLE_WIMPY ; the first !OFFSET_TABLE_WIMPY (108) entries
-
-  !counter = 0
-  while !counter < <number>
-    !sub_counter = 0
-    while !sub_counter < 37
-      dw #<value>
-      !sub_counter #= !sub_counter+1
-    endwhile
-
-    !counter #= !counter+1
-  endwhile
-endmacro
+; inverted tables: magic defense
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 macro default_stats(value)
+  ; repeat the same value !ENEMY_LEVEL_COUNT times in the scaling table (current index)
+
   !counter = 0
+
   while !counter < !ENEMY_LEVEL_COUNT
     dw #<value>
 
@@ -681,7 +676,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(360) ; "Magmar" (140) = 360
   dw #50, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Carltron's Robot" (141) = 360
 
-org !MEMORY_TABLE_MAGIC_DEFEND
+org !MEMORY_TABLE_MAGICDEFENSE
   skip 51*!SIZE_MONSTER_BLOCK
   %default_stats($40-32) ; "Bad Dawg" (51) = 32
   %default_stats($40-16) ; "Skullclaw" (52) = 16
