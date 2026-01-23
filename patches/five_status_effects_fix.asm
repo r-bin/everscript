@@ -55,18 +55,18 @@ macro clear_boost(boost)
 endmacro
 macro clear_outline(flag)
   LDA #$0000
-  STA !OFFSET_OUTLINE__TIMER,Y ; reset outline timer (to prevent lingering colors)
+  STA !OFFSET_ATTRIBUTE_OUTLINE__TIMER,Y ; reset outline timer (to prevent lingering colors)
 
-  %remove_flag(!OFFSET_OUTLINE, <flag>)
+  %remove_flag(!OFFSET_ATTRIBUTE_OUTLINE, <flag>)
 endmacro
 macro _fix_boost_status(status_id, stat_boy, stat_dog, boost, outline_id)
   ; IN; X=Y = boy/dog
 
   ; check status effect #1-#4
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_1, <status_id>) : BEQ ?end
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_2, <status_id>) : BEQ ?end
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_3, <status_id>) : BEQ ?end
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_4, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_1, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_2, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_3, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_4, <status_id>) : BEQ ?end
 
   TYA ; A=Y = boy/dog
 
@@ -81,17 +81,17 @@ macro _fix_boost_status(status_id, stat_boy, stat_dog, boost, outline_id)
   ?end
 endmacro
 macro fix_boost_status(alchemy, boost)
-  %_fix_boost_status(!{STATUS_ID_<alchemy>}, !{BOY_<boost>}, !{DOG_<boost>}, !{OFFSET_BOOST_<boost>}, !{OUTLINE_ID_<alchemy>})
+  %_fix_boost_status(!{STATUS_ID_<alchemy>}, !{BOY_<boost>}, !{DOG_<boost>}, !{OFFSET_ATTRIBUTE_BOOST_<boost>}, !{OUTLINE_ID_<alchemy>})
 endmacro
 
 macro _fix_flag_status(status_id, character_byte, character_flag, outline_id)
   ; IN; X=Y = boy/dog
 
   ; check status effect #1-#4
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_1, <status_id>) : BEQ ?end
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_2, <status_id>) : BEQ ?end
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_3, <status_id>) : BEQ ?end
-  %compare_status(!OFFSET_STATUS_EFFECT_ID_4, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_1, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_2, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_3, <status_id>) : BEQ ?end
+  %compare_status(!OFFSET_ATTRIBUTE_STATUS_EFFECT_ID_4, <status_id>) : BEQ ?end
   
   if <character_byte> && <character_flag>
     %remove_flag(<character_byte>, <character_flag>)

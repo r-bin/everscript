@@ -7,7 +7,7 @@ incsrc "_helpers.asm"
 ;; DESCRIPTION                                                                                                           ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; - The games has 142 sprite IDs: (Corresponds to ID=0…141 from the SoETilesViewer, contains 0x4a bytes of data each)
-;   - boy = 0A26? B678? (0)
+;   - boy = 0A26 (0)
 ;   - …
 ;   - FE = b9f0 (12)
 ;   - … (96)
@@ -22,14 +22,18 @@ incsrc "_helpers.asm"
 ; - The scaling covers:
 ;   - HP (Triggered when the entity spawns, also injects the sprites level)
 ;   - Attack
-;   - Defend
-;   - Magic Defend
+;   - Defense
+;   - Magic Defense
 ;   - Experience (Triggers twice after killing an enemy)
 ;   - Money (Triggers a "Received {x} {current_currency}" message for x>=500)
 ; - At the bottom is the table for all stats
 ;   - 142 * 37 entries of 2 bytes
 ;   - Default value is 0 (HP has to be 1 for enemies to spawn)
-; - The memory map is very wasteful and unoptimized at the moment
+;
+; - TODO: Fill table
+; - TODO: The memory map is very wasteful and unoptimized at the moment
+; - TODO: Elemental damage
+; - TODO: DAMAGE_SOURCE for alchemy and projectiles would be helpful (e.g. alchemy uses DAMAGE_SOURCE=entity DAMAGE_SOURCE_TIMER=$14 and DAMAGE_SOURCE_SPELL=type)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -39,13 +43,15 @@ incsrc "_helpers.asm"
 !ROM_EXTENSION = $FE8000 ; 
 !ENEMY_LEVEL = $2700 ; has to be set before add_enemy() is being called (before the HP is being defined, which is on spawn)
 !ENEMY_PALETTE = $2702 ; just for debugging
-!ENEMY_SPRITE_LEVEL_OFFSET = $008a ; sprite data to store the level (sprite+0x8a seems to be unused for normal enemies)
+!ENEMY_SPRITE_LEVEL_OFFSET = !OFFSET_ATTRIBUTE_ENEMY_LEVEL ; sprite data to store the level (sprite+0x8a seems to be unused for normal enemies)
 !ENEMY_LEVEL_COUNT = 37 ; reuses the !ENEMY_SPRITE_LEVEL_OFFSET bytes, which resulsts in 37 available levels
 ;
 !WITH_INVERTED_MAGIC_DEFEND = 0 ; currently disabled, because calculating $40-x was too difficult
 !WITH_DEBUG_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
 ;
-!WITH_ARMOR_PENETRATION = 1 ; axes half the armor of an enemy
+!WITH_ARMOR_PENETRATION = 1 ; conditionally reduces defense (axe hit)
+!WITH_SPELL_NAME_DUMP = 1 ; dumps spell names into entity[!OFFSET_ATTRIBUTE_SPELL_NAME_DUMP] while calculating the magic defense
+!WITH_ELEMENTAL_WEAKNESS = 1 ; conditionally reduces magic defense (e.g. fire alchemy)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -63,7 +69,7 @@ incsrc "_helpers.asm"
 
 macro original_code__palette()
 endmacro
-org $90cd44
+org $90cd44 ; TODO
   if !WITH_DEBUG_PALETTE
     JSL hook_palette_calculation ; size 4
   endif
@@ -71,24 +77,21 @@ org $90cd44
 macro original_code__hp()
   LDA $8e000f,x ; (4 bytes)
 endmacro
-; hp calculation (when sprite is created, includes boy and dog)
-org $8fb15b
+org $8fb15b ; hp calculation (when sprite is created, includes boy and dog)
   JSL hp_calculation ; size 4
 
 macro original_code__attack()
   TAX ; (1 byte)
   LDA $8e0019,x ; (4 bytes)
 endmacro
-; attack calculation (when hit, instantly dies at 0hp, includes boy and dog)
-org $8fc041
+org $8fc041 ; attack calculation (when hit, instantly dies at 0hp, includes boy and dog)
   NOP ; TAX (size 1)
   JSL attack_calculation ; LDA $8e0019,x (size 4)
 
 macro original_code__defense()
   LDA $8e001b,x ; (4 bytes)
 endmacro
-; defend calculation (when hit, includes boy and dog)
-org $8fc072
+org $8fc072 ; defend calculation (when hit, includes boy and dog)
   JSL defend_calculation ; size 4
 
 macro original_code__magicdefense()
@@ -99,12 +102,9 @@ macro original_code__magicdefense()
   ; LDA !MPYM ; (4 bytes)
   ; PLX ; (1 byte)
 endmacro
-; magic defend calculation (when hit)
-; range: #$40 - x (min: 0, max: 64/65473)
-org $919cce
+org $919cce ; magic defend calculation (when hit, inverted and starts with $40)
     NOP ; LDA #$40 (size 2)
-    JML magic_defend_calculation ; SBC $8e001d,x (size 4)
-    magic_defend_calculation_return:
+    JSL magic_defend_calculation ; SBC $8e001d,x (size 4)
     NOP
     if 0
       NOP ; STA M7B (size 4)
@@ -128,8 +128,7 @@ org $919cce
 macro original_code__experience()
   ; LDA $8e0023,x ; (4 bytes)
 endmacro
-; experience calculation (when dies)
-org $8f8292
+org $8f8292 ; experience calculation (when dies)
   JSL experience_calculation ; LDA $8e0023,x (size 4)
 org $8f82d4
   JSL experience_calculation ; LDA $8e0023,x (size 4)
@@ -137,22 +136,23 @@ org $8f82d4
 macro original_code__money()
   ; LDA $8e0027,x ; (4 bytes)
 endmacro
-; money calculation (when hit, includes boy and dog)
-org $8f868e
+org $8f868e ; money calculation (when hit, includes boy and dog)
   JSL money_calculation ; LDA $8e0027,x (size 4)
 
 org !ROM_EXTENSION
 db "+ScaleEnemies"
 
 macro get_scaled_value(table, is_negative)
-  ; [IN] A:#$____ (????) X:#$____ (entity type) y:#$____ (pointer sprite splot)
+  ; [IN] A:#$____ (????) X:#$____ (entity type) y:#$____ (pointer entity)
 
   if 0
     CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
     CLC : ADC !ENEMY_LEVEL ; adjust for 16 bit table offset
   else
+    SEP #$20
     CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y ; A = entity[SCALING_LEVEL] (via sprite slot)
     CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y ; adjust for 16 bit table offset
+    REP #$20
   endif
 
   TAX ; X = table offset
@@ -167,8 +167,11 @@ macro get_scaled_value(table, is_negative)
   endif
 endmacro
 macro inject_level()
+  LDA #$0000
+  SEP #$20
   LDA !ENEMY_LEVEL
   sta !ENEMY_SPRITE_LEVEL_OFFSET,y
+  REP #$20
 endmacro
 
 hook_palette_calculation:
@@ -187,7 +190,6 @@ hp_calculation:
 
   %inject_level()
   TXA
-  
   %get_scaled_value(!MEMORY_TABLE_HP, 0)
   
   PLX ; pull "type entity"
@@ -228,6 +230,11 @@ attack_calculation:
 defend_calculation:
   ; IN: A:#$efff (???) X:#$ce2c (entity type) Y:#$3f8f (entity slot)
 
+  if !WITH_SPELL_NAME_DUMP ; workaround: alchemy doesn't reset the last taken spell
+    LDA #$0000
+    STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP, Y
+  endif
+  
   TXA ; A = X = "type entity"
 
   CMP !TYPE_BOY : BEQ .not_boy_dog
@@ -239,7 +246,7 @@ defend_calculation:
   if !WITH_ARMOR_PENETRATION == 1
     TAX ; X = A = scaled defense
 
-    LDA $4c ; damage source
+    LDA $4c ; contains damage source
     CMP !POINTER_BOY : BNE .armor_penetration_error
 
     %compare_holding_axe() : BNE .armor_penetration_error
@@ -265,28 +272,20 @@ defend_calculation:
   .end RTL
 
 magic_defend_calculation:
-  ; [IN]     A:#$____ (alchemy power) X:#$d5fa (type entity) Y:#$3364 (unknown)
-  ; [DURING] A:#$d5fa (wimpy) (todo) X:#$d5fa (wimpy) Y:#$3364 (unknown)
-  ; [DURING] A:#$d5fa (wimpy) (todo) X:#$401d (wimpy id #1) Y:#$3364 (unknown)
-  ; [DURING] A:#$d5fa (wimpy) (todo) X:#$401d (wimpy id #1) Y:#$3364 (unknown)  
+  ; [IN]     A:#$____ (alchemy power?) X:#$d5fa (type entity) Y:#$3364 (pointer alchemy, also in $6c)
+  ; [DURING] A:#$d5fa (wimpy) (todo) X:#$d5fa (wimpy) Y:#$3364 (pointer alchemy)
+  ; [DURING] A:#$d5fa (wimpy) (todo) X:#$401d (wimpy id #1) Y:#$3364 (pointer alchemy)
+  ; [DURING] A:#$d5fa (wimpy) (todo) X:#$401d (wimpy id #1) Y:#$3364 (pointer alchemy)  
   ; [DURING] A:#$____ (todo) X:#$d5fa (wimpy) Y:#$401d (wimpy id #1)
 
   PHP ; push "original flags"
   REP #$ff ; clear "all flags"
 
-  TXA ; A = X = "target type" ; TODO: not in memory mode?
+  PHX ; store type entity
+  PHY ; store pointer alchemy
   
-  PLP ; pull "original flags"
-  PLX ; pull "pointer entity" ; TODO: for whatever reason needs to be in memory mode?
-  PHX ; push "pointer entity"
-  PHP ; push "original flags"
-  REP #$ff ; clear "all flags"
-
-  PHY ; push "unknown"
-  
-  TXY ; Y = X = "pointer entity"
-  TAX ; X = A = "target type"
-  PHX ; push "target type"
+  LDA !OFFSET_ALCHEMY_TARGET_1,Y : TAY ; assumes that every spell has the entity as target 1 (which seems to be true) 
+  TXA
 
   if !WITH_INVERTED_MAGIC_DEFEND
     %get_scaled_value(!MEMORY_TABLE_MAGICDEFENSE, $40)
@@ -294,14 +293,63 @@ magic_defend_calculation:
     %get_scaled_value(!MEMORY_TABLE_MAGICDEFENSE, 0)
   endif
 
-  PLX ; pull "target type"
-  PLY ; pull "unknown"
+  ; A: scaled value, X: type entity, Y: pointer entity
+
+  if !WITH_ELEMENTAL_WEAKNESS ; TODO: framework for elemental weaknesses
+    PHA
+
+    LDX $006c ; contains "pointer alchemy"
+
+    LDA !OFFSET_ALCHEMY_TYPE,X
+    if !WITH_SPELL_NAME_DUMP
+      STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP,Y
+      if 0
+        PHA
+        LDA #$0014
+        STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP+2,Y
+        PLA
+      endif
+    endif
+    CMP #!ALCHEMY_TYPE_HARD_BALL : BEQ .earth
+    CMP #!ALCHEMY_TYPE_FLASH : BEQ .fire
+    JMP .cancel
+
+    .earth
+    PLA
+    
+    NOP ; TODO
+    
+    JMP .end
+
+    .fire
+    PLA
+
+    NOP ; TODO
+    ; LDA #$0040
+
+    JMP .end
+
+    .cancel PLA
+
+    .end
+  elseif !WITH_SPELL_NAME_DUMP
+    PHA
+    PHX
+    
+    LDX $006c ; contains "pointer alchemy"
+    LDA !OFFSET_ALCHEMY_TYPE,X
+    STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP,Y
+
+    PLX
+    PLA
+  endif
+
+  PLY ; restore pointer alchemy
+  PLX ; restore type entity
   
   PLP ; pull "original flags"
 
-  ; %original_code__magicdefense()
-
-  JML magic_defend_calculation_return ; TODO: JSL and RTL instead of JML and JML back
+  RTL
 
 experience_calculation:
   %compare_no_money_no_xp() : BEQ .with_xp ; 

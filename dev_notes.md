@@ -3,7 +3,6 @@
 
 
 # important
-## weapon modifier: axe halfs armor in scale enemies
 ## code door = janky
 ## secure pyramid entry better
 ## market: beads, random weapon orb
