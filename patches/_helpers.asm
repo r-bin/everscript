@@ -1,5 +1,7 @@
 includeonce
 
+incsrc "_evermore.asm"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; ASAR HELPERS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -23,6 +25,11 @@ includeonce
 macro compare_no_money_no_xp()
   LDA !FLAG_NO_XP_NO_MONEY__MEMORY
   BIT !FLAG_NO_XP_NO_MONEY__BIT
+endmacro
+
+macro compare_holding_axe()
+  LDA !CURRENT_WEAPON_TYPE
+  CMP #$0000+!CURRENT_WEAPON_TYPE__AXE 
 endmacro
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

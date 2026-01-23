@@ -45,6 +45,7 @@ incsrc "_helpers.asm"
 !WITH_INVERTED_MAGIC_DEFEND = 0 ; currently disabled, because calculating $40-x was too difficult
 !WITH_DEBUG_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
 ;
+!WITH_ARMOR_PENETRATION = 1 ; axes half the armor of an enemy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -55,7 +56,7 @@ incsrc "_helpers.asm"
 !MEMORY_TABLE_EXPERIENCE := !ROM_EXTENSION+$1000+($4000*4)
 !MEMORY_TABLE_MONEY := !ROM_EXTENSION+$1000+($4000*5)
 
-!OFFSET_FIRST_ID = $B678
+!OFFSET_FIRST_ID = $B678 ; offsets entity types to the start of the table
 !SIZE_MONSTER_BLOCK = $4a
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,10 +94,10 @@ org $8fc072
 macro original_code__magicdefense()
   LDA #$40 ; (size 2)
   SBC $8e001d,x ; (size 4)
-  STA !M7B ; (4 bytes)
-  REP #$30 ; (2 bytes)
-  LDA !MPYM ; (4 bytes)
-  PLX ; (1 byte)
+  ; STA !M7B ; (4 bytes)
+  ; REP #$30 ; (2 bytes)
+  ; LDA !MPYM ; (4 bytes)
+  ; PLX ; (1 byte)
 endmacro
 ; magic defend calculation (when hit)
 ; range: #$40 - x (min: 0, max: 64/65473)
@@ -105,20 +106,27 @@ org $919cce
     JML magic_defend_calculation ; SBC $8e001d,x (size 4)
     magic_defend_calculation_return:
     NOP
-    NOP ; STA M7B (size 4)
-    NOP
-    NOP
-    NOP
-    NOP ; REP #$30 (size 2)
-    NOP
-    NOP ; LDA MPYM (size 4)
-    NOP
-    NOP
-    NOP
-    NOP ; PLX (size 1)
+    if 0
+      NOP ; STA M7B (size 4)
+      NOP
+      NOP
+      NOP
+      NOP ; REP #$30 (size 2)
+      NOP
+      NOP ; LDA MPYM (size 4)
+      NOP
+      NOP
+      NOP
+      NOP ; PLX (size 1)
+    else
+      STA !M7B ; (4 bytes)
+      REP #$30 ; (2 bytes)
+      LDA !MPYM ; (4 bytes)
+      PLX ; (1 byte)
+    endif
 
 macro original_code__experience()
-  LDA $8e0023,x ; (4 bytes)
+  ; LDA $8e0023,x ; (4 bytes)
 endmacro
 ; experience calculation (when dies)
 org $8f8292
@@ -127,7 +135,7 @@ org $8f82d4
   JSL experience_calculation ; LDA $8e0023,x (size 4)
 
 macro original_code__money()
-  LDA $8e0027,x ; (4 bytes)
+  ; LDA $8e0027,x ; (4 bytes)
 endmacro
 ; money calculation (when hit, includes boy and dog)
 org $8f868e
@@ -141,11 +149,12 @@ macro get_scaled_value(table, is_negative)
 
   if 0
     CLC : ADC !ENEMY_LEVEL ; example: contains 00, 02, …, 48 [49 4a] (offset in the wimpy stats table)
+    CLC : ADC !ENEMY_LEVEL ; adjust for 16 bit table offset
   else
     CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y ; A = entity[SCALING_LEVEL] (via sprite slot)
+    CLC : ADC !ENEMY_SPRITE_LEVEL_OFFSET,y ; adjust for 16 bit table offset
   endif
 
-  ASL 1 ; A = 2 * entity level (16 bit table addressing) = table offset
   TAX ; X = table offset
   LDA <table>-!OFFSET_FIRST_ID,x ; table[offset] (example: !MEMORY_TABLE_ATTACK + 00 = wimpy level 1 attack)
   
@@ -217,25 +226,46 @@ attack_calculation:
 
   .end RTL
 defend_calculation:
+  ; IN: A:#$efff (???) X:#$ce2c (entity type) Y:#$3f8f (entity slot)
+
   TXA ; A = X = "type entity"
 
   CMP !TYPE_BOY : BEQ .not_boy_dog
   CMP !TYPE_DOG : BEQ .not_boy_dog
 
   PHX ; push "type entity"
-  
+
   %get_scaled_value(!MEMORY_TABLE_DEFEND, 0)
-  
+  if !WITH_ARMOR_PENETRATION == 1
+    TAX ; X = A = scaled defense
+
+    LDA $4c ; damage source
+    CMP !POINTER_BOY : BNE .armor_penetration_error
+
+    %compare_holding_axe() : BNE .armor_penetration_error
+
+    TXA ; A = X = scaled defense
+    LSR
+
+    JMP .armor_penetration_end
+    
+    .armor_penetration_error TXA ; A = X = scaled defense
+
+    .armor_penetration_end
+  endif
+
   PLX ; pull "type entity"
 
   BRA .end
+
+  PLX ; pull "type entity"
   
   .not_boy_dog %original_code__defense()
 
   .end RTL
 
 magic_defend_calculation:
-  ; [IN]     A:#$____ (unknown) X:#$d5fa (wimpy) Y:#$3364 (unknown)
+  ; [IN]     A:#$____ (alchemy power) X:#$d5fa (type entity) Y:#$3364 (unknown)
   ; [DURING] A:#$d5fa (wimpy) (todo) X:#$d5fa (wimpy) Y:#$3364 (unknown)
   ; [DURING] A:#$d5fa (wimpy) (todo) X:#$401d (wimpy id #1) Y:#$3364 (unknown)
   ; [DURING] A:#$d5fa (wimpy) (todo) X:#$401d (wimpy id #1) Y:#$3364 (unknown)  
@@ -269,7 +299,7 @@ magic_defend_calculation:
   
   PLP ; pull "original flags"
 
-  %original_code__magicdefense()
+  ; %original_code__magicdefense()
 
   JML magic_defend_calculation_return ; TODO: JSL and RTL instead of JML and JML back
 
@@ -428,7 +458,7 @@ org !MEMORY_TABLE_HP
   %default_stats(3425) ; "Verminator" (79) = 3425
   dw #1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; "Rat" (80) = 20
   dw #1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; "Rat" (81) = 20
-  %default_stats(1050) ; "Vigor" (82) = 1050
+  dw #100, #200, #300, #400, #500, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; ; "Vigor" (82) = 1050
   %default_stats(1) ; "Rimsala" (83) = 1
   %default_stats(1200) ; "Rimsala" (84) = 1200
   %default_stats(3000) ; "Rimsala" (85) = 3000
@@ -615,7 +645,7 @@ org !MEMORY_TABLE_DEFEND
   %default_stats(0) ; "Verminator" (79) = 0
   dw #0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Rat" (80) = 120
   dw #20, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Rat" (81) = 120
-  dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Vigor" (82) = 100
+  dw #0, #20, #30, #40, #50, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Vigor" (82) = 100
   %default_stats(0) ; "Rimsala" (83) = 0
   dw #40, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0, #$0 : dw #$0, #$0, #$0, #$0, #$0, #$0, #$0 ; "Rimsala" (84) = 80
   %default_stats(80) ; "Rimsala" (85) = 80
