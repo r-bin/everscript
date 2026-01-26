@@ -3,23 +3,16 @@
 
 
 # important
-## code door = janky
 ## secure pyramid entry better
 ## market: beads, random weapon orb
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## souls in arenas should be returned to the entrance (if locked)
 ## matroidvania
 ### defend = cat ring
 ### yump activates one time switches
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
-## balancing
-### basement: spiders should explode, isaac projectiles deal 1 damage
-### crush cave trash too much armor
-## one offs
-### bunker exit made solar fall down again?
 ## bosses to re-check
 ### arenas are too easy
 ### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
@@ -40,8 +33,11 @@
 ### bowser: no fog gate outside, remove flowers
 ## trash to improve
 ## horace npc causes palette glitch
+### basement: spiders should explode, isaac projectiles deal 1 damage
+### crush cave trash too much armor
 
 # nice to have
+## code door = janky
 ## bazooka returns previous weapon
 ## armor nerf: monk, rimsala_gold
 ## alchemy screen removes weather

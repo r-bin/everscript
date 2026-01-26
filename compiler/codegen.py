@@ -7,6 +7,7 @@ import binascii
 from textwrap import wrap
 from enum import StrEnum
 from typing import Callable
+import warnings
 
 from compiler.linker import Linker
 
@@ -404,6 +405,7 @@ allocated RAM:
         header = ["PATCH"]
         footer = ["EOF"]
         
+        output = [item for item in output if item]
         return '\n'.join(header + output + footer)
 
     def _wipe_strings(self):
@@ -647,6 +649,10 @@ allocated RAM:
         count = function.count([])
         if function.count_limit and not function.inject and count > function.count_limit:
             raise Exception(f"function '{function.name}' (count={count}) violated @count_limit({function.count_limit}) ")
+        
+        if False and (function.count([]) == 0 or function.code_clean([]) == '00'):
+            warnings.warn(f"Skipped generating empty weak function '{function.name}'", UserWarning)
+            return []
 
         list = []
 
@@ -723,7 +729,11 @@ allocated RAM:
         return list
 
     def _inject_function(self, function, inject):
+        if False and (function.count([]) == 0 or function.code_clean([]) == '00'):
+            warnings.warn(f"Skipped injecting empty function '{function.name}'", UserWarning)
+            return []
         if inject == None:
+            warnings.warn(f"Skipped injecting invalid function '{function.name}'", UserWarning)
             return []
         
         address = inject.eval([])
