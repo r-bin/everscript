@@ -3,8 +3,8 @@
 
 
 # important
-## secure pyramid entry better
 ## market: beads, random weapon orb
+## secure pyramid entry better
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
@@ -14,12 +14,10 @@
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 ## bosses to re-check
-### arenas are too easy
+### bowser: no fog gate outside, remove flowers
 ### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
 ### puppets (only take 16 damage with t2 weapon)
-### squad (oglins need 20 attack to be 2-shot = t3 weapon)
 ### wall (15 attack = 8…9 damage)
-### chess (p2 - maybe an oglin?, persistent palette, secret does not open during fight)
 ### gideon (new abilities: bottle+explosion, wall projectile?, remove tesla base line, pudge?, more new projectiles: minitaur=backpack?, chess, puppets=confound?, rimsala, arenas, abomination, spaceship=bomb?, diablo=slow?)
 ### turret arena (only 10dmg, too much hp?)
 ### sterling (8 dmg vs 60 hp)
@@ -30,7 +28,9 @@
 ### thraxx: 5 damage way too low, enrage does not guard_dead, walk back after kill is buggy, much hp, maggots don't die
 ### secret boss: requires levitate?, too much hp?, "fog wall active"
 ### monstro: 12weapon->8 (low), 20weapon->18 (high)
-### bowser: no fog gate outside, remove flowers
+### chess (p2 - maybe an oglin?, persistent palette, secret does not open during fight)
+### squad (oglins need 20 attack to be 2-shot = t3 weapon)
+### arenas are too easy
 ## trash to improve
 ## horace npc causes palette glitch
 ### basement: spiders should explode, isaac projectiles deal 1 damage

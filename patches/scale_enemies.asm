@@ -50,8 +50,12 @@ incsrc "_helpers.asm"
 !WITH_DEBUG_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
 ;
 !WITH_ARMOR_PENETRATION = 1 ; conditionally reduces defense (axe hit)
-!WITH_SPELL_NAME_DUMP = 1 ; dumps spell names into entity[!OFFSET_ATTRIBUTE_SPELL_NAME_DUMP] while calculating the magic defense
+;
+!WITH_SPELL_NAME_DUMP = 0 ; dumps spell names into entity[!OFFSET_ATTRIBUTE_SPELL_NAME_DUMP] while calculating the magic defense
+!WITH_DUMP_ALCHEMY_TO_DAMAGE_SOURCE = 1 ; entity[DAMAGE_SOURCE] = pointer alchemy
 !WITH_ELEMENTAL_WEAKNESS = 1 ; conditionally reduces magic defense (e.g. fire alchemy)
+;
+!WITH_DUMP_BOMB_TO_DAMAGE_SOURCE = 1 ; entity[DAMAGE_SOURCE] = pointer entity
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -242,6 +246,18 @@ defend_calculation:
 
   PHX ; push "type entity"
 
+  if !WITH_DUMP_BOMB_TO_DAMAGE_SOURCE
+    LDA !OFFSET_DAMAGE_SOURCE,Y
+    CMP #$0000 : BNE .no_dump_projectile_source
+    
+    LDA $4c ; contains damage source
+    STA !OFFSET_DAMAGE_SOURCE,Y
+    LDA #$0014
+    STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
+
+    .no_dump_projectile_source
+  endif
+
   %get_scaled_value(!MEMORY_TABLE_DEFEND, 0)
   if !WITH_ARMOR_PENETRATION == 1
     TAX ; X = A = scaled defense
@@ -299,6 +315,12 @@ magic_defend_calculation:
     PHA
 
     LDX $006c ; contains "pointer alchemy"
+    if !WITH_DUMP_ALCHEMY_TO_DAMAGE_SOURCE
+      TXA
+      STA !OFFSET_DAMAGE_SOURCE,Y
+      LDA #$0014
+      STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
+    endif
 
     LDA !OFFSET_ALCHEMY_TYPE,X
     if !WITH_SPELL_NAME_DUMP

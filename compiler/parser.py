@@ -27,6 +27,7 @@ class Parser():
                 'FUNCTION_CALL', 'FUNCTION_STRING',
                 '@', ':', '?', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
+                '#IF', '#ENDIF',
                 'MEMORY', 'OBJECT', 'ARG', 'SCRIPT', 'TIME', 'IDENTIFIER',
             ],
 
@@ -827,6 +828,13 @@ class Parser():
                 self.generator.add_patch(patch_name)
 
             return Void()
+        
+        @self.pg.production('program : #IF expression')
+        def parse(p):
+            TODO()
+        @self.pg.production('program : #ENDIF')
+        def parse(p):
+            TODO()
         
         @self.pg.production('expression : ( expression )')
         def parse(p):

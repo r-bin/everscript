@@ -105,6 +105,10 @@ class Lexer():
         self.lexer.add('FUN_INCLUDE', '#include(?=\()')
         self.lexer.add('FUN_MEMORY', '#memory(?=\()')
         self.lexer.add('FUN_PATCH', '#patch(?=\()')
+        self.lexer.add('FUN_PATCH', '#patch(?=\()')
+
+        self.lexer.add('#IF', '#if')
+        self.lexer.add('#ENDIF', '#endif')
 
         self.lexer.add('MEMORY', 'memory(?=\()')
         self.lexer.add('OBJECT', 'object(?=\[)')

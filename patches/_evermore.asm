@@ -199,6 +199,8 @@ includeonce
 
 !OFFSET_ALCHEMY_TYPE = $0012 ; see ALCHEMY_TYPE_*
 !OFFSET_ALCHEMY_TARGET_1 = $002e
+!OFFSET_DAMAGE_SOURCE = $0036
+!OFFSET_DAMAGE_SOURCE_TIMER = $0038
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
