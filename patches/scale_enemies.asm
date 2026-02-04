@@ -33,7 +33,7 @@ incsrc "_helpers.asm"
 ; - TODO: Fill table
 ; - TODO: The memory map is very wasteful and unoptimized at the moment
 ; - TODO: Elemental damage
-; - TODO: DAMAGE_SOURCE for alchemy and projectiles would be helpful (e.g. alchemy uses DAMAGE_SOURCE=entity DAMAGE_SOURCE_TIMER=$14 and DAMAGE_SOURCE_SPELL=type)
+; - TODO: DAMAGE_SOURCE for alchemy and projectiles would be helpful (e.g. alchemy uses DAMAGE_SOURCE=entity DAMAGE_SOURCE_TIMER=$14 and DAMAGE_SOURCE_DETAILS=type)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -51,11 +51,18 @@ incsrc "_helpers.asm"
 ;
 !WITH_ARMOR_PENETRATION = 1 ; conditionally reduces defense (axe hit)
 ;
-!WITH_SPELL_NAME_DUMP = 0 ; dumps spell names into entity[!OFFSET_ATTRIBUTE_SPELL_NAME_DUMP] while calculating the magic defense
-!WITH_DUMP_ALCHEMY_TO_DAMAGE_SOURCE = 1 ; entity[DAMAGE_SOURCE] = pointer alchemy
+!WITH_SPELL_NAME_DUMP = 0 ; dumps spell names into entity[!DAMAGE_SOURCE_DETAILS] while calculating the magic defense
 !WITH_ELEMENTAL_WEAKNESS = 1 ; conditionally reduces magic defense (e.g. fire alchemy)
 ;
-!WITH_DUMP_BOMB_TO_DAMAGE_SOURCE = 1 ; entity[DAMAGE_SOURCE] = pointer entity
+!WITH_DUMP_BOMB_SOURCE = 1 ; TODO
+!WITH_DUMP_ALCHEMY_SOURCE = 1 ; TODO
+!WITH_DUMP_ALCHEMY_TYPE = 1 ; entity[DAMAGE_SOURCE] = pointer alchemy
+!WITH_DUMP_PROJECTILE_SOURCE = 1 ; possible values: ALCHEMY_ANIMATION.SLOT_1…ALCHEMY_ANIMATION.SLOT_8 < ALCHEMY_PROJECTILE.SLOT_1…ALCHEMY_PROJECTILE.SLOT_8 < CHARACTER_ADDRESS.ENTITY_1…CHARACTER_ADDRESS.DOG
+!WITH_DUMP_PROJECTILE_SOURCE__MEMORY = $0061 ; 
+;
+!WITH_DUMP_SLOT_INSTEAD_OF_SOURCE = 0
+!OFFSET_DUMP_SOURCE = !OFFSET_DAMAGE_SOURCE ; entity[DAMAGE_SOURCE] = pointer alchemy
+!OFFSET_DUMP_TYPE = !DAMAGE_SOURCE_DETAILS ; entity[DAMAGE_SOURCE] = pointer alchemy
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -97,6 +104,16 @@ macro original_code__defense()
 endmacro
 org $8fc072 ; defend calculation (when hit, includes boy and dog)
   JSL defend_calculation ; size 4
+
+macro original_code__test()
+  PHA ; (1 byte) <- does not work with JSL
+  LDY $3DDF ; (3 bytes)
+  ; LDA $0010,Y ; (3 bytes) <- cannot be replaced, because it's being branched on
+endmacro
+org $8fb611
+  if !WITH_DUMP_PROJECTILE_SOURCE
+    JML prepare_source_injection ; (4 bytes) <- JSL would be cleaner
+  endif
 
 macro original_code__magicdefense()
   LDA #$40 ; (size 2)
@@ -177,6 +194,18 @@ macro inject_level()
   sta !ENEMY_SPRITE_LEVEL_OFFSET,y
   REP #$20
 endmacro
+macro dump_source()
+    ; A:value to dump, X:???, Y:pointer entity
+    
+    assert !OFFSET_DUMP_SOURCE
+
+    STA !OFFSET_DUMP_SOURCE,Y
+
+    if !OFFSET_DUMP_SOURCE == !OFFSET_DAMAGE_SOURCE ; !DAMAGE_SOURCE_DETAILS is being reset after !OFFSET_DAMAGE_SOURCE_TIMER
+      LDA #$0014
+      STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
+    endif
+endmacro
 
 hook_palette_calculation:
   LDA !ENEMY_PALETTE
@@ -231,12 +260,19 @@ attack_calculation:
   %original_code__attack()
 
   .end RTL
+  
+prepare_source_injection:
+  STY !WITH_DUMP_PROJECTILE_SOURCE__MEMORY
+
+  %original_code__test()
+  JML $8fb611+4; <- RTL would be cleaner
+
 defend_calculation:
   ; IN: A:#$efff (???) X:#$ce2c (entity type) Y:#$3f8f (entity slot)
 
-  if !WITH_SPELL_NAME_DUMP ; workaround: alchemy doesn't reset the last taken spell
+  if 0; !WITH_SPELL_NAME_DUMP ; workaround: alchemy doesn't reset the last taken spell
     LDA #$0000
-    STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP, Y
+    STA !DAMAGE_SOURCE_DETAILS, Y
   endif
   
   TXA ; A = X = "type entity"
@@ -246,16 +282,54 @@ defend_calculation:
 
   PHX ; push "type entity"
 
-  if !WITH_DUMP_BOMB_TO_DAMAGE_SOURCE
-    LDA !OFFSET_DAMAGE_SOURCE,Y
-    CMP #$0000 : BNE .no_dump_projectile_source
-    
-    LDA $4c ; contains damage source
-    STA !OFFSET_DAMAGE_SOURCE,Y
-    LDA #$0014
-    STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
+  if !WITH_DUMP_BOMB_SOURCE
+    PHA
 
-    .no_dump_projectile_source
+    LDA !OFFSET_DAMAGE_SOURCE,Y ; contains damage source
+    CMP #$0000 : BNE .no_dump_projectile_source ; detects bomb hit
+    
+    STA !OFFSET_DUMP_TYPE,Y
+
+    LDA $4c ; contains damage source
+
+    %dump_source()
+
+    .no_dump_projectile_source PLA
+  endif
+
+  if 0
+    LDA $1fe7
+    AND #$F000
+    CMP #$6000 : BNE .no_projectile
+
+    LDA $1fe7
+    STA !OFFSET_DAMAGE_SOURCE,Y
+    ; LDA #$0014
+    ; STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
+
+    .no_projectile
+  endif
+
+  if !WITH_DUMP_PROJECTILE_SOURCE
+    assert !WITH_DUMP_PROJECTILE_SOURCE__MEMORY
+
+    LDA !WITH_DUMP_PROJECTILE_SOURCE__MEMORY
+    
+    if !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE != 1
+      PHX
+      TAX
+      AND #$F000
+      CMP #$6000 : BNE .no_projectile
+
+      LDA $0003,X
+
+      JMP .done_projectile
+
+      .no_projectile TXA
+      .done_projectile PLX
+    endif
+
+    STA !OFFSET_DUMP_TYPE,Y
   endif
 
   %get_scaled_value(!MEMORY_TABLE_DEFEND, 0)
@@ -311,24 +385,39 @@ magic_defend_calculation:
 
   ; A: scaled value, X: type entity, Y: pointer entity
 
+  if !WITH_DUMP_ALCHEMY_TYPE
+    PHA
+
+    LDA $006c ; contains "pointer alchemy"
+    TAX
+    LDA $0012,X
+    STA !OFFSET_DUMP_TYPE,Y
+
+    if !WITH_DUMP_ALCHEMY_SOURCE && !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE != 1
+      LDA $0028,X
+
+      %dump_source()
+    endif
+
+    PLA
+  endif
+
   if !WITH_ELEMENTAL_WEAKNESS ; TODO: framework for elemental weaknesses
     PHA
 
     LDX $006c ; contains "pointer alchemy"
-    if !WITH_DUMP_ALCHEMY_TO_DAMAGE_SOURCE
+    if !WITH_DUMP_ALCHEMY_SOURCE && !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE
       TXA
-      STA !OFFSET_DAMAGE_SOURCE,Y
-      LDA #$0014
-      STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
+      %dump_source()
     endif
 
     LDA !OFFSET_ALCHEMY_TYPE,X
     if !WITH_SPELL_NAME_DUMP
-      STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP,Y
+      STA !DAMAGE_SOURCE_DETAILS,Y
       if 0
         PHA
         LDA #$0014
-        STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP+2,Y
+        STA !DAMAGE_SOURCE_DETAILS+2,Y
         PLA
       endif
     endif
@@ -360,7 +449,7 @@ magic_defend_calculation:
     
     LDX $006c ; contains "pointer alchemy"
     LDA !OFFSET_ALCHEMY_TYPE,X
-    STA !OFFSET_ATTRIBUTE_SPELL_NAME_DUMP,Y
+    STA !DAMAGE_SOURCE_DETAILS,Y
 
     PLX
     PLA

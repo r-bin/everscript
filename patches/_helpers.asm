@@ -52,7 +52,7 @@ endmacro
 ; (see ATTRIBUTE)
 
 !OFFSET_ATTRIBUTE_ENEMY_LEVEL = $008a ; injected while spawning
-!OFFSET_ATTRIBUTE_SPELL_NAME_DUMP = $0086 ; contains $0000 if physical damage was dealt and $ (see DAMAGE_SOURCE_SPELL, ALCHEMY_TYPE_PROJECTILE and ALCHEMY_TYPE_ANIMATION)
+!DAMAGE_SOURCE_DETAILS = $0086 ; contains $0000 if physical damage was dealt and $ (see DAMAGE_SOURCE_DETAILS, ALCHEMY_TYPE_PROJECTILE and ALCHEMY_TYPE_ANIMATION)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

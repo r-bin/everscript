@@ -14,14 +14,13 @@
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 ## bosses to re-check
-### bowser: no fog gate outside, remove flowers
 ### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
 ### puppets (only take 16 damage with t2 weapon)
 ### wall (15 attack = 8…9 damage)
 ### gideon (new abilities: bottle+explosion, wall projectile?, remove tesla base line, pudge?, more new projectiles: minitaur=backpack?, chess, puppets=confound?, rimsala, arenas, abomination, spaceship=bomb?, diablo=slow?)
 ### turret arena (only 10dmg, too much hp?)
 ### sterling (8 dmg vs 60 hp)
-### abomination: no music, 20 weapon = 5 dmg (low), 25 weapon = 15 dmg (good)
+### abomination: 20 weapon = 5 dmg (low), 25 weapon = 15 dmg (good)
 ### diablo: 25 weapon = 30 dmg (high), clones give money
 ### pudge: 25 weapon = 30 dmg (high-good), spiders give money, too much hp?, hooks can place you out of the map, hook can get stuck in the wall
 ### O+S: damage too low (5-10 per hit), 25 weapon = 50 vigor damage
