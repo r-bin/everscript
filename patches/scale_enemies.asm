@@ -58,7 +58,7 @@ incsrc "_helpers.asm"
 !WITH_DUMP_ALCHEMY_SOURCE = 1 ; TODO
 !WITH_DUMP_ALCHEMY_TYPE = 1 ; entity[DAMAGE_SOURCE] = pointer alchemy
 !WITH_DUMP_PROJECTILE_SOURCE = 1 ; possible values: ALCHEMY_ANIMATION.SLOT_1…ALCHEMY_ANIMATION.SLOT_8 < ALCHEMY_PROJECTILE.SLOT_1…ALCHEMY_PROJECTILE.SLOT_8 < CHARACTER_ADDRESS.ENTITY_1…CHARACTER_ADDRESS.DOG
-!WITH_DUMP_PROJECTILE_SOURCE__MEMORY = $0061 ; 
+!WITH_DUMP_PROJECTILE_SOURCE__MEMORY = $002e ; 
 ;
 !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE = 0
 !OFFSET_DUMP_SOURCE = !OFFSET_DAMAGE_SOURCE ; entity[DAMAGE_SOURCE] = pointer alchemy
@@ -206,6 +206,13 @@ macro dump_source()
       STA !OFFSET_DAMAGE_SOURCE_TIMER,Y
     endif
 endmacro
+macro dump_type(offset)
+  if <offset>
+    ORA #$8000
+  endif
+
+  STA !OFFSET_DUMP_TYPE,Y
+endmacro
 
 hook_palette_calculation:
   LDA !ENEMY_PALETTE
@@ -288,7 +295,7 @@ defend_calculation:
     LDA !OFFSET_DAMAGE_SOURCE,Y ; contains damage source
     CMP #$0000 : BNE .no_dump_projectile_source ; detects bomb hit
     
-    STA !OFFSET_DUMP_TYPE,Y
+    ; %dump_type(1)
 
     LDA $4c ; contains damage source
 
@@ -311,25 +318,33 @@ defend_calculation:
   endif
 
   if !WITH_DUMP_PROJECTILE_SOURCE
+    PHA
+
     assert !WITH_DUMP_PROJECTILE_SOURCE__MEMORY
 
-    LDA !WITH_DUMP_PROJECTILE_SOURCE__MEMORY
+    LDA !WITH_DUMP_PROJECTILE_SOURCE__MEMORY ; contains projectile source
     
-    if !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE != 1
-      PHX
-      TAX
+    if 1
+      PHX ; push "type entity"
+      TAX ; transfer projectile source
       AND #$F000
       CMP #$6000 : BNE .no_projectile
 
-      LDA $0003,X
+      if !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE != 1
+        LDA $0003,X
+      endif
+
+      %dump_type(1)
 
       JMP .done_projectile
 
-      .no_projectile TXA
+      .no_projectile TXA ; transfer projectile source
+      %dump_type(0)
+      
       .done_projectile PLX
     endif
 
-    STA !OFFSET_DUMP_TYPE,Y
+    PLA
   endif
 
   %get_scaled_value(!MEMORY_TABLE_DEFEND, 0)
@@ -391,7 +406,7 @@ magic_defend_calculation:
     LDA $006c ; contains "pointer alchemy"
     TAX
     LDA $0012,X
-    STA !OFFSET_DUMP_TYPE,Y
+    %dump_type(1)
 
     if !WITH_DUMP_ALCHEMY_SOURCE && !WITH_DUMP_SLOT_INSTEAD_OF_SOURCE != 1
       LDA $0028,X
