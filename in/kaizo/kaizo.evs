@@ -494,7 +494,8 @@ group non_maps() {
             if(<ACTIVE> == <DOG>) {
                 end();
             }
-            if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) {
+            // if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) {
+            if(<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.DOG) {
                 end();
             }
         }
@@ -3640,7 +3641,7 @@ group non_maps() {
 
         group enemies() {
             fun guard_crush_teleport() {
-                guard_alchemy_animation_damage(<SCRIPT_OWNER>, CRUSH, {
+                guard_alchemy_animation_damage(<SCRIPT_OWNER>, CRUSH, CRUSH, {
                     punish_yump(<BOY>[X], <BOY>[Y]);
 
                     heal(SCRIPT_OWNER, 0d0, False);
@@ -3938,7 +3939,7 @@ group non_maps() {
                     CUSTOM_FLAG.START_MARIO_FIREFLOWER = False;
 
                     if(MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_1_3) {
-                        arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS];
+                        arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
                         arg[0x12] = !randrange(0d5);
 
                         if(arg[0x12] && !(arg[0x10] & 0x8000)) {
@@ -3947,7 +3948,8 @@ group non_maps() {
                     }
                 }
 
-                if!(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] & 0x8000) {
+                // if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] && !(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] & 0x8000)) {
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE]) {
                     if(SOULS_MEMORY.SLOW_ON_HIT || (<SCRIPT_OWNER>[DAMAGE_SOURCE] == SOULS_MEMORY.SLOW_ON_HIT_ENTITY)) {
                         movement_amplification(<BOY>, 0d180, 0d1, True);
                     }
@@ -4238,6 +4240,43 @@ group non_maps() {
             attribute(LAST_ENTITY, ROOT, True);
             <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
         }
+
+        group fire_pit() {
+            enum FIRE_PIT {
+                DEBUG = False,
+
+                WITH_VANILLA_ALCHEMY_CHECK = True,
+            }
+
+            fun fire_pit_handler(callback) {
+                if!(FIRE_PIT.WITH_VANILLA_ALCHEMY_CHECK) {
+                    check_alchemy_type(<SCRIPT_OWNER>[DAMAGE_SOURCE], FIRE);
+
+                    if(FIRE_PIT.DEBUG) {
+                        debug_memory(<SCRIPT_OWNER>[DAMAGE_SOURCE], CUSTOM_MEMORY.RETURN);
+                    }
+
+                    arg[0x10] = CUSTOM_MEMORY.RETURN;
+                } else {
+                    check_damage_type(FIRE, arg[0x10]);
+                }
+
+                if(FIRE_PIT.DEBUG) {
+                    debug_memory(arg[0x10]);
+                }
+
+                if(arg[0x10]) {
+                    destroy(SCRIPT_OWNER);
+
+                    callback();
+                } else {
+                    heal(SCRIPT_OWNER, 0x00, False);
+                    // damage(SCRIPT_OWNER, 0x00, True);
+                }
+
+                // reset_alchemy_types();
+            }
+        };
     };
 
     group archaeology_helper() {
@@ -14955,7 +14994,7 @@ area altus_plateau_entry() {
                     ID = memory(WORD, TEMP),
                     PROGRESS = memory(FLAG, TEMP),
 
-                    HP = 0d200,
+                    HP = 0d250,
                 }
 
                 fun boss_defeated() {
@@ -14976,7 +15015,8 @@ area altus_plateau_entry() {
                     //     end();
                     // }
                     
-                    if((<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False)){
+                    // if((<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False)){
+                    if((<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False)){
                         heal(SCRIPT_OWNER, 0x30, True);
                     } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False){
                         heal(SCRIPT_OWNER, 0x30, True);
@@ -15002,7 +15042,7 @@ area altus_plateau_entry() {
                             arg[0x14] = (((<SCRIPT_OWNER>[X]) / 0x50) & 0x01) ^ (((<SCRIPT_OWNER>[Y] - 0x1e) / 0x32) & 0x01);
                             yield();
 
-                            if(<SCRIPT_OWNER>[GENERAL_PURPOSE] != arg[0x14]) {
+                            // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] != arg[0x14]) {
                                 // parity_check_character(<BOY>, DOG);
                                 if(arg[0x14]) {
                                     // attribute(BOY, INVISIBLE, False);
@@ -15015,7 +15055,7 @@ area altus_plateau_entry() {
                                     <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0x00;
                                     nop();
                                 }
-                            }
+                            // }
                         }
                         sleep(0d10);
                     }
@@ -15279,7 +15319,8 @@ area altus_plateau_entry() {
                     //     end();
                     // }
                     
-                    if((<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
+                    // if((<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
+                    if((<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
                         heal(SCRIPT_OWNER, 0x30, True);
                         end();
                     } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00){
@@ -17353,33 +17394,11 @@ area altus_plateau_entry() {
 
                 @install()
                 fun firepit_damage() {
-                    if(True) {
-                        check_alchemy_type(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS], FIRE);
-
-                        if(ROOM.DEBUG) {
-                            debug_memory(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS], CUSTOM_MEMORY.RETURN);
-                        }
-
-                        arg[0x10] = CUSTOM_MEMORY.RETURN;
-                    } else {
-                        check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
-
-                        arg[0x10] = ROOM.FIRE_ORB_TRIGGER_COUNTER;
-                        ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                    }
-
-                    if(arg[0x10]) {
+                    fire_pit_handler({
                         ROOM.PIT_IGNITED = True;
-                        destroy(SCRIPT_OWNER);
-
                         SOULS_MEMORY.BONFIRE_CASTLE_PIT = True;
                         ignite_pit();
-                    } else {
-                        heal(SCRIPT_OWNER, 0x00, False);
-                        // damage(SCRIPT_OWNER, 0x00, True);
-                    }
-
-                    // reset_alchemy_types();
+                    });
                 }
 
                 fun trigger_enter() {
@@ -17989,7 +18008,7 @@ area altus_plateau_entry() {
                     fun hit_enemy() {
                         sound(ARENA_CHEER);
 
-                        if!(ROOM.ID_ENEMY[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.BOY) {
+                        if!(ROOM.ID_ENEMY[DAMAGE_SOURCE] == CHARACTER_ADDRESS.BOY) {
                             heal(ROOM.ID_ENEMY, 0d999, True);
                             
                             damage(BOY, 0d5, True);
@@ -20483,7 +20502,7 @@ area east_inbetwixx() {
             }
 
             enum BOSS {
-                DEBUG = True,
+                DEBUG = False,
                 
                 PROGRESS = memory(FLAG, TEMP),
                 BOSS_ID = memory(WORD, TEMP),
@@ -26684,33 +26703,11 @@ area southern_jungle() {
 
             @install()
             fun firepit_damage() {
-                if(True) {
-                    check_alchemy_type(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS], FIRE);
-
-                    if(ROOM.DEBUG) {
-                        debug_memory(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS], CUSTOM_MEMORY.RETURN);
-                    }
-
-                    arg[0x10] = CUSTOM_MEMORY.RETURN;
-                } else {
-                    check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
-
-                    arg[0x10] = ROOM.FIRE_ORB_TRIGGER_COUNTER;
-                    ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                }
-
-                if(arg[0x10]) {
+                fire_pit_handler({
                     ROOM.PIT_IGNITED = True;
-                    destroy(SCRIPT_OWNER);
-
                     SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
                     ignite_pit();
-                } else {
-                    heal(SCRIPT_OWNER, 0x00, False);
-                    // damage(SCRIPT_OWNER, 0x00, True);
-                }
-
-                // reset_alchemy_types();
+                });
             }
 
             fun show_statue(show) {
@@ -28499,33 +28496,11 @@ area town() {
 
                 @install()
                 fun firepit_damage() {
-                    if(True) {
-                        check_alchemy_type(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS], FIRE);
-
-                        if(ROOM.DEBUG) {
-                            debug_memory(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS], CUSTOM_MEMORY.RETURN);
-                        }
-
-                        arg[0x10] = CUSTOM_MEMORY.RETURN;
-                    } else {
-                        check_damage_type(FIRE, ROOM.FIRE_ORB_TRIGGER_COUNTER);
-
-                        arg[0x10] = ROOM.FIRE_ORB_TRIGGER_COUNTER;
-                        ROOM.FIRE_ORB_TRIGGER_COUNTER = 0x00;
-                    }
-
-                    if(arg[0x10]) {
+                    fire_pit_handler({
                         ROOM.PIT_IGNITED = True;
-                        destroy(SCRIPT_OWNER);
-
                         SOULS_MEMORY.BONFIRE_TEMPLE_PIT = True;
                         ignite_pit();
-                    } else {
-                        heal(SCRIPT_OWNER, 0x00, False);
-                        // damage(SCRIPT_OWNER, 0x00, True);
-                    }
-
-                    // reset_alchemy_types();
+                    });
                 }
 
                 fun trigger_enter() {
@@ -28692,8 +28667,8 @@ area town() {
 
                     STEP_SIZE = 0d60,
 
-                    THRESHOLD_STEP_NORMAL = 0d10,
-                    THRESHOLD_STEP_BIG = 0d20,
+                    THRESHOLD_STEP_NORMAL = 0d15,
+                    THRESHOLD_STEP_BIG = 0d25,
 
                     BARRAGE_COOLDOWN = 0d1,
                     BARRAGE_REPEAT = 0d2,
@@ -29253,6 +29228,8 @@ area town() {
 
                     PROGRESS = memory(FLAG, TEMP),
 
+                    HP = 0d20,
+
                     SQUAD_COUNT = 0d5,
                     SQUAD_CHARGED = memory(WORD, TEMP),
 
@@ -29295,6 +29272,24 @@ area town() {
                     if(BOSS.SQUAD_REQURIED_COUNT >= BOSS.SQUAD_REQURIED) {
                         boss_defeated();
                         end();
+                    }
+                }
+
+                @install()
+                @async()
+                fun tint_charged(entity) {
+                    if(BOSS.DEBBUG) {
+                        debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], entity);
+                    }
+
+                    while(alive(entity)) {
+                        entity[PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
+                        
+                        sleep(0d5);
+                    }
+
+                    if(BOSS.DEBBUG) {
+                        debug_subtext("ded?");
                     }
                 }
 
@@ -29345,17 +29340,7 @@ area town() {
                             attribute(arg[0x14], ROOT, False);
                             animate(arg[0x14], ONCE, DEFAULT);
 
-                            if(BOSS.DEBBUG) {
-                                debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], arg[0x14]);
-                            }
-
-                            while(alive(arg[0x14])) {
-                                if(arg[0x14][PALETTE] != BOSS.PALETTE_DONOR[PALETTE]) {
-                                    arg[0x14][PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
-                                }
-                                
-                                sleep(0d5);
-                            }
+                            tint_charged(arg[0x14]);
                         }
                     }
 
@@ -29367,8 +29352,13 @@ area town() {
 
                     add_enemy(OGLIN, x, y);
                     memory = <LAST_ENTITY>;
+                    <LAST_ENTITY>[HP] = BOSS.HP;
                     <LAST_ENTITY>[GENERAL_PURPOSE] = index;
                     attach_script(LAST_ENTITY, DEATH, reference(squad_death));
+
+                    if(BOSS.SQUAD_CHARGED == index) {
+                        tint_charged(<LAST_ENTITY>);
+                    }
 
                     // attribute(LAST_ENTITY, NO_CLIP, True);
                     attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
@@ -30071,7 +30061,9 @@ area town() {
                             }
                         }
 
-                        if(<SCRIPT_OWNER>[DAMAGE_SOURCE] == <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+                        // if(<SCRIPT_OWNER>[DAMAGE_SOURCE] >= CHARACTER_ADDRESS.ENTITY_1) {
+                        // if(<SCRIPT_OWNER>[DAMAGE_SOURCE] == <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+                        if(<SCRIPT_OWNER>[DAMAGE_SOURCE]) {
                             if((BOSS.FOLLOW_ID == CHARACTER_ADDRESS.UNKNOWN) || (<SCRIPT_OWNER>[DAMAGE_SOURCE] != BOSS.FOLLOW_ID)) {
                                 BOSS.FOLLOW_ID = <SCRIPT_OWNER>[DAMAGE_SOURCE];
                                 // heal(SCRIPT_OWNER, 0d0, False);
@@ -30766,11 +30758,11 @@ area town() {
             }
 
             fun boxer_hit(rider_id, mount_id, hit_counter) { // TODO: buggy
-                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] != <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] != <SCRIPT_OWNER>[DAMAGE_SOURCE]) {
                     heal(SCRIPT_OWNER, 0d0, False);
 
                     if(BOSS.DEBUG) {
-                        debug_memory(0d0, arg[0x20], <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]);
+                        debug_memory(0d0, arg[0x20], <SCRIPT_OWNER>[DAMAGE_SOURCE]);
                     }
                     end();
                 }
@@ -32940,6 +32932,9 @@ area town() {
                 P1_SPELL = DISRUPT,
                 P1_SPELL_LEVEL = 0d15,
 
+                HP_1 = 0d100,
+                HP_2 = 0d150,
+
                 P1_TIMER_THRESHOLD = 0d600,
                 P2_TIMER_THRESHOLD = 0d600,
 
@@ -33270,13 +33265,23 @@ area town() {
                     puppet_1(0d75, 0d41);
                     attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
                         puppet_damaged(BOSS.BOSS_2_ID, ANIMATION_ENEMY.PUPPET_1_DANCE);
+
+                        if(BOSS.DEBUG) {
+                            debug_memory(0d1, <SCRIPT_OWNER>[HP], BOSS.HP_1);
+                        }
                     }));
+                    <LAST_ENTITY>[HP] = BOSS.HP_1;
                     BOSS.BOSS_1_ID = <LAST_ENTITY>;
 
                     puppet_2(0d97, 0d41);
                     attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
                         puppet_damaged(BOSS.BOSS_1_ID, ANIMATION_ENEMY.PUPPET_2_DANCE);
+
+                        if(BOSS.DEBUG) {
+                            debug_memory(0d2, <SCRIPT_OWNER>[HP], BOSS.HP_2);
+                        }
                     }));
+                    <LAST_ENTITY>[HP] = BOSS.HP_2;
                     BOSS.BOSS_2_ID = <LAST_ENTITY>;
 
                     boss_ai();
@@ -38050,7 +38055,9 @@ area desert_bug() {
 
                         // control(SCRIPT_OWNER, True);
 
-                        if(arg[0x10] == <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+                        // if(arg[0x10] >= CHARACTER_ADDRESS.ENTITY_1) {
+                        // if(arg[0x10] == <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+                        if(arg[0x10]) {
                             // animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
 
                             arg[0x12] = <SCRIPT_OWNER>[FACE_DIRECTION];
@@ -43978,7 +43985,8 @@ area metro() {
                 <LAST_ENTITY>[HP] = BOSS.HP;
                 yield();
                 attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
-                    if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.BOY) {
+                    // if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.BOY) {
+                    if(<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.BOY) {
                         arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
 
                         face_target(SCRIPT_OWNER, arg[0x10]);

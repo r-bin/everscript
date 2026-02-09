@@ -564,6 +564,7 @@ group general_enums() {
             TIMER_2 = <0x0B1B>,
 
             INPUT_P1 = <0x0104>,
+            COPY_INPUT_P1 = <0x0ec6>,
 
             // boy
             BOY_NAME = <0x2210>, // 0x2210…0x2233 (35 bytes)
@@ -608,6 +609,7 @@ group general_enums() {
             Z_AFTER_TELEPORT = <0x23db>, // redundant with "entity[Z_LEVEL] = z;"
 
             NEXT_PROJECTILE_DAMAGE = <0x23d1>, // consumed after bomb explosion
+            POINTER_NEXT_PROJECTILE_SLOT = <0x0ec2>,
 
             // sniff spot looting
             LOOT_ITEM = <0x2391>,
@@ -2552,9 +2554,10 @@ group general_enums() {
 
                 // special
                 SCALING_LEVEL = 0x8a, // hack: level offset for all stats, but hp
-                WEAKNESSES = 0x8b, // hack: 
-                DAMAGE_SOURCE_DETAILS = 0x86, // hack: dumps spell name that caused the damage, see ALCHEMY_TYPE_PROJECTILE and ALCHEMY_TYPE_ANIMATION
+                // WEAKNESSES = 0x8b, // hack: 
+                // DAMAGE_SOURCE_DETAILS = 0x8b, // hack: dumps spell name that caused the damage, see ALCHEMY_TYPE_PROJECTILE and ALCHEMY_TYPE_ANIMATION
                 
+                UNKNOWN = 0x86, // read after hitting some enemies, maybe linked with animation
                 UNKNOWN = 0x8c, // ffff makes the enemy despawn, when he is off screen
 
                 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -9576,7 +9579,7 @@ group functions() {
                 <0x34e7> = 0x0000;
                 <0x3527> = 0x0000;
             }
-            fun check_alchemy_type_projectile(type:ALCHEMY_TYPE_PROJECTILE, counter) {
+            fun check_alchemy_type_projectile(type:ALCHEMY_TYPE_PROJECTILE_OLD, counter) {
                 if(
                     (<0x3567> == type) ||
                     (<0x35dd> == type) ||
@@ -9590,7 +9593,7 @@ group functions() {
                     counter++;
                 }
             }
-            fun check_alchemy_type_animation(type:ALCHEMY_TYPE_ANIMATION, counter) {
+            fun check_alchemy_type_animation(type:ALCHEMY_TYPE_ANIMATION_OLD, counter) {
                 if(
                     (<0x3367> == type) ||
                     (<0x33a7> == type) ||
@@ -9634,7 +9637,12 @@ group functions() {
             }
 
             fun guard_alchemy_animation_damage(entity, type:ALCHEMY_TYPE_ANIMATION, animation_end:ALCHEMY_ANIMATION_END, callback) {
-                if((entity[DAMAGE_SOURCE] != 0x0000) && (entity[DAMAGE_SOURCE] < CHARACTER_ADDRESS.ENTITY_1)) {
+                // if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == (0x8000 | type)) {
+                //     callback();
+                // }
+
+                // if((entity[DAMAGE_SOURCE] != 0x0000) && (entity[DAMAGE_SOURCE] < CHARACTER_ADDRESS.ENTITY_1)) {
+                if!(entity[DAMAGE_SOURCE]) {
                     // debug_memory(<0x3567>, <0x356c> & 0xff, <0x3569>);
 
                     CUSTOM_MEMORY.POINTER = ALCHEMY_ANIMATION.SLOT_1;
@@ -9658,17 +9666,17 @@ group functions() {
             @weak()
             fun _check_alchemy_type(value, type:ALCHEMY_TYPE_GROUP) {
                 if(type == ALCHEMY_TYPE_GROUP.FIRE) {
-                    if(value == ALCHEMY_TYPE_PROJECTILE.FLASH) {
+                    if(value == (ALCHEMY_TYPE_PROJECTILE.FLASH | 0x8000)) {
                         arg[0x10] = True;
-                    } else if(value == ALCHEMY_TYPE_PROJECTILE.FIREBALL) {
+                    } else if(value == (ALCHEMY_TYPE_PROJECTILE.FIREBALL | 0x8000)) {
                         arg[0x10] = True;
-                    } else if(value == ALCHEMY_TYPE_PROJECTILE.FLARE) {
+                    } else if(value == (ALCHEMY_TYPE_PROJECTILE.FLARE | 0x8000)) {
                         arg[0x10] = True;
-                    } else if(value == ALCHEMY_TYPE_ANIMATION.EXPLOSION) {
+                    } else if(value == (ALCHEMY_TYPE_ANIMATION.EXPLOSION | 0x8000)) {
                         arg[0x10] = True;
-                    } else if(value == ALCHEMY_TYPE_ANIMATION.FIRE_POWER) {
+                    } else if(value == (ALCHEMY_TYPE_ANIMATION.FIRE_POWER | 0x8000)) {
                         arg[0x10] = True;
-                    } else if(value == ALCHEMY_TYPE_ANIMATION.NITRO) {
+                    } else if(value == (ALCHEMY_TYPE_ANIMATION.NITRO | 0x8000)) {
                         arg[0x10] = True;
                     }
                 }
@@ -9676,7 +9684,9 @@ group functions() {
                 CUSTOM_MEMORY.RETURN = arg[0x10];
             }
             fun check_alchemy_type(value, type:ALCHEMY_TYPE_GROUP) {
-                if((value != 0x0000) && (value < CHARACTER_ADDRESS.ENTITY_1)) {
+                // if(value & 0x8000) {
+                // if((value != 0x0000) && (value < CHARACTER_ADDRESS.ENTITY_1)) {
+                if(value) {
                     _check_alchemy_type(value, type);
                 }
             }
@@ -15607,7 +15617,9 @@ group functions() {
         @install()
         @weak()
         fun poise_break() {
-            if(_alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[DAMAGE_SOURCE] >= CHARACTER_ADDRESS.ENTITY_1) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.RESETTING) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.ONGOING)) {
+            // if(_alive(<SCRIPT_OWNER>) && (<SCRIPT_OWNER>[DAMAGE_SOURCE] >= CHARACTER_ADDRESS.ENTITY_1) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.RESETTING) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.ONGOING)) {
+            // if(_alive(<SCRIPT_OWNER>) && !(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] & 0x8000) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.RESETTING) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.ONGOING)) {
+            if(_alive(<SCRIPT_OWNER>) && <SCRIPT_OWNER>[DAMAGE_SOURCE] && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.RESETTING) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] != POISE.ONGOING)) {
                 if(POISE.DEBUG && POISE.DEBUG_HIT) {
                     arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
                 }
