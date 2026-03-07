@@ -3,6 +3,7 @@
 
 
 # important
+## "helm 1-1"
 ## market: beads, random weapon orb
 ## secure pyramid entry better
 ## move ARCHAEOLOGY_DIG.CODE_5
@@ -15,8 +16,6 @@
 ### 7E0A54 to 7E0A55 = Boy - Chargeup Rate
 ## bosses to re-check
 ### minitaur (minitaur stuck, exponential stomp damage, maybe phase 3 = unleash?)
-### puppets (only take 16 damage with t2 weapon)
-### wall (15 attack = 8…9 damage)
 ### gideon (new abilities: bottle+explosion, wall projectile?, remove tesla base line, pudge?, more new projectiles: minitaur=backpack?, chess, puppets=confound?, rimsala, arenas, abomination, spaceship=bomb?, diablo=slow?)
 ### turret arena (only 10dmg, too much hp?)
 ### sterling (8 dmg vs 60 hp)
