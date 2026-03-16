@@ -3,6 +3,7 @@
 
 
 # important
+## dog can interact with holes, but the boy is animated
 ## "helm 1-1"
 ## market: beads, random weapon orb
 ## secure pyramid entry better
