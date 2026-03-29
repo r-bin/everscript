@@ -29,9 +29,9 @@ The user explicitly values readable code. Apply this principle to every change:
 |---|---|
 | `everscript.py` | Entry point: lex → parse → generate → link → emit IPS |
 | `compiler/lexer.py` | `rply`-based lexer; 132 lines; all token patterns defined in `_add_tokens()` |
-| `compiler/parser.py` | `rply`-based LALR(1) parser; 852 lines; 434 shift/reduce conflicts |
-| `compiler/ast_core.py` | Base AST node classes (`BaseBox`, `Calculatable`, `Param`, etc.); 1062 lines |
-| `compiler/ast_everscript.py` | Concrete AST nodes for all Everscript constructs; 1962 lines |
+| `compiler/parser.py` | `rply`-based LALR(1) parser; 838 lines; 427 S/R + 173 R/R conflicts |
+| `compiler/ast_core.py` | Base AST node classes (`BaseBox`, `Calculatable`, `Param`, etc.); 1064 lines |
+| `compiler/ast_everscript.py` | Concrete AST nodes for all Everscript constructs; 1963 lines |
 | `compiler/codegen.py` | `CodeGen` / `Scope`; walks AST and emits bytecode; 801 lines |
 | `compiler/linker.py` | `MemoryManager` + `Linker`; resolves addresses and memory layout; 500 lines |
 | `utils/` | `arg_utils`, `file_utils`, `ips_utils`, `object_utils`, `out_utils`, `patch_utils`, `process_utils`, `string_utils` |
@@ -51,34 +51,65 @@ All invalid escape sequences have been fixed to raw strings across:
 - `compiler/ast_everscript.py` — lines 671, 673, 1337
 - `utils/file_utils.py` — line 41
 
-### 2. Duplicate `#patch` token in `lexer.py`
+### 2. ✅ Duplicate `#patch` token in `lexer.py` — NOT YET FIXED (but low priority)
 
 ```python
 self.lexer.add('FUN_PATCH', r'#patch(?=\()')
 self.lexer.add('FUN_PATCH', r'#patch(?=\()')  # TODO: exact duplicate — remove one
 ```
 
-### 3. 434 shift/reduce conflicts in `parser.py`
+### 3. Parser conflicts in `parser.py` — INVESTIGATED, PARTIALLY FIXED
 
-Root causes to investigate:
-- Missing or incomplete precedence declarations (comparison ops `<`, `>`, `<=`, `>=` are commented out)
-- Ambiguous `expression` vs `expression_entry` boundary
-- `!` appears twice in the token list
+**Starting state:** 434 S/R, 263 R/R.
+**Current state:** 427 S/R, 173 R/R (after Fixes A and B below; Fix C was tried and reverted).
 
-These conflicts mean the parser is using arbitrary defaults to resolve ambiguities. They don't necessarily cause wrong output today, but they are latent bugs. The profiler also confirmed **263 reduce/reduce conflicts** — these are more serious than shift/reduce because `rply` is arbitrarily choosing between two valid reductions, which is a correctness risk, not just a performance issue.
+#### ✅ Fix A — Duplicate anonymous function production — COMPLETE (−90 R/R)
+
+Two identical `function : { expression_list }` productions existed. Removing the duplicate dropped R/R conflicts from 263 → 173.
+
+#### ✅ Fix B — Ambiguous `else_list : else_list else_list` rule — COMPLETE (−7 S/R)
+
+This rule was ambiguous (`(a b) c` vs `a (b c)`). The grammar already has `else_list : else_list else` for chaining, so the self-recursive rule was redundant. Removing it dropped S/R from 434 → 427.
+
+#### ❌ Fix C — Uncomment precedence declarations — REVERTED
+
+Adding `<=`, `>=`, and `B_XOR` to the precedence list dropped S/R to 343 when combined with A+B. However, more aggressive attempts revealed structural constraints:
+
+- **`<` and `>` cannot have operator precedence** — they double as memory delimiters in `memory : < expression >` and `memory_flag : < expression , expression >`. Giving them precedence causes the parser to misparse memory syntax (error at `..` token).
+- **Assignment operators (`=`, `+=`, etc.) cannot have precedence** — they are statement-level constructs (`expression_entry : param = param ;`), not expression-level binary operators. Adding them causes `Asign` nodes to appear where `_eval()` is expected, producing `AttributeError`.
+
+The remaining ~427 S/R conflicts are **structural** — they come from:
+1. **`<`/`>` token overloading** (comparison vs. memory delimiter) — LALR(1) can't disambiguate with 1-token lookahead
+2. **`expression ↔ param` circular chain** — `param : expression`, `expression : param OP param` creates ambiguity at every binary operator about whether to reduce to `param` or continue
+
+#### Resolution options (not yet attempted)
+
+| Approach | Effort | Conflicts eliminated | Risk |
+|---|---|---|---|
+| Token rewriting (`<`→`LANGLE` in lexer post-pass) | Low | ~50–100 S/R | Low |
+| Grammar stratification (one non-terminal per precedence level) | High | All operator S/R | Medium |
+| Suppress warnings (`warnings.filterwarnings`) | Trivial | 0 (cosmetic only) | Zero |
+| Switch to PEG/recursive descent | Very high | All | High |
 
 ### 4. Performance
 
-#### Current baseline (kaizo build, after fixes #1 and #2)
+#### Current baseline (kaizo build, after all completed fixes)
 
-| Metric | Before | After |
-|---|---|---|
-| Total | 154s | **120s** |
-| `code()` cumtime | 136s | **102s** |
-| `textwrap.wrap` calls | 2.7M | **0** |
-| `re._compile` calls | 39.8M | **2.9M** |
+| Metric | Original | After Fixes 1+2 | After All Fixes |
+|---|---|---|---|
+| Total (profiled) | 154s | 120s | **~45s** |
+| Total (unprofiled) | — | — | **~18s** |
+| `code()` cumtime | 136s | 102s | **~13s** |
+| `textwrap.wrap` calls | 2.7M | 0 | **0** |
+| `re._compile` calls | 39.8M | 2.9M | **2.9M** |
+| `code()` total calls | 12M | 12M | **reduced (cached)** |
 
 LALR table generation measured at **0.67s** — not a meaningful bottleneck. Do not lead with LALR caching.
+
+**Current hotspots** (from profiling at ~45s):
+- rply lexer (`LexingRule.match` / `re.Pattern.match`): ~13.4s
+- `resolve()` tree walk: ~5.8s
+- `re.Pattern.sub` in `code()` / `_clean_code()`: ~1.9s
 
 #### ✅ Fix 1 — Replace `textwrap.wrap` with `_hex_pairs()` helper — COMPLETE (~15s savings)
 
@@ -111,13 +142,13 @@ _RE_WHITESPACE  = re.compile(r"[\s]+")
 
 Call sites in `code()` and `_clean_code()` now use `_RE_*.sub(...)` directly. `re._compile` calls dropped to 2.9M.
 
-#### Fix 3 — Fix the `code()` result cache — it is write-only (~80s savings, low risk, verify first) ⬅ CURRENT PRIORITY
+#### ✅ Fix 3 — Fix the `code()` result cache — COMPLETE (~75s savings)
 
-The caching mechanism in `Function_Base.code()` (`compiler/ast_core.py`) exists but the fast path **never fires** for 99% of nodes. `cacheable` defaults to `False` (class attribute) and is only set to `True` in one place in `ast_everscript.py`. Results are written to `cache_code` but the guard `if self.cacheable` prevents them from ever being read back.
+The caching mechanism in `Function_Base.code()` (`compiler/ast_core.py`) existed but the fast path **never fired** for 99% of nodes. `cacheable` defaulted to `False` (class attribute) and was only set to `True` in one place in `ast_everscript.py`. Results were written to `cache_code` but the guard `if self.cacheable` prevented them from ever being read back.
 
-The observed symptom: `link_function` calls `function.count([])` for each of the 4443 functions, which recursively walks the entire AST. Any shared sub-node gets recomputed for every parent that references it, producing 12M `code()` calls.
+The observed symptom: `link_function` called `function.count([])` for each of the 4443 functions, which recursively walked the entire AST. Any shared sub-node got recomputed for every parent that references it, producing 12M `code()` calls.
 
-Safe fix — cache when called with `params=[]` (fully resolved, no substitution needed):
+**Resolution:** The cache guard was changed from `if self.cacheable` to `if not params` — cache when called with empty params (fully resolved, no substitution needed). `_valid_code()` still gates the write to prevent caching unresolved code containing `xx`/`yy` placeholders. The `cacheable` class attribute and its only assignment (`self.cacheable = True` in `Annotation_Install`) were removed as dead code.
 
 ```python
 def code(self, params):
@@ -131,15 +162,17 @@ def code(self, params):
     return code
 ```
 
-Why `params=[]` is the safety condition: if params is empty and `_valid_code` passes (no `xx`/`yy` unresolved placeholders), the node output is constant. The `case _: return self` fast-path in `resolve()` confirms the tree does not mutate during empty-params traversal.
+#### ✅ Fix 4 — Extract text lexer to module-level singleton — COMPLETE (~0.1s savings)
 
-⚠️ Before applying: confirm that all `count([])` → `code([])` call chains in `linker.py` consistently use empty params all the way down. Check that no `_code()` implementation reads from `self` fields that are mutated between calls (e.g. `update_memory()` side effects). The profiler shows `update_memory()` called ~2.9M times — do a targeted read of any `_code()` that calls `update_memory` before applying.
+`RawString._code()` in `ast_everscript.py` rebuilt the rply text lexer (30 token patterns) on every call — 3,657 times in the kaizo build. Each rebuild invoked `LexerGenerator.build()` which compiles regex patterns.
 
-#### Fix 4 — LALR table disk cache (~0.67s savings, low risk)
+**Resolution:** Extracted to `_build_text_lexer()` function and `_TEXT_LEXER` module-level constant at the top of `ast_everscript.py`. `RawString._code()` now uses `_TEXT_LEXER.lex(code)` directly. Savings were marginal (~0.1s) since individual builds were cheap, but it's cleaner code.
+
+#### Fix 5 — LALR table disk cache (~0.67s savings, low risk)
 
 Measured at 0.67s. Low priority now that the real bottlenecks are identified. Still worth doing to avoid the `ParserGeneratorWarning` noise on every invocation.
 
-#### Fix 5 — Double-lex in `everscript.py` (cosmetic, zero risk)
+#### Fix 6 — Double-lex in `everscript.py` (cosmetic, zero risk)
 
 The `list(lexer.lex(code))` debug dump lexes the full input a second time. For kaizo (53k lines) this is measurable but small. Gate it on a `--debug` flag or remove it.
 
@@ -218,7 +251,7 @@ Triggered by: "write a test for X", "add tests", "help me set up pytest".
 - `ParserGenerator(tokens, precedence=[...])` — builds LALR(1) parser
 - `@pg.production('rule : TOKEN TOKEN ...')` — production rule decorator
 - `pg.build()` — compiles LALR tables (slow; cache this)
-- 434 shift/reduce conflicts = `rply` defaulted to shift in 434 ambiguous states; audit by reducing the grammar or extending `precedence`
+- 427 S/R + 173 R/R conflicts remain after removing duplicate productions and ambiguous rules; most are structural (`<`/`>` overloading + `expression ↔ param` circularity)
 
 ---
 

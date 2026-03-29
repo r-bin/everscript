@@ -15,6 +15,50 @@ import random
 import uuid
 from enum import StrEnum
 
+
+def _build_text_lexer():
+    """Build the lexer used to tokenize in-game text strings (e.g. 'Hello[LF]World[END]').
+    Called once at module load; the built lexer is stateless and safe to reuse."""
+    lg = LexerGenerator()
+    lg.add('SLOW', r'\[SLOW\]')
+    lg.add('UNSLOW', r'\[UNSLOW\]')
+    lg.add('LF', r'\[LF\]')
+    lg.add('B', r'\[B\]')
+    lg.add('END', r'\[END\]')
+    lg.add('CHOICE', r'\[CHOICE\]')
+    lg.add('CHOICE_INLINE', r'\[CHOICE_INLINE\]')
+    lg.add('CHOICE_RIGHT', r'\[CHOICE_RIGHT\]')
+    lg.add('MEM1', r'\[MEM1\]')
+    lg.add('MEM2', r'\[MEM2\]')
+    lg.add('MEM3', r'\[MEM3\]')
+    lg.add('HEX', r'\[0x[0-9a-f]{2}\]')
+    lg.add('PAUSE', r'\[PAUSE:[0-9a-f]{2}\]')
+    lg.add('BOY', r'\[BOY\]')
+    lg.add('DOG', r'\[DOG\]')
+    lg.add('P3', r'\[P3\]')
+    lg.add('P4', r'\[P4\]')
+    lg.add('BOLD', r'\[BOLD\]')
+    lg.add('UNBOLD', r'\[UNBOLD\]')
+    lg.add('CENTER', r'\[CENTER\]')
+    lg.add('LEFT', r'\[LEFT\]')
+    lg.add('RIGHT', r'\[RIGHT\]')
+    lg.add('REPEAT', r'\[REPEAT\]')
+    lg.add('PAGE', r'\[PAGE\]')
+    lg.add('INVERTED', r'\[INVERTED\]')
+    lg.add('NOP', r'\[NOP\]')
+    lg.add('OK', r'\[OK\]')
+    lg.add('…', '…')
+    lg.add('`', '`')
+    lg.add('´', '´')
+    lg.add('->', r'\-\>')
+    lg.add('<-', r'\<\-')
+    # TODO: 85 (same as [B]?)
+    lg.add('CHAR', '.')
+    return lg.build()
+
+_TEXT_LEXER = _build_text_lexer()
+
+
 class Is(Function_Base):
     def __init__(self, value, type, inverted=False):
         self.value = value
@@ -393,7 +437,6 @@ class Function(Function_Base):
                     self.async_call = True
                 case Annotation_Install():
                     self.install = True
-                    self.cacheable = True
                     self.address = annotation.eval()
                     self.terminate = annotation.terminate
                 case Annotation_Inject():
@@ -584,48 +627,7 @@ class RawString(Function_Base):
     def _code(self, params:list[Param]):
         code = self.eval()
 
-        lexer = LexerGenerator()
-        lexer.add('SLOW', r'\[SLOW\]')
-        lexer.add('UNSLOW', r'\[UNSLOW\]')
-        lexer.add('LF', r'\[LF\]')
-        lexer.add('B', r'\[B\]')
-        lexer.add('END', r'\[END\]')
-        lexer.add('CHOICE', r'\[CHOICE\]')
-        lexer.add('CHOICE_INLINE', r'\[CHOICE_INLINE\]')
-        lexer.add('CHOICE_RIGHT', r'\[CHOICE_RIGHT\]')
-        lexer.add('MEM1', r'\[MEM1\]')
-        lexer.add('MEM2', r'\[MEM2\]')
-        lexer.add('MEM3', r'\[MEM3\]')
-        lexer.add('HEX', r'\[0x[0-9a-f]{2}\]')
-        lexer.add('PAUSE', r'\[PAUSE:[0-9a-f]{2}\]')
-        lexer.add('BOY', r'\[BOY\]')
-        lexer.add('DOG', r'\[DOG\]')
-        lexer.add('P3', r'\[P3\]')
-        lexer.add('P4', r'\[P4\]')
-        lexer.add('BOLD', r'\[BOLD\]')
-        lexer.add('UNBOLD', r'\[UNBOLD\]')
-        lexer.add('CENTER', r'\[CENTER\]')
-        lexer.add('LEFT', r'\[LEFT\]')
-        lexer.add('RIGHT', r'\[RIGHT\]')
-        lexer.add('REPEAT', r'\[REPEAT\]')
-        lexer.add('PAGE', r'\[PAGE\]')
-        lexer.add('INVERTED', r'\[INVERTED\]')
-        lexer.add('NOP', r'\[NOP\]')
-        lexer.add('OK', r'\[OK\]')
-
-        lexer.add('…', '…')
-        lexer.add('`', '`')
-        lexer.add('´', '´')
-
-        lexer.add('->', r'\-\>')
-        lexer.add('<-', r'\<\-')
-
-        # TODO: 85 (same as [B]?)
-
-        lexer.add('CHAR', '.')
-        lexer = lexer.build()
-
-        code = list(lexer.lex(code))
+        code = list(_TEXT_LEXER.lex(code))
 
         def f(c):
             match c:

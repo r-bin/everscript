@@ -16,8 +16,8 @@ class Parser():
                 '..', 'IN',
                 '(', ')', ',', ';', '{', '}', '<', '>', '[', ']', #'\n',
                 '~', '!', 'AND', 'OR',
-                '==', '!=', '>=', '>', '<=', '<', 'OR=', '&=', '=', '<<=', '>>=', '*=', '/=', '-=', '+=', '++', '--',
-                '!', '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
+                '==', '!=', '>=', '<=', 'OR=', '&=', '=', '<<=', '>>=', '*=', '/=', '-=', '+=', '++', '--',
+                '+', '-', '*', '/', '<<', '>>', 'B_AND', 'B_OR', 'B_XOR',
                 'INVERT_WORD',
                 'TRUE', 'FALSE',
                 'WORD', 'WORD_DECIMAL', 'ENUM', 'ENUM_CALL', 'STRING', 'STRING_RAW',
@@ -341,16 +341,6 @@ class Parser():
             self.generator.add_function(function)
 
             return function
-        @self.pg.production('function : { expression_list }')
-        def parse(p):
-            name = "anonymous"
-            args = []
-            code = p[1]
-
-            function = Function(name, code, args)
-            self.generator.add_function(function)
-            
-            return function
 
         @self.pg.production('annotation_list : annotation')
         def parse(p):
@@ -514,9 +504,6 @@ class Parser():
         @self.pg.production('else_list : else_list else')
         def parse(p):
             return p[0] + [ p[1] ]
-        @self.pg.production('else_list : else_list else_list')
-        def parse(p):
-            return p[0] + p[1]
         @self.pg.production('else : ELSE { expression_list }')
         def parse(p):
             return If(None, p[2], [False, False])

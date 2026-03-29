@@ -261,7 +261,6 @@ class Enum_Call(BaseBox):
 class Function_Base(BaseBox, Resolvable):
     _value_count:int|None = None
 
-    cacheable:bool = False
     cache_code:str|None = None
 
     def __init__(self, raw=None):
@@ -288,19 +287,17 @@ class Function_Base(BaseBox, Resolvable):
         return value
 
     def code(self, params):
-        if self.cacheable and self.cache_code != None:
+        if not params and self.cache_code is not None:
             return self.cache_code
-        else:
-            #self.handle_params(params)
 
-            code = self._code(params)
-            code = _RE_EMPTY_LINES.sub("", code)  # PERF: was re.sub("\n\s*\n", ...)
-            code = code.strip()
+        code = self._code(params)
+        code = _RE_EMPTY_LINES.sub("", code)  # PERF: was re.sub("\n\s*\n", ...)
+        code = code.strip()
 
-            if self._valid_code(code):
-                self.cache_code = code
+        if not params and self._valid_code(code):
+            self.cache_code = code
 
-            return code
+        return code
             
         
     def _valid_code(self, code:str) -> bool:
