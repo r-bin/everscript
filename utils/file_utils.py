@@ -1,10 +1,10 @@
 from injector import Injector, inject
 _injector = Injector()
 
+from utils.string_utils import string_utils
 import re
 import os
 from os.path import exists
-from textwrap import wrap
 import binascii
 from pathlib import Path
 
@@ -38,7 +38,7 @@ class FileUtils():
         
     def clean(self, script):
         cleaned_script = re.sub("//.*", "", script)
-        cleaned_script = re.sub("[\s]+", " ", cleaned_script)
+        cleaned_script = re.sub(r"[\s]+", " ", cleaned_script)
         cleaned_script = cleaned_script.strip()
 
         return cleaned_script
@@ -68,7 +68,7 @@ class FileUtils():
                     case _ if len(e) == 2:
                         fout.write(binascii.unhexlify(e))
                     case _:
-                        [fout.write(binascii.unhexlify(b)) for b in wrap(e, 2)]
+                        [fout.write(binascii.unhexlify(b)) for b in string_utils.hex_pairs(e)]
 
     def tmp_file_name(self, file):
         file = Path(file)

@@ -3,9 +3,15 @@ from __future__ import annotations
 from rply.token import BaseBox
 from rply import Token
 import re
-from textwrap import wrap
 from enum import IntEnum
 from typing import Any
+from utils.string_utils import string_utils
+
+# PERF: pre-compiled patterns for hot paths in code() and _clean_code()
+_RE_EMPTY_LINES = re.compile(r"\n\s*\n")
+_RE_COMMENT     = re.compile(r"//.*")
+_RE_WHITESPACE  = re.compile(r"[\s]+")
+
 
 def TODO(message = ""):
     raise Exception(message)
@@ -229,8 +235,8 @@ class Enum_Call(BaseBox):
             if base:
                 raise Exception(f"invalid enum call: {identifier} + {base}")
             
-            self.base = re.sub("\..*", "",  identifier)
-            self.identifier = re.sub(".*\.", "",  identifier)
+            self.base = re.sub(r"\..*", "",  identifier)
+            self.identifier = re.sub(r".*\.", "",  identifier)
         else:
             self.base = base
             self.identifier = identifier
@@ -288,7 +294,7 @@ class Function_Base(BaseBox, Resolvable):
             #self.handle_params(params)
 
             code = self._code(params)
-            code = re.sub("\n\s*\n", "", code)
+            code = _RE_EMPTY_LINES.sub("", code)  # PERF: was re.sub("\n\s*\n", ...)
             code = code.strip()
 
             if self._valid_code(code):
@@ -306,8 +312,8 @@ class Function_Base(BaseBox, Resolvable):
         return True
     
     def _clean_code(self, code:str) -> str:
-        code = re.sub("//.*", "", code)
-        code = re.sub("[\s]+", " ", code)
+        code = _RE_COMMENT.sub("", code)     # PERF: was re.sub("//.*", ...)
+        code = _RE_WHITESPACE.sub(" ", code) # PERF: was re.sub("[\s]+", ...)
         code = code.strip()
 
         return code
@@ -402,7 +408,7 @@ class Word(Function_Base, Calculatable):
                 self.value = int(value.value, 16)
 
                 count = re.sub("[+-]{0,1}0x", "", value.value)
-                count = wrap(count, 2)
+                count = string_utils.hex_pairs(count)
                 count = len(count)
                 self._value_count = count
 
@@ -430,7 +436,7 @@ class Word(Function_Base, Calculatable):
             value = '{:06X}'.format(value, 'x')
 
         value = re.sub("[+-]{0,1}0x", "", value)
-        value = wrap(value, 2)
+        value = string_utils.hex_pairs(value)
 
         value = ' '.join(reversed(value))
         
@@ -545,13 +551,13 @@ class Memory(Function_Base, Calculatable, Memorable):
 
         if self.type == "char":
             address = '{:02X}'.format(address, 'x')
-            address = wrap(address, 2)
+            address = string_utils.hex_pairs(address)
             address = ' '.join(reversed(address))
 
             return address
         elif not flag:
             address = '{:04X}'.format(address, 'x')
-            address = wrap(address, 2)
+            address = string_utils.hex_pairs(address)
             address = ' '.join(reversed(address))
 
             return address
@@ -567,7 +573,7 @@ class Memory(Function_Base, Calculatable, Memorable):
 
             combined = address + flag
             combined = '{:04X}'.format(combined, 'x')
-            combined = wrap(combined, 2)
+            combined = string_utils.hex_pairs(combined)
             combined = ' '.join(reversed(combined))
 
             return combined
@@ -813,7 +819,7 @@ class BinaryOp(Operator):
             value = '{:06X}'.format(value, 'x')
 
         value = re.sub("[+-]{0,1}0x", "", value)
-        value = wrap(value, 2)
+        value = string_utils.hex_pairs(value)
         
         return ' '.join(reversed(value))
     

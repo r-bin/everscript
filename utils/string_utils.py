@@ -5,6 +5,11 @@ import re
 
 
 class StringUtils():
+    def hex_pairs(self, s: str) -> list[str]:
+        """Split a hex string into a list of 2-character byte strings: 'AABBCC' → ['AA', 'BB', 'CC'].
+        PERF: replaces textwrap.wrap(s, 2) which invoked the full paragraph-wrap machinery on every call."""
+        return [s[i:i+2] for i in range(0, len(s), 2)]
+
     def beautify_output(self, output):
         l = []
         m = 0

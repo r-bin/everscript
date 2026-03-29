@@ -4,7 +4,6 @@ from itertools import dropwhile
 import numpy as np
 import re
 import binascii
-from textwrap import wrap
 from enum import StrEnum
 from typing import Callable
 import warnings

@@ -32,7 +32,7 @@ def handle_parse(rom_file, patches_dir, code, profile):
     start = time.time()
     
     log(f"lexing code…")
-    out_utils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
+    out_utils.dump(re.sub(r"\),", r"\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
 
     lexed = lexer.lex(code)
     log(f"generating objects…")

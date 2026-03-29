@@ -5,11 +5,11 @@ _injector = Injector()
 
 from compiler.ast_core import *
 from utils.out_utils import *
+from utils.string_utils import string_utils
 
 from rply import LexerGenerator, Token
 from rply.token import BaseBox
 import re
-from textwrap import wrap
 import copy
 import random
 import uuid
@@ -487,7 +487,7 @@ class Address(Function_Base):
     def _code(self, params:list[Param]):
         address = self.eval()
         address = '{:06X}'.format(address, 'x')
-        address = wrap(address, 2)
+        address = string_utils.hex_pairs(address)
         
         return ' '.join(reversed(address))
 
@@ -585,40 +585,40 @@ class RawString(Function_Base):
         code = self.eval()
 
         lexer = LexerGenerator()
-        lexer.add('SLOW', '\[SLOW\]')
-        lexer.add('UNSLOW', '\[UNSLOW\]')
-        lexer.add('LF', '\[LF\]')
-        lexer.add('B', '\[B\]')
-        lexer.add('END', '\[END\]')
-        lexer.add('CHOICE', '\[CHOICE\]')
-        lexer.add('CHOICE_INLINE', '\[CHOICE_INLINE\]')
-        lexer.add('CHOICE_RIGHT', '\[CHOICE_RIGHT\]')
-        lexer.add('MEM1', '\[MEM1\]')
-        lexer.add('MEM2', '\[MEM2\]')
-        lexer.add('MEM3', '\[MEM3\]')
-        lexer.add('HEX', '\[0x[0-9a-f]{2}\]')
-        lexer.add('PAUSE', '\[PAUSE:[0-9a-f]{2}\]')
-        lexer.add('BOY', '\[BOY\]')
-        lexer.add('DOG', '\[DOG\]')
-        lexer.add('P3', '\[P3\]')
-        lexer.add('P4', '\[P4\]')
-        lexer.add('BOLD', '\[BOLD\]')
-        lexer.add('UNBOLD', '\[UNBOLD\]')
-        lexer.add('CENTER', '\[CENTER\]')
-        lexer.add('LEFT', '\[LEFT\]')
-        lexer.add('RIGHT', '\[RIGHT\]')
-        lexer.add('REPEAT', '\[REPEAT\]')
-        lexer.add('PAGE', '\[PAGE\]')
-        lexer.add('INVERTED', '\[INVERTED\]')
-        lexer.add('NOP', '\[NOP\]')
-        lexer.add('OK', '\[OK\]')
+        lexer.add('SLOW', r'\[SLOW\]')
+        lexer.add('UNSLOW', r'\[UNSLOW\]')
+        lexer.add('LF', r'\[LF\]')
+        lexer.add('B', r'\[B\]')
+        lexer.add('END', r'\[END\]')
+        lexer.add('CHOICE', r'\[CHOICE\]')
+        lexer.add('CHOICE_INLINE', r'\[CHOICE_INLINE\]')
+        lexer.add('CHOICE_RIGHT', r'\[CHOICE_RIGHT\]')
+        lexer.add('MEM1', r'\[MEM1\]')
+        lexer.add('MEM2', r'\[MEM2\]')
+        lexer.add('MEM3', r'\[MEM3\]')
+        lexer.add('HEX', r'\[0x[0-9a-f]{2}\]')
+        lexer.add('PAUSE', r'\[PAUSE:[0-9a-f]{2}\]')
+        lexer.add('BOY', r'\[BOY\]')
+        lexer.add('DOG', r'\[DOG\]')
+        lexer.add('P3', r'\[P3\]')
+        lexer.add('P4', r'\[P4\]')
+        lexer.add('BOLD', r'\[BOLD\]')
+        lexer.add('UNBOLD', r'\[UNBOLD\]')
+        lexer.add('CENTER', r'\[CENTER\]')
+        lexer.add('LEFT', r'\[LEFT\]')
+        lexer.add('RIGHT', r'\[RIGHT\]')
+        lexer.add('REPEAT', r'\[REPEAT\]')
+        lexer.add('PAGE', r'\[PAGE\]')
+        lexer.add('INVERTED', r'\[INVERTED\]')
+        lexer.add('NOP', r'\[NOP\]')
+        lexer.add('OK', r'\[OK\]')
 
-        lexer.add('…', '\…')
-        lexer.add('`', '\`')
-        lexer.add('´', '\´')
+        lexer.add('…', '…')
+        lexer.add('`', '`')
+        lexer.add('´', '´')
 
-        lexer.add('->', '\-\>')
-        lexer.add('<-', '\<\-')
+        lexer.add('->', r'\-\>')
+        lexer.add('<-', r'\<\-')
 
         # TODO: 85 (same as [B]?)
 
@@ -668,9 +668,9 @@ class RawString(Function_Base):
                 case _ if c.name == "MEM3":
                     return "a3"
                 case _ if c.name == "HEX":
-                    return re.sub("\[0x([0-9a-f]{2})\]", r"\1", c.value)
+                    return re.sub(r"\[0x([0-9a-f]{2})\]", r"\1", c.value)
                 case _ if c.name == "PAUSE":
-                    return "80 " + re.sub("\[PAUSE:([0-9a-f]{2})\]", r"\1", c.value) + " 80"
+                    return "80 " + re.sub(r"\[PAUSE:([0-9a-f]{2})\]", r"\1", c.value) + " 80"
                 case _ if c.name == "BOY":
                     return "81"
                 case _ if c.name == "DOG":
@@ -1334,7 +1334,7 @@ class Include(BaseBox):
         #print(f"{self.path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
         outUtils = _injector.get(OutUtils)
-        outUtils.dump(re.sub("\),", "\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
+        outUtils.dump(re.sub(r"\),", r"\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
         script = lexer.lex(script)
         print(" - generating objects...")
         script = parser.parse(script)
