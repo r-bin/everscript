@@ -49,10 +49,10 @@ incsrc "_helpers.asm"
 !WITH_INVERTED_MAGIC_DEFEND = 0 ; currently disabled, because calculating $40-x was too difficult
 !WITH_DEBUG_PALETTE = 0 ; enemy palette = !ENEMY_PALETTE
 ;
-!WITH_ARMOR_PENETRATION = 1 ; conditionally reduces defense (axe hit)
+!WITH_ARMOR_PENETRATION = 0 ; conditionally reduces defense (axe hit)
 ;
 !WITH_SPELL_NAME_DUMP = 0 ; dumps spell names into entity[!DAMAGE_SOURCE_DETAILS] while calculating the magic defense
-!WITH_ELEMENTAL_WEAKNESS = 1 ; conditionally reduces magic defense (e.g. fire alchemy)
+!WITH_ELEMENTAL_WEAKNESS = 0 ; conditionally reduces magic defense (e.g. fire alchemy)
 ;
 !WITH_DUMP_BOMB_SOURCE = 0 ; TODO
 !WITH_DUMP_ALCHEMY_SOURCE = 0 ; TODO
@@ -632,7 +632,7 @@ org !MEMORY_TABLE_HP
   %default_stats(3425) ; "Verminator" (79) = 3425
   dw #1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; "Rat" (80) = 20
   dw #1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; "Rat" (81) = 20
-  dw #100, #200, #300, #400, #500, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1, #$1 : dw #$1, #$1, #$1, #$1, #$1, #$1, #$1 ; ; "Vigor" (82) = 1050
+  %default_stats(1050) ; "Vigor" (82) = 1050
   %default_stats(1) ; "Rimsala" (83) = 1
   %default_stats(1200) ; "Rimsala" (84) = 1200
   %default_stats(3000) ; "Rimsala" (85) = 3000

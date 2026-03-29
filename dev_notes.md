@@ -3,6 +3,7 @@
 
 
 # important
+## smith negative response does not lock
 ## dog can interact with holes, but the boy is animated
 ## "helm 1-1"
 ## market: beads, random weapon orb
@@ -10,7 +11,7 @@
 ## move ARCHAEOLOGY_DIG.CODE_5
 ## pressure plate soft lock (top left)
 ## bombable: temple axe2 wall, graveyard
-## matroidvania
+## metroidvania
 ### defend = cat ring
 ### yump activates one time switches
 ### bomb destroys stones? and rubble doors? and the gomi not-trap-door?
