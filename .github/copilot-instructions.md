@@ -48,3 +48,22 @@ These rules apply to **all agents** in this project. Individual agent specs may 
 - Do **not** preemptively re-verify every enum value, function signature, or constant by re-reading source files.
 - Perform targeted lookups only for identifiers that are **not already resolved** in the current session.
 - Full cross-referencing is reserved for when the user explicitly flags something as wrong or missing.
+
+---
+
+## 9. Emoji Legend
+
+Use these emojis globally to categorize bit flags and persistent data:
+
+| Category | Emoji |
+|----------|-------|
+| Story flags | 📖 |
+| Ingredients | 🌿 |
+| Consumables | 🧪 |
+| Rare/key items | 💎 |
+| Weapons | ⚔️ |
+| Armor | 🛡️ |
+| Alchemy spells | ⚗️ |
+| Gourds | 🫙 |
+| Sniff spots | 👃 |
+| Engine/system | ⚙️ |
