@@ -38,6 +38,19 @@ For each address in the **Known** bucket:
 3. Update only what changed — Name or Notes; do not overwrite correct existing content
 4. Skip rows where the incoming data adds nothing new
 
+### Step 2b — Audit Existing Entries for Correctness
+
+While reviewing known addresses, also check:
+- **Wrong name:** Does the existing name contradict `core.evs`? Look it up and correct if so.
+- **Wrong type:** Is the type (Word/Byte/SRAM/SESSION) inconsistent with the dump context? Correct it.
+- **Stale notes:** Do existing notes conflict with the incoming room data (e.g., flag attributed to wrong room)? Update the note.
+- **Redundant gap rows:** A gap row whose entire range is now covered by individual entries — remove the gap row.
+- **Invalid entries:** An address that is known to be wrong or misidentified — flag with `// TODO: MISMATCH:` and propose removal.
+
+Report all corrections at the end: `Fixed N, Removed N, Flagged N mismatches.`
+
+---
+
 ### Step 3 — Add New Addresses
 
 For each address in the **New** bucket:
@@ -72,8 +85,11 @@ For each address in the **New** bucket:
 
 ## Hard Rules
 
-- **Never invent names.** Use raw hex if `core.evs` has no match.
+
+- **Never invent names.** Use raw hex if `core.evs` has no match. If unresolved, call it out and propose a TODO or doc update.
 - **Skip `[CUSTOM]` entries in `core.evs`** — these are custom additions and must not be used as vanilla names or vanilla research evidence.
-- **Never edit files without explicit user instruction.**
-- **Flag inconsistencies** with a `// TODO: MISMATCH:` inline note rather than silently resolving them.
+- **Only edit `.github/memory-map.md`.** Never modify other project files.
+- **Review existing entries, not just new ones.** Fix wrong data, update stale notes, and remove invalid rows when evidence is clear.
+- **Flag inconsistencies** with a `// TODO: MISMATCH:` inline note rather than silently resolving them. Always report these in the summary.
+- **Never claim completion unless all steps are verified and any unresolved issues are clearly listed.**
 

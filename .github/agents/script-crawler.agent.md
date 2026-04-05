@@ -15,9 +15,7 @@ For each room in `script_all`: read the raw script, extract every memory address
 
 ## Operational Details
 
-- **`script_all` path:** `/Users/v/Documents/GitHub/SoETilesViewer/SoEScriptDumper/script_all`
-- **ANSI stripping:** `sed 's/\x1b\[[0-9;]*m//g'`
-- **Read a room:** `sed -n 'START,ENDp' <path> | sed 's/\x1b\[[0-9;]*m//g'`
+- **`script_all` path, ANSI stripping, and read commands:** see `copilot-instructions.md` Section 11.
 - **Name lookup (optional):** `grep -n '0xADDR\|ADDR' /Users/v/Documents/GitHub/everscript/in/core.evs`
 
 ## Per-Room Workflow
