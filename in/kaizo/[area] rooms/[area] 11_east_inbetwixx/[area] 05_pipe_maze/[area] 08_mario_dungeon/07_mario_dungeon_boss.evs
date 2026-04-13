@@ -1,0 +1,207 @@
+map mario_dungeon_boss(MAGMAR) {
+    enum entrance {
+        south = entrance(0x18, 0x47, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(PIPE_MAZE.MUSIC_MAZE, 0xff)
+    }
+
+    enum BOSS {
+        DEBUG = False,
+        PROGRESS = memory(FLAG, TEMP),
+
+        ID = memory(WORD, TEMP),
+
+        PHASE = memory(WORD, TEMP),
+        RNG = memory(WORD, TEMP),
+        ENEMY_COUNT = memory(WORD, TEMP),
+
+        HIT_COUNTER = memory(WORD, TEMP), // TODO: byte
+        HIT_COUNTER_KOOPA_THRESHOLD = 0d3,
+
+        SHELL_COLLISION = 0d15,
+        SHELL_DAMAGE = 0d99,
+
+        HP = 0d900,
+        P0_HP_THRESHOLD = 0d600,
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_BOWSER, NORTH);
+
+            map_transition(pipe_entrance_left, gate, SOUTH);
+        }
+    }
+
+    group boss_ai() {
+        @install()
+        @async()
+        fun clean_room() {
+            find_all(LIZARD, {
+                destroy(current_id);
+            });
+
+            find_all(FLOWER_ORANGE, {
+                destroy(current_id);
+            });
+        }
+        fun boss_defeated() {
+            clean_room();
+            
+            souls_boss_defeated_helper(BOWSER);
+
+            unset(BOSS.PROGRESS);
+        }
+
+        fun check_phase() {
+            if(dead(BOSS.ID)) {
+                BOSS.PHASE = 0d10;
+            } else if(BOSS.PHASE == 0d0) {
+                if(BOSS.DEBUG) {
+                    debug_memory(BOSS.ID[HP], BOSS.P0_HP_THRESHOLD);
+                }
+
+                if(BOSS.ID[HP] < BOSS.P0_HP_THRESHOLD) {
+                    BOSS.PHASE = 0d1;
+                }
+            }
+        }
+
+        @install()
+        fun boss_hit() {
+            // subtext("bang");
+            damage(BOSS.ID, BOSS.SHELL_DAMAGE, True);
+            check_phase();
+        }
+        @install()
+        @async()
+        fun koopa_collision_scanner(entity_1, entity_2) {
+            range_checker(entity_1, entity_2, BOSS.SHELL_COLLISION, BOSS.SHELL_COLLISION, {
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d2) {
+                    if(False) {
+                        subtext("POW");
+                    }
+
+                    BOSS.ENEMY_COUNT--;
+                    destroy(<SCRIPT_OWNER>);
+                    boss_hit();
+                }
+            });
+        }
+        fun spawn_koopa() {
+            if(BOSS.ENEMY_COUNT <= 0d0) {
+                BOSS.ENEMY_COUNT++;
+
+                add_mario_koopa(0d24, 0d46, True);
+                koopa_collision_scanner(<LAST_ENTITY>, BOSS.ID);
+            }
+        }
+
+        fun boss_cast() {
+            animate(BOSS.ID, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+            face(BOSS.ID, SOUTH);
+        }
+        @install()
+        @async()
+        fun boss_ai() {
+            if(BOSS.DEBUG) {
+                subtext("phase 0");
+            }
+            
+            while(BOSS.PHASE <= 0d0) {
+                BOSS.RNG = randrange(0d4);
+                if(False && BOSS.DEBUG) {
+                    subtext("rng");
+                }
+                
+                if(BOSS.RNG == 0d0) {
+                    spawn_koopa();
+                } else if(BOSS.RNG == 0d1) {
+                    boss_cast();
+                    
+                    ai_move_projectile_toss(BOSS.ID, SPEAR, <BOY>, 0d1);
+                } else if(BOSS.RNG == 0d2) {
+                    boss_cast();
+
+                    shoot_entity_entity(BOSS.ID, ONION, BOY, 0x10, 0xff);
+                } else if(BOSS.RNG == 0d3) {
+                    nop();
+                }
+
+                sleep(0d180); // TODO
+            }
+
+            if(BOSS.DEBUG) {
+                subtext("phase 1");
+            }
+
+            add_mario_fireflower(0d8, 0d31);
+            add_mario_fireflower(0d38, 0d31);
+            
+            while(BOSS.PHASE <= 0d1) {
+                BOSS.RNG = randrange(0d3);
+                if(False && BOSS.DEBUG) {
+                    subtext("rng");
+                }
+                
+                if(BOSS.RNG == 0d0) {
+                    boss_cast();
+                    
+                    ai_move_projectile_toss(BOSS.ID, SPEAR, <BOY>, 0d3 + randrange(0d3));
+                } else if(BOSS.RNG == 0d1) {
+                    boss_cast();
+
+                    shoot_entity_entity(BOSS.ID, ONION, BOY, 0d20, 0xff);
+                    sleep(0d10);
+                    shoot_entity_entity(BOSS.ID, ONION, BOY, 0d10, 0xff);
+                } else if(BOSS.RNG == 0d2) {
+                    nop();
+                }
+
+                sleep(0d180); // TODO
+            }
+
+            if(BOSS.DEBUG) {
+                subtext("yatta");
+            }
+
+            boss_defeated();
+        }
+
+        @install()
+        fun boss_damage() {
+            check_phase();
+
+            BOSS.HIT_COUNTER++;
+            if(BOSS.DEBUG) {
+                debug_memory(BOSS.HIT_COUNTER, BOSS.HIT_COUNTER_KOOPA_THRESHOLD);
+            }
+            if(BOSS.HIT_COUNTER >= BOSS.HIT_COUNTER_KOOPA_THRESHOLD) {
+                BOSS.HIT_COUNTER = 0d0;
+                
+                spawn_koopa();
+            }
+        }
+        
+        fun add_mario_enemy_bowser(x, y) {
+            add_enemy(LIZARD_BLACK, x, y);
+            BOSS.ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+
+            boss_ai();
+        }
+    };
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_BOWSER) {
+            add_mario_enemy_bowser(0x18, 0x23);
+            push_music(BOSS);
+            set(BOSS.PROGRESS);
+        }
+
+        mario_init(False, False);
+    }
+};

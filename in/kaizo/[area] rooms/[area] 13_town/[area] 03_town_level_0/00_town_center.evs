@@ -1,0 +1,150 @@
+map town_center(NOBILIA_SQUARE) {
+    enum entrance {
+        north = entrance(0x2c, 0x03, SOUTH),
+        east = entrance(0x5b, 0x37, WEST),
+        west_1 = entrance(0x01, 0x40, EAST),
+        west_2 = entrance(0x01, 0x14, EAST),
+
+        door = entrance(0x08, 0x5d, SOUTH, { generic_door(True, False); }),
+
+        crash = entrance(0x2c, 0x39, NONE, { crash_both(); }),
+        bonfire = entrance(0d44, 0d58, NONE, { bonfire_wakeup(0d0, 0d8, 0d0, -0d8); }),
+
+        center_north = entrance(0d43, 0d50, NONE),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            map_transition(town_market, west, EAST);
+        },
+        exit_door = @install() {
+            control(NONE);
+            face(ACTIVE, NORTH);
+
+            generic_door(False, False);
+            map_transition(town_room, south, NORTH);
+        },
+        exit_north = @install() {
+            map_transition(town_level_1, south, NORTH);
+        },
+        exit_west_1 = @install() {
+            map_transition(town_bridge, east, WEST);
+        },
+        exit_west_2 = @install() {
+            map_transition(town_market_alley, east, WEST);
+        },
+    }
+
+    enum b_trigger {
+        guard_south = guard_triggered(),
+        guard_center_1 = @install() {
+            debug_subtext("B=1");
+        },
+        guard_center_2 = @install() {
+            debug_subtext("B=2");
+        },
+        guard_north = guard_triggered(),
+        b_trigger_4 = @install() {
+            debug_subtext("B=4");
+        },
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        STATUE_LEFT_EYE = memory(FLAG, SRAM),
+        STATUE_RIGHT_EYE = memory(FLAG, SRAM),
+    }
+
+    fun trigger_enter() {
+        generic_door(True, False);
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // north
+            add_basic_souls_enemy(PIRATE_ANCHOR, 0d16, 0d20);
+
+            // east
+            add_basic_souls_enemy(RAT, 0d83, 0d42);
+
+            // west
+            add_basic_souls_enemy(SLIME, 0d7, 0d59);
+        }
+
+        if(False) {
+            add_souls_npc_smith_key(0d79, 0d95);
+            face(LAST_ENTITY, WEST);
+        }
+
+        if(ROOM.DEBUG) {
+            AREA_TOWN_TEMPLE.DONATED_INGREDIENTS = AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX;
+
+            STATUE_RIDDLE.PROGRESS = STATUE_RIDDLE_STATUES.AEGIS;
+            FLAG.DIAMOND_EYES = True;
+        }
+        
+        // object[0x0e] = 0x01;
+
+        // object[0x00] = 0x01; // show crowd_1_1
+        // object[0x01] = 0x01; // show crowd_1_2
+        // object[0x02] = 0x01; // show crowd_1_3
+        // object[0x03] = 0x01; // show crowd_1_4
+        // object[0x04] = 0x01; // show crowd_1_5
+        // object[0x05] = 0x01; // show crowd_2_1
+        // object[0x06] = 0x01; // show crowd_2_2
+        // object[0x07] = 0x01; // show crowd_2_3
+        // object[0x08] = 0x01; // show crowd_2_4
+        // object[0x09] = 0x01; // show crowd_2_5
+        // object[0x0a] = ???
+        // object[0x0b] = same as crowd_2_2 ???
+        // object[0x0c] = same as crowd_1_3 ???
+        if(SOULS_MEMORY.DEAD_DOG_STATUE) {
+            object[0x0d] = 0x02; // show statue, crater, statue_reparing
+        } else if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_MAX) {
+            object[0x0d] = 0x00; // show statue, crater, statue_reparing
+            object[0x0e] = 0x01; // show guard_statue
+
+            add_enemy(PLACEHOLDER, 0d43, 0d39);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                if((!ROOM.STATUE_LEFT_EYE) && STATUE_RIDDLE.CARRY_LEFT_EYE) {
+                    ROOM.STATUE_LEFT_EYE = True;
+
+                    _add_placeholder(DIAMOND_EYE_1, 0d346, 0d274);
+                } else if((!ROOM.STATUE_RIGHT_EYE) && STATUE_RIDDLE.CARRY_RIGHT_EYE) {
+                    ROOM.STATUE_RIGHT_EYE = True;
+
+                    _add_placeholder(DIAMOND_EYE_2, 0d346 + 0d12, 0d274);
+                } else if(ROOM.STATUE_LEFT_EYE && ROOM.STATUE_RIGHT_EYE) {
+                    if!((FLAG.ORACLE_BONE) || (STATUE_RIDDLE.PROGRESS >= STATUE_RIDDLE_STATUES.AEGIS)) {
+                        subtext("…");
+                    } else {
+                        question("[SLOW]Touch the statue[CHOICE]touch…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) {
+                            map_transition(town_center_secret_dog_statue_boss, center_north, NONE);
+                        }
+                    }
+                }
+            }));
+
+            if(ROOM.DEBUG || ROOM.STATUE_LEFT_EYE) {
+                _add_placeholder(DIAMOND_EYE_1, 0d346, 0d274);
+            }
+            if(ROOM.DEBUG || ROOM.STATUE_RIGHT_EYE) {
+                _add_placeholder(DIAMOND_EYE_2, 0d346 + 0d12, 0d274);
+            }
+        } else if(AREA_TOWN_TEMPLE.DONATED_INGREDIENTS >= AREA_TOWN_TEMPLE.DONATED_INGREDIENTS_PARTIAL) {
+            object[0x0d] = 0x02; // show statue, crater, statue_reparing
+            object[0x0e] = 0x01; // show guard_statue
+        } else {
+            object[0x0d] = 0x01; // show statue, crater, statue_reparing
+        }
+
+        bonfire(0d44, 0d58, SOULS_MEMORY.BONFIRE_TOWN_CENTER);
+
+        default_init_room(False, False);
+    }
+};

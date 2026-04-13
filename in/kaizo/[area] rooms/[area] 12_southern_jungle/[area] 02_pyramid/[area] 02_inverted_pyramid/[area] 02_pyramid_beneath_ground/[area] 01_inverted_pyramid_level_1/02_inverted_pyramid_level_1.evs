@@ -1,0 +1,444 @@
+map inverted_pyramid_level_1(TINY) {
+    enum ROOM {
+        DEBUG = False,
+
+        WALL = retained_object(0x0e),
+
+        SWITCH_1_ACTIVE = memory(FLAG, TEMP),
+        SWITCH_2_ACTIVE = memory(FLAG, TEMP),
+        SWITCH_3_ACTIVE = memory(FLAG, TEMP),
+        SWITCH_COMBINED_ACTIVE = memory(FLAG, TEMP),
+
+        STONE_LEFT_ID = memory(WORD, TEMP),
+        STONE_LEFT_X = memory(WORD, RAM),
+        STONE_LEFT_Y = memory(WORD, RAM),
+        STONE_RIGHT_ID = memory(WORD, TEMP),
+        STONE_RIGHT_X = memory(WORD, RAM),
+        STONE_RIGHT_Y = memory(WORD, RAM),
+    }
+
+    @async()
+    @install()
+    fun falling_rock_cutscene(x, y, right_stone) {
+        yield(); // wait for stones to be initialized
+
+        if(right_stone) {
+            ROOM.STONE_RIGHT_ID[Z] = 0d2000;
+        } else {
+            ROOM.STONE_LEFT_ID[Z] = 0d2000;
+        }
+
+        sleep(0d60);
+        
+        sound(MECHANICAL_MOVEMENT);
+
+        sleep(0d80);
+
+        if(right_stone) {
+            map_transition(pyramid_level_1, from_cutscene, NONE);
+        } else {
+            map_transition(inverted_pyramid_level_0, from_cutscene, NONE);
+        }
+    }
+
+    enum entrance {
+        teleporter = entrance(0d129, 0d93, NONE, { teleporter_in(SOUTH); }),
+
+        teleporter_side = entrance(0d31, 0d36, NONE, { teleporter_in(SOUTH); }),
+        teleporter_barrier = entrance(0d201, 0d14, NONE, { teleporter_in(SOUTH); }),
+
+        teleporter_room_east = entrance(0d181, 0d63, NONE, { teleporter_in(EAST); }),
+        teleporter_room_west = entrance(0d55, 0d72, NONE, { teleporter_in(EAST); }),
+        teleporter_room_north_west = entrance(0d67, 0d24, NONE, { teleporter_in(EAST); }),
+        
+        cutscene_stone_left = entrance(0d90, 0d69, NONE, {
+            CUSTOM_FLAG.CUTSCENE = True;
+            falling_rock_cutscene(0d78, 0d81, False);
+        }),
+        cutscene_stone_right = entrance(0d201, 0d23, NONE, {
+            CUSTOM_FLAG.CUTSCENE = True;
+            falling_rock_cutscene(0d78, 0d81, True);
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_INVERTED_PYRAMID.MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        teleporter_south = @install() {
+            debug_subtext("S=0");
+
+            teleporter_out(0d129, 0d93);
+            map_transition(inverted_pyramid_level_1_side_entrance, teleporter, NONE);
+        },
+        stepon_1 = @install() {
+            debug_subtext("S=1");
+        },
+        teleporter_north_1_1 = @install() {
+            debug_subtext("S=2");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d103, 0d37);
+            generic_tunnel(DEFAULT, 0d103, 0d14);
+            generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+        },
+        teleporter_north_2_1 = @install() {
+            debug_subtext("S=3");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d103, 0d14);
+            generic_tunnel(DEFAULT, 0d103, 0d37);
+            generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+        },
+        teleporter_north_2_2 = @install() {
+            debug_subtext("S=4");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d125, 0d16);
+            generic_tunnel(DEFAULT, 0d139, 0d16);
+            generic_tunnel_exit(TELEPORT_OUT, NORTH);
+        },
+        teleporter_north_3_1 = @install() {
+            debug_subtext("S=5");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d139, 0d16);
+            generic_tunnel(DEFAULT, 0d125, 0d16);
+            generic_tunnel_exit(TELEPORT_OUT, NORTH);
+        },
+        teleporter_north_center = @install() {
+            debug_subtext("S=6");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d133, 0d22);
+            generic_tunnel(DEFAULT, 0d129, 0d93);
+            generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+        },
+        teleporter_north_3_2 = @install() {
+            debug_subtext("S=7");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d153, 0d24);
+            generic_tunnel(DEFAULT, 0d153, 0d36);
+            generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+        },
+        teleporter_north_4_1 = @install() {
+            debug_subtext("S=8");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d153, 0d36);
+            generic_tunnel(DEFAULT, 0d153, 0d24);
+            generic_tunnel_exit(TELEPORT_OUT, NORTH);
+        },
+        teleporter_north_4_2 = @install() {
+            debug_subtext("S=9");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d143, 0d50);
+            generic_tunnel(DEFAULT, 0d133, 0d22);
+            generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+        },
+
+        teleporter_north_east_2 = @install() {
+            debug_subtext("S=10");
+
+            generic_tunnel_enter(TELEPORT_IN, 0d201, 0d14);
+            generic_tunnel(DEFAULT, 0d31, 0d36);
+            generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+        },
+        teleporter_north_east_1 = @install() {
+            debug_subtext("S=11");
+
+            teleporter_out(0d167, 0d14);
+            map_transition(inverted_pyramid_level_1_secret_side_entrance_west, teleporter, NONE);
+        },
+        teleporter_east = @install() {
+            debug_subtext("S=12");
+
+            teleporter_out(0d181, 0d63);
+            map_transition(inverted_pyramid_level_1_secret_entrance_room_east, teleporter, NONE);
+        },
+        teleporter_west = @install() {
+            debug_subtext("S=13");
+
+            teleporter_out(0d55, 0d72);
+            map_transition(inverted_pyramid_level_1_secret_entrance_room_west, teleporter, NONE);
+        },
+        teleporter_north_west = @install() {
+            debug_subtext("S=14");
+
+            teleporter_out(0d67, 0d24);
+            map_transition(inverted_pyramid_level_1_secret_entrance_room_north_west, teleporter, NONE);
+        },
+        teleporter_side = @install() {
+            debug_subtext("S=15");
+
+            if(True) {
+                teleporter_out(0d31, 0d36);
+                map_transition(inverted_pyramid_level_1_secret_side_entrance_east, teleporter, NONE);
+            } else {
+                generic_tunnel_enter(TELEPORT_IN, 0d31, 0d36);
+                generic_tunnel(DEFAULT, 0d129, 0d93);
+                generic_tunnel_exit(TELEPORT_OUT, SOUTH);
+            }
+        },
+        switch_left = @install() {
+            debug_subtext("S=16");
+        },
+        switch_center = @install() {
+            debug_subtext("S=17");
+        },
+        switch_right = @install() {
+            debug_subtext("S=18");
+        },
+        tiny = @install() {
+            debug_subtext("S=19");
+        },
+
+        stepon_20 = @install() {
+            debug_subtext("S=20");
+        },
+    }
+
+    enum b_trigger {
+        axe3_barrier = @install() fun trigger_wall() {
+            debug_subtext("B=0");
+
+            bombable_object(WALL_AXE3, True, ROOM.WALL, 0x0e, 0x01);
+        },
+        gourd_x__1_biscuit = @install() {
+            debug_subtext("B=1");
+            _loot_chest(0x0d, BISCUIT, 0d01);
+        },
+        gourd_x__1_call_beads = @install() {
+            debug_subtext("B=2");
+            // _loot_chest(0x0c, CALL_BEADS, 0d01);
+
+            _loot_chest(0x0c, LIMESTONE_TABLET, 0d01);
+        },
+        gourd_x__1_wings = @install() {
+            debug_subtext("B=3");
+            _loot_chest(0x0b, WINGS, 0d01);
+        },
+        gourd_x__3_ethanol = @install() {
+            debug_subtext("B=4");
+            _loot_chest(0x0a, ETHANOL, 0d03);
+        },
+        gourd_x__1_pixie_dust = @install() {
+            debug_subtext("B=5");
+            _loot_chest(0x09, PIXIE_DUST, 0d01);
+        },
+        gourd_x__1_HERBAL_ESSENCE = @install() {
+            debug_subtext("B=6");
+            _loot_chest(0x08, HERBAL_ESSENCE, 0d01);
+        },
+        gourd_x__1_honey = @install() {
+            debug_subtext("B=7");
+            _loot_chest(0x07, HONEY, 0d01);
+        },
+        axe2_door_west = @install() {
+            debug_subtext("B=8");
+
+            act2_axe2_wall(0x04);
+        },
+        axe2_door_south_east = @install() {
+            debug_subtext("B=9");
+
+            act2_axe2_wall(0x05);
+        },
+
+        axe2_door_north_east = @install() {
+            debug_subtext("B=10");
+
+            act2_axe2_wall(0x06);
+        },
+    }
+
+    @install()
+    fun update_inner_gate() {
+        arg[0x10] = ROOM.SWITCH_1_ACTIVE && ROOM.SWITCH_2_ACTIVE && ROOM.SWITCH_3_ACTIVE;
+
+        if((!ROOM.SWITCH_COMBINED_ACTIVE) && arg[0x10]) {
+            sound(ELEVATOR_DOOR);
+            object[0x00] = 0x03; // open gate_entry
+            ROOM.SWITCH_COMBINED_ACTIVE = True;
+        } else if(ROOM.SWITCH_COMBINED_ACTIVE && (!arg[0x10])) {
+            sound(ELEVATOR_DOOR);
+            object[0x00] = 0x00; // open gate_entry
+            ROOM.SWITCH_COMBINED_ACTIVE = False;
+        }
+    }
+
+    @install()
+    @async()
+    fun switch_1_handler() {
+        souls_toggle_switch_trigger(False, 0d108, 0d80, {
+            if(ROOM.DEBUG) {
+                subtext("1");
+            }
+
+            sound(ELEVATOR_DOOR);
+            object[0x01] = 0x03; // open gate_entry
+            ROOM.SWITCH_1_ACTIVE = True;
+            
+            update_inner_gate();
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!1");
+            }
+
+            sound(ELEVATOR_DOOR);
+            object[0x01] = 0x00; // open gate_entry
+            ROOM.SWITCH_1_ACTIVE = False;
+
+            update_inner_gate();
+        });
+    }
+    @install()
+    @async()
+    fun switch_2_handler() {
+        souls_toggle_switch_trigger(False, 0d130, 0d80, {
+            if(ROOM.DEBUG) {
+                subtext("2");
+            }
+
+            sound(ELEVATOR_DOOR);
+            object[0x02] = 0x03; // open gate_boss
+            ROOM.SWITCH_2_ACTIVE = True;
+
+            update_inner_gate();
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!2");
+            }
+
+            sound(ELEVATOR_DOOR);
+            object[0x02] = 0x00; // open gate_boss
+            ROOM.SWITCH_2_ACTIVE = False;
+
+            update_inner_gate();
+        });
+    }
+    @install()
+    @async()
+    fun switch_3_handler() {
+        souls_toggle_switch_trigger(False, 0d150, 0d80, {
+            if(ROOM.DEBUG) {
+                subtext("3");
+            }
+
+            sound(ELEVATOR_DOOR);
+            object[0x03] = 0x03; // open gate_horace
+            ROOM.SWITCH_3_ACTIVE = True;
+
+            update_inner_gate();
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!3");
+            }
+
+            sound(ELEVATOR_DOOR);
+            object[0x03] = 0x00; // open gate_horace
+            ROOM.SWITCH_3_ACTIVE = False;
+
+            update_inner_gate();
+        });
+    }
+
+    @install()
+    @async()
+    fun remember_stone_handler(stone_left, stone_right) {
+        if((!stone_left) && (!stone_right)) {
+            end();
+        }
+
+        if(ROOM.STONE_LEFT_X && ROOM.STONE_LEFT_Y) {
+            _teleport(stone_left, ROOM.STONE_LEFT_X, ROOM.STONE_LEFT_Y);
+        }
+        if(ROOM.STONE_RIGHT_X && ROOM.STONE_RIGHT_Y) {
+            _teleport(stone_right, ROOM.STONE_RIGHT_X, ROOM.STONE_RIGHT_Y);
+        }
+
+        while(True) {
+            if(stone_left) {
+                sleep(0d3, S);
+
+                ROOM.STONE_LEFT_X = stone_left[X];
+                ROOM.STONE_LEFT_Y = stone_left[Y];
+            }
+
+            if(stone_right) {
+                sleep(0d3, S);
+
+                ROOM.STONE_RIGHT_X = stone_right[X];
+                ROOM.STONE_RIGHT_Y = stone_right[Y];
+            }
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x03; // open gate_center_2
+        // object[0x01] = 0x03; // open gate_left
+        // object[0x02] = 0x03; // open gate_center_1
+        // object[0x03] = 0x03; // open gate_right
+        // object[0x04] = 0x03; // open axe2_door_west
+        // object[0x05] = 0x03; // open axe2_door_south_east
+        // object[0x06] = 0x03; // open axe2_door_north_east
+        // object[0x07] = 0x01; // open gourd_side_1
+        // object[0x08] = 0x01; // open gourd_side_2
+        // object[0x09] = 0x01; // open gourd_north_west
+        // object[0x0a] = 0x01; // open gourd_west_1
+        // object[0x0b] = 0x01; // open gourd_west_2
+        // object[0x0c] = 0x01; // open gourd_south_west
+        // object[0x0d] = 0x01; // open gourd_east
+        // object[0x0e] = 0x01; // open axe3_barrier
+
+        add_souls_npc_alchemist_crush(0d133, 0d40);
+
+        add_bombable(0d201, 0d36, ROOM.WALL, reference(trigger_wall));
+        add_bombable(0d201, 0d25, ROOM.WALL, reference(trigger_wall));
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) { // TODO: add_basic_souls_enemy
+            // center
+            add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d129, 0d64);
+
+            add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d107, 0d42);
+
+            add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d112, 0d22);
+
+            add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d153, 0d14);
+
+            add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d142, 0d44);
+
+            // right
+            add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d167, 0d101);
+
+            add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d176, 0d48);
+
+            // east
+            add_enemy_spawner(PYRAMID_GUARDIAN_2, 0d90, 0d63);
+
+            add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d66, 0d103);
+
+            // north east room
+            add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d78, 0d26);
+
+            // south east room
+            add_enemy_spawner(PYRAMID_GUARDIAN_1, 0d72, 0d70);
+        }
+
+        switch_1_handler();
+        switch_2_handler();
+        switch_3_handler();
+
+        if(AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED) {
+            add_levitate_stone(0d90, 0d69, reference(@install() {
+                guard_levitate_stone(0d1);
+            }));
+            ROOM.STONE_LEFT_ID = <LAST_ENTITY>;
+        }
+        if(AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_RIGHT_DROPPED) {
+            add_levitate_stone(0d201, 0d23, reference(@install() {
+                guard_levitate_stone(0d1);
+            }));
+            ROOM.STONE_RIGHT_ID = <LAST_ENTITY>;
+        }
+
+        default_init_room(False, False);
+        
+        remember_stone_handler(ROOM.STONE_LEFT_ID, ROOM.STONE_RIGHT_ID);
+    }
+};

@@ -1,0 +1,764 @@
+map spaceship_desert(DESERT) {
+    enum entrance {
+        test = entrance(0d60, 0d146, NONE, { desert_screen(0d4, 0d0); }),
+
+        north = entrance(0x3b, 0x19, WEST, { desert_screen(0d4, 0d17); }),
+        south = entrance(0x33, 0x9e, NONE, { desert_screen(0d4, 0d0); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    fun update_camera() {
+        if(False) {
+            if(<BOY>[Y] <= (MEMORY.CAMERA_BOUNDRY_Y_END - 0d40)) {
+                MEMORY.CAMERA_BOUNDRY_Y_END -= 0d2;
+            } else {
+                MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
+            }
+        } else {
+            MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
+        }
+    }
+
+    enum ROOM {
+        DEBUG = False,
+        WITH_WRAP = True,
+        
+        X_MAX = 0d7,
+        Y_MAX = 0d100,
+
+        DAMAGE_TIME = 0d60, // 0d720,
+        DAMAGE_TICK = 0d5,
+
+        ID_SHIP_SOUTH = memory(WORD, TEMP),
+        ID_SHIP_NORTH = memory(WORD, TEMP),
+        ID_ALCHEMIST = memory(WORD, TEMP),
+
+        HAS_OASIS = memory(FLAG, TEMP),
+        HAS_SHIP_NORTH = memory(FLAG, TEMP),
+        HAS_SHIP_SOUTH = memory(FLAG, TEMP),
+        HAS_ALCHEMIST = memory(FLAG, TEMP),
+
+        SHIP_ID = memory(WORD, TEMP),
+        SHIP_FIRE_ID = memory(WORD, TEMP),
+        SHIP_PALETTE_ID = memory(WORD, TEMP),
+        
+        PAUSE = memory(WORD, TEMP),
+        JUMPING = memory(FLAG, TEMP),
+    }
+
+    fun show_oasis(show) {
+        if(show) {
+            object[0x00] = 0x01; // show oasis
+        } else {
+            object[0x00] = 0x00; // show oasis
+        }
+    }
+
+    fun add_skeleton_ship(id, object_id, x, y) {
+        if(False) {
+            add_placeholder(SKELETON_SHIP_2, x, y, ONCE_FREEZE);
+            id = <LAST_ENTITY>;
+            animate(LAST_ENTITY, FREEZE, ANIMATION_PLACEHOLDER.SKELETON_SHIP_2);
+
+            if(object_id == 0d1) {
+                object[0x01] = 0x01; // add ship_south_hitbox
+            } else if(object_id == 0d2) {
+                object[0x02] = 0x00; // remove ship_north_hitbox
+            }
+        }
+    }
+    fun remove_skeleton_ship(id, object_id) {
+        destroy(id);
+
+        if(object_id == 0d1) {
+            object[0x01] = 0x00; // add ship_south_hitbox
+        } else if(object_id == 0d2) {
+            object[0x02] = 0x01; // remove ship_north_hitbox
+        }
+    }
+
+    fun add_alchemist(x, y) {
+        add_enemy(VILLAGER_2_8, x, y, INACTIVE);
+        ROOM.ID_ALCHEMIST = <LAST_ENTITY>;
+        face(LAST_ENTITY, SOUTH);
+    }
+    fun remove_alchemist(id) {
+        destroy(id);
+    }
+
+    @install()
+    fun update_desert() {
+        arg[0x00] = MEMORY.DESERT_X;
+        arg[0x02] = MEMORY.DESERT_Y;
+
+        if(ROOM.DEBUG) {
+            debug_memory(arg[0x00], arg[0x02]);
+        }
+
+        ROOM.HAS_OASIS = False;
+        ROOM.HAS_SHIP_NORTH = False;
+        ROOM.HAS_SHIP_SOUTH = False;
+        ROOM.HAS_ALCHEMIST = False;
+
+        if(arg[0x02] == 0d0) {
+            if(arg[0x00] == 0d4) {
+                ROOM.HAS_OASIS = True;
+                ROOM.HAS_SHIP_SOUTH = True;
+            } else if(arg[0x00] == 0d7) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d1) {
+            if(arg[0x00] == 0d2) {
+                ROOM.HAS_OASIS = True;
+            } else if(arg[0x00] == 0d5) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d2) {
+            if(arg[0x00] == 0d4) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d3) {
+            if(arg[0x00] == 0d3) {
+                ROOM.HAS_OASIS = True;
+            } else if(arg[0x00] == 0d6) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d4) {
+            if(arg[0x00] == 0d5) {
+                ROOM.HAS_OASIS = True;
+                ROOM.HAS_ALCHEMIST = True;
+            }
+        } else if(arg[0x02] == 0d5) {
+            if(arg[0x00] == 0d3) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d6) {
+            if(arg[0x00] == 0d4) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d7) {
+            if(arg[0x00] == 0d1) {
+                ROOM.HAS_OASIS = True;
+
+            } else if(arg[0x00] == 0d6) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d8) {
+            nop();
+        } else if(arg[0x02] == 0d9) {
+            if(arg[0x00] == 0d2) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d10) {
+            if(arg[0x00] == 0d4) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d11) {
+            if(arg[0x00] == 0d6) {
+                ROOM.HAS_OASIS = True;
+                ROOM.HAS_ALCHEMIST = True;
+            }
+        } else if(arg[0x02] == 0d12) {
+            if(arg[0x00] == 0d3) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d13) {
+            nop();
+        } else if(arg[0x02] == 0d14) {
+            if(arg[0x00] == 0d2) {
+                ROOM.HAS_OASIS = True;
+            } else if(arg[0x00] == 0d5) {
+                ROOM.HAS_OASIS = True;
+            }
+        } else if(arg[0x02] == 0d15) {
+            nop();
+        } else if(arg[0x02] == 0d16) {
+            nop();
+        } else if(arg[0x02] == 0d17) {
+            if(arg[0x00] == 0d4) {
+                ROOM.HAS_SHIP_NORTH = True;
+            }
+        }
+
+        if(ROOM.HAS_OASIS) {
+            show_oasis(True);
+        } else {
+            show_oasis(False);
+        }
+
+        if(ROOM.HAS_SHIP_SOUTH) {
+            add_skeleton_ship(ROOM.ID_SHIP_SOUTH, 0d1, 0x45, 0x94);
+        } else {
+            remove_skeleton_ship(ROOM.ID_SHIP_SOUTH, 0d1);
+        }
+
+        if(ROOM.HAS_SHIP_NORTH) {
+            add_skeleton_ship(ROOM.ID_SHIP_NORTH, 0d2, 0x45, 0x35);
+        } else {
+            remove_skeleton_ship(ROOM.ID_SHIP_NORTH, 0d2);
+        }
+
+        if(ROOM.HAS_ALCHEMIST) {
+            add_alchemist(0x51, 0x9f);
+        } else {
+            remove_alchemist(ROOM.ID_ALCHEMIST);
+        }
+
+        update_camera();
+    }
+
+    @install()
+    fun scroll_desert_north() {
+        if(ROOM.WITH_WRAP) {
+            if(MEMORY.DESERT_Y < ROOM.Y_MAX) {
+                MEMORY.DESERT_Y++;
+
+                teleport_screen(0d0, 0d2);
+                update_desert();
+            }
+        }
+    }
+    @install()
+    fun scroll_desert_east() {
+        if(ROOM.WITH_WRAP) {
+            if(MEMORY.DESERT_X < ROOM.X_MAX) {
+                MEMORY.DESERT_X++;
+            } else {
+                MEMORY.DESERT_X = 0d0;
+            }
+
+            teleport_screen(-0d2, 0d0);
+            update_desert();
+        }
+    }
+    @install()
+    fun scroll_desert_south() {
+        if(ROOM.WITH_WRAP) {
+            if(MEMORY.DESERT_Y > 0d0) {
+                MEMORY.DESERT_Y--;
+
+                teleport_screen(0d0, -0d2);
+                update_desert();
+            }
+        }
+    }
+    @install()
+    fun scroll_desert_west() {
+        if(ROOM.WITH_WRAP) {
+            if(MEMORY.DESERT_X > 0d0) {
+                MEMORY.DESERT_X--;
+            } else {
+                MEMORY.DESERT_X = ROOM.X_MAX;
+            }
+
+            teleport_screen(0d2, 0d0);
+            update_desert();
+        }
+    }
+
+    enum stepon_trigger {
+        sand_pit = @install() {
+            debug_subtext("S=0");
+        },
+        wrap_north_4 = scroll_desert_north(),
+        wrap_north_3 = scroll_desert_north(),
+        wrap_north_2 = scroll_desert_north(),
+        wrap_north_1 = scroll_desert_north(),
+        ship_north = @install() {
+            debug_subtext("S=5");
+        },
+        ship_south = @install() {
+            debug_subtext("S=6");
+        },
+        stepon_7 = @install() {
+            debug_subtext("S=7");
+        },
+        exit_south_1 = @install() {
+            debug_subtext("S=8");
+        },
+        exit_south_2 = @install() {
+            debug_subtext("S=9");
+        },
+
+        wrap_west_1 = scroll_desert_west(),
+        wrap_east_2 = scroll_desert_east(),
+        wrap_east_1 = scroll_desert_east(),
+        wrap_west_2 = scroll_desert_west(),
+        wrap_south_2 = scroll_desert_south(),
+        wrap_south_1 = scroll_desert_south(),
+        oasis = @install() {
+            debug_subtext("S=16");
+
+            if(ROOM.HAS_OASIS) {
+                full_heal(BOY, False);
+                full_heal(DOG, False);
+            }
+        },
+        exit_nobilia = @install() {
+            debug_subtext("S=17");
+
+            if(MEMORY.DESERT_Y != ROOM.Y_MAX) {
+                teleport_screen(0d0, 0d2);
+            }
+        },
+        stepon_18 = @install() {
+            debug_subtext("S=18");
+        },
+    }
+
+    fun is_in_oasis(char:CHARACTER, callback) {
+        //if((<BOY>[X] > 0d536) && (<BOY>[X] < (0d752)) && (<BOY>[Y] > 0d1216) && (<BOY>[Y] < 0d1392)) {
+        if((<BOY>[X] > 0d536) && (<BOY>[X] < (0d752)) && (<BOY>[Y] > 0d1216) && (<BOY>[Y] < 0d1408)) {
+                nop();
+        } else {
+            callback();
+        }
+    }
+    @install()
+    @async()
+    fun desert_damage() {
+        while(True) {
+            sleep(ROOM.DAMAGE_TIME);
+
+            if(MEMORY.INPUT_P1 & INPUT.DOWN) {
+                is_in_oasis(BOY, {
+                    damage(BOY, ROOM.DAMAGE_TICK, True, True);
+                });
+
+                if(False) {
+                    is_in_oasis(DOG, {
+                        damage(DOG, ROOM.DAMAGE_TICK, True, True);
+                    });
+                }
+            }
+        }
+    }
+
+    group boss_ai() {
+        enum X_MODE {
+            LINE = 0d0,
+            LEFT = 0d1,
+            RIGHT = 0d2,
+        }
+        enum Y_MODE {
+            LINE = 0d0,
+            UP = 0d1,
+            DOWN = 0d2,
+        }
+
+        enum BOSS {
+            DEBUG = False,
+            DEBUG_BOY = False,
+
+            BOSS_ID = memory(WORD, TEMP),
+
+            X_MODE = memory(WORD, TEMP),
+            Y_MODE = memory(WORD, TEMP),
+
+            X = memory(WORD, TEMP), // 0…256
+            Y = memory(WORD, TEMP), // 0…224
+
+            BORDER_NORTH = 0d10,
+            BORDER_EAST = 0d256 - 0d25,
+            BORDER_WEST = 0d25,
+
+            BOSS_Y_YIELD = 0d600,
+
+            HP = 0d20000,
+            THRESHOLD_P1 = 0d18000,
+            THRESHOLD_P2 = 0d16000, // autoattack
+            THRESHOLD_P3 = 0d10000,
+            THRESHOLD_P4 = 0d08000, // autoattack
+
+            PHASE = memory(WORD, TEMP),
+
+            PATTERN = memory(WORD, TEMP),
+
+            PATTERN_SHOOTING = memory(FLAG, TEMP),
+            PATTERN_BOMBS = memory(FLAG, TEMP),
+            PATTERN_AUTOATTACK = memory(FLAG, TEMP),
+
+            DAMAGE_BONK = 0d5,
+
+            TILT = memory(FLAG, TEMP),
+        }
+
+        fun boss_defeated() {
+            ROOM.PAUSE = 0xffff; // TODO auto scrolling without collision and nobilia would be better
+            attribute(BOY, NO_CLIP, True);
+
+            control(NONE);
+
+            souls_boss_defeated_helper(SPACESHIP_DESERT);
+
+            map_transition(ar_lab, north, NONE);
+        }
+        
+        @install()
+        @async()
+        fun boss_shoot_watcher() {
+            attach_to_script(BOSS.BOSS_ID);
+
+            sleep(0d30);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                while!(BOSS.PATTERN_SHOOTING) {
+                    sleep(0d30);
+                }
+
+                while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (<SCRIPT_OWNER>[Y] < BOSS.BOSS_Y_YIELD)) {
+                    yield();
+                }
+
+                shoot_entity_relative(SCRIPT_OWNER, CITRON, 0d0, 0d100, 0d20, 0d0);
+
+                sleep(0d30);
+            }
+        }
+        @install()
+        @async()
+        fun boss_bomb_watcher() {
+            attach_to_script(BOSS.BOSS_ID);
+
+            sleep(0d180);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                while!(BOSS.PATTERN_BOMBS) {
+                    sleep(0d30);
+                }
+
+                while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (<SCRIPT_OWNER>[Y] < BOSS.BOSS_Y_YIELD)) {
+                    yield();
+                }
+
+                // shoot_entity_relative(SCRIPT_OWNER, CITRON, 0d0, 0d100, 0d20, 0d0);
+                ai_move_bomb_toss(<SCRIPT_OWNER>, ONION, <BOY>, 0d0, -0d200);
+
+                sleep(0d30);
+            }
+        }
+        @install()
+        @async()
+        fun boss_autoattack_watcher() {
+            attach_to_script(BOSS.BOSS_ID);
+
+            sleep(0d60);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                control(SCRIPT_OWNER, True);
+
+                while((<SCRIPT_OWNER>[Y] < BOSS.BOSS_Y_YIELD) || (!BOSS.PATTERN_AUTOATTACK)) {
+                    yield();
+                }
+
+                control(SCRIPT_OWNER, False);
+
+                while(<SCRIPT_OWNER>[Y] >= BOSS.BOSS_Y_YIELD) {
+                    yield();
+                }
+            }
+        }
+        @install()
+        @async()
+        fun boss_movement_watcher() {
+            attach_to_script(BOSS.BOSS_ID);
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                // animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.SKELETON_SHIP_ROW_1);
+                        
+                if(BOSS.X_MODE == X_MODE.LINE) {
+                    BOSS.X = 0d230;
+                } else if(BOSS.X_MODE == X_MODE.LEFT) {
+                    if(BOSS.X > BOSS.BORDER_WEST) {
+                        BOSS.X--;
+                    } else {
+                        BOSS.X_MODE = X_MODE.RIGHT;
+                    }
+                } else if(BOSS.X_MODE == X_MODE.RIGHT) {
+                    if(BOSS.X < BOSS.BORDER_EAST) {
+                        BOSS.X++;
+                    } else {
+                        BOSS.X_MODE = X_MODE.LEFT;
+                    }
+                }
+
+                if(BOSS.Y_MODE == Y_MODE.LINE) {
+                    BOSS.Y = 0d25;
+                } else if(BOSS.Y_MODE == Y_MODE.UP) {
+                    if(BOSS.Y > 0d25) {
+                        BOSS.Y--;
+                    } else {
+                        BOSS.Y_MODE = Y_MODE.DOWN;
+                    }
+                } else if(BOSS.Y_MODE == Y_MODE.DOWN) {
+                    if(BOSS.Y < 0d75) {
+                        BOSS.Y++;
+                    } else {
+                        BOSS.Y_MODE = Y_MODE.UP;
+                    }
+                }
+
+                _teleport(SCRIPT_OWNER, MEMORY.CAMERA_X_MIN + BOSS.X, MEMORY.CAMERA_Y_MIN + BOSS.BORDER_NORTH + BOSS.Y);
+
+                sleep(0d2);
+            }
+        }
+        @install()
+        @async()
+        fun boss_watcher() {
+            attach_to_script(BOSS.BOSS_ID);
+
+            if(BOSS.DEBUG) {
+                debug_subtext("+boss");
+            }
+
+            BOSS.X = 0d256 / 0d2;
+            BOSS.Y = 0d25;
+
+            // only shooting
+
+            BOSS.X_MODE = X_MODE.LEFT;
+            BOSS.Y_MODE = Y_MODE.LINE;
+
+            BOSS.PATTERN_SHOOTING = True;
+            BOSS.PATTERN_AUTOATTACK = False;
+            BOSS.PATTERN_BOMBS = False;
+
+            while(BOSS.PHASE == 0d0) {
+                yield();
+            }
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p1");
+            }
+
+            BOSS.X_MODE = X_MODE.LEFT;
+            BOSS.Y_MODE = Y_MODE.UP;
+
+            BOSS.PATTERN_SHOOTING = False;
+            BOSS.PATTERN_AUTOATTACK = True;
+            BOSS.PATTERN_BOMBS = False;
+
+            while(BOSS.PHASE <= 0d1) {
+                yield();
+            }
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p2");
+            }
+
+            // shooting + bombs
+
+            BOSS.X_MODE = X_MODE.LEFT;
+            BOSS.Y_MODE = Y_MODE.LINE;
+
+            BOSS.PATTERN_SHOOTING = True;
+            BOSS.PATTERN_AUTOATTACK = False;
+            BOSS.PATTERN_BOMBS = True;
+
+            while(BOSS.PHASE <= 0d2) {
+                yield();
+            }
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p3");
+            }
+
+            BOSS.X_MODE = X_MODE.LEFT;
+            BOSS.Y_MODE = Y_MODE.UP;
+
+            BOSS.PATTERN_SHOOTING = False;
+            BOSS.PATTERN_AUTOATTACK = True;
+            BOSS.PATTERN_BOMBS = False;
+
+            while(BOSS.PHASE <= 0d3) {
+                yield();
+            }
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p4");
+            }
+
+            // here he comes
+
+            BOSS.X_MODE = X_MODE.LEFT;
+            BOSS.Y_MODE = Y_MODE.UP;
+
+            BOSS.PATTERN_SHOOTING = True;
+            BOSS.PATTERN_AUTOATTACK = True;
+            BOSS.PATTERN_BOMBS = True;
+
+            while(BOSS.PHASE <= 0d4) {
+                yield();
+            }
+
+            if(BOSS.DEBUG) {
+                debug_subtext("-boss");
+            }
+
+            boss_defeated();
+        }
+        fun add_boss() {
+            add_enemy(GATE_BOT, 0d0, 0d0, INACTIVE);
+            BOSS.BOSS_ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                // animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.SKELETON_SHIP_1);
+
+                if(BOSS.DEBUG) {
+                    damage(SCRIPT_OWNER, 0d3000 + randrange(0d500), True);
+                } else {
+                    damage(SCRIPT_OWNER, 0d300 + randrange(0d500), True);
+                }
+
+                if(dead(<SCRIPT_OWNER>)) {
+                    BOSS.PHASE = 0d5;
+                } else if(BOSS.PHASE == 0d0) {
+                    if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P1) {
+                        BOSS.PHASE = 0d1;
+                    }
+                } else if(BOSS.PHASE == 0d1) {
+                    if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P2) {
+                        BOSS.PHASE = 0d2;
+                    }
+                } else if(BOSS.PHASE == 0d2) {
+                    if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P3) {
+                        BOSS.PHASE = 0d3;
+                    }
+                } else if(BOSS.PHASE == 0d3) {
+                    if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P4) {
+                        BOSS.PHASE = 0d4;
+                    }
+                }
+
+            }));
+
+            boss_watcher();
+            boss_shoot_watcher();
+            boss_bomb_watcher();
+            boss_autoattack_watcher();
+            boss_movement_watcher();
+        }
+    };
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // show oasis
+        // object[0x01] = 0x01; // add ship_south_hitbox
+        // object[0x02] = 0x01; // remove ship_north_hitbox
+
+        init_map(0x02, 0x00, 0xa6, 0xd8);
+
+        if(False) {
+            MEMORY.ENEMY_SPAWNER_UNKNOWN_1 = 0x0280;
+            MEMORY.ENEMY_SPAWNER_UNKNOWN_2 = 0x0000;
+            add_enemy_spawner(TUMBLING_WEED, 0x33, 0x9e, 0d10);
+        }
+
+        CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPACESHIP;
+        CUSTOM_FLAG.NO_DOG = True;
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_d1, NONE);
+            });
+        }));
+        teleport(DOG, 0xff, 0xff);
+        
+        update_desert();
+
+        if(BOSS.DEBUG) {
+            attribute(BOY, INVINCIBLE_TEMP, True);
+        }
+
+        if!(BOSS.DEBUG && BOSS.DEBUG_BOY) {
+            attribute(BOY, INVISIBLE, True);
+        }
+
+        add_placeholder(SPACESHIP_IDLE, 0xff, 0xff);
+        attribute(LAST_ENTITY, INVISIBLE, True);
+        ROOM.SHIP_PALETTE_ID = <LAST_ENTITY>;
+        // animate(LAST_ENTITY, ONCE, INVISIBLE);
+        
+        add_placeholder(SPACESHIP_TOP_FIRE, 0xff, 0xff);
+        ROOM.SHIP_FIRE_ID = <LAST_ENTITY>;
+
+        add_placeholder(SPACESHIP_TOP, 0xff, 0xff);
+        ROOM.SHIP_ID = <LAST_ENTITY>;
+        attach_to_script(LAST_ENTITY);
+        face(SCRIPT_OWNER, EAST);
+
+        if(BOSS.DEBUG && BOSS.DEBUG_BOY) {
+            attribute(ROOM.SHIP_ID, INVISIBLE, True);
+            attribute(ROOM.SHIP_FIRE_ID, INVISIBLE, True);
+        }
+
+        yield();
+
+        add_boss();
+
+        yield();
+
+        desert_damage();
+
+        while(True) {
+            if!(BOSS.TILT) {
+                if(<BOY>[HP] <= 0d0) {
+                    BOSS.TILT = True;
+
+                    dust_unreachable(0d62, 0d27, OMNITOPIA_PROFESSOR, 0d0);
+                }
+            }
+
+            arg[0x10] = <BOY>[Y];
+            if!(ROOM.PAUSE) {
+                teleport_relative(BOY, 0d0, -0d2);
+            }
+
+            if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || ROOM.PAUSE || (<BOY>[Y] != arg[0x10])) {
+                if(ROOM.PAUSE) {
+                    ROOM.PAUSE--;
+                    
+                    if!(ROOM.PAUSE) {
+                        attribute(BOY, NO_CLIP, False);
+                    }
+                }
+
+                if!(ROOM.JUMPING) {
+                    if(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.RUNNING) {
+                        ROOM.JUMPING = True;
+
+                        attribute(BOY, NO_CLIP, True);
+
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_BACK);
+                        animate(ROOM.SHIP_FIRE_ID, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_BACK_FIRE);
+                    }
+                } else {
+                    if!(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.RUNNING) {
+                        ROOM.JUMPING = False;
+
+                        attribute(BOY, NO_CLIP, False);
+
+                        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_TOP);
+                        animate(ROOM.SHIP_FIRE_ID, ONCE, ANIMATION_PLACEHOLDER.SPACESHIP_TOP_FIRE);
+                    }
+                }
+            } else if!(ROOM.PAUSE) {
+                attribute(BOY, NO_CLIP, True);
+                face(BOY, NORTH);
+                damage(BOY, BOSS.DAMAGE_BONK, True);
+                // animate(BOY, ONCE, KNOCKBACK);
+                
+                ROOM.PAUSE = 0d90;
+            }
+
+            _teleport(SCRIPT_OWNER, <BOY>[X], <BOY>[Y]);
+            _teleport(ROOM.SHIP_FIRE_ID, <BOY>[X], <BOY>[Y]);
+
+            update_camera();
+            
+            yield();
+        }
+    }
+};

@@ -1,0 +1,166 @@
+map castle_center(NOBILIA_NORTH) {
+    // sniff=vanilla
+
+    enum entrance {
+        north = entrance(0x40, 0x04, SOUTH),
+        south_1 = entrance(0x72, 0x38, NORTH),
+        south_2 = entrance(0x4c, 0x38, NORTH),
+        south_3 = entrance(0x08, 0x38, NORTH),
+
+        guard = entrance(0d63, 0d15, NONE, {
+            face(BOY, NORTH);
+            animate(BOY, ONCE, ANIMATION_ALL.KNOCKBACK);
+
+            subtext("[SLOW]Back to the streets with you!");
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(CASTLE.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        BEE_COLLECTED = memory(FLAG, SRAM),
+        BEE_TRIGGERED = memory(FLAG, TEMP),
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            if(SOULS_MEMORY.REPUTATION == REPUTATION.CHEATER) {
+                dialog("[SLOW]Halt stop. Due to your deeds you are permanently banned from entering.[B]");
+
+                if(False) {
+                    error_walk_back(SOUTH);
+                }
+            } else {
+                map_transition(castle_throne_room, south, NORTH);
+            }
+        },
+        exit_south_3 = @install() {
+            map_transition(market_west, north, SOUTH);
+        },
+        exit_south_2 = @install() {
+            map_transition(gate, north, SOUTH);
+        },
+        exit_south_1 = @install() {
+            map_transition(castle_bridges, west, SOUTH);
+        },
+        guard_right = @install() {
+            debug_subtext("S=4");
+        },
+        guard_left = @install() {
+            debug_subtext("S=5");
+        },
+    }
+
+    enum b_trigger {
+        chicken_1 =  chicken_triggered(),
+        chicken_2 =  chicken_triggered(),
+        chicken_3 = chicken_triggered(),
+        farmer = @install() {
+            debug_subtext("B=3");
+        },
+        guard = @install() {
+            debug_subtext("B=4");
+
+            if(MEMORY.TICKET_FOR_EXHIBITION < 0d1) {
+                dialog("[SLOW]Bring me a ticket from the market first and you can try your luck in the arena.[B]");
+            } else {
+                question("[SLOW]Enter a ticket[CHOICE]Yes.[CHOICE]No.");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    MEMORY.TICKET_FOR_EXHIBITION--;
+
+                    map_transition(duel_arena_waiting_room, fall, NONE);
+                }
+            }
+        },
+        b_trigger_5 = @install() {
+            debug_subtext("B=5");
+            _loot(0x01, WATER, 0d01, 0d01);
+        },
+        b_trigger_6 = @install() {
+            debug_subtext("B=6");
+            _loot(0x02, WATER, 0d01, 0d02);
+        },
+        b_trigger_7 = @install() {
+            debug_subtext("B=7");
+            _loot(0x03, WATER, 0d01, 0d00);
+        },
+        b_trigger_8 = @install() {
+            debug_subtext("B=8");
+            _loot(0x04, OIL, 0d01, 0d02);
+        },
+        b_trigger_9 = @install() {
+            debug_subtext("B=9");
+            _loot(0x05, OIL, 0d01, 0d01);
+        },
+
+        b_trigger_10 = @install() {
+            debug_subtext("B=10");
+            _loot(0x06, CRYSTAL, 0d01, 0d02);
+        },
+        b_trigger_11 = @install() {
+            debug_subtext("B=11");
+            _loot(0x07, CRYSTAL, 0d01, 0d03);
+        },
+        b_trigger_12 = @install() {
+            debug_subtext("B=12");
+            _loot(0x08, CLAY, 0d01, 0d01);
+        },
+        b_trigger_13 = @install() {
+            debug_subtext("B=13");
+            _loot(0x09, CLAY, 0d01, 0d02);
+        },
+        b_trigger_14 = @install() {
+            debug_subtext("B=14");
+            _loot(0x0a, CLAY, 0d01, 0d00);
+        },
+        b_trigger_15 = @install() {
+            debug_subtext("B=15");
+            _loot(0x0b, VINEGAR, 0d01, 0d01);
+        },
+        b_trigger_16 = @install() {
+            debug_subtext("B=16");
+            _loot(0x0c, VINEGAR, 0d01, 0d00);
+        },
+        b_trigger_17 = @install() {
+            debug_subtext("B=17");
+            _loot(0x0d, VINEGAR, 0d01, 0d03); // same as B=18
+        },
+        b_trigger_18 = @install() {
+            debug_subtext("B=18");
+            _loot(0x0d, VINEGAR, 0d01, 0d03);// same as B=17
+        },
+        b_trigger_19 = @install() {
+            debug_subtext("B=19");
+            _loot(0x0e, ATLAS_MEDALLION, 0d01, 0d00);
+        },
+    }
+
+    @install()
+    fun stone_lifted() {
+        guard_challenge_levitate();
+
+        if!(ROOM.BEE_TRIGGERED) {
+            ROOM.BEE_TRIGGERED = True;
+
+            add_bee(0d86, 0d20, reference(@install() {
+                bee_collected(ROOM.BEE_COLLECTED);
+            }), ROOM.BEE_COLLECTED);
+        }
+    }
+
+    fun trigger_enter() {
+        add_levitate_stone(0d86, 0d20, reference(@install() {
+            guard_levitate_stone(0d1);
+
+            stone_lifted();
+        }));
+        special_script(LEVITATE, reference(stone_lifted));
+
+        default_init_room(False, False);
+
+        place_statue(VIGOR, 0d64, 0d32);
+    }
+};

@@ -1,0 +1,395 @@
+area custom_boss_gideon() {
+    enum BOSS {
+        DEBUG = False,
+
+        RANDOM_CAST_COOLDOWN = randrange(0d600),
+
+        ESTUS_CHARGES = SOULS_MEMORY.ESTUS_CHARGES,
+        HEAL_THRESHOLD = 0d20,
+        ESTUS_HEAL = 0d20,
+
+        LEVEL_FLASH = SOULS_MEMORY.FLASH_BASE_DAMAGE + 0d10,
+
+        WIH_MAGMAR_SPLASH = False, // causes a sound glitch in boss rush music
+    }
+
+    group random_cast_helper() {
+        @install()
+        fun prepare_casting() {
+            animate(<SCRIPT_OWNER>, ONCE, DEFAULT);
+            sleep(0d10);
+            animate(<SCRIPT_OWNER>, ONCE, CAST);
+            sleep(0d30);
+        }
+
+        @install()
+        fun cast_alchemy() { // unused
+            if(BOSS.DEBUG) {
+                debug_subtext("cast small");
+            }
+
+            animate(<SCRIPT_OWNER>, ONCE, DEFAULT);
+            sleep(0d10);
+            animate(<SCRIPT_OWNER>, ONCE, CAST);
+
+            val rng = arg[0x10];
+            val spell_id = arg[0x12];
+            val spell_target = arg[0x14];
+
+            rng = randrange(0d10);
+
+            if(rng == 0d0) {
+                spell_id = CAST.CRUSH;
+            } else if(rng == 0d1) {
+                spell_id = CAST.STING;
+            } else {
+                spell_id = CAST.FLASH;
+            }
+
+            cast_team(<SCRIPT_OWNER>, spell_id, 0d1);
+
+            sleep(0d30);
+        }
+
+        @install()
+        @async()
+        fun place_spark() {
+            _add_enemy(SPARK, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+            attach_to_script(LAST_ENTITY);
+
+            sleep(0d600);
+
+            if(alive(<SCRIPT_OWNER>)) {
+                attribute(SCRIPT_OWNER, ROOT, True);
+
+                if(True) {
+                    sound(TESLA);
+                    shoot_entity_entity(SCRIPT_OWNER, LIGHTNING, <SCRIPT_OWNER>, 0d30, 0d0);
+
+                    sleep(0d30);
+                }
+
+                sleep(0d30);
+
+                if(alive(<SCRIPT_OWNER>)) {
+                    ai_move_tesla(<SCRIPT_OWNER>, <BOY>);
+                }
+            }
+
+            destroy(SCRIPT_OWNER);
+        }
+        @install()
+        @async()
+        fun place_mosquito() {
+            _add_enemy(MOSQUITO, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y]);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
+            attach_to_script(LAST_ENTITY);
+
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                if((arg[0x10][X] >= MEMORY.CAMERA_X_MIN) && ((arg[0x10][X] <= MEMORY.CAMERA_X_MAX)) && (arg[0x10][Y] >= MEMORY.CAMERA_Y_MIN) && ((arg[0x10][Y] <= MEMORY.CAMERA_Y_MAX))) {
+                    cast(SCRIPT_OWNER, arg[0x10], FIREBALL, 0d20);
+                } else {
+                    cast(SCRIPT_OWNER, BOY, FIREBALL, 0d10);
+                }
+            }));
+
+            sleep(0d600);
+
+            if(alive(<SCRIPT_OWNER>)) {
+                cast(SCRIPT_OWNER, BOY, FIREBALL, 0d10);
+            }
+
+            destroy(SCRIPT_OWNER);
+        }
+
+        @install()
+        fun cast_beam() {
+            if(BOSS.DEBUG) {
+                debug_subtext("cast: beam");
+            }
+
+            prepare_casting();
+
+            control(<SCRIPT_OWNER>, True);
+            attribute(<SCRIPT_OWNER>, ROOT, True);
+
+            projectile_beam(<ACTIVE>, 0d5);
+            
+            control(<SCRIPT_OWNER>, False);
+            attribute(<SCRIPT_OWNER>, ROOT, False);
+        }
+
+        @install()
+        fun choose_move_set() {
+
+            while(True) {
+                arg[0x0e] = randrange(0d9);
+                arg[0x10] = randrange(0d3);
+
+                if(BOSS.DEBUG) {
+                    MEMORY.STRING_PARAMETER_1 = arg[0x0e];
+                    MEMORY.STRING_PARAMETER_2 = arg[0x10];
+                    debug_subtext("cast: random([MEM1], [MEM2])");
+                }
+
+                if((arg[0x0e] == 0d0) && (SOULS_MEMORY.DEAD_MONSTRO)) {
+                    prepare_casting();
+
+                    arg[0x10] = randrange(0d2);
+
+                    if((arg[0x10] == 0d0) && BOSS.WIH_MAGMAR_SPLASH) {
+                        animate(<SCRIPT_OWNER>, ONCE, ANIMATION_ENEMY.MAGMAR_ENTER);
+                        ai_move_projectile_splash(<SCRIPT_OWNER>, ONION);
+                    } else {
+                        ai_move_projectile_puke(<SCRIPT_OWNER>, ONION, <BOY>, 0d4);
+                    }
+
+                    end();
+                } else if((arg[0x0e] == 0d1) && (SOULS_MEMORY.DEAD_DARK_ONE)) {
+                    prepare_casting();
+
+                    arg[0x10] = randrange(0d4);
+
+                    if(arg[0x10] == 0d0) {
+                        animate(<SCRIPT_OWNER>, ONCE, ANIMATION_ENEMY.MAGMAR_ENTER);
+                        ai_move_charge_right(<SCRIPT_OWNER>, <BOY>, 0d8, 0d2);
+                    } else if(arg[0x10] == 0d1) {
+                        ai_move_projectile_star(<SCRIPT_OWNER>, ONION, 0d70);
+                    } else {
+                        control(<SCRIPT_OWNER>, True);
+                        face(<SCRIPT_OWNER>, SOUTH);
+                        ai_move_projectile_x(<SCRIPT_OWNER>, ONION, 0d70);
+                        sleep(0d40);
+                        ai_move_projectile_plus(<SCRIPT_OWNER>, ONION, 0d70);
+                        control(<SCRIPT_OWNER>, False);
+                    }
+
+                    end();
+                } else if((arg[0x0e] == 0d2) && (SOULS_MEMORY.DEAD_SIDESCROLLER)) {
+                    prepare_casting();
+
+                    arg[0x10] = randrange(0d3);
+
+                    if(arg[0x10] == 0d0) {
+                        ai_move_projectile_ring(<SCRIPT_OWNER>, CITRON, 0d75, 0x40, 0d5, 0d1, False, True);
+                    } else {
+                        sound(PROJECTILE_SHOOTING);
+                        shoot_entity_entity(<SCRIPT_OWNER>, CITRON, BOY, 0x10, 0xff);
+                    }
+
+                    end();
+                } else if((arg[0x0e] == 0d3) && (SOULS_MEMORY.DEAD_BOWSER)) {
+                    prepare_casting();
+
+                    arg[0x10] = 0d1 + randrange(0d8);
+
+                    ai_move_projectile_toss(<SCRIPT_OWNER>, SPEAR, <BOY>, arg[0x10]);
+
+                    end();
+                } else if((arg[0x0e] == 0d4) && (SOULS_MEMORY.DEAD_SQUIDMAR)) {
+                    prepare_casting();
+
+                    animate(<SCRIPT_OWNER>, ONCE, ANIMATION_BOY.KNEEL);
+                    place_spark();
+
+                    end();
+                } else if((arg[0x0e] == 0d5) && (SOULS_MEMORY.DEAD_ARENA_MOSQUITO)) {
+                    prepare_casting();
+
+                    animate(<SCRIPT_OWNER>, ONCE, ANIMATION_BOY.KNEEL);
+                    place_mosquito();
+
+                    end();
+                } else if((arg[0x0e] == 0d6) && (SOULS_MEMORY.DEAD_HEART)) {
+                    prepare_casting();
+                    
+                    sound(GORE_MOSQUITO);
+                    sleep(0d10);
+                    sound(GORE_MOSQUITO);
+                    
+                    ai_move_projectile_puke(<SCRIPT_OWNER>, ONION, <BOY>, 0d4); // TODO: same as monstro
+
+                    end();
+                } else if((arg[0x0e] == 0d7) && (SOULS_MEMORY.DEAD_PIT_EGG)) {
+                    prepare_casting();
+
+                    if(CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.NO_BOY) {
+                        pit_projectile(<SCRIPT_OWNER>, <ACTIVE>);
+                    } else if(randrange(0d2)) {
+                        pit_projectile(<SCRIPT_OWNER>, <ACTIVE>);
+                    } else {
+                        pit_projectile(<SCRIPT_OWNER>, <INACTIVE>);
+                    }
+
+                    end();
+                } else if((arg[0x0e] == 0d8) && (FLAG.FLASH) && (arg[0x10] == 0d0)) {
+                    prepare_casting();
+
+                    cast(<SCRIPT_OWNER>, <ACTIVE>, FLASH, BOSS.LEVEL_FLASH);
+
+                    end();
+                } else {
+                    if(BOSS.DEBUG) {
+                        // debug_memory(arg[0x0e], 0d0);
+                        // debug_subtext("reroll");
+                        nop();
+                    }
+
+                    arg[0x12]++;
+
+                    if(arg[0x12] > 0d20) {
+                        if(BOSS.DEBUG) {
+                            // debug_memory(arg[0x0e], 0d0);
+                            // debug_subtext("reroll");
+                            nop();
+                        }
+
+                        end();
+                    }
+
+                    yield();
+                }
+            }
+        }
+
+        fun use_estus() {
+            if(BOSS.DEBUG) {
+                debug_subtext("estus");
+            }
+
+            control(<SCRIPT_OWNER>, True);
+            face(<SCRIPT_OWNER>, SOUTH);
+
+            animate(<SCRIPT_OWNER>, ONCE, CAST);
+
+            if((arg[0x20] > 0d0) && (arg[0x20] != 0xffff)) {
+                arg[0x20]--;
+
+                cast(<SCRIPT_OWNER>, <SCRIPT_OWNER>, HEAL, BOSS.ESTUS_HEAL);
+            } else {
+                arg[0x20] = 0xffff;
+
+                cast(<SCRIPT_OWNER>, <SCRIPT_OWNER>, HEAL, 0d0);
+            }
+
+            wait(<SCRIPT_OWNER>);
+
+            control(<SCRIPT_OWNER>, False);
+        }
+    };
+
+    fun random_cast() {
+        if(BOSS.DEBUG) {
+            debug_subtext("start cast");
+        }
+
+        if(arg[0x20] != 0xffff) {
+            arg[0x0e] = randrange(0d8);
+
+            if((arg[0x0e] == 0d0) && (<SCRIPT_OWNER>[HP] < (arg[0x1e] - BOSS.HEAL_THRESHOLD))) {
+                use_estus();
+            }
+        }
+
+        if(randrange(0d5) == 0d0) {
+            cast_beam();
+        } else {
+            arg[0x22] = True;
+            while(arg[0x22] || rand(0x1)) {
+                arg[0x22] = False;
+
+                choose_move_set();
+            }
+        }
+    }
+
+    fun add_boss(x, y, hp, poise, poise_decay, poise_decay_time, trigger_boss_music, freeze_during_start) {
+        add_enemy(BOY_BLACK, x, y);
+        attach_to_script(LAST_ENTITY);
+
+        <SCRIPT_OWNER>[HP] = hp;
+        arg[0x1e] = hp;
+        arg[0x20] = BOSS.ESTUS_CHARGES;
+
+        if(SOULS_MEMORY.DEAD_OWL_BOY) {
+            poise_break_decay(<LAST_ENTITY>, poise, poise_decay, poise_decay_time);
+        } else {
+            <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+        }
+        attach_script(<SCRIPT_OWNER>, DAMAGE_DEATH, reference(@install() {
+            if(dead(<SCRIPT_OWNER>)) {
+                nop();
+            } else if(SOULS_MEMORY.DEAD_OWL_BOY) {
+                poise_break();
+            }
+        }));
+
+        if(freeze_during_start) {
+            animate(LAST_ENTITY, ONCE_FREEZE, DEFAULT);
+            yield();
+            
+            while(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                yield();
+            }
+        } else {
+            yield();
+        }
+
+        if(trigger_boss_music) {
+            push_music(BOSS);
+        }
+
+        while(alive(<SCRIPT_OWNER>)) {
+            while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0xffff)) {
+                yield();
+            }
+
+            while!((<SCRIPT_OWNER>[X] >= MEMORY.CAMERA_X_MIN) && ((<SCRIPT_OWNER>[X] <= MEMORY.CAMERA_X_MAX)) && (<SCRIPT_OWNER>[Y] >= MEMORY.CAMERA_Y_MIN) && ((<SCRIPT_OWNER>[Y] <= MEMORY.CAMERA_Y_MAX))) {
+                sleep(0d10);
+
+                if(BOSS.DEBUG) {
+                    debug_subtext("not on screen");
+                }
+            }
+            
+            random_cast();
+
+            sleep(BOSS.RANDOM_CAST_COOLDOWN);
+        }
+    }
+
+    @install()
+    @async()
+    fun gideon_speech() {
+        sleep(0d30);
+        dialog("I knew you'd come.[B]");
+    }
+
+    @install()
+    @async()
+    fun _add_custom_boss_gideon(x, y, hp, poise, poise_decay, poise_decay_time, trigger_boss_music, freeze_during_start) {
+        add_boss(x, y, hp, poise, poise_decay, poise_decay_time, trigger_boss_music, freeze_during_start);
+    }
+    fun add_custom_boss_gideon(x, y, flag_dead, callback_dead, hp, poise, poise_decay, poise_decay_time, trigger_boss_music, freeze_during_start, with_speech) {
+        if!(flag_dead) {
+            _add_custom_boss_gideon(x, y, hp, poise, poise_decay, poise_decay_time, trigger_boss_music, freeze_during_start);
+            yield();
+
+            if(with_speech) {
+                gideon_speech();
+            }
+
+            if(callback_dead is Function) {
+                attach_to_script(LAST_ENTITY);
+
+                while!(dead(<SCRIPT_OWNER>)) {
+                    yield();
+                }
+
+                callback_dead();
+            }
+        }
+    }
+};

@@ -1,0 +1,135 @@
+map shopping_district(OMNITOPIA_SHOPPING) {
+    enum ROOM {
+        DOOR_PASSAGE_SOUTH_OPEN = memory(FLAG, TEMP),
+        DOOR_PASSAGE_NORTH_OPEN = memory(FLAG, TEMP),
+
+        ENTERED_FROM_SOUTH = memory(FLAG, TEMP),
+
+        POWER_ON = AREA_METRO.LEVER_REACTOR_ROOM,
+
+        CLONE_OPENED = memory(FLAG, TEMP),
+    }
+
+    enum entrance {
+        east = entrance(0d110, 0d19, NONE, { door_act4_beam_in(); }),
+        west = entrance(0d10, 0d81, NONE, {
+            door_act4_beam_in();
+
+            ROOM.ENTERED_FROM_SOUTH = True;
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_west = @install() {
+            debug_subtext("S=0");
+
+            door_act4_beam_out(0d10, 0d81);
+
+            map_transition(metro, door_c2, NONE);
+        },
+        exit_east = @install() {
+            debug_subtext("S=1");
+
+            door_act4_beam_out(0d110, 0d19);
+
+            map_transition(metro, door_a2, NONE);
+        },
+        door_passage_south_south = @install() {
+            debug_subtext("S=2");
+
+            door_act4_passage(0x01, ROOM.DOOR_PASSAGE_SOUTH_OPEN);
+        },
+        door_passage_south_north = @install() {
+            debug_subtext("S=3");
+
+            door_act4_passage(0x01, ROOM.DOOR_PASSAGE_SOUTH_OPEN);
+        },
+        door_passage_north_south = @install() {
+            debug_subtext("S=4");
+
+            door_act4_passage(0x00, ROOM.DOOR_PASSAGE_NORTH_OPEN);
+        },
+        door_passage_north_north = @install() {
+            debug_subtext("S=5");
+
+            door_act4_passage(0x00, ROOM.DOOR_PASSAGE_NORTH_OPEN);
+        },
+        inn = @install() {
+            debug_subtext("S=6");
+
+            guard_boy({
+                subtext("…");
+            });
+
+            fallout_screen_main();
+        },
+    }
+
+    enum b_trigger {
+        shop_1 = @install() {
+            debug_subtext("B=0");
+
+            pip_boy({
+                dialog("[SLOW]An escaped clone dog.[B]");
+            });
+        },
+        shop_2 = @install() {
+            debug_subtext("B=1");
+
+            pip_boy({
+                if!(ROOM.CLONE_OPENED) {
+                    control(NONE);
+
+                    ROOM.CLONE_OPENED = True;
+
+                    object[0x03] = 0x7e; // open shop_2
+
+                    add_enemy(BOY_BLACK, 0d60, 0d10, INACTIVE_IMORTAL);
+
+                    animate(LAST_ENTITY, ONCE, ANIMATION_BOY.FALL_2);
+                    sleep(0d5);
+                    animate(LAST_ENTITY, PAUSE, DEFAULT);
+
+                    dialog("[SLOW]An incomplete clone.[B]");
+
+                    control(BOTH);
+                } else {
+                    dialog("[SLOW]An incomplete clone.[B]");
+                }
+            });
+        },
+        shop_3 = @install() {
+            debug_subtext("B=2");
+
+            pip_boy({
+                dialog("[SLOW]An escaped clone.[B]");
+            });
+        },
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x7e; // open door_passage_north
+        // object[0x01] = 0x7e; // open door_passage_south
+        object[0x02] = 0x7e; // open shop_1
+        if(ROOM.CLONE_OPENED) {
+            object[0x03] = 0x7e; // open shop_2
+        }
+        object[0x04] = 0x7e; // open shop_3
+
+        add_enemy(DOG_4_BLACK, 0d84, 0d61);
+
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                if(ROOM.ENTERED_FROM_SOUTH) {
+                    map_transition(metro, door_c2, NONE);
+                } else {
+                    map_transition(metro, door_a2, NONE);
+                }
+            });
+        }));
+    }
+};

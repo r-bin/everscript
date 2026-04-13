@@ -1,0 +1,400 @@
+map temple_switch(HALLS_SE) { // north-east
+    enum entrance {
+        west = entrance(0x01, 0x1b, EAST),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        VANILLA_SWITCH = False,
+
+        SWITCH_ENTITY = memory(WORD, TEMP),
+        SWITCH_ACTIVATED = AREA_TEMPLE.SWITCH_MINTAUR,
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        DEFAULT_Z = 0x10,
+
+        RIDER_ID = memory(WORD, TEMP),
+        MOUNT_ID = memory(WORD, TEMP),
+        TMP_ID = memory(WORD, TEMP),
+
+        PHASE = memory(WORD, TEMP),
+        TIMER = memory(WORD, TEMP),
+
+        DISMOUNT = memory(WORD, TEMP),
+
+        COUNTDOWN = 0d03,
+
+        HP_MINITAUR = 0d300,
+        HP_MEGATAUR = 0d200,
+
+        P0_HIT_COUNTER = memory(WORD, TEMP),
+        P0_HP_THRESHOLD = 0d200,
+
+        P1_HIT_COUNTER = memory(WORD, TEMP),
+    }
+
+    fun switch_activated() {
+        if!(ROOM.SWITCH_ACTIVATED) {
+            ROOM.SWITCH_ACTIVATED = True;
+            AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED = True;
+            AREA_TEMPLE.UNLOCKED_LEVEL_1 = True;
+
+            generic_switch_floor(0x00, True);
+        }
+    }
+
+    @install()
+    @async()
+    fun show_inactive_ground_switch() {
+        souls_ground_switch_trigger(ROOM.SWITCH_ENTITY, 0d20, 0d30, {
+            switch_activated();
+        });
+    }
+
+    fun show_switch(show, active) {
+        if(show) {
+            if(active !is None) {
+                if(active) {
+                    object[0x00] = 0x0b;
+                } else {
+                    object[0x00] = 0x0a;
+
+                    if!(ROOM.VANILLA_SWITCH) {
+                        show_inactive_ground_switch();
+                    }
+                }
+            } else {
+                object[0x00] = 0x0a;
+            }
+        } else {
+            object[0x00] = 0x00;
+        }
+    }
+
+    @install()
+    fun boss_defeated() {
+        souls_boss_defeated_helper(TEMPLE_MINITAUR);
+
+        show_switch(True, False);
+    }
+
+    enum stepon_trigger {
+        exit_west = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_TEMPLE_MINITAUR, EAST);
+
+            map_transition(temple, east_1, WEST);
+        },
+        switch = @install() {
+            if(ROOM.VANILLA_SWITCH) {
+                switch_activated();
+            } else {
+                guard_ground_switch(ROOM.SWITCH_ENTITY);
+                switch_activated();
+            }
+        }
+    }
+
+    fun knockback_check(entity) {
+        if((entity[CURRENT_GROUND] & 0xff) != 0d16) {
+            if(True) {
+                if(BOSS.DEBUG) {
+                    debug_memory(entity[CURRENT_GROUND], 0d0);
+                }
+
+                // _drag(entity, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y]);
+                _drag(SCRIPT_OWNER, 0d22 << 0d0003, 0d32 << 0d0003);
+                entity[Z_LEVEL] = BOSS.DEFAULT_Z;
+            } else {
+                heal(SCRIPT_OWNER, 0d0, False);
+                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+
+                attribute(SCRIPT_OWNER, NO_CLIP, True);
+
+                while(<SCRIPT_OWNER>[CURRENT_GROUND] != 0d16) {
+                    sleep(0d30);
+                }
+
+                attribute(SCRIPT_OWNER, NO_CLIP, False);
+            }
+
+            end();
+        }
+    }
+
+    @install()
+    fun rider_damage() {
+        if(BOSS.PHASE == 0d00) {
+            BOSS.DISMOUNT += 0d240;
+            // attribute(BOSS.RIDER_ID, NO_CLIP, False);
+
+            if(script[0x9] == 0x200) { // TODO: too easy? megataur doesn't have magic resist
+                BOSS.PHASE = 0d2;
+                end();
+            }
+
+            knockback_check(<SCRIPT_OWNER>);
+            sleep(0d20);
+            knockback_check(<SCRIPT_OWNER>);
+        } else if(BOSS.PHASE == 0d01) {
+            BOSS.DISMOUNT += 0d240;
+            // attribute(BOSS.RIDER_ID, NO_CLIP, False);
+            animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+
+            knockback_check(<SCRIPT_OWNER>);
+            sleep(0d20);
+            knockback_check(<SCRIPT_OWNER>);
+        }
+    }
+    @install()
+    fun mount_damage() {
+        if(BOSS.PHASE == 0d00) {
+            BOSS.P0_HIT_COUNTER++;
+
+            if((BOSS.MOUNT_ID[HP] < BOSS.P0_HP_THRESHOLD) || (script[0x9] & 0x200)) {
+                BOSS.PHASE = 0d01;
+                end();
+            }
+
+            if(BOSS.DEBUG) {
+                debug_memory(BOSS.P0_HIT_COUNTER, BOSS.MOUNT_ID[HP]);
+            }
+        } if(BOSS.PHASE == 0d01) {
+            BOSS.P1_HIT_COUNTER++;
+
+            if(BOSS.DEBUG) {
+                debug_memory(BOSS.P1_HIT_COUNTER, BOSS.MOUNT_ID[HP]);
+            }
+
+            if(script[0x9] & 0x200) {
+                BOSS.PHASE = 0d02;
+                end();
+            }
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(BOSS.DEBUG) {
+            subtext("phase 0");
+        }
+
+        while(BOSS.PHASE == 0d00) {
+            if(BOSS.DISMOUNT == 0d05) {
+                _drag(BOSS.RIDER_ID, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y] - 0d30);
+                // attribute(BOSS.RIDER_ID, NO_CLIP, True);
+                animate(BOSS.RIDER_ID, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+                animate(BOSS.MOUNT_ID, ONCE, SLASH_1);
+            } else if(BOSS.DISMOUNT == 0d01) {
+                BOSS.RIDER_ID[Z_LEVEL] = BOSS.DEFAULT_Z;
+            } else if(BOSS.DISMOUNT == 0d00) {
+                if(BOSS.DISMOUNT == 0d00) {
+                    BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                    BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d30;
+                }
+            }
+        
+            if(BOSS.DISMOUNT > 0d00) { // TODO: buggy, since menu resets paletts
+                BOSS.DISMOUNT--;
+            }
+
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("phase 1");
+        }
+
+        BOSS.TMP_ID = BOSS.RIDER_ID;
+        BOSS.RIDER_ID = BOSS.MOUNT_ID;
+        BOSS.MOUNT_ID = BOSS.TMP_ID;
+
+        attach_script(BOSS.RIDER_ID, DAMAGE_DEATH, reference(rider_damage));
+        attach_script(BOSS.MOUNT_ID, DAMAGE_DEATH, reference(mount_damage));
+
+        yield();
+
+        BOSS.DISMOUNT = 0d240;
+        _drag(BOSS.RIDER_ID, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y] - 0d30);
+        BOSS.RIDER_ID[Z_LEVEL] = BOSS.DEFAULT_Z;
+        animate(BOSS.MOUNT_ID, ONCE, DEFAULT);
+
+        // walk(BOSS.MOUNT_ID, TILE_ABSOLUTE_DIRECT, 0d22, 0d32, NONE);
+        _drag(BOSS.MOUNT_ID, 0d22 << 0d0003, 0d32 << 0d0003);
+        BOSS.MOUNT_ID[Z_LEVEL] = BOSS.DEFAULT_Z;
+
+        while(BOSS.PHASE == 0d01) {
+            if(BOSS.DISMOUNT == 0d05) {
+                _drag(BOSS.RIDER_ID, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y] - 0d30);
+                // attribute(BOSS.RIDER_ID, NO_CLIP, True);
+                animate(BOSS.RIDER_ID, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+            } else if(BOSS.DISMOUNT == 0d01) {
+                BOSS.RIDER_ID[Z_LEVEL] = BOSS.DEFAULT_Z;
+            } else if(BOSS.DISMOUNT == 0d00) {
+                if(BOSS.DISMOUNT == 0d00) {
+                    BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                    BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d30;
+                }
+            }
+        
+            if(BOSS.DISMOUNT > 0d00) { // TODO: buggy, since menu resets paletts
+                BOSS.DISMOUNT--;
+            }
+
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("yatta");
+        }
+
+        if(alive(BOSS.MOUNT_ID)) {
+            destroy(BOSS.MOUNT_ID);
+        }
+        if(alive(BOSS.RIDER_ID)) {
+            destroy(BOSS.RIDER_ID);
+        }
+
+        boss_defeated();
+    }
+
+    @install()
+    @async()
+    fun anti_cheese_mini(entity) {
+        while(True) {
+            // debug_memory(arg[0x1a], BOSS.RIDER_ID[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, BOSS.RIDER_ID[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION);
+            // debug_memory(arg[0x0e], entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK);
+
+            while((!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING)) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)  || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                yield();
+            }
+            yield();
+
+            arg[0x10] = entity[X];
+            arg[0x12] = entity[Y];
+
+            sleep(0d5);
+
+            if!((!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING)) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)  || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                if(((entity[X] == arg[0x10]) && (entity[Y] == arg[0x12]))) {
+                    if(entity == BOSS.RIDER_ID) {
+                        arg[0x0e] = 0d0;
+
+                        _drag(entity, 0d22 << 0d0003, 0d32 << 0d0003);
+                        entity[Z_LEVEL] = BOSS.DEFAULT_Z;
+                    } else {
+                        arg[0x0e]++;
+
+                        if(arg[0x0e] > 0d30) {
+                            arg[0x0e] = 0d0;
+
+                            animate(entity, ONCE, SLASH_1);
+
+                            damage(ACTIVE, 0d5, True);
+                            damage(INACTIVE, 0d5, True);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    @install()
+    @async()
+    fun anti_cheese_mega(entity) {
+        while(alive(entity)) {
+            // debug_memory(arg[0x0e], entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING, entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION);
+            // debug_memory(arg[0x0e], entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK);
+
+            while((!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING)) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                yield();
+            }
+            yield();
+
+            arg[0x10] = entity[X];
+            arg[0x12] = entity[Y];
+
+            sleep(0d5);
+
+            if!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                if(((entity[X] == arg[0x10]) && (entity[Y] == arg[0x12]))) {
+                    if(entity == BOSS.RIDER_ID) {
+                        arg[0x0e] = 0d0;
+
+                        _drag(entity, 0d22 << 0d0003, 0d32 << 0d0003);
+                        entity[Z_LEVEL] = BOSS.DEFAULT_Z;
+                    } else {
+                        arg[0x0e]++;
+
+                        // cast(entity, ACTIVE, CRUSH, 0d10); // TODO
+                        if(BOSS.PHASE == 0d1) {
+                            BOSS.DISMOUNT += 0d300;
+                            animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+                        }
+                    }
+                } else {
+                    while(entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) {
+                        yield();
+                    }
+                    yield();
+
+                    if(((entity[X] == arg[0x10]) || (entity[Y] == arg[0x12])) && (!(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                        arg[0x0e]++;
+
+                        // cast(entity, ACTIVE, CRUSH, 0d10); // TODO
+                        if(BOSS.PHASE == 0d1) {
+                            BOSS.DISMOUNT += 0d300;
+                            animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+                        }
+                    }
+                }
+            } else {
+                while((entity[FLAGS_7] & ATTRIBUTE_FLAGS.WALKING) || (entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                    yield();
+                }
+                yield();
+            }
+        }
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(MINITAUR, x, y);
+        BOSS.MOUNT_ID = <LAST_ENTITY>;
+        <LAST_ENTITY>[HP] = BOSS.HP_MINITAUR;
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(mount_damage));
+        anti_cheese_mini(<LAST_ENTITY>);
+
+        add_enemy(MEGATAUR, x, y);
+        BOSS.RIDER_ID = <LAST_ENTITY>;
+        <LAST_ENTITY>[HP] = BOSS.HP_MEGATAUR;
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(rider_damage));
+        anti_cheese_mega(<LAST_ENTITY>);
+
+        animate(BOSS.RIDER_ID, FREEZE, ANIMATION_ENEMY.MEGATAUR_ENTER);
+        
+        boss_watcher();
+    }
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_TEMPLE_MINITAUR) {
+            show_switch(False);
+
+            spawn_boss(0d36, 0d36);
+
+            push_music(BOSS);
+        } else {
+            if(ROOM.SWITCH_ACTIVATED) {
+                show_switch(True, True);
+            } else {
+                show_switch(True, False);
+            }
+        }
+
+        default_init_room(False, False);
+    }
+};

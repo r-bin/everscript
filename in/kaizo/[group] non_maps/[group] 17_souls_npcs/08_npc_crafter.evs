@@ -1,0 +1,253 @@
+group npc_crafter() {
+    enum NPC_CRAFTER {
+        PROGRESS = memory(BYTE, SRAM),
+
+        BODY = ENEMY.VILLAGER_1_4,
+
+        PRICE_MUSHROM_HELMET = 0d5,
+        PRICE_MUSHROM_CHEST = 0d8,
+        PRICE_MUSHROM_GLOVE = 0d5,
+
+        STORY_HELM_ARCHAEOLOGY = memory(FLAG, SRAM),
+
+        LEARNED_PATTERN_DRAGON_LEATHERWORK = memory(FLAG, SRAM),
+    }
+
+    group crafter_ai() {
+        fun response_greeting() {
+            arg[0x00] = randrange(0d4);
+
+            if(arg[0x00] == 0d0) {
+                conversation_dialog("[SLOW]If you bring me the right material I can craft you almost anything. Preferably mushrooms based armor, though.[B]");
+            } else if(arg[0x00] == 0d1) {
+                conversation_dialog("[SLOW]Do you have spare mushrooms? I can make them more useful for you.[B]");
+            } else if(arg[0x00] == 0d2) {
+                conversation_dialog("[SLOW]Are you in the need of some crafting?[B]");
+            } else {
+                conversation_dialog("[SLOW]People usually underestimate the usefulness of agility items.[B]");
+            }
+        }
+
+        fun response_positive() {
+            arg[0x00] = randrange(0d3);
+
+            if(arg[0x00] == 0d0) {
+                conversation_dialog("[SLOW]Go and slay some big game with that armor.[B]");
+            } else if(arg[0x00] == 0d1) {
+                conversation_dialog("[SLOW]Go and hunt some monster with that armor.[B]");
+            } else {
+                conversation_dialog("[SLOW]That armor really suits you.[B]");
+            }
+        }
+        fun response_negative() {
+            conversation_dialog("[SLOW]I assume you're not into crafting.[B]");
+        }
+
+        group crafting() {
+            fun _craft_mushroom_armor(armor:ITEM, price) {
+                trade_items(NO_ITEM, 0d0, TAPESTRY, 0d1, MUSHROOM, price);
+                
+                if(CUSTOM_MEMORY.RETURN) {
+                    reward(armor, True);
+                }
+
+                control(BOTH);
+            }
+            
+            fun craft_mushroom_armor() {
+                MEMORY.STRING_PARAMETER_1 = NPC_CRAFTER.PRICE_MUSHROM_HELMET;
+                MEMORY.STRING_PARAMETER_2 = NPC_CRAFTER.PRICE_MUSHROM_CHEST;
+                MEMORY.STRING_PARAMETER_3 = NPC_CRAFTER.PRICE_MUSHROM_GLOVE;
+                conversation_question("[SLOW]This is what I can offer for a tapestry and some mushrooms…[CHOICE]Helm ([MEM1])[CHOICE]Chest ([MEM2])[CHOICE]Glove ([MEM3])", 0d6);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    _craft_mushroom_armor(HELM_1_1, MEMORY.STRING_PARAMETER_1);
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    _craft_mushroom_armor(CHEST_1_1, MEMORY.STRING_PARAMETER_2);
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    _craft_mushroom_armor(GLOVE_1_1, MEMORY.STRING_PARAMETER_3);
+                }
+            }
+            
+            fun craft_green_dragon_scale_armor() {
+                conversation_question("[SLOW]Are those actual dragon claws? With two tapestry I can craft you the perfect gloves…[CHOICE]yes…[CHOICE]no…", 0d6);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    trade_items(NO_ITEM, 0d0, TAPESTRY, 0d2);
+                    
+                    if(CUSTOM_MEMORY.RETURN) {
+                        SOULS_MEMORY.DRAGON_SCALES_GREEN = False;
+                        reward(GLOVE_3_3, True);
+
+                        response_positive();
+                    } else {
+                        response_negative();
+                    }
+                }
+            }
+            
+            fun craft_red_dragon_scale_armor() {
+                conversation_question("[SLOW]Are those actual dragon scales? With three tapestry I can upgrade your green tunic…[CHOICE]yes…[CHOICE]no…", 0d6);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    if(MEMORY.CHEST_1_1) {
+                        trade_items(NO_ITEM, 0d0, TAPESTRY, 0d3);
+                        
+                        if(CUSTOM_MEMORY.RETURN) {
+                            SOULS_MEMORY.DRAGON_SCALES_RED = False;
+                            custom_reward(TUNIC_RED, True);
+
+                            response_positive();
+                        } else {
+                            response_negative();
+                        }
+                    } else {
+                        response_negative();
+                    }
+                }
+            }
+        };
+
+        fun craft_prompt() {
+            // Craft or upgrade
+            // -> Mushroom armor: 8
+            //    Green dragon scales: 1
+            //    Red dragon scales: 1
+
+            MEMORY.STRING_PARAMETER_1 = MEMORY.MUSHROOM;
+            MEMORY.STRING_PARAMETER_2 = SOULS_MEMORY.DRAGON_SCALES_GREEN;
+            MEMORY.STRING_PARAMETER_3 = SOULS_MEMORY.DRAGON_SCALES_RED;
+
+            smart_text_box(<SCRIPT_OWNER>, 0d5);
+            text("[SLOW]Craft or upgrade[CHOICE]Mushroom armor: [MEM1]");
+            if(NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK && SOULS_MEMORY.DEAD_STOMPY_RADAHN) {
+                text("[CHOICE]Green dragon scales: [MEM2]");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK && SOULS_MEMORY.DEAD_FLAPPY_DRAGON) {
+                text("[CHOICE]Red dragon scales: [MEM3]");
+            } else {
+                text("[CHOICE]…");
+            }
+            await_answer();
+            text_end();
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) { // mushroom menu
+                craft_mushroom_armor();
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // green
+                if(NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK && SOULS_MEMORY.DEAD_STOMPY_RADAHN && SOULS_MEMORY.DRAGON_SCALES_GREEN) {
+                    craft_green_dragon_scale_armor();
+                } else {
+                    response_negative();
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) { // red
+                if(NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK && SOULS_MEMORY.DEAD_FLAPPY_DRAGON && SOULS_MEMORY.DRAGON_SCALES_RED) {
+                    craft_red_dragon_scale_armor();
+                } else {
+                    response_negative();
+                }
+            }
+        }
+
+        @install()
+        fun crafter_market_triggered() {
+            smart_conversation({
+                if(NPC_CRAFTER.PROGRESS == 0d0) {
+                    NPC_CRAFTER.PROGRESS++;
+
+                    smart_conversation({
+                        conversation_dialog("[SLOW]How can the market be out of all exotic crafting materials so early?[B]");
+                    });
+                } else if(NPC_CRAFTER.PROGRESS == 0d1) {
+                    NPC_CRAFTER.PROGRESS = 0x10;
+
+                    smart_conversation({
+                        conversation_dialog("[SLOW]After some trading I managed to find the source of the Limestone Tablets. Apparently they can be found in the temple, just lying on the floor.[B]");
+                    });
+                } else {
+                    conversation_dialog("[SLOW]I really need one of those for a craft…[B]");
+                }
+            }, False);
+        }
+        @install()
+        fun crafter_temple_triggered() {
+            smart_conversation({
+                if(NPC_CRAFTER.PROGRESS == 0x10) {
+                    smart_conversation({
+                        conversation_question("[SLOW]I don't think I'll get out of here alive…[CHOICE]invite…[CHOICE]leave…");
+                            
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // invite
+                            NPC_CRAFTER.PROGRESS = 0x30;
+
+                            conversation_dialog("[SLOW]Let me know when you need some crafting…[B]");
+                        } else {
+                            conversation_dialog("[SLOW]I fear I'm stuck…[B]");
+                        }
+                    });
+                } else {
+                    dialog("[SLOW]I'm glad you ran into me…[B]");
+                }
+            }, False);
+        }
+        @install()
+        fun crafter_shrine_triggered() {
+            smart_conversation({
+                response_greeting();
+
+                conversation_question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]craft…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    if((MEMORY.HELM_4_3 > 0d0) && (!NPC_CRAFTER.STORY_HELM_ARCHAEOLOGY)) {
+                        NPC_CRAFTER.STORY_HELM_ARCHAEOLOGY = True;
+
+                        conversation_dialog("[SLOW]How did you get that ancient helmet in your possession?![B]I only heard stories about this technology so far.[B]Press [Start]+[L] to use it.[B]It should be able to locate ancient hidden treasures with ease.[B]");
+
+                        if((!SOULS_MEMORY.PICKAXE_HEAD) && (!SOULS_MEMORY.PICKAXE)) {
+                            conversation_dialog("[SLOW]You'll need something to dig, though.[B]Maybe the smith can help you.[B]");
+
+                            NPC_SHARED.STORY_PICKAXE = True;
+                        }
+                    } else if(SOULS_MEMORY.PATTERN_DRAGON_LEATHERWORK) {
+                        NPC_CRAFTER.LEARNED_PATTERN_DRAGON_LEATHERWORK = True;
+
+                        conversation_dialog("[SLOW]Patterns about dragon leatherworking? Where did you find them?[B]I'll craft you the finest armor with them.[B]");
+                    } else if((SOULS_MEMORY.PICKAXE_HEAD) && (SOULS_MEMORY.PICKAXE_SHAFT) && (!SOULS_MEMORY.PICKAXE)) {
+                            conversation_dialog("[SLOW]Let me attach that for you…[B]");
+
+                            custom_reward(PICKAXE, True);
+
+                            conversation_dialog("[SLOW]Now you are ready for your first archaeology adventure![B]");
+                    } else if(SOULS_MEMORY.DEAD_WALL && (!NPC_SHARED.STORY_PICKAXE)) {
+                            conversation_dialog("[SLOW]You actually went back and defused the trap, and that sparked your interest in archaeology?[B]First step would be to dig something up.[B]Maybe the smith can help you with that.[B]");
+
+                            NPC_SHARED.STORY_PICKAXE = True;
+                    } else {
+                        conversation_dialog("[SLOW]The land is full of burried trasures.[B]");
+                    }
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // craft
+                    craft_prompt();
+                } else {
+                    response_negative();
+                }
+            }, False);
+        }
+    };
+    
+    fun add_souls_npc_crafter(x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            add_enemy(NPC_CRAFTER.BODY, x, y, flags);
+        } else {
+            add_enemy(NPC_CRAFTER.BODY, x, y, 0d0);
+        }
+        <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+
+        if(NPC_CRAFTER.PROGRESS < 0x10) {
+            attach_script(LAST_ENTITY, B, reference(crafter_market_triggered));
+        } else if(NPC_CRAFTER.PROGRESS < 0x20) {
+            attach_script(LAST_ENTITY, B, reference(crafter_temple_triggered));
+        } else if(NPC_CRAFTER.PROGRESS >= 0x20) {
+            attach_script(LAST_ENTITY, B, reference(crafter_shrine_triggered));
+        }
+    }
+};

@@ -1,0 +1,473 @@
+group strings() {
+    fun font(font:FONT) {
+        code(0x9a, param(font), "// (9a) CHANGE FONT TO 2");
+    }
+
+    fun await_answer(preselection) {
+        // eval("1d 69 00 30 ac // (1d) WRITE $289d = Dialog response (preselect 0)");
+
+        if(preselection is None) {
+            code(0x1d, 0x289d - 0x2834, 0x30 + 0d0, 0x80 + 0x2c, "// (1d) WRITE $289d = Dialog response (preselect 0)");
+        } else {
+            code(0x1d, 0x289d - 0x2834, _calculate(preselection), 0x80 + 0x2c, "// (1d) WRITE $289d = Dialog response (preselect 0)");
+        }
+    }
+
+    fun open_message_box(type:MESSAGE_BOX_TYPE, x, y, w, h) {
+        if(type == MESSAGE_BOX_TYPE.DEFAULT) {
+            code(0x44, 0x00, x, y, w, h, "// (44) UNTRACED INSTR, Open messagebox? slot=0x00 x=0x0a y=0x02 w=0x14 h=0x0c");
+        } else {
+            code(0x47, 0x00, x, y, w, h, "// (47) UNTRACED INSTR, Open messagebox? slot=0x00 x=0x04 y=0x04 w=0x18 h=0x14");
+        }
+    }
+
+    fun _text_start() {
+        if(True) {
+            call_id(OPEN_TEXTBOX_DEFAULT);
+        } else {
+            open_message_box(DEFAULT, 0d10, 0d2, 0d20, 0d7);
+        }
+    }
+    fun text_start() {
+        control(NONE); // TODO: ACTIVE only?
+
+        _text_start();
+    }
+    fun text(id) {
+        code(0x51, install_string(id), "// (51) SHOW TEXT 10bf FROM 0x91e0bf compressed WINDOWED c14dd8> '[0x97][0x8b]Goat[LF]' '[0x8b]Chicken[LF]' '[0x8b]Basket'");
+    }
+    fun text_end() {
+        code(0x55, "// (55) CLEAR TEXT");
+    }
+    fun text_box(x, lines) {
+        if(lines == 0d01) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d02);
+        } else if(lines == 0d02) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d04);
+        } else if(lines == 0d03) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d05);
+        } else if(lines == 0d04) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d07);
+        } else if(lines == 0d05) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d08);
+        } else if(lines == 0d06) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d10);
+        } else if(lines == 0d07) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d11);
+        } else if(lines == 0d08) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d13);
+        } else if(lines == 0d09) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d14);
+        } else if(lines == 0d10) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d16);
+        } else if(lines == 0d11) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d17);
+        } else if(lines == 0d12) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d19);
+        } else if(lines == 0d13) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d20);
+        } else if(lines == 0d14) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d22);
+        } else if(lines == 0d15) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d23);
+        } else if(lines == 0d16) {
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d25);
+        } else if(lines == 0d17) { // too big
+            open_message_box(DEFAULT, x, 0x02, 0x14, 0d26);
+        } else {
+            open_message_box(DEFAULT, x, 0d2, 0d20, 0d7);
+        }
+    }
+    @install()
+    @weak()
+    fun smart_text_box(entity, lines) {
+        if(<ACTIVE>[X] > entity[X]) {
+            text_box(0d2, lines);
+        } else {
+            text_box(0d10, lines);
+        }
+    }
+
+    fun subtext(id) {
+        code(0x52, install_string(id), "// (52) SHOW TEXT 066f FROM 0x91d66f compressed UNWINDOWED c03ad9> 'Received Jaguar Ring'");
+    }
+    fun clear_subtext() {
+        // TODO: clear + disable?
+
+        code(0x5a, "// (5a) UNTRACED INSTR, checking message timer");
+    }
+    fun enable_subtext(enable) {
+        if(enable) {
+            code(0x80, "// (80) UNHIDE? UNWINDOWED TEXT");
+        } else {
+            code(0x81, "// (81) HIDE UNWINDOWED TEXT");
+        }
+    }
+
+    fun _question(id, lines) {
+        if(lines is Word) {
+            text_box(0d10, lines);
+        } else {
+            text_box(0d10, 0d4);
+        }
+        text(id);
+        await_answer();
+        text_end();
+    }
+    fun question(id, lines) {
+        control(NONE);
+
+        if(lines is Word) {
+            _question(id, lines);
+        } else {
+            _question(id);
+        }
+
+        control(BOTH);
+    }
+
+    fun _dialog(id) {
+        text_start();
+
+        text(id);
+
+        text_end();
+    }
+    fun dialog(id) {
+        _dialog(id);
+
+        control(BOTH);
+    }
+
+    fun conversation_start(face?:CHARACTER) {
+        if(False) {
+            if(<ACTIVE>[Z_LEVEL] != npc[Z_LEVEL]) {
+                end();
+            }
+        }
+        if(script[0x9] == 0x200) {
+            end();
+        }
+
+        clear_subtext();
+
+        control(NONE); // TODO: ACTIVE only?
+        
+        if(face is Word) {
+            if(face == CHARACTER.NONE) {
+                nop();
+            } else {
+                control(SCRIPT_OWNER, True);
+
+                face_each(face, SCRIPT_OWNER);
+            }
+        } else if(face !is None) {
+            control(SCRIPT_OWNER, True);
+
+            _face_each(face, <SCRIPT_OWNER>);
+        } else {
+            control(SCRIPT_OWNER, True);
+
+            face_each(ACTIVE, SCRIPT_OWNER);
+        }
+    }
+    fun conversation_end(face?:CHARACTER) {
+        control(BOTH);
+
+        if(face is Word) {
+            if(face == CHARACTER.NONE) {
+                nop();
+            } else {
+                control(SCRIPT_OWNER, False);
+            }
+        } else {
+            control(SCRIPT_OWNER, False);
+        }
+    }
+    fun conversation_dialog(id, lines) {
+        if(lines is Word) {
+            smart_text_box(<SCRIPT_OWNER>, lines);
+        } else {
+            smart_text_box(<SCRIPT_OWNER>, 0d4);
+        }
+        text(id);
+        text_end();
+    }
+    fun conversation_question(id, lines) {
+        if(lines is Word) {
+            smart_text_box(<SCRIPT_OWNER>, lines);
+        } else {
+            smart_text_box(<SCRIPT_OWNER>, 0d4);
+        }
+        text(id);
+        await_answer();
+        text_end();
+    }
+    @install()
+    @weak()
+    fun default_conversation_answer() {
+        conversation_dialog("…[B]");
+    }
+    fun conversation(callback, face?:CHARACTER) {
+        conversation_start(face);
+
+        callback(); // todo: compile time increases by 20%
+
+        conversation_end(face);
+    }
+    fun smart_conversation(callback_boy, callback_dog, face?:CHARACTER) {
+        conversation_start(face);
+
+        // todo: compile time increases by 100%
+
+        if!(SYSTEM.WITH_NO_DOG_DIALOG) {
+            if(<ACTIVE> == <BOY>) {
+                if(callback_boy is Function) {
+                    callback_boy(); // buggy: cached when installed
+                } else {
+                    default_conversation_answer();
+                }
+            } else {
+                if(callback_dog is Function) {
+                    callback_dog(); // buggy: cached when installed
+                } else {
+                    default_conversation_answer();
+                }
+            }
+        } else {
+            callback_boy();
+        }
+
+        conversation_end(face);
+    }
+
+    @install()
+    @weak()
+    fun print_time(time_0, time_2) {
+        if((time_0 == 0d0) && (time_2 == 0d0)) {
+            time_0 = time[0d0];
+            time_2 = time[0d2];
+        }
+
+        modulo(time_0, 0d60, arg[0x16]); // frames->seconds
+        arg[0x14] = time_0; // frames
+
+        modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
+
+        modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
+
+        if(True) {
+            while(time_2 > 0d0) {
+                time_2--;
+
+                // 18m + 12s + 16f
+
+                arg[0x18] += 0d18;
+                arg[0x16] += 0d12;
+                arg[0x14] += 0d16;
+            }
+
+            modulo(arg[0x14], 0d60, arg[0x16]); // frames->seconds
+            modulo(arg[0x16], 0d60, arg[0x18]); // seconds->minutes
+            modulo(arg[0x18], 0d60, arg[0x1a]); // minutes->hours
+        }
+
+        MEMORY.STRING_PARAMETER_1 = arg[0x1a];
+        MEMORY.STRING_PARAMETER_2 = arg[0x18];
+        MEMORY.STRING_PARAMETER_3 = arg[0x16];
+
+        if(True) {
+            if(arg[0x1a]) {
+                if((arg[0x18] < 0d10) && (arg[0x16] < 0d10)) {
+                    text("[MEM1]:0[MEM2]:0[MEM3]");
+                } else if(arg[0x18] < 0d10) {
+                    text("[MEM1]:0[MEM2]:[MEM3]");
+                } else if(arg[0x16] < 0d10) {
+                    text("[MEM1]:[MEM2]:0[MEM3]");
+                } else {
+                    text("[MEM1]:[MEM2]:[MEM3]");
+                }
+            } else {
+                if((arg[0x18] < 0d10) && (arg[0x16] < 0d10)) {
+                    text("0[MEM2]:0[MEM3]");
+                } else if(arg[0x18] < 0d10) {
+                    text("0[MEM2]:[MEM3]");
+                } else if(arg[0x16] < 0d10) {
+                    text("[MEM2]:0[MEM3]");
+                } else {
+                    text("[MEM2]:[MEM3]");
+                }
+            }
+        } else {
+            text("[MEM1]:[MEM2]:[MEM3]");
+        }
+    }
+
+    fun outro_start() {
+        // example: outro_text_box("header[LF]", "text1[LF]text2");
+
+        fade_out();
+        sleep(0d15);
+
+        hide_non_dialog_layers();
+
+        open_message_box(TRANSPARENT_CENTERED, 0x04, 0x04 - 0d2, 0x18, 0x14 + 0d2);
+
+        brightness(0d0);
+        sleep(0d4);
+        _fade_in();
+    }
+    fun outro_end(sleep_duration) {
+        if(False) {
+            call_id(FADE_OUT_CREDITS);
+        } else {
+            if(sleep_duration is Word) {
+                sleep(0d600 + sleep_duration);
+            } else {
+                sleep(0d600);
+            }
+            fade_out();
+            text_end();
+        }
+    }
+    fun outro_text_box(text_header, text_content, sleep_duration) {
+        outro_start();
+
+        font(OUTRO);
+        text(text_header);
+
+        font(DEFAULT);
+        text(text_content);
+
+        if(sleep_duration is Word) {
+            outro_end(sleep_duration);
+        } else {
+            outro_end();
+        }
+    }
+    fun outro_stats(progress, bosses, collectibles, challenges, cheats, cheats_caught, stay_open, time_0, time_2) {
+        outro_start();
+
+        font(OUTRO);
+        text("Time:[LF]");
+
+        font(DEFAULT);
+        print_time(time_0, time_2);
+
+        sleep(0d120);
+
+        if(True) {
+            font(OUTRO);
+            text("[LF][LF]Progress:[LF]");
+
+            font(DEFAULT);
+            MEMORY.STRING_PARAMETER_1 = progress;
+            text("[MEM1]");
+
+            sleep(0d120);
+        }
+
+        if(True) {
+            font(OUTRO);
+            text("[LF]Bosses:[LF]");
+
+            font(DEFAULT);
+            MEMORY.STRING_PARAMETER_1 = bosses;
+            text("[MEM1]");
+
+            sleep(0d120);
+        }
+
+        if(True) {
+            font(OUTRO);
+            text("[LF]Treasures:[LF]");
+
+            font(DEFAULT);
+            MEMORY.STRING_PARAMETER_1 = collectibles;
+            text("[MEM1]");
+
+            sleep(0d120);
+        }
+
+        if(True) {
+            font(OUTRO);
+            text("[LF][LF]Challenges:[LF]");
+
+            font(DEFAULT);
+            MEMORY.STRING_PARAMETER_1 = challenges;
+            text("[MEM1]");
+
+            sleep(0d120);
+        }
+        if(True) {
+            font(OUTRO);
+            text("[LF]Cheats:[LF]");
+
+            font(DEFAULT);
+            MEMORY.STRING_PARAMETER_1 = cheats;
+            MEMORY.STRING_PARAMETER_2 = cheats_caught;
+            text("[MEM1] (+[MEM2])");
+
+            sleep(0d120);
+        }
+
+        outro_end();
+    }
+
+    fun debug_marker() {
+        <0x2834> = 0xffff;
+    }
+
+    fun debug_subtext(text) {
+        if(SYSTEM.WITH_DEBUG_SUBTEXT) {
+            if(False) {
+                open_message_box(TRANSPARENT_CENTERED, 0x01, 0x01, 0x10, 0x04);
+                
+                text(text);
+
+                text_end();
+            } else {
+                font(OUTRO);
+                subtext(text);
+                yield();
+                font(DEFAULT);
+            }
+        }
+    }
+    fun debug_z_level() {
+        while(True) {
+            MEMORY.STRING_PARAMETER_1 = <BOY>[Z_LEVEL] & 0xff;
+            MEMORY.STRING_PARAMETER_2 = <DOG>[Z_LEVEL] & 0xff;
+
+            debug_subtext("z_level = [MEM1] / [MEM2]");
+
+            sleep(0d10);
+        }
+    }
+    fun debug_tile() {
+        while(True) {
+            MEMORY.STRING_PARAMETER_1 = <BOY>[CURRENT_GROUND] & 0xff;
+            MEMORY.STRING_PARAMETER_2 = <DOG>[CURRENT_GROUND] & 0xff;
+
+            debug_subtext("tile = [MEM1] / [MEM2]");
+
+            sleep(0d10);
+        }
+    }
+
+    fun debug_status_effects_helper() {
+        set(FLAG.ATLAS);
+        MEMORY.SELECTED_ALCHEMY_0 = ALCHEMY_INDEX.ATLAS;
+        set(FLAG.BARRIER);
+        MEMORY.SELECTED_ALCHEMY_1 = ALCHEMY_INDEX.BARRIER;
+        set(FLAG.DEFEND);
+        MEMORY.SELECTED_ALCHEMY_2 = ALCHEMY_INDEX.DEFEND;
+
+        set(FLAG.ENERGIZE);
+        MEMORY.SELECTED_ALCHEMY_3 = ALCHEMY_INDEX.ENERGIZE;
+        set(FLAG.FORCE_FIELD);
+        MEMORY.SELECTED_ALCHEMY_4 = ALCHEMY_INDEX.FORCE_FIELD;
+        set(FLAG.SPEED);
+        MEMORY.SELECTED_ALCHEMY_5 = ALCHEMY_INDEX.SPEED;
+    }
+};

@@ -1,0 +1,169 @@
+group npc_bee_boy() {
+    enum NPC_BEE_BOY {
+        PROGRESS = memory(BYTE, SRAM),
+        DEAD = memory(FLAG, SRAM),
+        DEBUG = False,
+
+        REWARD_1_COLLECTED = memory(FLAG, SRAM),
+        REWARD_2_COLLECTED = memory(FLAG, SRAM),
+        REWARD_3_COLLECTED = memory(FLAG, SRAM),
+        REWARD_4_COLLECTED = memory(FLAG, SRAM),
+        REWARD_5_COLLECTED = memory(FLAG, SRAM),
+    }
+
+    group bee_boy_ai() {
+        fun guard_dead_npc() {
+            guard_dead(<SCRIPT_OWNER>, {
+                NPC_BEE_BOY.DEAD = True;
+            });
+        }
+
+        fun response_positive() {
+            conversation_dialog("[SLOW]If you bring me enough bees I'll reward you with some treasures I found…[B]");
+        }
+        fun response_negative() {
+            conversation_dialog("[SLOW]Bring me more bees…[B]");
+        }
+
+        @install()
+        fun add_following_bee(entity) {
+            while(entity[GENERAL_PURPOSE] != 0x0000) {
+                entity = entity[GENERAL_PURPOSE];
+            }
+
+            MEMORY.NEXT_ENEMY_FOLLOWS_ENTITY = entity;
+            _add_enemy(BEE, entity[X], entity[Y]);
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
+
+            entity[GENERAL_PURPOSE] = <LAST_ENTITY>;
+        }
+
+        fun bee_reward(flag, item) {
+            flag = True;
+
+            custom_reward(item, True);
+
+            add_following_bee(<SCRIPT_OWNER>);
+            arg[0x10] = True;
+        }
+        fun bee_reward_check(flag, item, cost) {
+            if((!flag) && (NPC_BEE_BOY.PROGRESS >= cost)) {
+                bee_reward(flag, item);
+            }
+        }
+
+        @install()
+        fun request_reward() {
+            if(NPC_BEE_BOY.PROGRESS >= SOULS_MEMORY.COST_BEE_BOY_QUEST_5) {
+                conversation_dialog("[SLOW]That was my last treasure…[B]");
+                end();
+            }
+
+            bee_reward_check(NPC_BEE_BOY.REWARD_1_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_1, SOULS_MEMORY.COST_BEE_BOY_QUEST_1);
+            bee_reward_check(NPC_BEE_BOY.REWARD_2_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_2, SOULS_MEMORY.COST_BEE_BOY_QUEST_2);
+            bee_reward_check(NPC_BEE_BOY.REWARD_3_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_3, SOULS_MEMORY.COST_BEE_BOY_QUEST_3);
+            bee_reward_check(NPC_BEE_BOY.REWARD_4_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_4, SOULS_MEMORY.COST_BEE_BOY_QUEST_4);
+            bee_reward_check(NPC_BEE_BOY.REWARD_5_COLLECTED, SOULS_MEMORY.REWARD_BEE_BOY_QUEST_5, SOULS_MEMORY.COST_BEE_BOY_QUEST_5);
+            
+            if(arg[0x10]) {
+                response_positive();
+            } else {
+                response_negative();
+            }
+        }
+
+        @install()
+        fun bee_boy_triggered_initial() {
+            guard_dead_npc();
+            
+            smart_conversation({
+                if!(SOULS_MEMORY.BUG_CATCHER_BROKEN) {
+                    conversation_dialog("[SLOW]Something is missing in my life…[B]");
+                } else if!(SOULS_MEMORY.BUG_CATCHER) {
+                    conversation_question("[SLOW]Can you help me to find more bees?[CHOICE]help…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                        custom_reward(BUG_CATCHER, True);
+
+                        conversation_dialog("[SLOW]I attached it to your bone, so use it to collect them![B]");
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // leave
+                        response_negative();
+                    } else {
+                        response_negative();
+                    }   
+                } else {
+                    response_negative();
+                }
+            }, False);
+        }
+        @install()
+        fun bee_boy_triggered() {
+            guard_dead_npc();
+            
+            if(NPC_BEE_BOY.DEBUG) {
+                debug_memory(NPC_BEE_BOY.PROGRESS, SOULS_MEMORY.COST_BEE_BOY_QUEST_4);
+                sleep(0d60);
+            }
+
+            smart_conversation({
+                if(NPC_BEE_BOY.PROGRESS < SOULS_MEMORY.COST_BEE_BOY_QUEST_4) {
+                    arg[0x10] = SOULS_MEMORY.BEES - NPC_BEE_BOY.PROGRESS;
+
+                    if(arg[0x10] > 0d0) {
+                        if(arg[0x10] == 0d1) {
+                            question("[SLOW]You brought me only 1 bee?[CHOICE]give…[CHOICE]leave…");
+                        } else {
+                            MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                            question("[SLOW]You brought me [MEM1] bees?[CHOICE]give…[CHOICE]leave…");
+                        }
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // give
+                            NPC_BEE_BOY.PROGRESS = SOULS_MEMORY.BEES;
+                            request_reward();
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // leave
+                            response_negative();
+                        } else {
+                            response_negative();
+                        }
+                    } else {
+                        response_negative();
+                    }
+                } else {
+                    dialog("[SLOW]I hope they aren't extinct now…[B]");
+                }
+            }, False);
+        }
+    };
+    
+    fun add_souls_npc_bee_boy(x, y) {
+        if!(NPC_BEE_BOY.DEAD) {
+            add_enemy(VILLAGER_1_2, x, y);
+            <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+            attribute(LAST_ENTITY, INVINCIBLE, False);
+            arg[0x10] = <LAST_ENTITY>;
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
+
+            if!(SOULS_MEMORY.BUG_CATCHER) {
+                attach_script(LAST_ENTITY, ALL, reference(bee_boy_triggered_initial));
+            } else {
+                attach_script(LAST_ENTITY, ALL, reference(bee_boy_triggered));
+            }
+
+            if(NPC_BEE_BOY.REWARD_1_COLLECTED) {
+                add_following_bee(arg[0x10]);
+            }
+            if(NPC_BEE_BOY.REWARD_2_COLLECTED) {
+                add_following_bee(arg[0x10]);
+            }
+            if(NPC_BEE_BOY.REWARD_3_COLLECTED) {
+                add_following_bee(arg[0x10]);
+            }
+            if(NPC_BEE_BOY.REWARD_4_COLLECTED) {
+                add_following_bee(arg[0x10]);
+            }
+            if(NPC_BEE_BOY.REWARD_5_COLLECTED) {
+                add_following_bee(arg[0x10]);
+            }
+        }
+    }
+};

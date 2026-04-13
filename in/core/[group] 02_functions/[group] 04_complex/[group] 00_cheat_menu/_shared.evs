@@ -1,0 +1,45 @@
+group shared() {
+    enum CHEAT_MENU {
+        DEBUG = False,
+
+        DELAY = 0d5,
+
+        MODIFIER_LOCK = CUSTOM_MEMORY.INPUT_P1 & INPUT.L,
+        MODIFIER_UNLOCK = CUSTOM_MEMORY.INPUT_P1 & INPUT.R,
+    }
+
+    fun handle_cheat_menu(skip_code, callback) {
+        if(CHEAT_MENU.DEBUG) {
+            _fade_in();
+        }
+
+        while((MEMORY.INPUT_P1 & (INPUT.L | INPUT.R)) == (INPUT.L | INPUT.R)) {
+            arg[0x10]++;
+            arg[0x12] = MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R));
+
+            if(skip_code) {
+                if(arg[0x10] == 0d60) {
+                    sound(WEIRD_SOUND);
+
+                    callback();
+                }
+            } else {
+                check_code_konami(arg[0x16], arg[0x12], callback);
+                if(CHEAT_MENU.DEBUG) {
+                    debug_memory(arg[0x12], arg[0x16]);
+                }
+
+                sleep(CHEAT_MENU.DELAY);
+                while(
+                    ((MEMORY.INPUT_P1 & (INPUT.L | INPUT.R)) == (INPUT.L | INPUT.R))
+                    && ((MEMORY.INPUT_P1 & (~(INPUT.L | INPUT.R))) == arg[0x12])
+                ) {
+                    yield();
+                }
+                sleep(CHEAT_MENU.DELAY);
+            }
+
+            yield();
+        }
+    }
+};

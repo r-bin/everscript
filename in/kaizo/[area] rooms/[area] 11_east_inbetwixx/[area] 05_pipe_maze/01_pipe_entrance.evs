@@ -1,0 +1,184 @@
+map pipe_entrance(PIPEMAZE_ROOMS) {
+    // sniff=none
+
+    enum entrance {
+        pipe_east = entrance(0x2d, 0x17, NONE),
+        south = entrance(0x1a, 0x2f, NORTH),
+        pipe_west = entrance(0x07, 0x17, NONE),
+
+        bonfire = entrance(0d14, 0d31, NONE, { bonfire_wakeup(-0d32, 0d8, 0d32, 0d8); }),
+    }
+    
+    enum soundtrack {
+        default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        SECRET_PASSAGE_TRIGGER = memory(WORD, TEMP),
+        SECRET_PASSAGE_DISTANCE = 0x20,
+
+        GOURD = memory(FLAG, SRAM),
+    }
+
+    enum stepon_trigger {
+        switch_triggered = nop(),
+        exit_room_switch = nop(),
+        exit_room_gate = nop(),
+        exit_room_empty = nop(),
+        exit_north_1 = @install() {
+            map_transition(pipe_entrance_left, pipe_switch, NORTH);
+        },
+        exit_north_2 = @install() {
+            map_transition(pipe_maze, pipe_east, NORTH);
+        },
+        jump_room_switch = nop(),
+        jump_room_gate = nop(),
+        exit_south = @install() {
+            map_transition(pipe_caves_1, north, SOUTH);
+        },
+        jump_empty_room = nop(),
+
+        exit_gate = nop(),
+        approach_gate = nop(),
+    }
+
+    fun gourd_looted() {
+        bonfire(0d14, 0d31, SOULS_MEMORY.BONFIRE_PIPES);
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() {
+            debug_subtext("B=0");
+        },
+        b_trigger_1 = @install() {
+            debug_subtext("B=1");
+        },
+        b_trigger_2 = @install() {
+            debug_subtext("B=2");
+        },
+        b_trigger_3 = @install() {
+            debug_subtext("B=3");
+        },
+        b_trigger_4 = @install() {
+            debug_subtext("B=4");
+        },
+        b_trigger_5 = @install() {
+            debug_subtext("B=5");
+        },
+        b_trigger_6 = @install() {
+            debug_subtext("B=6");
+        },
+        b_trigger_7 = @install() {
+            debug_subtext("B=7");
+        },
+        b_trigger_8 = @install() {
+            debug_subtext("B=8");
+        },
+        b_trigger_9 = @install() {
+            sound(WEIRD_SOUND);
+            set(ROOM.GOURD);
+            object[0x07] = 0x02; // loot gourd_entrance
+            gourd_looted();
+        },
+
+        b_trigger_10 = @install() {
+            debug_subtext("B=10");
+        },
+        b_trigger_11 = @install() {
+            debug_subtext("B=11");
+        },
+        b_trigger_12 = @install() {
+            debug_subtext("B=12");
+        },
+        b_trigger_13 = @install() {
+            debug_subtext("B=13");
+        },
+    }
+
+    @install()
+    @async()
+    fun hidden_exit_check() {
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = ROOM.SECRET_PASSAGE_TRIGGER[X];
+            arg[0x06] = ROOM.SECRET_PASSAGE_TRIGGER[Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if((arg[0x08] <= ROOM.SECRET_PASSAGE_DISTANCE) && (arg[0x0a] <= ROOM.SECRET_PASSAGE_DISTANCE)) {
+                map_transition(eastern_barrier, east, WEST);
+                end();
+            }
+            yield();
+
+            if(ROOM.DEBUG) {
+                debug_memory(arg[0x08], arg[0x0a]);
+                sleep(0x20);
+            }
+        }
+    }
+
+    @install()
+    fun test_triggered() {
+        if(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
+            map_transition(pipe_caves_side, pipe, EAST);
+        } else {
+            error_message(DOOR_CONTRAPTION);
+        }
+    }
+    
+    @install()
+    fun debug_triggered() {
+        set(PIPE_MAZE.HIDDEN_ROOM_OPEND);
+
+        destroy(SCRIPT_OWNER);
+    }
+
+    fun trigger_enter() {
+        if(FLAG.DEBUG) {
+            if!(PIPE_MAZE.HIDDEN_ROOM_OPEND) {
+                add_debug_entity(0x2F, 0x1b, reference(debug_triggered));
+            }
+        }
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            add_basic_souls_enemy(RAT, 0d38, 0d33);
+        }
+
+        if(ROOM.GOURD) {
+            object[0x07] = 0x02; // loot gourd_entrance
+            gourd_looted();
+        } else {
+            object[0x07] = 0x01; // loot gourd_entrance
+        }
+        // bonfire(0x1e, 0x22);
+
+        default_init_room(True, False);
+
+        if(SOULS_MEMORY.BIG_MUSHROOM) {
+            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
+        }
+
+        add_enemy(PLACEHOLDER, 0x2d, 0x16);
+        attach_script(LAST_ENTITY, B, reference(test_triggered));
+        
+        add_enemy(PLACEHOLDER, 0x05, 0x16);
+        ROOM.SECRET_PASSAGE_TRIGGER = <LAST_ENTITY>;
+
+        sleep(0x10);
+        hidden_exit_check();
+    }
+};

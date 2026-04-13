@@ -1,0 +1,94 @@
+group reputation() {
+    enum REPUTATION {
+        NORMAL = 0d0,
+
+        REVERED = 0d1,
+        CHAMPION = 0d2,
+
+        CHEATER = 0xff,
+    }
+
+    @install()
+    fun update_reputation() {
+        if(SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) {
+            if((SOULS_MEMORY.PROGRESS_COUNTER >= SOULS_MEMORY.REPUTATION_THRESHOLD_REVERED) || SOULS_MEMORY.DEAD_GIDEON) {
+                SOULS_MEMORY.REPUTATION = REPUTATION.REVERED;
+            } else if((SOULS_MEMORY.PROGRESS_COUNTER >= SOULS_MEMORY.REPUTATION_THRESHOLD_CHAMPION) || SOULS_MEMORY.DEAD_FINAL_BOSS) {
+                SOULS_MEMORY.REPUTATION = REPUTATION.CHAMPION;
+            }
+        }
+    }
+
+    fun bump_cheat_counter() {
+        if(SOULS_MEMORY.CHEAT_COUNTER < 0xff) {
+            SOULS_MEMORY.CHEAT_COUNTER++;
+        }
+    }
+
+    @install()
+    fun update_reputation_enter() {
+        if!(SOULS_MEMORY.CHEAT_DEBUG_OR_CHEAT_MODE) {
+            if(SOULS_MEMORY.DEBUG || SOULS_MEMORY.WITH_CHEATS) {
+                SOULS_MEMORY.CHEAT_DEBUG_OR_CHEAT_MODE = True;
+                bump_cheat_counter();
+            }
+        }
+        if!(SOULS_MEMORY.CHEAT_ATLAS_GLITCH) {
+            if(<BOY>[BOOST_ATTACK] > 0d1000) {
+                SOULS_MEMORY.CHEAT_ATLAS_GLITCH = True;
+                bump_cheat_counter();
+            }
+        }
+        if(True) { // TODO: SOULS_MEMORY.CHEAT_OVER_LEVELED
+            if(MEMORY.BOY_LEVEL > 0d10) {
+                MEMORY.BOY_LEVEL = 0d5;
+
+                // SOULS_MEMORY.CHEAT_OVER_LEVELED = True;
+                bump_cheat_counter();
+            }
+        }
+        if(True) { // TODO: SOULS_MEMORY.CHEAT_OVER_LEVELED
+            if((MEMORY.BOY_XP > 0d1000) || (MEMORY.BOY_XP_2 > 0d0)) {
+                MEMORY.BOY_XP = 0d0;
+                MEMORY.BOY_XP_2 = 0d0;
+
+                bump_cheat_counter();
+            }
+        }
+        if!(SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED) {
+            if(False) {
+                if((SOULS_MEMORY.DUST_DROP_MAP != 0xffff) && (SOULS_MEMORY.DUST_DROP_VARIANT != 0xffff)) {
+                    currency_convert(0d1, JEWELES, 0d1, GOLD_COINS);
+
+                    SOULS_MEMORY.DUST_UNREACHABLE = False;
+                    
+                    SOULS_MEMORY.DUST_DROP_X = 0d0;
+                    SOULS_MEMORY.DUST_DROP_Y = 0d0;
+
+                    SOULS_MEMORY.DUST_DROP_MAP = 0xffff;
+                    SOULS_MEMORY.DUST_DROP_VARIANT = 0xffff;
+                }
+            }
+
+            if(False) {
+                if((MEMORY.INPUT_P1 & INPUT.START) == INPUT.START) {
+                    hide_non_dialog_layers();
+                    _fade_in();
+
+                    cheat_menu_settings(False, False);
+                }
+            }
+
+            update_armor_effects();
+            
+            SOULS_MEMORY.CHEAT_COUNTER_NEVER_LOADED = True;
+            bump_cheat_counter();
+        }
+
+        if(SOULS_MEMORY.CHALLENGE_NO_CHEATS && (SOULS_MEMORY.REPUTATION != REPUTATION.CHEATER) && SOULS_MEMORY.CHEAT_COUNTER) {
+            SOULS_MEMORY.REPUTATION = REPUTATION.CHEATER;
+        } else {
+            update_reputation();
+        }
+    }
+};

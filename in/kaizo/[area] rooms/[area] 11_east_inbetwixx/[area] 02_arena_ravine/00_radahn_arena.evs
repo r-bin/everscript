@@ -1,0 +1,297 @@
+map radahn_arena(RAPTORS) {
+    // sniff=vanilla
+    
+    enum entrance {
+        north = entrance(0x1b, 0x03, SOUTH),
+        south = entrance(0x1d, 0x33, NORTH),
+
+        left = entrance(0x15, 0x1c, NONE, { crash_both(); }),
+        center = entrance(0x1e, 0x21, NONE, { crash_both(); }),
+        right = entrance(0x2a, 0x23, NONE, { crash_both(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(SEWER_AMBIENT_WATER, 0xff),
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_ARENA_RADAHN, NORTH);
+            map_transition(radahn_exit, north, SOUTH);
+        },
+        center = nop(),
+    }
+
+    enum b_trigger {
+        sniff__1_crystal_1 = @install() {
+            debug_subtext("B=0");
+            _loot(0x09, CRYSTAL, 0d01, 0d01);
+        },
+        sniff__1_oil_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x08, OIL, 0d01, 0d01);
+        },
+        sniff__1_crystal_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x07, CRYSTAL, 0d01, 0d02);
+        },
+        sniff__1_water_2 = @install() {
+            debug_subtext("B=3");
+            _loot(0x06, WATER, 0d01, 0d02);
+        },
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        RIDER_ID = memory(WORD, TEMP),
+        MOUNT_ID = memory(WORD, TEMP),
+
+        PHASE = memory(WORD, TEMP),
+        COOLDOWN = memory(WORD, TEMP),
+
+        HP = 0d1000,
+        HP_MOUNT = 0d600,
+
+        COUNTDOWN = 0d03,
+
+        // p1
+
+        P1_THRESHOLD = 0d800,
+        P1_TIME_BEFORE_SALVAGE = 0d420,
+
+        // p2
+
+        P2_THRESHOLD = 0d500,
+        P2_TIME_BEFORE_SALVAGE = 0d420,
+
+        RANDOM_SPELL = memory(WORD, TEMP),
+        TIME_BEFORE_RANDOM_SPELL = 0d720,
+
+        THRESHOLD_SUDDEN_DEATH = 0d50,
+    }
+
+    fun boss_killed() {
+        destroy(BOSS.MOUNT_ID);
+
+        souls_boss_defeated_helper(ARENA_RADAHN);
+
+        object[0x04] = 0x00;
+    }
+
+    @install()
+    fun reset_cooldown() {
+        if(BOSS.PHASE == 0d0) {
+            BOSS.COOLDOWN = BOSS.P1_THRESHOLD;
+        } else {
+            BOSS.COOLDOWN = BOSS.P2_THRESHOLD;
+        }
+    }
+
+    fun cast_salvage(target:CHARACTER, count, level) {
+        while(BOSS.RIDER_ID[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+            yield();
+        }
+
+        arg[0x10] = 0d0;
+        while(arg[0x10] < count) {
+            arg[0x10]++;
+
+            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1); // blocks cast() for whatever reason
+
+            cast(BOSS.RIDER_ID, target, FLASH, level);
+            cast(BOSS.RIDER_ID, target, FLASH, level);
+
+            BOSS.COOLDOWN += 0d120;
+
+            if(arg[0x10] < count) {
+                if(False) {
+                    debug_memory(arg[0x10], count);
+                }
+
+                sleep(0d60);
+                animate(BOSS.RIDER_ID, ONCE, DEFAULT);
+                yield();
+            }
+        }
+    }
+    fun cast_spells(callback2) {
+        while(BOSS.RIDER_ID[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+            yield();
+        }
+
+        animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1); // blocks cast() for whatever reason
+
+        BOSS.COOLDOWN += 0d120;
+
+        if(BOSS.RIDER_ID[HP] > BOSS.THRESHOLD_SUDDEN_DEATH) {
+            callback2();
+        } else {
+            cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0d1);
+        }
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        reset_cooldown();
+
+        if(BOSS.PHASE == 0d0) {
+            if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
+                BOSS.PHASE++;
+            }
+        }
+        if(BOSS.PHASE == 0d1) {
+            if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
+                BOSS.PHASE++;
+            }
+        }
+        if(BOSS.PHASE == 0d2) {
+            if(dead(BOSS.RIDER_ID)) {
+                BOSS.PHASE = 0xffff;
+            }
+        }
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
+            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+            subtext("Rider = [MEM1]/[MEM2]");
+        }
+    }
+
+    fun handle_cast_cooldown(callback) {
+        if(BOSS.RIDER_ID[PALETTE] == 0x0400) { // TODO: buggy, since menu resets paletts
+            nop();
+        } if(BOSS.COOLDOWN == 0d0) {
+            callback();
+
+            reset_cooldown();
+        } else {
+            BOSS.COOLDOWN--;
+        }
+
+        if(False) {
+            debug_memory(BOSS.COOLDOWN, BOSS.RIDER_ID[PALETTE]);
+            sleep(0d60);
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(BOSS.DEBUG) {
+            subtext("phase 0");
+        }
+
+        reset_cooldown();
+
+        while(BOSS.PHASE == 0d0) {
+            handle_cast_cooldown({
+                cast_salvage(ACTIVE, 0d1, 0d0);
+            });
+
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("phase 1");
+        }
+
+        reset_cooldown();
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+        // cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+
+        while(BOSS.PHASE == 0d1) {
+            handle_cast_cooldown({
+                cast_salvage(ACTIVE, 0d2, 0d0);
+            });
+
+            yield();
+        }
+
+        reset_cooldown();
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+
+        while(BOSS.PHASE == 0d2) {
+            handle_cast_cooldown({
+                cast_spells({
+                    BOSS.RANDOM_SPELL = randrange(0d3);
+
+                    if(BOSS.RANDOM_SPELL == 0d0) {
+                        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                    } else if(BOSS.RANDOM_SPELL == 0d1) {
+                        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                    } else if(BOSS.RANDOM_SPELL == 0d2) {
+                        cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d20);
+                    }
+                });
+            });
+            
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("phase 2");
+        }
+
+        boss_killed();
+    }
+
+    @install()
+    @async()
+    fun anti_cheese_magic_spam(entity) {
+        _anti_cheese_magic_spam(entity, {
+            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+            cast(BOSS.RIDER_ID, SCRIPT_OWNER, MIRACLE_CURE, 0d100 + randrange(0d100));
+
+            if(False) {
+                sleep(0d900);
+
+                attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+            }
+        });
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(VERMINATOR, x, y);
+        <LAST_ENTITY>[HP] = BOSS.HP;
+        BOSS.RIDER_ID = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+        attribute(LAST_ENTITY, ROOT, True);
+
+        add_enemy(RAPTOR_BLACK, x, y);
+        <LAST_ENTITY>[HP] = BOSS.HP_MOUNT;
+        BOSS.MOUNT_ID = <LAST_ENTITY>;
+        // attribute(LAST_ENTITY, ROOT, True);
+        anti_cheese_magic_spam(<LAST_ENTITY>);
+    }
+
+    fun trigger_enter() {
+        character_selection(BOY);
+
+        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+            close_exits(True);
+
+            push_music(BOSS_JUNGLE);
+            spawn_boss(0d16, 0d19);
+            stack_sprite(BOSS.MOUNT_ID, BOSS.RIDER_ID, 0d0, 0d20);
+            boss_watcher();
+        }
+
+        default_init_room(True, False);
+    }
+};

@@ -1,0 +1,233 @@
+map control_room(OMNITOPIA_CONTROL) {
+    enum ROOM {
+        DEBUG = False,
+        DEBUG_SECRET_ROOM = False,
+
+        SWITCH_LEFT = memory(FLAG, TEMP),
+        SWITCH_RIGHT = memory(FLAG, TEMP),
+
+        SWITCH_RGB_1 = memory(WORD, TEMP),
+        SWITCH_RGB_2 = memory(WORD, TEMP),
+        SWITCH_RGB_3 = memory(WORD, TEMP),
+
+        CODE_SOLVED = memory(FLAG, SRAM),
+
+        CODE_1 = (CODE_RIDDLE.SECRET_CODE >> 0d7) & 0x1, // left
+        CODE_2 = (CODE_RIDDLE.SECRET_CODE >> 0d6) & 0x1, // right
+        CODE_3 = (CODE_RIDDLE.SECRET_CODE >> 0d0) & 0x3, // rgb_1
+        CODE_4 = (CODE_RIDDLE.SECRET_CODE >> 0d2) & 0x3, // rgb_2
+        CODE_5 = (CODE_RIDDLE.SECRET_CODE >> 0d4) & 0x3, // rgb_3
+    }
+
+    enum entrance {
+        north = entrance(0x1c, 0x0a, NONE, { door_act4_airlock_secret_in(); }),
+        east = entrance(0x54, 0x12, NONE, { door_act4_beam_in(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    fun check_code() {
+        arg[0x10] = ROOM.CODE_3;
+        arg[0x12] = ROOM.CODE_4;
+        arg[0x14] = ROOM.CODE_5;
+        arg[0x16] = ROOM.CODE_2;
+        arg[0x18] = ROOM.CODE_1;
+
+        if!(ROOM.SWITCH_LEFT == arg[0x18]) {
+            if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
+                debug_subtext("lever left wrong");
+                sleep(0d60);
+                debug_memory(ROOM.SWITCH_LEFT, arg[0x18]);
+                sleep(0d60);
+            }
+
+            end();
+        }
+        if!(ROOM.SWITCH_RIGHT == arg[0x16]) {
+            if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
+                debug_subtext("lever right wrong");
+                sleep(0d60);
+                debug_memory(ROOM.SWITCH_RIGHT, arg[0x16]);
+                sleep(0d60);
+            }
+
+            end();
+        }
+
+        if!(ROOM.SWITCH_RGB_1 == arg[0x10]) {
+            if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
+                debug_subtext("lever code_3 wrong");
+                sleep(0d60);
+                debug_memory(ROOM.SWITCH_RGB_1, arg[0x10]);
+                sleep(0d60);
+            }
+
+            end();
+        }
+        if!(ROOM.SWITCH_RGB_2 == arg[0x12]) {
+            if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
+                debug_subtext("lever code_4 wrong");
+                sleep(0d60);
+                debug_memory(ROOM.SWITCH_RGB_2, arg[0x12]);
+                sleep(0d60);
+            }
+
+            end();
+        }
+        if!(ROOM.SWITCH_RGB_3 == arg[0x14]) {
+            if(CODE_RIDDLE.DEBUG && CODE_RIDDLE.DEBUG_LEVERS) {
+                debug_subtext("lever code_5 wrong");
+                sleep(0d60);
+                debug_memory(ROOM.SWITCH_RGB_3, arg[0x14]);
+                sleep(0d60);
+            }
+
+            end();
+        }
+
+        object_animator(SECRET_OPEN, ROOM.CODE_SOLVED, 0x02, True, False);
+    }
+
+    @install()
+    fun update_switches(only_visual) {
+        object[0x00] = ROOM.SWITCH_LEFT; // toggle lever_1
+        object[0x01] = ROOM.SWITCH_RIGHT; // toggle lever_2
+
+        if(ROOM.SWITCH_RGB_1 == 0d1) { // toggle lever_3_1
+            object[0x03] = 0d2;
+        } else if(ROOM.SWITCH_RGB_1 == 0d2) {
+            object[0x03] = 0d1;
+        } else {
+            object[0x03] = ROOM.SWITCH_RGB_1;
+        }
+        if(ROOM.SWITCH_RGB_2 == 0d1) { // toggle lever_3_2
+            object[0x04] = 0d2;
+        } else if(ROOM.SWITCH_RGB_2 == 0d2) {
+            object[0x04] = 0d1;
+        } else {
+            object[0x04] = ROOM.SWITCH_RGB_2;
+        }
+        if(ROOM.SWITCH_RGB_3 == 0d1) { // toggle lever_3_3
+            object[0x05] = 0d2;
+        } else if(ROOM.SWITCH_RGB_3 == 0d2) {
+            object[0x05] = 0d1;
+        } else {
+            object[0x05] = ROOM.SWITCH_RGB_3;
+        }
+
+        if(only_visual) {
+            end();
+        }
+
+        if!(ROOM.CODE_SOLVED) {
+            check_code();
+        }
+    }
+    fun toggle_switch(flag_switch) {
+        flag_switch = !flag_switch;
+
+        if(flag_switch) {
+            subtext("ON");
+        } else {
+            subtext("OFF");
+        }
+
+        update_switches();
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            debug_subtext("S=0");
+
+            door_act4_beam_out(0d84, 0d19);
+            map_transition(metro, door_c1, NONE);
+        },
+    }
+
+    fun guard_code_availability() {
+        if!(SOULS_MEMORY.WITH_CODE) {
+            error_message(DLC);
+            end();
+        }
+    }
+
+    enum b_trigger {
+        exit_hidden_door = @install() {
+            debug_subtext("B=0");
+
+            door_act4_airlock_secret_out(0d28, 0d10, True);
+            map_transition(secret_boss, south, NONE);
+        },
+        b_trigger_1 = @install() {
+            debug_subtext("B=1");
+        },
+        lever_3 = @install() {
+            debug_subtext("B=2");
+
+            guard_code_availability();
+
+            guard_power(NONE);
+
+            question("[SLOW]Code 3[CHOICE]RED[CHOICE]BLUE[CHOICE]GREEN");
+            if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
+                ROOM.SWITCH_RGB_1 = MEMORY.QUESTION_ANSWER;
+                update_switches(True);
+            }
+
+            question("[SLOW]Code 4[CHOICE]RED[CHOICE]BLUE[CHOICE]GREEN");
+            if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
+                ROOM.SWITCH_RGB_2 = MEMORY.QUESTION_ANSWER;
+                update_switches(True);
+            }
+
+            question("[SLOW]Code 5[CHOICE]RED[CHOICE]BLUE[CHOICE]GREEN");
+            if((MEMORY.QUESTION_ANSWER >= 0d0) && (MEMORY.QUESTION_ANSWER <= 0d2)) {
+                ROOM.SWITCH_RGB_3 = MEMORY.QUESTION_ANSWER;
+            }
+            update_switches();
+        },
+        lever_2 = @install() {
+            debug_subtext("B=3");
+
+            guard_code_availability();
+
+            guard_power(NONE);
+
+            toggle_switch(ROOM.SWITCH_RIGHT);
+        },
+        lever_1 = @install() {
+            debug_subtext("B=4");
+
+            guard_code_availability();
+
+            guard_power(NONE);
+            
+            toggle_switch(ROOM.SWITCH_LEFT);
+        },
+        b_trigger_5 = @install() {
+            debug_subtext("B=5");
+        },
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // toggle lever_1
+        // object[0x01] = 0x01; // toggle lever_2
+        // object[0x02] = 0x7e; // change layout_hidden_door (0-9 = open space, 10-12 = open door)
+        // object[0x03] = 0x01; // toggle lever_3_1
+        // object[0x04] = 0x01; // toggle lever_3_2
+        // object[0x05] = 0x01; // toggle lever_3_3
+
+        if(ROOM.DEBUG && ROOM.DEBUG_SECRET_ROOM) {
+            ROOM.CODE_SOLVED = True;
+        }
+
+        update_switches();
+        restore_object_animator(SECRET_OPEN, ROOM.CODE_SOLVED, 0x02);
+
+        default_metro_init_room();
+
+        // plot_code();
+    }
+};

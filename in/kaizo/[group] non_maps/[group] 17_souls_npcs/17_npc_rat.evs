@@ -1,0 +1,255 @@
+group npc_rat() {
+    enum NPC_RAT {
+        PROGRESS = memory(BYTE, SRAM),
+        DEAD = memory(FLAG, SRAM),
+
+        BODY = ENEMY.RAT_RED,
+
+        HP = 0d100,
+
+        COST_FORM_STONE = 0d2,
+        COST_FORM_BOMB = 0d2,
+        COST_FORM_OGLIN = 0d3,
+        COST_FORM_RIMSALA = 0d5,
+        COST_FORM_MOSQUITO = 0d5,
+    }
+
+    group rat_ai() {
+        fun guard_dead_npc() {
+            guard_dead(<SCRIPT_OWNER>, {
+                NPC_RAT.DEAD = True;
+            });
+            guard_b(<SCRIPT_OWNER>);
+        }
+
+        fun response_positive() {
+            if(MEMORY.ATLAS_MEDALLION == 0d1) {
+                dialog("[SLOW]The first one is free they say… I don't think they mean that literally.[B]");
+            } else {
+                dialog("[SLOW]He he he…[B]");
+            }
+        }
+        fun response_negative() {
+            if(randrange(0x02) == 0x00) {
+                dialog("[SLOW]Sooner or later you'll need me…[B]");
+            } else {
+                dialog("[SLOW]Sooner or later you'll need me… They all do…[B]");
+            }
+        }
+        fun response_cancel() {
+            dialog("[SLOW]Oh my, haste makes waste. Hee hee hee…[B]");
+        }
+
+        fun response_already_known() {
+            response_negative();
+        }
+
+        @install()
+        fun rat_dialog_0() {
+            guard_dead_npc();
+
+            if((NPC_RAT.PROGRESS & 0xf0) < 0x10) {
+                guard_critter(<ACTIVE>, {
+                    fake_b();
+                });
+
+                conversation({
+                    conversation_dialog("[SLOW]…[B]I have not seen you around, are you new here?[B]");
+
+                    sound(WEIRD_SOUND);
+
+                    NPC_RAT.PROGRESS = 0x10;
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.VERMINATOR;
+                });
+            } else {
+                conversation_dialog("[SLOW]You must be new here.[B]");
+            }
+        }
+
+        fun unlock_form(flag:SOULS_MEMORY, price:NPC_RAT) {
+            if!(flag) {
+                item_pay(ANNIHILATION_AMULET, price);
+
+                if(CUSTOM_MEMORY.RETURN) {
+                    flag = True;
+
+                    response_positive();
+                } else {
+                    response_negative();
+                }
+            } else {
+                response_already_known();
+            }
+        }
+
+        @install()
+        fun rat_dialog_1() {
+            guard_dead_npc();
+
+            smart_conversation({
+                MEMORY.STRING_PARAMETER_1 = MEMORY.ANNIHILATION_AMULET;
+                MEMORY.STRING_PARAMETER_2 = MEMORY.ACORN;
+
+                if!(SOULS_MEMORY_HELPER.ALL_FORMS) {
+                    smart_text_box(<SCRIPT_OWNER>, 0d7);
+                } else {
+                    smart_text_box(<SCRIPT_OWNER>, 0d4);
+                }
+                text("Te he he[CHOICE]talk…");
+                if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                    text("[CHOICE]form…");
+                } else {
+                    text("[CHOICE]…");
+                }
+                if!(SOULS_MEMORY_HELPER.ALL_FORMS) {
+                    text("[CHOICE]shop… ([MEM1])[CHOICE]trade… ([MEM2])");
+                }
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    arg[0x10] = randrange(0d3);
+                    if(arg[0x10] == 0d0) {
+                        dialog("[SLOW]I can teach you almost any form.[B]");
+                    } else if(arg[0x10] == 0d1) {
+                        dialog("[SLOW]Bring me all the shiny medallions.[B]");
+                    } else {
+                        response_positive();
+                    }
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // form
+                    if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                        smart_text_box(<SCRIPT_OWNER>, 0d9);
+                        if(SOULS_MEMORY.MORPH_RAT_ENABLED) {
+                            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.RAT;
+                            text("[SLOW]Favorite?[CHOICE]Rat: [MEM1]");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(SOULS_MEMORY.UNLOCKED_FORM_STONE) {
+                            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.STONE;
+                            text("[CHOICE]Stone: [MEM1]");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(SOULS_MEMORY.UNLOCKED_FORM_BOMB) {
+                            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.BOMB;
+                            text("[CHOICE]Bomb: [MEM1]");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(SOULS_MEMORY.UNLOCKED_FORM_OGLIN) {
+                            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.OGLIN;
+                            text("[CHOICE]Oglin: [MEM1]");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(SOULS_MEMORY.UNLOCKED_FORM_RIMSALA) {
+                            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.RIMSALA;
+                            text("[CHOICE]Rimsala: [MEM1]");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(SOULS_MEMORY.UNLOCKED_FORM_MOSQUITO) {
+                            MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.FORM_PREFERENCE == CHARACTER_TYPE.MOSQUITO;
+                            text("[CHOICE]Mosquito: [MEM1]");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        await_answer();
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // rat
+                            SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.RAT;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // stone
+                            SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.STONE;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d2) { // bomb
+                            SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.BOMB;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d3) { // oglin
+                            SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.OGLIN;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d4) { // rimsala
+                            SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.RIMSALA;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d5) { // mosquito
+                            SOULS_MEMORY.FORM_PREFERENCE = CHARACTER_TYPE.MOSQUITO;
+                        }
+                    } else {
+                        response_negative();
+                    }
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // shop
+                    smart_text_box(<SCRIPT_OWNER>, 0d8);
+                    text("[SLOW]What form do you desire?");
+                    if!(SOULS_MEMORY.UNLOCKED_FORM_STONE) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_STONE;
+                        text("[CHOICE]Stone ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    if!(SOULS_MEMORY.UNLOCKED_FORM_BOMB) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_BOMB;
+                        text("[CHOICE]Bomb ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    if!(SOULS_MEMORY.UNLOCKED_FORM_OGLIN) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_OGLIN;
+                        text("[CHOICE]Oglin ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    if!(SOULS_MEMORY.UNLOCKED_FORM_RIMSALA) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_RIMSALA;
+                        text("[CHOICE]Rimsala ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    if!(SOULS_MEMORY.UNLOCKED_FORM_MOSQUITO) {
+                        MEMORY.STRING_PARAMETER_1 = NPC_RAT.COST_FORM_MOSQUITO;
+                        text("[CHOICE]Mosquito ([MEM1])");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // stone
+                        unlock_form(UNLOCKED_FORM_STONE, COST_FORM_STONE);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // bomb
+                        unlock_form(UNLOCKED_FORM_BOMB, COST_FORM_BOMB);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) { // oglin
+                        unlock_form(UNLOCKED_FORM_OGLIN, COST_FORM_OGLIN);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d3) { // rimsala
+                        unlock_form(UNLOCKED_FORM_RIMSALA, COST_FORM_RIMSALA);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d4) { // mosquito
+                        unlock_form(UNLOCKED_FORM_MOSQUITO, COST_FORM_MOSQUITO);
+                    }
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) { // trade
+                    MEMORY.STRING_PARAMETER_1 = MEMORY.ACORN;
+                    conversation_question("[SLOW]Are those Acorns?[CHOICE]Acorn 5:1 ([MEM1])");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                        trade_items(ANNIHILATION_AMULET, 0d1, ACORN, 0d5);
+                    }
+                }
+            }, False);
+        }
+
+        fun add_souls_npc_rat(x, y, flags:FLAG_ENEMY) {
+            if!(NPC_RAT.DEAD) {
+                if(flags is Word) {
+                    add_enemy(NPC_RAT.BODY, x, y);
+                } else {
+                    add_enemy(NPC_RAT.BODY, x, y);
+                }
+                if(NPC_RAT.PROGRESS >= 0x10) {
+                    <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.VERMINATOR;
+                }
+                <LAST_ENTITY>[HP] = NPC_RAT.HP;
+
+                if((NPC_RAT.PROGRESS & 0xf0) < 0x10) {
+                    attach_script(LAST_ENTITY, ALL, reference(rat_dialog_0));
+                } else if((NPC_RAT.PROGRESS & 0xf0) >= 0x10) {
+                    attach_script(LAST_ENTITY, ALL, reference(rat_dialog_1));
+                }
+            }
+        }
+    };
+};

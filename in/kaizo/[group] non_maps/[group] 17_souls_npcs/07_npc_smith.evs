@@ -1,0 +1,357 @@
+group npc_smith() {
+    enum NPC_SMITH {
+        PROGRESS = memory(BYTE, SRAM),
+        DEAD = memory(FLAG, SRAM),
+
+        BODY = ENEMY.TINY,
+
+        STORY_POWER_GLOVE = memory(FLAG, SRAM),
+    }
+    
+    group smith_ai() {
+        fun guard_dead_npc() {
+            guard_dead(<SCRIPT_OWNER>, {
+                NPC_SMITH.DEAD = True;
+            });
+        }
+
+        fun response_greeting() {
+            arg[0x00] = randrange(0x04);
+
+            if(arg[0x00] == 0x00) {
+                conversation_dialog("[SLOW]What? You again?[B]");
+            } else if(arg[0x00] == 0x01) {
+                conversation_dialog("[SLOW]You again? Can't you see I'm busy?[B]");
+            } else if(arg[0x00] == 0x02) {
+                conversation_dialog("[SLOW]I thought you would be dead by now…[B]");
+            } else {
+                conversation_dialog("[SLOW]Did you find something interesting?[B]");
+            }
+        }
+
+        fun response_positive() {
+            arg[0x00] = randrange(0x03);
+
+            if(arg[0x00] == 0x00) {
+                conversation_dialog("[SLOW]You can always find me here.[B]");
+            } else if(arg[0x00] == 0x01) {
+                conversation_dialog("[SLOW]What else did you find?[B]");
+            } else {
+                conversation_dialog("[SLOW]I hope my goods help you.[B]");
+            }
+        }
+        fun response_negative() {
+            conversation_dialog("[SLOW]Don't waste my time.[B]");
+        }
+
+        group progress_0() {
+            @install()
+            fun smith_0_triggered() {
+                guard_dead_npc();
+
+                smart_conversation({
+                    if(NPC_SMITH.PROGRESS == 0d1) {
+                        response_negative();
+
+                        conversation_end(True);
+                        end();
+                    }
+
+                    if(False) {
+                        response_greeting();
+                    }
+
+                    if!(SOULS_MEMORY.SMITH_KEY) {
+                        conversation_dialog("[SLOW]I can't find my key, I must have left it in my shop in the town.[B]");
+                    } else {
+                        conversation_question("[SLOW]I can't find my key, I must have left it in my shop in the town.[CHOICE]give…[CHOICE]leave…", 0d5);
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // give key
+                            NPC_SMITH.PROGRESS = 0d1;
+
+                            SOULS_MEMORY.SMITH_KEY = False;
+                        } else { // leave
+                            response_negative();
+                        }   
+                    }
+                }, False);
+            }
+        };
+
+        group progress_1() {
+            enum WEAPON_UPGRADE {
+                UPGRADE_1_TYPE_1 = ITEM.IRON,
+                UPGRADE_1_AMOUNT_1 = 0d2,
+                UPGRADE_1_TYPE_2 = ITEM.NO_ITEM,
+                UPGRADE_1_AMOUNT_2 = 0d0,
+
+                UPGRADE_2_TYPE_1 = ITEM.IRON,
+                UPGRADE_2_AMOUNT_1 = 0d4,
+                UPGRADE_2_TYPE_2 = ITEM.NO_ITEM,
+                UPGRADE_2_AMOUNT_2 = 0d0,
+
+                UPGRADE_3_TYPE_1 = ITEM.BEAD,
+                UPGRADE_3_AMOUNT_1 = 0d1,
+                UPGRADE_3_TYPE_2 = ITEM.IRON,
+                UPGRADE_3_AMOUNT_2 = 0d2,
+
+                UPGRADE_4_TYPE_1 = ITEM.METEORITE,
+                UPGRADE_4_AMOUNT_1 = 0d1,
+                UPGRADE_4_TYPE_2 = ITEM.IRON,
+                UPGRADE_4_AMOUNT_2 = 0d4,
+            }
+
+            fun upgrade_weapon(type_1, amount_1, type_2, amount_2) {
+                text_start();
+
+                MEMORY.STRING_PARAMETER_1 = amount_1;
+                text("Reinforce for [MEM1] ");
+                item_to_string(type_1);
+
+                if(type_2 != ITEM.NO_ITEM) {
+                    MEMORY.STRING_PARAMETER_1 = amount_2;
+                    text(" and [MEM1] ");
+                    item_to_string(type_2);
+                }
+
+                text("[CHOICE]yes…[CHOICE]no…");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    trade_custom_items(NO_ITEM, 0d0, type_1, amount_1, type_2, amount_2);
+                } else {
+                    CUSTOM_MEMORY.RETURN = False;
+                }
+            }
+
+            @install()
+            fun upgrade_act_1_weapon() {
+                upgrade_weapon(WEAPON_UPGRADE.UPGRADE_1_TYPE_1, WEAPON_UPGRADE.UPGRADE_1_AMOUNT_1, WEAPON_UPGRADE.UPGRADE_1_TYPE_2, WEAPON_UPGRADE.UPGRADE_1_AMOUNT_2);
+            }
+            @install()
+            fun upgrade_act_2_weapon() {
+                upgrade_weapon(WEAPON_UPGRADE.UPGRADE_2_TYPE_1, WEAPON_UPGRADE.UPGRADE_2_AMOUNT_1, WEAPON_UPGRADE.UPGRADE_2_TYPE_2, WEAPON_UPGRADE.UPGRADE_2_AMOUNT_2);
+            }
+            @install()
+            fun upgrade_act_3_weapon() {
+                upgrade_weapon(WEAPON_UPGRADE.UPGRADE_3_TYPE_1, WEAPON_UPGRADE.UPGRADE_3_AMOUNT_1, WEAPON_UPGRADE.UPGRADE_3_TYPE_2, WEAPON_UPGRADE.UPGRADE_3_AMOUNT_2);
+            }
+            @install()
+            fun upgrade_act_4_weapon() {
+                upgrade_weapon(WEAPON_UPGRADE.UPGRADE_4_TYPE_1, WEAPON_UPGRADE.UPGRADE_4_AMOUNT_1, WEAPON_UPGRADE.UPGRADE_4_TYPE_2, WEAPON_UPGRADE.UPGRADE_4_AMOUNT_2);
+            }
+
+            fun reward_upgrade(orb:SOULS_MEMORY, weapon:ITEM) {
+                if(CUSTOM_MEMORY.RETURN) {
+                    orb--;
+                    reward(weapon, True);
+                    SOULS_MEMORY.ORB_USED = True;
+
+                    response_positive();
+                } else {
+                    response_negative();
+                }
+            }
+
+            fun story_orb() {
+                conversation_dialog("[SLOW]Bring me a weapon orb, and I'll forge you a better weapon.[B]");
+            }
+
+            @install()
+            fun response_upgrade_weapon() {
+                if(
+                    ((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) ||
+                    ((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) ||
+                    ((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4))
+                ) {
+                    text_start();
+                    text("[SLOW]Which weapon?");
+
+                    MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.ORB_SWORD;
+                    MEMORY.STRING_PARAMETER_2 = SOULS_MEMORY.ORB_AXE;
+                    MEMORY.STRING_PARAMETER_3 = SOULS_MEMORY.ORB_SPEAR;
+
+                    if((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) {
+                        text("[CHOICE]Sword: [MEM1]");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+
+                    if((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) {
+                        text("[CHOICE]Axe: [MEM2]");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+
+                    if((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4)) {
+                        text("[CHOICE]Spear: [MEM3]");
+                    } else {
+                        text("[CHOICE]…");
+                    }
+
+                    await_answer();
+                    text_end();
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        if!((SOULS_MEMORY.ORB_SWORD > 0x00) && !(FLAG.SWORD_4)) {
+                            response_negative();
+                            end();
+                        }
+
+                        if!(FLAG.SWORD_1) {
+                            upgrade_act_1_weapon();
+
+                            reward_upgrade(ORB_SWORD, SWORD_1);
+                        } else if!(FLAG.SWORD_2) {
+                            if(SOULS_MEMORY.WITH_CHEAP_SWORD2) {
+                                upgrade_act_1_weapon();
+                            } else {
+                                upgrade_act_2_weapon();
+                            }
+
+                            reward_upgrade(ORB_SWORD, SWORD_2);
+                        } else if!(FLAG.SWORD_3) {
+                            upgrade_act_3_weapon();
+
+                            reward_upgrade(ORB_SWORD, SWORD_3);
+                        } else if!(FLAG.SWORD_4) {
+                            upgrade_act_4_weapon();
+
+                            reward_upgrade(ORB_SWORD, SWORD_4);
+                        } else {
+                            response_negative();
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                        if!((SOULS_MEMORY.ORB_AXE > 0x00) && !(FLAG.AXE_4)) {
+                            response_negative();
+                            end();
+                        }
+
+                        if!(FLAG.AXE_1) {
+                            upgrade_act_1_weapon();
+
+                            reward_upgrade(ORB_AXE, AXE_1);
+                        } else if!(FLAG.AXE_2) {
+                            upgrade_act_2_weapon();
+
+                            reward_upgrade(ORB_AXE, AXE_2);
+                        } else if!(FLAG.AXE_3) {
+                            upgrade_act_3_weapon();
+
+                            reward_upgrade(ORB_AXE, AXE_3);
+                        } else if!(FLAG.AXE_4) {
+                            upgrade_act_4_weapon();
+
+                            reward_upgrade(ORB_AXE, AXE_4);
+                        } else {
+                            response_negative();
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                        if!((SOULS_MEMORY.ORB_SPEAR > 0x00) && !(FLAG.SPEAR_4)) {
+                            response_negative();
+                            end();
+                        }
+
+                        if!(FLAG.SPEAR_1) {
+                            upgrade_act_1_weapon();
+
+                            reward_upgrade(ORB_SPEAR, SPEAR_1);
+                        } else if!(FLAG.SPEAR_2) {
+                            upgrade_act_2_weapon();
+
+                            reward_upgrade(ORB_SPEAR, SPEAR_2);
+                        } else if!(FLAG.SPEAR_3) {
+                            upgrade_act_3_weapon();
+
+                            reward_upgrade(ORB_SPEAR, SPEAR_3);
+                        } else if!(FLAG.SPEAR_4) {
+                            upgrade_act_4_weapon();
+
+                            reward_upgrade(ORB_SPEAR, SPEAR_4);
+                        } else {
+                            response_negative();
+                        }
+                    } else {
+                        response_negative();
+                    }
+                } else {
+                    story_orb();
+                }
+            }
+
+            @install()
+            fun story_pickaxe() {
+                conversation_question("[SLOW]Something to dig? Bring me 5 Iron.[CHOICE]yes…[CHOICE]no…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    item_pay(IRON, 0d5);
+                    if(CUSTOM_MEMORY.RETURN) {
+                        custom_reward(PICKAXE_HEAD, True);
+
+                        conversation_dialog("[SLOW]I can't help you with the handle, though.[B]");
+                    } else {
+                        response_negative();
+                    }
+                } else {
+                    response_negative();
+                }
+            }
+
+            @install()
+            fun story_power_glove() {
+                NPC_SMITH.STORY_POWER_GLOVE = True;
+
+                conversation_dialog("[SLOW]Are those actual Power Gloves? I've heard about them before, but I have never seen them myself. Master smith Dotennin from the far east crafted them. Legends say they are imbued with magic and allow the wielder to lift a mountain![B]");
+            }
+
+            @install()
+            fun smith_1_triggered() {
+                guard_dead_npc();
+
+                smart_conversation({
+                    response_greeting();
+
+                    if(True) {
+                        MEMORY.STRING_PARAMETER_1 = SOULS_MEMORY.ORB_SWORD + SOULS_MEMORY.ORB_AXE + SOULS_MEMORY.ORB_SPEAR;
+                        conversation_question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade… ([MEM1])");
+                    } else {
+                        conversation_question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade…");
+                    }
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                        if(NPC_SHARED.STORY_PICKAXE && (!SOULS_MEMORY.PICKAXE_HEAD) && (!SOULS_MEMORY.PICKAXE)) {
+                            story_pickaxe();
+                        } else if((!NPC_SMITH.STORY_POWER_GLOVE) && (MEMORY.GLOVE_2_3 || MEMORY.GLOVE_2_2)) {
+                            story_power_glove();
+                        } else {
+                            story_orb();
+                        }
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // upgrade
+                        response_upgrade_weapon();
+                    } else {
+                        response_negative();
+                    }
+                }, False);
+            }
+        };
+    };
+    
+    fun add_souls_npc_smith(x, y, flags:FLAG_ENEMY) {
+        if!(NPC_SMITH.DEAD) {
+            if(flags is Word) {
+                add_enemy(NPC_SMITH.BODY, x, y, flags);
+            } else {
+                add_enemy(NPC_SMITH.BODY, x, y, 0d0);
+            }
+            // <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+            attribute(LAST_ENTITY, INVINCIBLE, False);
+
+            if(NPC_SMITH.PROGRESS == 0d0) {
+                attach_script(LAST_ENTITY, ALL, reference(smith_0_triggered));
+            } else {
+                attach_script(LAST_ENTITY, ALL, reference(smith_1_triggered));
+            }
+        }
+    }
+};

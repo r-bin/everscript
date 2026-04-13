@@ -1,0 +1,329 @@
+map town_level_2(IVOR_EBON_1) {
+    enum entrance {
+        north = entrance(0x20, 0x01, SOUTH),
+        south = entrance(0x1c, 0x5f, NORTH),
+        west = entrance(0x01, 0x3e, EAST),
+        west_closed = entrance(0x01, 0x3d, EAST),
+
+        door_1 = entrance(0x2a, 0x01, SOUTH),
+        door_2 = entrance(0x2a, 0x01, SOUTH),
+        door_3 = entrance(0x2a, 0x01, SOUTH),
+        door_4 = entrance(0x2a, 0x01, SOUTH),
+        door_5 = entrance(0x2a, 0x01, SOUTH),
+
+        crash = entrance(0x6d, 0x41, NONE, { crash_both(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+    }
+
+    enum ROOM {
+        MARKET_ACTIVE = memory(FLAG, TEMP),
+
+        STONE_ID = memory(WORD, TEMP),
+        STONE_MOVED = memory(FLAG, SRAM),
+        STONE_OFFSET = 0d8 * 0d4,
+
+        PASSAGE_OPENED = AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED,
+
+        WITH_RAT = True,
+        WITH_BIRDS = False,
+
+        PRICE_TAPESTRY = 0d3,
+    }
+
+    enum stepon_trigger {
+        door_1_1_back = @install() {
+            debug_subtext("S=0");
+
+            error_message(DOOR_LOCKED, WEST);
+        },
+        exit_west = @install() {
+            debug_subtext("S=1");
+
+            map_transition(temple, east_2, WEST);
+        },
+        exit_north = @install() {
+            debug_subtext("S=2");
+
+            fog_wall_outside(!SOULS_MEMORY.DEAD_TOWN_PUPPETS, SOUTH);
+
+            map_transition(town_level_3, south, NORTH);
+        },
+        exit_south = @install() {
+            debug_subtext("S=3");
+
+            if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+                map_transition(town_level_1, north, SOUTH);
+            } else {
+                map_transition(town_level_1, north_closed, SOUTH);
+            }
+        },
+        door_1_1 = @install() {
+            debug_subtext("S=4");
+
+            error_message(DOOR_LOCKED, SOUTH);
+        },
+        door_2_1 = @install() {
+            debug_subtext("S=5");
+
+            error_message(DOOR_LOCKED, SOUTH);
+        },
+        door_2_2 = @install() {
+            debug_subtext("S=6");
+
+            error_message(DOOR_LOCKED, SOUTH);
+        },
+        door_2_3 = @install() {
+            debug_subtext("S=7");
+
+            error_message(DOOR_LOCKED, SOUTH);
+        },
+    }
+
+    enum b_trigger {
+        b_trigger_0 = @install() {
+            debug_subtext("B=0");
+        },
+        b_trigger_1 = @install() {
+            debug_subtext("B=1");
+        },
+        b_trigger_2 = @install() {
+            debug_subtext("B=2");
+        },
+        b_trigger_3 = @install() {
+            debug_subtext("B=3");
+        },
+        b_trigger_4 = @install() {
+            debug_subtext("B=4");
+        },
+        b_trigger_5 = @install() {
+            debug_subtext("B=5");
+        },
+        b_trigger_6 = @install() {
+            debug_subtext("B=6");
+        },
+    }
+
+    fun block_market(block) {
+        if(block) {
+            object[0x1a] = 0x01;
+        } else {
+            object[0x1a] = 0x00;
+        }
+    }
+
+    fun trigger_enter() {
+        add_levitate_stone(0d31, 0d4, reference(@install() {
+            guard_levitate_stone(0d1);
+
+            ROOM.STONE_MOVED = True;
+        }));
+        ROOM.STONE_ID = <LAST_ENTITY>;
+        if(ROOM.STONE_MOVED) {
+            <LAST_ENTITY>[X] -= ROOM.STONE_OFFSET;
+        }
+
+        add_bombable(0d9, 0d63, ROOM.PASSAGE_OPENED, reference(@install() {
+            bombable_object(DEFAULT, True, False, 0x1a, 0x00);
+        }));
+
+        special_script(LEVITATE, reference(@install() {
+            if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                end();
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            if!(ROOM.STONE_MOVED) {
+                sleep(0d60);
+
+                ROOM.STONE_MOVED = True;
+
+                sleep(0d60);
+
+                while(arg[0x10] < ROOM.STONE_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[X]--;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+            } else {
+                sleep(0d120);
+
+                while(arg[0x10] < ROOM.STONE_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[X]++;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                ROOM.STONE_MOVED = False;
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+        }));
+
+        if!(AREA_TOWN_TEMPLE.SECRET_PASSAGE_OPENED) {
+            block_market(True);
+        }
+
+        // MEMORY.MAP_PALETTE = 0x07;
+
+        object[0x00] = 0x02; // change door_2_3 (closed, open, barricaded)
+        object[0x01] = 0x02; // change door_2_2 (closed, open, barricaded)
+        object[0x02] = 0x02; // change door_2_1 (closed, open, barricaded)
+        object[0x03] = 0x02; // change door_1_1 (closed, open, barricaded)
+        // object[0x04] = 0x01; // close gate_south
+        // object[0x05] = 0x01; // replace gate_north_flower_1 (scrub)
+        // object[0x06] = 0x01; // replace gate_north_flower_2 (scrub)
+        // object[0x07] = 0x01; // replace gate_north_flower_3 (scrub)
+        // object[0x08] = 0x01; // replace gate_north_flower_4 (scrub)
+        // object[0x09] = 0x01; // replace house_2_2_flower_1 (scrub)
+        // object[0x0a] = 0x01; // replace house_2_2_flower_2 (scrub)
+        // object[0x0b] = 0x01; // replace house_2_3_flower (scrub)
+        // object[0x0c] = 0x01; // replace stairs_lower_flower_2 (scrub)
+        // object[0x0d] = 0x01; // replace stairs_lower_flower_1 (scrub)
+        // object[0x0e] = 0x01; // replace stairs_lower_flower_3 (scrub)
+        // object[0x0f] = 0x01; // replace house_1_1_flower (scrub)
+        // object[0x10] = 0x01; // replace market_flower_bed_2_3 (scrub)
+        // object[0x11] = 0x01; // replace market_flower_bed_2_2 (scrub)
+        // object[0x12] = 0x01; // replace market_flower_bed_2_1 (scrub)
+        // object[0x13] = 0x01; // replace market_flower_bed_1_3 (scrub)
+        // object[0x14] = 0x01; // replace market_flower_bed_1_2 (scrub)
+        // object[0x15] = 0x01; // replace market_flower_bed_1_1 (scrub)
+        // object[0x16] = 0x01; // replace market_flower_4 (scrub)
+        // object[0x17] = 0x01; // replace market_flower_3 (scrub)
+        // object[0x18] = 0x01; // replace market_flower_2 (scrub)
+        // object[0x19] = 0x01; // replace market_flower_1 (scrub)
+        // object[0x1a] = 0x01; // block exit_west
+        // object[0x1b] = 0x01; // open door_1_1_back
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // lower stairs
+            add_basic_souls_enemy(FLOWER_ORANGE, 0d191, 0d63);
+
+            // upper houses
+            if(ROOM.WITH_BIRDS) {
+                add_basic_souls_enemy(BUZZARD_1, 0d177, 0d33);
+            }
+
+            add_basic_souls_enemy(DANCING_DEVIL_1, 0d109, 0d35);
+            if(ROOM.WITH_BIRDS) {
+                add_basic_souls_enemy(BUZZARD_1, 0d115, 0d35);
+            }
+
+            // upper stairs
+            // add_basic_souls_enemy(FLOWER_ORANGE, 0d25, 0d8);
+            // add_basic_souls_enemy(FLOWER_ORANGE, 0d38, 0d7);
+            
+            add_basic_souls_enemy(DANCING_DEVIL_1, 0d36, 0d26);
+            add_basic_souls_enemy(DANCING_DEVIL_1, 0d32, 0d30);
+        }
+
+        if((time[0d0] < MARKET.START) || SOULS_MEMORY.CHEAT_PERMANENT_MARKET) {
+            if(MARKET.DEBUG) {
+                debug_subtext("market not empty");
+            }
+
+            ROOM.MARKET_ACTIVE = True;
+
+            add_enemy(VILLAGER_2_6, 0d25, 0d63, INACTIVE);
+            face(LAST_ENTITY, SOUTH);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                question("[SLOW]Buy Oil?[CHOICE]Ethanol 1:1", 0d5);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // ethanol
+                    trade_items(OIL, 0d1, ETHANOL, 0d1);
+                }
+
+                control(BOTH);
+            }));
+
+            add_enemy(VILLAGER_2_6, 0d47, 0d63, INACTIVE);
+            face(LAST_ENTITY, SOUTH);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                MEMORY.STRING_PARAMETER_1 = ROOM.PRICE_TAPESTRY;
+
+                question("[SLOW]Buy Tapestry?[CHOICE]Rice [MEM1]:1", 0d5);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                    trade_items(TAPESTRY, 0d1, RICE, MEMORY.STRING_PARAMETER_1);
+                }
+
+                control(BOTH);
+            }));
+
+            if(FLAG.LEVITATE) {
+                add_enemy(TINY, 0d60, 0d77, INACTIVE);
+                face(LAST_ENTITY, SOUTH);
+                attach_script(LAST_ENTITY, B, reference(@install() {
+                    if(MEMORY.MUD_PEPPER) {
+                        if(!ROOM.STONE_MOVED) {
+                            dialog("[SLOW]You again? Go and try Levitate on the stone in the North.[B]");
+                        } else {
+                            dialog("[SLOW]You again? Go and try Levitate in the wild.[B]");
+                        }
+                    } else {
+                        // guard_market_break(True);
+
+                        if(!ROOM.STONE_MOVED) {
+                            question("[SLOW]You failed to bring a Mud Pepper?[B]Bring me a Tapestry and I'll move the stone for you.[CHOICE]give Tapestry…", 0d5);
+
+                            if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                                item_pay(TAPESTRY, 0d1, False);
+                                if(CUSTOM_MEMORY.RETURN) {
+                                    // TODO: cutscene
+
+                                    sound(MECHANICAL_MOVEMENT);
+
+                                    ROOM.STONE_MOVED = True;
+                                    ROOM.STONE_ID[X] -= ROOM.STONE_OFFSET;
+
+                                    dialog("[SLOW]You can visit the crypt now.[B]");
+                                }
+                            }
+                        } else {
+                            dialog("[SLOW]You again? Go and try Levitate in the wild.[B]");
+                        }
+                    }
+
+                    control(BOTH);
+                }));
+            }
+        } else {
+            if(MARKET.DEBUG) {
+                debug_subtext("market empty");
+            }
+
+            if(ROOM.WITH_RAT) {
+                if(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                    add_sterling_rat(0d189, 0d41, 0d156, 0d46, 0d450, 0d186, 0d63);
+                } else {
+                    add_enemy(RAT, 0d189, 0d41);
+                }
+            }
+
+            player_message(0d36, 0d6, reference(@install() {
+                player_message_triggered();
+
+                subtext("be wary of back in short betrayal!");
+            }));
+        }
+
+        AREA_TOWN_TEMPLE.GATE_OPENED = True;
+
+        default_init_room(False, False);
+    }
+};

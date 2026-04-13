@@ -1,0 +1,303 @@
+map ar_lab(OMNITOPIA_PROFESSOR) {
+    enum ROOM {
+        DOOR_PASSAGE_SOUTH_OPEN = memory(FLAG, TEMP),
+        DOOR_PASSAGE_NORTH_OPEN = memory(FLAG, TEMP),
+
+        SWITCH = memory(FLAG, SRAM),
+
+        EVERMORE_MACHINE_LEFT = memory(WORD, TEMP),
+        EVERMORE_MACHINE_RIGHT = memory(WORD, TEMP),
+        EVERMORE_MACHINE_TARGET = memory(WORD, TEMP),
+
+        GOURD_LOOTED = memory(FLAG, SRAM),
+    }
+
+    @install()
+    @async()
+    fun evermore_machine() {
+        while(True) {
+            if(ROOM.SWITCH) {
+                arg[0x10] = ROOM.EVERMORE_MACHINE_TARGET;
+                arg[0x12] = arg[0x10][Z] / 0d10;
+                if(arg[0x12] > 0d70) {
+                    arg[0x12] = 0d70;
+                }
+
+                if(False) {
+                    debug_memory(arg[0x10], arg[0x10][Z] / 0d9);
+                }
+                
+                if(arg[0x10] == 0x0000) {
+                    shoot_entity_entity(ROOM.EVERMORE_MACHINE_LEFT, LIGHTNING, ROOM.EVERMORE_MACHINE_RIGHT, 0d10, 0d10);
+                    sleep(0d10);
+
+                    shoot_entity_entity(ROOM.EVERMORE_MACHINE_RIGHT, LIGHTNING, ROOM.EVERMORE_MACHINE_LEFT, 0d10, 0d10);
+                    sleep(0d20);
+                } else {
+                    shoot_entity_entity_offset(ROOM.EVERMORE_MACHINE_LEFT, LIGHTNING, arg[0x10], 0d0, -(arg[0x12]), 0d10, 0d10);
+                    sleep(0d5);
+
+                    shoot_entity_entity_offset(ROOM.EVERMORE_MACHINE_RIGHT, LIGHTNING, arg[0x10], 0d0, -(arg[0x12]), 0d10, 0d10);
+                    sleep(0d10);
+                }
+            } else {
+                sleep(0d30);
+            }
+        }
+    }
+    fun init_evermore_machine() {
+        if((ROOM.EVERMORE_MACHINE_LEFT == 0x0000) || (ROOM.EVERMORE_MACHINE_RIGHT == 0x0000)) {
+            add_enemy(PLACEHOLDER, 0d24, 0d75);
+            ROOM.EVERMORE_MACHINE_LEFT = <LAST_ENTITY>;
+            add_enemy(PLACEHOLDER, 0d28, 0d75);
+            ROOM.EVERMORE_MACHINE_RIGHT = <LAST_ENTITY>;
+
+            evermore_machine();
+        }
+    }
+    @install()
+    @async()
+    fun enter_lightning_tracker() {
+        sleep(0d5);
+
+        while(<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+            sleep(0d5);
+        }
+
+        ROOM.EVERMORE_MACHINE_TARGET = 0x0000;
+    }
+
+    enum entrance {
+        north = entrance(0x3e, 0x14, NONE, { door_act4_airlock_in(0x1a); }),
+        east = entrance(0x58, 0x57, NONE, { door_act4_beam_in(); }),
+        west = entrance(0x1a, 0x5b, NONE),
+        
+        cutscene_1 = entrance(0x34, 0x59, NONE), // in front of computer
+        cutscene_2 = entrance(0x3e, 0x25, NONE), // intro fight
+
+        evermore_machine = entrance(0d26, 0d88, NONE, {
+            control(NONE);
+
+            init_evermore_machine();
+            
+            act4_evermoremachine_out();
+            yield();
+            ROOM.EVERMORE_MACHINE_TARGET = <BOY>;
+            enter_lightning_tracker();
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    @install()
+    fun change_machine(color, on) {
+        if(color == 0d0) {
+            object[0x05] = 0x00; // remove machine_wood_west
+            object[0x06] = 0x00; // remove machine_wood_south
+            object[0x07] = 0x00; // remove machine_wood_east
+            object[0x08] = 0x00; // change vent_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x09] = 0x00; // change vent_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x0a] = 0x00; // change vent_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x0b] = 0x00; // change vent_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x0f] = 0x00; // change vent_floor_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x10] = 0x00; // change vent_floor_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x11] = 0x00; // change vent_floor_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x12] = 0x00; // change vent_floor_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x13] = 0x00; // hide leaves_1
+            object[0x14] = 0x00; // hide leaves_2
+            object[0x15] = 0x00; // hide leaves_3
+            object[0x16] = 0x00; // hide leaves_4
+            object[0x17] = 0x00; // change machine_1 (0 = brown, 1 = grey)
+            object[0x18] = 0x00; // change machine_2 (0 = brown, 1 = grey)
+        } else if(color == 0d1) {
+            object[0x05] = 0x01; // remove machine_wood_west
+            object[0x06] = 0x01; // remove machine_wood_south
+            object[0x07] = 0x01; // remove machine_wood_east
+            object[0x08] = 0x02; // change vent_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x09] = 0x02; // change vent_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x0a] = 0x02; // change vent_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x0b] = 0x02; // change vent_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x0f] = 0x02; // change vent_floor_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x10] = 0x02; // change vent_floor_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x11] = 0x02; // change vent_floor_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x12] = 0x02; // change vent_floor_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+            object[0x13] = 0x01; // hide leaves_1
+            object[0x14] = 0x01; // hide leaves_2
+            object[0x15] = 0x01; // hide leaves_3
+            object[0x16] = 0x01; // hide leaves_4
+            object[0x17] = 0x01; // change machine_1 (0 = brown, 1 = grey)
+            object[0x18] = 0x01; // change machine_2 (0 = brown, 1 = grey)
+        }
+
+        if(on) {
+            object[0x0c] = 0x01; // activate bulb_left
+            object[0x0d] = 0x01; // activate bulb_right
+            object[0x0e] = 0x01; // activate lights_right
+            object[0x19] = 0x01; // activate lights_left
+        } else {
+            object[0x0c] = 0x00; // activate bulb_left
+            object[0x0d] = 0x00; // activate bulb_right
+            object[0x0e] = 0x00; // activate lights_right
+            object[0x19] = 0x00; // activate lights_left
+        }
+    }
+
+    fun update_switches(with_text) {
+        if(ROOM.SWITCH) {
+            change_machine(True, True);
+
+            object[0x1b] = 0x01; // toggle lever
+
+            if(with_text) {
+                subtext("AR Game ON");
+            }
+        } else {
+            change_machine(True, False);
+
+            object[0x1b] = 0x00; // toggle lever
+
+            if(with_text) {
+                subtext("AR Game OFF");
+            }
+        }
+    }
+    fun toggle_switch(flag_switch) {
+        flag_switch = !flag_switch;
+
+        update_switches(True);
+    }
+
+    enum stepon_trigger {
+        door_passage_north_north = @install() {
+            debug_subtext("S=0");
+
+            door_act4_passage(0x04, ROOM.DOOR_PASSAGE_NORTH_OPEN);
+        },
+        door_passage_north_south = @install() {
+            debug_subtext("S=1");
+
+            door_act4_passage(0x04, ROOM.DOOR_PASSAGE_NORTH_OPEN);
+        },
+        door_passage_south_north = @install() {
+            debug_subtext("S=2");
+
+            door_act4_passage(0x00, ROOM.DOOR_PASSAGE_SOUTH_OPEN);
+        },
+        door_passage_south_south = @install() {
+            debug_subtext("S=3");
+
+            door_act4_passage(0x00, ROOM.DOOR_PASSAGE_SOUTH_OPEN);
+        },
+        exit_east = @install() {
+            debug_subtext("S=4");
+
+            door_act4_beam_out(0d88, 0d87);
+
+            map_transition(metro, door_d1, NONE);
+        },
+    }
+
+    enum b_trigger {
+        gourd = @install() {
+            debug_subtext("B=0");
+
+            if!(SOULS_MEMORY.DEAD_SPACESHIP_DESERT && SOULS_MEMORY.DEAD_ABOMINATION) {
+                subtext("Requires 2 arcade coins.");
+            } else {
+                ROOM.GOURD_LOOTED = True;
+
+                object[0x01] = 0x7e;
+
+                custom_reward(ENERGY_CORE, True);
+            }
+        },
+        door_north = @install() {
+            debug_subtext("B=1");
+
+            if!(SOULS_MEMORY.DEAD_SPACESHIP_DESERT) {
+                fog_wall_outside(True, NONE);
+
+                door_act4_airlock_out(0d62, 0d20, 0x1a, True);
+
+                map_transition(spaceship_desert, south, NONE);
+            } else {
+                error_message(DOOR_COMPLETED);
+            }
+        },
+        lever = @install() {
+            debug_subtext("B=2");
+
+            guard_power(NONE);
+
+            toggle_switch(ROOM.SWITCH);
+        },
+    }
+
+    @install()
+    @async()
+    fun fake_exit_scanner(entity) {
+        range_checker(entity, <ACTIVE>, 0x20, 0x20, {
+            if(ROOM.SWITCH) {
+                fog_wall_outside(True, NONE);
+
+                ROOM.EVERMORE_MACHINE_TARGET = <BOY>;
+                act4_evermoremachine_in(0d26, 0d88);
+
+                map_transition(podunk_old, west, NONE);
+            }
+        });
+    }
+
+    fun trigger_enter() {
+        if(ROOM.GOURD_LOOTED) {
+            object[0x01] = 0x7e;
+        }
+        
+        update_switches(False);
+        init_evermore_machine();
+        
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_d1, NONE);
+            });
+        }));
+
+        if!(SOULS_MEMORY.DEAD_ABOMINATION) {
+            add_enemy(PLACEHOLDER, 0d26, 0d88 - 0d2);
+            fake_exit_scanner(<LAST_ENTITY>);
+        }
+
+        // object[0x00] = 0x7e; // open door_passage_south
+        // object[0x01] = 0x7e; // open gourd
+        // object[0x02] = 0x7e; // open door_floor_left
+        // object[0x03] = 0x7e; // open door_floor_left
+        // object[0x04] = 0x7e; // open door_passage_north
+
+        // object[0x05] = 0x01; // remove machine_wood_west
+        // object[0x06] = 0x01; // remove machine_wood_south
+        // object[0x07] = 0x01; // remove machine_wood_east
+        // object[0x08] = 0x02; // change vent_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x09] = 0x02; // change vent_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x0a] = 0x02; // change vent_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x0b] = 0x02; // change vent_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x0c] = 0x01; // activate bulb_left
+        // object[0x0d] = 0x01; // activate bulb_right
+        // object[0x0e] = 0x01; // activate lights_right
+        // object[0x0f] = 0x02; // change vent_floor_1 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x10] = 0x02; // change vent_floor_2 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x11] = 0x02; // change vent_floor_3 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x12] = 0x02; // change vent_floor_4 (0 = brown+off, 1 = brown+on, 2 = grey+on)
+        // object[0x13] = 0x01; // hide leaves_1
+        // object[0x14] = 0x01; // hide leaves_2
+        // object[0x15] = 0x01; // hide leaves_3
+        // object[0x16] = 0x01; // hide leaves_4
+        // object[0x17] = 0x01; // change machine_1 (0 = brown, 1 = grey)
+        // object[0x18] = 0x01; // change machine_2 (0 = brown, 1 = grey)
+        // object[0x19] = 0x01; // activate lights_left
+
+        // object[0x1a] = 0x7e; // open door_north
+        // object[0x1b] = 0x7e; // activate switch
+    }
+};

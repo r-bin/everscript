@@ -1,0 +1,179 @@
+group npc_dog_lady() {
+    enum NPC_DOG_LADY {
+        PROGRESS = memory(BYTE, SRAM),
+
+        BODY = ENEMY.VILLAGER_2_4,
+
+        STORY_CHICKEN = memory(FLAG, SRAM),
+    }
+
+    group dog_lady_ai() {
+        fun response_greeting() {
+            arg[0x00] = randrange(0d2);
+
+            if(arg[0x00] == 0d0) {
+                dialog("[SLOW]What a sweet dog you have.[B]");
+            } else {
+                dialog("[SLOW]Great to see you both.[B]");
+            }
+        }
+
+        fun response_positive() {
+            arg[0x00] = randrange(0d2);
+
+            if(arg[0x00] == 0d0) {
+                dialog("[SLOW]Treats can do wonders on a moody day.[B]");
+            } else {
+                dialog("[SLOW]Let me know if you want to talk dog nutritions.[B]");
+            }
+        }
+        fun response_negative() {
+            dialog("[SLOW]You should treat your partner more often.[B]");
+        }
+
+        @install()
+        fun dog_lady_dialog_0() {
+            smart_conversation({
+                if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
+                    if(((NPC_DOG_LADY.PROGRESS & 0x0f) < 0d1) || (!SOULS_MEMORY.BONFIRE_FIRST_TRIGGER)) {
+                        conversation_dialog("[SLOW]…at least one safety biscuit…[B]");
+                    } else {
+                        conversation_question("[SLOW]What a lovely companion you have… Do you need help training?[CHOICE]invite…[CHOICE]leave…", 0d5);
+                        
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                            NPC_DOG_LADY.PROGRESS = 0x10;
+
+                            conversation_dialog("[SLOW]I'll be on my way.[B]");
+                        }
+                    }
+                } else {
+                    conversation_dialog("[SLOW]I'll be on my way.[B]");
+                }
+            }, {
+                if(NPC_DOG_LADY.PROGRESS == 0x00) {
+                    NPC_DOG_LADY.PROGRESS++;
+
+                    conversation_dialog("[SLOW]What a lovely dog…[B]");
+                } else {
+                    conversation_dialog("[SLOW]You should visit me soon![B]");
+                }
+            });
+        }
+
+        fun choose_dog() {
+            control(NONE);
+            text_box(0d10, 0d5);
+
+            text("[SLOW]What is you favorite dog?");
+            if(SOULS_MEMORY.CLEARED_TRAP_WOLF) {
+                text("[CHOICE]Wolf");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(SOULS_MEMORY.CLEARED_TRAP_GREYHOUND) {
+                text("[CHOICE]Greyhound");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(SOULS_MEMORY.CLEARED_TRAP_POODLE) {
+                text("[CHOICE]Poodle");
+            } else {
+                text("[CHOICE]…");
+            }
+            await_answer();
+            text_end();
+            control(BOTH);
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) { // wolf
+                if(SOULS_MEMORY.CLEARED_TRAP_WOLF) {
+                    SOULS_MEMORY.DOG_PREFERENCE = DOG.WOLF;
+                    MEMORY.DOG_WRITE = DOG.WOLF;
+
+                    response_positive();
+                } else {
+                    response_negative();
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // greyhound
+                if(SOULS_MEMORY.CLEARED_TRAP_GREYHOUND) {
+                    SOULS_MEMORY.DOG_PREFERENCE = DOG.GREYHOUND;
+                    MEMORY.DOG_WRITE = DOG.GREYHOUND;
+
+                    response_positive();
+                } else {
+                    response_negative();
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) { // poodle
+                if(SOULS_MEMORY.CLEARED_TRAP_POODLE) {
+                    SOULS_MEMORY.DOG_PREFERENCE = DOG.POODLE;
+                    MEMORY.DOG_WRITE = DOG.POODLE;
+
+                    response_positive();
+                } else {
+                    response_negative();
+                }
+            } else {
+                response_negative();
+            }
+        }
+
+        fun nurse_chicken() {
+            question("[SLOW]That is one angry looking chicken.[B]Can I nurse it back up[CHOICE]yes…[CHOICE]no…");
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                item_pay(CHICKEN, 0d1);
+
+                custom_reward(PUPPER_MODE, True);
+                
+                dialog("[SLOW]I wonder what startled that poor little fellow.[B]");
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // no
+                dialog("[SLOW]Poor soul.[B]");
+            } else {
+                response_negative();
+            }
+        }
+
+        @install()
+        fun dog_lady_dialog_1() {
+            smart_conversation({
+                response_greeting();
+
+                question("[SLOW]What do you want to talk about?[CHOICE]talk…[CHOICE]favorite dog…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    if((!FLAG.REVIVE) && (SOULS_MEMORY.CLEARED_TRAP_WOLF) && (SOULS_MEMORY.CLEARED_TRAP_GREYHOUND) && (SOULS_MEMORY.CLEARED_TRAP_POODLE) && (SOULS_MEMORY.DEAD_TOASTER_ARENA)) {
+                        // dialog_alchemist_reward();
+
+                        reward(REVIVE, True);
+                    } else if((!SOULS_MEMORY.PUPPER_ENABLED) && (MEMORY.CHICKEN > 0d0)) {
+                        nurse_chicken();
+                    } else if!(NPC_DOG_LADY.STORY_CHICKEN) {
+                        NPC_DOG_LADY.STORY_CHICKEN = True;
+
+                        dialog("[SLOW]Most of my life I spent taking care of animals.[B]Sometimes they only need someone close to them.[B]Sometimes they are just hungry.[B]");
+                    } else {
+                        response_positive();
+                    }
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // change dog
+                    choose_dog();
+                } else {
+                    response_negative();
+                }
+            }, False);
+        }
+    };
+    
+    fun add_souls_npc_dog_lady(x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            add_enemy(NPC_DOG_LADY.BODY, x, y, flags);
+        } else {
+            add_enemy(NPC_DOG_LADY.BODY, x, y);
+        }
+        <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+
+        if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
+            attach_script(LAST_ENTITY, B, reference(dog_lady_dialog_0));
+        } else if((NPC_DOG_LADY.PROGRESS & 0xf0) >= 0x10) {
+            attach_script(LAST_ENTITY, B, reference(dog_lady_dialog_1));
+        }
+    }
+};

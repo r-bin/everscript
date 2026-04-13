@@ -1,0 +1,367 @@
+map windwalker_sidescroller(SKY) {
+    enum entrance {
+        west = entrance(0x06, 0x0f, NONE),
+        south = entrance(0x10, 0x19, NONE),
+    }
+
+    enum soundtrack {
+        default = soundtrack(WIND_AMBIENT_PLANE, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        SHIP_ID = memory(WORD, TEMP),
+
+        PROGRESS = memory(BYTE, SRAM),
+
+        START_HEIGHT = 0x1fff,
+
+        ENEMIES_ALIVE = memory(BYTE, TEMP),
+
+        LANE_1 = 0d5,
+        LANE_2 = 0d12,
+        LANE_3 = 0d21,
+    }
+
+    enum BOSS {
+        DEBUG = False,
+        
+        ID = memory(WORD, TEMP),
+        PHASE = memory(WORD, TEMP),
+
+        HP = SYSTEM.HP_MAX,
+
+        TURN_TIME = 0x30,
+
+        HIT_COUNTER = memory(WORD, TEMP),
+        P1_THRESHOLD = 0d4,
+        P2_THRESHOLD = 0d12,
+
+        RING_TIMER = memory(WORD, TEMP),
+        RING_X = memory(WORD, TEMP),
+        RING_Y = memory(WORD, TEMP),
+        RING_PROJECTILE = THROWABLE.CITRON,
+        RING_SLEEP = 0d5,
+        RING_STEP = 0x40,
+        RING_RADIUS = 0d200,
+
+        RING_DOUBLE = False,
+    }
+
+    fun shoot_boss(x, y) {
+        sound(PROJECTILE_SHOOTING);
+        shoot_entity_relative(BOSS.ID, BOSS.RING_PROJECTILE, x, y, 0x14, 0x0a);
+    }
+
+    @install()
+    fun enemy_killed() {
+        ROOM.ENEMIES_ALIVE--;
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.ENEMIES_ALIVE, 0d0);
+        }
+    }
+
+    fun enemy(enemy, y) {
+        ROOM.ENEMIES_ALIVE++;
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.ENEMIES_ALIVE, 0d1);
+        }
+
+        add_enemy(enemy, 0x20, y);
+        <LAST_ENTITY>[HP] = 0d1;
+        attach_script(LAST_ENTITY, DEATH, reference(enemy_killed));
+        face(LAST_ENTITY, WEST);
+        
+        // attach_to_script(LAST_ENTITY);
+        // walk(LAST_ENTITY, TILE_ABSOLUTE_DIRECT, 0x00, y, LAST_ENTITY);
+        // destroy(SCRIPT_OWNER);
+    }
+
+    fun shooting_mosquito(enemy, y) {
+        ROOM.ENEMIES_ALIVE++;
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.ENEMIES_ALIVE, 0d1);
+        }
+
+        add_enemy(enemy, 0x20, y);
+        <LAST_ENTITY>[HP] = 0d1;
+        face(LAST_ENTITY, WEST);
+        attach_script(LAST_ENTITY, DEATH, reference(enemy_killed));
+        
+        attach_to_script(LAST_ENTITY);
+        walk(LAST_ENTITY, TILE_ABSOLUTE_DIRECT, 0d0, y, NONE);
+
+        arg[0x10] = 0x80 + randrange(0d60);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            arg[0x10]--;
+
+            if(<SCRIPT_OWNER>[X] <= 0d0) {
+                if(<SCRIPT_OWNER>[HP] > 0d0) {
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                    yield();
+
+                    destroy(SCRIPT_OWNER);
+                    enemy_killed();
+                    end();
+                }
+            }
+
+            if(arg[0x10] == 0d0) {
+                arg[0x10] = 0x80 + randrange(0d60);
+
+                sound(PROJECTILE_SHOOTING);
+                shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0x10, 0xff);
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    @async()
+    fun shooting_mosquito_1() {
+        shooting_mosquito(ENEMY.MOSQUITO, ROOM.LANE_1);
+    }
+    @install()
+    @async()
+    fun shooting_mosquito_2() {
+        shooting_mosquito(ENEMY.MOSQUITO, ROOM.LANE_2);
+    }
+    @install()
+    @async()
+    fun shooting_mosquito_3() {
+        shooting_mosquito(ENEMY.MOSQUITO, ROOM.LANE_3);
+    }
+
+    @install()
+    @async()
+    fun shooting_fan_2() {
+        attach_to_script(BOSS.ID);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            if((BOSS.RING_TIMER == 0d0) && (<SCRIPT_OWNER>[Z] == 0d0) && !(<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                sound(PROJECTILE_SHOOTING);
+                shoot_entity_entity(SCRIPT_OWNER, CITRON, BOY, 0d16, 0xff);
+            }
+
+            sleep(0d60);
+            <SCRIPT_OWNER>[VELOCITY] = 0d5;
+            sleep(0d60);
+            <SCRIPT_OWNER>[VELOCITY] = 0d5;
+        }
+    }
+
+    @install()
+    @async()
+    fun shooting_fan() {
+        add_enemy(FAN_BOT, 0x20, ROOM.LANE_2);
+        attach_to_script(LAST_ENTITY);
+        control(SCRIPT_OWNER, True);
+        BOSS.ID = <SCRIPT_OWNER>;
+        <SCRIPT_OWNER>[HP] = BOSS.HP;
+        face(SCRIPT_OWNER, WEST);
+        // attribute(SCRIPT_OWNER, ROOT, True);
+        attach_script(SCRIPT_OWNER, DAMAGE_DEATH, reference(@install() {
+            heal(SCRIPT_OWNER, 0d0, False);
+
+            if(<SCRIPT_OWNER>[Z] > 0d10) {
+                if(BOSS.DEBUG) {
+                    debug_memory(<SCRIPT_OWNER>[Z]);
+                }
+
+                end();
+            }
+
+            yield();
+            damage(SCRIPT_OWNER, 0d1, True, True);
+
+            if!(<SCRIPT_OWNER>[FLAGS_4] & ATTRIBUTE_FLAGS.ROOT) {
+                <SCRIPT_OWNER>[VELOCITY] = 0d15;
+            }
+
+            BOSS.HIT_COUNTER++;
+
+            if(BOSS.DEBUG && False) {
+                debug_memory(BOSS.PHASE, <SCRIPT_OWNER>[HP], alive(<SCRIPT_OWNER>));
+            }
+
+            if(BOSS.PHASE == 0d0) {
+                if(BOSS.HIT_COUNTER >= BOSS.P1_THRESHOLD) {
+                    BOSS.PHASE = 0d1;
+                }
+            } else if(BOSS.PHASE == 0d1) {
+                if(BOSS.HIT_COUNTER >= BOSS.P2_THRESHOLD) {
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                    yield();
+                    damage(SCRIPT_OWNER, SYSTEM.HP_MAX, False);
+                }
+            }
+        }));
+
+        attribute(SCRIPT_OWNER, INVINCIBLE, True);
+        walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, 0x17, ROOM.LANE_2, SCRIPT_OWNER);
+        attribute(SCRIPT_OWNER, INVINCIBLE, False);
+        shooting_fan_2();
+
+        while(alive(<SCRIPT_OWNER>)) {
+            if(BOSS.PHASE == 0d0) {
+                walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, 0x17, ROOM.LANE_1, SCRIPT_OWNER);
+            }
+            if(BOSS.PHASE == 0d0) {
+                sleep(BOSS.TURN_TIME);
+            }
+
+            if(BOSS.PHASE == 0d0) {
+                walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, 0x17, ROOM.LANE_3, SCRIPT_OWNER);
+            }
+            if(BOSS.PHASE == 0d0) {
+                sleep(BOSS.TURN_TIME);
+            } else {
+                attribute(BOSS.ID, INVINCIBLE, True);
+
+                while((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)) {
+                    yield();
+                }
+
+                BOSS.ID[VELOCITY] = 0d50;
+                walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, 0x10, 0x10, SCRIPT_OWNER);
+
+                while(BOSS.ID[Z] > 0d0) {
+                    yield();
+                }
+
+                attribute(BOSS.ID, INVINCIBLE, False);
+
+                attribute(BOSS.ID, ROOT, True);
+                ai_move_projectile_ring(BOSS.ID, BOSS.RING_PROJECTILE, BOSS.RING_RADIUS, BOSS.RING_STEP, BOSS.RING_SLEEP, 0d2, False, True);
+                attribute(BOSS.ID, ROOT, False);
+
+                BOSS.PHASE = 0d0;
+            }
+        }
+    }
+
+    fun exit_map() {
+        attribute(BOY, INVINCIBLE_TEMP, True);
+
+        souls_boss_defeated_helper(SIDESCROLLER);
+
+        <BOY>[VELOCITY] = 0x20;
+        ROOM.SHIP_ID[VELOCITY] = 0x20;
+        sleep(0x30);
+
+        <BOY>[VELOCITY] = 0xff;
+        ROOM.SHIP_ID[VELOCITY] = 0xff;
+        sleep(0x50);
+
+        map_transition(well, crash, NONE);
+    }
+
+    fun pause() {
+        sleep(0d60);
+
+        while(ROOM.ENEMIES_ALIVE > 0d0) {
+            yield();
+        }
+
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.ENEMIES_ALIVE, 0d0);
+        }
+
+        sleep(0d120);
+    }
+
+    fun trigger_enter() {
+        add_debug_entity(0d3, 0d3, reference(@install() {
+            destroy(SCRIPT_OWNER);
+
+            exit_map();
+        }));
+
+        CUSTOM_FLAG.NO_DOG = True;
+        face(BOY, EAST);
+
+        <BOY>[Z] = ROOM.START_HEIGHT;
+        <0x0A47> = 0x0001;
+        <0x4F2F> = 0x0020;
+
+        default_init_room(False, False);
+        CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.AIRSHIP;
+
+        hint(PRESS_START);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x10, 0x10);
+        ROOM.SHIP_ID = <LAST_ENTITY>;
+        <LAST_ENTITY>[Z] = ROOM.START_HEIGHT;
+
+        stack_sprite(<BOY>, ROOM.SHIP_ID, 0d0, -0d5);
+
+        sleep(0d250);
+
+        subtext("go!");
+
+        if(ROOM.PROGRESS == 0d0) {
+            enemy(ENEMY.MOSQUITO, 0x10);
+
+            pause();
+
+            enemy(ENEMY.MOSQUITO, 0x05);
+            enemy(ENEMY.MOSQUITO, 0x15);
+
+            pause();
+
+            enemy(ENEMY.MOSQUITO, 0x05);
+            enemy(ENEMY.MOSQUITO, 0x15);
+
+            pause();
+
+            enemy(ENEMY.BUZZARD_1, 0x10);
+
+            pause();
+
+            ROOM.PROGRESS = 0d1;
+        }
+
+        if(ROOM.PROGRESS == 0d1) {
+            shooting_mosquito_2();
+
+            pause();
+
+            shooting_mosquito_1();
+            shooting_mosquito_3();
+
+            pause();
+
+            shooting_mosquito_1();
+            shooting_mosquito_2();
+            shooting_mosquito_3();
+
+            pause();
+
+            ROOM.PROGRESS = 0d2;
+        }
+
+        if(ROOM.PROGRESS == 0d2) {
+            shooting_fan();
+            sleep(0d100);
+
+            if(BOSS.DEBUG) {
+                subtext("boss start");
+            }
+            while(alive(BOSS.ID)) {
+                yield();
+            }
+            if(BOSS.DEBUG) {
+                subtext("boss end");
+            }
+
+            ROOM.PROGRESS = 0d3;
+        }
+
+        if(True) {
+            exit_map();
+        }
+    }
+};

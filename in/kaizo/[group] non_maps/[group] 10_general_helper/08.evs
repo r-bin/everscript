@@ -1,0 +1,316 @@
+group shared() {
+    fun add_debug_entity(x, y, debug_triggered) {
+        if(SOULS_MEMORY.DEBUG) {
+            if(SOULS_MEMORY.WITH_DEBUG_ENTITIES || SOULS_MEMORY.DEBUG_ENTITIES) {
+                if(False) {
+                    add_placeholder(DOVES_1, x, y);
+                } else {
+                    add_enemy(BOY, x, y, INACTIVE_IMORTAL);
+                    <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.OWL_BLACK;
+                }
+                attach_script(LAST_ENTITY, B, debug_triggered);
+            }
+        }
+    }
+    
+    fun init_weather(night, rain) {
+        if(SOULS_MEMORY.WITH_WEATHER && (!SOULS_MEMORY.SETTING_NO_WEATHER)) {
+            if(SOULS_MEMORY.WITH_COLOR_FILTER) {
+                if(night) {
+                    CUSTOM_FLAG.WEATHER_EFFECT_NIGHT = True;
+                    sfx_effect(NIGHT, True);
+                }
+            }
+            if(rain) {
+                CUSTOM_FLAG.WEATHER_EFFECT_RAIN = True;
+                sfx_effect(RAIN, True);
+            }
+        }
+    }
+    
+    @install()
+    fun start_feature_selected(index:HELPER_START_ABILITY) {
+        if(index == HELPER_START_ABILITY.BOMB) {
+            bump_cheat_counter();
+    
+            if(FLAG.ENERGY_CORE && SOULS_MEMORY.WITH_FREE_START_ABILITIES) {
+                drop_bomb(False);
+            } else {
+                drop_bomb(True);
+            }
+        } else if(index == HELPER_START_ABILITY.TEAR) {
+            _isaac_tear(True);
+        } else if(index == HELPER_START_ABILITY.YUMP) {
+            bump_cheat_counter();
+    
+            if(FLAG.ENERGY_CORE && SOULS_MEMORY.WITH_FREE_START_ABILITIES) {
+                mario_yump(False);
+            } else {
+                mario_yump(True);
+            }
+        } else if(index == HELPER_START_ABILITY.PUPPER) {
+            MEMORY.DOG_WRITE = DOG.PUPPER;
+        } else if(index == HELPER_START_ABILITY.MORPH_RAT) {
+            morph_toggle(<ACTIVE>, SOULS_MEMORY.FORM_PREFERENCE, True);
+        } else if(index == HELPER_START_ABILITY.ROCKET_JUMP) {
+            rocket_jump();
+        } else if(index == HELPER_START_ABILITY.QUANTUM_JUMP) {
+            bump_cheat_counter();
+    
+            quantum_jump();
+        } else if(index == HELPER_START_ABILITY.DASH_JUMP) {
+            dash_teleport();
+        }
+    }
+    
+    @install()
+    @async()
+    fun gourd_trap(object_id, entity, x, y) {
+        object[object_id] = 0x01;
+    
+        // add_placeholder(SANDPIT_OUT, 0d96, 0d95);
+        // add_placeholder(0x7e, 0d96, 0d95);
+    
+        x = x * 0x08;
+        y = y * 0x08;
+    
+        sleep(0x10);
+    
+        while(True) {
+            arg[0x10] = entity[X];
+            arg[0x12] = entity[Y];
+            arg[0x14] = x;
+            arg[0x16] = y;
+    
+            if(arg[0x10] < arg[0x14]) {
+                arg[0x18] = arg[0x14] - arg[0x10];
+            } else {
+                arg[0x18] = arg[0x10] - arg[0x14];
+            }
+    
+            if(arg[0x12] < arg[0x16]) {
+                arg[0x1a] = arg[0x16] - arg[0x12];
+            } else {
+                arg[0x1a] = arg[0x12] - arg[0x16];
+            }
+    
+            if(arg[0x18] < arg[0x1a]) {
+                arg[0x1c] = arg[0x1a] - arg[0x18];
+            } else {
+                arg[0x1c] = arg[0x18] - arg[0x1a];
+            }
+    
+            if((arg[0x18] > 0d70) || (arg[0x1a] > 0d70)) {
+                object[object_id] = 0x00;
+                end();
+            } else if((arg[0x18] < 0d5) && (arg[0x1a] < 0d5)) {
+                control(NONE);
+                unset(SOULS_MEMORY.WINGS_BLOCKED);
+    
+                if(entity == <BOY>) {
+                    animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+                } else {
+                    animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SWIRL_ENTER);
+                }
+    
+                sleep(0d30);
+                entity[GENERAL_PURPOSE] = 0x01;
+                end();
+            }
+    
+            if(arg[0x1c] <= 0d5) {
+                if((arg[0x18] > 0x02) && (entity[X] > x)) {
+                    entity[X] -= 0x02;
+                } else if((arg[0x18] > 0x02) && (entity[X] < x)) {
+                    entity[X] += 0x02;
+                }
+    
+                if((arg[0x1a] > 0x02) && (entity[Y] < y)) {
+                    entity[Y] += 0x02;
+                } else if((arg[0x1a] > 0x02) && (entity[Y] > y)) {
+                    entity[Y] -= 0x02;
+                }
+            } else if(arg[0x18] > arg[0x1a]) {
+                if((arg[0x18] > 0x02) && (entity[X] > x)) {
+                    entity[X] -= 0x02;
+                } else if((arg[0x18] > 0x02) && (entity[X] < x)) {
+                    entity[X] += 0x02;
+                }
+            } else {
+                if((arg[0x1a] > 0x02) && (entity[Y] < y)) {
+                    entity[Y] += 0x02;
+                } else if((arg[0x1a] > 0x02) && (entity[Y] > y)) {
+                    entity[Y] -= 0x02;
+                }
+            }
+    
+            yield();
+        }
+    }
+    
+    @install()
+    @async()
+    fun add_palette_donor(entity, mode) {
+        if(mode == 0d0) {
+            add_enemy(BOY_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
+            attach_to_script(LAST_ENTITY);
+        } else if(mode == 0d1) {
+            attach_to_script(DOG);
+        }
+    
+        arg[0x10] = entity[PALETTE];
+    
+        while(entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+            entity[PALETTE] = <SCRIPT_OWNER>[PALETTE];
+            
+            sleep(0d5);
+        }
+    
+        entity[PALETTE] = arg[0x10];
+    
+        if(mode == 0d0) {
+            destroy(SCRIPT_OWNER);
+        } 
+    }
+    fun guard_branch_lady(flag) {
+        if(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+            if(MEMORY.SPOON > 0d0) {
+                smart_conversation({
+                    conversation_question("[SLOW]Use Spoon[CHOICE]yes…[CHOICE]no…");
+    
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        MEMORY.SPOON--;
+    
+                        control(SCRIPT_OWNER, False);
+                        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+                    }
+                }, False, NONE);
+            } else {
+                smart_conversation({
+                    dialog("[SLOW]…[B]");
+                }, False, NONE);
+            }
+    
+            if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                flag = True;
+            }
+    
+            end();
+        }
+    }
+    fun branch_lady(enemy:ENEMY, x, y, direction:DIRECTION, id) {
+        add_enemy(enemy, x, y, INACTIVE);
+        attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+    
+        add_palette_donor(<LAST_ENTITY>, 0d1);
+    
+        face(LAST_ENTITY, direction);
+        attach_script(LAST_ENTITY, B, id);
+    }
+    
+    fun guard_levitate_stone(required_strength, callback_error) {
+        if(MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_2_3) {
+            arg[0x0e] = 0d1;
+        } else if(MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_2_2) {
+            arg[0x0e] = 0d2;
+        }
+        
+        if(<BOY>[BOOST_ATTACK] > 0d0) {
+            arg[0x0e]++;
+        }
+    
+        if(SYSTEM.WITH_DEBUG_START) {
+            debug_memory(arg[0x0e], required_strength + SOULS_MEMORY.CHALLENGE_EXTRA_WEAK, <BOY>[BOOST_ATTACK]);
+        }
+    
+        if(arg[0x0e] < (required_strength + SOULS_MEMORY.CHALLENGE_EXTRA_WEAK)) {
+            if((MEMORY.GLOVE_2_2 > 0d0) || (MEMORY.GLOVE_2_3 > 0d0) || (FLAG.ATLAS)) {
+                subtext("(Too heavy)");
+            }
+    
+            if(callback_error !is None) {
+                callback_error();
+            } else {
+                fake_b();
+            }
+            end();
+        }
+    
+        zelda_power_glove(arg[0x0e]);
+    
+        attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+    }
+    fun _add_levitate_stone(x, y, trigger?) {
+        if!(SOULS_MEMORY.CHALLENGE_NO_LEVITATE) {
+            _add_enemy(STONE, x, y, STONE_LEVITATE);
+        } else {
+            _add_enemy(STONE_ROUND, x, y, STONE_LEVITATE);
+        }
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
+        
+        if(trigger !is None) {
+            attach_script(LAST_ENTITY, B, trigger);
+        } else {
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_levitate_stone(0d1);
+            }));
+        }
+    }
+    fun add_levitate_stone(x, y, trigger?) {
+        if!(SOULS_MEMORY.CHALLENGE_NO_LEVITATE) {
+            add_enemy(STONE, x, y, STONE_LEVITATE);
+        } else {
+            add_enemy(STONE_ROUND, x, y, STONE_LEVITATE);
+        }
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
+        
+        if(trigger !is None) {
+            attach_script(LAST_ENTITY, B, trigger);
+        } else {
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_levitate_stone(0d1);
+            }));
+        }
+    }
+    
+    fun add_heavy_stone(x, y) {
+        add_enemy(STONE_ROUND, x, y);
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0x0000;
+        
+        attach_script(LAST_ENTITY, B, reference(@install() {
+            guard_levitate_stone(0d2);
+        }));
+    }
+    
+    fun guard_mud_stone() {
+        fake_b();
+    
+        guard_bone();
+    
+        if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0d0) {
+            <SCRIPT_OWNER>[GENERAL_PURPOSE]--;
+            yield();
+    
+            sound(HEAVY_IMPACT);
+            end();
+        } else {
+            sound(MAGMA_HARDENING);
+            destroy(SCRIPT_OWNER);
+        }
+    }
+    
+    fun add_mud_stone(x, y, trigger, color_donor:ENEMY) {
+        if(color_donor !is None) {
+            add_enemy(color_donor, x, y, STONE_LEVITATE);
+            <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.STONE_ROUND;
+            attribute(LAST_ENTITY, ROOT, True);
+        } else {
+            add_enemy(STONE_ROUND, x, y);
+    
+            persistent_animate_pillar(<LAST_ENTITY>, True);
+        }
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d2;
+    
+        attach_script(LAST_ENTITY, B, trigger);
+    }
+};

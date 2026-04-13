@@ -1,0 +1,738 @@
+map volcano_tower(STERLING) {
+    // gourd=vanilla
+    // sniff=vannilla
+
+    enum ROOM {
+        DEBUG = False,
+        DEBUG_WIND = False,
+
+        WINDWALKER_ID = memory(WORD, TEMP),
+
+        COLLECTIBLE_ID = memory(WORD, TEMP),
+        COLLECTIBLE_ID = memory(WORD, TEMP),
+        COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
+
+        DIAMOND_EYE_ID = memory(WORD, TEMP),
+        DIAMOND_EYE_LOOTED = memory(FLAG, SRAM),
+
+        WITH_WIND = True,
+        WIND_ACTIVE = memory(FLAG, TEMP),
+        WIND_ONLY_ACTIVE = True,
+
+        CODE_BOT_HACKED = memory(FLAG, TEMP),
+        CODE_BOT_X = 0d39,
+        CODE_BOT_Y = 0d233,
+
+        TRAP_1_TRIGGERED = memory(FLAG, TEMP),
+        TRAP_2_TRIGGERED = memory(FLAG, TEMP),
+        TRAP_3_TRIGGERED = memory(FLAG, TEMP),
+        TRAP_4_TRIGGERED = memory(FLAG, TEMP),
+    }
+
+    enum entrance {
+        south = entrance(0x55, 0xf9, NORTH),
+        platform = entrance(0x51, 0x2f, NONE),
+
+        bonfire = entrance(0d67, 0d159, NONE, { bonfire_wakeup(0d0, 0d8, -0d24, 0d0); }),
+
+        crash = entrance(0d23, 0d249, NONE, { crash_both(); }),
+
+        code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+            handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
+
+            hacking_wakeup(-0d8, 0d24, 0d24, 0d24);
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(WIND_AMBIENT_BIRDS, 0xff),
+    }
+
+    fun guard_cat_ring() {
+        if(SOULS_MEMORY_HELPER.WEIGHT_BOY_REDUCED) {
+            subtext("*crackling sounds*");
+            end();
+        }
+    }
+
+    fun trapdoor_trigger(flag, object_id, x, y, y_end, fall_damage_type:FALL_DAMAGE_TYPE) {
+        if!(flag) {
+            guard_cat_ring();
+        }
+
+        object[object_id] = 0x03; // activate trapdoor_3
+        flag = True;
+
+        generic_fall_gomi(x, y, y_end, fall_damage_type);
+    }
+
+    @install()
+    fun trapdoor_3() {
+        debug_subtext("S=10/11");
+
+        trapdoor_trigger(ROOM.TRAP_3_TRIGGERED, 0x05, 0d91, 0d191, 0d1640, DEFAULT);
+    }
+    @install()
+    fun trapdoor_4() {
+        debug_subtext("S=3/7");
+
+        trapdoor_trigger(ROOM.TRAP_4_TRIGGERED, 0x03, 0d43, 0d96, 0d1280, DROP_DEEP);
+    }
+
+    fun load_room(load, with_message) {
+        if(with_message) {
+            if(load) {
+                subtext("(loading room)");
+            } else {
+                subtext("(unloading room)");
+            }
+        }
+
+        if(load) {
+            bonfire(0d67, 0d159, SOULS_MEMORY.BONFIRE_VOLCANO_TOWER);
+        } else {
+            _destroy(SOULS_MEMORY.BONFIRE_ID);
+        }
+
+        if(load) {
+            add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0d24, 0d109);
+            attach_script(LAST_ENTITY, B, reference(lift_off));
+            ROOM.WINDWALKER_ID = <LAST_ENTITY>;
+        } else {
+            _destroy(ROOM.WINDWALKER_ID);
+        }
+
+        if(load) {
+            add_souls_npc_alchemist_drain(0d15, 0d204);
+
+            if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+                // level 0
+                // add_basic_souls_enemy(FLOWER_PURPLE, 0d81, 0d239, 0d1);
+
+                // level 1
+                add_basic_souls_enemy(MONK, 0d93, 0d209);
+                add_basic_souls_enemy(MONK, 0d54, 0d186);
+
+                // level 2
+                add_basic_souls_enemy(MONK, 0d25, 0d175);
+
+                // level 3
+                add_basic_souls_enemy(MONK, 0d41, 0d160);
+
+                // level 5
+                // add_basic_souls_enemy(BUZZARD_1, 0d29, 0d123, 0d1);
+                // add_basic_souls_enemy(RAT, 0d29, 0d123, 0d1);
+                // add_basic_souls_enemy(RAT, 0d29, 0d123, 0d1);
+            }
+        } else {
+            find_all(MONK, {
+                destroy(current_id);
+            });
+        }
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            DEBUG = False,
+            DEBUG_PHASE = True,
+            DEBUG_HP = True,
+
+            WITH_DRAG_DOG = True,
+
+            PROGRESS = memory(FLAG, TEMP),
+
+            RIDER_ID = memory(WORD, TEMP),
+            MOUNT_ID = memory(WORD, TEMP),
+
+            PHASE = memory(WORD, TEMP),
+            TIMER = memory(WORD, TEMP),
+
+            HP = 0d600,
+
+            GRAB_DISTANCE = 0d30,
+            GRAB_DAMAGE = 0d10,
+
+            // p1
+
+            P1_THRESHOLD = 0d500,
+            P1_TIME_BEFORE_SALVAGE = 0d1200,
+
+            // p2
+
+            P2_THRESHOLD = 0d100,
+            P2_TIME_BEFORE_SALVAGE = 0d780,
+
+            RANDOM_SPELL = memory(WORD, TEMP),
+            TIME_BEFORE_RANDOM_SPELL = 0d780,
+        }
+
+        fun boss_killed() {
+            while(BOSS.MOUNT_ID[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                yield();
+            }
+
+            _destroy(BOSS.MOUNT_ID);
+
+            souls_boss_defeated_helper(FLAPPY_DRAGON);
+
+            load_room(True, True);
+            object[0x0a] = 0x00; // block elevator_top
+        }
+
+        @install()
+        @async()
+        fun stack_t01_offset() {
+            while(alive(BOSS.MOUNT_ID)) {
+                BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d20;
+                BOSS.RIDER_ID[VELOCITY] = BOSS.MOUNT_ID[VELOCITY];
+                
+                sleep(0d2);
+            }
+        }
+
+        @install()
+        fun reset_cooldown() {
+            if(BOSS.PHASE == 0d0) {
+                BOSS.TIMER = BOSS.P1_THRESHOLD;
+            } else {
+                BOSS.TIMER = BOSS.P2_THRESHOLD;
+            }
+        }
+        fun cast_salvage(target:CHARACTER, count, level) {
+            // TODO: flash/fireball, depending whether or not it's dodgeable?
+
+            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+
+            if(count > 0d2) {
+                cast(BOSS.RIDER_ID, target, FIREBALL, level);
+            }
+            cast(BOSS.RIDER_ID, target, FLASH, level);
+            if(count > 0d2) {
+                cast(BOSS.RIDER_ID, target, FIREBALL, level);
+            }
+            cast(BOSS.RIDER_ID, target, FLASH, level);
+        }
+
+        @install()
+        fun boss_damage() {
+            // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+            reset_cooldown();
+
+            if(BOSS.PHASE == 0d0) {
+                BOSS.TIMER = 0d0;
+
+                if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
+                    BOSS.PHASE = 0d1;
+                }
+            }
+            if(BOSS.PHASE == 0d1) {
+                if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
+                    BOSS.PHASE = 0d2;
+                }
+            }
+            if(BOSS.PHASE == 0d2) {
+                if(dead(BOSS.RIDER_ID)) {
+                    BOSS.PHASE = 0d3;
+                }
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_HP) {
+                MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
+                MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+                MEMORY.STRING_PARAMETER_3 = BOSS.PHASE;
+
+                subtext("Rider = [MEM1]/[MEM2] ([MEM3])");
+            }
+        }
+
+        @install()
+        fun morph() {
+            arg[0x10] = randrange(0d3);
+
+            if(arg[0x10] == 0d0) {
+                BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.BUZZARD_1;
+            } else if(arg[0x10] == 0d1) {
+                BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.RAT;
+            } else if(arg[0x10] == 0d2) {
+                BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.MOSQUITO;
+            }
+        }
+
+        @install()
+        @async()
+        fun boss_watcher() {
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                subtext("phase 0");
+            }
+
+            while(BOSS.PHASE == 0d0) {
+                if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                    cast_salvage(ACTIVE, 0d2, 0x00);
+
+                    BOSS.TIMER = 0x00;
+                }
+            
+                if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                    BOSS.TIMER += 0d10;
+                }
+                
+                sleep(0d10);
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                subtext("phase 1");
+            }
+
+            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+            morph();
+            BOSS.TIMER = 0x0000;
+            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+
+            while(BOSS.PHASE == 0d1) {
+                if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                    cast_salvage(ACTIVE, 0d2, 0x00);
+
+                    BOSS.TIMER = 0d0;
+                }
+            
+                if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                    BOSS.TIMER += 0d10;
+                }
+                
+                sleep(0d10);
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                subtext("phase 2");
+            }
+
+            animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+            morph();
+            BOSS.TIMER = 0x0000;
+            cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+            cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+
+            while(BOSS.PHASE == 0d2) {
+                BOSS.TIMER += 0d10;
+
+                if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                    BOSS.TIMER = 0x0000;
+
+                    BOSS.RANDOM_SPELL = randrange(0d3);
+
+                    if(BOSS.RANDOM_SPELL == 0d0) {
+                        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD);
+                        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND);
+                    } else if(BOSS.RANDOM_SPELL == 0d1) {
+                        cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0d10);
+                    } else if(BOSS.RANDOM_SPELL == 0d2) {
+                        cast(BOSS.RIDER_ID, ACTIVE, PLAGUE);
+                    } 
+                }
+                
+                sleep(0d10);
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                subtext("phase 3");
+            }
+
+            boss_killed();
+        }
+
+        @install()
+        @async()
+        fun sterling_flapping(entity, duration, slow) {
+            while(
+                (entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                && !(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK)
+                && duration
+            ) {
+                duration--;
+
+                _move_towards(<BOY>, entity, 0d3, True);
+                sleep(0d2);
+
+                if(BOSS.WITH_DRAG_DOG) {
+                    _move_towards(<DOG>, entity, 0d3, True);
+                    sleep(0d2);
+                }
+            }
+        }
+
+        fun hold(entity:CHARACTER, callback) {
+            // control(entity, True);
+            attribute(entity, ROOT, True);
+
+            callback();
+
+            attribute(entity, ROOT, False);
+            // control(entity, False);
+        }
+
+        fun spawn_boss(x, y) {
+            add_enemy(STERLING, x, y);
+            <LAST_ENTITY>[TYPE] = CHARACTER_TYPE.VERMINATOR;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            BOSS.RIDER_ID = <LAST_ENTITY>;
+            attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+            attribute(LAST_ENTITY, ROOT, True);
+
+            add_enemy(STERLING, x, y);
+            BOSS.MOUNT_ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                if(<SCRIPT_OWNER>[TYPE] != CHARACTER_TYPE.STERLING) {
+                    <SCRIPT_OWNER>[TYPE] = CHARACTER_TYPE.STERLING;
+                } else {
+                    if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = True;
+
+                        yield();
+
+                        hold(SCRIPT_OWNER, {
+                            while(
+                                (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                                || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
+                            ) {
+                                yield();
+                            }
+
+                            face(SCRIPT_OWNER, SOUTH);
+                            animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.STERLING_FLY_1);
+                            sterling_flapping(<SCRIPT_OWNER>, 0d600);
+                            yield();
+
+                            while(
+                                (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                                || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
+                            ) {
+                                yield();
+                            }
+                        });
+
+                        while(
+                            (<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)
+                            || <SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK
+                        ) {
+                            yield();
+                        }
+
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = False;
+                    }
+                }
+            }));
+
+            attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.GRAB_DISTANCE, 0d58, 0d12, 0d250, BOSS.GRAB_DAMAGE, True);
+            stack_t01_offset();
+            boss_watcher();
+        }
+    };
+
+    enum stepon_trigger {
+        elevator_bottom = @install() {
+            debug_subtext("S=0");
+
+            generic_elevator_gomi(0x3e, 0xcf, 0x01, 0x01, 0d62, 0d76, 0x04, 0x01);
+        },
+        elevator_top = @install() {
+            debug_subtext("S=1");
+
+            generic_elevator_gomi(0x3e, 0x4e, 0x04, 0x01, 0d62, 0d205, 0x01, 0x01);
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=2");
+
+            if((!SOULS_MEMORY.DEAD_FLAPPY_DRAGON) && (!BOSS.PROGRESS)) {
+                BOSS.PROGRESS = True;
+
+                walk(ACTIVE, TILE_ABSOLUTE, 0x50, 0x1e, NONE, NONE);
+                walk(INACTIVE, TILE_ABSOLUTE, 0x50, 0x1e, NONE, NONE);
+
+                if(True) {
+                    load_room(False, True);
+                    wait(INACTIVE);
+                    wait(ACTIVE);
+                }
+
+                walk(BOY, TILE_RELATIVE, -0d1, -0d2, NONE, NONE);
+                walk(BOY, TILE_RELATIVE, 0d1, -0d3, BOTH, BOTH);
+
+                face(BOY, WEST);
+                face(DOG, WEST);
+
+                object[0x0a] = 0x01; // block elevator_top
+
+                push_music(BOSS);
+                
+                spawn_boss(0d49, 0d27);
+            }
+        },
+        trapdoor_4 = @install() {
+            debug_subtext("S=3");
+
+            trapdoor_4();
+        },
+        exit_south = @install() {
+            if!(AREA_ALTUS_PLATEAU.BRANCH_USED) {
+                error_message(DOOR_WRONG_SIDE);
+            } else {
+                map_transition(volcano, cave_center, SOUTH);
+            }
+        },
+        trapdoor_1 = nop(),
+        stepon_6 = @install() {
+            debug_subtext("S=6");
+        },
+        trapdoor_4_open = @install() {
+            debug_subtext("S=7");
+
+            trapdoor_4();
+        },
+        trapdoor_2 = @install() {
+            debug_subtext("S=8");
+
+            trapdoor_trigger(ROOM.TRAP_2_TRIGGERED, 0x06, 0d61, 0d160, 0d1408, DEFAULT);
+        },
+        stepon_9 = @install() {
+            debug_subtext("S=9");
+        },
+
+        trapdoor_3_left = trapdoor_3(),
+        trapdoor_3_right = trapdoor_3()
+    }
+
+    enum b_trigger {
+        sniff__1_water_2 = @install() {
+            debug_subtext("B=0");
+            _loot(0x1c, WATER, 0d01, 0d02);
+        },
+        sniff__1_water_4 = @install() {
+            debug_subtext("B=1");
+            _loot(0x1b, WATER, 0d01, 0d04);
+        },
+        sniff__1_acorns_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x1a, ACORNS, 0d01, 0d02);
+        },
+        sniff__1_acorns_1 = @install() {
+            debug_subtext("B=3");
+            _loot(0x19, ACORNS, 0d01, 0d01);
+        },
+        sniff__1_mushroom_3 = @install() {
+            debug_subtext("B=4");
+            _loot(0x18, MUSHROOM, 0d01, 0d03);
+        },
+        sniff__1_mushroom_1 = @install() {
+            debug_subtext("B=5");
+            _loot(0x17, MUSHROOM, 0d01, 0d01);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=6");
+            _loot(0x16, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=7");
+            _loot(0x15, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_feather_2 = @install() {
+            debug_subtext("B=8");
+            _loot(0x14, FEATHER, 0d01, 0d02);
+        },
+        sniff__1_feather_3 = @install() {
+            debug_subtext("B=9");
+            _loot(0x13, FEATHER, 0d01, 0d03);
+        },
+
+        sniff__1_feather_1 = @install() {
+            debug_subtext("B=10");
+            _loot(0x12, FEATHER, 0d01, 0d01);
+        },
+        sniff__1_iron = @install() {
+            debug_subtext("B=11");
+            _loot(0x11, IRON, 0d01, 0d00);
+        },
+        sniff__1_iron_2 = @install() {
+            debug_subtext("B=12");
+            _loot(0x10, IRON, 0d01, 0d02);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=13");
+            _loot(0x0f, ASH, 0d01, 0d02);
+        },
+        sniff__1_ash_1 = @install() {
+            debug_subtext("B=14");
+            _loot(0x0e, ASH, 0d01, 0d01);
+        },
+        sniff__1_ethanol_2 = @install() {
+            debug_subtext("B=15");
+            _loot(0x0d, ETHANOL, 0d01, 0d02);
+        },
+        sniff__1_ethanol_2 = @install() {
+            debug_subtext("B=16");
+            _loot(0x0c, ETHANOL, 0d01, 0d02);
+        },
+        sniff__1_ethanol_1 = @install() {
+            debug_subtext("B=17");
+            _loot(0x0b, ETHANOL, 0d01, 0d01);
+        },
+        gourd_x__1_feather = @install() {
+            debug_subtext("B=18");
+            _loot_chest(0x09, DRY_ICE, 0d01);
+        },
+        gourd_x__1_acorn = @install() {
+            debug_subtext("B=19");
+            _loot_chest(0x08, ACORNS, 0d01);
+        },
+
+        gourd_x__1_ash = @install() {
+            debug_subtext("B=20");
+            _loot_chest(0x02, ASH, 0d01);
+        },
+        gourd_x__1_ethanol = @install() {
+            debug_subtext("B=21");
+            _loot_chest(0x00, SPOON, 0d01);
+        }
+    }
+
+    @install()
+    fun lift_off() {
+        <0x2834> = <SCRIPT_OWNER>[X];
+        <0x2836> = <SCRIPT_OWNER>[Y];
+        // walk(BOY, TILE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], NONE);
+        // walk(BOY, TILE_ABSOLUTE_DIRECT, <0x2834>, <0x2836>, NONE);
+        control(NONE);
+        walk(DOG, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x30, <SCRIPT_OWNER>[Y] - 0x05, NONE);
+        walk(BOY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0x30, <SCRIPT_OWNER>[Y] - 0x05, BOTH);
+        walk(DOG, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] - 0x20, <SCRIPT_OWNER>[Y] - 0x05, NONE);
+        walk(BOY, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] - 0x10, <SCRIPT_OWNER>[Y] - 0x05, BOTH);
+        
+        face(BOY, EAST);
+        face(DOG, EAST);
+        sleep(0x20);
+
+        while(arg[0x00] < 0d160) {
+            arg[0x00]++;
+            control(NONE);
+            face(BOY, EAST);
+            face(DOG, EAST);
+            <SCRIPT_OWNER>[Y]--;
+            <BOY>[Y]--;
+            <DOG>[Y]--;
+
+            yield();
+        }
+
+        if!(SOULS_MEMORY.DEAD_SIDESCROLLER) {
+            map_transition(windwalker_sidescroller, west, NONE);
+        } else {
+            map_transition(well, crash, NONE);
+        }
+    }
+
+    fun start_wind() {
+        while(True) {
+            if(BOSS.MOUNT_ID && BOSS.MOUNT_ID[GENERAL_PURPOSE]) {
+                if(ROOM.DEBUG && ROOM.DEBUG_WIND) {
+                    debug_subtext("-wind");
+                }
+
+                while(BOSS.MOUNT_ID && BOSS.MOUNT_ID[GENERAL_PURPOSE]) {
+                    sleep(0d10);
+                }
+                
+                if(ROOM.DEBUG && ROOM.DEBUG_WIND) {
+                    debug_subtext("+wind");
+                }
+            }
+
+            if(<ACTIVE>[Y] < 0d180) {
+                arg[0x10] = 0d3;
+            } else if(<ACTIVE>[Y] < 0d350) {
+                arg[0x10] = 0d4;
+            } else if(<ACTIVE>[Y] < 0d400) {
+                arg[0x10] = 0d3;
+            } else if(<ACTIVE>[Y] < 0d670) {
+                arg[0x10] = 0d1;
+            } else {
+                arg[0x10] = 0d0;
+            }
+
+            if(arg[0x10] > 0d0) {
+                increment_no_running(ROOM.WIND_ACTIVE);
+            } else {
+                decrement_no_running(ROOM.WIND_ACTIVE);
+            }
+
+            if(<ACTIVE> == <BOY>) {
+                if(MEMORY.CURRENT_ARMOR_CHEST != ARMOR_STATS.CHEST_2_2) {
+                    if!(<BOY>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                        teleport_relative(BOY, 0d0, arg[0x10]);
+                    }
+                }
+            } else {
+                if!(<DOG>[FLAGS_1] & (ATTRIBUTE_FLAGS.DISABLED | ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                    teleport_relative(DOG, 0d0, arg[0x12]);
+                }
+            }
+
+            sleep(0d3);
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // open chest_2
+        // object[0x01] = 0x01; // open elevator_bottom
+        // object[0x02] = 0x01; // open chest_3
+        // object[0x03] = 0x01; // activate trapdoor_3
+        // object[0x04] = 0x01; // open elevator_top
+        // object[0x05] = 0x03; // activate trapdoor_4
+        // object[0x06] = 0x03; // activate trapdoor_2
+        // object[0x07] = 0x03; // activate trapdoor_1
+        // object[0x08] = 0x01; // open chest_1
+        // object[0x09] = 0x01; // open chest_4
+        // object[0x0a] = 0x01; // block elevator_top
+
+        if(NPC_ARCHAEOLOGIST.PROGRESS == 0d1) {
+            add_souls_npc_archaeologist(0d71, 0d238);
+        }
+
+        load_room(True, False);
+
+        if!(ROOM.DIAMOND_EYE_LOOTED) {
+            add_placeholder(DIAMOND_EYE_1, 0d66, 0d19);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                ROOM.DIAMOND_EYE_LOOTED = True;
+                STATUE_RIDDLE.CARRY_LEFT_EYE = True;
+
+                destroy(SCRIPT_OWNER);
+
+                reward(DIAMOND_EYE, True);
+            }));
+            ROOM.DIAMOND_EYE_ID = <LAST_ENTITY>;
+        }
+
+        if(SOULS_MEMORY.DEAD_FLAPPY_DRAGON) {
+            if!(ROOM.COLLECTIBLE_LOOTED) {
+                add_collectible(0x00, 0d43, 0d10, reference(@install() {
+                    collectible_collected();
+
+                    set(ROOM.COLLECTIBLE_LOOTED);
+                    destroy(SCRIPT_OWNER);
+                }));
+                ROOM.COLLECTIBLE_ID = <LAST_ENTITY>;
+            }
+        }
+
+        default_init_room(True, True);
+
+        archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_3, ROOM.CODE_BOT_HACKED);
+        place_statue(GOMI, 0d24, 0d119);
+
+        if(ROOM.WITH_WIND) {
+            start_wind();
+        }
+    }
+};

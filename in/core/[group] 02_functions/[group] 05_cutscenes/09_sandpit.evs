@@ -1,0 +1,147 @@
+group sandpit() {
+    fun vanilla_desert_sandpit(callback) {
+        if(<ACTIVE> != <BOY>) {
+            end();
+        }
+        if(<BOY>[Z_LEVEL] != 0x50) {
+            end();
+        }
+
+        while((<BOY>[CURRENT_GROUND] & 0xff) != 0x10) {
+            callback(arg[0x10]);
+
+            yield();
+            arg[0x10]++;
+        }
+    }
+    fun vanilla_desert_sandpit_in(x, y) {
+        control(NONE);
+        // <BOY>[GENERAL_PURPOSE] = 0d2;
+        face(BOY, SOUTH);
+
+        sleep(0d45);
+
+        animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+
+        sleep(0d60);
+
+        object[0x03] = 0x7e;
+        yield();
+
+        // animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+
+        MEMORY.CAMERA_PAN_SPEED = 0d16;
+        teleport(BOY, x, y);
+        wait(CAMERA_PAN_Y);
+        wait(CAMERA_PAN_X);
+        free_camera();
+
+        animate(BOY, ONCE, DEFAULT);
+
+        control(BOY);
+    }
+
+    @install()
+    @weak()
+    fun vanilla_sandpit_puke(entity) {
+        if(entity == <DOG>) {
+            face(entity, WEST);
+        } else {
+            face(entity, SOUTH);
+        }
+        // yield();
+
+        smart_animate(entity, LOOP, ANIMATION_BOY.SWIRL_EXIT);
+        entity[VELOCITY] = 0d50;
+
+        sleep(0d50);
+
+        smart_animate(entity, LOOP, ANIMATION_BOY.FALL_1);
+
+        sleep(0d50);
+
+        smart_animate(entity, ONCE, ANIMATION_BOY.LANDING);
+    }
+    
+    fun vanilla_desert_sandpit_out(x, y) {
+        add_placeholder(SANDPIT_PUKE, x, y, ONCE);
+        attach_to_script(LAST_ENTITY);
+
+        if(<BOY>[GENERAL_PURPOSE] >= 0d2) {
+            <BOY>[GENERAL_PURPOSE] = 0d0;
+
+            teleport(BOY, x, y);
+            vanilla_sandpit_puke(<BOY>);
+        }
+
+        if(<DOG>[GENERAL_PURPOSE] >= 0d2) {
+            <DOG>[GENERAL_PURPOSE] = 0d0;
+            
+            teleport(DOG, x, y);
+            vanilla_sandpit_puke(<DOG>);
+        }
+
+        free_camera();
+
+        wait(SCRIPT_OWNER);
+        destroy(SCRIPT_OWNER);
+    }
+
+    @install()
+    @weak()
+    fun generic_a1_desert_sandpit_in() {
+        control(NONE);
+        // <BOY>[GENERAL_PURPOSE] = 0d2;
+        face(BOY, SOUTH);
+
+        sleep(0d45);
+
+        animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SWIRL_ENTER);
+
+        wait(BOY);
+    }
+    @install()
+    @weak()
+    fun generic_a1_desert_sandpit_out(direction:DIRECTION) {
+        if(FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY) {
+            arg[0x10] = True;
+        }
+
+        control(NONE);
+        
+        _add_placeholder(SANDPIT_PUKE, <ACTIVE>[X], <ACTIVE>[Y], ONCE);
+        attach_to_script(LAST_ENTITY);
+
+        if!(arg[0x10]) {
+            _teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
+            animate(INACTIVE, LOOP, INVISIBLE);
+        }
+
+        vanilla_sandpit_puke(<ACTIVE>);
+        if(direction == DIRECTION.NORTH) {
+            walk(<ACTIVE>, TILE_RELATIVE, 0d1, -0d2, NONE, NONE);
+        } else if(direction == DIRECTION.EAST) {
+            walk(<ACTIVE>, TILE_RELATIVE, 0d2, 0d1, NONE, NONE);
+        } else if(direction == DIRECTION.SOUTH) {
+            walk(<ACTIVE>, TILE_RELATIVE, 0d1, 0d2, NONE, NONE);
+        } else if(direction == DIRECTION.WEST) {
+            walk(<ACTIVE>, TILE_RELATIVE, -0d2, 0d1, NONE, NONE);
+        }
+        wait(ACTIVE);
+        face(ACTIVE, SOUTH);
+
+        if!(arg[0x10]) {
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+
+            animate(INACTIVE, ONCE, DEFAULT);
+            vanilla_sandpit_puke(<INACTIVE>);
+        }
+
+        free_camera();
+
+        wait(SCRIPT_OWNER);
+        destroy(SCRIPT_OWNER);
+
+        control(BOTH);
+    }
+};

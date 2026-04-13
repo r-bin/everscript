@@ -1,0 +1,134 @@
+group npc_mario() {
+    enum NPC_MARIO {
+        PROGRESS = memory(BYTE, SRAM),
+        // SUB_PROGRESS = memory(BYTE, SRAM),
+
+        MARIO_TEASED = memory(FLAG, SRAM),
+
+        // ID = memory(WORD, SRAM),
+        BODY = ENEMY.VILLAGER_2_1,
+    }
+
+    @install()
+    fun npc_mario_dialog_0() {
+        smart_conversation({
+            if(NPC_MARIO.PROGRESS < 0x10) {
+                if(NPC_MARIO.PROGRESS == 0x00) {
+                    dialog("[SLOW]Hey, you.[B]");
+
+                    NPC_MARIO.PROGRESS++;
+                } else if(NPC_MARIO.PROGRESS == 0x01) {
+                    dialog("[SLOW]Have you seen my brother? I seem to have taken a wrong turn down there.[B]");
+
+                    NPC_MARIO.PROGRESS++;
+                } else if(NPC_MARIO.PROGRESS == 0x02) {
+                    dialog("[SLOW]The three of us were traveling eastwards to the Sewers, before we were separated.[B]");
+
+                    NPC_MARIO.PROGRESS++;
+                } else if(NPC_MARIO.PROGRESS == 0x03) {
+                    dialog("[SLOW]Please look for my brother. He might be injured.[B]");
+
+                    NPC_MARIO.PROGRESS = 0x10;
+                }
+            } else {
+                dialog("[SLOW]Please hurry![B]");
+            }
+        }, False);
+    }
+    @install()
+    fun npc_mario_dialog_1() {
+        if(NPC_MARIO.PROGRESS < 0x20) {
+            if(NPC_MARIO.PROGRESS == 0x10) {
+                if(MEMORY.MUSHROOM <= 0d0) {
+                    subtext("…");
+                } else {
+                    NPC_MARIO.PROGRESS++;
+
+                    add_enemy(NPC_MARIO.BODY, 0xe5, 0x27, INACTIVE);
+                    <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+                    face(LAST_ENTITY, WEST);
+                    init_map(0xb4, 0x04, 0xfc, 0x36); // room_alchemist
+
+                    
+                    subtext("Is that… a… Mushroom?");
+                }
+            } else if(NPC_MARIO.PROGRESS == 0x11) {
+                smart_conversation({
+                    question("[SLOW]Mushroom… please…[CHOICE]give…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        item_pay(MUSHROOM, 0d1, 0d0);
+                        if(CUSTOM_MEMORY.RETURN) {
+                            if(False) {
+                                sound(PURCHASE);
+                            }
+
+                            dialog("[SLOW]…[B]");
+
+                            NPC_MARIO.PROGRESS++;
+                        }
+                    }
+                }, False);
+            } else if(NPC_MARIO.PROGRESS == 0x12) {
+                smart_conversation({
+                    question("[SLOW]more…[CHOICE]give…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        item_pay(MUSHROOM, 0d1, 0d0);
+                        if(CUSTOM_MEMORY.RETURN) {
+                            if(False) {
+                                sound(PURCHASE);
+                            }
+
+                            dialog("[SLOW]you saved me…[B]");
+
+                            NPC_MARIO.PROGRESS = 0x20;
+                        }
+                    }
+                }, False);
+            }
+        } else {
+            dialog("[SLOW]you saved me…[B]");
+        }
+    }
+    @install()
+    fun npc_mario_dialog_2() {
+        smart_conversation({
+            if(NPC_MARIO.PROGRESS < 0x30) {
+                if(NPC_MARIO.PROGRESS == 0x20) {
+                    dialog("[SLOW]I followed them to the Sewers all the way from the Kingdom of Mushrooms.[B]");
+
+                    NPC_MARIO.PROGRESS++;
+                } else if(NPC_MARIO.PROGRESS == 0x21) {
+                    dialog("[SLOW]This should help you navigate within the Sewers.[B]");
+
+                    custom_reward(BIG_MUSHROOM, True);
+                    CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.MARIO;
+
+                    dialog("[SLOW]Press `Start´ to use the Big Mushroom within the Sewers.[B]");
+
+                    NPC_MARIO.PROGRESS = 0x40;
+                }
+            } else {
+                dialog("[SLOW]Use it to help me clear this place from the infestation.[B]");
+            }
+        }, False);
+    }
+
+    fun add_souls_npc_mario(x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            add_enemy(NPC_MARIO.BODY, x, y, flags);
+        } else {
+            add_enemy(NPC_MARIO.BODY, x, y, 0d0);
+        }
+        <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+
+        if(NPC_MARIO.PROGRESS < 0x10) {
+            attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_0));
+        } else if(NPC_MARIO.PROGRESS < 0x20) {
+            attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_1));
+        } else {
+            attach_script(LAST_ENTITY, B, reference(npc_mario_dialog_2));
+        }
+    }
+};

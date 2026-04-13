@@ -1,0 +1,441 @@
+group sprite() {
+    fun _destroy(character:CHARACTER) {
+        if(character > 0x00) {
+            code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
+        }
+    }
+    fun destroy(character:CHARACTER) {
+        code(0x9b, entity_t(character), "// (9b) DESTROY/DEALLOC ENTITY $283e");
+    }
+
+    fun _teleport(character:CHARACTER, x, y) {
+        if(character == CHARACTER.BOTH) {
+            code(0x43, entity_t(BOY), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+            code(0x43, entity_t(DOG), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+        } else {
+            code(0x43, entity_t(character), calculate(x), calculate(y), "// (42) Teleport $2835 to a7, b9");
+        }
+    }
+    fun teleport(character:CHARACTER, x, y) {
+        if((x is Word) && (y is Word)) {
+            if(x > 0xff) {
+                throw("teleport.x > 0xff");
+            } else if(y > 0xff) {
+                throw("teleport.y > 0xff");
+            }
+
+            if(character == CHARACTER.BOTH) {
+                code(0x20, x, y, "// (20) Teleport both to 43 93");
+            } else {
+                code(0x42, entity_t(character), x, y, "// (42) Teleport $2835 to a7, b9");
+            }
+        } else {
+            if(character == CHARACTER.BOTH) {
+                code(0x43, entity_t(BOY), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+                code(0x43, entity_t(DOG), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+            } else {
+                code(0x43, entity_t(character), calculate(x << 0d0003), calculate(y << 0d0003), "// (42) Teleport $2835 to a7, b9");
+            }
+        }
+    }
+    fun teleport_relative(character:CHARACTER, x, y) {
+        code(0xb9, entity_t(character), calculate(x), calculate(y), "// (b9) Teleport $2835 by x:signed arg9, y:signed arg3 - signed arg5");
+    }
+
+    fun teleport_screen(dx, dy) { // scren=0d512/0d512
+        code(0x96, param(dx), param(dy), "// (96) Teleport player by 0, 2 screens");
+    }
+    
+    fun animate_boy(mode:ANIMATION_MODE, id:ANIMATION_BOY) {
+        code(0x78, entity_t(CHARACTER.BOY), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+    }
+    fun animate(character:CHARACTER, mode:ANIMATION_MODE, id:ANIMATION_ALL) {
+        code(0x78, entity_t(character), 0x0000 + id, param(mode), "// (78) UNTRACED INSTR for $2846, 0x0010 2 changes sprite/animation/...?");
+    }
+    fun smart_animate(character:CHARACTER, mode:ANIMATION_MODE, id:ANIMATION_ALL) {
+        if(character is Word) {
+            animate(character, mode, id);
+        } else {
+            if((id == ANIMATION_BOY.FALL_1) || (id == ANIMATION_DOG.ACT1_FALL2)) {
+                if(character == <BOY>) {
+                    animate(character, mode, ANIMATION_BOY.FALL_1);
+                } else {
+                    animate(character, mode, ANIMATION_DOG.ACT1_FALL2);
+                }
+            } else if((id == ANIMATION_BOY.LANDING) || (id == ANIMATION_DOG.ACT1_ANGRY)) {
+                if(character == <BOY>) {
+                    animate(character, mode, ANIMATION_BOY.LANDING);
+                } else {
+                    animate(character, mode, ANIMATION_DOG.ACT1_ANGRY);
+                }
+            } else if((id == ANIMATION_BOY.SLEEP_DOWN) || (id == ANIMATION_DOG.ACT1_SLEEP)) {
+                if(character == <BOY>) {
+                    animate(character, mode, ANIMATION_BOY.SLEEP_DOWN);
+                } else {
+                    animate(character, mode, ANIMATION_DOG.ACT1_SLEEP);
+                }
+            } else if((id == ANIMATION_BOY.SWIRL_EXIT) || (id == ANIMATION_DOG.ACT1_FALL1)) {
+                if(character == <BOY>) {
+                    animate(character, mode, ANIMATION_BOY.SWIRL_EXIT);
+                } else {
+                    animate(character, mode, ANIMATION_DOG.ACT1_FALL1);
+                }
+            } else if((id == ANIMATION_DOG.ACT1_SIT) || (id == ANIMATION_DOG.ACT2_SIT) || (id == ANIMATION_DOG.ACT3_SIT)) {
+                if(MEMORY.DOG_READ == DOG.GREYHOUND) {
+                    animate(character, mode, ANIMATION_DOG.ACT2_SIT);
+                } else if(MEMORY.DOG_READ == DOG.POODLE) {
+                    animate(character, mode, ANIMATION_DOG.ACT3_SIT);
+                } else {
+                    animate(character, mode, ANIMATION_DOG.ACT1_SIT);
+                }
+            }
+        }
+    }
+
+    fun _add_enemy(enemy:ENEMY, x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            code(0xa2, 0x0000 + enemy * 0x02, 0x0000 + flags, calculate(x), calculate(y), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
+        } else {
+            code(0xa2, 0x0000 + enemy * 0x02, 0x0000, calculate(x), calculate(y), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
+        }
+    }
+    fun add_enemy(enemy:ENEMY, x, y, flags:FLAG_ENEMY) {
+        if((x is Word) && (y is Word)) {
+            if(flags is Word) {
+                code(0x3c, 0x0000 + enemy * 0x02, 0x0000 + flags, x, y, "// (ba) LOAD NPC 0b at 49 79");
+            } else {
+                code(0xba, enemy, x, y, "// (ba) LOAD NPC 0b at 49 79");
+            }
+        } else {
+            if(flags is Word) {
+                code(0xa2, 0x0000 + enemy * 0x02, 0x0000 + flags, calculate((x) * 0x0008), calculate((y) * 0x0008), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
+            } else {
+                code(0xa2, 0x0000 + enemy * 0x02, 0x0000, calculate(x * 0x0008), calculate(y * 0x0008), "// (a2) SPAWN NPC 0x00ca>>1, flags 0x20, x:$23b9, y:$23bb");
+            }
+        }
+    }
+    fun _add_colored_enemy(enemy:CHARACTER_TYPE, palette:ENEMY, x, y, flags:FLAG_ENEMY) {
+        if(flags !is None) {
+            _add_enemy(palette, x, y, flags);
+        } else {
+            _add_enemy(palette, x, y);
+        }
+        <LAST_ENTITY>[TYPE] = enemy;
+    }
+    fun add_colored_enemy(enemy:CHARACTER_TYPE, palette:ENEMY, x, y, flags:FLAG_ENEMY) {
+        if(flags !is None) {
+            add_enemy(palette, x, y, flags);
+        } else {
+            add_enemy(palette, x, y);
+        }
+        <LAST_ENTITY>[TYPE] = enemy;
+    }
+
+    fun replace_enemy(entity, enemy:ENEMY, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            _add_enemy(enemy, entity[X], entity[Y], flags);
+        } else {
+            _add_enemy(enemy, entity[X], entity[Y]);
+        }
+
+        animate(entity, ONCE, DEFAULT);
+        destroy(entity);
+    }
+
+    @install()
+    @weak()
+    fun swap_enemies(entity1, entity2) {
+        arg[0x10] = entity1[X];
+        arg[0x12] = entity1[Y];
+
+        _teleport(entity1, entity2[X], entity2[Y]);
+        _teleport(entity2, arg[0x10], arg[0x12]);
+    }
+
+    fun _add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y, mode:ANIMATION_MODE) {
+        _add_enemy(PLACEHOLDER, x, y, INVINCIBLE);
+        
+        if(mode is Word) {
+            animate(LAST_ENTITY, mode, animation);
+        } else {
+            animate(LAST_ENTITY, LOOP, animation);
+        }
+    }
+    fun add_placeholder(animation:ANIMATION_PLACEHOLDER, x, y, mode:ANIMATION_MODE) {
+        add_enemy(PLACEHOLDER, x, y, INVINCIBLE);
+        
+        if(mode is Word) {
+            animate(LAST_ENTITY, mode, animation);
+        } else {
+            animate(LAST_ENTITY, LOOP, animation);
+        }
+    }
+
+    fun add_enemy_spawner(enemy:ENEMY, x, y, quantity) {
+        if(quantity is Word) {
+            MEMORY.ENEMY_SPAWNER_QUANTITY = quantity;
+        }
+
+        code(0xc2, enemy, x, y, "// (c2) Add NPC 0x71 spawner at 0x13,0x09");
+    }
+
+    fun player_control(character:CHARACTER) {
+        code(0x98, entity_t(character), "// (98) SWITCH CHAR TO boy");
+    }
+
+    fun available(character:CHARACTER) {
+        // TODO: parameter bug
+        
+        if(character == CHARACTER.BOY) {
+            // teleport(DOG, 0x00, 0x00);
+            
+            FLAG.BOY_UNAVAILABLE = False;
+            FLAG.DOG_UNAVAILABLE = True;
+
+            code(0xbd, "// (bd) BOY = Player controlled");
+            player_control(character);
+            code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+        } else if(character == CHARACTER.DOG) {
+            // teleport(BOY, 0x00, 0x00);
+            
+            FLAG.BOY_UNAVAILABLE = True;
+            FLAG.DOG_UNAVAILABLE = False;
+
+            code(0xbf, "// (bf) DOG = Player controlled");
+            player_control(character);
+            code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+        } else if(character == CHARACTER.BOTH) {
+            FLAG.BOY_UNAVAILABLE = False;
+            FLAG.DOG_UNAVAILABLE = False;
+
+            code(0xc1, "// (c1) BOY+DOG = Player controlled");
+        } else if(character == CHARACTER.NONE) {
+            FLAG.BOY_UNAVAILABLE = True;
+            FLAG.DOG_UNAVAILABLE = True;
+
+            // code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+            // code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+        }
+    }
+
+    fun clear_status_effects() {
+        code(0xaa, "// (aa) Clear boy and dog statuses");
+    }
+
+    fun cure() {
+        code(0xaa, "// (aa) Clear boy and dog statuses");
+    }
+
+    fun heal(character:CHARACTER, amount, animation) {
+        if(animation == False) {
+            if(character == CHARACTER.BOTH) {
+                code(0x95, entity_t(BOY), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
+                code(0x95, entity_t(DOG), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
+            } else {
+                code(0x95, entity_t(character), param(amount), "// (95) HEAL dog FOR 0x03e7 = 999");
+            }
+        } else {
+            if(character == CHARACTER.BOTH) {
+                code(0x94, entity_t(BOY), 0x08, 0x8d, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL boy FOR *($23e5 + 15) WITH ANIMATION = health");
+                code(0x94, entity_t(DOG), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
+            } else if(character == CHARACTER.BOY) {
+                code(0x94, entity_t(BOY), 0x08, 0x8d, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL boy FOR *($23e5 + 15) WITH ANIMATION = health");
+            } else if(character == CHARACTER.DOG) {
+                code(0x94, entity_t(DOG), 0x08, 0x8f, 0x01, 0x29, 0x3f, 0x1a, 0xd5, "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
+            } else {
+                code(0x94, entity_t(character), param(amount), "// (94) HEAL dog FOR *($23e7 + 15) WITH ANIMATION = health");
+            }
+        }
+    }
+    fun full_heal(character:CHARACTER, animation) {
+        if(animation == False) {
+            heal(character, 0d999, animation);
+        } else {
+            heal(character, 0x00, animation);
+        }
+    }
+
+    fun select_alchemy(alchemy_index:ALCHEMY_PRESELECT_INDEX?) {
+        if(alchemy_index is Word) {
+            MEMORY.ALCHEMY_REWARD_PRESELECTION = alchemy_index;
+        }
+        code(0x63, "// (63) SHOW ALCHEMY SELECTION SCREEN");
+    }
+
+    fun cast(character:CHARACTER, target:CHARACTER, spell:CAST, level) {
+        if(target == CHARACTER.BOTH) {
+            if(level !is None) {
+                code(0xac, entity_t(character), param(spell), param(level), entity_t(BOY), entity_t(DOG), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+            } else {
+                code(0xac, entity_t(character), param(spell), param(0d0), entity_t(BOY), entity_t(DOG), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+            }
+        } else {
+            if(level !is None) {
+                code(0xac, entity_t(character), calculate(spell), calculate(level), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+            } else {
+                code(0xac, entity_t(character), calculate(spell), calculate(0d0), entity_t(target), 0xb0, "// (ac) $283d CASTS SPELL 22 POWER 0x64 ON boy if alive");
+            }
+        }
+    }
+
+    fun _face(character, direction:FACE_DIRECTION) {
+        if(direction != FACE_DIRECTION.NONE) {
+            character[FACE_DIRECTION] = direction;
+        }
+    }
+    fun face(character:CHARACTER, direction:DIRECTION) {
+        if(direction == DIRECTION.NORTH) {
+            code(0x74, entity_t(character), "// (74) MAKE boy FACE NORTH");
+        } else if(direction == DIRECTION.EAST) {
+            code(0x77, entity_t(character), "// (77) MAKE boy FACE EAST");
+        } else if(direction == DIRECTION.SOUTH) {
+            code(0x75, entity_t(character), "// (75) MAKE boy FACE SOUTH");
+        } else if(direction == DIRECTION.WEST) {
+            code(0x76, entity_t(character), "// (76) MAKE boy FACE WEST");
+        }
+    }
+
+    fun _face_each(character:CHARACTER, character2:CHARACTER) {
+        code(0x71, calculate(character), calculate(character2), "// (71) Make $2835 and controlled char face each other");
+    }
+    fun face_each(character:CHARACTER, character2:CHARACTER) {
+        code(0x71, entity_t(character), entity_t(character2), "// (71) Make $2835 and controlled char face each other");
+    }
+    fun face_target(character:CHARACTER, target:CHARACTER) {
+        code(0x70, entity_t(character), entity_t(target), "// (70) Make $2835 face boy");
+    }
+
+    fun attach_script(character:CHARACTER, flag:SCRIPT_TRIGGER, id) {
+        if(flag == SCRIPT_TRIGGER.B) {
+            if(character == CHARACTER.BOTH) {
+                code(0x3d, entity_t(BOY), 0x0000 + id, "// (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
+                code(0x3d, entity_t(DOG), 0x0000 + id, "// (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
+            } else {
+                code(0x3d, entity_t(character), 0x0000 + id, "// (3d) WRITE $285b+x66=0x1b72, $285b+x68=0x0040 (talk script): Prof. Ruffelburg");
+            }
+        } else {
+            if(character == CHARACTER.BOTH) { // TODO: forced_memory=True when character=<memory>
+                code(0x3f, entity_t(BOY), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+                code(0x3f, entity_t(DOG), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            } else {
+                code(0x3f, entity_t(character), 0x0000 + flag, 0x0000 + id, "// (3f) WRITE last entity ($0341)+x68=0x300, last entity ($0341)+x66=0x181e (set script): Magmar damage");
+            }
+        }
+    }
+
+    fun damage(character:CHARACTER, value, animation, no_knockback) {
+        if(no_knockback is Word) {
+            if(no_knockback > 0d0) {
+                MEMORY.NEXT_DAMAGE_NO_KNOCKBACK = True;
+            }
+        }
+
+        if(animation) {
+            if(character == CHARACTER.BOTH) {
+                code(0x92, entity_t(BOY), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+                code(0x92, entity_t(DOG), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+            } else {
+                code(0x92, entity_t(character), param(value), "// (92) DAMAGE boy FOR 5 WITH ANIMATION");
+            }
+        } else {
+            if(character == CHARACTER.BOTH) {
+                code(0x93, entity_t(BOY), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+                code(0x93, entity_t(DOG), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+            } else {
+                code(0x93, entity_t(character), param(value), "// (93) DAMAGE $2843 FOR 0x03e8");
+            }
+        }
+    }
+
+    fun reset_general_purpose(entity) {
+        entity[GENERAL_PURPOSE] = 0d0;
+    }
+
+    fun attribute_bit(character:CHARACTER, attribute:ATTRIBUTE_BITS) {
+        code(0xa9, entity_t(character), param(attribute), "// (a9) UNTRACED INSTR modifies entity dog bits 0x20");
+    }
+
+    fun attribute(character:CHARACTER, attribute:ATTRIBUTE_BITS, on) {
+        if(attribute == ATTRIBUTE_BITS.INVINCIBLE) {
+            if(on) {
+                attribute_bit(character, INVINCIBLE);
+            } else {
+                attribute_bit(character, VINCIBLE);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.INVINCIBLE_TEMP) {
+            if(on) {
+                attribute_bit(character, INVINCIBLE_TEMP);
+            } else {
+                attribute_bit(character, VINCIBLE_TEMP);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.ROOT) {
+            if(on) {
+                attribute_bit(character, ROOT);
+            } else {
+                attribute_bit(character, UNROOT);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.UNKNOWN_1_2) {
+            if(on) {
+                attribute_bit(character, UNKNOWN_1_2);
+            } else {
+                attribute_bit(character, UNKNOWN_1_1);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.NO_CLIP) {
+            if(on) {
+                attribute_bit(character, NO_CLIP);
+            } else {
+                attribute_bit(character, CLIP);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.UNKNOWN_2_1) {
+            if(on) {
+                attribute_bit(character, UNKNOWN_2_1);
+            } else {
+                attribute_bit(character, UNKNOWN_2_2);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.INVISIBLE) {
+            if(on) {
+                attribute_bit(character, INVISIBLE);
+            } else {
+                attribute_bit(character, VISIBLE);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.MUTE) {
+            if(on) {
+                attribute_bit(character, MUTE);
+            } else {
+                attribute_bit(character, UNMUTE);
+            }
+        } else if(attribute == ATTRIBUTE_BITS.AI_RUN) {
+            if(on) {
+                attribute_bit(character, AI_RUN);
+            } else {
+                attribute_bit(character, AI_WALK);
+            }
+        }
+    }
+
+    fun heel(character) {
+        eval("18 61 01 50 29 6a 1a d5 // (18) WRITE $23b9 = boy.x");
+        eval("18 63 01 50 29 6c 1a d5 // $23bb = boy.y");
+
+        code(0xaf, 0x04, entity_t(character), entity_t(0x23b9), entity_t(0x23bb), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+    }
+
+    fun _drag(enemy:CHARACTER, x, y, z) {
+        // eval("af 04 8d 02 00 88 61 01 88 63 01 e0 1e cc 03 // (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+
+        if(z !is None) {
+            code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), calculate(z), address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+        } else {
+            code(0xaf, 0x04, entity_t(enemy), calculate(x), calculate(y), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+        }
+    }
+    fun drag(enemy:CHARACTER, x, y, z) {
+        // eval("af 04 8d 02 00 88 61 01 88 63 01 e0 1e cc 03 // (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+
+        if(z is Word) {
+            code(0xaf, 0x04, entity_t(enemy), calculate(x << 0d0003), calculate(y << 0d0003), calculate(z), address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+        } else {
+            code(0xaf, 0x04, entity_t(enemy), calculate(x << 0d0003), calculate(y << 0d0003), 0xd0 + 0x14, address(0x99cc1e), "// (af) CALL Absolute (24bit) script 0x99cc1e ('Unnamed ABS script 0x99cc1e') WITH 4 ARGS $2836, $23b9, $23bb, 20");
+        }
+    }
+};

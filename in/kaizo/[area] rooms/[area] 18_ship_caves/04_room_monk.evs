@@ -1,0 +1,128 @@
+map room_monk(CRUSTICIA_CAVES) { // variant: monk
+    enum entrance {
+        south = entrance(0x4f, 0x23, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_SHIP.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        VOLCANO_TUNNEL_REVEALED = memory(FLAG, SRAM),
+
+        MONK = memory(WORD, TEMP),
+    }
+
+    @install()
+    fun monk_triggered() {
+        smart_conversation({
+            if(SOULS_MEMORY.REPUTATION == REPUTATION.CHEATER) {
+                conversation_dialog("[SLOW]I might be a hermit but but even I have heard about wrongdoings.[B]I'll never share my secrets with you.[B]");
+            } else if(SOULS_MEMORY.REPUTATION == REPUTATION.NORMAL) {
+                arg[0x0e] = randrange(0d3);
+                if(arg[0x0e] == 0d0) {
+                    conversation_dialog("[SLOW]Who are you?[B]");
+                } else if(arg[0x0e] == 0d1) {
+                    conversation_dialog("[SLOW]Didn't I close my door properly?[B]");
+                } else {
+                    conversation_dialog("[SLOW]I don't know you.[B]");
+                }
+            } else {
+                conversation_question("[SLOW]I have heard about your adventures.[B]Digging those tunnels took a life time.[CHOICE]jump…[CHOICE]leave…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // jump
+                    walk(ACTIVE, TILE_ABSOLUTE, 0d74, 0d16, ACTIVE, NONE);
+
+                    walk(ACTIVE, TILE_ABSOLUTE_DIRECT, 0d72, 0d16, ACTIVE, NONE);
+
+                    sleep(0d30);
+
+                    map_transition(northern_jungle_tunnel_end, crash, NONE);
+
+                    CUSTOM_MEMORY.RETURN = True;
+                } else {
+                    CUSTOM_MEMORY.RETURN = False;
+                }
+            }
+        }, False, NONE);
+    }
+
+    enum stepon_trigger {
+        monk = @install() {
+            debug_subtext("S=0");
+
+            attach_to_script(ROOM.MONK);
+            monk_triggered();
+
+            if!(CUSTOM_MEMORY.RETURN) {
+                error_walk_back(EAST);
+            }
+        },
+        monk_trigger_west = @install() {
+            debug_subtext("S=1");
+        },
+        monk_trigger_south = @install() {
+            debug_subtext("S=2");
+        },
+        exit_cave_hammock = nop(),
+        exit_ship_tavern = nop(),
+        exit_ship_small = nop(),
+        exit_cave_crates = nop(),
+        south = @install() {
+            debug_subtext("S=7");
+
+            map_transition(ship, door_2_2, SOUTH);
+        },
+    }
+
+    enum b_trigger {
+        gourd_hammock__1_water = nop(),
+        gourd_1__1_nectar = @install() {
+            debug_subtext("B=1");
+            _loot_chest(0x02, NECTAR, 0d01);
+        },
+        gourd_2__1_clay = @install() {
+            debug_subtext("B=2");
+            _loot_chest(0x01, CLAY, 0d01);
+        },
+        gourd_crates__1_nectar = nop(),
+        groud_tavern__1_wax = nop(),
+        gourd_ship__1_water = nop(),
+        tavern_barkeeper = nop(),
+    }
+
+    fun init_room(index) {
+        if(index == 0x00) {
+            init_map(0x00, 0x00, 0x2e, 0x2a); // hammock
+        } else if(index == 0x01) {
+            init_map(0x00, 0x38, 0x26, 0x5c); // crates
+        } else if(index == 0x02) {
+            init_map(0x32, 0x36, 0x56, 0x52); // ship
+        } else if(index == 0x03) {
+            init_map(0x58, 0x30, 0x86, 0x4e); // tavern
+        } else if(index == 0x04) {
+            init_map(0x40, 0x00, 0x66, 0x24); // monk
+        }
+    }
+
+    fun trigger_enter() {
+        init_room(0x04);
+
+        add_enemy(MONK, 0d77, 0d15, INACTIVE_IMORTAL);
+        attach_script(LAST_ENTITY, B, reference(monk_triggered));
+        ROOM.MONK = <LAST_ENTITY>;
+
+        if(ROOM.VOLCANO_TUNNEL_REVEALED) {
+            add_enemy(REVEALER_TARGET_ENTITY, 0d69, 0d17);
+            special_script(REVEALER, reference(@install() {
+                guard_challenge_revealer();
+
+                destroy(SCRIPT_OWNER);
+
+                ROOM.VOLCANO_TUNNEL_REVEALED = True;
+            }));
+        }
+        
+        default_init_room(False, False);
+    }
+};

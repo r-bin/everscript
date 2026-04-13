@@ -1,0 +1,117 @@
+map temple_north_west(HALLS_SW) { // north-west
+    // chests=vanilla
+
+    enum entrance {
+        north = entrance(0x24, 0x2e, SOUTH),
+        east = entrance(0x3b, 0x3f, WEST),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        LEFT_OPENED = memory(FLAG, SRAM),
+        CENTER_OPENED = memory(FLAG, SRAM),
+        RIGHT_TRIGGERED = memory(FLAG, TEMP),
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            debug_subtext("S=0");
+
+            map_transition(temple, west_2, EAST);
+        },
+        stepon_1 = @install() {
+            debug_subtext("S=1");
+        },
+        switch_2 = @install() {
+            debug_subtext("S=2");
+
+            if((!ROOM.LEFT_OPENED) && (!ROOM.CENTER_OPENED)) {
+                object[0x01] = 0x7e; // activate switch_2
+
+                if!(ROOM.RIGHT_TRIGGERED) {
+                    set(ROOM.CENTER_OPENED);
+                    object[0x04] = 0x00; // gate 2
+                } else {
+                    set(ROOM.LEFT_OPENED);
+                    object[0x03] = 0x00; // gate 1
+                }
+            }
+        },
+        switch_1 = @install() {
+            if((!ROOM.LEFT_OPENED) && (!ROOM.CENTER_OPENED)) {
+
+                object[0x00] = 0x7e; // activate switch_1
+
+                if!(ROOM.RIGHT_TRIGGERED) {
+                    set(ROOM.LEFT_OPENED);
+                    object[0x03] = 0x00; // gate 1
+                } else {
+                    set(ROOM.CENTER_OPENED);
+                    object[0x04] = 0x00; // gate 2
+                }
+            }
+        },
+        switch_3 = @install() {
+            set(ROOM.RIGHT_TRIGGERED);
+
+            object[0x05] = 0x01; // gate 3
+            object[0x02] = 0x01; // activate switch_3
+        },
+        exit_north = @install() {
+            map_transition(temple_boss, south, NORTH);
+        },
+    }
+
+    enum b_trigger {
+        gourd_2__3_brimstone = @install() {
+            debug_subtext("B=0");
+            _loot_chest(0x08, IRON, 0d01);
+        },
+        gourd_1_2__1_nectar = @install() {
+            debug_subtext("B=1");
+            // _loot_chest(0x07, NECTAR, 0d01);
+            // _loot_chest(0x07, LIMESTONE_TABLET, 0d01);
+
+            _loot_chest(0x07, {
+                custom_reward(FORMULA_FLASH, True);
+            });
+        },
+        gourd_1_1__1_wings = @install() {
+            debug_subtext("B=2");
+            _loot_chest(0x06, WINGS, 0d01);
+        },
+    }
+
+    fun trigger_enter() {
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // north
+            add_basic_souls_enemy(MAGGOT, 0d49, 0d38);
+
+            // south
+            add_basic_souls_enemy(MAGGOT, 0d31, 0d75);
+
+            // center
+            add_basic_souls_enemy(BOY, 0d36, 0d61, INACTIVE_IMORTAL);
+        }
+
+        if!(ROOM.LEFT_OPENED) {
+            object[0x03] = 0x03; // gate 1
+        } else {
+            object[0x00] = 0x7e; // activate switch_1
+        }
+        if!(ROOM.CENTER_OPENED) {
+            object[0x04] = 0x03; // gate 2
+        } else {
+            object[0x01] = 0x7e; // activate switch_2
+        }
+        object[0x05] = 0x02; // gate 3
+        if(ROOM.LEFT_OPENED || ROOM.CENTER_OPENED) {
+            object[0x02] = 0x7e; // activate switch_3
+        }
+
+        default_init_room(False, False);
+    }
+};

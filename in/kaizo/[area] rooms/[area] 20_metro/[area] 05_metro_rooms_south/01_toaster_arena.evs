@@ -1,0 +1,136 @@
+map toaster_arena(RAPTORS) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            HEAL_AMOUNT = 0d15,
+
+            HIT_COUNT_MEMORY = memory(WORD, TEMP),
+            HIT_COUNT = 0d10,
+
+            DELAY = 0d60,
+        }
+
+        fun boss_defeated() {
+            control(NONE);
+
+            find_all(GATE_BOT, {
+                attribute(arg[0x10], INVINCIBLE, True);
+                animate(arg[0x10], ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+            });
+
+            souls_boss_defeated_helper(TOASTER_ARENA);
+
+            map_transition(metro, door_c4, NONE);
+        }
+        fun guard_boss_defeated() {
+            if(BOSS.HIT_COUNT_MEMORY <= 0d0) {
+                end();
+            }
+        }
+
+        fun boss_hit() {
+            if(BOSS.HIT_COUNT_MEMORY > 0d0) {
+                BOSS.HIT_COUNT_MEMORY--;
+
+                if(BOSS.HIT_COUNT_MEMORY <= 0d0) {
+                    boss_defeated();
+                } else {
+                    MEMORY.STRING_PARAMETER_1 = BOSS.HIT_COUNT_MEMORY;
+                    MEMORY.STRING_PARAMETER_2 = BOSS.HIT_COUNT;
+
+                    subtext("[MEM1]/[MEM2]");
+                }
+            }
+        }
+        fun spawn_guardbot(x, y) {
+            add_enemy(GATE_BOT, x, y);
+            <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+            attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                if!(
+                    (<SCRIPT_OWNER>[X] >= MEMORY.CAMERA_X_MIN) &&
+                    (<SCRIPT_OWNER>[X] <= MEMORY.CAMERA_X_MAX) &&
+                    (<SCRIPT_OWNER>[Y] >= MEMORY.CAMERA_Y_MIN) &&
+                    (<SCRIPT_OWNER>[Y] <= MEMORY.CAMERA_Y_MAX)
+                ) {
+                    heal(SCRIPT_OWNER, 0d0, False);
+                    end();
+                }
+
+                boss_hit();
+
+                yield();
+                attribute(SCRIPT_OWNER, INVINCIBLE, True);
+
+                animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+
+                while(arg[0x10] < 0d500) {
+                    arg[0x10]++;
+                    
+                    animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GATE_BOT_DEAD);
+
+                    yield();
+                }
+
+                guard_boss_defeated();
+
+                cast(SCRIPT_OWNER, SCRIPT_OWNER, HEAL, BOSS.HEAL_AMOUNT);
+                sleep(0d250);
+
+                guard_boss_defeated();
+
+                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                attribute(SCRIPT_OWNER, INVINCIBLE, False);
+            }));
+        }
+
+        fun add_boss() {
+            BOSS.HIT_COUNT_MEMORY = BOSS.HIT_COUNT;
+
+            spawn_guardbot(0x29, 0x2b);
+            spawn_guardbot(0x13, 0x29);
+            spawn_guardbot(0x29, 0x1b);
+            spawn_guardbot(0x13, 0x19);
+        }
+    };
+
+    fun trigger_enter() {
+        close_exits(True);
+
+        prepare_dog_arena(TOASTER);
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_c4, NONE);
+            });
+        }));
+        
+        attribute(DOG, INVINCIBLE_TEMP, True);
+
+        add_boss();
+
+        sleep(0d120);
+        attribute(DOG, INVINCIBLE_TEMP, False);
+    }
+};

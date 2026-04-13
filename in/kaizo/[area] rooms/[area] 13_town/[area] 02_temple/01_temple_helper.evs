@@ -1,0 +1,144 @@
+group temple_helper() {
+    @install()
+    @async()
+    fun fake_northern_wall() {
+        init_map(0x00, 0x30, 0x50, 0x8a);
+
+        while(True) {
+            if(<BOY>[Y] < AREA_TEMPLE.NORTHERN_WALL) {
+                <BOY>[Y] = AREA_TEMPLE.NORTHERN_WALL;
+            }
+            if(<DOG>[Y] < AREA_TEMPLE.NORTHERN_WALL) {
+                <DOG>[Y] = AREA_TEMPLE.NORTHERN_WALL;
+            }
+
+            yield();
+        }
+    }
+
+    fun open_elevator(open) {
+        sound(MECHANICAL_MOVEMENT);
+
+        if(open) {
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d1; // open elevator
+            sleep(0d20);
+
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d2; // open elevator
+            sleep(0d20);
+
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d3; // open elevator
+            sleep(0d20);
+
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d4; // open elevator
+            sleep(0d20);
+        } else {
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d3; // open elevator
+            sleep(0d20);
+
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d2; // open elevator
+            sleep(0d20);
+
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d1; // open elevator
+            sleep(0d20);
+
+            sound(ELEVATOR_DOOR);
+            object[0x05] = 0d0; // open elevator
+            sleep(0d20);
+        }
+    }
+
+    @install()
+    @async()
+    fun _elevator_entrance() {
+        sleep(0d50);
+
+        open_elevator(False);
+    }
+    fun elevator_entrance() {
+        control(NONE);
+        object[0x05] = 0d4;
+
+        _elevator_entrance();
+    }
+
+    @install()
+    fun elevator_leave() {
+        if(False) {
+            map_transition(temple, elevator, NONE); // TODO: walk out again
+        } else {
+            open_elevator(True);
+
+            if!(SOULS_MEMORY_HELPER.ONLY_AVAILABLE) {
+                walk(BOY, TILE_ABSOLUTE, 0d43, 0d82, NONE);
+                walk(DOG, TILE_ABSOLUTE, 0d39, 0d82, BOTH);
+            } else {
+                walk(ACTIVE, TILE_ABSOLUTE, 0d43, 0d82, ACTIVE);
+            }
+
+            open_elevator(False);
+
+            control(BOTH);
+        }
+    }
+
+    fun elevator_triggered(current_level) {
+        if!(AREA_TEMPLE.UNLOCKED_LEVEL_1) {
+            error_message(DOOR_CONTRAPTION, SOUTH);
+
+            end();
+        }
+
+        control(NONE);
+
+        open_elevator(True);
+
+        if!(SOULS_MEMORY_HELPER.ONLY_AVAILABLE) {
+            walk(BOY, TILE_ABSOLUTE, 0d43, 0d73, NONE);
+            walk(DOG, TILE_ABSOLUTE, 0d39, 0d73, BOTH);
+        } else {
+            walk(ACTIVE, TILE_ABSOLUTE, 0d43, 0d73, ACTIVE);
+        }
+
+        face(BOY, SOUTH);
+        face(DOG, SOUTH);
+        
+        open_elevator(False);
+
+        // map_transition(temple_underground, elevator, NONE);
+
+        if(AREA_TEMPLE.UNLOCKED_LEVEL_2) {
+            _question("[SLOW]Press a button:[CHOICE]1[CHOICE]2[CHOICE]3");
+        } else if(AREA_TEMPLE.UNLOCKED_LEVEL_1) {
+            _question("[SLOW]Press a button:[CHOICE]1[CHOICE]2");
+        }
+
+        if(MEMORY.QUESTION_ANSWER == 0d00) {
+            if(current_level == 0d0) {
+                elevator_leave();
+            } else {
+                map_transition(temple, elevator, NONE);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0d01) {
+            if(current_level == 0d1) {
+                elevator_leave();
+            } else {
+                map_transition(temple_underground, elevator, NONE);
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0d02) {
+            if(current_level == 0d2) {
+                elevator_leave();
+            } else {
+                map_transition(temple_underground_castle, elevator, NONE);
+            }
+        } else {
+            elevator_leave();
+        }
+    }
+};

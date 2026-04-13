@@ -1,0 +1,98 @@
+group helper_market() {
+    enum MARKET {
+        DEBUG = False,
+
+        START = 0x7fff,
+        END = 0xffff,
+    }
+
+    @install()
+    fun chicken_triggered() {
+        CUSTOM_MEMORY.CHICKEN_TAUNT_COUNTER++;
+        
+        // TODO: sound
+        subtext("*chicken noises*");
+
+        if(CUSTOM_MEMORY.CHICKEN_TAUNT_COUNTER == 0d100) {
+            chickens_taunted(0d150);
+
+            custom_reward(ANGRY_BIRD, True);
+        }
+    }
+
+    @install()
+    fun goat_triggered() {
+        // TODO: sound
+        subtext("*goat noises*");
+    }
+
+    @install()
+    fun guard_triggered() {
+        question("[SLOW]Keep moving.[CHOICE]talk…[CHOICE]market…");
+
+        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+            if!(SOULS_MEMORY.DEAD_TOWN_PUPPETS) {
+                arg[0x10] = randrange(0d3);
+
+                if(arg[0x10] == 0d0) {
+                    dialog("[SLOW]I've heard that monsters crawled out of the towns crypt.[B]");
+                } else {
+                    dialog("[SLOW]In the center of the town two monsters appeared.[B]The guard built a professional barrier to keep everyone safe.[B]");
+                }
+            } else {
+                dialog("[SLOW]The guard successfully cleansed the crypt.[B]");
+            }
+        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // market
+            MEMORY.STRING_PARAMETER_1 = time[0d0];
+
+            if(SOULS_MEMORY.CHEAT_PERMANENT_MARKET) {
+                dialog("[SLOW]No market breaks scheduled.[B]");
+            } else if(time[0d0] < MARKET.START) {
+                MEMORY.STRING_PARAMETER_2 = ((MARKET.START - time[0d0]) / 0d60) / 0d60;
+
+                if(MEMORY.STRING_PARAMETER_2 > 0d1) {
+                    dialog("[SLOW]Next market will be in [MEM2] minutes.[B]");
+                } else {
+                    dialog("[SLOW]Next market will be soon.[B]");
+                }
+            } else {
+                MEMORY.STRING_PARAMETER_2 = ((MARKET.END - time[0d0]) / 0d60) / 0d60;
+
+                if(MEMORY.STRING_PARAMETER_2 > 0d1) {
+                    dialog("[SLOW]Next break will be in [MEM2] minutes.[B]");
+                } else {
+                    dialog("[SLOW]Next break will be soon.[B]");
+                }
+            }
+        }
+    }
+
+    fun guard_market_break(inverted) {
+        if!(SOULS_MEMORY.CHEAT_PERMANENT_MARKET) {
+            if(inverted is None) {
+                if(time[0d0] < MARKET.START) {
+                    dialog("[SLOW]See me after my break.[B]");
+
+                    end();
+                }
+            } else {
+                if(time[0d0] >= MARKET.START) {
+                    dialog("[SLOW]See me after my break.[B]");
+
+                    end();
+                }
+            }
+        }
+    }
+    fun prepare_market_trade() {
+        guard_market_break();
+
+        if(False) {
+            set_camera(COORDINATE_CENTER, <ACTIVE>[X], <ACTIVE>[Y] - 0d30, 0x18);
+            wait(CAMERA_PAN_X);
+            wait(CAMERA_PAN_Y);
+
+            free_camera();
+        }
+    }
+};

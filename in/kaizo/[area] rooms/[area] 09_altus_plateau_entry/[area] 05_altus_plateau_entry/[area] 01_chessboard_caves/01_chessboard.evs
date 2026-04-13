@@ -1,0 +1,497 @@
+map chessboard(FOOTKNIGHT) {
+    // sniff=vanilla
+
+    enum entrance {
+        east = entrance(0x93, 0x42, WEST),
+        west = entrance(0x01, 0x42, EAST),
+        stairs_east = entrance(0x53, 0x4c, WEST),
+        stairs_west = entrance(0x40, 0x40, EAST), // 0x4c, 0x40
+
+        crash = entrance(0x54, 0x39, NONE),
+        boss = entrance(0d43, 0d70, EAST),
+
+        tunnel = entrance(0d65, 0d57, NONE, { swirl_entrance(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(ALTUS.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        STAIRS_WEST_REVEALED = memory(FLAG, SRAM),
+
+        PALETTE_DONOR_BOY = memory(WORD, TEMP),
+        PALETTE_DONOR_DOG = memory(WORD, TEMP),
+
+        BEE_COLLECTED = memory(FLAG, SRAM),
+
+        WALL_OPENED = memory(FLAG, SRAM),
+        TUNNEL_OPENED = memory(FLAG, SRAM),
+    }
+
+    fun open_stairs_east(open) {
+        if(open) {
+            object[0x01] = 0x00; // close stairs_east
+        } else {
+            object[0x01] = 0x7e; // close stairs_east
+        }
+    }
+
+    fun close_arena(close) {
+        if(close) {
+            init_map(0x31, 0x2f, 0x65, 0x57);
+
+            if(ROOM.WALL_OPENED) {
+                sound(IMPACT);
+                object[0x02] = 0x01; // close wall_2
+                sleep(0d10);
+            }
+            sound(IMPACT);
+            object[0x03] = 0x01; // close wall_1
+
+        } else {
+            init_map(0x00, 0x00, 0xff, 0xff);
+
+            if(ROOM.WALL_OPENED) {
+                object[0x02] = 0x00; // close wall_2
+            }
+            object[0x03] = 0x00; // close wall_1
+        }
+    }
+
+    enum BOSS {
+        ID = memory(WORD, TEMP),
+        PROGRESS = memory(FLAG, TEMP),
+
+        HP = 0d250,
+    }
+
+    fun boss_defeated() {
+        BOSS.PROGRESS = False;
+        
+        souls_boss_defeated_helper(CHESS);
+
+        close_arena(False);
+        open_stairs_east(True);
+    }
+
+    @install()
+    fun boss_triggered() {
+        // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_SOURCE]);
+
+        // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
+        //     heal(SCRIPT_OWNER, 0x30, True);
+        //     end();
+        // }
+        
+        // if((<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False)){
+        if((<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False)){
+            heal(SCRIPT_OWNER, 0x30, True);
+        } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == False){
+            heal(SCRIPT_OWNER, 0x30, True);
+        }
+
+        if(<SCRIPT_OWNER>[HP] <= 0d0) {
+            boss_defeated();
+        }
+    }
+
+    @install()
+    @async()
+    fun oglin_parity_check(entity) {
+        attach_to_script(arg[0x00]);
+
+        val palette_oglin_black = arg[0x10];
+        palette_oglin_black = ROOM.PALETTE_DONOR_DOG[PALETTE];
+        val palette_oglin = arg[0x12];
+        palette_oglin = <SCRIPT_OWNER>[PALETTE];
+        
+        while(alive(<SCRIPT_OWNER>)) {
+            if((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
+                arg[0x14] = (((<SCRIPT_OWNER>[X]) / 0x50) & 0x01) ^ (((<SCRIPT_OWNER>[Y] - 0x1e) / 0x32) & 0x01);
+                yield();
+
+                // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] != arg[0x14]) {
+                    // parity_check_character(<BOY>, DOG);
+                    if(arg[0x14]) {
+                        // attribute(BOY, INVISIBLE, False);
+                        <SCRIPT_OWNER>[PALETTE] = palette_oglin_black;
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0x01;
+                        nop();
+                    } else {
+                        // attribute(BOY, INVISIBLE, True);
+                        <SCRIPT_OWNER>[PALETTE] = palette_oglin;
+                        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0x00;
+                        nop();
+                    }
+                // }
+            }
+            sleep(0d10);
+        }
+    }
+
+    fun spawn_boss(x, y) {
+        BOSS.PROGRESS = True;
+
+        add_enemy(MAGMAR, x, y);
+        BOSS.ID = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(boss_triggered));
+        <LAST_ENTITY>[HP] = BOSS.HP;
+
+        push_music(BOSS);
+
+        if(False) {
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            attribute(DOG, INVINCIBLE_TEMP, True);
+        }
+    }
+
+    enum stepon_trigger {
+        stairs_east = @install() {
+            map_transition(stairs, stairs_west_top, EAST);
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=1");
+
+            if!(SOULS_MEMORY.DEAD_CHESS) {
+                if!(BOSS.PROGRESS) {
+                    walk(ACTIVE, TILE_ABSOLUTE, 0x39, 0x44, NONE);
+
+                    if!(SOULS_MEMORY_HELPER.ONLY_AVAILABLE) {
+                        walk(INACTIVE, TILE_ABSOLUTE, 0x39, 0x48, BOTH, BOTH);
+                    } else {
+                        wait(ACTIVE);
+                        control(BOTH); // TODO: unlocks unavailable dog
+                    }
+
+                    close_arena(True);
+                    spawn_boss(0d74, 0d69); // 0d84, 0d57);
+                    oglin_parity_check(<LAST_ENTITY>);
+                }
+            }
+        },
+        exit_west = @install() {
+            map_transition(gate, east, WEST);
+        },
+        exit_east = @install() {
+            map_transition(well, west, EAST);
+        },
+        stairs_west = @install() {
+            map_transition(hidden_stairs, stairs, WEST);
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_water_3 = @install() {
+            debug_subtext("B=0");
+            _loot(0x18, WATER, 0d01, 0d03);
+        },
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x17, WATER, 0d01, 0d01);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x16, ASH, 0d01, 0d02);
+        },
+        sniff__1_ash_3 = @install() {
+            debug_subtext("B=3");
+            _loot(0x15, ASH, 0d01, 0d03);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=4");
+            _loot(0x14, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_roots_4 = @install() {
+            debug_subtext("B=5");
+            _loot(0x13, ROOTS, 0d01, 0d04);
+        },
+        sniff__1_roots_3 = @install() {
+            debug_subtext("B=6");
+            _loot(0x12, ROOTS, 0d01, 0d03);
+        },
+        sniff__1_roots_4 = @install() {
+            debug_subtext("B=7");
+            _loot(0x11, ROOTS, 0d01, 0d04);
+        },
+        sniff__1_brimstone_3 = @install() {
+            debug_subtext("B=8");
+            _loot(0x10, BRIMSTONE, 0d01, 0d03);
+        },
+        sniff__1_brimstone_1 = @install() {
+            debug_subtext("B=9");
+            _loot(0x0f, BRIMSTONE, 0d01, 0d01);
+        },
+
+        sniff__1_brimstone_1 = @install() {
+            debug_subtext("B=10");
+            _loot(0x0e, BRIMSTONE, 0d01, 0d01);
+        },
+        sniff__1_iron_3 = @install() {
+            debug_subtext("B=11");
+            _loot(0x0d, IRON, 0d01, 0d03);
+        },
+        sniff__1_iron = @install() {
+            debug_subtext("B=12");
+            _loot(0x0c, IRON, 0d01, 0d00);
+        },
+        sniff__1_feather_2 = @install() {
+            debug_subtext("B=13");
+            _loot(0x0b, FEATHER, 0d01, 0d02);
+        },
+        sniff__1_acorns_3 = @install() {
+            debug_subtext("B=14");
+            _loot(0x0a, ACORNS, 0d01, 0d03);
+        },
+        sniff__1_acorns_2 = @install() {
+            debug_subtext("B=15");
+            _loot(0x09, ACORNS, 0d01, 0d02);
+        },
+        sniff__1_acorns_2 = @install() {
+            debug_subtext("B=16");
+            _loot(0x08, ACORNS, 0d01, 0d02);
+        },
+        sniff__1_mushroom_3 = @install() {
+            debug_subtext("B=17");
+            _loot(0x07, MUSHROOM, 0d01, 0d03);
+        },
+        sniff__1_mushroom_2 = @install() {
+            debug_subtext("B=18");
+            _loot(0x06, MUSHROOM, 0d01, 0d02);
+        }
+    }
+
+    @install()
+    fun revealer_triggered() {
+        guard_challenge_revealer();
+
+        destroy(SCRIPT_OWNER);
+
+        set(ROOM.STAIRS_WEST_REVEALED);
+
+        object[0x00] = 0x02;
+        sleep(0x10);
+        object[0x00] = 0x01;
+        sleep(0x10);
+        object[0x00] = 0x00;
+    }
+
+    fun square_white(character) {
+        attribute_bit(character, INVISIBLE);
+    }
+    fun square_black(character) {
+        attribute_bit(character, VISIBLE);
+    }
+
+    fun parity_check_character(char, character:CHARACTER) { // buggy
+        // arg[0x00] = (character[X] - 0x1e0) / 0x50;
+        // arg[0x02] = (character[Y] - 0x1ae) / 0x32;
+        arg[0x00] = (char[X]) / 0x50;
+        arg[0x02] = (char[Y] - 0x1e) / 0x32;
+
+        // debug_memory(arg[0x00], arg[0x02]);
+        // sleep(0x30);
+
+        arg[0x04] = arg[0x00] & 0x01;
+        arg[0x06] = arg[0x02] & 0x01;
+
+        // debug_memory(arg[0x04], arg[0x06]);
+        // sleep(0x30);
+
+        arg[0x08] = arg[0x04] ^ arg[0x06];
+
+        // debug_memory(arg[0x08], arg[0x08]);
+        if(arg[0x08] == 0x00) {
+            // square_black(character);
+            attribute(character, INVISIBLE, False);
+        } else {
+            // square_white(character);
+            attribute(character, INVISIBLE, True);
+        }
+
+        // arg[0x00] = (((<BOY>[X]) / 0x50) & 0x01);
+        // arg[0x02] = (((<BOY>[Y] - 0x1e) / 0x32) & 0x01);
+    }
+
+    @install()
+    @async()
+    fun parity_check() {
+        sleep(0x50);
+
+        val palette_boy_black = arg[0x10];
+        palette_boy_black = ROOM.PALETTE_DONOR_BOY[PALETTE];
+        val palette_dog_black = arg[0x12];
+        palette_dog_black = ROOM.PALETTE_DONOR_DOG[PALETTE];
+        val palette_boy = arg[0x14];
+        palette_boy = <BOY>[PALETTE];
+        val palette_dog = arg[0x16];
+        palette_dog = <DOG>[PALETTE];
+        // arg[0x06] = 0x08cd;
+
+        val current_square = arg[0x18];
+
+        // debug_memory(palette_boy_black, palette_boy);
+
+        while(True) {
+            // parity_check_character(<BOY>, DOG);
+            if((<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
+                current_square = (((<BOY>[X]) / 0x50) & 0x01) ^ (((<BOY>[Y] - 0x1e) / 0x32) & 0x01);
+                yield();
+
+                if(<BOY>[GENERAL_PURPOSE] != current_square) {
+                    if(current_square) {
+                        // attribute(BOY, INVISIBLE, False);
+                        <BOY>[PALETTE] = palette_boy_black;
+                        <BOY>[GENERAL_PURPOSE] = 0x01;
+                        nop();
+                    } else {
+                        // attribute(BOY, INVISIBLE, True);
+                        <BOY>[PALETTE] = palette_boy;
+                        <BOY>[GENERAL_PURPOSE] = 0x00;
+                        nop();
+                    }
+                }
+            }
+            sleep(0d10);
+
+            if((<DOG>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) == 0d0) {
+                current_square = (((<DOG>[X]) / 0x50) & 0x01) ^ (((<DOG>[Y] - 0x1e) / 0x32) & 0x01);
+                yield();
+
+                if(<DOG>[GENERAL_PURPOSE] != current_square) {
+                    // parity_check_character(<DOG>, DOG);
+                    if((((<DOG>[X]) / 0x50) & 0x01) ^ (((<DOG>[Y] - 0x1e) / 0x32) & 0x01)) {
+                        // attribute(DOG, INVISIBLE, False);
+                        <DOG>[GENERAL_PURPOSE] = 0x01;
+                        <DOG>[PALETTE] = palette_dog_black;
+                        nop();
+                    } else {
+                        // attribute(DOG, INVISIBLE, True);
+                        <DOG>[GENERAL_PURPOSE] = 0x00;
+                        <DOG>[PALETTE] = palette_dog;
+                        nop();
+                    }
+                }
+            }
+            sleep(0d10);
+        }
+    }
+
+    @install()
+    fun enemy_triggered() {
+        guard_crush_teleport();
+
+        // debug_memory(BOSS.ID[HP], BOSS.ID[DAMAGE_SOURCE]);
+
+        // if(<SCRIPT_OWNER>[GENERAL_PURPOSE] > 0x00) {
+        //     heal(SCRIPT_OWNER, 0x30, True);
+        //     end();
+        // }
+        
+        // if((<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
+        if((<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.DOG) && (<DOG>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00)){
+            heal(SCRIPT_OWNER, 0x30, True);
+            end();
+        } else if(<BOY>[GENERAL_PURPOSE] ^ <SCRIPT_OWNER>[GENERAL_PURPOSE] == 0x00){
+            heal(SCRIPT_OWNER, 0x30, True);
+            end();
+        }
+
+        clean_up(<SCRIPT_OWNER>);
+    }
+
+    @install()
+    fun debug_triggered() {
+        set(ROOM.STAIRS_WEST_REVEALED);
+
+        object[0x00] = 0x00; // close stairs_west
+        open_stairs_east(True);
+
+        destroy(SCRIPT_OWNER);
+    }
+
+    fun add_chess_enemy(x, y) {
+        add_enemy(OGLIN, x, y);
+        <LAST_ENTITY>[HP] = 0x01;
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(enemy_triggered));
+
+        oglin_parity_check(<LAST_ENTITY>);
+    }
+
+    fun trigger_enter() {
+        CUSTOM_FLAG.NO_CURRENCY_DISPLAY = True; // TODO: should not discolor magmar
+        
+        add_enemy(BOY_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+        ROOM.PALETTE_DONOR_BOY = <LAST_ENTITY>;
+        add_enemy(DOG_1_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+        ROOM.PALETTE_DONOR_DOG = <LAST_ENTITY>;
+
+        if(FLAG.DEBUG) {
+            add_debug_entity(0x59, 0x49, reference(debug_triggered));
+        }
+
+        if!(ROOM.WALL_OPENED) {
+            object[0x02] = 0x01; // close wall_2
+            add_enemy(PLACEHOLDER, 0d47, 0d55);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                ROOM.WALL_OPENED = True;
+                sound(WEIRD_SOUND);
+
+                if!(BOSS.PROGRESS) {
+                    object[0x02] = 0x00; // close wall_2
+                }
+
+                destroy(SCRIPT_OWNER);
+            }));
+        }
+
+        archaeology_dig(0d44, 0d45, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+            guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
+
+            jump_hole({
+                map_transition(inner_castle_court, crash, NONE);
+            });
+        }), True, NORMAL);
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // east
+            add_chess_enemy(0d113, 0d71);
+
+            // south
+            add_chess_enemy(0d55, 0d93);
+
+            // west
+            add_chess_enemy(0d68, 0d44);
+        }
+
+        if(SOULS_MEMORY.DEAD_CHESS) {
+            open_stairs_east(True);
+        } else {
+            open_stairs_east(False);
+        }
+
+        if!(ROOM.STAIRS_WEST_REVEALED) {
+            add_enemy(REVEALER_TARGET_ENTITY, 0x3e, 0x40);
+            special_script(REVEALER, reference(revealer_triggered));
+
+            object[0x00] = 0x7e; // close stairs_west
+        } else {
+            object[0x00] = 0x00;
+        }
+
+        add_bee(0d143, 0d31, reference(@install() {
+            bee_collected(ROOM.BEE_COLLECTED);
+        }), ROOM.BEE_COLLECTED);
+
+        default_init_room(True, True);
+
+        parity_check();
+
+        // object[0x00] = 0x7e; // close stairs_west
+        // object[0x01] = 0x7e; // close stairs_east
+        // object[0x02] = 0x01; // close wall_2
+        // object[0x03] = 0x01; // close wall_1
+        // object[0x04] = 0x01; // remove bridge_east
+        // object[0x05] = 0x01; // remove bridge_west
+    }
+};

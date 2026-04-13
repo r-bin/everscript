@@ -1,0 +1,120 @@
+map town_inn(IVOR_EBON_HOUSES) {
+    enum entrance {
+        door_left = entrance(0x10, 0x8b, NORTH),
+        door_right = entrance(0x38, 0x8b, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+    }
+
+    enum ROOM {
+        CHEST_LOOTED = memory(FLAG, SRAM),
+
+        WITH_ARMOR_TRIGGER = False,
+    }
+
+    enum stepon_trigger {
+        exit_backroom_3chests = nop(),
+        exit_inn_2_left = nop(),
+        exit_inn_2_right = nop(),
+        exit_stairs_house_3 = nop(),
+        exit_door_house_3 = nop(),
+        exit_stairs_upstairs = nop(),
+        exit_house_1 = nop(),
+        exit_door_house_2 = nop(),
+        exit_stairs_house_2 = nop(),
+        exit_backroom_2chests = nop(),
+
+        exit_door_left = @install() {
+            debug_subtext("S=10");
+            if!(SOULS_MEMORY.SMITH_KEY) {
+                error_message(DOOR_LOCKED, NORTH);
+            } else {
+                map_transition(town_level_1, door_1_1_left, SOUTH);
+            }
+        },
+        exit_door_right = @install() {
+            debug_subtext("S=11");
+            if(False) {
+                error_message(DOOR_LOCKED, NORTH);
+            } else {
+                map_transition(town_level_1, door_1_1_right, SOUTH);
+            }
+        },
+    }
+
+    @install()
+    fun inn_triggered() {
+        if(SOULS_MEMORY.ISAAC_LETTER && !SOULS_MEMORY.ISAAC_WANTED_POSTER) {
+            question("An old newspaper.[CHOICE]Maggy article…[CHOICE]leave…");
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                custom_reward(ISAAC_WANTED_POSTER, True);
+
+                dialog("… `Magdalena O. Moriah, …´[B]…a hidden basement was where the crimes happened…[B]");
+            }
+        } else {
+            dialog("An old newspaper. Nothing catches your eye.[B]");
+        }
+    }
+
+    enum b_trigger {
+        gourd_backroom_3chests_3 = nop(),
+        gourd_backroom_3chests_2 = nop(),
+        gourd_backroom_3chests_1 = nop(),
+        gourd_inn_2 = nop(),
+        gourd_house_2 = nop(),
+        gourd_house_3_north = nop(),
+        gourd_house_3_east = nop(),
+        gourd_backroom_2chests_2 = nop(),
+        gourd_backroom_2chests_1 = nop(),
+        gourd_upstairs_1 = nop(),
+
+        gourd_upstairs_2 = nop(),
+        b_trigger_11 = @install() {
+            debug_subtext("B=11");
+        },
+        b_trigger_12 = @install() {
+            debug_subtext("B=12");
+        },
+        inn_inn_2_south = nop(),
+        inn_inn_2_east = nop(),
+        inn_east = inn_triggered(),
+        inn_south = inn_triggered(),
+        gourd = @install() {
+            debug_subtext("B=17");
+
+            fake_loot_gourd();
+
+            object[0x1f] = 0x01; // open gourd_inn_1
+            custom_reward(SMITH_KEY, True);
+            set(ROOM.CHEST_LOOTED);
+        },
+        vendor_south = @install() {
+            debug_subtext("B=18");
+        },
+        vendor_east = @install() {
+            debug_subtext("B=19");
+        },
+
+        b_trigger_20 = @install() {
+            debug_subtext("B=20");
+        },
+    }
+
+    fun trigger_enter() {
+        if(ROOM.CHEST_LOOTED) {
+            object[0x1f] = 0x01; // open gourd_inn_1
+        }
+
+        default_init_room(False, False);
+
+        if(ROOM.WITH_ARMOR_TRIGGER) {
+            add_enemy(PLACEHOLDER, 0d63, 0d93);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                subtext("unused");
+            }));
+        }
+    }
+};

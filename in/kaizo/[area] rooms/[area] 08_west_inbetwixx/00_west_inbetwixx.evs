@@ -1,0 +1,241 @@
+map west_inbetwixx(EAST_JUNGLE) {
+    // sniff=vanilla
+
+    enum ROOM {
+        BRANCH_USED = memory(FLAG, SRAM),
+
+        FAKE_SLASH_GRASS_X = memory(WORD, TEMP),
+        FAKE_SLASH_GRASS_Y = memory(WORD, TEMP),
+
+        CODE_BOT_HACKED = memory(FLAG, TEMP),
+        CODE_BOT_X = 0d45,
+        CODE_BOT_Y = 0d78,
+
+        MUD_STONE_DESTROYED = memory(FLAG, SRAM),
+    }
+
+    enum entrance {
+        north = entrance(0x12, 0x09, SOUTH),
+        east_1 = entrance(0x6d, 0x11, WEST),
+        east_2 = entrance(0x6d, 0x23, WEST),
+        east_3 = entrance(0x6d, 0x35, WEST),
+        west = entrance(0x01, 0x37, EAST),
+
+        code_bot = entrance(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, NONE, {
+            handle_code_bot_entrance(<BOY>, ROOM.CODE_BOT_HACKED);
+
+            hacking_wakeup(0d32, -0d8, 0d24, -0d24);
+        }),
+
+        critter_door = entrance(0d40, 0d26, SOUTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        PROGRESS = memory(FLAG, TEMP),
+
+        ID_OWL_1 = memory(WORD, TEMP),
+        ID_OWL_2 = memory(WORD, TEMP),
+
+        TRANSFORM_DISTANCE = 0d16,
+
+        POISE_DECAY = 0d1,
+        POISE = 0d20,
+    }
+
+    fun fog_wall(exit_direction:DIRECTION) {
+        if(BOSS.PROGRESS) {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_OWL_BOY, exit_direction);
+        }
+    }
+
+    enum stepon_trigger {
+        exit_east_1 = @install() {
+            fog_wall(NONE); // WEST
+
+            map_transition(west_inbetwixx, east_3, EAST);
+        },
+        exit_east_3 = @install() {
+            fog_wall(NONE); // WEST
+
+            map_transition(west_inbetwixx, east_1, EAST);
+        },
+        exit_east_2 = @install() {
+            fog_wall(NONE); // WEST
+
+            map_transition(inbetwixx, west_1, EAST);
+        },
+        exit_west = @install() {
+            fog_wall(NONE); // EAST
+
+            map_transition(west_hut_outside, east, WEST);
+        },
+        exit_north = @install() {
+            fog_wall(SOUTH);
+
+            map_transition(volcano, south, NORTH);
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_clay = @install() {
+            debug_subtext("B=0");
+            _loot(0x0a, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=1");
+            _loot(0x09, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=2");
+            _loot(0x08, CLAY, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=3");
+            _loot(0x07, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=4");
+            _loot(0x06, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=5");
+            _loot(0x05, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=6");
+            _loot(0x04, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=7");
+            _loot(0x03, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=8");
+            _loot(0x0c, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=9");
+            _loot(0x0b, WATER, 0d01, 0d00);
+        },
+
+        sniff__1_roots = @install() {
+            debug_subtext("B=10");
+            _loot(0x02, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=11");
+            _loot(0x01, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=12");
+            _loot(0x00, WATER, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=13");
+            _loot(0x0d, CLAY, 0d01, 0d00); // same as B=16
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=14");
+            _loot(0x0c, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=15");
+            _loot(0x0b, WATER, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=16");
+            _loot(0x0d, CLAY, 0d01, 0d00); // same as B=13
+        },
+    }
+
+    fun boss_defeated() {
+        souls_boss_defeated_helper(OWL_BOY);
+
+        BOSS.PROGRESS = False;
+    }
+
+    @install()
+    @async()
+    fun grabby_owls() {
+        add_transforming_owls(0x2d, 0x21, True, 0x47, 0x42, False, {
+            transform_owls(arg[0x0e], arg[0x0c]);
+
+            _add_enemy(BOY_BLACK, arg[0x0c][X], arg[0x0c][Y]);
+            poise_break_decay(<LAST_ENTITY>, BOSS.POISE, BOSS.POISE_DECAY, 0d120);
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                if(dead(<SCRIPT_OWNER>)) {
+                    boss_defeated();
+                } else {
+                    poise_break();
+                }
+            }));
+
+            BOSS.PROGRESS = True;
+            push_music(BOSS);
+
+            end();
+        });
+    }
+
+    fun trigger_enter() {
+        if!(ROOM.MUD_STONE_DESTROYED) {
+            add_mud_stone(0d14, 0d25, reference(@install() {
+                guard_mud_stone();
+
+                ROOM.MUD_STONE_DESTROYED = True;
+            }), OWL_BLACK);
+        }
+        
+        add_souls_npc_alchemist_speed(0d91, 0d65);
+        
+        if!(ROOM.BRANCH_USED) {
+            branch_lady(VILLAGER_2_4, 0x58, 0x0f, WEST, reference(@install() {
+                guard_branch_lady(ROOM.BRANCH_USED);
+
+                pyromancer_dialog_0();
+            }));
+        } else if((NPC_PYROMANCER.PROGRESS & 0xf0) < 0x10) {
+            add_souls_npc_pyromancer(0x58, 0x0f);
+        }
+
+        if!(SOULS_MEMORY.DEAD_OWL_BOY) {
+            grabby_owls();
+        }
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // inside
+            add_basic_souls_enemy(FLOWER_PURPLE, 0x1e, 0x2c);
+
+            // add_basic_souls_enemy(RAT, 0d51, 0d43); // backup
+
+            // east
+            add_basic_souls_enemy(TUMBLING_WEED, 0d77, 0d36);
+
+            // west
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d20, 0d61);
+
+            // cliff
+            // add_basic_souls_enemy(OWL_BLACK, 0d97, 0d55, INACTIVE);
+        }
+
+        archaeology_dig_code_bot(ROOM.CODE_BOT_X, ROOM.CODE_BOT_Y, ARCHAEOLOGY_DIG.CODE_1, ROOM.CODE_BOT_HACKED);
+
+        init_map(0x00, 0x06, 0x6e, 0x52);
+        default_init_room(True, True);
+        if(SOULS_MEMORY.WITH_AREA_NAMES) {
+            subtext("West Inbetwixx");
+        }
+
+        add_critter_door(0d40, 0d26, reference(@install() {
+            guard_critter_door();
+
+            map_transition(shrine, critter_door, NORTH);
+        }));
+    }
+};

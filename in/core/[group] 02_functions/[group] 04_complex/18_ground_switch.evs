@@ -1,0 +1,91 @@
+group ground_switch() {
+    enum GROUND_SWITCH {
+        WEIGHT_REQUIRED = 0d2,
+
+        TRIGGER_RADIUS = 0d20,
+    }
+
+    fun check_switch_check(entity_switch, entity, radius, weight) {
+        if(entity[Z] == 0d0) {
+            if(
+                (entity[X] >= (entity_switch[X] - radius))
+                && (entity[X] <= (entity_switch[X] + radius))
+                && (entity[Y] >= (entity_switch[Y] - radius))
+                && (entity[Y] <= (entity_switch[Y] + radius))
+            ) {
+                arg[0x14] += weight;
+            }
+
+            yield();
+        }
+    }
+    fun _check_switch(entity, size) {
+        check_switch_check(entity, <BOY>, size, SYSTEM.WEIGHT_BOY);
+        check_switch_check(entity, <DOG>, size, SYSTEM.WEIGHT_DOG);
+
+        if(arg[0x14] <= 0d1) {
+            find_all(STONE, {
+                check_switch_check(arg[0x00], arg[0x10], arg[0x02], arg[0x08]);
+            });
+        }
+
+        if(arg[0x14] <= 0d1) {
+            find_all(STONE_ROUND, {
+                check_switch_check(arg[0x00], arg[0x10], arg[0x02], arg[0x08]);
+            });
+        }
+
+        // CUSTOM_MEMORY.RETURN = arg[0x14];
+        entity[GENERAL_PURPOSE] = arg[0x14];
+    }
+    @install()
+    @weak()
+    fun check_switch(entity, size) {
+        _check_switch(entity, size);
+    }
+    fun ground_switch_trigger(memory, x, y, callback_activated, callback_deactivated, activate_weight, toggleable) {
+        add_enemy(PLACEHOLDER, x, y);
+        if(memory is Memory) {
+            memory = <LAST_ENTITY>;
+        }
+        attach_to_script(LAST_ENTITY);
+
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+        control(SCRIPT_OWNER, False);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            arg[0x14] = 0d0;
+            check_switch(<SCRIPT_OWNER>, GROUND_SWITCH.TRIGGER_RADIUS);
+
+            if(False) {
+                _debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], activate_weight, <SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED);
+            }
+
+            if!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] >= activate_weight) {
+                    if(callback_activated is Function) {
+                        callback_activated();
+                    }
+
+                    if!(toggleable) {
+                        end();
+                    }
+
+                    control(SCRIPT_OWNER, True);
+                }
+            } else {
+                if(<SCRIPT_OWNER>[GENERAL_PURPOSE] < activate_weight) {
+                    if(callback_deactivated is Function) {
+                        callback_deactivated();
+                    }
+
+                    control(SCRIPT_OWNER, False);
+                }
+            }
+
+            if(CUSTOM_FLAG.SLOW_GROUND_SWITCHES) {
+                sleep(0d60 + randrange(0d60));
+            }
+        }
+    }
+};

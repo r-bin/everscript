@@ -1,0 +1,429 @@
+map castle_throne_room(PALACE) {
+    enum entrance {
+        south = entrance(0x31, 0x21, NORTH),
+
+        cinematic_enter = entrance(0x37, 0x01, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(CASTLE.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        FAKE_EXIT_ID = memory(WORD, TEMP),
+
+        KING = memory(WORD, TEMP),
+        FACE = memory(WORD, TEMP),
+
+        IRON_THRONE_COUNT = memory(BYTE, SRAM),
+        IRON_THRONE_THRESHOLD = 0d4,
+
+        CLAIMED_SWORD_2 = memory(FLAG, SRAM),
+        CLAIMED_SWORD_3 = memory(FLAG, SRAM),
+        CLAIMED_SWORD_4 = memory(FLAG, SRAM),
+
+        CLAIMED_AXE_1 = memory(FLAG, SRAM),
+        CLAIMED_AXE_2 = memory(FLAG, SRAM),
+        CLAIMED_AXE_3 = memory(FLAG, SRAM),
+        CLAIMED_AXE_4 = memory(FLAG, SRAM),
+
+        CLAIMED_SPEAR_1 = memory(FLAG, SRAM),
+        CLAIMED_SPEAR_2 = memory(FLAG, SRAM),
+        CLAIMED_SPEAR_3 = memory(FLAG, SRAM),
+        CLAIMED_SPEAR_4 = memory(FLAG, SRAM),
+
+        CLAIMED_BAZOOKA = memory(FLAG, SRAM),
+    }
+
+    fun fake_exit() {
+        map_transition(castle_center, north, SOUTH);
+    }
+
+    @install()
+    @async()
+    fun fake_exit_scanner() {
+        attach_to_script(ROOM.FAKE_EXIT_ID);
+
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = <SCRIPT_OWNER>[X];
+            arg[0x06] = <SCRIPT_OWNER>[Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
+                fake_exit();
+                end();
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    fun debug_triggered() {
+        FLAG.REVEALER = True;
+        subtext("Revealer learned.");
+        sleep(0x20);
+        souls_select_alchemy(REVEALER);
+
+        destroy(SCRIPT_OWNER);
+    }
+    
+    @install()
+    @async()
+    fun face_logic(entity) {
+        attach_to_script(entity);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            object[0x00] = arg[0x10];
+            arg[0x10]++;
+            debug_memory(arg[0x10], 0d0);
+
+            sound(0x76);
+            sleep(0d180);
+        }
+    }
+    fun add_face(x, y) {
+        add_enemy(FACE_ENTITY, x, y);
+        ROOM.FACE = <LAST_ENTITY>;
+
+        face_logic(<LAST_ENTITY>);
+    }
+
+    fun check_iron_throne_reward() {
+        if(ROOM.IRON_THRONE_COUNT >= ROOM.IRON_THRONE_THRESHOLD) {
+            _dialog("[SLOW]Your contribution to the iron throne will be honored.[B]");
+
+            reward(REVEALER, True);
+            
+            control(BOTH);
+            end();
+        }
+    }
+
+    @install()
+    fun update_removed_weapons() {
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SWORD_2) && !FLAG.SWORD_2) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SWORD_3) && !FLAG.SWORD_3) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SWORD_4) && !FLAG.SWORD_4) {
+            unlock(SWORD_1);
+        }
+
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_1) && !FLAG.AXE_1) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_2) && !FLAG.AXE_2) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_3) && !FLAG.AXE_3) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_4) && !FLAG.AXE_4) {
+            unlock(SWORD_1);
+        }
+
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SPEAR_1) && !FLAG.SPEAR_1) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SPEAR_2) && !FLAG.SPEAR_2) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SPEAR_3) && !FLAG.SPEAR_3) {
+            unlock(SWORD_1);
+        }
+        if((MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SPEAR_4) && !FLAG.SPEAR_4) {
+            unlock(SWORD_1);
+        }
+    }
+
+    fun forfeit_weapon(claimed, weapon:FLAG) {
+        if((!claimed) && weapon) {
+            claimed = True;
+            weapon = False;
+
+            sound(PURCHASE);
+
+            ROOM.IRON_THRONE_COUNT++;
+            update_removed_weapons();
+        }
+    }
+
+    fun iron_throne_trade_sword() {
+        while(MEMORY.QUESTION_ANSWER != 0xffff) {
+            if(False) {
+                text_start();
+            } else {
+                control(NONE);
+                open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+            }
+
+            if((!ROOM.CLAIMED_SWORD_2) && FLAG.SWORD_2) {
+                text("[CHOICE]Gladiator Sword…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_SWORD_3) && FLAG.SWORD_3) {
+                text("[CHOICE]Crusader Sword…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_SWORD_4) && FLAG.SWORD_4) {
+                text("[CHOICE]Neutron Blade…");
+            } else {
+                text("[CHOICE]…");
+            }
+
+            await_answer();
+            text_end();
+
+            if(MEMORY.QUESTION_ANSWER != 0xffff) {
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    forfeit_weapon(ROOM.CLAIMED_SWORD_2, SWORD_2);
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    forfeit_weapon(ROOM.CLAIMED_SWORD_3, SWORD_3);
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    forfeit_weapon(ROOM.CLAIMED_SWORD_4, SWORD_4);
+                }
+
+                check_iron_throne_reward();
+            }
+        }
+    }
+    fun iron_throne_trade_axe() {
+        while(MEMORY.QUESTION_ANSWER != 0xffff) {
+            if(False) {
+                text_start();
+            } else {
+                control(NONE);
+                open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+            }
+
+            if((!ROOM.CLAIMED_AXE_1) && FLAG.AXE_1) {
+                text("[CHOICE]Spider's Claw…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_AXE_2) && FLAG.AXE_2) {
+                text("[CHOICE]Bronze Axe…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_AXE_3) && FLAG.AXE_3) {
+                text("[CHOICE]Knight Basher…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_AXE_4) && FLAG.AXE_4) {
+                text("[CHOICE]Atom Smasher…");
+            } else {
+                text("[CHOICE]…");
+            }
+
+            await_answer();
+            text_end();
+
+            if(MEMORY.QUESTION_ANSWER != 0xffff) {
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    forfeit_weapon(ROOM.CLAIMED_AXE_1, AXE_1);
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    forfeit_weapon(ROOM.CLAIMED_AXE_2, AXE_2);
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    forfeit_weapon(ROOM.CLAIMED_AXE_3, AXE_3);
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                    forfeit_weapon(ROOM.CLAIMED_AXE_4, AXE_4);
+                }
+
+                check_iron_throne_reward();
+            }
+        }
+    }
+    fun iron_throne_trade_spear() {
+        while(MEMORY.QUESTION_ANSWER != 0xffff) {
+            if(False) {
+                text_start();
+            } else {
+                control(NONE);
+                open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+            }
+
+            if((!ROOM.CLAIMED_SPEAR_1) && FLAG.SPEAR_1) {
+                text("[CHOICE]Horn Spear…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_SPEAR_2) && FLAG.SPEAR_2) {
+                text("[CHOICE]Bronze Spear…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_SPEAR_3) && FLAG.SPEAR_3) {
+                text("[CHOICE]Lance…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if((!ROOM.CLAIMED_SPEAR_4) && FLAG.SPEAR_4) {
+                text("[CHOICE]Laser Lance…");
+            } else {
+                text("[CHOICE]…");
+            }
+
+            await_answer();
+            text_end();
+
+            if(MEMORY.QUESTION_ANSWER != 0xffff) {
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    forfeit_weapon(ROOM.CLAIMED_SPEAR_1, SPEAR_1);
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                    forfeit_weapon(ROOM.CLAIMED_SPEAR_2, SPEAR_2);
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                    forfeit_weapon(ROOM.CLAIMED_SPEAR_3, SPEAR_3);
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                    forfeit_weapon(ROOM.CLAIMED_SPEAR_4, SPEAR_4);
+                }
+
+                check_iron_throne_reward();
+            }
+        }
+    }
+    @install()
+    fun iron_throne_trade() {
+        dialog("[SLOW]Forfeit 4 of your weapons weapons and I'll grant you a formula.[B]");
+
+        // MEMORY.QUESTION_ANSWER = 0xffff;
+        // while(MEMORY.QUESTION_ANSWER == 0xffff) {
+            if(False) {
+                text_start();
+            } else {
+                control(NONE);
+                open_message_box(DEFAULT, 0x0a, 0x02, 0x14, 0d20);
+            }
+
+            // text("[SLOW]What weapon do you want to turn in?");
+
+            if(FLAG.SWORD_2 || FLAG.SWORD_3 || FLAG.SWORD_4) {
+                text("[CHOICE]Sword…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(FLAG.AXE_1 || FLAG.AXE_2 || FLAG.AXE_3 || FLAG.AXE_4) {
+                text("[CHOICE]Axe…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(FLAG.SPEAR_1 || FLAG.SPEAR_2 || FLAG.SPEAR_3 || FLAG.SPEAR_4) {
+                text("[CHOICE]Spear…");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(FLAG.BAZOOKA) {
+                text("[CHOICE]Bazooka…");
+            } else {
+                text("[CHOICE]…");
+            }
+            
+            await_answer();
+            
+            text_end();
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                if(FLAG.SWORD_2 || FLAG.SWORD_3 || FLAG.SWORD_4) {
+                    iron_throne_trade_sword();
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                if(FLAG.AXE_1 || FLAG.AXE_2 || FLAG.AXE_3 || FLAG.AXE_4) {
+                    iron_throne_trade_axe();
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                if(FLAG.SPEAR_1 || FLAG.SPEAR_2 || FLAG.SPEAR_3 || FLAG.SPEAR_4) {
+                    iron_throne_trade_spear();
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d3) {
+                forfeit_weapon(ROOM.CLAIMED_BAZOOKA, BAZOOKA);
+
+                check_iron_throne_reward();
+            }
+        // }
+    }
+
+    @install()
+    fun king_triggered() {
+         smart_conversation({
+            if(SOULS_MEMORY.REPUTATION == REPUTATION.CHEATER) {
+                conversation_dialog("[SLOW]Ah… Your reputation precedes you.[B]Cheaters are not welcome here. Now leave.[B]");
+            } else if(SOULS_MEMORY.REPUTATION > REPUTATION.NORMAL) {
+                if!(FLAG.REVEALER) {
+                    conversation_dialog("[SLOW]Ah… Your reputation precedes you.[B]It's an honor to meet you.[B]");
+
+                    reward(REVEALER, True);
+                }
+
+                dialog("[SLOW]Now leave.[B]");
+            } else {
+                if(ROOM.IRON_THRONE_COUNT < ROOM.IRON_THRONE_THRESHOLD) {
+                    iron_throne_trade();
+                } else {
+                    dialog("[SLOW]Now leave.[B]");
+                }
+            }
+        }, False, NONE);
+    }
+
+    fun add_king(x, y) {
+        add_enemy(BOY_BLACK, x, y, INVINCIBLE);
+        ROOM.KING = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, B, reference(king_triggered));
+
+        animate(LAST_ENTITY, FREEZE, ANIMATION_BOY.SWIRL_EXIT);
+
+        if(False) {
+            sleep(0d300);
+
+            while(True) {
+                teleport(ROOM.KING, 0d49, 0d17);
+                animate(ROOM.KING, FREEZE, ANIMATION_BOY.SWIRL_EXIT);
+                sleep(0d300);
+
+                teleport(ROOM.KING, 0d49, 0d16);
+                animate(ROOM.KING, FREEZE, ANIMATION_BOY.DRAGGED);
+                sleep(0d300);
+            }
+        }
+    }
+
+    fun trigger_enter() {
+        if(FLAG.DEBUG) {
+            if!(FLAG.REVEALER) {
+                add_debug_entity(0x27, 0x15, reference(debug_triggered));
+            }
+        }
+
+        if(False) {
+            add_face(0d61, 0d03);
+        }
+
+        add_king(0d49, 0d17);
+
+        default_init_room(False, False);
+
+        add_enemy(PLACEHOLDER, 0x31, 0x21);
+        ROOM.FAKE_EXIT_ID = <LAST_ENTITY>;
+        sleep(0x10);
+        fake_exit_scanner();
+    }
+};

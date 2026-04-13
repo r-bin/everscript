@@ -1,0 +1,128 @@
+map cave_shop(ACT1_2_CAVES) {
+    enum entrance {
+        south = entrance(0x40, 0x2d, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_ALTUS_PLATEAU.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_south_drain = nop(),
+        exit_south = @install() {
+            map_transition(volcano, cave_east, SOUTH);
+        },
+        exit_south_jaguar_ring = nop(),
+        exit_south_hard_ball = nop(),
+        exit_south_inn = nop(),
+    }
+
+    enum b_trigger {
+        gourd_drain_2 = nop(),
+        gourd_drain_1 = nop(),
+        gourd_inn_2 = nop(),
+        gourd_inn_1 = nop(),
+        gourd_jaguar_ring_1 = nop(),
+        gourd_jaguar_ring_2 = nop(),
+        gourd_jaguar_ring_3 = nop(),
+        gourd_hard_ball_1 = nop(),
+        gourd_hard_ball_2 = nop(),
+        gourd_hard_ball_3 = nop(),
+    }
+
+    fun show_furniture(show) {
+        if(show) {
+            object[0x08] = 0x00; // hide raptors_stoble
+            object[0x09] = 0x00; // hide raptors_fire
+            object[0x0a] = 0x00; // hide raptors_rug
+        } else {
+            object[0x08] = 0x01; // hide raptors_stoble
+            object[0x09] = 0x01; // hide raptors_fire
+            object[0x0a] = 0x01; // hide raptors_rug
+        }
+    }
+
+    enum ROOM {
+        FURNITURE_REVEALED = memory(FLAG, SRAM),
+
+        TABLE_COUNT = memory(WORD, TEMP),
+        TABLE_COUNT_THRESHOLD = 0d4,
+    }
+
+    fun reveal_furniture() {
+        show_furniture(True);
+
+        if(<ACTIVE>[Y] < 0d200) {
+            drag(<ACTIVE>, 0d72, 0d26);
+            <ACTIVE>[Z_LEVEL] = <INACTIVE>[Z_LEVEL];
+        }
+
+        sfx_effect(NIGHT, False);
+
+        add_placeholder(ANIMATION_ENEMY.KING_ROCKING, 0d65, 0d18);
+        attach_script(LAST_ENTITY, B, reference(@install() {
+            smart_conversation({
+                if(ROOM.TABLE_COUNT < ROOM.TABLE_COUNT_THRESHOLD) {
+                    arg[0x0e] = randrange(0d6);
+
+                    if(arg[0x0e] < 0d2) {
+                        conversation_question("[SLOW]What am I sitting on?[CHOICE]Stool[CHOICE]Table");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // stool
+                            if(ROOM.TABLE_COUNT > 0d0) {
+                                ROOM.TABLE_COUNT--;
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // table
+                            ROOM.TABLE_COUNT++;
+                        }
+                    } else if(arg[0x0e] < 0d4) {
+                        conversation_question("[SLOW]What am I sitting on?[CHOICE]Table[CHOICE]Stool");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // table
+                            ROOM.TABLE_COUNT++;
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // stool
+                            if(ROOM.TABLE_COUNT > 0d0) {
+                                ROOM.TABLE_COUNT--;
+                            }
+                        }
+                    } else if(arg[0x0e] == 0d4) {
+                        conversation_question("[SLOW]What am I sitting on?[CHOICE]Stoble[CHOICE]Taol");
+                    } else {
+                        conversation_question("[SLOW]Can you slide?[CHOICE]Stool[CHOICE]Table");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d1) { // table
+                            teleporter_out();
+                            map_transition(volcano, teleporter, NONE);
+                        }
+                    }
+                } else {
+                    conversation_dialog("[SLOW]Let X be the first number.[LF]Take the first prime factor and take it's square.[LF]Can you see how Fibonacci numbers are left?[LF]Take the second prime factor and take the prime factors sum.[LF]Now only one is left.[B]", 0d10);
+                }
+            }, False, NONE);
+        }));
+    }
+
+    @install()
+    fun revealer_triggered() {
+        guard_challenge_levitate();
+
+        ROOM.FURNITURE_REVEALED = True;
+
+        reveal_furniture();
+    }
+
+    fun trigger_enter() {
+        if!(ROOM.FURNITURE_REVEALED) { // TODO: soft lock while standing in fire
+            show_furniture(False);
+
+            add_enemy(REVEALER_TARGET_ENTITY, 0d70, 0d23);
+            special_script(REVEALER, reference(revealer_triggered));
+
+            default_init_room(True, False);
+        } else {
+            reveal_furniture(True);
+
+            default_init_room(False, False);
+        }
+    }
+};

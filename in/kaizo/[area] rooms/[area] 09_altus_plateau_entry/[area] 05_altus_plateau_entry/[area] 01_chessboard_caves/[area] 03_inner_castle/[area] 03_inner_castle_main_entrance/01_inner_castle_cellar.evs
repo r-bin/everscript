@@ -1,0 +1,68 @@
+map inner_castle_cellar(EBON_CELLAR) {
+    enum entrance {
+        stairs = entrance(0x29, 0x0d, WEST),
+
+        bonfire = entrance(0d34, 0d24, NONE, { bonfire_wakeup(0d0, 0d24, -0d24, 0d24); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        BONFIRE_REVEALED = memory(FLAG, SRAM),
+    }
+
+    enum stepon_trigger {
+        stepon_0 = @install() {
+            debug_subtext("S=0");
+
+            _add_morph_ball_stone(False, True, False, {
+                map_transition(hidden_castle_entry, north, EAST);
+            });
+        },
+    }
+
+    @install()
+    fun show_bonfire() {
+        bonfire(0d34, 0d24, SOULS_MEMORY.BONFIRE_ALTUS_CELLAR);
+    }
+
+    enum b_trigger {
+        chest_1__3_feather = @install() {
+            debug_subtext("B=0");
+            _loot_chest(0x00, FEATHER, 0d03);
+        },
+        chest_2__4_brimstone = @install() {
+            debug_subtext("B=1");
+            _loot_chest(0x01, BRIMSTONE, 0d04);
+        },
+        chest_3__2_acorns = @install() {
+            debug_subtext("B=2");
+            
+            object[0x02] = 0x01; // open chest_3
+            ROOM.BONFIRE_REVEALED = True;
+            sound(WEIRD_SOUND);
+            show_bonfire();
+        },
+    }
+    
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // open chest_1
+        // object[0x01] = 0x01; // open chest_2
+        // object[0x02] = 0x01; // open chest_3
+
+        if(ROOM.BONFIRE_REVEALED) {
+            object[0x02] = 0x01; // open chest_3
+            show_bonfire();
+        }
+
+        if(NPC_RAT.PROGRESS < 0x10) {
+            add_souls_npc_rat(0d12, 0d24);
+        } else {
+            add_souls_npc_rat(0d14, 0d18);
+        }
+
+        default_init_room(False, False);
+    }
+};

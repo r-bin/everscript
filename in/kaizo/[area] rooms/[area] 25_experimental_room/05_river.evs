@@ -1,0 +1,253 @@
+map river(CUTSCENE_RIVER) {
+    enum entrance {
+        center = entrance(0x32, 0x10, NONE),
+        right = entrance(0x64, 0x10, WEST),
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        SHIP_ID = memory(WORD, TEMP),
+
+        ROCK_1 = memory(WORD, TEMP),
+        ROCK_2 = memory(WORD, TEMP),
+        ROCK_3 = memory(WORD, TEMP),
+        ROCK_CRASH_SIZE = 0x0a,
+
+        CRASH = memory(WORD, TEMP),
+    }
+
+    enum BOSS {
+        ID = memory(WORD, TEMP),
+
+        X = 0x52,
+        Y = 0x07,
+
+        HIDDEN = True,
+    }
+
+    fun yeet() {
+        // source: call(0x94e9d8);
+        
+        control(NONE);
+
+        // <0x24ab> = <BOY>[X];
+        // <0x24af> = <BOY>[Y];
+
+        // <0x24cf> = 0x0228;
+        // <0x24d1> = 0x0058;
+
+        // <0x24cf> += 0x05;
+        // sleep(0x17);
+
+        animate(BOY, LOOP, ANIMATION_BOY.LANDING);
+        // sleep(0x03);
+        // animate(DOG, LOOP, ANIMATION_DOG.ACT1_ANGRY);
+        sleep(0x05);
+
+        // call_async(0x94eb06);
+        // call_async(0x94eb0c);
+
+        animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+        <BOY>[VELOCITY] = 0x20;
+
+        while(<BOY>[X] > 0x70) {
+            // teleport(<BOY>, <0x24ab>, <0x24af>);
+            <BOY>[X]--;
+            // teleport(DOG, <0x24ab>, <0x24af>);
+            // teleport(0x2838, 0x24ab, 0x24af - 0x01);
+
+            // <0x24ab>--;
+            yield();
+
+            // debug_memory(<0x24ab>, <0x24cf>);
+            // sleep(0x20);
+        }
+
+        while(<BOY>[Y] < 0xd0) {
+            // teleport(<BOY>, <0x24ab>, <0x24af>);
+            <BOY>[Y] += 0x03;
+            // teleport(DOG, <0x24ab>, <0x24af>);
+            // teleport(0x2838, 0x24ab, 0x24af - 0x01);
+
+            // <0x24ab>--;
+            yield();
+
+            // debug_memory(<0x24ab>, <0x24cf>);
+            // sleep(0x20);
+        }
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while(alive(<BOY>)) {
+            if(ROOM.CRASH) {
+                damage(BOY, 0xff, True);
+                yield();
+            } else {
+                <BOY>[X] -= 0x02;
+
+                ROOM.SHIP_ID[X] = <BOY>[X];
+                ROOM.SHIP_ID[Y] = <BOY>[Y] - 0x03;
+                yield();
+                
+                if(<BOY>[Y] < 0x40) {
+                    <BOY>[Y] = 0x40;
+                } else if(<BOY>[Y] > 0xd0) {
+                    <BOY>[Y] = 0xd0;
+                }
+                // yield();
+
+                if(<BOY>[X] < 0xb0) {
+                    yeet();
+
+                    map_transition(junkyard_northwest, crash_west, NONE);
+                } 
+                yield();
+            }
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        while(alive(BOSS.ID)) {
+            sleep(0d250);
+            sleep(0d250);
+            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.SALABOG_DUCK);
+            attribute(BOSS.ID, INVINCIBLE, True);
+            sleep(0d250);
+            animate(LAST_ENTITY, ONCE, DEFAULT);
+            attribute(BOSS.ID, INVINCIBLE, False);
+        }
+    }
+
+    fun spawn_boss() {
+        add_enemy(SALABOG, BOSS.X, BOSS.Y);
+        BOSS.ID = <LAST_ENTITY>;
+
+        boss_watcher();
+    }
+
+    @install()
+    fun revealer_triggered() {
+        guard_challenge_revealer();
+
+        destroy(SCRIPT_OWNER);
+
+        spawn_boss();
+    }
+
+    @install()
+    fun crash() {
+        ROOM.CRASH = 0x01;
+
+        control(NONE);
+
+        damage(BOY, 0xff, True);
+        destroy(ROOM.SHIP_ID);
+
+        
+    }
+
+    fun rock_check() {
+        if(arg[0x00] < arg[0x04]) {
+            arg[0x08] = arg[0x04] - arg[0x00];
+        } else {
+            arg[0x08] = arg[0x00] - arg[0x04];
+        }
+
+        if(arg[0x02] < arg[0x06]) {
+            arg[0x0a] = arg[0x06] - arg[0x02];
+        } else {
+            arg[0x0a] = arg[0x02] - arg[0x06];
+        }
+
+        if((arg[0x08] <= ROOM.ROCK_CRASH_SIZE) && (arg[0x0a] <= ROOM.ROCK_CRASH_SIZE)) {
+            crash();
+            end();
+        }
+        sleep(0x05);
+
+        if(ROOM.DEBUG) {
+            debug_memory(arg[0x08], arg[0x0a]);
+            sleep(0x20);
+        }
+    }
+
+    @install()
+    @async()
+    fun rock_1_check() {
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = ROOM.ROCK_1[X] + 0x0a;
+            arg[0x06] = ROOM.ROCK_1[Y];
+
+            rock_check();
+        }
+    }
+
+    @install()
+    @async()
+    fun rock_2_check() {
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = ROOM.ROCK_2[X] + 0x0a;
+            arg[0x06] = ROOM.ROCK_2[Y];
+
+            rock_check();
+        }
+    }
+    @install()
+    @async()
+    fun rock_3_check() {
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = ROOM.ROCK_3[X] + 0x0a;
+            arg[0x06] = ROOM.ROCK_3[Y];
+
+            rock_check();
+        }
+    }
+
+    fun add_rock(x, y, id) {
+        add_enemy(STONE, x, y, FLAG_ENEMY.INVISBLE_INVINCIBLE_INACTIVE);
+        id = <LAST_ENTITY>;
+    }
+
+    fun trigger_enter() {
+        available(BOY);
+        destroy(DOG); // teleport(BOY, 0x00, 0x00);
+
+        add_placeholder(ANIMATION_PLACEHOLDER.SHELL_BOAT, 0x00, 0x00);
+        ROOM.SHIP_ID = <LAST_ENTITY>;
+
+        stack_t01_offset();
+
+        if(BOSS.HIDDEN) {
+            add_enemy(REVEALER_TARGET_ENTITY, BOSS.X, BOSS.Y);
+            special_script(REVEALER, reference(revealer_triggered));
+        } else {
+            spawn_boss();
+        }
+        
+        default_init_room(False, False);
+
+        add_rock(0x45, 0x10, ROOM.ROCK_1);
+        rock_1_check();
+        yield();
+        add_rock(0x2d, 0x16, ROOM.ROCK_2);
+        rock_2_check();
+        yield();
+        add_rock(0x19, 0x10, ROOM.ROCK_3);
+        rock_3_check();
+
+        add_enemy(TENTACLE_WHIP, 0x21, 0x0c);
+        // add_enemy(TENTACLE_SPIKE, 0x1e, 0x0b);
+        add_enemy(TENTACLE_SPIKE, 0x1b, 0x0e);
+    }
+};

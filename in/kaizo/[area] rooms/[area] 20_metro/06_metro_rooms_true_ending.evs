@@ -1,0 +1,1304 @@
+map metro_rooms_true_ending(CARLTRON) {
+    enum entrance {
+        center = entrance(0x14, 0x25, NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(BOSS_BOSSRUSH, 0xff)
+    }
+
+    enum WALL_STATE {
+        FANS = 0x01,
+
+        SWITCHES_8 = 0x02,
+        SWITCHES_4 = 0x03,
+        
+        OPEN = 0x04,
+
+        UNKNOWN = 0x00,
+    }
+
+    enum ROOM {
+        DEBUG = False,
+        
+        SWITCH_1 = memory(WORD, TEMP),
+        SWITCH_2 = memory(WORD, TEMP),
+        SWITCH_3 = memory(WORD, TEMP),
+        SWITCH_4 = memory(WORD, TEMP),
+        SWITCH_5 = memory(WORD, TEMP),
+        SWITCH_6 = memory(WORD, TEMP),
+        SWITCH_7 = memory(WORD, TEMP),
+        SWITCH_8 = memory(WORD, TEMP),
+
+        SWITCH_TIMEOUT = 0d10 * 0d0060,
+        SWITCH_TILT_SPEED = 0d20,
+        SWITCH_VENT_MODE = memory(FLAG, TEMP),
+
+        SWITCH_AREA_ENTERED = memory(FLAG, TEMP),
+        SWITCH_AREA_TILT = memory(FLAG, TEMP),
+        SWITCH_AREA_VENTING = memory(FLAG, TEMP), // toaster phase
+        SWITCH_AREA_TILT_THRESHOLD = 0d2 * 0d0060,
+        SWITCH_AREA_TIMER = memory(WORD, TEMP),
+
+        WALL_STATE = memory(WORD, TEMP),
+        INTERNAL_WALL_STATE = memory(WORD, TEMP),
+        INTERNAL_WALL_VENTING = memory(FLAG, TEMP),
+        INTERNAL_WALL_ANIMATING = memory(FLAG, TEMP),
+
+        SQUARE_1_X = 0d10,
+        SQUARE_1_Y = 0d32,
+        SQUARE_2_X = 0d26,
+        SQUARE_2_Y = 0d30,
+        SQUARE_3_X = 0d28,
+        SQUARE_3_Y = 0d44,
+        SQUARE_4_X = 0d10,
+        SQUARE_4_Y = 0d46,
+        SQUARE_5_X = 0d32,
+        SQUARE_5_Y = 0d26,
+    }
+
+    enum stepon_trigger {
+        stairs = @install() {
+            if(False) {
+                debug_subtext("S=0");
+            }
+
+            ROOM.SWITCH_AREA_ENTERED = True;
+        },
+        fans = @install() {
+            if(False) {
+                debug_subtext("S=1");
+            }
+
+            ROOM.SWITCH_AREA_ENTERED = False;
+        }
+    }
+
+    fun _switch_tilt(switch_1, switch_2, is_fan) {
+        if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.OPEN) {
+            object[switch_1] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            object[switch_2] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+        } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_4) {
+            if(is_fan) {
+                object[switch_1] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[switch_2] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            } else {
+                object[switch_1] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[switch_2] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)    
+            }
+        } else {
+            object[switch_1] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            object[switch_2] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+        }
+    }
+    
+    @install()
+    @async()
+    fun switch_tilt(on) {
+        ROOM.INTERNAL_WALL_ANIMATING = True;
+
+        if(on) {
+            tile_animate(0x01, 0xff, 0x00);
+            tile_animate(0x02, 0xff, 0x00);
+
+            ROOM.SWITCH_1 = False;
+            ROOM.SWITCH_8 = False;
+            object[0x00] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            object[0x07] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            ROOM.SWITCH_2 = False;
+            ROOM.SWITCH_7 = False;
+            object[0x01] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            object[0x06] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            ROOM.SWITCH_3 = False;
+            ROOM.SWITCH_6 = False;
+            object[0x02] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            object[0x05] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            ROOM.SWITCH_4 = False;
+            ROOM.SWITCH_5 = False;
+            object[0x03] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            object[0x04] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            tile_animate(0x01, 0xff, 0xff);
+            tile_animate(0x02, 0xff, 0xff);
+
+            sound(LEVITATE);
+        } else {
+            tile_animate(0x01, 0xff, 0x00);
+            tile_animate(0x02, 0xff, 0x00);
+
+            sleep(0d60);
+
+            _switch_tilt(0x00, 0x07, False);
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            _switch_tilt(0x01, 0x06, True);
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            _switch_tilt(0x02, 0x05, False);
+            sleep(ROOM.SWITCH_TILT_SPEED);
+
+            _switch_tilt(0x03, 0x04, True);
+            sleep(ROOM.SWITCH_TILT_SPEED);
+        }
+
+        ROOM.INTERNAL_WALL_ANIMATING = False;
+    }
+
+    fun _switch_vent_mode(switch_id, state, on) {
+        if!(state) {
+            if(on) {
+                object[switch_id] = 0x00;
+            } else {
+                object[switch_id] = 0x01;
+            }
+        }
+
+        if(False && ROOM.DEBUG) {
+            debug_memory(switch_id, state, on);
+            sleep(0d60);
+        }
+    }
+
+    @install()
+    fun switch_vent_mode(on) {
+        if(ROOM.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = on;
+            debug_subtext("ventmode = [MEM1]");
+        }
+
+        ROOM.SWITCH_VENT_MODE = on;
+
+        // _switch_vent_mode(0x00, ROOM.SWITCH_1, on);
+        _switch_vent_mode(0x01, ROOM.SWITCH_2, on);
+        // _switch_vent_mode(0x02, ROOM.SWITCH_3, on);
+        _switch_vent_mode(0x03, ROOM.SWITCH_4, on);
+        _switch_vent_mode(0x04, ROOM.SWITCH_5, on);
+        // _switch_vent_mode(0x05, ROOM.SWITCH_6, on);
+        _switch_vent_mode(0x06, ROOM.SWITCH_7, on);
+        // _switch_vent_mode(0x07, ROOM.SWITCH_8, on);
+
+        if(on) {
+            tile_animate(0x01, 0xff, 0xff);
+            tile_animate(0x02, 0xff, 0xff);
+
+            sound(LEVITATE);
+        } else {
+            tile_animate(0x01, 0xff, 0x00);
+            tile_animate(0x02, 0xff, 0x00);
+        }
+    }
+
+    fun guard_tilt() {
+        if(False) {
+            debug_memory(ROOM.INTERNAL_WALL_ANIMATING, ROOM.SWITCH_AREA_TILT);
+        }
+
+        if(ROOM.INTERNAL_WALL_ANIMATING || ROOM.SWITCH_AREA_TILT || SOULS_MEMORY.DEAD_FINAL_BOSS) {
+            if(False) {
+                debug_subtext("guarded");
+            }
+            
+            arg[0x12] = True;
+        }
+    }
+    fun switch_triggered(switch_id, state) {
+        // ROOM.INTERNAL_WALL_ANIMATING = True;
+
+        guard_tilt();
+
+        if(state == False) {
+            state = True;
+
+            object[switch_id] = state;
+
+            while((arg[0x10] < 0d9) && (!arg[0x12])) {
+                guard_tilt();
+
+                if!(arg[0x12]) {
+                    object[switch_id] = arg[0x10] + 0d2;
+
+                    arg[0x10]++;
+                }
+            }
+
+            if!(arg[0x12]) {
+                sleep(ROOM.SWITCH_TIMEOUT);
+            }
+
+            guard_tilt();
+
+            while((arg[0x10] > 0d0) && (!arg[0x12])) {
+                guard_tilt();
+
+                if!(arg[0x12]) {
+                    object[switch_id] = arg[0x10] + 0d2;
+
+                    arg[0x10]--;
+                }
+            }
+
+            if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.OPEN) {
+                object[switch_id] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_4) {
+                if((switch_id == 0d1) || (switch_id == 0d3) || (switch_id == 0d4) || (switch_id == 0d6)) {
+                    object[switch_id] = 0d0; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)    
+                } else {
+                    object[switch_id] = 0d1; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)    
+                }
+            } else {
+                object[switch_id] = 0d1; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            }
+            
+            state = False;
+        }
+
+        // ROOM.INTERNAL_WALL_ANIMATING = False;
+    }
+
+    @install()
+    fun _update_wall(switch_id, switch_mode, state) {
+        if(switch_mode) {
+            if(state) {
+                object[switch_id] = 0x02; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            } else {
+                object[switch_id] = 0x01; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            }
+        } else {
+            object[switch_id] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+        }
+
+        if(False && ROOM.DEBUG) {
+            debug_memory(switch_id, state, on);
+            sleep(0d60);
+        }
+    }
+    @install()
+    @async()
+    fun _update_wall() {
+        while(ROOM.INTERNAL_WALL_ANIMATING) {
+            yield();
+        }
+
+        if(ROOM.DEBUG) {
+            debug_subtext("update wall");
+        }
+
+        if(ROOM.WALL_STATE != ROOM.INTERNAL_WALL_STATE) {
+            ROOM.INTERNAL_WALL_STATE = ROOM.WALL_STATE;
+
+            if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.FANS) {
+                object[0x00] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x01] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x02] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x03] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x04] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x05] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x06] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x07] = 0x00; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_8) {
+                _update_wall(0x00, True, ROOM.SWITCH_1);
+                _update_wall(0x01, True, ROOM.SWITCH_2);
+                _update_wall(0x02, True, ROOM.SWITCH_3);
+                _update_wall(0x03, True, ROOM.SWITCH_4);
+                _update_wall(0x04, True, ROOM.SWITCH_5);
+                _update_wall(0x05, True, ROOM.SWITCH_6);
+                _update_wall(0x06, True, ROOM.SWITCH_7);
+                _update_wall(0x07, True, ROOM.SWITCH_8);
+            } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.SWITCHES_4) {
+                _update_wall(0x00, True, ROOM.SWITCH_1);
+                _update_wall(0x01, False, ROOM.SWITCH_2);
+                _update_wall(0x02, True, ROOM.SWITCH_3);
+                _update_wall(0x03, False, ROOM.SWITCH_4);
+                _update_wall(0x04, False, ROOM.SWITCH_5);
+                _update_wall(0x05, True, ROOM.SWITCH_6);
+                _update_wall(0x06, False, ROOM.SWITCH_7);
+                _update_wall(0x07, True, ROOM.SWITCH_8);
+            } else if(ROOM.INTERNAL_WALL_STATE == WALL_STATE.OPEN) {
+                object[0x00] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x01] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x02] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x03] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x04] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x05] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x06] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+                object[0x07] = 0x7e; // change vent_1 (0 = closed, 1 = off, 2 = on, 3…21 = opening, 22 = open, 0x7e = gone)
+            }
+        }
+
+        if(ROOM.SWITCH_AREA_VENTING || ROOM.SWITCH_AREA_TILT) {
+            if!(ROOM.INTERNAL_WALL_VENTING) {
+                ROOM.INTERNAL_WALL_VENTING = True;
+
+                tile_animate(0x01, 0xff, 0xff);
+                tile_animate(0x02, 0xff, 0xff);
+
+                sound(LEVITATE);
+            }
+        } else {
+            if(ROOM.INTERNAL_WALL_VENTING) {
+                tile_animate(0x01, 0xff, 0x00);
+                tile_animate(0x02, 0xff, 0x00);
+
+                ROOM.INTERNAL_WALL_VENTING = False;
+            }
+        }
+    }
+    fun update_wall(callback_update) {
+        callback_update();
+
+        _update_wall();
+        yield();
+    }
+
+    enum b_trigger {
+        switch_8 = @install() {
+            if(False) {
+                debug_subtext("B=0");
+            }
+
+            switch_triggered(0x07, ROOM.SWITCH_8);
+        },
+        switch_7 = @install() {
+            if(False) {
+                debug_subtext("B=1");
+            }
+
+            switch_triggered(0x06, ROOM.SWITCH_7);
+        },
+        switch_6 = @install() {
+            if(False) {
+                debug_subtext("B=2");
+            }
+
+            switch_triggered(0x05, ROOM.SWITCH_6);
+        },
+        switch_5 = @install() {
+            if(False) {
+                debug_subtext("B=3");
+            }
+
+            switch_triggered(0x04, ROOM.SWITCH_5);
+        },
+        switch_4 = @install() {
+            if(False) {
+                debug_subtext("B=4");
+            }
+
+            switch_triggered(0x03, ROOM.SWITCH_4);
+        },
+        switch_3 = @install() {
+            if(False) {
+                debug_subtext("B=5");
+            }
+
+            switch_triggered(0x02, ROOM.SWITCH_3);
+        },
+        switch_2 = @install() {
+            if(False) {
+                debug_subtext("B=6");
+            }
+
+            switch_triggered(0x01, ROOM.SWITCH_2);
+        },
+        switch_1 = @install() {
+            if(False) {
+                debug_subtext("B=7");
+            }
+
+            switch_triggered(0x00, ROOM.SWITCH_1);
+        }
+    }
+
+    group carltron_ai() {
+        enum BOSS {
+            DEBUG = False,
+            DEBUG_CHEATS = True,
+            DEBUG_PHASE = False,
+            DEBUG_AI = False,
+            DEBUG_RIMSALA = False,
+
+            ID = memory(WORD, TEMP),
+            TRASH_ID = memory(WORD, TEMP),
+
+            BOSS_HIDDEN = memory(FLAG, TEMP),
+
+            PHASE = memory(WORD, TEMP),
+
+            HP = 0d500,
+
+            WITH_BUNNY_HOP = True,
+            WITH_BOY = False,
+            WITH_DOG = True,
+
+            BUNNY_HOP_AIMBOT_COUNT = 0d30,
+            BUNNY_HOP_AIMBOT = memory(FLAG, TEMP),
+
+            SHIELD_PHASE_THRESHOLD = 0d3,
+            SHIELD_HITS = memory(WORD, TEMP),
+            SHIELD_HITS_REQUIRED = 0d100,
+            SHIELD_HITS_BOY = 0d1,
+            SHIELD_HIT_BOMB = 0d5,
+            SHIELD_HIT_RAPTOR = 0d20,
+            SHIELD_HIT_RIMSALA = 0d20,
+
+            BOMB_RESPAWN = 0d300,
+
+            RAPTOR_HP = 0d100,
+            RAPTOR_RESPAWN = 0d300,
+
+            RIMSALA_HP = 0d150,
+            RIMSALA_RESPAWN = 0d300,
+            THRESHOLD_RIMSALA = 0d80,
+
+            TOASTER_HP = 0d300,
+
+            TIMER_RAW = memory(WORD, TEMP),
+            TIMER_COUNTER = memory(WORD, TEMP),
+            TIMER_P1 = 0d2000, // bombs
+            TIMER_P2 = 0d2000, // raptors
+            TIMER_P3 = 0d3000, // rimsala
+            TIMER_P4 = 0d3000, // boy
+            TIMER_P5 = 0d2000, // toaster
+            TIMER_P6 = 0d5000, // carltron
+
+            HINT_TIMER_P1 = memory(FLAG, TEMP),
+            HINT_TIMER_P2 = memory(FLAG, TEMP),
+            HINT_TIMER_P3 = memory(FLAG, TEMP),
+            HINT_TIMER_P4 = memory(FLAG, TEMP),
+            HINT_TIMER_P5 = memory(FLAG, TEMP),
+            HINT_TIMER_P6 = memory(FLAG, TEMP),
+        }
+
+        fun boss_defeated() {
+            attribute(BOY, INVINCIBLE_TEMP, True);
+            increment_no_running();
+
+            souls_boss_defeated_helper(FINAL_BOSS);
+        }
+        fun outro() {
+            show_credits(CARLTRON);
+        }
+
+        @install()
+        fun shield_hit(amount:BOSS, plonk) {
+            if((BOSS.SHIELD_HITS < BOSS.SHIELD_HITS_REQUIRED) || (BOSS.PHASE < BOSS.SHIELD_PHASE_THRESHOLD)) {
+                sound(WEIRD_SOUND); // TODO
+
+                if(plonk) {
+                    heal(SCRIPT_OWNER, 0d0, False);
+                    yield();
+                }
+                BOSS.SHIELD_HITS += amount;
+
+                MEMORY.STRING_PARAMETER_1 = BOSS.SHIELD_HITS;
+                MEMORY.STRING_PARAMETER_2 = BOSS.SHIELD_HITS_REQUIRED;
+                subtext("[MEM1]/[MEM2]");
+
+                CUSTOM_MEMORY.RETURN = True;
+            } else {
+                CUSTOM_MEMORY.RETURN = False;
+            }
+        }
+
+        @install()
+        @weak()
+        fun range_check(entity_1, entity_2, range) {
+            CUSTOM_MEMORY.RETURN = False;
+
+            check_range_old(entity_1, entity_2, range, range, {
+                CUSTOM_MEMORY.RETURN = True;  
+            });
+        }
+
+        @install()
+        @async()
+        fun add_bombs() {
+            arg[0x0e] = BOSS.PHASE;
+
+            while(BOSS.PHASE == arg[0x0e]) {
+                if(dead(BOSS.TRASH_ID)) {
+                    arg[0x10] = randrange(0d4);
+
+                    if(arg[0x10] == 0d0) {
+                        arg[0x12] = ROOM.SQUARE_1_X;
+                        arg[0x14] = ROOM.SQUARE_1_Y;
+                    } else if(arg[0x10] == 0d1) {
+                        arg[0x12] = ROOM.SQUARE_2_X;
+                        arg[0x14] = ROOM.SQUARE_2_Y;
+                    } else if(arg[0x10] == 0d2) {
+                        arg[0x12] = ROOM.SQUARE_3_X;
+                        arg[0x14] = ROOM.SQUARE_3_Y;
+                    } else {
+                        arg[0x12] = ROOM.SQUARE_4_X;
+                        arg[0x14] = ROOM.SQUARE_4_Y;
+                    }
+
+                    add_enemy(BOMB, arg[0x12], arg[0x14]);
+                    attach_to_script(<LAST_ENTITY>);
+                    attach_script(SCRIPT_OWNER, DEATH, reference(vanilla_bomb_explosion));
+                    <LAST_ENTITY>[Z] = 0d2000;
+                    // <LAST_ENTITY>[HP] = 0d2;
+                    BOSS.TRASH_ID = <LAST_ENTITY>;
+
+                    arg[0x10] = 0d300;
+                    while((_alive(<SCRIPT_OWNER>)) && (arg[0x10] > 0d0)) {
+                        arg[0x10]--;
+
+                        if(arg[0x10] == 0d60) {
+                            if(False) {
+                                // TODO: 0x9badf2 should contain the code for red blinking
+                                attribute(SCRIPT_OWNER, UNKNOWN_1_2, False);
+                            }
+                        }
+
+                        if((_alive(<SCRIPT_OWNER>)) && ((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                            while((_alive(<SCRIPT_OWNER>)) && ((<SCRIPT_OWNER>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                                range_check(<SCRIPT_OWNER>, BOSS.ID, 0d40);
+
+                                // debug_memory(CUSTOM_MEMORY.RETURN);
+
+                                if(CUSTOM_MEMORY.RETURN) {
+                                    // arg[0x10] = 0d0;
+
+                                    attribute(SCRIPT_OWNER, ROOT, True);
+
+                                    damage(SCRIPT_OWNER, 0d9999, False);
+
+                                    // damage(BOSS.ID, 0d100, True);
+                                    shield_hit(BOSS.SHIELD_HIT_BOMB);
+                                }
+
+                                // yield();
+                                sleep(0d10);
+                            }
+                        }
+
+                        yield();
+                    }
+
+                    if(alive(<SCRIPT_OWNER>)) {
+                        damage(SCRIPT_OWNER, 0d9999, False);
+                    }
+
+                    sleep(BOSS.BOMB_RESPAWN);
+                } else {
+                    sleep(0d60);
+                }
+            }
+        }
+        fun _add_raptor() {
+            arg[0x10] = randrange(0d4);
+
+            if(arg[0x10] == 0d0) {
+                arg[0x12] = ROOM.SQUARE_1_X;
+                arg[0x14] = ROOM.SQUARE_1_Y;
+            } else if(arg[0x10] == 0d1) {
+                arg[0x12] = ROOM.SQUARE_2_X;
+                arg[0x14] = ROOM.SQUARE_2_Y;
+            } else if(arg[0x10] == 0d2) {
+                arg[0x12] = ROOM.SQUARE_3_X;
+                arg[0x14] = ROOM.SQUARE_3_Y;
+            } else {
+                arg[0x12] = ROOM.SQUARE_4_X;
+                arg[0x14] = ROOM.SQUARE_4_Y;
+            }
+
+            add_enemy(RAPTOR_TEAL, arg[0x12], arg[0x14]);
+            <LAST_ENTITY>[HP] = BOSS.RAPTOR_HP;
+            BOSS.TRASH_ID = <LAST_ENTITY>;
+            attach_to_script(<LAST_ENTITY>);
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                for(arg[0x10] in 0d0..0d5) {
+                    sound(TESLA);
+                    shoot_entity_entity(<SCRIPT_OWNER>, LIGHTNING, BOSS.ID, 0d10, 0d0);
+                    sleep(0d10);
+                }
+
+                shield_hit(BOSS.SHIELD_HIT_RAPTOR);
+
+                sleep(0d60);
+                destroy(<SCRIPT_OWNER>);
+            }));
+        }
+        @install()
+        @async()
+        fun add_raptors() {
+            arg[0x0e] = BOSS.PHASE;
+
+            while(BOSS.PHASE == arg[0x0e]) {
+                if(BOSS.PHASE == arg[0x0e]) {
+                    _add_raptor();
+                }
+
+                while((BOSS.PHASE == arg[0x0e]) && (_alive(BOSS.TRASH_ID))) {
+                    sleep(0d30);
+                }
+
+                sleep(BOSS.RAPTOR_RESPAWN);
+            }
+        }
+        fun _add_rimsala() {
+            if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                debug_subtext("+ rimsala");
+            }
+
+            add_enemy(RIMSALA_2, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, INACTIVE);
+            <LAST_ENTITY>[HP] = BOSS.RIMSALA_HP;
+            attach_to_script(LAST_ENTITY);
+            BOSS.TRASH_ID = <LAST_ENTITY>;
+
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                for(arg[0x10] in 0d0..0d5) {
+                    sound(TESLA);
+                    shoot_entity_entity(<SCRIPT_OWNER>, LIGHTNING, BOSS.ID, 0d10, 0d0);
+                    sleep(0d10);
+                }
+
+                shield_hit(BOSS.SHIELD_HIT_RIMSALA);
+
+                sleep(0d60);
+                destroy(<SCRIPT_OWNER>);
+            }));
+        }
+        @install()
+        @async()
+        fun add_rimsala() {
+            if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                debug_subtext(" ++ rimsala");
+            }
+
+            arg[0x0e] = BOSS.PHASE;
+
+            if(False) {
+                debug_memory(BOSS.PHASE, arg[0x0e]);
+            }
+            sleep(0d60);
+
+            while(BOSS.PHASE == arg[0x0e]) {
+                _add_rimsala();
+
+                while(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                    control(SCRIPT_OWNER, False);
+
+                    while((!((ROOM.SWITCH_1 > 0d0) && (ROOM.SWITCH_8 > 0d0))) && (<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA)) {
+                        if(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                            walk(SCRIPT_OWNER, TILE_ABSOLUTE, ROOM.SQUARE_2_X, ROOM.SQUARE_2_Y, SCRIPT_OWNER, False);
+                        }
+                        if(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                            walk(SCRIPT_OWNER, TILE_ABSOLUTE, ROOM.SQUARE_1_X, ROOM.SQUARE_1_Y, SCRIPT_OWNER, False);
+                        }
+                        if(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                            walk(SCRIPT_OWNER, TILE_ABSOLUTE, ROOM.SQUARE_4_X, ROOM.SQUARE_4_Y, SCRIPT_OWNER, False);
+                        }
+                        if(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                            walk(SCRIPT_OWNER, TILE_ABSOLUTE, ROOM.SQUARE_3_X, ROOM.SQUARE_3_Y, SCRIPT_OWNER, False);
+                        }
+
+                        if(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                            walk(SCRIPT_OWNER, TILE_ABSOLUTE, ROOM.SQUARE_2_X, ROOM.SQUARE_2_Y, SCRIPT_OWNER, False);
+                        }
+                    }
+
+                    if(<SCRIPT_OWNER>[HP] >= BOSS.THRESHOLD_RIMSALA) {
+                        walk(SCRIPT_OWNER, TILE_ABSOLUTE, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, SCRIPT_OWNER, False);
+
+                        control(SCRIPT_OWNER, True);
+                    }
+                }
+
+                if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                    debug_subtext("rimsala hit");
+                }
+
+                control(SCRIPT_OWNER, False);
+                while(alive(<SCRIPT_OWNER>)) {
+                    yield();
+                }
+
+                if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                    debug_subtext("-rimsala");
+                }
+
+                sleep(BOSS.RIMSALA_RESPAWN);
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_RIMSALA) {
+                debug_subtext("--rimsala");
+            }
+
+            if(False) {
+                debug_memory(BOSS.PHASE, arg[0x0e]);
+            }
+        }
+        @install()
+        @async()
+        fun add_boy() {
+            add_custom_boss_gideon(ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, False, False, 0d200, 0d100, 0d5, 0d120, False, True, True);
+
+            BOSS.TRASH_ID = <LAST_ENTITY>;
+            attach_to_script(LAST_ENTITY);
+        }
+        @install()
+        @async()
+        fun update_camera() {
+            arg[0x10] = MEMORY.CAMERA_BOUNDRY_Y_END;
+
+            if(BOSS.DEBUG) {
+                debug_subtext("+");
+            }
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                MEMORY.CAMERA_BOUNDRY_Y_END = <BOY>[Y] + 0d40;
+
+                sleep(0d2);
+            }
+
+            if(BOSS.DEBUG) {
+                subtext("-");
+            }
+
+            MEMORY.CAMERA_BOUNDRY_Y_END = arg[0x10];
+        }
+        @install()
+        @async()
+        fun add_dog() {
+            add_enemy(DOG_4_BLACK, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y, INACTIVE);
+            <LAST_ENTITY>[HP] = BOSS.TOASTER_HP;
+            BOSS.TRASH_ID = <LAST_ENTITY>;
+            attach_to_script(LAST_ENTITY);
+
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                if(BOSS.DEBUG) {
+                    debug_memory(<SCRIPT_OWNER>[Y], MEMORY.CAMERA_Y_MIN);
+                }
+
+                if(<SCRIPT_OWNER>[Y] < (MEMORY.CAMERA_Y_MIN + 0d20)) {
+                    heal(SCRIPT_OWNER, 0d0, False);
+                    end();
+                }
+
+                clean_up(<SCRIPT_OWNER>);
+            }));
+
+            update_camera();
+
+            update_wall({
+                ROOM.SWITCH_AREA_VENTING = True;
+            });
+
+            while(alive(<SCRIPT_OWNER>)) {
+                arg[0x14]++;
+
+                <SCRIPT_OWNER>[Y] = 0d190;
+                
+                arg[0x12] = <SCRIPT_OWNER>[X];
+
+                if!(arg[0x10]) {
+                    teleport_relative(SCRIPT_OWNER, 0d1, 0d0);
+
+                    if(<SCRIPT_OWNER>[X] == arg[0x12]) {
+                        arg[0x10] = True;
+                    }
+                } else {
+                    arg[0x12] = <SCRIPT_OWNER>[X];
+                    teleport_relative(SCRIPT_OWNER, -0d1, 0d0);
+
+                    if(<SCRIPT_OWNER>[X] == arg[0x12]) {
+                        arg[0x10] = False;
+                    }
+                }
+
+                if!(<SCRIPT_OWNER>[Z]) {
+                    <SCRIPT_OWNER>[VELOCITY] = 0d20;
+                }
+
+                if(False) {
+                    control(SCRIPT_OWNER, False);
+                    yield();
+                    control(SCRIPT_OWNER, True);
+                } else {
+                    if((<SCRIPT_OWNER>[Y] > (MEMORY.CAMERA_Y_MIN + 0d20)) && (!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION))) {
+                        if(arg[0x14] > 0d300) {
+                            arg[0x14] = 0d0;
+
+                            arg[0x16] = randrange(0d3);
+
+                            if(arg[0x16] == 0d0) {
+                                animate(SCRIPT_OWNER, ONCE, SLASH_1_3);
+                            } else {
+                                arg[0x16] = randrange(0d3);
+
+                                if(arg[0x16] == 0d0) {
+                                    beam_wall(SOUTH, <BOY>, 0d40, 0d190, 0d140, 0d440, 0d20);
+                                } else if(arg[0x16] == 0d1) {
+                                    beam_wall(SOUTH, <BOY>, 0d110, 0d190, 0d210, 0d440, 0d20);
+                                } else {
+                                    beam_wall(SOUTH, <BOY>, 0d190, 0d190, 0d280, 0d440, 0d20);
+                                }
+                            }
+                        } else if((<BOY>[X] > <SCRIPT_OWNER>[X] - 0d20) && ((<BOY>[X] < <SCRIPT_OWNER>[X] + 0d20))) {
+                            animate(SCRIPT_OWNER, ONCE, SLASH_1);
+                        }
+                    }
+                }
+
+                face(SCRIPT_OWNER, SOUTH);
+
+                teleport_relative(BOY, 0d0, 0d1);
+
+                yield();
+            }
+
+            update_wall({
+                ROOM.SWITCH_AREA_VENTING = False;
+            });
+
+            tile_animate(0x01, 0xff, 0x00);
+            tile_animate(0x02, 0xff, 0x00);
+        }
+        @install()
+        @async()
+        fun enrage_carltron() {
+            arg[0x0e] = BOSS.PHASE;
+
+            while((BOSS.PHASE == arg[0x0e]) && (_alive(BOSS.ID))) {
+                arg[0x10] = randrange(0d4);
+
+                if(arg[0x10] == 0d0) {
+                    arg[0x10] = randrange(0d4);
+
+                    if(arg[0x10] == 0d0) {
+                        beam_link_absolute(BOSS.ID, ROOM.SQUARE_1_X, ROOM.SQUARE_1_Y, 0d30);
+                    } else if(arg[0x10] == 0d1) {
+                        beam_link_absolute(BOSS.ID, ROOM.SQUARE_2_X, ROOM.SQUARE_2_Y, 0d30);
+                    } else if(arg[0x10] == 0d2) {
+                        beam_link_absolute(BOSS.ID, ROOM.SQUARE_3_X, ROOM.SQUARE_3_Y, 0d30);
+                    } else {
+                        beam_link_absolute(BOSS.ID, ROOM.SQUARE_4_X, ROOM.SQUARE_4_Y, 0d30);
+                    }
+
+                    sleep(0d600);
+                } else if(arg[0x10] == 0d1) {
+                    arg[0x10] = randrange(0d4);
+
+                    if(arg[0x10] == 0d0) {
+                        if(randrange(0d2)) {
+                            beam_wall(NORTH, <BOY>, 0d40, 0d190, 0d170, 0d440, 0d20);
+                        } else {
+                            beam_wall(NORTH, <BOY>, 0d170, 0d190, 0d280, 0d440, 0d20);
+                        }
+                    } else if(arg[0x10] == 0d1) {
+                        if(randrange(0d2)) {
+                            beam_wall(EAST, <BOY>, 0d40, 0d170, 0d300, 0d300, 0d20);
+                        } else {
+                            beam_wall(EAST, <BOY>, 0d40, 0d300, 0d300, 0d440, 0d20);
+                        }
+                    } else if(arg[0x10] == 0d2) {
+                        if(randrange(0d2)) {
+                            beam_wall(SOUTH, <BOY>, 0d40, 0d190, 0d170, 0d440, 0d20);
+                        } else {
+                            beam_wall(SOUTH, <BOY>, 0d170, 0d190, 0d280, 0d440, 0d20);
+                        }
+                    } else {
+                        if(randrange(0d2)) {
+                            beam_wall(WEST, <BOY>, 0d40, 0d170, 0d300, 0d300, 0d20);
+                        } else {
+                            beam_wall(WEST, <BOY>, 0d40, 0d300, 0d300, 0d440, 0d20);
+                        }
+                    }
+
+                    sleep(0d600);
+                }
+            }
+        }
+
+        @install()
+        fun next_phase() {
+            BOSS.TIMER_COUNTER = 0d0;
+            BOSS.PHASE++;
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                MEMORY.STRING_PARAMETER_1 = BOSS.PHASE;
+                debug_subtext("next phase = [MEM1]");
+            }
+        }
+        fun hint_phase(flag, max) {
+            if!(flag) {
+                flag = True;
+
+                MEMORY.STRING_PARAMETER_1 = BOSS.TIMER_COUNTER;
+                MEMORY.STRING_PARAMETER_2 = max;
+
+                subtext("[MEM1]/[MEM2]");
+            }
+        }
+
+        fun show_boss(show, x, y) {
+            if(show) {
+                BOSS.ID[Z] = 0d1000;
+
+                animate(BOSS.ID, ONCE, DEFAULT);
+                _teleport(BOSS.ID, x, y);
+
+                while(BOSS.ID[Z] > 0d0) {
+                    yield();
+                }
+
+                control(BOSS.ID, False);
+                attribute(BOSS.ID, INVINCIBLE_TEMP, False);
+            } else {
+
+                control(BOSS.ID, True);
+                attribute(BOSS.ID, INVINCIBLE_TEMP, True);
+
+                BOSS.ID[VELOCITY] = 0d200;
+
+                sleep(0d30);
+
+                animate(BOSS.ID, ONCE_FREEZE, INVISIBLE);
+                _teleport(BOSS.ID, x, y);
+            }
+        }
+
+        @install()
+        @async()
+        fun boss_ai() {
+            // lag: >1 raptor, >1 rimsala, >3 bombs (or >2 with dog)
+
+            // p1 bombs
+            // p2 raptor
+            // p3 rimsala
+            // p4 gideon
+            // p5 toaster shooter?
+            // p5? robot
+
+            while(True) {
+                BOSS.TIMER_COUNTER += ROOM.SWITCH_2 + ROOM.SWITCH_3 + ROOM.SWITCH_4 + ROOM.SWITCH_5 + ROOM.SWITCH_6 + ROOM.SWITCH_7;
+
+                if(BOSS.PHASE == 0d0) {
+                    if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P1) {
+                        hint_phase(BOSS.HINT_TIMER_P1, BOSS.TIMER_P1);
+
+                        if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                            next_phase(); // phase 1
+
+                            add_raptors();
+                        }
+                    }
+                } else if(BOSS.PHASE == 0d1) {
+                    if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P2) {
+                        hint_phase(BOSS.HINT_TIMER_P2, BOSS.TIMER_P2);
+
+                        if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                            next_phase(); // phase 2
+
+                            add_rimsala();
+                        }
+                    }
+                } else if(BOSS.PHASE == 0d2) {
+                    if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P3) {
+                        hint_phase(BOSS.HINT_TIMER_P3, BOSS.TIMER_P3);
+
+                        if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                            next_phase();
+
+                            BOSS.BOSS_HIDDEN = True;
+                            add_boy();
+                        }
+                    }
+                } else if(BOSS.PHASE == 0d3) {
+                    if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P4) {
+                        hint_phase(BOSS.HINT_TIMER_P4, BOSS.TIMER_P4);
+
+                        if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                            next_phase();
+
+                            update_wall({
+                                ROOM.WALL_STATE = WALL_STATE.SWITCHES_4;
+                                ROOM.SWITCH_AREA_VENTING = True;
+                            });
+
+                            BOSS.BOSS_HIDDEN = True;
+                            
+                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.SPEAR_TOSS;
+                            hint(PRESS_R);
+
+                            add_dog();
+                        }
+                    }
+                } else if(BOSS.PHASE == 0d4) {
+                    if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P5) {
+                        hint_phase(BOSS.HINT_TIMER_P5, BOSS.TIMER_P5);
+
+                        if((_dead(BOSS.TRASH_ID)) || (BOSS.TRASH_ID == 0d0)) {
+                            CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.NORMAL;
+
+                            next_phase();
+
+                            update_wall({
+                                ROOM.WALL_STATE = WALL_STATE.SWITCHES_8;
+                                ROOM.SWITCH_AREA_VENTING = False;
+                            });
+
+                            BOSS.BOSS_HIDDEN = False;
+                            enrage_carltron();
+                        }
+                    }
+                } else {
+                    if(BOSS.TIMER_COUNTER >= BOSS.TIMER_P6) {
+                        hint_phase(BOSS.HINT_TIMER_P6, BOSS.TIMER_P6);
+
+                        if((_dead(BOSS.ID)) || (BOSS.ID == 0d0)) {
+                            update_wall({
+                                ROOM.WALL_STATE = WALL_STATE.OPEN;
+                            });
+
+                            boss_defeated();
+
+                            while(True) {
+                                if(<BOY>[Y] <= 0d51) {
+                                    walk(BOY, TILE_ABSOLUTE, 0d20, 0d6, BOY, NONE);
+
+                                    fade_out();
+
+                                    walk(BOY, TILE_RELATIVE_DIRECT, 0d0, -0d1, BOY, NONE);
+
+                                    outro();
+
+                                    end();
+                                }
+
+                                yield();
+                            }
+                        }
+                    }
+                }
+
+                if(ROOM.SWITCH_AREA_ENTERED) {
+                    ROOM.SWITCH_AREA_TIMER++;
+
+                    if(ROOM.SWITCH_AREA_TIMER > ROOM.SWITCH_AREA_TILT_THRESHOLD) {
+                        update_wall({
+                            ROOM.SWITCH_AREA_TILT = True;
+                            switch_tilt(True);
+                            yield();
+                        });
+
+                        while(ROOM.SWITCH_AREA_TIMER > 0d0) {
+                            ROOM.SWITCH_AREA_TIMER--;
+
+                            if(ROOM.SWITCH_AREA_ENTERED) {
+                                teleport_relative(BOY, 0d0, 0d4);
+                            } else {
+                                teleport_relative(BOY, 0d0, 0d2);
+                            }
+
+                            yield();
+                        }
+
+                        update_wall({
+                            ROOM.SWITCH_AREA_TILT = False;
+                            switch_tilt(False);
+                            yield();
+                        });
+                    }
+                } else if(ROOM.SWITCH_AREA_TIMER > 0d0) {
+                    ROOM.SWITCH_AREA_TIMER--;
+                }
+
+                yield();
+
+                if(BOSS.DEBUG && BOSS.DEBUG_PHASE) {
+                    BOSS.TIMER_RAW++;
+                    if(BOSS.TIMER_RAW > 0d60) {
+                        BOSS.TIMER_RAW = 0d0;
+
+                        MEMORY.STRING_PARAMETER_1 = BOSS.PHASE;
+                        MEMORY.STRING_PARAMETER_2 = BOSS.TIMER_COUNTER;
+                        MEMORY.STRING_PARAMETER_3 = ROOM.SWITCH_AREA_TIMER;
+                        debug_subtext("phase = [MEM1] / [MEM2] / [MEM3]");
+                    }
+                }
+            }
+        }
+        fun bunny_hop(x, y) {
+            <SCRIPT_OWNER>[VELOCITY] = 0d30 + randrange(0d10);
+            yield();
+
+            if((randrange(0d5) == 0d0) || (BOSS.BUNNY_HOP_AIMBOT)) {
+                while(<SCRIPT_OWNER>[Z] != 0d0) {
+                    if(<SCRIPT_OWNER>[X] < <BOY>[X]) {
+                        teleport_relative(SCRIPT_OWNER, 0d1, 0d0);
+                    } else {
+                        teleport_relative(SCRIPT_OWNER, -0d1, 0d0);
+                    }
+
+                    if(<SCRIPT_OWNER>[Y] < <BOY>[Y]) {
+                        teleport_relative(SCRIPT_OWNER, 0d0, 0d1);
+                    } else {
+                        teleport_relative(SCRIPT_OWNER, 0d0, -0d1);
+                    }
+
+                    yield();
+                }
+            } else {
+                while(<SCRIPT_OWNER>[Z] != 0d0) {
+                    if(<SCRIPT_OWNER>[X] < x) {
+                        teleport_relative(SCRIPT_OWNER, 0d1, 0d0);
+                    } else {
+                        teleport_relative(SCRIPT_OWNER, -0d1, 0d0);
+                    }
+
+                    if(<SCRIPT_OWNER>[Y] < y) {
+                        teleport_relative(SCRIPT_OWNER, 0d0, 0d1);
+                    } else {
+                        teleport_relative(SCRIPT_OWNER, 0d0, -0d1);
+                    }
+
+                    yield();
+                }
+            }
+        }
+        fun bunny_hop_landing() {
+            face_target(SCRIPT_OWNER, BOY);
+            if(False) {
+                debug_memory(<SCRIPT_OWNER>[FACE_DIRECTION]);
+            }
+
+            if(<SCRIPT_OWNER>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+            // if((<BOY>[Y] > <SCRIPT_OWNER>[Y]) && (<BOY>[X] > (<SCRIPT_OWNER>[X] - 0d50)) && (<BOY>[X] < (<SCRIPT_OWNER>[X] + 0d50))) {
+                face(SCRIPT_OWNER, SOUTH);
+                shoot_entity_offset_relative(<SCRIPT_OWNER>, MISSILE, 0d0, 0d30, 0d0, 0d100, 0d10, 0d0);
+            }
+
+            bomb_entity(<SCRIPT_OWNER>, 0d50);
+        }
+        @install()
+        @async()
+        fun add_carltron() {
+            add_enemy(CARLTRON_ROBOT, ROOM.SQUARE_5_X, ROOM.SQUARE_5_Y);
+            BOSS.ID = <LAST_ENTITY>;
+            attach_to_script(LAST_ENTITY);
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            yield();
+            attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
+                // if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == CHARACTER_ADDRESS.BOY) {
+                if(<SCRIPT_OWNER>[DAMAGE_SOURCE] == CHARACTER_ADDRESS.BOY) {
+                    arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
+
+                    face_target(SCRIPT_OWNER, arg[0x10]);
+                    arg[0x12] = <SCRIPT_OWNER>[FACE_DIRECTION];
+
+                    if(arg[0x12] == FACE_DIRECTION.NORTH) {
+                        subtext("!");
+                    } else {
+                        shield_hit(BOSS.SHIELD_HITS_BOY, True);
+                    }
+                } else {
+                    shield_hit(BOSS.SHIELD_HITS_BOY, True);
+                }
+            }));
+
+            boss_ai();
+
+            if!(BOSS.WITH_BUNNY_HOP) {
+                end();
+            }
+
+            arg[0x14] = <SCRIPT_OWNER>[X];
+            arg[0x16] = <SCRIPT_OWNER>[Y];
+
+            while(alive(BOSS.ID)) {
+                while(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED) {
+                    sleep(0d10);
+                }
+
+                bunny_hop(arg[0x14], arg[0x16]);
+
+                bunny_hop_landing();
+
+                if!(BOSS.BUNNY_HOP_AIMBOT) {
+                    arg[0x10]++;
+                    if(arg[0x10] == BOSS.BUNNY_HOP_AIMBOT_COUNT) {
+                        BOSS.BUNNY_HOP_AIMBOT = True;
+
+                        if(BOSS.DEBUG) {
+                            MEMORY.STRING_PARAMETER_1 = BOSS.BUNNY_HOP_AIMBOT;
+                            debug_subtext("bunny hop aimbot [MEM1]");
+                        }
+                    }
+                } else {
+                    if(arg[0x10] > 0d2) {
+                        arg[0x10] -= 0d2;
+                    } else {
+                        arg[0x10] = 0d0;
+                    }
+                    
+                    if(arg[0x10] == 0d0) {
+                        BOSS.BUNNY_HOP_AIMBOT = False;
+
+                        if(BOSS.DEBUG) {
+                            MEMORY.STRING_PARAMETER_1 = BOSS.BUNNY_HOP_AIMBOT;
+                            debug_subtext("bunny hop aimbot [MEM1]");
+                        }
+                    }
+                }
+
+                arg[0x14] = <BOY>[X];
+                arg[0x16] = <BOY>[Y];
+
+                if(BOSS.BOSS_HIDDEN) {
+                    arg[0x18] = BOSS.ID[X];
+                    arg[0x1a] = BOSS.ID[Y];
+
+                    show_boss(False, 0d0, 0d0);
+
+                    while(BOSS.BOSS_HIDDEN) {
+                        yield();
+                    }
+
+                    show_boss(True, arg[0x18], arg[0x1a]);
+                }
+            }
+        }
+    };
+
+    fun trigger_enter() {
+        CUSTOM_FLAG.NO_DOG = True;
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_center, NONE);
+            });
+        }));
+
+        add_carltron();
+        
+        add_bombs(); // phase 0
+        // add_raptors(); // phase 1
+        // add_rimsala(); // phase 2
+        // add_dog(); // phase 4
+        // enrage_carltron(); // phase 5
+
+        update_wall({
+            ROOM.WALL_STATE = WALL_STATE.SWITCHES_8;
+        });
+
+        if(BOSS.DEBUG && BOSS.DEBUG_CHEATS) {
+            unlock(SPEAR_4);
+            yield();
+            unlock(JAGUAR_RING);
+            // unlock(WEAPONS);
+            <BOY>[HP] = SYSTEM.HP_MAX;
+            attribute(BOY, INVINCIBLE_TEMP, True);
+
+            MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+        }
+    }
+};

@@ -1,0 +1,194 @@
+map town_level_1(IVOR_EBON_2) {
+    enum ROOM {
+        WITH_CLOSED_GATE = True,
+        GATE_OPENED = AREA_TOWN_TEMPLE.GATE_OPENED,
+        GATE_OPEN = memory(FLAG, TEMP),
+
+        BEE_COLLECTED = memory(FLAG, SRAM),
+
+        TOWN_HOUSE_MAGGY_DOOR_OPENED = memory(FLAG, SRAM),
+    }
+
+    enum entrance {
+        north = entrance(0x40, 0x0b, SOUTH),
+        north_closed = entrance(0x40, 0d16, SOUTH),
+        south = entrance(0x20, 0x77, NORTH),
+
+        door_1_1_left = entrance(0x2c, 0x63, SOUTH, { generic_object_door(0x03, True, False); }),
+        door_1_1_right = entrance(0x44, 0x63, SOUTH, { generic_object_door(0x02, True, False); }),
+        door_1_2 = entrance(0x74, 0x63, SOUTH),
+        door_1_3 = entrance(0xa2, 0x63, SOUTH),
+        door_1_3_back = entrance(0x92, 0x4b, WEST),
+        door_2_1 = entrance(0x8e, 0x29, SOUTH, { generic_object_door(0x01, True, False); }),
+        door_2_1_back = entrance(0xb7, 0x1f, EAST),
+
+        crash = entrance(0x5d, 0x5d, NONE, { crash_both(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+    }
+
+    enum stepon_trigger {
+        gate = @install() {
+            debug_subtext("S=0");
+
+            if(ROOM.WITH_CLOSED_GATE) {
+                if!(ROOM.GATE_OPENED || ROOM.GATE_OPEN) {
+                    error_message(DOOR_WRONG_SIDE);
+                }
+            }
+        },
+        door_1_1_left = @install() {
+            debug_subtext("S=1");
+
+            if!(SOULS_MEMORY.SMITH_KEY) {
+                error_message(DOOR_LOCKED, SOUTH);
+            } else {
+                generic_object_door(0x03, False, False);
+                map_transition(town_inn, door_left, NORTH);
+            }
+        },
+        door_1_1_right = @install() {
+            debug_subtext("S=2");
+
+            if(False) {
+                error_message(DOOR_LOCKED, SOUTH);
+            } else {
+                generic_object_door(0x02, False, False);
+                map_transition(town_inn, door_right, NORTH);
+            }
+        },
+        door_1_2 = @install() {
+            debug_subtext("S=3");
+
+            error_message(DOOR_LOCKED, SOUTH);
+        },
+        door_1_3 = @install() {
+            debug_subtext("S=4");
+
+            error_message(DOOR_LOCKED, SOUTH);
+        },
+        door_2_1 = @install() fun trigger_door_town_house_maggy() {
+            debug_subtext("S=5");
+
+            bombable_trigger(FLAG.QUEENS_KEY, ROOM.TOWN_HOUSE_MAGGY_DOOR_OPENED, ((DIRECTION.SOUTH << 0x0008) | ERROR_TYPE.DOOR_LOCKED), {
+                generic_object_door(0x01, False, False);
+                map_transition(town_house_maggy, door, NORTH);
+            }, 0x01, 0x01);
+        },
+        exit_south = @install() {
+            debug_subtext("S=6");
+
+            map_transition(town_center, north, SOUTH);
+        },
+        stepon_7 = @install() {
+            debug_subtext("S=7");
+        },
+        exit_north = @install() {
+            debug_subtext("S=8");
+
+            map_transition(town_level_2, south, NORTH);
+        },
+        door_2_1_back = @install() {
+            debug_subtext("S=9");
+
+            if(False) {
+                error_message(DOOR_WRONG_SIDE, EAST);
+            } else {
+                map_transition(town_house_maggy, door_backroom, NONE);
+            }
+        },
+
+        door_1_3_back = @install() {
+            debug_subtext("S=10");
+
+            if(AREA_TOWN_TEMPLE.SECRET_PASSAGE_2_OPENED) {
+                fog_wall_outside(SOULS_MEMORY.PROGRESS_NARIS, WEST);
+                
+                map_transition(temple_underground_castle_south_east, east, NONE);
+            } else {
+                error_message(DOOR_WRONG_SIDE, WEST);
+            }
+        },
+    }
+
+    fun trigger_enter() {
+        add_bombable(0d142, 0d46, ROOM.TOWN_HOUSE_MAGGY_DOOR_OPENED, reference(trigger_door_town_house_maggy));
+
+        if(ROOM.WITH_CLOSED_GATE) {
+            if(ROOM.GATE_OPENED) {
+                object[0x00] = 0x7e; // open gate
+            } else {
+                add_bombable(0d64, 0d22, ROOM.GATE_OPENED, reference(@install() {
+                    bombable_object(DEFAULT, True, False, 0x00, 0x7e);
+                    ROOM.GATE_OPEN = True;
+                }));
+            }
+        } else {
+            object[0x00] = 0x7e; // open gate
+        }
+
+        // object[0x01] = 0x01; // open door_2_1
+        // object[0x02] = 0x01; // open door_1_1_right
+        // object[0x03] = 0x01; // open door_1_1_left
+        // object[0x04] = 0x01; // replace flower_gate_1 (scrub)
+        // object[0x05] = 0x01; // open door_2_1_back AND replace flower_gate_2 (scrub)
+        // object[0x06] = 0x01; // replace flower_gate_3 (scrub)
+        // object[0x07] = 0x01; // replace flower_gate_4 (scrub)
+        // object[0x08] = 0x01; // replace flower_gate_stairs_1 (scrub)
+        // object[0x09] = 0x01; // replace flower_gate_stairs_2 (scrub)
+        // object[0x0a] = 0x01; // replace flower_gate_stairs_3 (scrub)
+        // object[0x0b] = 0x01; // replace flower_gate_stairs_4 (scrub)
+        // object[0x0c] = 0x01; // replace flower_gate_stairs_bed_1 (scrub)
+        // object[0x0d] = 0x01; // replace flower_gate_stairs_bed_2 (scrub)
+        // object[0x0e] = 0x01; // replace flower_gate_stairs_bed_3 (scrub)
+        // object[0x0f] = 0x01; // replace door_2_1_flower_1 (scrub)
+        // object[0x10] = 0x01; // replace door_2_1_flower_2 (scrub)
+        // object[0x11] = 0x01; // replace door_2_1_flower_3 (scrub)
+        // object[0x12] = 0x01; // replace door_2_1_flower_4 (scrub)
+        // object[0x13] = 0x01; // replace door_2_1_flower_5 (scrub)
+        // object[0x14] = 0x01; // replace stairs_lower_1 (scrub)
+        // object[0x15] = 0x01; // replace stairs_lower_2 (scrub)
+        // object[0x16] = 0x01; // replace stairs_lower_3 (scrub)
+        // object[0x17] = 0x01; // replace door_1_3_flower_1 (scrub)
+        // object[0x18] = 0x01; // replace door_1_2_flower_2 (scrub)
+        // object[0x19] = 0x01; // replace door_1_2_flower_4 (scrub)
+        // object[0x1a] = 0x01; // replace door_1_2_flower_3 (scrub)
+        // object[0x1b] = 0x01; // replace door_1_2_flower_2 (scrub)
+        // object[0x1c] = 0x01; // replace door_1_2_flower_1 (scrub)
+        // object[0x1d] = 0x01; // replace door_1_1_flower_2 (scrub)
+        // object[0x1e] = 0x01; // replace door_1_1_flower_1 (scrub)
+        // object[0x1f] = 0x01; // replace door_1_2_flower_5 (scrub)
+        object[0x20] = 0x02; // change door_1_2 (closed, open, barricaded)
+        object[0x21] = 0x02; // change door_1_3 (closed, open, barricaded)
+        // object[0x22] = 0x01; // close door_1_3_back (closed, open, barricaded)
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // lower gate
+            add_basic_souls_enemy(PIRATE_ANCHOR, 0d19, 0d85);
+
+            // lower houses
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d134, 0d102);
+            add_basic_souls_enemy(MAGGOT_RED, 0d133, 0d74);
+
+            // lower stairs
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d191, 0d82);
+            
+            // lower houses
+            add_basic_souls_enemy(PIRATE_ANCHOR, 0d188, 0d51);
+
+            // upper stairs
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d70, 0d52);
+
+            // upper gate
+            add_basic_souls_enemy(PIRATE_ANCHOR, 0d64, 0d34);
+        }
+
+        add_bee(0d94, 0d76, reference(@install() {
+            bee_collected(ROOM.BEE_COLLECTED);
+        }), ROOM.BEE_COLLECTED);
+
+        default_init_room(False, False);
+    }
+};

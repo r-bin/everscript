@@ -1,0 +1,316 @@
+map arena_trap_rimsala(RAPTORS) {
+    // sniff=vanilla
+    
+    enum entrance {
+        north = entrance(0x1b, 0x03, SOUTH),
+        south = entrance(0x1d, 0x33, NORTH),
+
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE),
+    }
+
+    enum soundtrack {
+        default = soundtrack(BOSS_JUNGLE, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            DEBUG = False,
+            DEBUG_CHARGE_BOY = False,
+            DEBUG_CHARGE_BOSS = False,
+
+            ID = memory(WORD, TEMP),
+
+            PROGRESS = memory(FLAG, TEMP),
+
+            HP = 0d500,
+
+            STUCK = memory(FLAG, TEMP),
+            CHARGING = memory(WORD, TEMP),
+
+            PALETTE_DONOR_BOY = memory(WORD, TEMP),
+            PALETTE_DONOR_DOG = memory(WORD, TEMP),
+
+            PALETTE_BOY = memory(WORD, TEMP),
+            PALETTE_DOG = memory(WORD, TEMP),
+            PALETTE_BOY_DONOR = memory(WORD, TEMP),
+            PALETTE_DOG_DONOR = memory(WORD, TEMP),
+
+            ENTITY_NORTH_WEST = memory(WORD, TEMP),
+            ENTITY_NORTH_EAST = memory(WORD, TEMP),
+            ENTITY_SOUTH_WEST = memory(WORD, TEMP),
+            ENTITY_SOUTH_EAST = memory(WORD, TEMP),
+        }
+
+        fun boss_defeated() {
+            souls_boss_defeated_helper(TRAP_RIMSALA);
+
+            BOSS.PROGRESS = False;
+
+            map_transition(ship, swirl, NONE);
+        }
+
+        @install()
+        fun update_palette() {
+            if(BOSS.DEBUG && BOSS.DEBUG_CHARGE_BOY) {
+                debug_memory(<BOY>[GENERAL_PURPOSE]);
+            }
+            if(BOSS.DEBUG && BOSS.DEBUG_CHARGE_BOSS) {
+                debug_memory(BOSS.ID[GENERAL_PURPOSE]);
+            }
+
+            while(<BOY>[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                yield();
+            }
+            yield();
+
+            if(<BOY>[GENERAL_PURPOSE] >= 0d10) {
+                <BOY>[PALETTE] = BOSS.PALETTE_BOY_DONOR;
+            } else if(<BOY>[GENERAL_PURPOSE] <= 0d5) {
+                <BOY>[PALETTE] = BOSS.PALETTE_BOY;
+            }
+
+            if(BOSS.ID[GENERAL_PURPOSE] >= 0d10) {
+                BOSS.ID[PALETTE] = BOSS.PALETTE_DOG_DONOR;
+            } else if(BOSS.ID[GENERAL_PURPOSE] <= 0d5) {
+                BOSS.ID[PALETTE] = BOSS.PALETTE_DOG;
+            }
+        }
+
+        @install()
+        @async()
+        fun decay_charge() {
+            while(alive(BOSS.ID)) {
+                if(<BOY>[GENERAL_PURPOSE] > 0d0) {
+                    <BOY>[GENERAL_PURPOSE]--;
+                }
+                if(BOSS.ID[GENERAL_PURPOSE] > 0d0) {
+                    BOSS.ID[GENERAL_PURPOSE]--;
+                }
+
+                update_palette();
+
+                // debug_memory(<BOY>[PALETTE] & 0xff00, BOSS.PALETTE_BOY_DONOR & 0xff00);
+                // if((<BOY>[PALETTE] & 0xff00) == (BOSS.PALETTE_BOY_DONOR & 0xff00)) {
+                if(<BOY>[PALETTE] == BOSS.PALETTE_BOY_DONOR) {
+                    if(False) {
+                        if(<BOY>[HP] > 0d2) {
+                            damage(BOY, 0d2, True, True);
+                        } else {
+                            damage(BOY, <BOY>[HP] - 0d1, True, True);
+                        }
+                    } else {
+                        damage(BOY, 0d2, True, True);
+                    }
+                }
+                if(BOSS.ID[PALETTE] == BOSS.PALETTE_DOG_DONOR) {
+                    damage(BOSS.ID, 0d2, True);
+                }
+
+                sleep(0d120);
+            }
+        }
+        @install()
+        @async()
+        fun cheese_protection() {
+            while(alive(BOSS.ID)) {
+                sleep(0d120);
+
+                if(BOSS.CHARGING) {
+                    while(BOSS.CHARGING) {
+                        sleep(0d30);
+                    }
+
+                    sleep(0d120);
+                }
+
+                if((arg[0x10] == BOSS.ID[X]) && (arg[0x12] == BOSS.ID[Y])) {
+                    BOSS.STUCK = True;
+
+                    if!(BOSS.ID[PALETTE] == BOSS.PALETTE_DOG_DONOR) {
+                        cast(BOSS.ID, BOY, FLASH, 0d1);
+                    } else {
+                        cast(BOSS.ID, BOY, FIREBALL, 0d1);
+                    }
+                } else {
+                    BOSS.STUCK = False;
+                }
+
+                arg[0x10] = BOSS.ID[X];
+                arg[0x12] = BOSS.ID[Y];
+            }
+        }
+
+        fun add_boss(x, y) {
+            add_enemy(RIMSALA_GOLD, x, y);
+            BOSS.ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+                if(alive(<SCRIPT_OWNER>)) {
+                    if(<SCRIPT_OWNER>[PALETTE] == BOSS.PALETTE_DOG_DONOR) {
+                        heal(BOSS.ID, 0d10, True);
+                    }
+                    if(<BOY>[PALETTE] == BOSS.PALETTE_BOY_DONOR) {
+                        damage(BOSS.ID, 0d20, True);
+                    }
+                } else {
+                    boss_defeated();
+                }
+            }));
+        }
+
+        fun add_charging_stations() {
+            add_enemy(PLACEHOLDER, 0d18, 0d23);
+            BOSS.ENTITY_NORTH_WEST = <LAST_ENTITY>;
+            add_enemy(PLACEHOLDER, 0d40, 0d25);
+            BOSS.ENTITY_NORTH_EAST = <LAST_ENTITY>;
+            add_enemy(PLACEHOLDER, 0d19, 0d38);
+            BOSS.ENTITY_SOUTH_WEST = <LAST_ENTITY>;
+            add_enemy(PLACEHOLDER, 0d40, 0d41);
+            BOSS.ENTITY_SOUTH_EAST = <LAST_ENTITY>;
+        }
+
+        fun add_palette_donors() {
+            add_enemy(BOY_BLACK, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+            BOSS.PALETTE_DONOR_BOY = <LAST_ENTITY>;
+            add_enemy(RIMSALA, 0d00, 0d00, INVISBLE_INVINCIBLE_INACTIVE);
+            BOSS.PALETTE_DONOR_DOG = <LAST_ENTITY>;
+
+            BOSS.PALETTE_BOY = <BOY>[PALETTE];
+            BOSS.PALETTE_DOG = BOSS.ID[PALETTE];
+            BOSS.PALETTE_BOY_DONOR = BOSS.PALETTE_DONOR_BOY[PALETTE];
+            BOSS.PALETTE_DOG_DONOR = BOSS.PALETTE_DONOR_DOG[PALETTE];
+        }
+
+        fun find_nearest_bush(out_memory) {
+            if((BOSS.ID[X] < (0d30 << 0d0003)) && ((BOSS.ID[Y] < (0d30 << 0d0003)))) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("north west");
+                }
+
+                out_memory = BOSS.ENTITY_NORTH_WEST;
+            } else if((BOSS.ID[X] >= (0d30 << 0d0003)) && ((BOSS.ID[Y] < (0d32 << 0d0003)))) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("north east");
+                }
+
+                out_memory = BOSS.ENTITY_NORTH_EAST;
+            } else if((BOSS.ID[X] < (0d30 << 0d0003)) && ((BOSS.ID[Y] >= (0d30 << 0d0003)))) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("south west");
+                }
+
+                out_memory = BOSS.ENTITY_SOUTH_WEST;
+            } else { // if((BOSS.ID[X] < (0d30 << 0d0003)) && ((BOSS.ID[Y] >= (0d32 << 0d0003)))) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("south east");
+                }
+
+                out_memory = BOSS.ENTITY_SOUTH_EAST;
+            }
+        }
+        fun charge_beam(source) {
+            while(_alive(BOSS.ID) && (BOSS.ID[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) && (!(BOSS.ID[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                sound(TESLA);
+
+                arg[0x10] = False;
+                arg[0x12] = False;
+
+                if(BOSS.ID[X] > source[X]) {
+                    if((<BOY>[X] < BOSS.ID[X]) && (<BOY>[X] > source[X])) {
+                        arg[0x10] = True;
+                    }
+                } else {
+                    if((<BOY>[X] > BOSS.ID[X]) && (<BOY>[X] < source[X])) {
+                        arg[0x10] = True;
+                    }
+                }
+
+                if(BOSS.ID[Y] > source[Y]) {
+                    if((<BOY>[Y] < BOSS.ID[Y]) && (<BOY>[Y] > source[Y])) {
+                        arg[0x12] = True;
+                    }
+                } else {
+                    if((<BOY>[Y] > BOSS.ID[Y]) && (<BOY>[Y] < source[Y])) {
+                        arg[0x12] = True;
+                    }
+                }
+
+                if!((arg[0x10] == True) && (arg[0x12] == True)) {
+                    arg[0x16] = BOSS.ID;
+                } else {
+                    arg[0x16] = <BOY>;
+                }
+
+                shoot_entity_entity(source, LIGHTNING, arg[0x16], 0d2, 0d0);
+
+                if(arg[0x16][GENERAL_PURPOSE] < 0d100) {
+                    arg[0x16][GENERAL_PURPOSE]++;
+
+                    BOSS.CHARGING = arg[0x16];
+                }
+
+                update_palette();
+
+                sleep(0d30);
+            }
+        }
+        @install()
+        @async()
+        fun boss_loop() {
+            while(alive(BOSS.ID)) {
+                animate(BOSS.ID, LOOP, DEFAULT);
+
+                find_nearest_bush(arg[0x14]);
+                
+                BOSS.CHARGING = True;
+                charge_beam(arg[0x14]);
+                BOSS.CHARGING = 0x0000;
+                
+                if(False) {
+                    sleep(0d300);
+                }
+                animate(BOSS.ID, ONCE, DEFAULT);
+
+                sleep(0d600);
+            }
+        }
+    };
+
+    fun trigger_enter() {
+        close_exits(True);
+
+        default_init_room(False, False);
+
+        if!(SOULS_MEMORY.DEAD_TRAP_RIMSALA) {
+            <BOY>[GENERAL_PURPOSE] = 0d0;
+            <DOG>[GENERAL_PURPOSE] = 0d0;
+
+            add_boss(0d24, 0d30);
+            add_palette_donors();
+            add_charging_stations();
+
+            cheese_protection();
+            decay_charge();
+
+            boss_loop();
+        }
+    }
+};

@@ -1,0 +1,394 @@
+map desert_temple_main(HALLS_NE) {
+    enum entrance {
+        west_1 = entrance(0x0d, 0x9f, EAST),
+
+        west_2 = entrance(0d4, 0d46, EAST),
+
+        bonfire = entrance(0d23, 0d46, NONE, { bonfire_wakeup(-0d24, -0d8, -0d24, 0d16); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_DESERT_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+        DEBUG_OCCULTIST = True,
+
+        SECRET_PASSAGE_1_STONE_TOP = memory(WORD, TEMP),
+        SECRET_PASSAGE_1_STONE_BOTTOM = memory(WORD, TEMP),
+
+        SECRET_PASSAGE_1_OPENED = memory(FLAG, SRAM),
+        SECRET_PASSAGE_2_OPENED = memory(FLAG, SRAM),
+
+        SWITCH_1_ACTIVE = memory(FLAG, TEMP),
+        SWITCH_2_ACTIVE = memory(FLAG, SRAM),
+        
+        BRIDGE_ACTIVE = memory(FLAG, SRAM),
+
+        BRIDGE_REVEALED = memory(FLAG, SRAM),
+
+        OCCULTIST_COUNT = memory(WORD, TEMP),
+        OCCULTIST_HP = 0d100,
+        OCCULTIST_RANGE = 0x60,
+    }
+
+    fun times_gate_switch(flag, switch_id, gate_id, time) {
+        object_animator(SWITCH_GROUND_HALLS, False, switch_id, True, False);
+        object_animator(GATE_HALLS, False, gate_id, True, False);
+        flag = True;
+
+        if(time is Word) {
+            while(arg[0x10] < time) {
+                arg[0x10]++;
+
+                yield();
+            }
+
+            object_animator(SWITCH_GROUND_HALLS, False, switch_id, False, False);
+            object_animator(GATE_HALLS, False, gate_id, False, False);
+            flag = False;
+        }
+    }
+    fun spear_switch_triggered() {
+        ROOM.BRIDGE_ACTIVE = True;
+
+        object_animator(SWITCH_SPEAR_HALLS, False, 0x00, True, False);
+        object_animator(BRIDGE_HALLS, False, 0x01, True, False);
+    }
+
+    @install()
+    fun pit_triggered() {
+        // debug_subtext("pit triggered");
+
+        guard_z();
+        
+        generic_fall(0d150, 0d720);
+
+        dust_unreachable(0d34, 0d71);
+        damage(BOTH, 0d999, True);
+        sleep(0d30);
+        damage(BOTH, SYSTEM.HP_MAX, False);
+    }
+    @install()
+    fun pit2_triggered() {
+        // debug_subtext("pit2 triggered");
+
+        guard_z();
+        
+        generic_fall(0d150, 0d720);
+
+        dust_unreachable(0d122, 0d73);
+        damage(BOTH, 0d999, True);
+        sleep(0d30);
+        damage(BOTH, SYSTEM.HP_MAX, False);
+    }
+
+    enum stepon_trigger {
+        spear_check = @install() {
+            debug_subtext("S=0");
+
+            if!(ROOM.BRIDGE_ACTIVE) {
+                guard_spear_2(SOUTH);
+
+                spear_switch_triggered();
+            }
+        },
+        pit_left_3 = pit_triggered(),
+        pit_right_1 = pit2_triggered(),
+        pit_right_2 = pit2_triggered(),
+        pit_left_1 = pit_triggered(),
+        pit_left_2 = pit_triggered(),
+        exit_west = @install() {
+            debug_subtext("S=6");
+
+            map_transition(desert_temple_stairs, door_upstairs, WEST);
+        },
+        retreat_bridge = @install() {
+            debug_subtext("S=7");
+        },
+        switch_ground_1 = @install() {
+            debug_subtext("S=8");
+
+            times_gate_switch(ROOM.SWITCH_1_ACTIVE, 0x05, 0x07, 0d0012 * 0d60);
+        },
+        switch_ground_2 = @install() {
+            debug_subtext("S=9");
+
+            times_gate_switch(ROOM.SWITCH_2_ACTIVE, 0x04, 0x06);
+        },
+
+        approach_bridge = @install() {
+            debug_subtext("S=10");
+        },
+        secret_passage_entrance_2 = @install() {
+            debug_subtext("S=11");
+        },
+        secret_passage_entrance_1 = @install() {
+            debug_subtext("S=12");
+
+            if!(ROOM.SECRET_PASSAGE_1_OPENED) {
+                subtext("A trap has been triggered");
+
+                face(ACTIVE, WEST);
+                damage(ACTIVE, 0d5, True);
+            }
+        },
+        alchemist_top_2 = @install() {
+            debug_subtext("S=13");
+        },
+        alchemist_top_1 = @install() {
+            debug_subtext("S=14");
+        },
+        alchemist_bottom = @install() {
+            debug_subtext("S=15");
+        },
+        secret_passage_top = @install() {
+            debug_subtext("S=16");
+        },
+        secret_passage_balcony = @install() {
+            debug_subtext("S=17");
+        },
+    }
+
+    @install()
+    @async()
+    fun entity_general_purpose_check(entity) {
+        while(entity[GENERAL_PURPOSE] == 0x00) {
+            yield();
+        }
+
+        map_transition(gourd_trap_poodle, north, NONE);
+    }
+
+    enum b_trigger {
+        gourd_north__4_wax = @install() {
+            debug_subtext("B=0");
+            _loot_chest(0x0d, LIMESTONE_TABLET, 0d01);
+        },
+        gourd_center__6_ash = @install() {
+            debug_subtext("B=1");
+            
+            <ACTIVE>[GENERAL_PURPOSE] = 0x00;
+            gourd_trap(0x0c, <ACTIVE>, 0d48, 0d62);
+            entity_general_purpose_check(<ACTIVE>);
+            // _loot_chest(0x0c, ASH, 0d06);
+        },
+        gourd_alchemist_2__5_wax = @install() {
+            debug_subtext("B=2");
+            _loot_chest(0x0b, LIMESTONE_TABLET, 0d01);
+        },
+        gourd_alchemist_1__4_brimstone = @install() {
+            debug_subtext("B=3");
+            _loot_chest(0x0a, LIMESTONE_TABLET, 0d01);
+        },
+        bridge_switch = @install() {
+            debug_subtext("B=4");
+
+            if!(ROOM.BRIDGE_ACTIVE) {
+                fake_b();
+
+                spear_switch_triggered();
+            }
+        },
+    }
+
+    @install()
+    @async()
+    fun fake_exit_scanner(entity) {
+        range_checker(entity, <ACTIVE>, 0x20, 0x20, {
+            map_transition(desert, north, WEST);
+        });
+    }
+    @install()
+    @async()
+    fun revealer_approached(entity) {
+        range_checker(entity, <ACTIVE>, 0d45, 0d45, { pit2_triggered(); });
+    }
+
+    @install()
+    @async()
+    fun occultist_scanner(entity) {
+        range_checker(entity, <ACTIVE>, ROOM.OCCULTIST_RANGE, ROOM.OCCULTIST_RANGE, {
+            if(False) {
+                subtext("!");
+            }
+
+            if(randrange(0d2)) {
+                subtext("Who dares disturb our silence?");
+            } else {
+                subtext("Leave us. Or stay…");
+            }
+
+            control(SCRIPT_OWNER, True);
+            face_target(SCRIPT_OWNER, ACTIVE);
+            cast(SCRIPT_OWNER, ACTIVE, FLASH, 0d10);
+            sleep(0d60);
+            control(SCRIPT_OWNER, False);
+
+            sleep(0d360);
+        }, 0d15 + randrange(0d15));
+    }
+
+    fun add_occultist(x, y) {
+        add_enemy(VILLAGER_2_3, x, y);
+        <LAST_ENTITY>[HP] = ROOM.OCCULTIST_HP;
+        attribute(LAST_ENTITY, INVINCIBLE, False);
+
+        occultist_scanner(<LAST_ENTITY>);
+
+        ROOM.OCCULTIST_COUNT++;
+
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+            guard_crush_teleport();
+
+            clean_up(<SCRIPT_OWNER>, {  
+                ROOM.OCCULTIST_COUNT--;
+
+                if!(ROOM.OCCULTIST_COUNT) {
+                    ROOM.SECRET_PASSAGE_1_OPENED = True;
+                    subtext("Somewhere a door has opened.");
+                }
+
+                if(ROOM.DEBUG && ROOM.DEBUG_OCCULTIST) {
+                    debug_memory(ROOM.OCCULTIST_COUNT, ROOM.SECRET_PASSAGE_1_OPENED);
+                }
+            });
+        }));
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // activate bridge_switch
+        // object[0x01] = 0x7e; // activate bridge
+        // 2-3 ?
+        // object[0x04] = 0x01; // activate switch_ground_2
+        // object[0x05] = 0x01; // activate switch_ground_1
+        // object[0x06] = 0x01; // open gate_1
+        // object[0x07] = 0x01; // open gate_2
+        // object[0x08] = 0x01; // show bridge_1
+        // object[0x09] = 0x01; // show bridge_2
+        // object[0x0a] = 0x01; // loot gourd_alchemist_1
+        // object[0x0b] = 0x01; // loot gourd_alchemist_2
+        // object[0x0c] = 0x01; // loot gourd_center
+        // object[0x0d] = 0x01; // loot gourd_north
+
+        if(SOULS_MEMORY.CLEARED_TRAP_POODLE) {
+            object[0x0c] = 0x01; // open gourd_center
+        }
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // gourd
+            add_occultist(0d52, 0d69);
+
+            // east bridge - north
+            add_basic_souls_enemy(MONK, 0d122, 0d65);
+
+            // east bridge - south
+            add_basic_souls_enemy(MONK, 0d110, 0d94);
+
+            add_basic_souls_enemy(MONK, 0d124, 0d131);
+
+            // big room south
+            add_occultist(0d64, 0d170);
+
+            // big room - north
+            add_occultist(0d71, 0d99);
+
+            // big room - south
+            add_occultist(0d71, 0d149);
+
+            // big room - center
+            add_occultist(0d56, 0d139);
+        }
+
+        if(ROOM.BRIDGE_REVEALED) {
+            object_animator(REVEALER, False, 0x08, 0d2, True);
+        } else {
+            add_enemy(REVEALER_TARGET_ENTITY, 0d122, 0d82);
+
+            special_script(REVEALER, reference(@install() {
+                guard_challenge_revealer();
+
+                object_animator(REVEALER, False, 0x08, 0d2, False);
+
+                destroy(SCRIPT_OWNER);
+
+                ROOM.BRIDGE_REVEALED = True;
+            }));
+
+            revealer_approached(<LAST_ENTITY>);
+        }
+
+        if(True) {
+            restore_object_animator(SWITCH_SPEAR_HALLS, ROOM.BRIDGE_ACTIVE, 0x00);
+            restore_object_animator(BRIDGE_HALLS, ROOM.BRIDGE_ACTIVE, 0x01);
+
+            restore_object_animator(SWITCH_GROUND_HALLS, ROOM.SWITCH_2_ACTIVE, 0x04);
+            restore_object_animator(GATE_HALLS, ROOM.SWITCH_2_ACTIVE, 0x06);
+        }
+
+        bonfire(0d23, 0d46, SOULS_MEMORY.BONFIRE_DESERT);
+
+        add_enemy(PLACEHOLDER, 0d4, 0d46);
+        fake_exit_scanner(<LAST_ENTITY>);
+
+        default_init_room(False, False);
+
+        if(False) {
+            if!(ROOM.SECRET_PASSAGE_1_OPENED) {
+                add_vanishing_rock(0d42, 0d145, reference(@install() {
+                    vanishing_stone_triggered(ROOM.SECRET_PASSAGE_1_OPENED);
+                    destroy(ROOM.SECRET_PASSAGE_1_STONE_BOTTOM);
+                }));
+                ROOM.SECRET_PASSAGE_1_STONE_TOP = <LAST_ENTITY>;
+                add_vanishing_rock(0d42, 0d146, reference(@install() {
+                    vanishing_stone_triggered(ROOM.SECRET_PASSAGE_1_OPENED);
+                    destroy(ROOM.SECRET_PASSAGE_1_STONE_TOP);
+                }));
+                ROOM.SECRET_PASSAGE_1_STONE_BOTTOM = <LAST_ENTITY>;
+            }
+        }
+        if!(ROOM.SECRET_PASSAGE_2_OPENED) {
+            add_vanishing_rock(0d140, 0d163, reference(@install() {
+                vanishing_stone_triggered(ROOM.SECRET_PASSAGE_2_OPENED);
+            }));
+        }
+
+        add_placeholder(ANIMATION_ENEMY.KING_ROCKING, 0d182, 0d156);
+        attach_script(LAST_ENTITY, B, reference(@install() {
+            smart_conversation({
+                conversation_question("[SLOW]Can you swim?[CHOICE]yes…[CHOICE]no…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                    teleporter_animation_out(<ACTIVE>);
+                    teleporter_animation_out(<INACTIVE>);
+
+                    map_transition(pyramid, water, NONE);
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // no
+                    arg[0x0e] = randrange(0d3);
+
+                    if(arg[0x0e] == 0d0) {
+                        conversation_dialog("[SLOW]A sphinx is a talking statue.[B]");
+                    } else if(arg[0x0e] == 0d1) {
+                        conversation_dialog("[SLOW]Sphinxes are very elusive and sometimes hard to see.[B]");
+                    } else {
+                        conversation_dialog("[SLOW]It would be hard to find someone talking in the sphinxes tongue.[B]");
+                    }
+                }
+            }, False, NONE);
+        }));
+
+        if(True) {
+            while(True) {
+                if!(<BOY>[CURRENT_GROUND] & 0xff) {
+                    damage(BOY, 0d999, True);
+                }
+                if!(<DOG>[CURRENT_GROUND] & 0xff) {
+                    damage(DOG, 0d999, True);
+                }
+
+                sleep(0d5);
+            }
+        }
+    }
+};

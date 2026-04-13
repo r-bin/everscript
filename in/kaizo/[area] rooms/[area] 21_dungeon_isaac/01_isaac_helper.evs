@@ -1,0 +1,271 @@
+group isaac_helper() {
+    fun prepare_room(index) {
+        if(index == 0x01) {
+            init_map(0x00, 0x00, 0x34, 0x1e); // room_1
+
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0000;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x02c0;
+
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0160;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x02c0;
+            
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0000;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x03e0;
+            
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0190;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x03e0;
+            
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0030;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x03e0;
+            
+            MEMORY.FOREGROUND_OFFSET_X = 0x00c0;
+            MEMORY.FOREGROUND_OFFSET_Y = 0x02c0;
+        } else if(index == 0x02) {
+            init_map(0x38, 0x00, 0x6e, 0x1e); // room 2
+
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0390;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x0180;
+
+            MEMORY.FOREGROUND_OFFSET_X = 0x0280; // custom
+            MEMORY.FOREGROUND_OFFSET_Y = 0x02C0;
+        } else if(index == 0x03) {
+            init_map(0x4c, 0x24, 0x6e, 0x54); // room_3
+
+            MEMORY.FOREGROUND_OFFSET_X = 0x00a0; // custom
+            MEMORY.FOREGROUND_OFFSET_Y = 0x0000;
+        } else if(index == 0x04) {
+            init_map(0x26, 0x24, 0x48, 0x54); // room_4
+
+            MEMORY.FOREGROUND_OFFSET_X = 0x0218; // custom
+            MEMORY.FOREGROUND_OFFSET_Y = 0x0000;
+        } else if(index == 0x05) {
+            init_map(0x00, 0x24, 0x22, 0x54); // room_5
+
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0390;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x0000;
+            
+            MEMORY.FOREGROUND_OFFSET_X = 0x0390;
+            MEMORY.FOREGROUND_OFFSET_Y = 0x0090;
+
+            // MEMORY.FOREGROUND_OFFSET_X = 0x0390;
+            // MEMORY.FOREGROUND_OFFSET_Y = 0x0130;
+        }
+    }
+
+    @install()
+    fun enemies_alive() {
+        MEMORY.STRING_PARAMETER_1 = AREA_BASEMENT.ENEMY_COUNT;
+        MEMORY.STRING_PARAMETER_2 = AREA_BASEMENT.ENEMY_COUNT_TOTAL;
+
+        subtext("[MEM1]/[MEM2] enemies alive.");
+    }
+
+    fun check_exits(clear_flag) {
+        if(AREA_BASEMENT.ENEMY_COUNT > 0d0) {
+            enemies_alive();
+
+            end();
+        } else {
+            clear_flag = True;
+        }
+    }
+
+    fun _add_trap_door(callback, flag, check_exits) {
+        if(check_exits !is None) {
+            check_exits(flag);
+        }
+
+        if(flag) {
+            animation_fall_pit(ACTIVE);
+        
+            callback();
+        }
+    }
+    fun add_trap_door(x, y, trigger) {
+        add_placeholder(ANIMATION_PLACEHOLDER.ELEVATOR, x, y);
+        attach_script(LAST_ENTITY, B, trigger);
+    }
+    
+    @install()
+    fun shoot(entity) {
+        shoot_entity_entity(entity, ONION, BOY, 0x10, 0xff);
+    }
+
+    @install()
+    fun jump(entity) {
+        entity[VELOCITY] = 0x30;
+        
+        while(arg[0x02] <= 0x30) {
+            arg[0x02]++;
+
+            if(entity[X] > <BOY>[X]) {
+                entity[X]--;
+            } else if(entity[X] < <BOY>[X]) {
+                entity[X]++;
+            }
+
+            if(entity[Y] > <BOY>[Y]) {
+                entity[Y]--;
+            } else if(entity[Y] < <BOY>[Y]) {
+                entity[Y]++;
+            }
+
+            sleep(0x02);
+        }
+    }
+
+    @install()
+    @async()
+    fun isaac_ai_shooting(entity) {
+        sleep(0x60);
+
+        while(alive(entity)) {
+            while((entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                yield();
+            }
+
+            shoot(entity);
+            // ai_move_projectile_plus(entity, ONION, 0d130);
+            // ai_move_bomb_toss(entity, ONION, <BOY>);
+
+            sleep(0xa0);
+        }
+    }
+    @install()
+    @async()
+    fun isaac_ai_shooting_plus(entity) {
+        sleep(0d100);
+
+        while(alive(entity)) {
+            while((entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) || (entity[FLAGS_2] & ATTRIBUTE_FLAGS.HEALED)) {
+                yield();
+            }
+
+            // shoot(enemy);
+            ai_move_projectile_plus(entity, ONION, 0d130);
+            // ai_move_bomb_toss(enemy, ONION, <BOY>);
+
+            sleep(0d240);
+        }
+    }
+    @install()
+    @async()
+    fun isaac_ai_jumping(enemy) {
+        sleep(0d100);
+
+        while(alive(enemy)) {
+            // control(enemy, False);
+            jump(enemy);
+            // control(enemy, True);
+
+            sleep(0xf0);
+        }
+    }
+
+    @install()
+    fun isaac_enemy_clean_up() {
+        AREA_BASEMENT.ENEMY_COUNT--;
+
+        // if(AREA_BASEMENT.ENEMY_COUNT == 0x00) {
+        //     AREA_BASEMENT.ENABLE_DOORS = 0x01;
+        // }
+
+        if(AREA_BASEMENT.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = AREA_BASEMENT.ENEMY_COUNT;
+            MEMORY.STRING_PARAMETER_2 = AREA_BASEMENT.ENEMY_COUNT_TOTAL;
+
+            subtext("[MEM1] / [MEM2]");
+        }
+    }
+    @install()
+    fun isaac_enemy_death(without_clean_up) {
+        guard_crush_teleport();
+
+        if!(without_clean_up) {
+            clean_up(<SCRIPT_OWNER>, {
+                isaac_enemy_clean_up();
+            });
+        }
+    }
+    @install()
+    fun isaac_enemy_death_shoot_plus() {
+        isaac_enemy_death(True);
+
+        clean_up(<SCRIPT_OWNER>, {
+            ai_move_projectile_plus(<SCRIPT_OWNER>, ONION, 0d130);
+            
+            isaac_enemy_clean_up();
+        });
+    }
+    @install()
+    fun isaac_enemy_death_shoot_bomb() {
+        isaac_enemy_death(True);
+
+        clean_up(<SCRIPT_OWNER>, {
+            ai_move_bomb_toss(<SCRIPT_OWNER>, ONION, <BOY>);
+            
+            isaac_enemy_clean_up();
+        });
+    }
+    @install()
+    fun isaac_enemy_death_explode() {
+        isaac_enemy_death(True);
+
+        clean_up(<SCRIPT_OWNER>, {
+            ai_move_bomb_enemy(<SCRIPT_OWNER>);
+            
+            isaac_enemy_clean_up();
+        });
+    }
+
+    fun add_isaac_enemy() {
+        AREA_BASEMENT.ENEMY_COUNT_TOTAL++;
+        AREA_BASEMENT.ENEMY_COUNT++;
+    }
+    fun add_isaac_enemy_fly_shooting(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(MOSQUITO, x, y);
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(isaac_enemy_death));
+        isaac_ai_shooting(<LAST_ENTITY>);
+        anti_cheese_mosquito(<LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_fly_exploding(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(MOSQUITO, x, y);
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(isaac_enemy_death_shoot_bomb));
+        anti_cheese_mosquito(<LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_maggot(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(MAGGOT, x, y);
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(isaac_enemy_death));
+    }
+    fun add_isaac_enemy_slime(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(SLIME_GREEN, x, y);
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(isaac_enemy_death));
+        isaac_ai_shooting_plus(<LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_jumper(x, y) {
+        add_isaac_enemy();
+
+        // add_enemy(DANCING_DEVIL_1, x, y);
+        add_enemy(MUMMY, x, y);
+        // add_enemy(FRIPPO, x, y);
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(isaac_enemy_death));
+        // attribute(LAST_ENTITY, ROOT, True);
+        isaac_ai_jumping(<LAST_ENTITY>);
+    }
+    fun add_isaac_enemy_spider(x, y) {
+        add_isaac_enemy();
+
+        add_enemy(SPIDER, x, y);
+        <LAST_ENTITY>[HP] = 0x01;
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(isaac_enemy_death_explode));
+        // isaac_ai_jumping(<LAST_ENTITY>);
+    }
+};

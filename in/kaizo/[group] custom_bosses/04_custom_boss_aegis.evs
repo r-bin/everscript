@@ -1,0 +1,193 @@
+area custom_boss_aegis() {
+    enum BOSS {
+        DEBUG = False,
+
+        MASKLESS_DURATION = 0d600,
+    }
+
+    enum MASK {
+        SUN = 0d0,
+        MOON = 0d1,
+        CAT = 0d2,
+
+        NONE = 0xffff,
+    }
+    
+    @install()
+    fun randomize_mask(entity, mask) {
+        arg[0x10] = 0d5 + randrange(0d100);
+
+        arg[0x14] = 0d100;
+        while(arg[0x10] > 0d0) {
+            guard_dead(entity);
+
+            arg[0x10]--;
+            arg[0x12]++;
+
+            if(arg[0x12] > MASK.CAT) {
+                arg[0x12] = MASK.SUN;
+            }
+
+            if(arg[0x12] == MASK.SUN) {
+                animate(mask, LOOP, ANIMATION_PLACEHOLDER.AEGIS_MASK_1);
+            } else if(arg[0x12] == MASK.MOON) {
+                animate(mask, LOOP, ANIMATION_PLACEHOLDER.AEGIS_MASK_2);
+            } else {
+                animate(mask, LOOP, ANIMATION_PLACEHOLDER.AEGIS_MASK_3);
+            }
+
+            arg[0x14] = (arg[0x14] + arg[0x14] + arg[0x14]) >> 0d2;
+
+            sleep(0d2 + arg[0x14]);
+            sound(CLICK_1);
+        }
+
+        mask[GENERAL_PURPOSE] = arg[0x12];
+
+        entity[GENERAL_PURPOSE] = True;
+        if(BOSS.DEBUG) {
+            debug_memory(entity, entity[GENERAL_PURPOSE]);
+        }
+    }
+    @install()
+    fun remove_mask(entity, mask) {
+        guard_dead(entity);
+
+        sleep(0d60);
+
+        guard_dead(entity);
+
+        animate(mask, ONCE_FREEZE, INVISIBLE_FADE);
+        wait(mask);
+
+        guard_dead(entity);
+
+        mask[GENERAL_PURPOSE] = MASK.NONE;
+
+        entity[GENERAL_PURPOSE] = False;
+        if(BOSS.DEBUG) {
+            debug_memory(entity, entity[GENERAL_PURPOSE]);
+        }
+    }
+
+    @install()
+    @async()
+    fun _add_custom_boss_aegis(x, y, x_mask, y_mask, x_spawn, y_spawn, hp) {
+        add_enemy(AEGIS_ENTITY, x, y);
+        <LAST_ENTITY>[HP] = hp;
+        arg[0x10] = <LAST_ENTITY>;
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+        attach_to_script(LAST_ENTITY);
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(@install() {
+            if(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                sound(WEIRD_SOUND);
+
+                heal(SCRIPT_OWNER, 0d0, False);
+            }
+
+            if(dead(<SCRIPT_OWNER>)) {
+                end();
+            }
+
+            if(<ACTIVE>[Y] >= 0d275) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("center");
+                }
+
+                beam_wall(SOUTH, <BOY>, 0d150, 0d170, 0d360, 0d550, 0d20);
+            } else if(<ACTIVE>[X] < 0d260) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("left");
+                }
+
+                beam_wall(SOUTH, <BOY>, 0d150, 0d170, 0d270, 0d550, 0d20);
+            } else {
+                if(BOSS.DEBUG) {
+                    debug_subtext("right");
+                }
+
+                beam_wall(SOUTH, <BOY>, 0d240, 0d170, 0d360, 0d550, 0d20);
+            }
+
+            if(BOSS.DEBUG) {
+                debug_memory(<SCRIPT_OWNER>, <SCRIPT_OWNER>[GENERAL_PURPOSE]);
+            }
+        }));
+
+        yield();
+
+        add_enemy(PLACEHOLDER, x_mask, y_mask);
+        arg[0x12] = <LAST_ENTITY>;
+
+        while(alive(arg[0x10])) {
+            randomize_mask(arg[0x10], arg[0x12]);
+
+            if(arg[0x10][HP] > 0d300) {
+                arg[0x14] = 0d1;
+            } else {
+                arg[0x14] = 0d2;
+            }
+
+            if(BOSS.DEBUG) {
+                MEMORY.STRING_PARAMETER_1 = arg[0x12][GENERAL_PURPOSE];
+                debug_subtext("mask = [MEM1]");
+            }
+
+            if(arg[0x12][GENERAL_PURPOSE] == MASK.SUN) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("+rat boy");
+                }
+                add_custom_boss_rat_boy(x_spawn, y_spawn, _dead(arg[0x10]), {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("-rat boy");
+                    }
+                }, arg[0x14], 0d100);
+            } else if(arg[0x12][GENERAL_PURPOSE] == MASK.MOON) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("+diablo");
+                }
+                add_custom_boss_diablo(0d35, 0d40, _dead(arg[0x10]), {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("-diablo");
+                    }
+                }, arg[0x14], 0d100);
+            } else if(arg[0x12][GENERAL_PURPOSE] == MASK.CAT) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("+pudge");
+                }
+                add_custom_boss_pudge(x_spawn, y_spawn, _dead(arg[0x10]), {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("-pudge");
+                    }
+                }, arg[0x14], 0d100);
+            }
+
+            // debug_memory(dead(arg[0x10]), _dead(arg[0x10]));
+
+            remove_mask(arg[0x10], arg[0x12]);
+
+            smart_timer(arg[0x16], BOSS.MASKLESS_DURATION, !_dead(arg[0x10]));
+        }
+
+        destroy(arg[0x12]);
+    }
+    
+    fun add_custom_boss_aegis(x, y, flag_dead, callback_dead, x_mask, y_mask, x_spawn, y_spawn, hp) {
+        if!(flag_dead) {
+            play_music(BOSS_DRUMS, False, True);
+
+            _add_custom_boss_aegis(x, y, x_mask, y_mask, x_spawn, y_spawn, hp);
+            yield();
+
+            if(callback_dead is Function) {
+                attach_to_script(LAST_ENTITY);
+
+                while!(dead(<SCRIPT_OWNER>)) {
+                    yield();
+                }
+
+                callback_dead();
+            }
+        }
+    }
+};

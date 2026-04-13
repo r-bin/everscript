@@ -40,7 +40,8 @@ class Scope(BaseBox):
 
     def _update_memory(self) -> None:
         if not self.temp_memory:
-            self.temp_memory = [m for m in self._generator.linker.memory_manager.memory["memory"]["temp"]]
+            linker_temp = self._generator.linker.memory_manager.memory["memory"]["temp"]
+            self.temp_memory = [m for m in linker_temp]
             self.temp_memory.sort(key=lambda x: x.address)
 
         if not self.temp_flag:
@@ -91,7 +92,7 @@ class Scope(BaseBox):
                     else:
                         m2 = m
 
-        raise Exception("invalid memory allocation")
+        raise Exception(f"invalid memory allocation (size={size})")
     
     def allocate_memory(self) -> Memory:
         self._update_memory()

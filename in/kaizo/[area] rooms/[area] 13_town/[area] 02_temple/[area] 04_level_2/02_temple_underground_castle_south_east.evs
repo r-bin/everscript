@@ -1,0 +1,723 @@
+map temple_underground_castle_south_east(NARIS) {
+    enum entrance {
+        east = entrance(0x77, 0x29, WEST),
+        west = entrance(0x07, 0x28, EAST),
+    }
+
+    enum soundtrack {
+        default = soundtrack(WIND_AMBIENT_BIRDS_2, 0xff)
+    }
+
+    enum ROOM {
+        BEE_COLLECTED = memory(FLAG, SRAM),
+
+        DOOR_NORTH_1 = memory(FLAG, TEMP),
+        DOOR_NORTH_2 = memory(FLAG, TEMP),
+        DOOR_NORTH_3 = memory(FLAG, TEMP),
+        DOOR_SOUTH_1 = memory(FLAG, TEMP),
+        DOOR_SOUTH_2 = memory(FLAG, TEMP),
+        DOOR_SOUTH_3 = memory(FLAG, TEMP),
+
+        DOOR_PERMISSION = FLAG.QUEENS_KEY,
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            DEBUG = False,
+            DEBUG_PHASES = False,
+            DEBUG_MARBLES = False,
+
+            PROGRESS = SOULS_MEMORY.PROGRESS_NARIS,
+            PHASE = memory(WORD, TEMP),
+
+            RIDER_ID = memory(WORD, TEMP),
+            MOUNT_ID = memory(WORD, TEMP),
+
+            FOLLOW_ID = memory(WORD, TEMP),
+            DAMAGE_CONTACT = 0d10,
+
+            NARIS_BUSY = memory(FLAG, TEMP),
+            NARIS_BUSY_COUNT = 0d60 * 0d0005,
+
+            BOSS_HP = 0d3000,
+            THRESHOLD_P1 = 0d3000 - 0d500,
+            THRESHOLD_P2 = 0d3000 - 0d2000,
+
+            GUESS_RNG = memory(WORD, TEMP),
+            ANGER_LEVEL = 0x0000,
+
+            P1_THRESHOLD = 0x00,
+        }
+
+        fun boss_defeated() {
+            souls_boss_defeated_helper(NARIS);
+        }
+
+        fun spawn_enemies(enemy_id) {
+            _add_enemy(enemy_id, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y]);
+            _add_enemy(enemy_id, BOSS.MOUNT_ID[X], BOSS.MOUNT_ID[Y]);
+        }
+
+        @install()
+        fun _get_prime(digits) {
+            if(digits == 0d1) { // 2, 3, 5, 7
+                while((arg[0x10]) == 0d0 || (arg[0x10] == MEMORY.STRING_PARAMETER_1) || (arg[0x10] == MEMORY.STRING_PARAMETER_2) || (arg[0x10] == MEMORY.STRING_PARAMETER_3)) {
+                    arg[0x12] = randrange(0d4);
+
+                    if(arg[0x12] == 0d0) {
+                        arg[0x10] = 0d2;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x10] = 0d3;
+                    } else if(arg[0x12] == 0d2) {
+                        arg[0x10] = 0d5;
+                    } else if(arg[0x12] == 0d3) {
+                        arg[0x10] = 0d7;
+                    }
+                }
+            } else if(digits == 0d2) { // 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97
+                while((arg[0x10]) == 0d0 || (arg[0x10] == MEMORY.STRING_PARAMETER_1) || (arg[0x10] == MEMORY.STRING_PARAMETER_2) || (arg[0x10] == MEMORY.STRING_PARAMETER_3)) {
+                    arg[0x12] = randrange(0d21);
+
+                    if(arg[0x12] == 0d0) {
+                        arg[0x10] = 0d11;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x10] = 0d13;
+                    } else if(arg[0x12] == 0d2) {
+                        arg[0x10] = 0d17;
+                    } else if(arg[0x12] == 0d3) {
+                        arg[0x10] = 0d19;
+                    } else if(arg[0x12] == 0d4) {
+                        arg[0x10] = 0d23;
+                    } else if(arg[0x12] == 0d5) {
+                        arg[0x10] = 0d29;
+                    } else if(arg[0x12] == 0d6) {
+                        arg[0x10] = 0d31;
+                    } else if(arg[0x12] == 0d7) {
+                        arg[0x10] = 0d37;
+                    } else if(arg[0x12] == 0d8) {
+                        arg[0x10] = 0d41;
+                    } else if(arg[0x12] == 0d9) {
+                        arg[0x10] = 0d43;
+                    } else if(arg[0x12] == 0d10) {
+                        arg[0x10] = 0d47;
+                    } else if(arg[0x12] == 0d11) {
+                        arg[0x10] = 0d53;
+                    } else if(arg[0x12] == 0d12) {
+                        arg[0x10] = 0d59;
+                    } else if(arg[0x12] == 0d13) {
+                        arg[0x10] = 0d61;
+                    } else if(arg[0x12] == 0d14) {
+                        arg[0x10] = 0d67;
+                    } else if(arg[0x12] == 0d15) {
+                        arg[0x10] = 0d71;
+                    } else if(arg[0x12] == 0d16) {
+                        arg[0x10] = 0d73;
+                    } else if(arg[0x12] == 0d17) {
+                        arg[0x10] = 0d79;
+                    } else if(arg[0x12] == 0d18) {
+                        arg[0x10] = 0d83;
+                    } else if(arg[0x12] == 0d19) {
+                        arg[0x10] = 0d89;
+                    } else if(arg[0x12] == 0d20) {
+                        arg[0x10] = 0d97;
+                    }
+                }
+            } else { // 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, …
+                while((arg[0x10]) == 0d0 || (arg[0x10] == MEMORY.STRING_PARAMETER_1) || (arg[0x10] == MEMORY.STRING_PARAMETER_2) || (arg[0x10] == MEMORY.STRING_PARAMETER_3)) {
+                    arg[0x12] = randrange(0d18);
+
+                    if(arg[0x12] == 0d0) {
+                        arg[0x10] = 0d101;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x10] = 0d103;
+                    } else if(arg[0x12] == 0d2) {
+                        arg[0x10] = 0d107;
+                    } else if(arg[0x12] == 0d3) {
+                        arg[0x10] = 0d109;
+                    } else if(arg[0x12] == 0d4) {
+                        arg[0x10] = 0d113;
+                    } else if(arg[0x12] == 0d5) {
+                        arg[0x10] = 0d127;
+                    } else if(arg[0x12] == 0d6) {
+                        arg[0x10] = 0d131;
+                    } else if(arg[0x12] == 0d7) {
+                        arg[0x10] = 0d137;
+                    } else if(arg[0x12] == 0d8) {
+                        arg[0x10] = 0d139;
+                    } else if(arg[0x12] == 0d9) {
+                        arg[0x10] = 0d149;
+                    } else if(arg[0x12] == 0d10) {
+                        arg[0x10] = 0d151;
+                    } else if(arg[0x12] == 0d11) {
+                        arg[0x10] = 0d157;
+                    } else if(arg[0x12] == 0d12) {
+                        arg[0x10] = 0d163;
+                    } else if(arg[0x12] == 0d13) {
+                        arg[0x10] = 0d167;
+                    } else if(arg[0x12] == 0d14) {
+                        arg[0x10] = 0d173;
+                    } else if(arg[0x12] == 0d15) {
+                        arg[0x10] = 0d179;
+                    } else if(arg[0x12] == 0d16) {
+                        arg[0x10] = 0d181;
+                    } else if(arg[0x12] == 0d17) {
+                        arg[0x10] = 0d191;
+                    }
+                }
+            }
+
+            CUSTOM_MEMORY.RETURN = arg[0x10];
+        }
+        @install()
+        fun _get_non_prime(digits) {
+            if(digits == 0d1) { // 4, 6, 8, 9
+                while((arg[0x10]) == 0d0 || (arg[0x10] == MEMORY.STRING_PARAMETER_1) || (arg[0x10] == MEMORY.STRING_PARAMETER_2) || (arg[0x10] == MEMORY.STRING_PARAMETER_3)) {
+                    arg[0x12] = randrange(0d4);
+
+                    if(arg[0x12] == 0d0) {
+                        arg[0x10] = 0d4;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x10] = 0d6;
+                    } else if(arg[0x12] == 0d2) {
+                        arg[0x10] = 0d8;
+                    } else if(arg[0x12] == 0d3) {
+                        arg[0x10] = 0d9;
+                    }
+                }
+            } else if(digits == 0d2) { // 12, 15, 18, 20, 25, 30, 33, 39, 42, 45, 49, 56, 60, 63, 69, 72, 75, 81, 88, 91, 99
+                while((arg[0x10]) == 0d0 || (arg[0x10] == MEMORY.STRING_PARAMETER_1) || (arg[0x10] == MEMORY.STRING_PARAMETER_2) || (arg[0x10] == MEMORY.STRING_PARAMETER_3)) {
+                    arg[0x12] = randrange(0d21);
+
+                    if(arg[0x12] == 0d0) {
+                        arg[0x10] = 0d12;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x10] = 0d15;
+                    } else if(arg[0x12] == 0d2) {
+                        arg[0x10] = 0d18;
+                    } else if(arg[0x12] == 0d3) {
+                        arg[0x10] = 0d20;
+                    } else if(arg[0x12] == 0d4) {
+                        arg[0x10] = 0d25;
+                    } else if(arg[0x12] == 0d5) {
+                        arg[0x10] = 0d30;
+                    } else if(arg[0x12] == 0d6) {
+                        arg[0x10] = 0d33;
+                    } else if(arg[0x12] == 0d7) {
+                        arg[0x10] = 0d39;
+                    } else if(arg[0x12] == 0d8) {
+                        arg[0x10] = 0d42;
+                    } else if(arg[0x12] == 0d9) {
+                        arg[0x10] = 0d45;
+                    } else if(arg[0x12] == 0d10) {
+                        arg[0x10] = 0d49;
+                    } else if(arg[0x12] == 0d11) {
+                        arg[0x10] = 0d56;
+                    } else if(arg[0x12] == 0d12) {
+                        arg[0x10] = 0d60;
+                    } else if(arg[0x12] == 0d13) {
+                        arg[0x10] = 0d63;
+                    } else if(arg[0x12] == 0d14) {
+                        arg[0x10] = 0d69;
+                    } else if(arg[0x12] == 0d15) {
+                        arg[0x10] = 0d72;
+                    } else if(arg[0x12] == 0d16) {
+                        arg[0x10] = 0d75;
+                    } else if(arg[0x12] == 0d17) {
+                        arg[0x10] = 0d81;
+                    } else if(arg[0x12] == 0d18) {
+                        arg[0x10] = 0d88;
+                    } else if(arg[0x12] == 0d19) {
+                        arg[0x10] = 0d91;
+                    } else if(arg[0x12] == 0d20) {
+                        arg[0x10] = 0d99;
+                    }
+                }
+            } else { // 102, 106, 108, 111, 115, 130, 133, 138, 141, 150, 153, 159, 164, 169, 175, 180, 183, 199, …
+                while((arg[0x10]) == 0d0 || (arg[0x10] == MEMORY.STRING_PARAMETER_1) || (arg[0x10] == MEMORY.STRING_PARAMETER_2) || (arg[0x10] == MEMORY.STRING_PARAMETER_3)) {
+                    arg[0x12] = randrange(0d18);
+
+                    if(arg[0x12] == 0d0) {
+                        arg[0x10] = 0d102;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x10] = 0d106;
+                    } else if(arg[0x12] == 0d2) {
+                        arg[0x10] = 0d108;
+                    } else if(arg[0x12] == 0d3) {
+                        arg[0x10] = 0d111;
+                    } else if(arg[0x12] == 0d4) {
+                        arg[0x10] = 0d115;
+                    } else if(arg[0x12] == 0d5) {
+                        arg[0x10] = 0d130;
+                    } else if(arg[0x12] == 0d6) {
+                        arg[0x10] = 0d133;
+                    } else if(arg[0x12] == 0d7) {
+                        arg[0x10] = 0d138;
+                    } else if(arg[0x12] == 0d8) {
+                        arg[0x10] = 0d141;
+                    } else if(arg[0x12] == 0d9) {
+                        arg[0x10] = 0d150;
+                    } else if(arg[0x12] == 0d10) {
+                        arg[0x10] = 0d153;
+                    } else if(arg[0x12] == 0d11) {
+                        arg[0x10] = 0d159;
+                    } else if(arg[0x12] == 0d12) {
+                        arg[0x10] = 0d164;
+                    } else if(arg[0x12] == 0d13) {
+                        arg[0x10] = 0d169;
+                    } else if(arg[0x12] == 0d14) {
+                        arg[0x10] = 0d175;
+                    } else if(arg[0x12] == 0d15) {
+                        arg[0x10] = 0d180;
+                    } else if(arg[0x12] == 0d16) {
+                        arg[0x10] = 0d183;
+                    } else if(arg[0x12] == 0d17) {
+                        arg[0x10] = 0d199;
+                    }
+                }
+            }
+
+            CUSTOM_MEMORY.RETURN = arg[0x10];
+        }
+        fun get_prime(digits, memory) {
+            _get_prime(digits);
+
+            memory = CUSTOM_MEMORY.RETURN;
+        }
+        fun get_non_prime(digits, memory) {
+            _get_non_prime(digits);
+
+            memory = CUSTOM_MEMORY.RETURN;
+        }
+
+        @install()
+        fun naris_hi(source, without_damage) {
+            if!(without_damage) {
+                damage(source, BOSS.DAMAGE_CONTACT, True);
+            }
+
+            conversation_dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
+        }
+
+        @install()
+        fun young_naris_question(question_count, source) {
+            arg[0x10] = randrange(question_count);
+
+            if(arg[0x10] == 0d0) {
+                get_prime(BOSS.PHASE + 0d1, MEMORY.STRING_PARAMETER_1);
+            } else {
+                get_non_prime(BOSS.PHASE + 0d1, MEMORY.STRING_PARAMETER_1);
+            }
+            if(arg[0x10] == 0d1) {
+                get_prime(BOSS.PHASE + 0d1, MEMORY.STRING_PARAMETER_2);
+            } else {
+                get_non_prime(BOSS.PHASE + 0d1, MEMORY.STRING_PARAMETER_2);
+            }
+            if(arg[0x10] == 0d2) {
+                get_prime(BOSS.PHASE + 0d1, MEMORY.STRING_PARAMETER_3);
+            } else {
+                get_non_prime(BOSS.PHASE + 0d1, MEMORY.STRING_PARAMETER_3);
+            }
+
+            if(source == CHARACTER_ADDRESS.BOY) {
+                if(question_count <= 0d2) {
+                    question("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].");
+                } else {
+                    question("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].[CHOICE][MEM3].");
+                }
+
+                arg[0x12] = MEMORY.QUESTION_ANSWER;
+            } else {
+                if(question_count <= 0d2) {
+                    dialog("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].[PAUSE:80]");
+                } else {
+                    dialog("Guess the number of marbles in my hand and I'll give you something.[B]What's your guess?[PAUSE:3d][CHOICE][MEM1].[CHOICE][MEM2].[CHOICE][MEM3].[PAUSE:80]");
+                }
+
+                arg[0x12] = randrange(question_count);
+
+                control(DOG, True);
+
+                while(arg[0x14] <= arg[0x12]) {
+                    arg[0x14]++;
+
+                    animate(DOG, ONCE, ANIMATION_DOG.ACT1_BARK);
+                    if(<DOG>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                        sound(DOG_ATTACK);
+                    }
+                    sleep(0d10);
+                    animate(DOG, ONCE, DEFAULT);
+
+                    sleep(0d30);
+                }
+
+                control(DOG, False);
+            }
+
+            if(arg[0x12] != 0xffff) {
+                if(arg[0x12] == arg[0x10]) {
+                    if(BOSS.DEBUG_MARBLES) {
+                        subtext("yay");
+                    }
+
+                    sound(GENERIC_GOOD);
+                    damage(BOSS.MOUNT_ID, 0d666, True);
+                } else if(arg[0x12] == 0d0) {
+                    if(BOSS.DEBUG_MARBLES) {
+                        subtext("nay 0");
+                    }
+
+                    sound(GENERIC_BAD);
+                    spawn_enemies(ENEMY.MAGGOT);
+                } else if(arg[0x12] == 0d1) {
+                    if(BOSS.DEBUG_MARBLES) {
+                        subtext("nay 1");
+                    }
+
+                    sound(GENERIC_BAD);
+                    spawn_enemies(ENEMY.MOSQUITO);
+                } else if(arg[0x12] == 0d2) {
+                    if(BOSS.DEBUG_MARBLES) {
+                        subtext("nay 2");
+                    }
+
+                    sound(GENERIC_BAD);
+                    spawn_enemies(ENEMY.SKELESNAIL);
+                }
+            }
+            
+            if(BOSS.DEBUG_MARBLES) {
+                sleep(0x30);
+                debug_memory(arg[0x12], BOSS.GUESS_RNG);
+            }
+        }
+
+        @install()
+        fun mount_triggered() {
+            if(BOSS.PHASE == 0d0) {
+                if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P1) {
+                    BOSS.PHASE++;
+                }
+            }
+            if(BOSS.PHASE == 0d1) {
+                if(<SCRIPT_OWNER>[HP] < BOSS.THRESHOLD_P2) {
+                    BOSS.PHASE++;
+                }
+            }
+            if(BOSS.PHASE == 0d2) {
+                if(dead(<SCRIPT_OWNER>)) {
+                    BOSS.PHASE++;
+
+                    if(BOSS.DEBUG) {
+                        debug_memory(0d3, <SCRIPT_OWNER>[DAMAGE_SOURCE], BOSS.FOLLOW_ID);
+                    }
+
+                    end();
+                }
+            }
+
+            // if(<SCRIPT_OWNER>[DAMAGE_SOURCE] >= CHARACTER_ADDRESS.ENTITY_1) {
+            // if(<SCRIPT_OWNER>[DAMAGE_SOURCE] == <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+            if(<SCRIPT_OWNER>[DAMAGE_SOURCE]) {
+                if((BOSS.FOLLOW_ID == CHARACTER_ADDRESS.UNKNOWN) || (<SCRIPT_OWNER>[DAMAGE_SOURCE] != BOSS.FOLLOW_ID)) {
+                    BOSS.FOLLOW_ID = <SCRIPT_OWNER>[DAMAGE_SOURCE];
+                    // heal(SCRIPT_OWNER, 0d0, False);
+
+                    if!(BOSS.NARIS_BUSY) {
+                        BOSS.NARIS_BUSY = True;
+                        
+                        conversation({
+                            naris_hi(BOSS.FOLLOW_ID, True);
+
+                            if(BOSS.PHASE < 0d2) {
+                                arg[0x10] = 0d2;
+                            } else {
+                                arg[0x10] = 0d3;
+                            }
+                            young_naris_question(arg[0x10], BOSS.FOLLOW_ID);
+                        }, BOSS.FOLLOW_ID);
+
+                        sleep(BOSS.NARIS_BUSY_COUNT);
+
+                        BOSS.NARIS_BUSY = False;
+                    } else {
+                        naris_hi(BOSS.FOLLOW_ID);
+                    }
+                } else {
+                    if(BOSS.DEBUG) {
+                        debug_memory(0d0, <SCRIPT_OWNER>[DAMAGE_SOURCE], BOSS.FOLLOW_ID);
+                    }
+                }
+            } else {
+                if(BOSS.DEBUG) {
+                    debug_memory(0d1, <SCRIPT_OWNER>[DAMAGE_SOURCE], BOSS.FOLLOW_ID);
+                }
+            }
+        }
+        @install()
+        fun rider_triggered() {
+            // control(BOSS.MOUNT_ID, True);
+            // face_each(BOSS.MOUNT_ID, <ACTIVE>);
+
+            attach_to_script(BOSS.MOUNT_ID);
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            smart_conversation({
+                naris_hi(<ACTIVE>);
+            }, False, ACTIVE);
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+            // control(BOSS.MOUNT_ID, False);
+        }
+
+        @install()
+        fun activate_naris(entity) {
+            attribute(entity, INVINCIBLE, False);
+            attach_script(entity, DAMAGE_DEATH, reference(mount_triggered));
+
+            add_enemy(PLACEHOLDER, 0d0, 0d0);
+            BOSS.RIDER_ID = <LAST_ENTITY>;
+
+            stack_sprite(entity, BOSS.RIDER_ID);
+
+            attach_script(BOSS.RIDER_ID, B, reference(rider_triggered));
+        }
+
+        fun spawn_old_naris() {
+            if(True) {
+                arg[0x10] = BOSS.MOUNT_ID;
+                _add_enemy(VILLAGER_3_5, arg[0x10][X], arg[0x10][Y]);
+                BOSS.MOUNT_ID = <LAST_ENTITY>;
+                <LAST_ENTITY>[HP] = arg[0x10][HP];
+                // <LAST_ENTITY>[ATTACHED_SCRIPT_ID] = arg[0x10][ATTACHED_SCRIPT_ID];
+                // <LAST_ENTITY>[ATTACHED_SCRIPT_TRIGGER] = arg[0x10][ATTACHED_SCRIPT_TRIGGER];
+                activate_naris(<LAST_ENTITY>);
+
+                BOSS.FOLLOW_ID = 0x0000;
+                destroy(arg[0x10]);
+            } else {
+                BOSS.MOUNT_ID[TYPE] = CHARACTER_TYPE.VILLAGER_3_5;
+            }
+        }
+
+        @install()
+        fun naris_tilt() {
+            if(BOSS.PROGRESS) {
+                destroy(BOSS.RIDER_ID);
+
+                control(BOSS.MOUNT_ID, True);
+                attribute(BOSS.MOUNT_ID, INVINCIBLE_TEMP, True);
+
+                smart_conversation({
+                    conversation_dialog("[SLOW]Don't ignore me![B]");
+                }, False, BOSS.FOLLOW_ID);
+
+                teleporter_animation_out(BOSS.MOUNT_ID);
+                destroy(BOSS.MOUNT_ID);
+
+                pop_music();
+
+                BOSS.PROGRESS = False;
+            }
+        }
+        fun guard_naris_tilt() {
+            if(BOSS.FOLLOW_ID[HP] <= 0d0) {
+                naris_tilt();
+                end();
+            }
+        }
+
+        @install()
+        @async()
+        fun boss_follow_watcher() {
+            while!(BOSS.FOLLOW_ID) {
+                yield();
+            }
+
+            while(alive(BOSS.MOUNT_ID)) {
+                check_range(BOSS.MOUNT_ID, BOSS.FOLLOW_ID, 0d25, 0d12, {
+                    // animate(BOSS.MOUNT_ID, ONCE, DEFAULT);
+
+                    attach_to_script(BOSS.MOUNT_ID);
+
+                    guard_naris_tilt();
+
+                    smart_conversation({
+                        conversation_dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
+                    }, False, BOSS.FOLLOW_ID);
+                    damage(BOSS.FOLLOW_ID, BOSS.DAMAGE_CONTACT, True);
+
+                    sleep(0d60);
+                });
+
+                yield();
+            }
+        }
+        
+        @install()
+        @async()
+        fun boss_watcher() {
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
+                subtext("phase 0");
+            }
+
+            while(BOSS.PHASE == 0d0) {
+                yield();
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
+                subtext("phase 1");
+            }
+
+            while(BOSS.PHASE == 0d1) {
+                yield();
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
+                subtext("phase 2");
+            }
+
+            spawn_old_naris();
+
+            while(BOSS.PHASE == 0d2) {
+                yield();
+            }
+
+            if(BOSS.DEBUG && BOSS.DEBUG_PHASES) {
+                subtext("yatta");
+            }
+
+            boss_defeated();
+        }
+
+        fun start_boss(waiting) {
+            if(waiting) {
+                while(BOSS.MOUNT_ID[Y] > 0d350) {
+                    yield();
+                }
+            }
+
+            BOSS.PROGRESS = True;
+
+            push_music(BOSS);
+
+            activate_naris(BOSS.MOUNT_ID);
+            boss_watcher();
+            boss_follow_watcher();
+        }
+        @install()
+        fun naris_opening() {
+            dialog("[SLOW]Hi![PAUSE:29] I'm Naris, the smartest boy in Ebon Keep.[PAUSE:51] I bet you're not as smart as me![B]");
+
+            walk(BOSS.MOUNT_ID, TILE_ABSOLUTE, 0d64, 0d40, NONE, NONE);
+        }
+        fun add_boss(x, y) {
+            add_enemy(VILLAGER_3_2, x, y);
+            BOSS.MOUNT_ID = <LAST_ENTITY>;
+            attach_script(LAST_ENTITY, B, reference(naris_opening));
+            <LAST_ENTITY>[HP] = BOSS.BOSS_HP; 
+
+            if!(BOSS.PROGRESS) {
+                teleport(LAST_ENTITY, 0d96, 0d76);
+
+                start_boss(True);
+            } else {
+                start_boss(False);
+            }
+        }
+    };
+
+    enum stepon_trigger {
+        exit_west = @install() {
+            debug_subtext("S=0");
+
+            fog_wall_inside(BOSS.PROGRESS, EAST);
+            
+            map_transition(temple_underground_castle, east_2, WEST);
+        },
+        exit_east = @install() {
+            debug_subtext("S=1");
+
+            fog_wall_inside(BOSS.PROGRESS, WEST);
+
+            AREA_TOWN_TEMPLE.SECRET_PASSAGE_2_OPENED = True;
+            map_transition(town_level_1, door_1_3_back, EAST);
+        },
+    }
+
+    enum b_trigger {
+        gourd_north__8_oil = @install() {
+            debug_subtext("B=0");
+
+            _loot_chest(0x07, DRY_ICE, 0d01);
+        },
+        gourd_south__500_money = @install() {
+            debug_subtext("B=1");
+
+            _loot_chest(0x03, LIMESTONE_TABLET, 0d1);
+        },
+    }
+
+    fun open_boss_door(open) {
+        if(open) {
+            object[0x01] = 0x00;
+        } else {
+            object[0x01] = 0x01;
+        }
+    }
+
+    @install()
+    fun debug_triggered() {
+        unlock(QUEENS_KEY);
+
+        destroy(SCRIPT_OWNER);
+    }
+
+    fun trigger_enter() {
+        CUSTOM_MEMORY.BOMBABLE_STATE = BOMBABLE_STATE.DOORS_UNLOCKED;
+
+        // object[0x03] = 0x01; // open gourd_south
+        object[0x02] = 0x01; // close door_south_1
+        object[0x01] = 0x01; // close door_south_2
+        object[0x00] = 0x01; // close door_south_3
+
+        // object[0x07] = 0x01; // open gourd_north
+        object[0x04] = 0x01; // close door_north_1
+        object[0x05] = 0x01; // close door_north_2
+        object[0x06] = 0x01; // close door_north_3
+
+        add_bombable_double_door(0d30, 0d21, ROOM.DOOR_NORTH_1, reference(@install() {
+            bombable_object(DOOR_FAKE, ROOM.DOOR_PERMISSION, ROOM.DOOR_NORTH_1, 0x04);
+        }), 0d9);
+        add_bombable_double_door(0d64, 0d21, ROOM.DOOR_NORTH_2, reference(@install() {
+            bombable_object(DOOR_FAKE, ROOM.DOOR_PERMISSION, ROOM.DOOR_NORTH_2, 0x05);
+        }), 0d9);
+        add_bombable_double_door(0d96, 0d21, ROOM.DOOR_NORTH_3, reference(@install() {
+            bombable_object(DOOR_FAKE, ROOM.DOOR_PERMISSION, ROOM.DOOR_NORTH_3, 0x06);
+        }), 0d9);
+
+        add_bombable_double_door(0d30, 0d57, ROOM.DOOR_SOUTH_3, reference(@install() {
+            bombable_object(DOOR_FAKE, ROOM.DOOR_PERMISSION, ROOM.DOOR_SOUTH_3, 0x00);
+        }), 0d13);
+        add_bombable_double_door(0d64, 0d57, ROOM.DOOR_SOUTH_2, reference(@install() {
+            bombable_object(DOOR_FAKE, ROOM.DOOR_PERMISSION, ROOM.DOOR_SOUTH_2, 0x01);
+        }), 0d13);
+        add_bombable_double_door(0d96, 0d57, ROOM.DOOR_SOUTH_1, reference(@install() {
+            bombable_object(DOOR_FAKE, ROOM.DOOR_PERMISSION, ROOM.DOOR_SOUTH_1, 0x02);
+        }), 0d13);
+
+        add_bee(0d63, 0d13, reference(@install() {
+            bee_collected(ROOM.BEE_COLLECTED);
+        }), ROOM.BEE_COLLECTED);
+
+        default_init_room(True, False);
+
+        if!(ROOM.DOOR_PERMISSION) {
+            add_debug_entity(0d69, 0d47, reference(debug_triggered));
+        }
+
+        if!(SOULS_MEMORY.DEAD_NARIS) {
+            add_boss(0d64, 0d35);
+        }
+    }
+};

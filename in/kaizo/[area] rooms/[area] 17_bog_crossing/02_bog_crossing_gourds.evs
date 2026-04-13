@@ -1,0 +1,52 @@
+map bog_crossing_gourds(DEFEND) {
+    enum entrance {
+        east = entrance(0x26, 0x13, WEST),
+
+        tunnel = entrance(0d17, 0d20, NONE, { swirl_entrance(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(WIND_AMBIENT_BIRDS, 0xff)
+    }
+
+    enum ROOM {
+        TUNNEL_OPENED = memory(FLAG, SRAM),
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            map_transition(bog_crossing, west_2, EAST);
+        },
+    }
+
+    enum b_trigger {
+        gourd_2__1_call_beads = @install() {
+            debug_subtext("B=0");
+            _loot_chest(0x00, BISCUIT, 0x01);
+        },
+        gourd_1__4_clay = @install() {
+            _loot_chest(0x01, IRON, 0d1);
+        },
+        gourd_3__5_ash = @install() {
+            debug_subtext("B=2");
+            _loot_chest(0x02, ASH, 0d05);
+        },
+    }
+    
+    fun trigger_enter() {
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            add_basic_souls_enemy(MONK, 0d10, 0d9);
+            add_basic_souls_enemy(MONK, 0d15, 0d11);
+        }
+
+        default_init_room(True, True);
+        
+        archaeology_dig(0d2, 0d23, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+            guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
+
+            jump_hole({
+                map_transition(inverted_pyramid_level_1_secret_entrance_room_east, crash, NONE);
+            });
+        }), True, NORMAL);
+    }
+};

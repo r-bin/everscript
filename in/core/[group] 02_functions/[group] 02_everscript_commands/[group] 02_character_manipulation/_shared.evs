@@ -1,0 +1,108 @@
+group shared() {
+    fun control(character:CHARACTER, control) {
+        if(control is Word) {
+            if(character == CHARACTER.BOY) {
+                if(control) {
+                    code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+                } else {
+                    code(0xbd, "// (bd) BOY = Player controlled");
+                }
+            } else if(character == CHARACTER.DOG) {
+                if(control) {
+                    code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+                } else {
+                    code(0xbf, "// (bf) DOG = Player controlled");
+                }
+            } else {
+                if(control) {
+                    code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+                } else {
+                    code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                }
+            }
+        } else {
+            if(character == CHARACTER.NONE) {
+                code(0xc0, "// (c0) BOY+DOG = STOPPED");
+            } else if(character == CHARACTER.BOTH) {
+                code(0xc1, "// (c1) BOY+DOG = Player controlled");
+            } else if(character == CHARACTER.BOY) {
+                code(0xbd, "// (bd) BOY = Player controlled");
+                code(0xbe, "// (be) Stop/disable doggo (and SELECT button)");
+            } else if(character == CHARACTER.DOG) {
+                code(0xbf, "// (bf) DOG = Player controlled");
+                code(0xbc, "// (bc) Stop/disable boy (and SELECT button)");
+            } else {
+                if(control) {
+                    code(0x2a, entity_t(character), "// (2a) Make $2841 script controlled");
+                } else {
+                    code(0x2b, entity_t(character), "// (2b) Make $2835 player/AI controlled");
+                }
+            }
+        }
+    }
+    @install()
+    @weak()
+    fun _control(character:CHARACTER, control) {
+        if((character == CHARACTER.BOY) && !FLAG.BOY_UNAVAILABLE) {
+            control(BOY, True);
+        } else if((character == CHARACTER.DOG) && !FLAG.DOG_UNAVAILABLE) {
+            control(DOG, True);
+        } else if((character == CHARACTER.BOTH) && !FLAG.DOG_UNAVAILABLE) {
+            if(!FLAG.BOY_UNAVAILABLE) {
+                control(BOY, True);
+            }
+            if(!FLAG.DOG_UNAVAILABLE) {
+                control(DOG, True);
+            } 
+        }
+    }
+
+    fun wait(character:CHARACTER) {
+        if(character == CHARACTER.NONE) {
+            nop();
+        } else if(character == CHARACTER.BOTH) {
+            code(0x2e, entity_t(BOY), "// (2e) Wait for boy (d0) to reach destination");
+            code(0x2e, entity_t(DOG), "// (2e) Wait for boy (d0) to reach destination");
+        } else {
+            code(0x2e, entity_t(character), "// (2e) Wait for boy (d0) to reach destination");
+        }
+    }
+
+    fun walk(character:CHARACTER, walk_type:WALK_TYPE, x, y, wait_for:CHARACTER, unlock:CHARACTER) {
+        if((walk_type == WALK_TYPE.TILE_ABSOLUTE) || (walk_type == WALK_TYPE.TILE_ABSOLUTE_DIRECT)) {
+            if((x is Word) && (y is Word)) {
+                code(walk_type, entity_t(character), x, y, "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            } else if(walk_type == WALK_TYPE.TILE_ABSOLUTE) {
+                code(WALK_TYPE.COORDINATE_ABSOLUTE, entity_t(character), calculate(x << 0d3), calculate(y << 0d3), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            } else {
+                code(WALK_TYPE.COORDINATE_ABSOLUTE_DIRECT, entity_t(character), calculate(x << 0d3), calculate(y << 0d3), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+            }
+        } else {
+            code(walk_type, entity_t(character), param(x), param(y), "// (6e) Make $2841 walk to x=0x01,y=0x1c");
+        }
+
+        if(wait_for != CHARACTER.NONE) {
+            wait(wait_for);
+
+            if(unlock is Word) {
+                if(unlock != CHARACTER.NONE) {
+                    if((unlock == CHARACTER.BOTH) || (unlock == CHARACTER.BOY) || (unlock == CHARACTER.DOG)) {
+                        control(unlock);
+                    } else {
+                        control(unlock, False);
+                    }
+                }
+            } else if(unlock !is None) {
+                control(unlock, False);
+            }
+        }
+    }
+
+    fun entity_script_controlled(character:CHARACTER) {
+        code(0x2a, entity_t(character), "// (2a) Make $283b script controlled");
+    }
+
+    fun attach_to_script(character:CHARACTER) {
+        code(0x4e, entity_t(character), "// (4e) ATTACH entity last entity ($0341) TO SCRIPT");
+    }
+};

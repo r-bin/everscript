@@ -1,0 +1,163 @@
+map storage_room(OMNITOPIA_STORAGE) {
+    enum entrance {
+        west = entrance(0x10, 0x1a, NONE, { door_act4_beam_in(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        LIGHT_ON = AREA_METRO.LEVER_REACTOR_ROOM,
+
+        LOOTED_HELMET = memory(FLAG, SRAM),
+    }
+
+    enum OBJECT_DEFAULT {
+        DEFAULT = 0d00,
+        ACTIVATED = 0d01,
+    }
+
+    enum OBJECT_GOURD_ACT4 {
+        DEFAULT = 0d00,
+        HALF_LOOTED = 0d01,
+        LOOTED = 0d02,
+    }
+
+    enum objects {
+        remove_fan_east_1_2 = object[0d07]:OBJECT_DEFAULT,
+        remove_fan_east_1_4 = object[0d08]:OBJECT_DEFAULT,
+        remove_fan_east_2_3 = object[0d09]:OBJECT_DEFAULT,
+        remove_fan_east_2_5 = object[0d10]:OBJECT_DEFAULT,
+
+        remove_fan_west = object[0d11]:OBJECT_DEFAULT,
+
+        // gourds
+        gourd_2_1 = object[0d04]:OBJECT_GOURD_ACT4,
+        gourd_2_2 = object[0d05]:OBJECT_GOURD_ACT4,
+        gourd_2_3 = object[0d06]:OBJECT_GOURD_ACT4,
+
+        gourd_2_1 = object[0d00]:OBJECT_GOURD_ACT4,
+        gourd_2_2 = object[0d01]:OBJECT_GOURD_ACT4,
+        gourd_2_3 = object[0d02]:OBJECT_GOURD_ACT4,
+        gourd_2_4 = object[0d03]:OBJECT_GOURD_ACT4,
+
+        // ingredients
+    }
+
+    enum stepon_trigger {
+        exit_west = @install() {
+            debug_subtext("S=0");
+
+            door_act4_beam_out(0d15, 0d27);
+
+            map_transition(metro, door_b2, NONE);
+        },
+    }
+
+    fun guard_dark_gourd() {
+        if!(ROOM.LIGHT_ON) {
+            error_message(SWITCH_ENERGY);
+            end();
+        }
+    }
+
+    enum b_trigger {
+        gourd_1_3 = @install() {
+            debug_subtext("B=0");
+
+            guard_dark_gourd();
+
+            _loot_chest(0x06, METEORITE, 0d1, 0d2);
+        },
+        gourd_1_2 = @install() {
+            debug_subtext("B=1");
+
+            guard_dark_gourd();
+
+            // _loot_chest(0x05, AMMO, 0d1);
+            
+            _loot_chest(0x05, PETAL, 0d1);
+        },
+        gourd_1_1 = @install() {
+            debug_subtext("B=2");
+
+            guard_dark_gourd();
+
+            if(False) {
+                _loot_chest(0x04, HELM_4_3, 0d01);
+            } else {
+                object[0x04] = 0x02; // loot gourd_1_1
+                ROOM.LOOTED_HELMET = True;
+
+                custom_reward(HELM_ARCHAEOLOGY, True);
+            }
+        },
+        gourd_2_4 = @install() {
+            debug_subtext("B=3");
+
+            guard_dark_gourd();
+
+            // _loot_chest(0x03, AMMO, 0d1);
+
+            _loot_chest(0x03, MONEY, 0d30);
+        },
+        gourd_2_3 = @install() {
+            debug_subtext("B=4");
+
+            guard_dark_gourd();
+
+            _loot_chest(0x02, HONEY, 0d1);
+        },
+        gourd_2_2 = @install() {
+            debug_subtext("B=5");
+
+            guard_dark_gourd();
+
+            _loot_chest(0x01, ACORNS, 0d1, 0d1);
+        },
+        gourd_2_1 = @install() {
+            debug_subtext("B=6");
+
+            guard_dark_gourd();
+
+            _loot_chest(0x00, DRY_ICE, 0d1, 0d3);
+            // _loot_chest(0x00, BAZOOKA, 0d01);
+        },
+    }
+
+    fun trigger_enter() {
+        if(ROOM.DEBUG) {
+            ROOM.LIGHT_ON = True;
+        }
+        
+        // object[0x00] = 0x02; // loot gourd_2_1
+        // object[0x01] = 0x02; // loot gourd_2_2
+        // object[0x02] = 0x02; // loot gourd_2_3
+        // object[0x03] = 0x02; // loot gourd_2_4
+        if(ROOM.LOOTED_HELMET) {
+            object[0x04] = 0x02; // loot gourd_1_1
+        }
+        // object[0x05] = 0x02; // loot gourd_1_2
+        // object[0x06] = 0x02; // loot gourd_1_3
+        // object[0x07] = 0x01; // remove fan_east_1_2
+        // object[0x08] = 0x01; // remove fan_east_1_4
+        // object[0x09] = 0x01; // remove fan_east_2_3
+        // object[0x0a] = 0x01; // remove fan_east_2_5
+        // object[0x0b] = 0x01; // remove fan_west
+
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_b2, NONE);
+            });
+        }));
+
+        if!(ROOM.LIGHT_ON) {
+            MEMORY.MAP_PALETTE = MAP_PALETTE.STORAGE_ROOM_DARK;
+        }
+
+        // objects.gourd_2_1 = OBJECT_GOURD_ACT4.LOOTED;
+    }
+};

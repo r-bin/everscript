@@ -1,0 +1,49 @@
+map podunk_new(PODUNK_95) {
+    enum entrance {
+        north = entrance(0d09, 0d00, SOUTH),
+        west = entrance(0d00, 0d19, EAST),
+
+        cinema_left = entrance(0d12, 0d13, SOUTH),
+        cinema_right = entrance(0d23, 0d13, SOUTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_PODUNK.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum ROOM {
+        COORDINATE_BUILDING_BOTTOM = 0d17 * 0x0008,
+        COORDINATE_BUILDING_RIGHT = 0d69 * 0x0008,
+        COORDINATE_BUILDING_RIGHT_THRESHOLD = 0d68 * 0x0008,
+
+        COORDINATE_EAST_BORDER = 0d84 * 0x0008,
+    }
+
+    @install()
+    @async()
+    fun fake_exit_check() {
+        while(True) {
+            if((<ACTIVE>[Y] < ROOM.COORDINATE_BUILDING_BOTTOM) && (<ACTIVE>[X] < ROOM.COORDINATE_BUILDING_RIGHT)) { // inside building
+                if(<ACTIVE>[X] > ROOM.COORDINATE_BUILDING_RIGHT_THRESHOLD) { // push right
+                    <ACTIVE>[X] = ROOM.COORDINATE_BUILDING_RIGHT;
+                } else { // bush bottom
+                    <ACTIVE>[Y] = ROOM.COORDINATE_BUILDING_BOTTOM;
+                }
+                
+                yield();
+            } else if(<ACTIVE>[X] > ROOM.COORDINATE_EAST_BORDER) { // right
+                map_transition(mansion_modern, west, EAST);
+                end();
+            }
+
+            yield();
+        }
+    }
+
+    fun trigger_enter() {
+        default_dungeon_podunk_init_room();
+
+        sleep(0d60);
+        fake_exit_check();
+    }
+};

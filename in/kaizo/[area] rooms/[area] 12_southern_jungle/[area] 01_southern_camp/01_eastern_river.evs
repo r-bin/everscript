@@ -1,0 +1,335 @@
+map eastern_river(HORACE) {
+    // sniff=vanilla
+    
+    enum entrance {
+        north = entrance(0x53, 0x04, SOUTH),
+        east = entrance(0x81, 0x31, WEST),
+        south = entrance(0x55, 0x6e, NORTH),
+
+        critter_door = entrance(0d17, 0d22, SOUTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(SEWER_AMBIENT_WATER, 0xff)
+    }
+
+    enum stepon_trigger {
+        stepon_0 = @install() {
+            debug_subtext("S=0");
+        },
+        stepon_1 = @install() {
+            debug_subtext("S=1");
+        },
+        stepon_2 = @install() {
+            debug_subtext("S=2");
+        },
+        exit_north = @install() {
+            map_transition(eastern_waterfall, south, NORTH);
+        },
+        exit_east = @install() {
+            map_transition(east_crossing, west, EAST);
+        },
+        exit_south = @install() {
+            map_transition(pyramid, north, SOUTH);
+        },
+    }
+
+    enum b_trigger {
+        sniff__1_ethanol_3 = @install() {
+            debug_subtext("B=0");
+            _loot(0x02, ETHANOL, 0d01, 0d03);
+        },
+        sniff__1_roots_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x03, ROOTS, 0d01, 0d01);
+        },
+        sniff__1_wax_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x04, WAX, 0d01, 0d02);
+        },
+        sniff__1_limestone = @install() {
+            debug_subtext("B=3");
+            _loot(0x05, LIMESTONE, 0d01, 0d00);
+        },
+        sniff__1_limestone_2 = @install() {
+            debug_subtext("B=4");
+            _loot(0x06, LIMESTONE, 0d01, 0d02);
+        },
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=5");
+            _loot(0x07, WATER, 0d01, 0d01);
+        },
+        sniff__1_vinegar_2 = @install() {
+            debug_subtext("B=6");
+            _loot(0x08, VINEGAR, 0d01, 0d02);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=7");
+            _loot(0x09, ASH, 0d01, 0d02);
+        },
+        sniff__1_bone = @install() {
+            debug_subtext("B=8");
+            _loot(0x0a, BONE, 0d01, 0d00);
+        },
+        sniff__1_bone = @install() {
+            debug_subtext("B=9");
+            _loot(0x0b, BONE, 0d01, 0d00);
+        },
+
+        sniff__1_brimstone_1 = @install() {
+            debug_subtext("B=10");
+            _loot(0x0c, BRIMSTONE, 0d01, 0d01);
+        },
+        sniff__1_brimstone_1 = @install() {
+            debug_subtext("B=11");
+            _loot(0x0d, BRIMSTONE, 0d01, 0d01);
+        },
+        sniff__1_brimstone = @install() {
+            debug_subtext("B=12");
+            _loot(0x0e, BRIMSTONE, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=13");
+            _loot(0x0f, WATER, 0d01, 0d00);
+        },
+        sniff__1_crystal_2 = @install() {
+            debug_subtext("B=14");
+            _loot(0x10, CRYSTAL, 0d01, 0d02);
+        },
+        sniff__1_clay_1 = @install() {
+            debug_subtext("B=15");
+            _loot(0x11, CLAY, 0d01, 0d01);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=16");
+            _loot(0x12, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots_1 = @install() {
+            debug_subtext("B=17");
+            _loot(0x13, ROOTS, 0d01, 0d01);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=18");
+            _loot(0x14, CLAY, 0d01, 0d00);
+        },
+        sniff__1_oil_2 = @install() {
+            debug_subtext("B=19");
+            _loot(0x15, OIL, 0d01, 0d02);
+        },
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        ALCHEMIST_ID = memory(WORD, TEMP),
+    }
+
+    fun remove_water(remove) {
+        if(remove) {
+            object[0x00] = 0x01;
+            object[0x01] = 0x01;
+        } else {
+            object[0x00] = 0x00;
+            object[0x01] = 0x00;
+        }
+    }
+
+    fun add_raptor(type:ENEMY, x, y) {
+        add_enemy(type, x, y);
+
+        ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]++;
+
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]);
+        }
+
+        attach_script(LAST_ENTITY, DEATH, reference(@install() {
+            guard_crush_teleport();
+            
+            ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]--;
+
+            if(ROOM.DEBUG) {
+                debug_memory(ROOM.ALCHEMIST_ID[GENERAL_PURPOSE]);
+            }
+
+            clean_up(<SCRIPT_OWNER>);
+        }));
+    }
+
+    @install()
+    fun radiating_relic_examined() {
+        MEMORY.QUESTION_ANSWER = 0d0;
+        while(MEMORY.QUESTION_ANSWER == 0d0) {
+            arg[0x0e] = randrange(0d4);
+
+            increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
+
+            if(arg[0x0e] == 0d0) {
+                conversation_dialog("[SLOW]It feels warped. Who crafted such bad armor?[B]");
+            } else if(arg[0x0e] == 0d1) {
+                conversation_dialog("[SLOW]It feels extremely heavy?! Who crafted such bad armor?[B]");
+            } else if(arg[0x0e] == 0d2) {
+                conversation_dialog("[SLOW]The soil around the armor seems to be discolored.[B]");
+            } else if(arg[0x0e] == 0d3) {
+                conversation_dialog("[SLOW]It feels somewhat soft. Who crafted such bad armor?[B]");
+            }
+
+            conversation_question("[SLOW]Examine again?[CHOICE]examine…[CHOICE]leave…");
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01;
+        // object[0x01] = 0x01;
+
+        if(FLAG.ACID_RAIN && (NPC_ARCHAEOLOGIST.PROGRESS >= 0x10) && (NPC_ARCHAEOLOGIST.PROGRESS < 0x13)) {
+            add_souls_npc_archaeologist(0d33, 0d55);
+        }
+
+        add_souls_npc_alchemist_acid_rain(0d78, 0d82);
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+        ROOM.ALCHEMIST_ID = <LAST_ENTITY>;
+
+        if!(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
+            add_enemy(REVEALER_TARGET_ENTITY, 0d83, 0d8);
+            add_enemy(REVEALER_TARGET_ENTITY, 0d82, 0d36);
+            add_enemy(REVEALER_TARGET_ENTITY, 0d82, 0d56);
+            add_enemy(REVEALER_TARGET_ENTITY, 0d80, 0d78);
+            add_enemy(REVEALER_TARGET_ENTITY, 0d81, 0d100);
+
+            special_script(REVEALER, reference(@install() {
+                guard_challenge_levitate();
+
+                destroy(SCRIPT_OWNER);
+
+                remove_water(True);
+
+                AREA_SOUTHERN_JUNGLE.WATER_REMOVED = True;
+
+                find_all(REVEALER_TARGET_ENTITY, {
+                    destroy(arg[0x10]);
+                });
+            }));
+
+            add_debug_entity(0x5b, 0x23, reference(@install() {
+                remove_water(True);
+
+                AREA_SOUTHERN_JUNGLE.WATER_REMOVED = True;
+
+                destroy(SCRIPT_OWNER);
+            }));
+        } else {
+            remove_water(True);
+        }
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            if!(FLAG.ACID_RAIN) {
+                // east
+                add_raptor(RAPTOR_PURPLE, 0d95, 0d30);
+
+                add_raptor(RAPTOR_PURPLE, 0d99, 0d77);
+
+                // west
+                add_raptor(RAPTOR_GREEN, 0d40, 0d47);
+
+                add_raptor(RAPTOR_GREEN, 0d61, 0d81);
+
+                // river
+                if(AREA_SOUTHERN_JUNGLE.WATER_REMOVED) {
+                    add_raptor(RAPTOR_PURPLE, 0d82, 0d38);
+                }   
+            }
+
+            // east
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d102, 0d58);
+        }
+
+        if(True) {
+            // site - row 1
+            add_enemy(PLACEHOLDER, 0d21, 0d43); // wagon west (skull)
+            prepare_radiating_entity(<LAST_ENTITY>);
+            add_enemy(PLACEHOLDER, 0d21, 0d43); // grave 1-1 (skull)
+            prepare_radiating_entity(<LAST_ENTITY>);
+
+            add_enemy(PLACEHOLDER, 0d49, 0d51); // grave 1-2 (chest)
+            prepare_radiating_entity(<LAST_ENTITY>);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                animate_boy_kneel(<BOY>);
+
+                smart_conversation({
+                    conversation_question("[SLOW]Why is that armor not green? They look more grey[CHOICE]examine…[CHOICE]leave…", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        radiating_relic_examined();
+                    }
+                }, False);
+
+                animate(BOY, ONCE, DEFAULT);
+            }));
+
+            // site - row 2
+            add_enemy(PLACEHOLDER, 0d23, 0d59); // grave 2-1 (skull)
+            prepare_radiating_entity(<LAST_ENTITY>);
+            add_enemy(PLACEHOLDER, 0d21, 0d63); // grave 2-1 (chest)
+            prepare_radiating_entity(<LAST_ENTITY>);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                animate_boy_kneel(<BOY>);
+
+                smart_conversation({
+                    conversation_question("[SLOW]Is there something white on the armor? Are they infected by something?[CHOICE]examine…[CHOICE]leave…", 0d6);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        radiating_relic_examined();
+                    }
+                }, False);
+
+                animate(BOY, ONCE, DEFAULT);
+            }));
+            add_enemy(PLACEHOLDER, 0d38, 0d61); // grave 2-2 (skull)
+            prepare_radiating_entity(<LAST_ENTITY>);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                animate_boy_kneel(<BOY>);
+
+                smart_conversation({
+                    conversation_question("[SLOW]Those rips don't look human.[CHOICE]examine…[CHOICE]leave…", 0d5);
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) {
+                        increase_radiation(RADIATION.RADIATION_BUMP_TOUCH);
+
+                        if!(MEMORY.GLOVE_4_3) {
+                            custom_reward(GLOVE_PIPBOY_NORTH_WEST, True);
+                        } else {
+                            conversation_dialog("[SLOW]The bones look discolored. I wonder what happened to them.[B]");
+                        }
+                    }
+                }, False);
+
+                animate(BOY, ONCE, DEFAULT);
+            }));
+
+            // site - row 3
+            add_enemy(PLACEHOLDER, 0d57, 0d73); // wagon east (skull)
+            prepare_radiating_entity(<LAST_ENTITY>);
+
+            // north
+            add_enemy(PLACEHOLDER, 0d71, 0d15); // center skull
+            prepare_radiating_entity(<LAST_ENTITY>);
+
+            // east
+            add_enemy(PLACEHOLDER, 0d108, 0d49); // center skull
+            prepare_radiating_entity(<LAST_ENTITY>);
+        }
+
+        default_init_room(True, True);
+
+        place_statue(HORACE, 0d91, 0d75);
+
+        add_critter_door(0d17, 0d22, reference(@install() {
+            guard_critter_door();
+
+            jump_hole({
+                map_transition(basement_0_start, center, NORTH);
+            });
+        }));
+    }
+};

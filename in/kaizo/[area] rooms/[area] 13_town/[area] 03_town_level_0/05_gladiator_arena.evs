@@ -1,0 +1,172 @@
+map gladiator_arena(ARENA) {
+    enum entrance {
+        north_cinematic = entrance(0x20, 0x07, NONE),
+        south = entrance(0x22, 0x69, NORTH, { act2_arena_bridge_entrance(); }), // 0x22, 0x6a
+
+        center = entrance(0x20, 0x53, NONE),
+    }
+
+    enum soundtrack {
+        default = soundtrack(BOSS_ARENA, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        MANAGER_ID = memory(WORD, TEMP),
+
+        PROGRESS = memory(BYTE, SRAM),
+        MAX_PROGRESS = 0d4,
+
+        FIGHT_IN_PROGRESS = memory(FLAG, TEMP),
+        CURRENT_BOSS_DEFEATED = memory(FLAG, TEMP),
+
+        PILLAR_OPENED = memory(FLAG, TEMP),
+        COLLECTIBLE_LOOTED = memory(FLAG, SRAM),
+
+        REWARD_1_KILLS = 0d4,
+        REWARD_1_CLAIMED = memory(FLAG, SRAM),
+        REWARD_2_KILLS = 0d8,
+        REWARD_2_CLAIMED = memory(FLAG, SRAM),
+        REWARD_3_KILLS = 0d999,
+        REWARD_3_CLAIMED = memory(FLAG, SRAM),
+        REWARD_4_KILLS = 0d999,
+        REWARD_4_CLAIMED = memory(FLAG, SRAM),
+    }
+
+    @install()
+    fun spawn_next_gladiator() {
+        ROOM.FIGHT_IN_PROGRESS = True;
+
+        find_all(BOMB, {
+            destroy(current_id);
+        });
+
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.PROGRESS, ROOM.PROGRESS);
+        }
+
+        if(ROOM.PROGRESS == 0d0) {
+            add_enemy(MOSQUITO, 0x20, 0x53);
+            attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
+        } else if(ROOM.PROGRESS == 0d1) {
+            add_enemy(BOY_BLACK, 0x20, 0x53);
+            attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
+        } else if(ROOM.PROGRESS == 0d2) {
+            add_enemy(VIGOR, 0x20, 0x53);
+            attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
+        } else if(ROOM.PROGRESS == 0d3) {
+            add_enemy(FOOTKNIGHT, 0x20, 0x53);
+            attach_script(LAST_ENTITY, DEATH, reference(gladiator_dead));
+        }
+    }
+
+    @install()
+    fun gladiator_dead() {
+        ROOM.FIGHT_IN_PROGRESS = False;
+        ROOM.CURRENT_BOSS_DEFEATED = True;
+
+        sound(ARENA_CHEER);
+        
+        animate(ROOM.MANAGER_ID, LOOP, ANIMATION_ENEMY.TINY_FLEX);
+        sleep(0d160);
+        animate(ROOM.MANAGER_ID, ONCE, DEFAULT);
+
+        destroy(SCRIPT_OWNER);
+    }
+
+    fun claim_reward() {
+        if((ROOM.PROGRESS >= ROOM.REWARD_1_KILLS) && !ROOM.REWARD_1_CLAIMED) {
+            set(ROOM.REWARD_1_CLAIMED);
+            
+            dialog("[SLOW]Let me teach you my secret formula.[B]");
+
+            reward(SOULS_MEMORY.REWARD_ARENA_BOMB_1, True);
+
+            dialog("[SLOW]This technique has been passed down for generations.[B]");
+
+            end();
+        } else if((ROOM.PROGRESS >= ROOM.REWARD_2_KILLS) && !ROOM.REWARD_2_CLAIMED) {
+            set(ROOM.REWARD_2_CLAIMED);
+            
+            reward(SOULS_MEMORY.REWARD_ARENA_BOMB_2, True);
+
+            end();
+        } else if((ROOM.PROGRESS >= ROOM.REWARD_3_KILLS) && !ROOM.REWARD_3_CLAIMED) {
+            set(ROOM.REWARD_3_CLAIMED);
+            
+            reward(SOULS_MEMORY.REWARD_ARENA_BOMB_3, True);
+
+            end();
+        } else if((ROOM.PROGRESS >= ROOM.REWARD_4_KILLS) && !ROOM.REWARD_4_CLAIMED) {
+            set(ROOM.REWARD_4_CLAIMED);
+            
+            reward(SOULS_MEMORY.REWARD_ARENA_BOMB_4, True);
+
+            end();
+        }
+    }
+
+    @install()
+    fun manager_triggered() {
+        if(ROOM.FIGHT_IN_PROGRESS) {
+            subtext("You should focus on your opponent!");
+            end();
+        } else if(ROOM.CURRENT_BOSS_DEFEATED) {
+            ROOM.CURRENT_BOSS_DEFEATED = False;
+            ROOM.PROGRESS++;
+
+            sound(ARENA_CHEER);
+        }
+
+        claim_reward();
+
+        if(ROOM.PROGRESS < ROOM.MAX_PROGRESS) {
+            question("[SLOW]Ready for the next oponent?[CHOICE]Yes…[CHOICE]No…[CHOICE]Leave…", 0d5);
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                spawn_next_gladiator();
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) {
+                nop();
+            } else if(MEMORY.QUESTION_ANSWER == 0d2) {
+                map_transition(town_arena_entry, south_1, NONE);
+            }
+        } else {
+            question("[SLOW]There is no worthy opponent left for you…[CHOICE]Leave…");
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                map_transition(town_arena_entry, south_1, NONE);
+            }
+        }
+    }
+
+    fun trigger_enter() {
+        CUSTOM_FLAG.NO_DOG = True;
+        CUSTOM_FLAG.NO_XP_MONEY = True;
+        CUSTOM_FLAG.VANILLA_BOMB_DAMAGE = True;
+        
+        init_map(0x00, 0x30, 0x40, 0x70);
+
+        add_enemy(TINY, 0x20, 0x42, INACTIVE);
+        ROOM.MANAGER_ID = <LAST_ENTITY>;
+
+        add_enemy(PLACEHOLDER, 0x20, 0x48);
+        attach_script(LAST_ENTITY, B, reference(manager_triggered));
+
+        default_init_room(False, False);
+
+        hint(PRESS_START);
+
+        CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.BOMBS;
+
+        add_bombable(0d53, 0d74, ROOM.COLLECTIBLE_LOOTED, reference(@install() {
+            bombable_object(DEFAULT, True, ROOM.PILLAR_OPENED, 0x01, 0x01);
+
+            add_collectible(0x00, 0x36, 0x48, reference(@install() {
+                ROOM.COLLECTIBLE_LOOTED = True;
+
+                collectible_collected();
+            }));
+        }));
+    }
+};

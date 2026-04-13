@@ -1,0 +1,174 @@
+map aquagoth(AQUAGOTH) {
+    enum entrance {
+        south = entrance(0x1b, 0x51, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(DUNGEON_VOLCANO.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        FAKE_EXIT_ID = memory(WORD, TEMP),
+    }
+
+    fun fake_exit() {
+        map_transition(dungeon_volcano, north_2, SOUTH);
+    }
+
+    @install()
+    @async()
+    fun fake_exit_scanner() {
+        attach_to_script(ROOM.FAKE_EXIT_ID);
+
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = <SCRIPT_OWNER>[X];
+            arg[0x06] = <SCRIPT_OWNER>[Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if((arg[0x08] <= 0x20) && (arg[0x0a] <= 0x20)) {
+                fake_exit();
+                end();
+            }
+
+            yield();
+        }
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        ID = memory(WORD, TEMP),
+
+        DEFEATED = memory(FLAG, SRAM),
+
+        HP = 0d1000,
+        MAX_HP = 0d1200,
+        DIALOG_THRESHOLD_RESCUED_FLAG = memory(FLAG, TEMP),
+
+        DIALOG_THRESHOLD_1 = 0d5000,
+        DIALOG_THRESHOLD_1_FLAG = memory(FLAG, TEMP),
+
+        DIALOG_THRESHOLD_2 = 0d200,
+        DIALOG_THRESHOLD_2_FLAG = memory(FLAG, TEMP),
+    }
+
+    fun boss_defeated() {
+        souls_boss_defeated_helper(AQUAGOTH);
+
+        arg[0x10] = 0d40;
+        while(arg[0x10] > 0d0) {
+            object[0x01] = 0x00;
+            yield();
+            object[0x01] = 0x01;
+            yield();
+
+            arg[0x10]--;
+        }
+    }
+
+    @install()
+    @async()
+    fun aquagoth_life_tracker(entity) {
+        if(BOSS.DEBUG) {
+            yield();
+
+            debug_memory(entity[HP]);
+            sleep(0d60);
+        }
+
+        while(alive(entity)) {
+            check_alchemy_type_animation(STOP, arg[0x10]);
+
+            if(arg[0x10] > 0d0) {
+                attribute(entity, INVINCIBLE_TEMP, True);
+                subtext("Freedom…");
+                sleep(0d60);
+
+                boss_defeated();
+                end();
+            } else if((!BOSS.DIALOG_THRESHOLD_RESCUED_FLAG) && (entity[HP] >= BOSS.MAX_HP)) {
+                BOSS.DIALOG_THRESHOLD_RESCUED_FLAG = True;
+
+                dialog("[SLOW]Here…[B]");
+
+                reward(STOP, True);
+
+                question("Where am I? Did my brother send you?[CHOICE]yes…[CHOICE]no…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    dialog("[SLOW]Tell him………[B]");
+
+                    NPC_SQUIDMAR.AQUAGOTH_RESCUED = True;
+                }
+            } else if!(BOSS.DIALOG_THRESHOLD_2_FLAG) {
+                if(entity[HP] < BOSS.DIALOG_THRESHOLD_2) {
+                    BOSS.DIALOG_THRESHOLD_2_FLAG = True;
+
+                    subtext("ugh…");
+                }
+            } else if!(BOSS.DIALOG_THRESHOLD_1_FLAG) {
+                if(entity[HP] < BOSS.DIALOG_THRESHOLD_1) {
+                    BOSS.DIALOG_THRESHOLD_1_FLAG = True;
+
+                    subtext("…");
+                }
+            }
+
+            sleep(0d60);
+
+            if(BOSS.DEBUG) {
+                debug_memory(entity[HP], arg[0x10], <0x3367>);
+            }
+        }
+
+        boss_defeated();
+    }
+
+    fun init_room() {
+        if(SOULS_MEMORY.WITH_WEATHER) {
+            sfx_effect(SEPIA, True);
+        }
+        
+        default_init_room(False, False);
+    }
+
+    fun trigger_enter() {
+        reset_alchemy_types();
+
+        aquagoth_seen();
+        
+        if!(SOULS_MEMORY.DEAD_AQUAGOTH) {
+            add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            BOSS.ID = <LAST_ENTITY>;
+            attach_script(LAST_ENTITY, DAMAGE, reference(@install() {
+                NPC_SQUIDMAR.AQUAGOTH_DAMAGED = True;
+            }));
+            aquagoth_life_tracker(<LAST_ENTITY>);
+
+            subtext("A foul stench is in the air.");
+        } else {
+            object[0x01] = 0x01;
+        }
+
+        init_room();
+
+        add_enemy(PLACEHOLDER, 0x1b, 0x52);
+        ROOM.FAKE_EXIT_ID = <LAST_ENTITY>;
+        sleep(0x10);
+        fake_exit_scanner();
+    }
+};

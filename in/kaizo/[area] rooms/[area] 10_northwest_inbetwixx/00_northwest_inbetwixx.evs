@@ -1,0 +1,343 @@
+map northwest_inbetwixx(RIVER) {
+    // sniff=vanilla
+
+    enum entrance {
+        east = entrance(0x44, 0x44, WEST),
+        west = entrance(0x01, 0x3d, EAST),
+        cave = entrance(0x41, 0x0b, SOUTH),
+
+        tunnel = entrance(0d5, 0d33, NONE, { swirl_entrance(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        LIFT_ID = memory(WORD, TEMP),
+        LIFT_ACTIVE = memory(FLAG, SRAM),
+        LIFT_RIGHT = memory(FLAG, SRAM),
+        LIFT_POSITION = memory(WORD, TEMP),
+        CENTER_LINE = 0d272,
+
+        SECRET_PASSAGE_TRIGGER = memory(WORD, TEMP),
+        SECRET_PASSAGE_DISTANCE = 0x10,
+
+        WALL = retained_object(0x00),
+
+        TUNNEL_OPENED = memory(FLAG, SRAM),
+    }
+
+    enum LIFT_POSITION {
+        UNINITIALIZED = 0d0,
+
+        LEFT = 0d1,
+        CENTER = 0d2,
+        RIGHT = 0d3,
+    }
+
+    fun init_lift() {
+        if(ROOM.LIFT_POSITION == LIFT_POSITION.UNINITIALIZED) {
+            if!(ROOM.LIFT_ACTIVE) {
+                ROOM.LIFT_POSITION = LIFT_POSITION.CENTER;
+            } else if(ROOM.LIFT_RIGHT) {
+                ROOM.LIFT_POSITION = LIFT_POSITION.RIGHT;
+            } else {
+                ROOM.LIFT_POSITION = LIFT_POSITION.LEFT;
+            }
+        }
+
+        if(ROOM.LIFT_POSITION == LIFT_POSITION.LEFT) {
+            add_placeholder(LIFT_MOVING, 0d16, 0d15, ONCE_FREEZE);
+        } else if(ROOM.LIFT_POSITION == LIFT_POSITION.CENTER) {
+            add_placeholder(LIFT_MOVING, 0d33, 0d15, ONCE_FREEZE);
+        } else if(ROOM.LIFT_POSITION == LIFT_POSITION.RIGHT) {
+            add_placeholder(LIFT_MOVING, 0d49, 0d15, ONCE_FREEZE);
+        }
+
+        ROOM.LIFT_ID = <LAST_ENTITY>;
+    }
+
+    @install()
+    fun move_lift(lift_id, position, dry) {
+        if(ROOM.LIFT_POSITION == position) {
+            end();
+        }
+
+        if(position == LIFT_POSITION.LEFT) {
+            arg[0x10] = 0d128;
+            ROOM.LIFT_ACTIVE = True;
+            ROOM.LIFT_RIGHT = False;
+        } else if(position == LIFT_POSITION.CENTER) {
+            ROOM.LIFT_ACTIVE = False;
+            arg[0x10] = 0d264;
+        } else if(position == LIFT_POSITION.RIGHT) {
+            ROOM.LIFT_ACTIVE = True;
+            ROOM.LIFT_RIGHT = True;
+            arg[0x10] = 0d392;
+        }
+
+        if!(dry) {
+            if((<BOY>[X] < ROOM.CENTER_LINE) ^ (<DOG>[X] < ROOM.CENTER_LINE)) {
+                arg[0x12] = True;
+            }
+
+            if(arg[0x12]) {
+                walk(ACTIVE, COORDINATE_ABSOLUTE, lift_id[X], lift_id[Y], ACTIVE, NONE);
+                face(ACTIVE, SOUTH);
+            } else {
+                walk(ACTIVE, COORDINATE_ABSOLUTE, lift_id[X] - 0d8, lift_id[Y], NONE, NONE);
+                walk(INACTIVE, COORDINATE_ABSOLUTE, lift_id[X] + 0d8, lift_id[Y], BOTH, NONE);
+                face(ACTIVE, SOUTH);
+                face(INACTIVE, SOUTH);
+            }
+        }
+
+        animate(lift_id, LOOP, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+        while(lift_id[X] > arg[0x10]) {
+            lift_id[X]--;
+
+            if!(dry) {
+                if(arg[0x12]) {
+                    <ACTIVE>[X] = lift_id[X];
+                    <ACTIVE>[Y] = lift_id[Y];
+                } else {
+                    <ACTIVE>[X] = lift_id[X] - 0d8;
+                    <ACTIVE>[Y] = lift_id[Y];
+
+                    <INACTIVE>[X] = lift_id[X] + 0d8;
+                    <INACTIVE>[Y] = lift_id[Y];
+                }
+            }
+
+            yield();
+        }
+        while(lift_id[X] < arg[0x10]) {
+            lift_id[X]++;
+
+            if!(dry) {
+                if(arg[0x12]) {
+                    <ACTIVE>[X] = lift_id[X];
+                    <ACTIVE>[Y] = lift_id[Y];
+                } else {
+                    <ACTIVE>[X] = lift_id[X] - 0d8;
+                    <ACTIVE>[Y] = lift_id[Y];
+
+                    <INACTIVE>[X] = lift_id[X] + 0d8;
+                    <INACTIVE>[Y] = lift_id[Y];
+                }
+            }
+
+            yield();
+        }
+
+        animate(lift_id, ONCE_FREEZE, ANIMATION_PLACEHOLDER.LIFT_MOVING);
+
+        if!(dry) {
+            if(arg[0x12]) {
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, ACTIVE, ACTIVE);
+            } else {
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, NONE, BOTH);
+                walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d1, BOTH, BOTH);
+            }
+        }
+
+        ROOM.LIFT_POSITION = position;
+    }
+
+    enum stepon_trigger {
+        lift_west = @install() {
+            debug_subtext("S=0");
+
+            if(ROOM.DEBUG) {
+                debug_memory(ROOM.LIFT_POSITION, ROOM.LIFT_ACTIVE, ROOM.LIFT_RIGHT);
+            }
+
+            if(ROOM.LIFT_POSITION == 0d1) {
+                move_lift(ROOM.LIFT_ID, 0d3);
+            }
+        },
+        lift_east = @install() {
+            debug_subtext("S=1");
+
+            if(ROOM.DEBUG) {
+                debug_memory(ROOM.LIFT_POSITION, ROOM.LIFT_ACTIVE, ROOM.LIFT_RIGHT);
+            }
+
+            if(ROOM.LIFT_POSITION == 0d3) {
+                move_lift(ROOM.LIFT_ID, 0d1);
+            }
+        },
+        exit_west = @install() {
+            map_transition(volcano, east, WEST);
+        },
+        bridge_east = @install() {
+            // pit_act2_between(0x0250);
+
+            debug_subtext("S=3");
+
+            generic_act2_dog_bridge_jump(WEST, 0x29, 0x3c);
+        },
+        bridge_west = @install() {
+            debug_subtext("S=4");
+
+            generic_act2_dog_bridge_jump(EAST, 0x20, 0x3c);
+        },
+        stepon_5 = @install() {
+            debug_subtext("S=5");
+        },
+        stepon_6 = @install() {
+            map_transition(northern_waterfall, south, NORTH);
+        },
+        stepon_7 = @install() {
+            debug_subtext("S=7");
+        },
+        stepon_8 = @install() {
+            debug_subtext("S=8");
+        },
+        exit_west = @install() {
+            map_transition(inbetwixx, west_2, EAST);
+        }
+    }
+
+    enum b_trigger {
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=0");
+            _loot(0x0c, WATER, 0d01, 0d01);
+        },
+        sniff__1_water_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x0b, WATER, 0d01, 0d01);
+        },
+        sniff__1_roots_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x0a, ROOTS, 0d01, 0d02);
+        },
+        sniff__1_ash_2 = @install() {
+            debug_subtext("B=3");
+            _loot(0x09, ASH, 0d01, 0d02);
+        },
+        sniff__1_wax_1 = @install() {
+            debug_subtext("B=4");
+            _loot(0x08, WAX, 0d01, 0d01);
+        },
+        sniff__1_brimstone_2 = @install() {
+            debug_subtext("B=5");
+            _loot(0x07, BRIMSTONE, 0d01, 0d02);
+        },
+        sniff__1_brimstone = @install() {
+            debug_subtext("B=6");
+            _loot(0x06, BRIMSTONE, 0d01, 0d00);
+        },
+        sniff__1_limestone_1 = @install() {
+            debug_subtext("B=7");
+            _loot(0x05, LIMESTONE, 0d01, 0d01);
+        },
+        sniff__1_limestone_2 = @install() {
+            debug_subtext("B=8");
+            _loot(0x04, LIMESTONE, 0d01, 0d02);
+        },
+        sniff__1_ethanol_1 = @install() {
+            debug_subtext("B=9");
+            _loot(0x03, ETHANOL, 0d01, 0d01);
+        },
+
+        sniff__1_ethanol_2 = @install() {
+            debug_subtext("B=10");
+            _loot(0x02, ETHANOL, 0d01, 0d02);
+        },
+        sniff__1_ethanol_1 = @install() {
+            debug_subtext("B=11");
+            _loot(0x01, ETHANOL, 0d01, 0d01);
+        },
+        axe2_wall = @install() fun trigger_wall() {
+            bombable_object(WALL_AXE2, True, ROOM.WALL, 0x00, 0x01);
+        }
+    }
+
+    @install()
+    @async()
+    fun hidden_exit_check() {
+        while(True) {
+            arg[0x00] = <ACTIVE>[X];
+            arg[0x02] = <ACTIVE>[Y];
+            arg[0x04] = ROOM.SECRET_PASSAGE_TRIGGER[X];
+            arg[0x06] = ROOM.SECRET_PASSAGE_TRIGGER[Y];
+
+            if(arg[0x00] < arg[0x04]) {
+                arg[0x08] = arg[0x04] - arg[0x00];
+            } else {
+                arg[0x08] = arg[0x00] - arg[0x04];
+            }
+
+            if(arg[0x02] < arg[0x06]) {
+                arg[0x0a] = arg[0x06] - arg[0x02];
+            } else {
+                arg[0x0a] = arg[0x02] - arg[0x06];
+            }
+
+            if((arg[0x08] <= ROOM.SECRET_PASSAGE_DISTANCE) && (arg[0x0a] <= ROOM.SECRET_PASSAGE_DISTANCE)) {
+                map_transition(river, right, NORTH);
+                end();
+            }
+            yield();
+
+            if(False && ROOM.DEBUG) {
+                debug_memory(arg[0x08], arg[0x0a]);
+                sleep(0x20);
+            }
+        }
+    }
+    
+    fun trigger_enter() {
+        init_lift(0d2);
+        if(ROOM.LIFT_POSITION == 0d2) {
+            add_frippo_switch(0d33, 0d15 + 0d1, reference(@install() {
+                if(<ACTIVE>[X] < ROOM.CENTER_LINE) {
+                    move_lift(ROOM.LIFT_ID, 0d1, True);
+                } else {
+                    move_lift(ROOM.LIFT_ID, 0d3, True);
+                }
+            }));
+        }
+
+        if(NPC_ARCHAEOLOGIST.PROGRESS == 0d2) {
+            add_souls_npc_archaeologist(0d44, 0d11);
+        }
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // east
+            add_basic_souls_enemy(BUZZARD_1, 0d50, 0d26);
+
+            // west
+            add_basic_souls_enemy(BUZZARD_1, 0d15, 0d14);
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d12, 0d38);
+        }
+
+        default_init_room(True, True);
+
+        if(SOULS_MEMORY.WITH_AREA_NAMES) {
+            subtext("North West Inbetwixx");
+        }
+
+        add_enemy(PLACEHOLDER, 0x17, 0x00);
+        ROOM.SECRET_PASSAGE_TRIGGER = <LAST_ENTITY>;
+
+        if(SOULS_MEMORY.WITH_BOAT_RIDE) {
+            hidden_exit_check();
+        }
+
+        add_bombable(0d64, 0d17, ROOM.WALL, reference(trigger_wall));
+
+        archaeology_dig(0d3, 0d12, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+            guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
+
+            jump_hole({
+                map_transition(inverted_pyramid_level_1_secret_entrance_room_west, crash, NONE);
+            });
+        }), True, NORMAL);
+    }
+};

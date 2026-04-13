@@ -47,12 +47,12 @@ class FileUtils():
         file = Path(file)
 
         match(file.suffix):
-            case ".txt":
+            case ".txt" | ".evs":
                 self.dump_txt_raw(text, file)
             case ".ips":
                 self.dump_txt_to_ips(text, file)
             case _:
-                raise Exception("invalid file type for dumps: '{file.suffix}'")
+                raise Exception(f"invalid file type for dumps: '{file.suffix}'")
 
     def dump_txt_raw(self, text, file):
         text_file = open(file, "w")

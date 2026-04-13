@@ -1,0 +1,184 @@
+area custom_boss_diablo() {
+    enum BOSS {
+        DEBUG = False,
+
+        HP_SHADOW = 0d1,
+        MOVE_COOLDOWN = 0d300,
+
+        WITH_CHANNEL_PROTECTION = False,
+    }
+
+    @install()
+    fun _roar(scream) {
+        if(scream) {
+            sound(THRAXX_DAMAGE);
+        }
+
+        sfx_effect(SHAKING, True);
+        sleep(0d20);
+        sfx_effect(SHAKING, False);
+    }
+    fun roar(scream) {
+        if(scream !is None) {
+            _roar(scream);
+        } else {
+            _roar();
+        }
+
+        yield();
+    }
+
+    group ai_moves() {
+        @install()
+        @async()
+        fun add_shadow() {
+            <SCRIPT_OWNER>[GENERAL_PURPOSE]++;
+
+            arg[0x10] = <SCRIPT_OWNER>[X];
+            arg[0x12] = <SCRIPT_OWNER>[Y];
+
+            while((arg[0x10] == <SCRIPT_OWNER>[X]) && (arg[0x12] == <SCRIPT_OWNER>[Y])) {
+                guard_dead(<SCRIPT_OWNER>);
+
+                sleep(0d10);
+            }
+
+            sleep(0d60);
+
+            guard_dead(<SCRIPT_OWNER>);
+
+            _add_enemy(LIZARD, arg[0x10], arg[0x12]);
+            <LAST_ENTITY>[HP] = BOSS.HP_SHADOW;
+            <LAST_ENTITY>[GENERAL_PURPOSE] = <SCRIPT_OWNER>;
+            attach_to_script(<LAST_ENTITY>);
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                arg[0x10] = <SCRIPT_OWNER>[GENERAL_PURPOSE];
+
+                arg[0x10][GENERAL_PURPOSE]--;
+
+                clean_up(<SCRIPT_OWNER>);
+            }));
+
+            animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+
+            yield();
+
+            smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+
+            while!(dead(<SCRIPT_OWNER>)) {
+                arg[0x0e] = randrange(0d2);
+
+                if(arg[0x0e] == 0d0) {
+                    animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+
+                    // ai_move_projectile_ring(<SCRIPT_OWNER>, BOOMERANG, 0d75, 0x40, 0d5, 0d1, False, True);
+                    ai_move_projectile_plus(<SCRIPT_OWNER>, ONION, 0d70);
+                } else {
+                    animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
+                    attribute(SCRIPT_OWNER, ROOT, True);
+                    control(SCRIPT_OWNER, True);
+                    if(BOSS.WITH_CHANNEL_PROTECTION) {
+                        attribute(SCRIPT_OWNER, INVINCIBLE, True);
+                    }
+
+                    projectile_beam(<ACTIVE>, 0d5);
+
+                    if(BOSS.WITH_CHANNEL_PROTECTION) {
+                        attribute(SCRIPT_OWNER, INVINCIBLE, False);
+                    }
+                    control(SCRIPT_OWNER, False);
+                    attribute(SCRIPT_OWNER, ROOT, False);
+                    animate(SCRIPT_OWNER, ONCE, DEFAULT);
+                }
+
+                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+            }
+        }
+    };
+
+    @install()
+    @async()
+    fun _add_custom_boss_diablo(x, y, force_phase, hp) {
+        add_enemy(LIZARD, x, y);
+        <LAST_ENTITY>[HP] = hp;
+        attach_to_script(LAST_ENTITY);
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d0;
+        SOULS_MEMORY.SLOW_ON_HIT_ENTITY = <LAST_ENTITY>;
+
+        yield();
+
+        smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+
+        arg[0x10] = True;
+
+        while!(dead(<SCRIPT_OWNER>)) {
+            if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] < (hp / 0d2))) {
+                arg[0x0e] = randrange(0d2);
+            } else {
+                arg[0x0e] = randrange(0d3);
+            }
+
+            if(BOSS.DEBUG) {
+                debug_memory(arg[0x0e]);
+            }
+
+            if(arg[0x0e] == 0d0) {
+                animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.LIZARD_TALK);
+
+                if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                    ai_move_projectile_star(<SCRIPT_OWNER>, ONION, 0d70);
+                } else {
+                    ai_move_projectile_x(<SCRIPT_OWNER>, ONION, 0d70);
+                }
+            } else if(arg[0x0e] == 0d1) {
+                animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_TALK);
+                attribute(SCRIPT_OWNER, ROOT, True);
+                control(SCRIPT_OWNER, True);
+                if(BOSS.WITH_CHANNEL_PROTECTION) {
+                    attribute(SCRIPT_OWNER, INVINCIBLE, True);
+                }
+
+                projectile_beam(<ACTIVE>, 0d5);
+
+                if(BOSS.WITH_CHANNEL_PROTECTION) {
+                    attribute(SCRIPT_OWNER, INVINCIBLE, False);
+                }
+                control(SCRIPT_OWNER, False);
+                attribute(SCRIPT_OWNER, ROOT, False);
+                animate(SCRIPT_OWNER, ONCE, DEFAULT);
+            } else {
+                if!(<SCRIPT_OWNER>[GENERAL_PURPOSE]) {
+                    add_shadow();
+                } else {
+                    arg[0x10] = True;
+                }
+            }
+
+            if!(arg[0x10]) {
+                smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(<SCRIPT_OWNER>));
+            } else {
+                arg[0x10] = False;
+            }
+        }
+
+        SOULS_MEMORY.SLOW_ON_HIT_ENTITY = 0x0000;
+    }
+    fun add_custom_boss_diablo(x, y, flag_dead, callback_dead, force_phase, hp) {
+        _add_custom_boss_diablo(x, y, force_phase, hp);
+        yield();
+
+        if(callback_dead is Function) {
+            attach_to_script(LAST_ENTITY);
+
+            while((!_dead(<SCRIPT_OWNER>)) && (!flag_dead)) {
+                yield();
+            }
+
+            if(flag_dead) {
+                destroy(<SCRIPT_OWNER>);
+            }
+
+            callback_dead();
+        }
+    }
+};

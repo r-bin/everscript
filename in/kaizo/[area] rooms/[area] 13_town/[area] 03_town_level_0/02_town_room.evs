@@ -1,0 +1,198 @@
+map town_room(CRUSTICIA_CAVES) { // variant: tavern
+    // chest=todo
+
+    enum entrance {
+        south = entrance(0x6f, 0x51, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+    }
+
+    enum stepon_trigger {
+        monk = nop(),
+        monk_trigger_west = nop(),
+        monk_trigger_south = nop(),
+        exit_cave_hammock = nop(),
+        exit_south = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_TAVERN_BOXERS, NORTH);
+
+            map_transition(town_center, door, SOUTH);
+        },
+        exit_ship_small = nop(),
+        exit_cave_crates = nop(),
+        exit_cave_monk = nop(),
+    }
+
+    enum b_trigger {
+        gourd_hammock = nop(),
+        gourd_monk_1 = nop(),
+        gourd_monk_2 = nop(),
+        gourd_crates = nop(),
+        groud = @install() {
+            _loot_chest(0x06, LOOT_REWARD.WATER, 0x01);
+        },
+        gourd_ship = nop(),
+        barkeeper = @install() {
+            debug_subtext("B=6");
+        },
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        RIDER_1_ID = memory(WORD, TEMP),
+        MOUNT_1_ID = memory(WORD, TEMP),
+        RIDER_2_ID = memory(WORD, TEMP),
+        MOUNT_2_ID = memory(WORD, TEMP),
+        RIDER_3_ID = memory(WORD, TEMP),
+        MOUNT_3_ID = memory(WORD, TEMP),
+
+        HITS_BOXER_1 = memory(WORD, TEMP),
+        HITS_BOXER_2 = memory(WORD, TEMP),
+        HITS_BOXER_3 = memory(WORD, TEMP),
+
+        HITS_THRESHOLD = 0d5,
+        HIT_DISTANCE = 0d35,
+
+        BOXERS_BEATEN = memory(WORD, TEMP),
+
+        BOXERS_BEATEN_THRESHOLD = 0d3,
+    }
+
+    @install()
+    @async()
+    fun stack_boxer1() {
+        while(alive(BOSS.RIDER_1_ID)) {
+            BOSS.RIDER_1_ID[X] = BOSS.MOUNT_1_ID[X];
+            BOSS.RIDER_1_ID[Y] = BOSS.MOUNT_1_ID[Y];
+            yield();
+        }
+    }
+    @install()
+    @async()
+    fun stack_boxer2() {
+        while(alive(BOSS.RIDER_2_ID)) {
+            BOSS.RIDER_2_ID[X] = BOSS.MOUNT_2_ID[X];
+            BOSS.RIDER_2_ID[Y] = BOSS.MOUNT_2_ID[Y];
+            yield();
+        }
+    }
+    @install()
+    @async()
+    fun stack_boxer3() {
+        while(alive(BOSS.RIDER_3_ID)) {
+            BOSS.RIDER_3_ID[X] = BOSS.MOUNT_3_ID[X];
+            BOSS.RIDER_3_ID[Y] = BOSS.MOUNT_3_ID[Y];
+            yield();
+        }
+    }
+
+    fun boxer_killed() {
+        BOSS.BOXERS_BEATEN++;
+
+        if(BOSS.BOXERS_BEATEN >= BOSS.BOXERS_BEATEN_THRESHOLD) {
+            souls_boss_defeated_helper(TAVERN_BOXERS);
+        }
+    }
+
+    fun boxer_hit(rider_id, mount_id, hit_counter) { // TODO: buggy
+        if(<SCRIPT_OWNER>[DAMAGE_SOURCE] != <SCRIPT_OWNER>[DAMAGE_SOURCE]) {
+            heal(SCRIPT_OWNER, 0d0, False);
+
+            if(BOSS.DEBUG) {
+                debug_memory(0d0, arg[0x20], <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+            }
+            end();
+        }
+        
+        return_distance(<SCRIPT_OWNER>, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+        if(CUSTOM_MEMORY.RETURN >= BOSS.HIT_DISTANCE) {
+            heal(SCRIPT_OWNER, 0d0, False);
+            <SCRIPT_OWNER>[HP] = SYSTEM.HP_MAX;
+
+            subtext("*miss*");
+
+            if(BOSS.DEBUG) {
+                debug_memory(0d1, CUSTOM_MEMORY.RETURN, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+            }
+            end();
+        }
+        
+        hit_counter++;
+
+        if(BOSS.DEBUG) {
+            debug_memory(0d2, CUSTOM_MEMORY.RETURN, <SCRIPT_OWNER>[DAMAGE_SOURCE]);
+        }
+
+        if(hit_counter >= BOSS.HITS_THRESHOLD) {
+            add_enemy(PLACEHOLDER, 0x00, 0x00);
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.GORE_RED);
+            <LAST_ENTITY>[X] = rider_id[X];
+            <LAST_ENTITY>[Y] = rider_id[Y];
+
+            destroy(mount_id);
+            destroy(rider_id);
+
+            boxer_killed();
+        }
+    }
+
+    @install()
+    fun boxer1dead() {
+        boxer_hit(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, BOSS.HITS_BOXER_1);
+    }
+    @install()
+    fun boxer2dead() {
+        boxer_hit(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, BOSS.HITS_BOXER_2);
+    }
+    @install()
+    fun boxer3dead() {
+        boxer_hit(BOSS.RIDER_3_ID, BOSS.MOUNT_3_ID, BOSS.HITS_BOXER_3);
+    }
+
+    fun add_boxer(id_rider, id_mount, enemy:ENEMY, x, y, trigger) {
+        add_enemy(enemy, x, y);
+        <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+        id_rider = <LAST_ENTITY>;
+        <LAST_ENTITY>[HP] = SYSTEM.HP_MAX;
+        attach_script(LAST_ENTITY, DAMAGE, trigger);
+        add_enemy(MAGGOT_RED, x, y);
+        id_mount = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, INVISIBLE, True);
+        attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+    }
+
+    fun init_room(index) {
+        if(index == 0x00) {
+            init_map(0x00, 0x00, 0x2e, 0x2a); // hammock
+        } else if(index == 0x01) {
+            init_map(0x00, 0x38, 0x26, 0x5c); // crates
+        } else if(index == 0x02) {
+            init_map(0x32, 0x36, 0x56, 0x52); // ship
+        } else if(index == 0x03) {
+            // init_map(0x58, 0x30, 0x86, 0x4e); // tavern
+            init_map(0x58, 0x30, 0x86, 0x50); // tavern
+        } else if(index == 0x04) {
+            init_map(0x40, 0x00, 0x66, 0x24); // monk
+        }
+    }
+
+    fun trigger_enter() {
+        init_room(0x03);
+
+        if!(SOULS_MEMORY.DEAD_TAVERN_BOXERS) {
+            push_music(BOSS_MINI);
+
+            add_boxer(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, BOXER_1, 0x5c, 0x49, reference(boxer1dead));
+            add_boxer(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, BOXER_2, 0x80, 0x3d, reference(boxer2dead));
+            add_boxer(BOSS.RIDER_3_ID, BOSS.MOUNT_3_ID, BOXER_2, 0x80, 0x45, reference(boxer3dead));
+
+            stack_boxer1();
+            stack_boxer2();
+            stack_boxer3();
+        }
+
+        default_init_room(False, False);
+    }
+};

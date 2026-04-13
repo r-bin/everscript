@@ -1,0 +1,57 @@
+map mansion_old(MANSION_65) {
+    enum entrance {
+        west = entrance(0d00, 0d106, EAST),
+        south = entrance(0d35, 0d113, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_PODUNK.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum ROOM {
+        PROFESSOR = memory(WORD, TEMP),
+
+        COORDINATE_NORTH_BORDER = 0d22 * 0x0008,
+    }
+
+    @install()
+    @async()
+    fun fake_exit_check() {
+        while(True) {
+            if(<ACTIVE>[Y] < ROOM.COORDINATE_NORTH_BORDER) {
+                map_transition(lab_cutscene, north, NORTH);
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    @async()
+    fun professor_glitch() {
+        while(True) {
+            ROOM.PROFESSOR[X] += 0x10;
+            ROOM.PROFESSOR[Y] -= 0x05;
+            sleep(0x05);
+            ROOM.PROFESSOR[X] -= 0x20;
+            sleep(0x03);
+            ROOM.PROFESSOR[X] += 0x10;
+            ROOM.PROFESSOR[Y] += 0x05;
+            sleep(0x30);
+            if(randrange(0x02)) {
+                sleep(0x50);
+            }
+        }
+    }
+
+    fun trigger_enter() {
+        add_enemy(PROFESSOR, 0d35, 0d71);
+        control(LAST_ENTITY, True);
+        ROOM.PROFESSOR = <LAST_ENTITY>;
+        professor_glitch();
+
+        default_dungeon_podunk_init_room();
+
+        fake_exit_check();
+    }
+};

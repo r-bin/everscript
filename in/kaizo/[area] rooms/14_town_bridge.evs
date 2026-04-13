@@ -1,0 +1,189 @@
+map town_bridge(BAD_BOYS) {
+    enum entrance {
+        east = entrance(0x63, 0x1d, WEST),
+        west = entrance(0x01, 0x21, EAST)
+    }
+
+    enum soundtrack {
+        default = soundtrack(WIND_AMBIENT_BIRDS, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            map_transition(town_center, west_1, EAST);
+        },
+        exit_west = @install() {
+            map_transition(bog_curve, east, WEST);
+        }
+    }
+
+    fun open_east_exit(open) {
+        if(open) {
+           object[0x00] = 0x00; 
+        } else {
+            object[0x00] = 0x7e;
+        }
+    }
+    fun open_bridge(open) {
+        if(open) {
+           object[0x07] = 0x07e; 
+        } else {
+            object[0x07] = 0x00;
+        }
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        RIDDLE_SOLVED = memory(FLAG, SRAM),
+
+        RIDDLE_PROGRESS = memory(WORD, TEMP),
+
+        WITH_RAT = False,
+
+        RIDDLE_STEP_1 = 0d6, // 6=2*3
+        RIDDLE_STEP_2 = 0d2, // prime factor #1
+        RIDDLE_STEP_3 = 0d4, // prime factor #1 squared
+        RIDDLE_STEP_4 = 0d3, // prime factor #2
+        RIDDLE_STEP_5 = 0d5, // sum of prime factor #1 and #2
+        RIDDLE_STEP_6 = 0d1, // rest
+    }
+
+    fun riddle_solved() {
+        sound(WEIRD_SOUND);
+
+        ROOM.RIDDLE_SOLVED = True;
+
+        if(ROOM.DEBUG) {
+            debug_subtext("yatta");
+        }
+
+        reward(SOULS_MEMORY.REWARD_STONEHENGE_TOWN, True);
+    }
+
+    fun print_index(index) {
+        if(index == 0d1) {
+            subtext("I");
+        } else if(index == 0d2) {
+            subtext("II");
+        } else if(index == 0d3) {
+            subtext("III");
+        } else if(index == 0d4) {
+            subtext("IV");
+        } else if(index == 0d5) {
+            subtext("V");
+        } else if(index == 0d6) {
+            subtext("VI");
+        }
+    }
+    fun remove_pillar(index) {
+        if(index == 0d1) {
+            object[0x01] = 0x7e;
+        } else if(index == 0d2) {
+            object[0x02] = 0x7e;
+        } else if(index == 0d3) {
+            object[0x03] = 0x7e;
+        } else if(index == 0d4) {
+            object[0x04] = 0x7e;
+        } else if(index == 0d5) {
+            object[0x05] = 0x7e;
+        } else if(index == 0d6) {
+            object[0x06] = 0x7e;
+        }
+    }
+    @install()
+    fun pillar_triggered() {
+        print_index(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+
+        if(
+            (<ACTIVE> != <BOY>) ||
+            (
+                (MEMORY.CURRENT_WEAPON != WEAPON_INDEX.AXE_2) &&
+                (MEMORY.CURRENT_WEAPON != WEAPON_INDEX.AXE_3) &&
+                (MEMORY.CURRENT_WEAPON != WEAPON_INDEX.AXE_4)
+            )
+        ) {
+            // animate(ACTIVE, ONCE, SLASH_1);
+            end();
+        }
+
+        animate(BOY, ONCE, SLASH_2);
+
+        if((ROOM.RIDDLE_PROGRESS == 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_1)) {
+            ROOM.RIDDLE_PROGRESS++;
+        } else if((ROOM.RIDDLE_PROGRESS == 0d1) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_2)) {
+            ROOM.RIDDLE_PROGRESS++;
+        } else if((ROOM.RIDDLE_PROGRESS == 0d2) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_3)) {
+            ROOM.RIDDLE_PROGRESS++;
+        } else if((ROOM.RIDDLE_PROGRESS == 0d3) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_4)) {
+            ROOM.RIDDLE_PROGRESS++;
+        } else if((ROOM.RIDDLE_PROGRESS == 0d4) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_5)) {
+            ROOM.RIDDLE_PROGRESS++;
+        } else if((ROOM.RIDDLE_PROGRESS == 0d5) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_6)) {
+            ROOM.RIDDLE_PROGRESS++;
+        } else {
+            ROOM.RIDDLE_PROGRESS = 0xffff;
+        }
+
+        animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
+        remove_pillar(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+
+        wait(SCRIPT_OWNER);
+        destroy(SCRIPT_OWNER);
+
+        if(ROOM.RIDDLE_PROGRESS == 0d6) {
+            sleep(0d10);
+
+            riddle_solved();
+        }
+    }
+
+    fun add_pillar(index, x, y) {
+        add_enemy(PLACEHOLDER, x, y);
+        attach_script(LAST_ENTITY, B, reference(pillar_triggered));
+        <LAST_ENTITY>[GENERAL_PURPOSE] = index;
+    }
+
+    fun trigger_enter() {
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // east
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d93, 0d17);
+
+            // west
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d34, 0d24);
+
+            add_basic_souls_enemy(MONK, 0d25, 0d30);
+
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d15, 0d43);
+        }
+
+        if!(ROOM.RIDDLE_SOLVED) {
+            add_pillar(0d1, 0d12, 0d24);
+            add_pillar(0d2, 0d20, 0d24);
+            add_pillar(0d3, 0d29, 0d24);
+
+            add_pillar(0d4, 0d12, 0d38);
+            add_pillar(0d5, 0d20, 0d38);
+            add_pillar(0d6, 0d29, 0d38);
+        } else {
+            object[0x01] = 0x7e;
+            object[0x02] = 0x7e;
+            object[0x03] = 0x7e;
+
+            object[0x04] = 0x7e;
+            object[0x05] = 0x7e;
+            object[0x06] = 0x7e;
+        }
+   
+        open_bridge(True);
+
+        default_init_room(True, True);
+
+        if(ROOM.WITH_RAT) {
+            add_enemy(RAT_RED, 0d68, 0d29);
+            attach_sterling_script(<LAST_ENTITY>, False, 0d20, 0d68, 0d20, 0d350, 0d999);
+
+            sterling_rats_scanner(0d80, 0d29);
+        }
+    }
+};

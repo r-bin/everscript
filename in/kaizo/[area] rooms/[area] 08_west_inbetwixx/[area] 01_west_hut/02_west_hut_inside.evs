@@ -1,0 +1,88 @@
+map west_hut_inside(STRONGHEART) {
+    enum entrance {
+        door = entrance(0x12, 0x23, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(BUGMUCK_AMBIENT_MELODY, 0xff)
+    }
+
+    enum ROOM {
+        CLUE_1 = memory(FLAG, SRAM),
+        CLUE_2 = memory(FLAG, SRAM),
+    }
+
+    enum stepon_trigger {
+        stepon_0 = @install() {
+            map_transition(west_hut_outside, hut, SOUTH);
+        }
+    }
+
+    enum b_trigger {
+        gourd_1__1_oil = @install() {
+            fake_loot_gourd();
+
+            object[0x00] = 0x01; // unload gourd_1
+            custom_reward(ISAAC_LETTER, True);
+
+            dialog("[SLOW]The letter seems to be old, it's barely readable.[B]But it clearly states the phrases `To Maggy´, `child´ and something about leaving.[B]Based on the coat of arms the origin seems to be a town.[B]Maybe I can find more clues there.[B]");
+        },
+        gourd_2__1_wax = @install() {
+            fake_loot_gourd();
+
+            object[0x02] = 0x01; // unload gourd_2
+            subtext("Locked away childrens toys.");
+            set(ROOM.CLUE_1);
+        },
+        gourd_3__1_wax = @install() {
+            fake_loot_gourd();
+
+            object[0x01] = 0x01; // unload gourd_3
+            subtext("Cheap religious artifacts.");
+            set(ROOM.CLUE_2);
+        },
+    }
+
+    @install()
+    fun trap_door() {
+        if!(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+            error_message();
+            end();
+        }
+        if((!ROOM.CLUE_1) || (!ROOM.CLUE_2)) {
+            fake_b();
+            end();
+        }
+
+        sound(WEIRD_SOUND);
+
+        animate_boy_kneel(BOY);
+        
+        question("[SLOW]A hidden trap door.[LF](No way back in sight…)[CHOICE]Enter…[CHOICE]Leave…");
+
+        if(MEMORY.QUESTION_ANSWER == 0d0) {
+            animation_fall_pit(BOY);
+
+            map_transition(basement_0_start, center, NONE);
+        } else {
+            animate(BOY, ONCE, DEFAULT);
+        }
+    }
+    
+    fun trigger_enter() {
+        if(SOULS_MEMORY.ISAAC_LETTER) {
+            object[0x00] = 0x01; // unload gourd_1
+        }
+        if(ROOM.CLUE_1) {
+            object[0x02] = 0x01; // unload gourd_2
+        }
+        if(ROOM.CLUE_2) {
+            object[0x01] = 0x01; // unload gourd_3
+        }
+
+        add_enemy(PLACEHOLDER, 0x0f, 0x12);
+        attach_script(LAST_ENTITY, B, reference(trap_door));
+
+        default_init_room(True, False);
+    }
+};

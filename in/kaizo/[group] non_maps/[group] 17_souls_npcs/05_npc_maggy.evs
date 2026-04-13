@@ -1,0 +1,64 @@
+group npc_maggy() {
+    enum NPC_MAGGY {
+        FOUND = memory(FLAG, SRAM),
+
+        BODY = ENEMY.VILLAGER_3_4,
+
+        REWARD = SOULS_MEMORY.REWARD_ISAAC_QUEST,
+    }
+
+    group maggy_ai() {
+        @install()
+        fun maggy_dialog() {
+            if!(NPC_MAGGY.FOUND) {
+                NPC_MAGGY.FOUND = True;
+
+                smart_conversation({
+                    conversation_dialog("[SLOW]I did not expect any visitors.[B]");
+                }, False);
+            } else {
+                if!(NPC_ISAAC.FOUND && SOULS_MEMORY.ISAAC_WANTED_POSTER) {
+                    smart_conversation({
+                        conversation_dialog("[SLOW]What do you want from me?[B]");
+                    }, False);
+                } else {
+                    smart_conversation({
+                        conversation_question("[SLOW]What do you want from me?[CHOICE]prosecute Magdalena…[CHOICE]leave…");
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // prosecute
+                            attribute(SCRIPT_OWNER, INVINCIBLE, False);
+
+                            conversation_dialog("[SLOW]I knew this day would come…[B]");
+
+                            attach_script(SCRIPT_OWNER, DEATH, reference(@install() {
+                                souls_quest_progress();
+
+                                custom_reward(NPC_MAGGY.REWARD, True);
+                            }));
+                        } else { // leave
+                            conversation_dialog("[SLOW]You wasted your chance.[B]");
+
+                            fade_out();
+                            sleep(0d120);
+
+                            destroy(SCRIPT_OWNER);
+
+                            _fade_in();
+                        }
+                    }, False);
+                }
+            }
+        }
+    };
+
+    fun add_souls_npc_maggy(x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            add_enemy(NPC_MAGGY.BODY, x, y, flags);
+        } else {
+            add_enemy(NPC_MAGGY.BODY, x, y);
+        }
+        <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+
+        attach_script(LAST_ENTITY, B, reference(maggy_dialog));
+    }
+};

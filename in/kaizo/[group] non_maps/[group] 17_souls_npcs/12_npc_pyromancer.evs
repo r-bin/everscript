@@ -1,0 +1,179 @@
+group npc_pyromancer() {
+    enum NPC_PYROMANCER {
+        DEBUG = False,
+        PROGRESS = memory(BYTE, SRAM),
+
+        BODY = ENEMY.VILLAGER_2_4,
+
+        SUM_RECIPES = MEMORY.LEVEL_LOW_FLASH + MEMORY.LEVEL_LOW_FIRE_POWER,
+
+        PRICE_FLASH = (0d1 + FLAG.FLASH + MEMORY.LEVEL_HIGH_FLASH) * 0d30,
+        PRICE_FIRE_POWER = (0d1 + FLAG.FIRE_POWER + MEMORY.LEVEL_HIGH_FIRE_POWER) * 0d100,
+    }
+
+    group pyromancer_ai() {
+        fun response_greeting() {
+            arg[0x00] = randrange(0d3);
+
+            if(arg[0x00] == 0d0) {
+                dialog("[SLOW]How may I help you?[B]");
+            } else if(arg[0x00] == 0d0) {
+                dialog("[SLOW]I'm glad to see you're well.[B]");
+            } else {
+                dialog("[SLOW]How have you been?[B]");
+            }
+        }
+
+        fun response_positive() {
+            arg[0x00] = randrange(0d2);
+
+            if(arg[0x00] == 0d0) {
+                dialog("[SLOW]Be safe.[B]");
+            } else {
+                dialog("[SLOW]Come and see me when you're in town![B]");
+            }
+        }
+        fun response_negative() {
+            dialog("[SLOW]Wait, don't leave…[B]");
+        }
+
+        @install()
+        fun pyromancer_dialog_0() {
+            if(NPC_PYROMANCER.DEBUG) {
+                debug_memory(NPC_PYROMANCER.PROGRESS, SOULS_MEMORY.BONFIRE_FIRST_TRIGGER);
+                sleep(0d60);
+            }
+
+            smart_conversation({
+                if((NPC_PYROMANCER.PROGRESS & 0xf0) < 0x10) {
+                    if((NPC_PYROMANCER.PROGRESS & 0x0f) < 0d1) {
+                        smart_text_box(<SCRIPT_OWNER>, 0d5);
+                        text("[SLOW]Could you spare me something to wear?");
+                        if(MEMORY.CHEST_1_1) {
+                            text("[CHOICE]Green Tunic…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        if(MEMORY.CHEST_2_3) {
+                            text("[CHOICE]Red Tunic…");
+                        } else {
+                            text("[CHOICE]…");
+                        }
+                        text("[CHOICE]no…");
+                        await_answer();
+                        text_end();
+
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // green tunic
+                            if(MEMORY.CHEST_1_1) {
+                                MEMORY.CHEST_1_1--;
+
+                                arg[0x10] = True;
+                            }
+                        } else if(MEMORY.QUESTION_ANSWER == 0d1) { // red tunic
+                            if(MEMORY.CHEST_2_3) {
+                                MEMORY.CHEST_2_3--;
+
+                                arg[0x10] = True;
+                            }
+                        }
+
+                        if(arg[0x10]) {
+                            sound(PURCHASE);
+                            NPC_PYROMANCER.PROGRESS++;
+
+                            conversation_dialog("[SLOW]Thank you so much![B]");
+                        } else {
+                            response_negative();
+                        }
+                    } else if(SOULS_MEMORY.BONFIRE_FIRST_TRIGGER) {
+                        conversation_question("[SLOW]Do you need teaching?[CHOICE]invite…[CHOICE]leave…");
+                        
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // help
+                            NPC_PYROMANCER.PROGRESS = 0x10;
+
+                            conversation_dialog("[SLOW]I'll be on my way.[B]");
+                        }
+                    } else {
+                        conversation_dialog("[SLOW]I… I don't know where to go now…[B]");
+                    }
+                } else {
+                    conversation_dialog("[SLOW]I'll be on my way.[B]");
+                }
+            }, False);
+        }
+
+        fun pyromancer_upgrade_alchemy(alchemy:CUSTOM_ITEM, level_low, price) {
+            upgrade_alchemy(alchemy, level_low, price, {
+                response_positive();
+            }, {
+                response_negative();
+            });
+        }
+
+        fun train() {
+            text_box(0d6, 0d10);
+            text("Do you need training?");
+
+            if(MEMORY.LEVEL_LOW_FLASH) {
+                MEMORY.STRING_PARAMETER_1 = NPC_PYROMANCER.PRICE_FLASH;
+                text("[CHOICE]Flash ([MEM1])");
+            } else {
+                text("[CHOICE]…");
+            }
+            if(MEMORY.LEVEL_LOW_FIRE_POWER) {
+                MEMORY.STRING_PARAMETER_1 = NPC_PYROMANCER.PRICE_FIRE_POWER;
+                text("[CHOICE]Fire Power ([MEM1])");
+            } else {
+                text("[CHOICE]…");
+            }
+            await_answer();
+            text_end();
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) { // flash
+                if(MEMORY.LEVEL_LOW_FLASH) {
+                    pyromancer_upgrade_alchemy(FLASH, MEMORY.LEVEL_LOW_FLASH, NPC_PYROMANCER.PRICE_FLASH);
+                }
+            } else if(MEMORY.QUESTION_ANSWER == 0d1) { // fire power
+                if(MEMORY.LEVEL_LOW_FIRE_POWER) {
+                    pyromancer_upgrade_alchemy(FIRE_POWER, MEMORY.LEVEL_LOW_FIRE_POWER, NPC_PYROMANCER.PRICE_FIRE_POWER);
+                }
+            }
+        }
+
+        @install()
+        fun pyromancer_dialog_1() {
+            smart_conversation({
+                response_greeting();
+                
+                question("[SLOW]Do you require pyromancy?[CHOICE]talk…[CHOICE]train…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    conversation_dialog("[SLOW]The only thing I can help you with is pyromancy.[B]");
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // train
+                    if(NPC_PYROMANCER.SUM_RECIPES) {
+                        train();
+                    } else {
+                        conversation_dialog("[SLOW]Bring me more recipes.[B]");
+                    }
+                } else {
+                    response_negative();
+                }
+            }, False);
+        }
+    };
+    
+    fun add_souls_npc_pyromancer(x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            add_enemy(NPC_PYROMANCER.BODY, x, y, flags);
+        } else {
+            add_enemy(NPC_PYROMANCER.BODY, x, y);
+        }
+        <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+
+        if((NPC_PYROMANCER.PROGRESS & 0xf0) < 0x10) {
+            attach_script(LAST_ENTITY, B, reference(pyromancer_dialog_0));
+        } else if((NPC_PYROMANCER.PROGRESS & 0xf0) >= 0x10) {
+            attach_script(LAST_ENTITY, B, reference(pyromancer_dialog_1));
+        }
+    }
+};

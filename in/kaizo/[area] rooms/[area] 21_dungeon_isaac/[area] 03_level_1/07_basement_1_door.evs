@@ -1,0 +1,228 @@
+map basement_1_door(BAD_BOYS) { // south-west "badboy-east"
+    enum entrance {
+        east = entrance(0x63, 0x1d, WEST),
+        west = entrance(0x01, 0x21, EAST)
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        CLEAR_FLAG = memory(FLAG, SRAM),
+
+        BEE_COLLECTED = memory(FLAG, SRAM),
+        BRIDGE_BLOCKER = retained_object(0x07),
+
+        RIDDLE_SOLVED = memory(FLAG, SRAM),
+
+        RIDDLE_PROGRESS = memory(WORD, TEMP),
+
+        RIDDLE_STEP_1 = memory(WORD, TEMP),
+        RIDDLE_STEP_2 = memory(WORD, TEMP),
+        RIDDLE_STEP_3 = memory(WORD, TEMP),
+        RIDDLE_STEP_4 = memory(WORD, TEMP),
+        RIDDLE_STEP_5 = memory(WORD, TEMP),
+        RIDDLE_STEP_6 = memory(WORD, TEMP),
+
+        RANDOM_NUMBER = 0d1 + randrange(0d6),
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            check_exits(ROOM.CLEAR_FLAG);
+            map_transition(basement_1_6, west, EAST);
+        },
+        exit_west = nop(),
+    }
+
+    fun open_east_exit(open) {
+        if(open) {
+        object[0x00] = 0x00; 
+        } else {
+            object[0x00] = 0x7e;
+        }
+    }
+    fun open_bridge(open) {
+        if(open) {
+        object[0x07] = 0x07e; 
+        } else {
+            object[0x07] = 0x00;
+        }
+    }
+
+    group pillar_riddle() {
+        fun riddle_solved() {
+            sound(WEIRD_SOUND);
+
+            ROOM.RIDDLE_SOLVED = True;
+
+            if(ROOM.DEBUG) {
+                debug_subtext("yatta");
+            }
+
+            reward(SOULS_MEMORY.REWARD_STONEHENGE_BASEMENT, True);
+        }
+
+        fun remove_pillar(index) {
+            if(index == 0d1) {
+                object[0x01] = 0x7e;
+            } else if(index == 0d2) {
+                object[0x02] = 0x7e;
+            } else if(index == 0d3) {
+                object[0x03] = 0x7e;
+            } else if(index == 0d4) {
+                object[0x04] = 0x7e;
+            } else if(index == 0d5) {
+                object[0x05] = 0x7e;
+            } else if(index == 0d6) {
+                object[0x06] = 0x7e;
+            }
+        }
+        @install()
+        fun pillar_triggered() {
+            guard_boy();
+
+            print_index(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+
+            if(
+                ((ROOM.RIDDLE_PROGRESS == 0d0) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_1))
+                || ((ROOM.RIDDLE_PROGRESS == 0d1) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_2))
+                || ((ROOM.RIDDLE_PROGRESS == 0d2) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_3))
+                || ((ROOM.RIDDLE_PROGRESS == 0d3) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_4))
+                || ((ROOM.RIDDLE_PROGRESS == 0d4) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_5))
+                || ((ROOM.RIDDLE_PROGRESS == 0d5) && (<SCRIPT_OWNER>[GENERAL_PURPOSE] == ROOM.RIDDLE_STEP_6))
+            ) {
+                arg[0x10] = True;
+            }
+
+            if(MEMORY.CURRENT_WEAPON == WEAPON_INDEX.SWORD_1) {
+                if(arg[0x10]) {
+                    sound(MECHANICAL_MOVEMENT);
+                }
+
+                end();
+            } else if(
+                (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_2) ||
+                (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_3) ||
+                (MEMORY.CURRENT_WEAPON == WEAPON_INDEX.AXE_4)
+            ) {
+                if(arg[0x10]) {
+                    ROOM.RIDDLE_PROGRESS++;
+                } else {
+                    ROOM.RIDDLE_PROGRESS = 0xffff;
+                }
+                
+                animate(BOY, ONCE, SLASH_2);
+            } else {
+                end();
+            }
+
+            animate(SCRIPT_OWNER, LOOP, ANIMATION_PLACEHOLDER.EXPLOSION_2);
+            remove_pillar(<SCRIPT_OWNER>[GENERAL_PURPOSE]);
+
+            if(ROOM.RIDDLE_PROGRESS == 0d6) {
+                control(NONE);
+                
+                wait(ACTIVE);
+
+                riddle_solved();
+            } else {
+                wait(SCRIPT_OWNER);
+            }
+
+            destroy(SCRIPT_OWNER);
+        }
+
+        fun add_pillar(index, x, y) {
+            add_enemy(PLACEHOLDER, x, y);
+            attach_script(LAST_ENTITY, B, reference(pillar_triggered));
+            <LAST_ENTITY>[GENERAL_PURPOSE] = index;
+        }
+
+        fun init_riddle_code() {
+            ROOM.RIDDLE_STEP_1 = ROOM.RANDOM_NUMBER;
+
+            ROOM.RIDDLE_STEP_2 = ROOM.RANDOM_NUMBER;
+            while(ROOM.RIDDLE_STEP_2 == ROOM.RIDDLE_STEP_1) {
+                ROOM.RIDDLE_STEP_2 = ROOM.RANDOM_NUMBER;
+            }
+
+            ROOM.RIDDLE_STEP_3 = ROOM.RANDOM_NUMBER;
+            while((ROOM.RIDDLE_STEP_3 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_3 == ROOM.RIDDLE_STEP_2)) {
+                ROOM.RIDDLE_STEP_3 = ROOM.RANDOM_NUMBER;
+            }
+
+            ROOM.RIDDLE_STEP_4 = ROOM.RANDOM_NUMBER;
+            while((ROOM.RIDDLE_STEP_4 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_4 == ROOM.RIDDLE_STEP_2) || (ROOM.RIDDLE_STEP_4 == ROOM.RIDDLE_STEP_3)) {
+                ROOM.RIDDLE_STEP_4 = ROOM.RANDOM_NUMBER;
+            }
+
+            ROOM.RIDDLE_STEP_5 = ROOM.RANDOM_NUMBER;
+            while((ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_2) || (ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_3) || (ROOM.RIDDLE_STEP_5 == ROOM.RIDDLE_STEP_4)) {
+                ROOM.RIDDLE_STEP_5 = ROOM.RANDOM_NUMBER;
+            }
+
+            ROOM.RIDDLE_STEP_6 = ROOM.RANDOM_NUMBER;
+            while((ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_1) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_2) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_3) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_4) || (ROOM.RIDDLE_STEP_6 == ROOM.RIDDLE_STEP_5)) {
+                ROOM.RIDDLE_STEP_6 = ROOM.RANDOM_NUMBER;
+            }
+        }
+
+        fun init_riddle() {
+            if!(ROOM.RIDDLE_SOLVED) {
+                init_riddle_code();
+
+                add_pillar(0d1, 0d12, 0d24);
+                add_pillar(0d2, 0d20, 0d24);
+                add_pillar(0d3, 0d29, 0d24);
+
+                add_pillar(0d4, 0d12, 0d38);
+                add_pillar(0d5, 0d20, 0d38);
+                add_pillar(0d6, 0d29, 0d38);
+            } else {
+                object[0x01] = 0x7e;
+                object[0x02] = 0x7e;
+                object[0x03] = 0x7e;
+
+                object[0x04] = 0x7e;
+                object[0x05] = 0x7e;
+                object[0x06] = 0x7e;
+            }
+        }
+    };
+
+    fun trigger_enter() {
+        object[0x00] = 0x02; // close exit_west
+
+        init_riddle();
+
+        add_trap_door(0d89, 0d29, reference(@install() {
+            _add_trap_door({
+                map_transition(basement_2_start, center, NONE);
+            }, ROOM.CLEAR_FLAG, True);
+        }));
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            if!(ROOM.CLEAR_FLAG) {
+                // west
+                add_isaac_enemy_fly_exploding(0d74, 0d30);
+
+                // north
+                add_isaac_enemy_spider(0d93, 0d17);
+            }
+        }
+
+        add_bee(0d16, 0d27, reference(@install() {
+            bee_collected(ROOM.BEE_COLLECTED);
+        }), ROOM.BEE_COLLECTED);
+
+        isaac_init(False, False);
+
+        add_bombable(0d42, 0d30, ROOM.BRIDGE_BLOCKER, reference(@install() {
+            bombable_object(WALL_AXE2_FAKE, True, ROOM.BRIDGE_BLOCKER, 0x07, 0x01);
+        }));
+    }
+};

@@ -1,0 +1,158 @@
+map basement_3_boss(TIMBERDRAKE) { // north-south2-south-south-east-east "drake-east"
+    enum entrance {
+        east = entrance(0x2b, 0x15, WEST),
+        south = entrance(0x1b, 0x29, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum ROOM {
+        WITH_TRAP_DOOR = True,
+    }
+
+    enum BOSS {
+        PROGRESS = memory(FLAG, TEMP),
+
+        HP = 0d150,
+
+        MOUNT_ID = memory(WORD, TEMP),
+        RIDER_ID = memory(WORD, TEMP),
+
+        MOVE_RNG = memory(WORD, TEMP),
+
+        CANNONBALL_X = memory(WORD, TEMP),
+        CANNONBALL_Y = memory(WORD, TEMP),
+        CANNONBALL_COUNT = memory(WORD, TEMP),
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_DARK_ONE, WEST);
+
+            map_transition(basement_3_9, west, EAST);
+        },
+        exit_south = @install() {
+            debug_subtext("S=1");
+        }
+    }
+
+    @install()
+    fun boss_defeated() {
+        BOSS.PROGRESS = False;
+        souls_boss_defeated_helper(DARK_ONE);
+
+        if!(ROOM.WITH_TRAP_DOOR) {
+            control(NONE);
+            sleep(0d60);
+
+            map_transition(potato_room, floor, NONE);
+        }
+    }
+
+    group boss_ai() {
+        @install()
+        @async()
+        fun stack_t01() {
+            while(alive(<BOY>)) {
+                BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+                BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y];
+                yield();
+
+                // <DOG>[X] = <BOY>[X] - 0x05;
+                // <DOG>[Y] = <BOY>[Y];
+                // yield();
+            }
+        }
+
+        fun move() {
+            attribute(BOSS.MOUNT_ID, ROOT, True);
+            animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+            control(BOSS.MOUNT_ID, True);
+            animate(BOSS.MOUNT_ID, LOOP, ANIMATION_ENEMY.LIZARD_DUCK_1);
+            sleep(0d30);
+
+            BOSS.MOVE_RNG = randrange(0d3);
+
+            if(BOSS.MOVE_RNG == 0d0) {
+                ai_move_projectile_x(BOSS.MOUNT_ID, ONION, 0d130);
+                sleep(0d80);
+                ai_move_projectile_plus(BOSS.MOUNT_ID, ONION, 0d130);
+            } else if(BOSS.MOVE_RNG == 0d1) {
+                ai_move_projectile_star(BOSS.MOUNT_ID, ONION, 0d130);
+            } else {
+                ai_move_charge_right(BOSS.MOUNT_ID, <BOY>, 0d8, 0d2);
+            }
+
+            animate(BOSS.MOUNT_ID, ONCE, ANIMATION_ENEMY.LIZARD_DUCK_2);
+            sleep(0d30);
+            animate(BOSS.MOUNT_ID, ONCE, DEFAULT);
+            attribute(BOSS.MOUNT_ID, ROOT, False);
+            control(BOSS.MOUNT_ID, False);
+
+            sleep(0d120);
+        }
+
+        @async()
+        @install()
+        fun move_logic() {
+            sleep(0x80);
+            
+            while(alive(BOSS.MOUNT_ID)) {
+                move();
+                
+                sleep(0x60);
+            }
+        }
+
+        fun spawn_boss(x, y) {
+            add_enemy(MAGMAR, x, y);
+            BOSS.RIDER_ID = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+            attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+            attribute(LAST_ENTITY, ROOT, True);
+            attribute(LAST_ENTITY, INVISIBLE, True);
+            attribute(LAST_ENTITY, INVINCIBLE, True);
+
+            // add_enemy(DRAKE, x, y, INACTIVE);
+            // add_enemy(FOOTKNIGHT, x, y, INACTIVE);
+            add_enemy(LIZARD_BLACK, x, y, 0x00);
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DEATH, reference(boss_defeated));
+            BOSS.MOUNT_ID = <LAST_ENTITY>;
+
+            move_logic();
+            stack_t01();
+
+            BOSS.PROGRESS = True;
+            push_music(BOSS);
+        }
+    };
+
+    fun trigger_enter() {
+        object[0x00] = 0x01; // close south
+        object[0x01] = 0x7e; // open east
+
+        if!(SOULS_MEMORY.DEAD_DARK_ONE) {
+            spawn_boss(0x10, 0x13);
+
+            if(False) {
+                subtext("Isaac vs. Dark One");
+            }
+        }
+
+        // available(BOY);
+        // destroy(DOG); // teleport(BOY, 0x00, 0x00);
+
+        if(ROOM.WITH_TRAP_DOOR) {
+            add_trap_door(0x10, 0x13, reference(@install() {
+                _add_trap_door({
+                    map_transition(potato_room, floor, NONE);
+                }, !BOSS.PROGRESS);
+            }));
+        }
+
+        isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
+    }
+};

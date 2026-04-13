@@ -1,0 +1,309 @@
+map duel_arena(ARENA) {
+    enum entrance {
+        north_cinematic = entrance(0x20, 0x07, NONE),
+        south = entrance(0x22, 0x69, NORTH, { act2_arena_bridge_entrance(); }), // 0x22, 0x6a
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_DUEL_ARENA.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        enemy_1 = MOSQUITO,
+        enemy_2 = FLOWER_PURPLE,
+        enemy_3 = LIZARD,
+        enemy_4 = TUMBLING_WEED,
+
+        enemy_5 = MINITAUR,
+        enemy_6 = BOY_BLACK,
+        enemy_7 = STERLING,
+
+        LOCK = memory(FLAG, TEMP),
+
+        GUARD_LEFT = 0d8,
+        GUARD_RIGHT = 0d496,
+        GUARD_COOLDOWN = 0d180,
+
+        HIT_COUNT_KILL = 0d3,
+        HIT_COUNT = memory(WORD, TEMP),
+        KILL_COUNT = memory(BYTE, SRAM),
+
+        HIT_COUNT_BOY = memory(WORD, TEMP),
+
+        ID_ENEMY = memory(WORD, TEMP),
+    }
+
+    fun reset_camera() {
+        set_camera(TILE_CENTER, 0d32, 0d84, 0x20);
+        wait(CAMERA_PAN_Y);
+        wait(CAMERA_PAN_X);
+    }
+
+    @install()
+    @async()
+    fun side_guard_scanner() {
+        while(True) {
+            if(<BOY>[X] >= ROOM.GUARD_RIGHT) {
+                face(BOY, EAST);
+                animate(BOY, ONCE, ANIMATION_ALL.KNOCKBACK);
+
+                sleep(ROOM.GUARD_COOLDOWN);
+            } else if(<BOY>[X] <= ROOM.GUARD_LEFT) {
+                face(BOY, WEST);
+                animate(BOY, ONCE, ANIMATION_ALL.KNOCKBACK);
+
+                sleep(ROOM.GUARD_COOLDOWN);
+            }
+
+            yield();
+        }
+    }
+
+    @install()
+    @async()
+    fun lock_scanner() {
+        while(True) {
+            if(ROOM.LOCK != arg[0x10]) {
+                arg[0x10] = ROOM.LOCK;
+
+                if(arg[0x14] > 0d0) {
+                    arg[0x12] = randrange(0d3);
+                    if(arg[0x12] == 0d0) {
+                        arg[0x14] = 0d79;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x14] = 0d84;
+                    } else {
+                        arg[0x14] = 0d89;
+                    }
+                } else {
+                    arg[0x14] = <BOY>[Y] >> 0d3;
+                }
+
+                while((arg[0x16] == arg[0x14]) || arg[0x16] == 0d0) {
+                    arg[0x12] = randrange(0d3);
+                    if(arg[0x12] == 0d0) {
+                        arg[0x16] = 0d79;
+                    } else if(arg[0x12] == 0d1) {
+                        arg[0x16] = 0d84;
+                    } else {
+                        arg[0x16] = 0d89;
+                    }
+                }
+
+                if(arg[0x10]) {
+                    attribute(ROOM.ID_ENEMY, INVINCIBLE_TEMP, True);
+                    attribute(BOY, INVINCIBLE_TEMP, True);
+
+                    teleport(ROOM.ID_ENEMY, 0d25, arg[0x16]);
+                    teleport(BOY, 0d38, arg[0x14]);
+
+                    if(True) {
+                        attribute(ROOM.ID_ENEMY, ROOT, True);
+                        attribute(BOY, ROOT, True);
+                    }
+
+                    while((ROOM.ID_ENEMY[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) || (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                        teleport(ROOM.ID_ENEMY, 0d25, arg[0x16]);
+                        teleport(BOY, 0d38, arg[0x14]);
+
+                        yield();
+                    }
+
+                    if(True) {
+                        attribute(ROOM.ID_ENEMY, ROOT, False);
+                        attribute(BOY, ROOT, False);
+                    }
+
+                    animate(ROOM.ID_ENEMY, ONCE, ANIMATION_ALL.DEFAULT);
+                } else {
+                    attribute(ROOM.ID_ENEMY, INVINCIBLE_TEMP, False);
+                    attribute(BOY, INVINCIBLE_TEMP, False);
+
+                    free_camera();
+                }
+            }
+
+            if(arg[0x10]) {
+                if(False) {
+                    teleport(ROOM.ID_ENEMY, 0d25, arg[0x16]);
+                } else {
+                    if(ROOM.ID_ENEMY[X] > 0d200) {
+                        ROOM.ID_ENEMY[X] = 0d200;
+                    }
+                }
+
+                if(False) {
+                    teleport(BOY, 0d38, arg[0x14]);
+                } else {
+                    if(<BOY>[X] < 0d308) {
+                        <BOY>[X] = 0d308;
+                    }   
+                }
+            }
+
+            yield();
+        }
+    }
+
+    fun dialog_reward() {
+        control(NONE);
+
+        reward(SOULS_MEMORY.REWARD_ARENA_DUEL, True);
+        
+        dialog("[SLOW]…Um, you actually won…?[B]Well fought. Don't just gamble your reward away.[B]");
+
+        map_transition(castle_center, guard, NONE);
+    }
+    fun dialog_no_enemy() {
+        sleep(0d600);
+        control(NONE);
+        
+        dialog("[SLOW]There are no more enemies left for you.[B]");
+
+        map_transition(castle_center, guard, NONE);
+    }
+
+    fun stall() {
+        ROOM.LOCK = True;
+
+        reset_camera();
+        sleep(0d60);
+
+        ROOM.LOCK = False;
+    }
+
+    @install()
+    fun prepare_next_enemy() {
+        ROOM.HIT_COUNT = 0d0;
+        ROOM.HIT_COUNT_BOY = 0d0;
+
+        if(ROOM.ID_ENEMY[HP] > 0d0) {
+            destroy(ROOM.ID_ENEMY);
+        }
+
+        if(ROOM.KILL_COUNT == 0d0) {
+            add_enemy(ROOM.enemy_1, 0d32, 0d84);
+        } else if(ROOM.KILL_COUNT == 0d1) {
+            add_enemy(ROOM.enemy_2, 0d32, 0d84);
+        } else if(ROOM.KILL_COUNT == 0d2) {
+            add_enemy(ROOM.enemy_3, 0d32, 0d84);
+        } else if(ROOM.KILL_COUNT == 0d3) {
+            add_enemy(ROOM.enemy_4, 0d32, 0d84);
+        } else if(ROOM.KILL_COUNT == 0d4) {
+            add_enemy(ROOM.enemy_5, 0d32, 0d84);
+        } else if(ROOM.KILL_COUNT == 0d5) {
+            add_enemy(ROOM.enemy_6, 0d32, 0d84);
+        } else if(ROOM.KILL_COUNT == 0d6) {
+            add_enemy(ROOM.enemy_7, 0d32, 0d84);
+            attach_sterling_script(<LAST_ENTITY>, False, 0d30, 0d38, 0d60, 0d664, 0d999);
+        } else if(ROOM.KILL_COUNT == 0d7) {
+            ROOM.KILL_COUNT++;
+            dialog_reward();
+        } else {
+            dialog_no_enemy();
+        }
+
+        ROOM.ID_ENEMY = <LAST_ENTITY>;
+
+        attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(hit_enemy));
+        attach_script(BOY, DAMAGE_DEATH, reference(hit_boy));
+
+        teleport(ROOM.ID_ENEMY, 0d25, 0d84);
+        teleport(BOY, 0d38, 0d84);
+
+        face(ROOM.ID_ENEMY, EAST);
+        face(BOY, WEST);
+
+        stall();
+    }
+
+    @install()
+    fun reset() {
+        yield();
+        
+        attribute(ROOM.ID_ENEMY, INVINCIBLE_TEMP, True);
+        attribute(BOY, INVINCIBLE_TEMP, True);
+
+        if(False) {
+            heal(ROOM.ID_ENEMY, 0d0, False);
+            heal(BOY, 0d0, False);
+        }
+
+        teleport(ROOM.ID_ENEMY, 0d25, 0d84);
+        teleport(BOY, 0d38, 0d84);
+
+        face(ROOM.ID_ENEMY, EAST);
+        face(BOY, WEST);
+
+        stall();
+    }
+
+    fun hit() {
+        if((<BOY>[HP] <= 0d0) || (ROOM.ID_ENEMY[HP] <= 0d0)) {
+            subtext("TKO!");
+        } else {
+            MEMORY.STRING_PARAMETER_1 = ROOM.HIT_COUNT;
+            MEMORY.STRING_PARAMETER_2 = ROOM.HIT_COUNT_BOY;
+            subtext("[MEM1]:[MEM2]");
+        }
+    }
+
+    @install()
+    fun hit_boy() {
+        sound(ARENA_CHEER);
+
+        ROOM.HIT_COUNT_BOY++;
+
+        hit();
+        
+        if((<BOY>[HP] <= 0d0) || (ROOM.HIT_COUNT_BOY >= ROOM.HIT_COUNT_KILL)) {
+            attach_script(BOY, DAMAGE_DEATH, reference(boy_death));
+            damage(BOY, 0d999, True);
+        } else {
+            reset();
+        }
+    }
+    @install()
+    fun hit_enemy() {
+        sound(ARENA_CHEER);
+
+        if!(ROOM.ID_ENEMY[DAMAGE_SOURCE] == CHARACTER_ADDRESS.BOY) {
+            heal(ROOM.ID_ENEMY, 0d999, True);
+            
+            damage(BOY, 0d5, True);
+            hit_boy();
+            
+            end();
+        }
+
+        ROOM.HIT_COUNT++;
+
+        hit();
+
+        if((ROOM.HIT_COUNT >= ROOM.HIT_COUNT_KILL) || (ROOM.ID_ENEMY[HP] <= 0d0)) {
+            ROOM.HIT_COUNT = 0d0;
+            ROOM.KILL_COUNT++;
+
+            prepare_next_enemy();
+        } else {
+            reset();
+        }
+    }
+
+    fun trigger_enter() {
+        init_map(0x00, 0x30, 0x40, 0x70);
+
+        CUSTOM_FLAG.NO_DOG = True;
+        CUSTOM_FLAG.NO_XP_MONEY = True;
+        default_init_room(False, False);
+
+        walk(BOY, TILE_ABSOLUTE, 0d38, 0d84, BOY, BOY);
+        lock_scanner();
+        side_guard_scanner();
+
+        if(False) {
+            ROOM.KILL_COUNT = 0d6;
+        }
+        prepare_next_enemy();
+    }
+};

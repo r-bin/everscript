@@ -1,0 +1,114 @@
+map pipe_pit(IVOR_EBON_PRISON) { // variant pit
+    enum entrance {
+        south = entrance(0d42, 0d140, NORTH),
+        west = entrance(0d24, 0d115, EAST),
+        east = entrance(0d59, 0d115, WEST),
+    }
+
+    enum soundtrack {
+        default = soundtrack(SWAMP_AMBIENT, 0xff)
+    }
+
+    enum ROOM {
+        ID_FAKE_EXIT = memory(WORD, TEMP),
+        ID_PIT = memory(WORD, TEMP),
+
+        ID_YOSHI = memory(WORD, TEMP),
+        ID_MARIO = memory(WORD, TEMP),
+    }
+
+    enum stepon_trigger {
+        switch_6 = nop(),
+        switch_5 = nop(),
+        switch_4 = nop(),
+        switch_3 = nop(),
+        switch_2 = nop(),
+        switch_7 = nop(),
+        switch_1 = nop(),
+        exit_door = nop(),
+        stepon_8 = nop(),
+        stepon_9 = nop(),
+
+        stepon_10 = nop(),
+        stepon_11 = nop(),
+        stepon_12 = nop(),
+        stepon_13 = nop(),
+        stepon_14 = nop(),
+        pipe_3_1 = nop(),
+        pipe_1_1 = nop(),
+        pipe_2_1 = nop(),
+        pipe_2_2 = nop(),
+        pipe_2_3 = nop(),
+
+        pipe_1_2 = nop(),
+        pipe_1_3 = nop(),
+        pipe_1_4 = nop(),
+        pipe_3_2 = nop(),
+        pipe_3_3 = nop(),
+        pipe_3_4 = nop(),
+        stepon_26 = nop(),
+        stepon_27 = nop(),
+        stepon_28 = nop(),
+        stepon_29 = nop(),
+
+        stepon_30 = nop(),
+        stepon_31 = nop(),
+    }
+
+    enum b_trigger {
+        cell_1_gourd__1_glove_3_1 = nop(),
+    }
+
+    @install()
+    @async()
+    fun fake_exit_scanner() {
+        range_checker(ROOM.ID_FAKE_EXIT, <ACTIVE>, 0x20, 0x20, {
+            map_transition(volcano, cave_2_2, SOUTH);
+        });
+    }
+    @install()
+    @async()
+    fun pit_scanner() {
+        range_checker(ROOM.ID_PIT, <ACTIVE>, 0d35, 0d15, {
+            generic_fall(0d100, 0d1000);
+            map_transition(volcano_tower, crash, NONE);
+        });
+    }
+
+    fun tease_mario() {
+        add_enemy(RAPTOR_GREEN, 0d24 - 0d2, 0d115, INACTIVE_IMORTAL);
+        ROOM.ID_YOSHI = <LAST_ENTITY>;
+        add_enemy(VILLAGER_2_1, 0d24 - 0d2, 0d115, INACTIVE_IMORTAL);
+        face(LAST_ENTITY, EAST);
+        ROOM.ID_MARIO = <LAST_ENTITY>;
+
+        stack_sprite(ROOM.ID_YOSHI, ROOM.ID_MARIO, 0d0, 0d15);
+
+        subtext("He should be in that direction.");
+
+        walk(ROOM.ID_YOSHI, TILE_ABSOLUTE, 0d59 + 0d2, 0d115, ROOM.ID_YOSHI, NONE);
+        destroy(ROOM.ID_YOSHI);
+        destroy(ROOM.ID_MARIO);
+    }
+
+    fun trigger_enter() {
+        init_map(0d24, 0d108, 0d60, 0d140);
+        default_init_room(False, False);
+
+        fake_walls();
+
+        add_enemy(PLACEHOLDER, 0d42, 0d140);
+        ROOM.ID_FAKE_EXIT = <LAST_ENTITY>;
+        fake_exit_scanner();
+
+        add_enemy(PLACEHOLDER, 0d42, 0d122);
+        ROOM.ID_PIT = <LAST_ENTITY>;
+        pit_scanner();
+
+        if((!NPC_MARIO.MARIO_TEASED) && (NPC_MARIO.PROGRESS == 0d0)) {
+            NPC_MARIO.MARIO_TEASED = True;
+
+            tease_mario();
+        }
+    }
+};

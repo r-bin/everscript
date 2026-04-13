@@ -1,0 +1,110 @@
+map ship_tavern(CRUSTICIA_CAVES) { // variant: tavern
+    enum entrance {
+        south = entrance(0x6f, 0x51, NORTH),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_SHIP.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        monk = nop(),
+        monk_trigger_west = nop(),
+        monk_trigger_south = nop(),
+        exit_cave_hammock = nop(),
+        exit_south = @install() {
+            debug_subtext("S=4");
+
+            map_transition(ship, door_1, SOUTH);
+        },
+        exit_ship_small = nop(),
+        exit_cave_crates = nop(),
+        exit_cave_monk = nop(),
+    }
+
+    enum ROOM {
+        RAT_COUNTER = memory(WORD, TEMP),
+        RATS_CLEARED = memory(FLAG, SRAM),
+    }
+
+    @install()
+    @async()
+    fun entity_general_purpose_check(entity) {
+        while(entity[GENERAL_PURPOSE] == 0x00) {
+            yield();
+        }
+
+        map_transition(arena_trap_rimsala, right, NONE);
+    }
+
+    enum b_trigger {
+        gourd_hammock__1_water = nop(),
+        gourd_monk_1__1_nectar = nop(),
+        gourd_monk_2__1_clay = nop(),
+        gourd_crates__1_nectar = nop(),
+        groud__1_wax = @install() {
+            debug_subtext("B=4");
+
+            <ACTIVE>[GENERAL_PURPOSE] = 0x00;
+            gourd_trap(0x06, <ACTIVE>, 0d112, 0d56);
+            entity_general_purpose_check(<ACTIVE>);
+
+            // _loot_chest(0x06, WAX, 0d01);
+        },
+        gourd_ship__1_water = nop(),
+        tavern_barkeeper = @install() {
+            debug_subtext("B=6");
+        },
+    }
+
+    fun init_room(index) {
+        if(index == 0x00) {
+            init_map(0x00, 0x00, 0x2e, 0x2a); // hammock
+        } else if(index == 0x01) {
+            init_map(0x00, 0x38, 0x26, 0x5c); // crates
+        } else if(index == 0x02) {
+            init_map(0x32, 0x36, 0x56, 0x52); // ship
+        } else if(index == 0x03) {
+            init_map(0x58, 0x30, 0x86, 0x4e); // tavern
+        } else if(index == 0x04) {
+            init_map(0x40, 0x00, 0x66, 0x24); // monk
+        }
+    }
+
+    @install()
+    fun add_rat(x, y) {
+        if!(ROOM.RATS_CLEARED) {
+            add_enemy(RAT_RED, x, y);
+            ROOM.RAT_COUNTER++;
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                ROOM.RAT_COUNTER--;
+
+                if(ROOM.RAT_COUNTER == 0d0) {
+                    ROOM.RATS_CLEARED = True;
+                }
+            }));
+            attach_sterling_script(<LAST_ENTITY>, False, 0d30, 0d111, 0d50, 0d580, 0d999);
+        } else {
+            add_enemy(RAT, x, y);
+        }
+    }
+
+    fun trigger_enter() {
+        if(SOULS_MEMORY.DEAD_TRAP_RIMSALA) {
+            object[0x06] = 0x01; // loot gourd_tavern
+        }
+
+        // north
+        add_rat(0d107, 0d61);
+        add_rat(0d110, 0d61);
+        
+        // east
+        add_rat(0d129, 0d74);
+
+        // west
+        add_rat(0d94, 0d71);
+
+        init_room(0x03);
+        default_init_room(False, False);
+    }
+};

@@ -1,0 +1,73 @@
+group custom() {
+    @install()
+    @weak()
+    fun shell_boat_move(entity, direction:DIRECTION) {
+        face(ACTIVE, direction);
+        face(INACTIVE, direction);
+
+        while(arg[0x10] < 0d200) {
+            arg[0x10]++;
+
+            if(direction == DIRECTION.WEST) {
+                entity[X]--;
+                <ACTIVE>[X]--;
+                if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.DOG_BUSY) {
+                    <INACTIVE>[X]--;
+                }
+            } else {
+                entity[X]++;
+                <ACTIVE>[X]++;
+                if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.DOG_BUSY) {
+                    <INACTIVE>[X]++;
+                }
+            }
+
+            yield();
+        }
+    }
+    @install()
+    @weak()
+    fun shell_boat_out(entity, direction:DIRECTION) {
+        control(NONE);
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.DOG_BUSY) {
+            walk(INACTIVE, COORDINATE_ABSOLUTE, <ACTIVE>[X], <ACTIVE>[Y], BOTH, NONE);
+
+            walk(ACTIVE, COORDINATE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], NONE, NONE);
+            walk(INACTIVE, COORDINATE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], BOTH, NONE);
+        } else {
+            walk(ACTIVE, COORDINATE_ABSOLUTE_DIRECT, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], ACTIVE, NONE);
+        }
+
+        shell_boat_move(entity, direction);
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun shell_boat_in(entity, direction:DIRECTION) {
+        control(NONE);
+
+        if(direction == DIRECTION.WEST) {
+            <ACTIVE>[X] += 0d200;
+        } else {
+            <ACTIVE>[X] -= 0d200;
+        }
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.DOG_BUSY) {
+            <INACTIVE>[X] = <ACTIVE>[X];
+        }
+        entity[X] = <ACTIVE>[X];
+
+        shell_boat_move(entity, direction);
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.DOG_BUSY) {
+            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, NONE, NONE);
+            walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, BOTH, NONE);
+        } else {
+            walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, NONE);
+        }
+
+        control(BOTH);
+    }
+};

@@ -1,0 +1,161 @@
+map ship(CRUSTICIA) {
+    enum ROOM {
+        DEBUG = False,
+
+        DOG_AVAILABLE = memory(FLAG, TEMP),
+        PILLAR_CLEARED = memory(FLAG, SRAM),
+
+        CAVE_OPENED = memory(FLAG, SRAM),
+
+        SHELL_BOAT_INTRO = memory(FLAG, TEMP),
+        SHELL_BOAT_X = 0d24,
+        SHELL_BOAT_Y = 0d96,
+    }
+
+    enum entrance {
+        east = entrance(0x5f, 0x5b, WEST, { ROOM.DOG_AVAILABLE = True; }),
+        west = entrance(0x05, 0x59, EAST, { ROOM.DOG_AVAILABLE = True; }),
+
+        door_1 = entrance(0x32, 0x40, SOUTH),
+        door_2_1 = entrance(0x30, 0x22, SOUTH),
+        door_2_2 = entrance(0x59, 0x2d, SOUTH),
+        door_3_1 = entrance(0x13, 0x0d, SOUTH),
+        door_3_2 = entrance(0x4b, 0x0c, SOUTH),
+
+        swirl = entrance(0d46, 0d85, NONE, {
+            ROOM.DOG_AVAILABLE = True;
+            swirl_entrance();
+        }),
+
+        shell_boat = entrance(ROOM.SHELL_BOAT_X, ROOM.SHELL_BOAT_Y, NONE, {
+            ROOM.DOG_AVAILABLE = True;
+            ROOM.SHELL_BOAT_INTRO = True;
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_SHIP.DEFAULT_MUSIC, 0xff)
+    }
+
+    fun cave_door_triggered() {
+        map_transition(room_monk, south, NORTH);
+    }
+
+    enum stepon_trigger {
+        door_3_1_stairs = @install() {
+            debug_subtext("S=0");
+        },
+        door_3_2_stairs = @install() {
+            debug_subtext("S=1");
+        },
+        door_2_2_stairs = @install() {
+            debug_subtext("S=2");
+
+            dog_stairs(DOG_SHIP_STAIRS, 0d84, 0d81);
+        },
+        door_1_1_stairs = @install() {
+            debug_subtext("S=3");
+
+            dog_stairs(DOG_SHIP, 0d50, 0d77);
+        },
+        lift_top = @install() {
+            debug_subtext("S=4");
+        },
+        exit_west = @install() {
+            if(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+                map_transition(east_crossing, east, WEST);
+            } else {
+                error_message(DOOR_WRONG_SIDE);
+            }
+        },
+        door_3_1 = @install() {
+            debug_subtext("S=6");
+
+            map_transition(cave_left_entrance, south_1, NORTH);
+        },
+        door_2_2 = @install() {
+            debug_subtext("S=7");
+
+            if(ROOM.CAVE_OPENED) {
+                cave_door_triggered();
+            } else {
+                error_message(DOOR_REQUIRES_DIG);
+            }
+        },
+        door_2_1 = @install() {
+            debug_subtext("S=8");
+
+            map_transition(ship_crates, south, NORTH);
+        },
+        door_1_1 = @install() {
+            debug_subtext("S=9");
+
+            map_transition(ship_tavern, south, NORTH);
+        },
+
+        door_3_2 = @install() {
+            debug_subtext("S=10");
+
+            map_transition(cave_right_entrance, south_3, NORTH);
+        },
+        exit_east = @install() {
+            map_transition(bog_crossing, west_1, EAST);
+        },
+        lift_bottom = @install() {
+            debug_subtext("S=12");
+        },
+    }
+
+    fun trigger_enter() {
+        add_bombable(0d19, 0d14, ROOM.PILLAR_CLEARED, reference(@install() {
+            bombable_object(WALL_AXE2_FAKE, True, ROOM.PILLAR_CLEARED);
+        }), STONE_ROUND, PILLAR_VIGOR);
+        if!(ROOM.PILLAR_CLEARED) {
+            persistent_animate_pillar(<LAST_ENTITY>);
+        }
+
+        if(SOULS_MEMORY.DOG_SHIP_STAIRS) {
+            check_dog_stairs(DOG_SHIP_STAIRS, 0d84, 0d81, ROOM.DOG_AVAILABLE);
+        }
+        if(SOULS_MEMORY.DOG_SHIP) {
+            check_dog_stairs(DOG_SHIP, 0d50, 0d77, ROOM.DOG_AVAILABLE);
+        }
+
+        archaeology_dig(0d89, 0d42, DEFAULT, ROOM.CAVE_OPENED, reference(@install() {
+            guard_archaeology_dig(ROOM.CAVE_OPENED);
+
+            cave_door_triggered();
+        }));
+
+        if(ROOM.DEBUG) {
+            debug_memory(SOULS_MEMORY.DOG_SHIP_STAIRS, SOULS_MEMORY.DOG_SHIP, CUSTOM_FLAG.DOG_BUSY);
+        }
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // north
+            add_basic_souls_enemy(RAPTOR_GREEN, 0d45, 0d21);
+
+            // south-east
+            add_basic_souls_enemy(RAPTOR_GREEN, 0d76, 0d80);
+
+            // south
+            add_basic_souls_enemy(RAPTOR_PURPLE, 0d49, 0d88);
+
+            // south-west
+            add_basic_souls_enemy(RAPTOR_GREEN, 0d41, 0d78);
+        }
+
+        if!(AREA_GLOBAL.ROCK_MOVED_SHIP) {
+            add_enemy(STONE_ROUND, 0d0, 0d89);
+        }
+
+        if(False) {
+            add_levitate_stone(0d48, 0d38);
+            add_levitate_stone(0d45, 0d42);
+            add_levitate_stone(0d44, 0d40);
+            add_levitate_stone(0d49, 0d39);
+        }
+
+        default_init_room(True, True);
+    }
+};

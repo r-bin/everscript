@@ -1,0 +1,111 @@
+group bbm_helper() {
+    @install()
+    @async()
+    fun spider_trap(entity) {
+        entity[GENERAL_PURPOSE] = True;
+
+        attribute(entity, ROOT, True);
+
+        _add_enemy(SPIDER, entity[X], entity[Y], INVINCIBLE);
+        attach_to_script(LAST_ENTITY);
+
+        attribute(SCRIPT_OWNER, ROOT, True);
+
+        <SCRIPT_OWNER>[Z] = 0d10000 + randrange(0d500);
+
+        yield();
+        while(<SCRIPT_OWNER>[Z] > 0d0) {
+            yield();
+        }
+
+        walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, entity[X], entity[Y], NONE, NONE);
+        wait(SCRIPT_OWNER);
+
+        control(entity, True);
+        smart_animate(entity, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+
+        attribute(SCRIPT_OWNER, ROOT, False);
+
+        if(randrange(0d2)) {
+            walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, 0d1, 0d0, SCRIPT_OWNER, NONE);
+
+            while(arg[0x10] < 0d3) {
+                arg[0x10]++;
+
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, -0d1, 0d1, SCRIPT_OWNER, NONE);
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, -0d1, -0d1, SCRIPT_OWNER, NONE);
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, 0d1, -0d1, SCRIPT_OWNER, NONE);
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, 0d1, 0d1, SCRIPT_OWNER, NONE);
+            }
+        } else {
+            walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, -0d1, 0d0, SCRIPT_OWNER, NONE);
+
+            while(arg[0x10] < 0d3) {
+                arg[0x10]++;
+
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, 0d1, -0d1, SCRIPT_OWNER, NONE);
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, 0d1, 0d1, SCRIPT_OWNER, NONE);
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, -0d1, 0d1, SCRIPT_OWNER, NONE);
+                walk(SCRIPT_OWNER, TILE_RELATIVE_DIRECT, -0d1, -0d1, SCRIPT_OWNER, NONE);
+            }
+        }
+
+        walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, entity[X], entity[Y] + 0d10, SCRIPT_OWNER, NONE);
+        face(SCRIPT_OWNER, SOUTH);
+
+        while(entity[Z] < 0d10000) {
+            arg[0x12] = randrange(0d5);
+
+            entity[VELOCITY] += arg[0x12];
+            <SCRIPT_OWNER>[VELOCITY] += arg[0x12];
+
+            yield();
+        }
+
+        animate(entity, LOOP, ANIMATION_ALL.INVISIBLE);
+        animate(SCRIPT_OWNER, LOOP, ANIMATION_ALL.INVISIBLE);
+
+        entity[GENERAL_PURPOSE] = False;
+    }
+
+    fun collapse_bridge(object_id) {
+        spider_trap(<ACTIVE>);
+        control(INACTIVE, True);
+        spider_trap(<INACTIVE>);
+
+        if(object_id is Word) {
+            object[object_id] = 0x7e;
+        }
+
+        yield();
+        while(<ACTIVE>[GENERAL_PURPOSE]) {
+            yield();
+        }
+
+        map_transition(thraxx, spider, NONE);
+    }
+
+    @install()
+    @async()
+    fun spider_drop(entity, x, y) {
+        control(entity, True);
+        entity[Z] = 0d10000 + randrange(0d500);
+
+        _add_enemy(SPIDER, entity[X], entity[Y], INACTIVE_IMORTAL);
+        attach_to_script(LAST_ENTITY);
+        <SCRIPT_OWNER>[Z] = 0d10000 + randrange(0d500);
+
+        smart_animate(entity, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+
+        while(entity[Z] > 0d0) {
+            yield();
+        }
+
+        control(entity, False);
+        animate(entity, ONCE, ANIMATION_ALL.DEFAULT);
+
+        walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER, NONE);
+
+        destroy(<SCRIPT_OWNER>);
+    }
+};

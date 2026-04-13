@@ -1,0 +1,664 @@
+map inverted_pyramid_level_0(PYRAMID_1) {
+    enum ROOM {
+        DEBUG = False,
+
+        DOOR_CENTER_OPENED = memory(FLAG, SRAM),
+        DOOR_MINI_BOSS_OPENED = memory(FLAG, SRAM),
+        DOOR_ALCHEMIST_OPENED = memory(FLAG, SRAM),
+        DOOR_HORACE_OPENED = memory(FLAG, SRAM),
+        DOOR_DOG_OPENED = memory(FLAG, SRAM),
+
+        RESTORE_BRIDGES = memory(FLAG, TEMP),
+        BRIDGE_WEST_1_COLLAPSED = memory(FLAG, RAM),
+        BRIDGE_WEST_2_COLLAPSED = memory(FLAG, RAM),
+        BRIDGE_WEST_3_COLLAPSED = memory(FLAG, RAM),
+        BRIDGE_EAST_1_COLLAPSED = memory(FLAG, RAM),
+        BRIDGE_EAST_2_COLLAPSED = memory(FLAG, RAM),
+        BRIDGE_EAST_3_COLLAPSED = memory(FLAG, RAM),
+        BRIDGE_EAST_4_COLLAPSED = memory(FLAG, RAM),
+
+        STONE_TOP_ID = memory(WORD, TEMP),
+        STONE_TOP_X = memory(WORD, RAM),
+        STONE_TOP_Y = memory(WORD, RAM),
+        STONE_CENTER_ID = memory(WORD, TEMP),
+        STONE_CENTER_X = memory(WORD, RAM),
+        STONE_CENTER_Y = memory(WORD, RAM),
+
+        STONE_OFFSET = 0d8 * 0d6,
+
+        SNAKE_TRAP_TRIGGERED = memory(FLAG, TEMP),
+        SNAKE_TRAP_2_TRIGGERED = memory(FLAG, TEMP),
+    }
+
+    enum entrance {
+        south = entrance(0x8a, 0x90, NORTH),
+        stairs_up_center = entrance(0x3e, 0x3e, SOUTH),
+        stairs_up_south_east = entrance(0xd4, 0x6c, SOUTH),
+
+        south_short = entrance(0x89, 0x97, SOUTH),
+
+        tunnel_west = entrance(0d76, 0d100, NONE, { crash_both(); }),
+        tunnel_east = entrance(0d111, 0d64, NONE, { crash_both(); }),
+
+        from_cutscene = entrance(0d138, 0d115, NONE, { ROOM.RESTORE_BRIDGES = True; }),
+
+        bonfire = entrance(0d97, 0d70, NONE, { bonfire_wakeup(0d0, -0d24, -0d24, -0d8); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_INVERTED_PYRAMID.MUSIC, 0xff)
+    }
+
+    enum BOSS {
+        PROGRESS = memory(FLAG, TEMP),
+
+        HP = 0d400,
+    }
+
+    @install()
+    fun trap_triggered() {
+        debug_subtext("S=4…10");
+
+        teleporter_out();
+        map_transition(inverted_pyramid_level_0, tunnel_west, NONE);
+    }
+
+    @install()
+    fun show_bonfire() {
+        bonfire(0d97, 0d70, SOULS_MEMORY.BONFIRE_INVERTED_PYRAMID);
+    }
+
+    enum stepon_trigger {
+        bridge_west_2_north = @install() {
+            debug_subtext("S=0");
+
+            act2_lotus_bridge_1(0x25, ROOM.BRIDGE_WEST_2_COLLAPSED, 0x35, 0x85, 0d5, NONE);
+        },
+        bridge_west_2_south = @install() {
+            debug_subtext("S=1");
+
+            act2_lotus_bridge_1(0x25, ROOM.BRIDGE_WEST_2_COLLAPSED, 0x33, 0x78, 0d5, NORTH);
+        },
+        bridge_west_1_north = @install() {
+            debug_subtext("S=2");
+
+            act2_lotus_bridge_1(0x24, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x2d, 0x85, 0d5, NONE);
+        },
+        bridge_west_1_south = @install() {
+            debug_subtext("S=3");
+
+            act2_lotus_bridge_1(0x24, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x29, 0x78, 0d5, NORTH);
+        },
+        trap_west_3 = trap_triggered(),
+        trap_west_2 = trap_triggered(),
+        trap_west_1 = @install() {
+            debug_subtext("S=6");
+
+            if(!ROOM.SNAKE_TRAP_TRIGGERED) {
+                ROOM.SNAKE_TRAP_TRIGGERED = True;
+
+                act2_snake_trap(0d10, 0d34, 0x08, True);
+                arg[0x10] = <LAST_ENTITY>;
+
+                cast(arg[0x10], ACTIVE, FLASH, 0d15);
+                sleep(0d5);
+                cast(arg[0x10], ACTIVE, FLASH, 0d15);
+
+                wait(arg[0x10]);
+
+                animate(arg[0x10], ONCE, SLASH_1);
+
+                cast(arg[0x10], ACTIVE, FIREBALL, 0d50);
+            }
+        },
+        trap_west_4 = trap_triggered(),
+        trap_east_3 = trap_triggered(),
+        trap_east_2 = trap_triggered(),
+
+        trap_east_1 = trap_triggered(),
+        bridge_east_4_north = @install() {
+            debug_subtext("S=11");
+
+            // act2_lotus_bridge_2(0x2a, 0xc4, 0x84, 0xc8, 0x78, 0d7, SOUTH);
+
+            act2_lotus_bridge_1(0x2a, ROOM.BRIDGE_EAST_4_COLLAPSED, 0d197, 0d131, 0d8, SOUTH);
+        },
+        bridge_east_3_south = @install() {
+            debug_subtext("S=12");
+
+            act2_lotus_bridge_1(0x29, ROOM.BRIDGE_EAST_3_COLLAPSED, 0d183, 0d121, 0d4, NORTH);
+        },
+        bridge_east_4_south = @install() {
+            debug_subtext("S=13");
+
+            act2_lotus_bridge_1(0x2a, ROOM.BRIDGE_EAST_4_COLLAPSED, 0d199, 0d119, 0d8, NORTH);
+        },
+        bridge_east_3_north = @install() {
+            debug_subtext("S=14");
+
+            act2_lotus_bridge_1(0x29, ROOM.BRIDGE_EAST_3_COLLAPSED, 0d190, 0d132, 0d4, SOUTH);
+        },
+        bridge_west_3 = @install() {
+            debug_subtext("S=15");
+
+            if((<ACTIVE>[FACE_DIRECTION] >= FACE_DIRECTION.SOUTH_EAST) && (<ACTIVE>[FACE_DIRECTION] <= FACE_DIRECTION.SOUTH_WEST)) {
+                act2_lotus_bridge_1(0x26, ROOM.BRIDGE_WEST_3_COLLAPSED, 0d91, 0d132, 0d7, NONE);
+            } else {
+                act2_lotus_bridge_1(0x26, ROOM.BRIDGE_WEST_3_COLLAPSED, 0x55, 0x76, 0d7, NONE);
+            }
+        },
+        stairs_west = @install() {
+            debug_subtext("S=16");
+
+            fog_wall_inside(BOSS.PROGRESS, SOUTH);
+
+            map_transition(inverted_pyramid_level_0_chamber, south, NORTH);
+        },
+        stairs_east = @install() {
+            debug_subtext("S=17");
+
+            fog_wall_inside(BOSS.PROGRESS, SOUTH);
+
+            map_transition(pyramid, pyramid_1_1, NORTH);
+        },
+        dog_north = @install() {
+            debug_subtext("S=18");
+        },
+        dog_south = @install() {
+            debug_subtext("S=19");
+        },
+
+        stepon_20 = @install() {
+            debug_subtext("S=20");
+        },
+        switch_4 = @install() {
+            debug_subtext("S=21");
+        },
+        switch_3 = @install() {
+            debug_subtext("S=22");
+        },
+        switch_1_inside = @install() {
+            debug_subtext("S=23");
+        },
+        switch_2 = @install() {
+            debug_subtext("S=24");
+        },
+        switch_2_north = @install() {
+            debug_subtext("S=25");
+        },
+        switch_2_south = @install() {
+            debug_subtext("S=26");
+        },
+        switch_2_west = @install() {
+            debug_subtext("S=27");
+        },
+        switch_2_east = @install() {
+            debug_subtext("S=28");
+        },
+        switch_1_north = @install() {
+            debug_subtext("S=29");
+        },
+
+        switch_1_south = @install() {
+            debug_subtext("S=30");
+        },
+        switch_1_west = @install() {
+            debug_subtext("S=31");
+        },
+        switch_1_east = @install() {
+            debug_subtext("S=32");
+        },
+        switch_4_north = @install() {
+            debug_subtext("S=33");
+        },
+        switch_4_south = @install() {
+            debug_subtext("S=34");
+        },
+        switch_4_west = @install() {
+            debug_subtext("S=35");
+        },
+        switch_4_east = @install() {
+            debug_subtext("S=36");
+        },
+        switch_3_north = @install() {
+            debug_subtext("S=37");
+        },
+        switch_3_south = @install() {
+            debug_subtext("S=38");
+        },
+        switch_3_west = @install() {
+            debug_subtext("S=39");
+        },
+
+        switch_3_east = @install() {
+            debug_subtext("S=40");
+        },
+        spawn_boss = @install() {
+            debug_subtext("S=41");
+
+            if((!SOULS_MEMORY.DEAD_DIABLO) && (!BOSS.PROGRESS)) {
+                BOSS.PROGRESS = True;
+                CUSTOM_FLAG.SLOW_GROUND_SWITCHES = True;
+
+                push_music(BOSS);
+                
+                add_custom_boss_diablo(0d85, 0d23, False, {
+                    if(False) {
+                        debug_subtext("-boss");
+                    }
+                }, False, BOSS.HP);
+
+                souls_boss_defeated_helper(DIABLO);
+
+                BOSS.PROGRESS = False;
+                CUSTOM_FLAG.SLOW_GROUND_SWITCHES = False;
+                show_bonfire();
+            }
+        },
+        stepon_42 = @install() {
+            debug_subtext("S=42");
+        },
+        bridge_east_1_south = @install() {
+            debug_subtext("S=43");
+
+            act2_lotus_bridge_3(0x27, ROOM.BRIDGE_EAST_1_COLLAPSED, 0x9e, 0x84, 0x9d, 0x7e, 0x9c, 0x78, 0d7, NORTH);
+        },
+        bridge_east_1_north = @install() {
+            debug_subtext("S=44");
+
+            act2_lotus_bridge_3(0x27, ROOM.BRIDGE_EAST_1_COLLAPSED, 0x9c, 0x78, 0x9d, 0x7e, 0x9e, 0x84, 0d7, SOUTH);
+        },
+        bridge_east_2_south = @install() {
+            debug_subtext("S=45");
+
+            act2_lotus_bridge_3(0x28, ROOM.BRIDGE_EAST_2_COLLAPSED, 0xaa, 0x84, 0xaa, 0x7e, 0xac, 0x78, 0d7, NORTH);
+        },
+        bridge_east_2_north = @install() {
+            debug_subtext("S=46");
+
+            act2_lotus_bridge_3(0x28, ROOM.BRIDGE_EAST_2_COLLAPSED, 0xac, 0x78, 0xaa, 0x7e, 0xaa, 0x87, 0d7, SOUTH);
+        },
+    }
+
+    enum b_trigger {
+        gourd_trap = @install() {
+            debug_subtext("B=0");
+
+            if(!ROOM.SNAKE_TRAP_2_TRIGGERED) {
+                ROOM.SNAKE_TRAP_2_TRIGGERED = True;
+
+                act2_snake_trap(0d58, 0d118, 0x2c, False);
+
+                arg[0x10] = <LAST_ENTITY>;
+
+                cast(arg[0x10], ACTIVE, FLASH, 0d15);
+                sleep(0d5);
+                cast(arg[0x10], ACTIVE, FLASH, 0d15);
+
+                wait(arg[0x10]);
+
+                animate(arg[0x10], ONCE, SLASH_1);
+
+                cast(arg[0x10], ACTIVE, FIREBALL, 0d50);
+            }
+        },
+        gourd_x__3_bone = @install() {
+            debug_subtext("B=1");
+            _loot_chest(0x2b, BONE, 0d03);
+        },
+        gourd_regenerate = @install() {
+            debug_subtext("B=2");
+
+            _loot_chest(0x20, METEORITE, 0d01);
+        },
+        gourd_x__1_call_beads = @install() {
+            debug_subtext("B=3");
+            _loot_chest(0x1f, IRON, 0d01);
+        },
+        gourd_x__1_herbal_essence = @install() {
+            debug_subtext("B=4");
+            _loot_chest(0x1e, OIL, 0d02);
+        },
+        gourd_x__1_honey = @install() {
+            debug_subtext("B=5");
+            _loot_chest(0x1b, WAX, 0d02);
+        },
+        gourd_x__3_ash = @install() {
+            debug_subtext("B=6");
+            _loot_chest(0x1c, ASH, 0d03);
+        },
+        gourd_x__2_limestone = @install() {
+            debug_subtext("B=7");
+            _loot_chest(0x1a, LIMESTONE, 0d02);
+        },
+        gourd_x__1_roots = @install() {
+            debug_subtext("B=8");
+            _loot_chest(0x1d, ROOTS, 0d01);
+        },
+        gourd_x__3_vinegar = @install() {
+            debug_subtext("B=9");
+            _loot_chest(0x19, MONEY, 0d10);
+        },
+
+        gourd_x__1_biscuit = @install() {
+            debug_subtext("B=10");
+            _loot_chest(0x18, GREASE, 0d01);
+        },
+        gourd_x__1_petal = @install() {
+            debug_subtext("B=11");
+            _loot_chest(0x17, DRY_ICE, 0d01);
+        },
+        gourd_x__2_wax = @install() {
+            debug_subtext("B=12");
+            _loot_chest(0x22, WAX, 0d02);
+        },
+        gourd_x__1_pixie_dust = @install() {
+            debug_subtext("B=13");
+            _loot_chest(0x21, GOLDEN_JACKAL, 0d01);
+        },
+        gourd_x__1_nectar = @install() {
+            debug_subtext("B=14");
+            _loot_chest(0x16, NECTAR, 0d01);
+        },
+        gourd_x__1_call_beads = @install() {
+            debug_subtext("B=15");
+            _loot_chest(0x15, IRON, 0d01);
+        },
+        gourd_x__1_wings = @install() {
+            debug_subtext("B=16");
+            _loot_chest(0x14, WATER, 0d04);
+        },
+        gourd_x__3_dry_ice = @install() {
+            debug_subtext("B=17");
+            _loot_chest(0x23, HERBAL_ESSENCE, 0d01);
+
+        },
+        door_center = @install() {
+            debug_subtext("B=18");
+
+            if((<ACTIVE>[FACE_DIRECTION] >= FACE_DIRECTION.SOUTH_EAST) && (<ACTIVE>[FACE_DIRECTION] <= FACE_DIRECTION.SOUTH_WEST)) {
+                error_message(DOOR_WRONG_SIDE);
+            } else {
+                _act2_axe2_wall(0x0e, ROOM.DOOR_CENTER_OPENED);
+            }
+        },
+        door_mini_boss = @install() {
+            debug_subtext("B=19");
+
+            _act2_axe2_wall(0x0c, ROOM.DOOR_MINI_BOSS_OPENED);
+        },
+
+        door_alchemist = @install() {
+            debug_subtext("B=20");
+
+            _act2_axe2_wall(0x0d, ROOM.DOOR_ALCHEMIST_OPENED);
+        },
+        door_horace = @install() {
+            debug_subtext("B=21");
+
+            _act2_axe2_wall(0x10, ROOM.DOOR_HORACE_OPENED);
+        },
+        door_dog = @install() {
+            debug_subtext("B=22");
+
+            _act2_axe2_wall(0x0f, ROOM.DOOR_DOG_OPENED);
+        },
+        gourd_x__1_biscuit = @install() {
+            debug_subtext("B=23");
+            _loot_chest(0x2e, BISCUIT, 0d01);
+        },
+    }
+
+    @install()
+    @async()
+    fun remember_stone_handler(stone_top, stone_center) {
+        if(ROOM.STONE_TOP_X && ROOM.STONE_TOP_Y) {
+            _teleport(stone_top, ROOM.STONE_TOP_X, ROOM.STONE_TOP_Y);
+        }
+        if(ROOM.STONE_CENTER_X && ROOM.STONE_CENTER_Y) {
+            _teleport(stone_center, ROOM.STONE_CENTER_X, ROOM.STONE_CENTER_Y);
+        }
+
+        while(True) {
+            sleep(0d3, S);
+
+            ROOM.STONE_TOP_X = stone_top[X];
+            ROOM.STONE_TOP_Y = stone_top[Y];
+
+            sleep(0d3, S);
+
+            ROOM.STONE_CENTER_X = stone_center[X];
+            ROOM.STONE_CENTER_Y = stone_center[Y];
+        }
+    }
+
+    @install()
+    @async()
+    fun switch_1_handler() {
+        souls_toggle_switch_trigger(False, 0d130, 0d74, {
+            if(ROOM.DEBUG) {
+                subtext("1");
+            }
+
+            object[0x04] = 0x01; // activate switch_1
+            sound(ELEVATOR_DOOR);
+            object[0x00] = 0x03; // open gate_entry
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!1");
+            }
+
+            object[0x04] = 0x00; // activate switch_1
+            sound(ELEVATOR_DOOR);
+            object[0x00] = 0x00; // open gate_entry
+        });
+    }
+    @install()
+    @async()
+    fun switch_2_handler() {
+        souls_toggle_switch_trigger(False, 0d130, 0d96, {
+            if(ROOM.DEBUG) {
+                subtext("2");
+            }
+
+            object[0x06] = 0x01; // activate switch_2
+            sound(ELEVATOR_DOOR);
+            object[0x01] = 0x03; // open gate_boss
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!2");
+            }
+
+            object[0x06] = 0x00; // activate switch_2
+            sound(ELEVATOR_DOOR);
+            object[0x01] = 0x00; // open gate_boss
+        });
+    }
+    @install()
+    @async()
+    fun switch_3_handler() {
+        souls_toggle_switch_trigger(False, 0d156, 0d96, {
+            if(ROOM.DEBUG) {
+                subtext("3");
+            }
+
+            object[0x07] = 0x01; // activate switch_3
+            sound(ELEVATOR_DOOR);
+            object[0x03] = 0x03; // open gate_horace
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!3");
+            }
+
+            object[0x07] = 0x00; // activate switch_3
+            sound(ELEVATOR_DOOR);
+            object[0x03] = 0x00; // open gate_horace
+        });
+    }
+    @install()
+    @async()
+    fun switch_4_handler() {
+        souls_toggle_switch_trigger(False, 0d156, 0d74, {
+            if(ROOM.DEBUG) {
+                subtext("4");
+            }
+
+            object[0x05] = 0x01; // activate switch_4
+            sound(ELEVATOR_DOOR);
+            object[0x02] = 0x03; // open gate_gourds
+        }, {
+            if(ROOM.DEBUG) {
+                subtext("!4");
+            }
+
+            object[0x05] = 0x00; // activate switch_4
+            sound(ELEVATOR_DOOR);
+            object[0x02] = 0x00; // open gate_gourds
+        });
+    }
+
+    fun trigger_enter() {
+        restore_object_animator(AXE2_DOOR, ROOM.DOOR_CENTER_OPENED, 0x0e);
+        restore_object_animator(AXE2_DOOR, ROOM.DOOR_MINI_BOSS_OPENED, 0x0c);
+        restore_object_animator(AXE2_DOOR, ROOM.DOOR_ALCHEMIST_OPENED, 0x0d);
+        restore_object_animator(AXE2_DOOR, ROOM.DOOR_HORACE_OPENED, 0x10);
+        restore_object_animator(AXE2_DOOR, ROOM.DOOR_DOG_OPENED, 0x0f);
+
+        if(ROOM.RESTORE_BRIDGES) {
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_WEST_1_COLLAPSED, 0x24, 0d5);
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_WEST_2_COLLAPSED, 0x25, 0d5);
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_WEST_3_COLLAPSED, 0x26, 0d7);
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_1_COLLAPSED, 0x27, 0d7);
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_2_COLLAPSED, 0x28, 0d7);
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_3_COLLAPSED, 0x29, 0d4);
+            restore_object_animator(LOTUS_BRIDGE, ROOM.BRIDGE_EAST_4_COLLAPSED, 0x2a, 0d8);
+        } else {
+            ROOM.BRIDGE_WEST_1_COLLAPSED = False;
+            ROOM.BRIDGE_WEST_2_COLLAPSED = False;
+            ROOM.BRIDGE_WEST_3_COLLAPSED = False;
+            ROOM.BRIDGE_EAST_1_COLLAPSED = False;
+            ROOM.BRIDGE_EAST_2_COLLAPSED = False;
+            ROOM.BRIDGE_EAST_3_COLLAPSED = False;
+            ROOM.BRIDGE_EAST_4_COLLAPSED = False;
+        }
+        
+        if!(AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED) {
+            add_enemy(STONE, 0d138, 0d121);
+            attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                AREA_INVERTED_PYRAMID.STONE_UNDERGROUND_LEVEL_1_LEFT_DROPPED = True;
+                
+                map_transition(inverted_pyramid_level_1, cutscene_stone_left, NONE);
+            }));
+        }
+
+        if(SOULS_MEMORY.DEAD_DIABLO) {
+            show_bonfire();
+        }
+
+        default_init_room(False, False);
+
+        // object[0x00] = 0x03; // open gate_entry
+        // object[0x01] = 0x03; // open gate_boss
+        // object[0x02] = 0x03; // open gate_gourds
+        // object[0x03] = 0x03; // open gate_horace
+        // object[0x04] = 0x01; // activate switch_1
+        // object[0x05] = 0x01; // activate switch_4
+        // object[0x06] = 0x01; // activate switch_2
+        // object[0x07] = 0x01; // activate switch_3
+        // object[0x08] = 0x01; // activate snake_west_1
+        // object[0x09] = 0x01; // activate snake_west_2
+        // object[0x0a] = 0x01; // activate snake_west_4
+        // object[0x0b] = 0x01; // activate snake_west_3
+        // object[0x0c] = 0x01; // open door_miniboss
+        // object[0x0d] = 0x01; // open door_gourds
+        // object[0x0e] = 0x01; // open door_center
+        // object[0x0f] = 0x01; // open door_dog
+        // object[0x10] = 0x04; // open door_horace
+        // object[0x11] = 0x04; // activate snake_east_1
+        // object[0x12] = 0x04; // activate snake_east_2
+        // object[0x13] = 0x04; // activate snake_east_3
+        // ???
+        // object[0x24] = 0x05; // collpse bridge_west_1
+        // object[0x25] = 0x05; // collpse bridge_west_2
+        // object[0x26] = 0x05; // collpse bridge_west_3
+        // object[0x27] = 0x05; // collpse bridge_east_1
+        // object[0x28] = 0x05; // collpse bridge_east_2
+        // object[0x29] = 0x05; // collpse bridge_east_3
+        // object[0x2a] = 0x05; // collpse bridge_east_4
+
+        add_levitate_stone(0d141, 0d17, reference(@install() {
+            guard_levitate_stone(0d1);
+        }));
+        ROOM.STONE_TOP_ID = <LAST_ENTITY>;
+        add_levitate_stone(0d136, 0d96, reference(@install() {
+            guard_levitate_stone(0d1);
+        }));
+        ROOM.STONE_CENTER_ID = <LAST_ENTITY>;
+
+        remember_stone_handler(ROOM.STONE_TOP_ID, ROOM.STONE_CENTER_ID);
+
+        switch_1_handler();
+        switch_2_handler();
+        switch_3_handler();
+        switch_4_handler();
+
+        special_script(LEVITATE, reference(@install() {
+            guard_challenge_levitate();
+
+            if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                end();
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            sleep(0d120);
+
+            while(arg[0x10] < ROOM.STONE_OFFSET) {
+                arg[0x10]++;
+
+                <SCRIPT_OWNER>[X]--;
+
+                sleep(0d3);
+            }
+
+            sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+        }));
+
+        // north
+        add_enemy_spawner(DRAKE, 0d170, 0d36);
+
+        // center
+        add_enemy_spawner(DRAKE, 0d142, 0d71);
+
+        // east
+        add_enemy_spawner(DRAKE, 0d224, 0d111);
+        add_enemy_spawner(DRAKE, 0d227, 0d93);
+        add_enemy_spawner(DRAKE, 0d227, 0d76);
+
+        add_enemy_spawner(DRAKE, 0d187, 0d54);
+
+        // south west
+        add_enemy_spawner(SPIDER, 0d86, 0d115);
+
+        // west
+        add_enemy_spawner(SPIDER, 0d11, 0d42);
+        add_enemy_spawner(SPIDER, 0d15, 0d78);
+        add_enemy_spawner(SPIDER, 0d11, 0d96);
+        add_enemy_spawner(SPIDER, 0d11, 0d126);
+
+        // north west
+        add_enemy_spawner(SPIDER, 0d50, 0d43);
+
+        add_enemy_spawner(SPIDER, 0d37, 0d13);
+
+        // north west - stairs
+        add_enemy_spawner(SPIDER, 0d40, 0d82);
+
+        add_enemy_spawner(SPIDER, 0d61, 0d65);
+
+        add_enemy_spawner(SPIDER, 0d38, 0d55);
+    }
+};

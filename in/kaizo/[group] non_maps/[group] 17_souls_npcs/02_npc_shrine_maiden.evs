@@ -1,0 +1,189 @@
+group npc_shrine_maiden() {
+    enum NPC_SHRINE_MAIDEN {
+        PROGRESS = memory(BYTE, SRAM),
+        DEAD = memory(FLAG, SRAM),
+
+        PRICE_LEVEL_UP = 0d80,
+        PRICE_SPELL_SLOT = 0d35,
+
+        // ID = memory(WORD, SRAM),
+        BODY = ENEMY.FIRE_EYES,
+    }
+
+    group talk_ai() {
+        fun guard_dead_npc() {
+            guard_dead(<SCRIPT_OWNER>, {
+                NPC_SHRINE_MAIDEN.DEAD = True;
+            });
+        }
+
+        fun response_positive() {
+            conversation_dialog("[SLOW]Come back if you need aid.[B]");
+        }
+        fun response_negative() {
+            conversation_dialog("[SLOW]Come back later.[B]");
+        }
+
+        fun greeting_default() {
+            conversation_dialog("[SLOW]Seek the land for larger and larger souls.[B]");
+        }
+
+        fun greeting_estus_shard() {
+            conversation_dialog("[SLOW]Let me see that…[B]");
+        }
+
+        fun story_estus_shard() {
+            conversation_dialog("[SLOW]If you find an Petal Shard, bring it to me.[B]");
+        }
+
+        fun upgrade_boy() {
+            MEMORY.STRING_PARAMETER_1 = MEMORY.BOY_LEVEL * NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP;
+            conversation_question("[SLOW]Upgrade stats?[CHOICE][MEM1] Souls[CHOICE]no…");
+
+            if(MEMORY.QUESTION_ANSWER == 0d0) {
+                level_up(BOY, NPC_SHRINE_MAIDEN.PRICE_LEVEL_UP);
+
+                if(CUSTOM_MEMORY.RETURN) {
+                    yield();
+                    MEMORY.BOY_XP_REQUIRED = SYSTEM.HP_MAX;
+                } else {
+                    response_negative();
+                }
+            }
+        }
+
+        @install()
+        fun upgrade_magic_slots() {
+            if!(SOULS_MEMORY.MAGIC_SLOTS_2) {
+                MEMORY.STRING_PARAMETER_1 = 0d2;
+            } else if!(SOULS_MEMORY.MAGIC_SLOTS_4) {
+                MEMORY.STRING_PARAMETER_1 = 0d4;
+            } else if!(SOULS_MEMORY.MAGIC_SLOTS_9) {
+                MEMORY.STRING_PARAMETER_1 = 0d9;
+            } else {
+                MEMORY.STRING_PARAMETER_1 = 0d0;
+            }
+
+            if(MEMORY.STRING_PARAMETER_1) {
+                MEMORY.STRING_PARAMETER_2 = MEMORY.STRING_PARAMETER_1 * NPC_SHRINE_MAIDEN.PRICE_SPELL_SLOT;
+
+                show_currency(True);
+                conversation_question("[SLOW]Upgrade to [MEM1] slots?[CHOICE][MEM2] Souls[CHOICE]no.");
+
+                sleep(0x10);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    if_currency(MEMORY.CURRENCY_CURRENT < MEMORY.STRING_PARAMETER_2) {
+                        response_negative();
+                    } else {
+                        smart_sound(PURCHASE);
+                        currency_take(TALONS, MEMORY.STRING_PARAMETER_2);
+                        show_currency(True);
+                        sleep(0d30);
+                        show_currency(False);
+
+                        custom_reward(UPGRADE_MAGIC_SLOTS, True);
+
+                        response_positive();
+                    }
+                }
+
+                show_currency(False);
+            } else {
+                conversation_dialog("[SLOW]I can't train you any more…");
+            }
+        }
+
+        @install()
+        fun upgrade_estus() {
+            if(SOULS_MEMORY.ESTUS_SHARDS > 0d0) {
+                conversation_question("[SLOW]Flask upgrade?[CHOICE]yes[CHOICE]no");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    SOULS_MEMORY.ESTUS_SHARDS--;
+
+                    SOULS_MEMORY.ESTUS_CHARGES++;
+                }
+            } else {
+                story_estus_shard();
+            }
+        }
+
+        @install()
+        fun shrine_maiden_triggered__first_bonfire() {
+            guard_dead_npc();
+
+            smart_conversation({
+                if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf0) == 0x00) {
+                    if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d0) {
+                        NPC_SHRINE_MAIDEN.PROGRESS++;
+                    
+                        conversation_dialog("[SLOW]Welcome to the world of Nevermore.[PAUSE:50] Many came to find it's secrets, few weren't consumed by madness.[B]");
+                    } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d1) {
+                        NPC_SHRINE_MAIDEN.PROGRESS++;
+                    
+                        conversation_dialog("[SLOW]I am the Fire Keeper of this world. I'll support you from afar.[B]");
+                    } else if((NPC_SHRINE_MAIDEN.PROGRESS & 0xf) == 0d2) {
+                        NPC_SHRINE_MAIDEN.PROGRESS++;
+                    
+                        conversation_dialog("[SLOW]Death isn't the end here. Your progress will never be lost because of that.[B]");
+                    } else {
+                        conversation_dialog("[SLOW]Go to the first bonfire and ignite it.[B]");
+                    }
+                } else {
+                    response_positive();
+                }
+            }, False, NONE);
+        }
+        @install()
+        fun shrine_maiden_triggered__shrine() {
+            guard_dead_npc();
+
+            smart_conversation({
+                NPC_SHRINE_MAIDEN.PROGRESS = 0x20;
+
+                conversation_dialog("[SLOW]Scour the land and seek misery. Search for stronger and stronger oponents.[B]");
+            }, False, NONE);
+        }
+        @install()
+        fun shrine_maiden_triggered() {
+            guard_dead_npc();
+
+            smart_conversation({
+                if(SOULS_MEMORY.ESTUS_SHARDS > 0d0) {
+                    greeting_estus_shard();
+                } else {
+                    greeting_default();
+                }
+
+                conversation_question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]upgrade stats…[CHOICE]upgrade magic…[CHOICE]upgrade flask…", 0d5);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    story_estus_shard();
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // level up
+                    upgrade_boy();
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // upgrade magic
+                    upgrade_magic_slots();
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) { // upgrade flask
+                    upgrade_estus();
+                }
+            }, False, NONE);
+        }
+    };
+
+    fun add_souls_npc_shrine_maiden(x, y) {
+        if!(NPC_SHRINE_MAIDEN.DEAD) {
+            add_enemy(NPC_SHRINE_MAIDEN.BODY, x, y, INACTIVE);
+            <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+            attribute(LAST_ENTITY, INVINCIBLE, False);
+
+            if(NPC_SHRINE_MAIDEN.PROGRESS < 0x10) {
+                attach_script(LAST_ENTITY, ALL, reference(shrine_maiden_triggered__first_bonfire));
+            } else if(NPC_SHRINE_MAIDEN.PROGRESS < 0x20) {
+                attach_script(LAST_ENTITY, ALL, reference(shrine_maiden_triggered__shrine));
+            } else {
+                attach_script(LAST_ENTITY, ALL, reference(shrine_maiden_triggered));
+            }
+        }
+    }
+};

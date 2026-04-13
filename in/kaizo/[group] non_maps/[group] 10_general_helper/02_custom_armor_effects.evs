@@ -1,0 +1,59 @@
+group custom_armor_effects() {
+    fun _update_armor_effects_hit_bonus(helper_flag:SOULS_MEMORY, bonus, armor_slot:MEMORY, armor:ARMOR_STATS) {
+        if(armor_slot == armor) {
+            if!(helper_flag) {
+                helper_flag = True;
+
+                <BOY>[BOOST_HIT] += bonus;
+                MEMORY.BOY_HIT += bonus;
+            }
+        } else {
+            if(helper_flag) {
+                helper_flag = False;
+
+                <BOY>[BOOST_HIT] -= bonus;
+                MEMORY.BOY_HIT -= bonus;
+            }
+        }
+    }
+    fun _update_armor_effects_no_running(helper_flag:SOULS_MEMORY, armor_slot:MEMORY, armor_1:ARMOR_STATS, armor_2:ARMOR_STATS) {
+        if(armor_2 !is None) {
+            if((armor_slot == armor_1) || (armor_slot == armor_2)) {
+                increment_no_running(helper_flag);
+            } else {
+                decrement_no_running(helper_flag);
+            }
+        } else {
+            if(armor_slot == armor_1) {
+                increment_no_running(helper_flag);
+            } else {
+                decrement_no_running(helper_flag);
+            }
+        }
+    }
+    @install()
+    fun update_armor_effects() {
+        // BOOST_HIT = CHEST_1_1, HELM_1_1, GLOVE_1_1
+        // POWER = GLOVE_2_3 (+1), GLOVE_2_2 (+2)
+        // fall damage = GLOVE_3_2
+        // heat = CHEST_2_3
+        // thorne = GLOVE_1_3
+        // NO_RUNNING = CHEST_2_2
+        // pip boy = GLOVE_4_2
+
+        _update_armor_effects_hit_bonus(HIT_BONUS_CHEST, 0d15, CURRENT_ARMOR_CHEST, CHEST_1_1);
+        _update_armor_effects_hit_bonus(HIT_BONUS_HELM, 0d15, CURRENT_ARMOR_HELM, HELM_1_1);
+        _update_armor_effects_hit_bonus(HIT_BONUS_ARMLET, 0d15, CURRENT_ARMOR_GLOVE, GLOVE_1_1);
+
+        if(SOULS_MEMORY.DEBUG && SOULS_MEMORY.DEBUG_CUSTOM_ARMOR) {
+            debug_memory(SOULS_MEMORY.HIT_BONUS_CHEST, SOULS_MEMORY.HIT_BONUS_HELM, SOULS_MEMORY.HIT_BONUS_ARMLET);
+        }
+
+        _update_armor_effects_no_running(NO_RUNNING_CHEST, CURRENT_ARMOR_CHEST, CHEST_2_2, CHEST_2_1);
+
+        CUSTOM_MEMORY.WEIGHT_DOG = SYSTEM.WEIGHT_DOG;
+        arg[0x10] = (MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_2) || (MEMORY.CURRENT_ARMOR_CHEST == ARMOR_STATS.CHEST_2_1);
+        arg[0x12] = MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_3_2;
+        CUSTOM_MEMORY.WEIGHT_BOY = SYSTEM.WEIGHT_BOY + arg[0x10] + arg[0x10] - arg[0x12];
+    }
+};

@@ -1,0 +1,66 @@
+group code() {
+    enum CODE_RIDDLE {
+        DEBUG = False,
+        DEBUG_LEVERS = True,
+
+        SECRET_CODE = memory(BYTE, SRAM), // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
+
+        CODE_RED = 0d0,
+        CODE_BLUE = 0d1,
+        CODE_GREEN = 0d2,
+    }
+
+    @install()
+    fun plot_code(code) {
+        arg[0x10] = (code >> 0d0) & 0x3; // rgb_1
+        arg[0x12] = (code >> 0d2) & 0x3; // rgb_2
+        arg[0x14] = (code >> 0d4) & 0x3; // rgb_3
+        arg[0x16] = (code >> 0d6) & 0x1; // right
+        arg[0x18] = (code >> 0d7) & 0x1; // left
+
+        if(CODE_RIDDLE.DEBUG) {
+            debug_memory(arg[0x18], arg[0x16]);
+            sleep(0d120);
+            debug_memory(arg[0x10], arg[0x12], arg[0x14]);
+            sleep(0d120);
+            debug_memory(code);
+        }
+    }
+    @install()
+    fun create_code() {
+        // 5433_2211 = 5<<6 + 4<<5 + 33<<4 + 22<<2 + 11<<0
+        
+        arg[0x10] = randrange(0d3); // rgb_1
+        arg[0x12] = randrange(0d3); // rgb_2
+        arg[0x14] = randrange(0d3); // rgb_3
+        arg[0x16] = randrange(0d2); // right
+        arg[0x18] = randrange(0d2); // left
+        
+        CUSTOM_MEMORY.RETURN = (arg[0x18] << 0d7) + (arg[0x16] << 0d6) + (arg[0x14] << 0d4) + (arg[0x12] << 0d2) + (arg[0x10] << 0d0);
+
+        if(CODE_RIDDLE.DEBUG) {
+            plot_code(CUSTOM_MEMORY.RETURN);
+        }
+    }
+
+    @install()
+    @async()
+    fun safe_create_code() {
+        while!(CUSTOM_MEMORY.INPUT_P1) {
+            sleep(randrange(0d60));
+        }
+        sleep(randrange(0d60));
+        while!(CUSTOM_MEMORY.INPUT_P1) {
+            sleep(randrange(0d60));
+        }
+        sleep(randrange(0d60));
+        while!(CUSTOM_MEMORY.INPUT_P1) {
+            sleep(randrange(0d60));
+        }
+
+        while!(CODE_RIDDLE.SECRET_CODE) {
+            create_code();
+            CODE_RIDDLE.SECRET_CODE = CUSTOM_MEMORY.RETURN;
+        }
+    }
+};

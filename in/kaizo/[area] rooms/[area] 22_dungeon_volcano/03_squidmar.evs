@@ -1,0 +1,321 @@
+map squidmar(AQUAGOTH) {
+    enum entrance {
+        south = entrance(0x1b, 0x51, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(DUNGEON_VOLCANO.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        ID_NPC = memory(WORD, TEMP),
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        ID = memory(WORD, TEMP),
+
+        PROGRESS = memory(FLAG, TEMP),
+        PHASE = memory(WORD, TEMP),
+
+        HP = 0d500,
+        P1_THRESHOLD = 0d300,
+        P2_THRESHOLD = 0d100,
+
+        HP_SPARK = 0d100,
+
+        ENERGY_LEVEL = memory(WORD, TEMP),
+        ENERGY_LEVEL_THRESHOLD = 0d15,
+
+        SPAWNING = memory(FLAG, TEMP),
+
+        WAVE_COUNT = memory(WORD, TEMP),
+        WAVE_COUNT_P0 = 0d5,
+
+        SPAWN_COOLDOWN = 0d30,
+    }
+
+    fun fog_wall(exit_direction:DIRECTION) {
+        if(BOSS.PROGRESS) {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_SQUIDMAR, exit_direction);
+        }
+    }
+
+    @install()
+    @async()
+    fun fake_exit_scanner(entity) {
+        range_checker(entity, <ACTIVE>, 0x20, 0x20, {
+            fog_wall(NONE);
+
+            NPC_SQUIDMAR.AQUAGOTH_SEEN = False;
+            map_transition(dungeon_volcano, north_1, SOUTH);
+        });
+    }
+
+    fun boss_defeated() {
+        if(BOSS.PROGRESS) {
+            BOSS.PROGRESS = False;
+            
+            object[0x01] = 0x01; // hide aquagoth
+            object[0x00] = 0x00; // close door
+
+            souls_boss_defeated_helper(SQUIDMAR);
+        }
+    }
+
+    fun max_energy_check() {
+        if(BOSS.ENERGY_LEVEL == BOSS.ENERGY_LEVEL_THRESHOLD) {
+            attribute_bit(BOSS.ID, INVINCIBLE_TEMP, True);
+
+            control(NONE);
+
+            while(True) {
+                sound(TESLA);
+
+                arg[0x10] = randrange(0d2);
+                if(arg[0x10] == 0d0) {
+                    shoot_entity_entity(BOSS.ID, LIGHTNING, BOY, 0d15, 0d0);
+                    damage(BOY, arg[0x12], True);
+                } else {
+                    shoot_entity_entity(BOSS.ID, LIGHTNING, DOG, 0d15, 0d0);
+                    damage(DOG, arg[0x12], True);
+                }
+
+                sleep(0d10);
+
+                arg[0x12]++;
+            }
+        }
+    }
+
+    fun _wave_enemy_dead() {
+        BOSS.WAVE_COUNT--;
+
+        destroy(SCRIPT_OWNER);
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.WAVE_COUNT;
+            MEMORY.STRING_PARAMETER_2 = BOSS.WAVE_COUNT_P0;
+            debug_subtext("wave alive: [MEM1]/[MEM2]");
+        }
+    }
+    @install()
+    fun wave_enemy_dead() {
+        if(BOSS.DEBUG) {
+            _debug_memory(_alive(<SCRIPT_OWNER>), <SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff, _alive(<SCRIPT_OWNER>) && ((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) > 0d0));
+        }
+
+        if(_alive(<SCRIPT_OWNER>) && ((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) > 0d1)) {
+            <SCRIPT_OWNER>[GENERAL_PURPOSE] |= 0xff00;
+            <SCRIPT_OWNER>[GENERAL_PURPOSE]--;
+        } else {
+            _wave_enemy_dead();
+        }
+    }
+
+    @install()
+    @async()
+    fun spawn_enemy(hits) {
+        BOSS.WAVE_COUNT++;
+
+        if(hits <= 0d1) {
+            add_enemy(SPARK, 0d26, 0d51);
+        } else if(hits == 0d2) {
+            add_colored_enemy(SPARK, EVIL_FIRE_EYES, 0d26, 0d51);
+            attribute(LAST_ENTITY, INVINCIBLE, False);
+        } else {
+            add_colored_enemy(SPARK, DOG_4_BLACK, 0d26, 0d51);
+        }
+        <LAST_ENTITY>[GENERAL_PURPOSE] = hits;
+        <LAST_ENTITY>[HP] = BOSS.HP_SPARK;
+
+        attach_to_script(LAST_ENTITY);
+        attribute(SCRIPT_OWNER, AI_RUN, True);
+        attach_script(SCRIPT_OWNER, DAMAGE_DEATH, reference(wave_enemy_dead));
+
+        arg[0x10] = randrange(0d4);
+        if(arg[0x10] == 0d0) { // north
+            arg[0x12] = 0d21;
+            arg[0x14] = 0d41;
+        } else if(arg[0x10] == 0d1) { // east
+            arg[0x12] = 0d33;
+            arg[0x14] = 0d52;
+        } else if(arg[0x10] == 0d2) { // south
+            arg[0x12] = 0d23;
+            arg[0x14] = 0d57;
+        } else if(arg[0x10] == 0d3) { // west
+            arg[0x12] = 0d18;
+            arg[0x14] = 0d53;
+        }
+
+        walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, arg[0x12], arg[0x14], SCRIPT_OWNER);
+        control(SCRIPT_OWNER, False);
+        // attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+
+        while(alive(<SCRIPT_OWNER>)) { 
+            if(dead(BOSS.ID)) {
+                destroy(SCRIPT_OWNER);
+                end();
+            } else if(arg[0x16] < <SCRIPT_OWNER>[X]) {
+                arg[0x16] = <SCRIPT_OWNER>[X];
+                arg[0x18] = 0d0;
+            } else if(arg[0x16] == <SCRIPT_OWNER>[X]) {
+                arg[0x18]++;
+
+                if(arg[0x18] > 0d20) {
+                    attribute(SCRIPT_OWNER, ROOT, True);
+
+                    if(True) {
+                        sound(TESLA);
+                        shoot_entity_entity(SCRIPT_OWNER, LIGHTNING, BOSS.ID, 0d30, 0d0);
+                        sleep(0d50);
+                    }
+
+                    attribute(SCRIPT_OWNER, INVISIBLE, True);
+                    sleep(0d10);
+
+                    attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+                    yield();
+
+                    if(alive(<SCRIPT_OWNER>)) {
+                        BOSS.ENERGY_LEVEL++;
+                        max_energy_check();
+
+                        if(True) {
+                            MEMORY.STRING_PARAMETER_1 = BOSS.ENERGY_LEVEL;
+                            MEMORY.STRING_PARAMETER_2 = BOSS.ENERGY_LEVEL_THRESHOLD;
+                            subtext("Energy: [MEM1]/[MEM2]");
+                        }
+
+                        _wave_enemy_dead();
+                    }
+
+                    end();
+                }
+            }
+
+            sleep(0d10);
+
+            if(<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff00) {
+                if((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) == 0d1) {
+                    replace_enemy(<SCRIPT_OWNER>, SPARK);
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = 0d1;
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(wave_enemy_dead));
+                } else if((<SCRIPT_OWNER>[GENERAL_PURPOSE] & 0xff) == 0d2) {
+                    replace_enemy(<SCRIPT_OWNER>, EVIL_FIRE_EYES);
+                    attribute(LAST_ENTITY, INVINCIBLE, False);
+                    <LAST_ENTITY>[GENERAL_PURPOSE] = 0d2;
+                    attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(wave_enemy_dead));
+                }
+                <LAST_ENTITY>[HP] = BOSS.HP_SPARK;
+                attach_to_script(LAST_ENTITY);
+            }
+        }
+    }
+
+    fun spawn_wave() {
+        if(BOSS.DEBUG && False) {
+            debug_memory(BOSS.PHASE, BOSS.WAVE_COUNT, BOSS.WAVE_COUNT_P0);
+        }
+
+        while(BOSS.WAVE_COUNT < BOSS.WAVE_COUNT_P0) {
+            if(BOSS.PHASE == 0d0) {
+                spawn_enemy();
+            } else if(BOSS.PHASE == 0d1) {
+                spawn_enemy(randrange(0d3));
+            } else if(BOSS.PHASE == 0d2) {
+                spawn_enemy(0d2 + randrange(0d2));
+            }
+
+            sleep(BOSS.SPAWN_COOLDOWN);
+        }
+    }
+
+    @install()
+    fun squidmar_triggered() {
+        guard_dead(BOSS.ID, {
+            boss_defeated();
+            end();
+        });
+
+        if(BOSS.DEBUG) {
+            debug_memory(BOSS.PHASE, BOSS.ID[HP], BOSS.SPAWNING);
+        }
+
+        if(BOSS.PHASE == 0d0) {
+            if(BOSS.ID[HP] < BOSS.P1_THRESHOLD) {
+                BOSS.PHASE = 0d1;
+            }
+        }
+        if(BOSS.PHASE == 0d1) {
+            if(BOSS.ID[HP] < BOSS.P2_THRESHOLD) {
+                BOSS.PHASE = 0d2;
+            }
+        }
+
+        if!(BOSS.SPAWNING) {
+            BOSS.SPAWNING = True;
+            sleep(0d3);
+
+            spawn_wave();
+
+            BOSS.SPAWNING = False;
+        }
+    }
+
+    fun start_boss() {
+        destroy(ROOM.ID_NPC);
+
+        BOSS.PROGRESS = True;
+
+        object[0x00] = 0x7e; // close door
+
+        push_music(BOSS);
+
+        sfx_effect(SHAKING, False);
+
+        attach_script(BOSS.ID, DAMAGE, reference(squidmar_triggered));
+    }
+    
+    @install()
+    @async()
+    fun scan_npc_id(entity) {
+        while(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+            yield();
+        }
+        
+        sleep(0d30);
+
+        start_boss();
+    }
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_SQUIDMAR) {
+            response_reaction();
+
+            add_enemy(AQUAGOTH_ENTITY, 0x1a, 0x34);
+            BOSS.ID = <LAST_ENTITY>;
+            BOSS.ID[HP] = BOSS.HP;
+
+            if(NPC_SQUIDMAR.INSANITY < NPC_SQUIDMAR.INSANITY_LIMIT) {
+                attach_script(BOSS.ID, DAMAGE, reference(npc_squidmar_triggered));
+
+                add_souls_npc_squidmar(0d26, 0d55);
+                ROOM.ID_NPC = <LAST_ENTITY>;
+                
+                scan_npc_id(<LAST_ENTITY>);
+            } else {
+                start_boss();
+            }
+            
+        } else {
+            object[0x01] = 0x01; // hide aquagoth
+        }
+
+        default_init_room(True, False);
+
+        add_enemy(PLACEHOLDER, 0x1b, 0x52);
+        fake_exit_scanner(<LAST_ENTITY>);
+    }
+};

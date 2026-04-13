@@ -6,6 +6,7 @@ from compiler.lexer import Lexer
 from compiler.codegen import CodeGen
 from compiler.parser import Parser
 from compiler.linker import Linker
+from compiler.preprocessor import preprocess
 
 import time
 import re
@@ -56,10 +57,22 @@ def handle_parse(rom_file, patches_dir, code, profile):
 
 def main():
     args = arg_utils.parse()
+
+    # If input is a directory, resolve to main.evs inside it
+    import os
+    if os.path.isdir(args.input_file):
+        args.input_file = os.path.join(args.input_file, 'main.evs')
+
     code = file_utils.file2string(args.input_file)
+
+    # Preprocess: resolve #import directives (static text substitution)
+    code = preprocess(code, args.input_file)
 
     parser_out = None
     out_utils.init_out()
+
+    # Dump fully expanded source for debugging
+    out_utils.dump(code, "preprocessed.evs")
 
     if not args.profile:
         parser_out = handle_parse(args.rom_file, args.patches_dir, code, True)

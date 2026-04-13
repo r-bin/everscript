@@ -1,0 +1,123 @@
+map turret_arena(RAPTORS) {
+    enum soundtrack {
+        default = soundtrack(AREA_METRO.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum entrance {
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            DEBUG = False,
+
+            RIDER_1_ID = memory(WORD, TEMP),
+            MOUNT_1_ID = memory(WORD, TEMP),
+
+            RIDER_2_ID = memory(WORD, TEMP),
+            MOUNT_2_ID = memory(WORD, TEMP),
+
+            HP = 0d60,
+
+            PHASE = memory(WORD, TEMP),
+            TIMER = memory(WORD, TEMP),
+        }
+
+        fun boss_defeated() {
+            control(NONE);
+
+            souls_boss_defeated_helper(TURRET_ARENA);
+
+            map_transition(metro, door_d3, NONE);
+        }
+
+        @install()
+        fun boss_hit() {
+            if(_dead(BOSS.RIDER_1_ID) && _dead(BOSS.RIDER_2_ID)) {
+                boss_defeated();
+            }
+        }
+
+        @install()
+        @async()
+        fun stack_t01_t23() {
+            while(True) {
+                if(alive(BOSS.RIDER_1_ID)) {
+                    BOSS.RIDER_1_ID[X] = BOSS.MOUNT_1_ID[X];
+                    BOSS.RIDER_1_ID[Y] = BOSS.MOUNT_1_ID[Y] - 0x15;
+                    yield();
+                }
+                if(alive(BOSS.RIDER_2_ID)) {
+                    BOSS.RIDER_2_ID[X] = BOSS.MOUNT_2_ID[X];
+                    BOSS.RIDER_2_ID[Y] = BOSS.MOUNT_2_ID[Y] - 0x15;
+                    yield();
+                }
+
+                yield();
+            }
+        }
+
+        fun turret(id_1, id_2, mount_type) {
+            add_enemy(GATE_BOT, 0d29, 0d29);
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(boss_hit));
+            teleport(LAST_ENTITY, 0d19, 0d29);
+            id_1 = <LAST_ENTITY>;
+
+            add_enemy(mount_type, 0d29, 0d29);
+            teleport(LAST_ENTITY, 0d40, 0d33);
+            id_2 = <LAST_ENTITY>;
+
+            if!(BOSS.DEBUG) {
+                attribute(LAST_ENTITY, INVISIBLE, True);
+            }
+            attribute(LAST_ENTITY, INVINCIBLE, True);
+            attribute(LAST_ENTITY, MUTE, True);
+        }
+
+        fun spawn_boss() {
+            turret(BOSS.RIDER_1_ID, BOSS.MOUNT_1_ID, ENEMY.MOSQUITO);
+            anti_cheese_mosquito(<LAST_ENTITY>);
+            turret(BOSS.RIDER_2_ID, BOSS.MOUNT_2_ID, ENEMY.BEE);
+            // anti_cheese_mosquito(<LAST_ENTITY>);
+
+            stack_t01_t23();
+        }
+    };
+
+    fun trigger_enter() {
+        close_exits(True);
+
+        CUSTOM_FLAG.NO_DOG = True;
+        default_metro_init_room(reference(@install() {
+            metro_death_trigger({
+                map_transition(metro, door_d3, NONE);
+            });
+        }));
+        
+        MEMORY.AMMO_1 = 0d100;
+        MEMORY.GAIN_WEAPON = GAIN_WEAPON.BAZOOKA_TEMP;
+
+        attribute(BOY, INVINCIBLE_TEMP, True);
+        spawn_boss();
+
+        sleep(0d120);
+        attribute(BOY, INVINCIBLE_TEMP, False);
+    }
+};

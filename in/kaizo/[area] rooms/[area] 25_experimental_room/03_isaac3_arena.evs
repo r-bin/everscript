@@ -1,0 +1,171 @@
+map isaac3_arena(RAPTORS) { // unused
+    enum entrance {
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            debug_subtext("S=0");
+        },
+        exit_south = @install() {
+            debug_subtext("S=1");
+        },
+        center = @install() {
+            debug_subtext("S=2");
+        }
+    }
+
+    enum BOSS {
+        MOUNT_ID = memory(WORD, TEMP),
+        RIDER_ID = memory(WORD, TEMP),
+
+        FOLLOWING = memory(WORD, TEMP),
+
+        PUKE_HELPER = memory(WORD, TEMP),
+
+        MOVE_RNG = memory(WORD, TEMP),
+
+        CANNONBALL_X = memory(WORD, TEMP),
+        CANNONBALL_Y = memory(WORD, TEMP),
+        CANNONBALL_COUNT = memory(WORD, TEMP),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    @install()
+    fun shoot_w() {
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x20, 0x80, 0x10, 0xff);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, -0x20, 0x80, 0x10, 0xff);
+    }
+
+    @install()
+    fun shoot_line() {
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+        sleep(0x0a);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+        sleep(0x0a);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+        sleep(0x0a);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+        sleep(0x0a);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+        sleep(0x0a);
+        shoot_entity_relative(BOSS.MOUNT_ID, ONION, 0x00, 0x80, 0x10, 0xff);
+    }
+
+    @async()
+    @install()
+    fun fly_left_right() {
+        while(True) {
+            while(BOSS.MOUNT_ID[X] < 0x150) {
+                BOSS.MOUNT_ID[X]++;
+                yield();
+            }
+            while(BOSS.MOUNT_ID[X] > 0x50) {
+                BOSS.MOUNT_ID[X]--;
+                yield();
+            }
+        }
+    }
+
+    @install()
+    fun monstro_damage() {
+        yield();
+        // animate(BOSS.MOUNT_ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+
+        // animate(BOSS.MOUNT_ID, LOOP, DEFAULT);
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while(alive(<BOY>)) {
+            BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+            BOSS.RIDER_ID[Y] += 0x50;
+            yield();
+
+            // <DOG>[X] = <BOY>[X] - 0x05;
+            // <DOG>[Y] = <BOY>[Y];
+            // yield();
+        }
+    }
+
+    fun move() {
+        // control(BOSS.MOUNT_ID, True);
+        sleep(0x20);
+
+        BOSS.MOVE_RNG = randrange(0x03);
+
+        if(BOSS.MOVE_RNG == 0x00) {
+            shoot_w();
+        } else if(BOSS.MOVE_RNG == 0x01) {
+            shoot_line();
+        } else {
+            nop();
+        }
+
+        sleep(0x20);
+        // control(BOSS.MOUNT_ID, False);
+    }
+
+    @async()
+    @install()
+    fun move_logic() {
+        sleep(0x80);
+        
+        while(True) {
+            move();
+            
+            sleep(0x60);
+        }
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(RIMSALA_GOLD, x, y);
+        BOSS.RIDER_ID = <LAST_ENTITY>;
+        // animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+        attach_script(LAST_ENTITY, DAMAGE, reference(monstro_damage));
+        // attribute(LAST_ENTITY, ROOT, True);
+        // attribute(LAST_ENTITY, INVISIBLE, True);
+        // attribute(LAST_ENTITY, INVINCIBLE, True);
+
+        // add_enemy(DRAKE, x, y, INACTIVE);
+        // add_enemy(FOOTKNIGHT, x, y, INACTIVE);
+        add_enemy(RIMSALA_HOLDER, x, y);
+        BOSS.MOUNT_ID = <LAST_ENTITY>;
+        // <LAST_ENTITY>[HP] = 0x100;
+        attribute(LAST_ENTITY, INVINCIBLE, True);
+
+        fly_left_right();
+        move_logic();
+        stack_t01_offset();
+    }
+
+    fun trigger_enter() {
+        spawn_boss(0x10, 0x08);
+
+        available(BOY);
+        destroy(DOG); // teleport(BOY, 0x00, 0x00);
+
+        default_init_room(True, False);
+        CUSTOM_MEMORY.HOTKEY_START = BUTTON_MAP.ISAAC;
+
+        close_exits(True);
+
+        if!(FLAG.IN_ANIMATION) {
+            // teleport(DOG, 0x19, 0x1d);
+            <DOG>[X] += 0x20;
+            <DOG>[Y] += 0x20;
+            crash_land(BOTH);
+        }
+    }
+};

@@ -1,0 +1,160 @@
+map bog_curve(TIMBERDRAKE) {
+    enum entrance {
+        east = entrance(0x2b, 0x15, WEST),
+        south = entrance(0x1b, 0x29, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(WIND_AMBIENT_BIRDS, 0xff)
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        ID = memory(WORD, TEMP),
+
+        PROGRESS = memory(FLAG, TEMP),
+        PHASE = memory(WORD, TEMP),
+
+        HP = 0d500,
+
+        P1_THRESHOLD = 0d400,
+
+        P2_THRESHOLD = 0d300,
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(True, WEST);
+            }
+            map_transition(town_bridge, west, EAST);
+        },
+        exit_south = @install() {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(True, NORTH);
+            }
+            map_transition(bog_bridges, north, SOUTH);
+        }
+    }
+
+    fun boss_defeated() {
+        if!(SOULS_MEMORY.DEAD_HEART) {
+            BOSS.PROGRESS = False;
+
+            souls_boss_defeated_helper(HEART);
+        }
+    }
+
+    fun spawn_raptor(x1, y1, direction:DIRECTION, x2, y2) {
+        while(BOSS.PROGRESS) {
+            add_enemy(RAPTOR_PURPLE, x1, y1);
+            attach_to_script(LAST_ENTITY);
+
+            if(False) {
+                if(direction == DIRECTION.NORTH) {
+                    face(SCRIPT_OWNER, NORTH);
+                } else if(direction == DIRECTION.EAST) {
+                    face(SCRIPT_OWNER, EAST);
+                } else if(direction == DIRECTION.SOUTH) {
+                    face(SCRIPT_OWNER, SOUTH);
+                } else if(direction == DIRECTION.WEST) {
+                    face(SCRIPT_OWNER, WEST);
+                }
+            }
+
+            walk(SCRIPT_OWNER, TILE_ABSOLUTE_DIRECT, x2, y2, SCRIPT_OWNER, SCRIPT_OWNER);
+            animate(SCRIPT_OWNER, ONCE, SLASH_1);
+
+            while(alive(<SCRIPT_OWNER>)) {
+                if!(BOSS.PROGRESS) {
+                    destroy(<SCRIPT_OWNER>);
+                    end();
+                } else {
+                    yield();
+                }
+            }
+
+            sleep(0d300);
+        }
+    }
+
+    @install()
+    @async()
+    fun spawn_south() {
+        spawn_raptor(0d28, 0d45, NORTH, 0d25, 0d33);
+    }
+    @install()
+    @async()
+    fun spawn_east() {
+        spawn_raptor(0d49, 0d18, WEST, 0d34, 0d20);
+    }
+
+    @install()
+    fun heart_triggered() {
+        sound(GORE_MOSQUITO);
+        ai_move_projectile_puke(<SCRIPT_OWNER>, ONION, <BOY>, 0d4);
+
+        if(dead(<SCRIPT_OWNER>)) {
+            // CUSTOM_FLAG.NO_XP_MONEY = False;
+            boss_defeated();
+        } else if((BOSS.PHASE == 0d0) && (<SCRIPT_OWNER>[HP] < BOSS.P1_THRESHOLD)) {
+            BOSS.PHASE = 0d1;
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p1");
+            }
+
+            spawn_south();
+        } else if((BOSS.PHASE == 0d1) && (<SCRIPT_OWNER>[HP] < BOSS.P2_THRESHOLD)) {
+            BOSS.PHASE = 0d2;
+
+            if(BOSS.DEBUG) {
+                debug_subtext("p2");
+            }
+
+            spawn_east();
+        }
+    }
+
+    @install()
+    fun boss_triggered() {
+        if!(BOSS.PROGRESS) {
+            BOSS.PROGRESS = True;
+            // CUSTOM_FLAG.NO_XP_MONEY = True;
+
+            push_music(BOSS_JUNGLE);
+
+            attach_script(SCRIPT_OWNER, DAMAGE, reference(heart_triggered));
+
+            sound(GORE_MOSQUITO);
+            ai_move_projectile_puke(<SCRIPT_OWNER>, ONION, <BOY>, 0d4);
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x7e;
+        object[0x01] = 0x7e;
+
+        // add_enemy(RAPTOR_PURPLE, 0d29, 0d25);
+
+        if!(SOULS_MEMORY.DEAD_HEART) {
+            add_enemy(THRAXX_HEART, 0d29, 0d25);
+            BOSS.ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DAMAGE, reference(boss_triggered));
+        }
+
+        default_init_room(True, True);
+
+        if!(SOULS_MEMORY.DEAD_HEART) {
+            while!(BOSS.PROGRESS) {
+                sound(GORE_MOSQUITO);
+                sleep(0d10);
+                sound(GORE_MOSQUITO);
+
+                sleep(0d35);
+            }
+        }
+    }
+};

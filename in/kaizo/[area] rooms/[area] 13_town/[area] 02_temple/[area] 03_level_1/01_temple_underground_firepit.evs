@@ -1,0 +1,63 @@
+map temple_underground_firepit(FIREPIT_NOBILIA) { // south-east
+    enum entrance {
+        west = entrance(0x05, 0x1b, EAST),
+
+        cutscene_landing = entrance(0x0b, 0x1b, NONE),
+        
+        bonfire = entrance(0d45, 0d17, NONE, { bonfire_wakeup(-0d40, 0d8, -0d32, 0d32); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        b_trigger_0 = @install() {
+            debug_subtext("S=0");
+        },
+        exit_west = @install() {
+            map_transition(temple_underground, east_2, WEST);
+        },
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        PIT_IGNITED = memory(FLAG, SRAM),
+        FIRE_ORB_TRIGGER_COUNTER = memory(WORD, TEMP),
+    }
+
+    fun ignite_pit() {
+        object[0x00] = 0x01; // ignite firepit
+
+        bonfire(0d45, 0d17, SOULS_MEMORY.BONFIRE_TEMPLE_PIT);
+        attribute(LAST_ENTITY, INVISIBLE, True);
+        <LAST_ENTITY>[Z_LEVEL] = <BOY>[Z_LEVEL];
+    }
+
+    @install()
+    fun firepit_damage() {
+        fire_pit_handler({
+            ROOM.PIT_IGNITED = True;
+            SOULS_MEMORY.BONFIRE_TEMPLE_PIT = True;
+            ignite_pit();
+        });
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x01; // ignite fire
+        // object[0x01] = 0x02; // show windwalker_collision
+
+        if!(ROOM.PIT_IGNITED) {
+            add_enemy(FACE_ENTITY, 0d45, 0d17);
+            attribute(LAST_ENTITY, INVISIBLE, True);
+            attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
+
+            reset_alchemy_types();
+        } else {
+            ignite_pit();
+        }
+
+        default_init_room(True, False);
+    }
+};

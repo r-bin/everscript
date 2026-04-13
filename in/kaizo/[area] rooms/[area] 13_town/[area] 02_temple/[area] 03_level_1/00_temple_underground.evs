@@ -1,0 +1,352 @@
+map temple_underground(HALLS_CENTER) { // center
+    // chests=nothing
+
+    enum entrance {
+        north = entrance(0x29, 0x03, SOUTH),
+        east_1 = entrance(0x4b, 0x3f, WEST),
+        east_2 = entrance(0x49, 0x5d, WEST),
+        south = entrance(0x29, 0x8b, NORTH),
+        west_1 = entrance(0x09, 0x5d, EAST),
+        west_2 = entrance(0x09, 0x3f, EAST),
+
+        // elevator = entrance(0x29, 0x49, NONE),
+        elevator = entrance(0x29, 0x4c, SOUTH, { elevator_entrance(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        BOSS_DOOR_OPENED = memory(FLAG, SRAM),
+        FIREPIT_UNLOCKED = memory(FLAG, SRAM),
+        DOOR_WALL_BOSS_OPENED = memory(FLAG, SRAM),
+        STONE_OFFSET = 0d8 * 0d4,
+
+        BRIDGE_LEFT = memory(WORD, TEMP),
+        BRIDGE_REVEALED_LEFT = memory(FLAG, SRAM),
+        BRIDGE_RIGHT = memory(WORD, TEMP),
+        BRIDGE_REVEALED_RIGHT = memory(FLAG, SRAM),
+
+        DOOR_SOUTH_OPENED = memory(FLAG, TEMP),
+    }
+
+    @install()
+    fun pit_triggered() {
+        generic_fall(0d100, 0d295);
+
+        dust_unreachable(0d38, 0d36);
+        damage(BOTH, 0d999, True);
+        sleep(0d30);
+        damage(BOTH, SYSTEM.HP_MAX, False);
+    }
+
+    @install()
+    fun switch_triggered() {
+        ROOM.BOSS_DOOR_OPENED = True;
+
+        object[0x06] = 0x7e;
+
+        while(arg[0x10] <= 0d7) {
+            arg[0x10]++;
+
+            sleep(0d9);
+            sound(0x2c);
+            object[0x00] = arg[0x10];
+        }
+
+        while(arg[0x12] <= 0d4) {
+            arg[0x12]++;
+
+            sleep(0d9);
+            sound(0x76);
+            object[0x04] = arg[0x12];
+        }
+    }
+
+    enum stepon_trigger {
+        spear_check = @install() {
+            debug_subtext("S=0");
+
+            if!(ROOM.BOSS_DOOR_OPENED) {
+                guard_spear_2(NORTH, MEMORY.CAMERA_X_MIN, 0x0008);
+                
+                switch_triggered();
+            }
+        },
+        pit_5 = pit_triggered(),
+        pit_4 = pit_triggered(),
+        pit_3 = pit_triggered(),
+        pit_2 = pit_triggered(),
+        pit_1 = pit_triggered(),
+        exit_south = @install() fun trigger_door_south() {
+            bombable_trigger(AREA_TEMPLE.UNLOCKED_LEVEL_2 || FLAG.QUEENS_KEY, ROOM.DOOR_SOUTH_OPENED, ((DIRECTION.NORTH << 0x0008) | ERROR_TYPE.DOOR_LOCKED), {
+                map_transition(temple_underground_castle_stairs, north_2, SOUTH);
+            });
+        },
+        door_west_2 = @install() {
+            debug_subtext("S=7");
+
+            fog_wall_outside(!SOULS_MEMORY.DEAD_WALL, EAST);
+            map_transition(temple_underground_wall_boss, fake_lift, WEST);
+        },
+        door_west_1 = @install() {
+            map_transition(temple_underground_castle_south_west, east_1, WEST);
+        },
+        door_east_2 = @install() {
+            debug_subtext("S=9");
+
+            if(ROOM.FIREPIT_UNLOCKED) {
+                map_transition(temple_underground_firepit, west, EAST);
+            }
+        },
+
+        door_east_1 = @install() {
+            debug_subtext("S=10");
+
+            error_message(DOOR_WRONG_SIDE, WEST);
+        },
+        door_boss = @install() {
+            debug_subtext("S=11");
+
+            fog_wall_outside(!SOULS_MEMORY.DEAD_TEMPLE_SQUAD, SOUTH);
+            map_transition(temple_underground_boss, south, NORTH);
+        },
+        switch_triggered = @install() {
+            debug_subtext("S=12");
+        },
+        pit_6 = pit_triggered(),
+        pit_13 = pit_triggered(),
+        pit_12 = pit_triggered(),
+        pit_11 = pit_triggered(),
+        pit_10 = pit_triggered(),
+        pit_7 = pit_triggered(),
+        pit_8 = pit_triggered(),
+
+        pit_9 = pit_triggered(),
+        pit_13 = pit_triggered(),
+        pit_14 = pit_triggered(),
+        pit_15 = pit_triggered(),
+        pit_16 = pit_triggered(),
+        pit_20 = pit_triggered(),
+        pit_19 = pit_triggered(),
+        pit_17 = pit_triggered(),
+        pit_18 = pit_triggered(),
+        revealer_left = @install() {
+            debug_subtext("S=29");
+        },
+
+        revealer_right = @install() {
+            debug_subtext("S=30");
+        },
+        elevator = @install() {
+            elevator_triggered(0d1);
+        },
+    }
+
+    enum b_trigger {
+        gourd_1__2_VINEGAR = @install() {
+            debug_subtext("B=0");
+            
+            _loot_chest(0x02, LIMESTONE_TABLET, 0d01);
+        },
+        gourd_2__1_NECTAR = @install() {
+            debug_subtext("B=1");
+            
+            _loot_chest(0x01, MUD_PEPPER, 0d01);
+        },
+    }
+
+    @install()
+    @async()
+    fun revealer_approached(entity) {
+        range_checker(entity, <ACTIVE>, 0x20, 0x20, { pit_triggered(); });
+    }
+
+    fun open_doors(open) {
+        if(open) {
+            object[0x09] = 0x01; // NE
+            // object[0x03] = 0x01; // NW
+
+            // object[0x08] = 0x01; // SE
+            object[0x07] = 0x01; // SW
+
+        } else {
+            object[0x09] = 0x00; // NE
+            // object[0x03] = 0x00; // NW
+
+            // object[0x08] = 0x00; // SE
+            object[0x07] = 0x00; // SW
+
+        }
+    }
+    fun show_bridge_left() {
+        object[0x0b] = 0x01; // show bridge_left_1
+        object[0x0c] = 0x01; // show bridge_left_2
+        object[0x0d] = 0x01; // show bridge_left_3
+    }
+    fun show_bridge_right() {
+        object[0x0e] = 0x01; // show bridge_right_1
+        object[0x0f] = 0x01; // show bridge_right_2
+        object[0x10] = 0x01; // show bridge_right_3
+        object[0x11] = 0x01; // show bridge_right_4
+    }
+
+    fun trigger_enter() {
+        add_bombable(0d42, 0d133, ROOM.DOOR_SOUTH_OPENED, reference(trigger_door_south));
+
+        if!(ROOM.BOSS_DOOR_OPENED) {
+            add_enemy(PLACEHOLDER, 0d40, 0d12);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                fake_b();
+
+                if!(ROOM.BOSS_DOOR_OPENED) {
+                    switch_triggered();
+                }
+
+                destroy(SCRIPT_OWNER);
+            }));
+        }
+
+        // object[0x00] = 0x7e; // enroll bridge
+        // object[0x01] = 0x01; // open gourde_2
+        // object[0x02] = 0x01; // open gourde_1
+        // object[0x03] = 0x01; // open door_NW
+        // object[0x04] = 0x04; // open door_boss
+        // object[0x05] = 0x7e; // open elevator
+        // object[0x06] = 0x01; // activate bridge_switch
+        // object[0x07] = 0x01; // open door_SW
+        // object[0x08] = 0x01; // open door_SE
+        // object[0x09] = 0x01; // open door_NE
+        // object[0x0a] = 0x01; // activate switch
+        // object[0x0b] = 0x01; // show bridge_left_1
+        // object[0x0c] = 0x01; // show bridge_left_2
+        // object[0x0d] = 0x01; // show bridge_left_3
+        // object[0x0e] = 0x01; // show bridge_right_1
+        // object[0x0f] = 0x01; // show bridge_right_2
+        // object[0x10] = 0x01; // show bridge_right_3
+        // object[0x11] = 0x01; // show bridge_right_4
+
+        if(ROOM.BOSS_DOOR_OPENED) {
+            object[0x00] = 0x7e; // enroll bridge
+            object[0x06] = 0x01; // activate bridge_switch
+            object[0x04] = 0x04; // open door_boss
+        }
+
+        if(ROOM.BRIDGE_REVEALED_RIGHT) {
+            show_bridge_right();
+        } else {
+            add_enemy(REVEALER_TARGET_ENTITY, 0d51, 0d32);
+            ROOM.BRIDGE_RIGHT = <LAST_ENTITY>;
+
+            revealer_approached(<LAST_ENTITY>);
+        }
+        if(ROOM.BRIDGE_REVEALED_LEFT) {
+            show_bridge_left();
+        } else {
+            add_enemy(REVEALER_TARGET_ENTITY, 0d32, 0d32);
+            ROOM.BRIDGE_LEFT = <LAST_ENTITY>;
+
+            revealer_approached(<LAST_ENTITY>);
+        }
+        special_script(REVEALER, reference(@install() {
+            guard_challenge_levitate();
+
+            if(<SCRIPT_OWNER> == ROOM.BRIDGE_LEFT) {
+                set(ROOM.BRIDGE_REVEALED_LEFT);
+
+                show_bridge_left();
+
+                destroy(SCRIPT_OWNER);
+            } else if(<SCRIPT_OWNER> == ROOM.BRIDGE_RIGHT) {
+                set(ROOM.BRIDGE_REVEALED_RIGHT);
+
+                show_bridge_right();
+
+                destroy(SCRIPT_OWNER);
+            }
+        }));
+
+        add_levitate_stone(0d8, 0d62, reference(@install() {
+            guard_levitate_stone(0d1);
+
+            object[0x03] = 0x01; // open door_NW
+            ROOM.DOOR_WALL_BOSS_OPENED = True;
+        }));
+        if(ROOM.DOOR_WALL_BOSS_OPENED) {
+            <LAST_ENTITY>[X] += ROOM.STONE_OFFSET;
+
+            object[0x03] = 0x01; // open door_NW
+        }
+        special_script(LEVITATE, reference(@install() {
+            guard_challenge_levitate();
+
+            if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                end();
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            if!(ROOM.DOOR_WALL_BOSS_OPENED) {
+                sleep(0d60);
+
+                ROOM.DOOR_WALL_BOSS_OPENED = True;
+                object[0x03] = 0x01; // open door_NW
+
+                sleep(0d60);
+
+                while(arg[0x10] < ROOM.STONE_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[X]++;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+            } else {
+                sleep(0d120);
+
+                while(arg[0x10] < ROOM.STONE_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[X]--;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                ROOM.DOOR_WALL_BOSS_OPENED = False;
+                object[0x03] = 0x00; // open door_NW
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+        }));
+
+        set(AREA_TEMPLE.UNLOCKED_LEVEL_1);
+
+        open_doors(True);
+
+        if!(ROOM.FIREPIT_UNLOCKED) {
+            add_enemy(PLACEHOLDER, 0d77, 0d92);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                control(NONE);
+
+                ROOM.FIREPIT_UNLOCKED = True;
+                
+                sound(WEIRD_SOUND);
+                object[0x08] = 0x01; // open door_SE
+                sleep(0d30);
+
+                map_transition(temple_underground_firepit, west, EAST);
+            }));
+        } else {
+            object[0x08] = 0x01; // open door_SE
+        }
+
+        default_init_room(True, False);
+    }
+};

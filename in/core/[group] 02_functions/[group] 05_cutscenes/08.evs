@@ -1,0 +1,1097 @@
+group shared() {
+    fun character_selection(character:CHARACTER) {
+        if(character == CHARACTER.BOY) {
+            available(BOY);
+            teleport(DOG, 0x00, 0x00);
+        } else if(character == CHARACTER.DOG) {
+            available(DOG);
+            teleport(BOY, 0x00, 0x00);
+
+            attach_script(DOG, DEATH, reference(boy_death));
+        }
+    }
+
+    fun animate_boy_kneel(entity:CHARACTER) { // see mungola cutscene
+        animate(entity, ONCE_FREEZE, ANIMATION_BOY.LOOT);
+        sleep(0d10);
+        animate(entity, PAUSE, DEFAULT);
+    }
+
+    fun animate_eternal_dust() {
+        MEMORY.UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = 0x0001;
+        animate(SCRIPT_OWNER, ONCE, ANIMATION_ENEMY.DUST);
+        sleep(0d60);
+        MEMORY.UNKNOWN_ETERNAL_DUST_DROP_PROPERTY = 0x0001;
+        animate(SCRIPT_OWNER, FREEZE, ANIMATION_ENEMY.DUST);
+    }
+
+    fun animate_falling(character:CHARACTER) {
+        if(character == <BOY>) {
+            animate(character, LOOP, ANIMATION_BOY.FALL_1);
+        } else {
+            animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
+        }
+    }
+    fun animate_landing(character:CHARACTER, with_shake) {
+        if(with_shake) {
+            sfx_effect(SHAKING, True);
+        }
+
+        if(character == <BOY>) {
+            animate(character, ONCE, ANIMATION_BOY.LANDING);
+        } else {
+            animate(character, ONCE, DEFAULT);
+        }
+
+        if(with_shake) {
+            sleep(0d20);
+
+            sfx_effect(SHAKING, False);
+        }
+    }
+
+    fun _raycast(source, target, jumps) {
+        _add_enemy(THRAXX_HEART, source[X], source[Y]);
+        attach_to_script(LAST_ENTITY);
+
+        // while!((<SCRIPT_OWNER>[X] == <INACTIVE>[X]) && (<SCRIPT_OWNER>[Y] == <INACTIVE>[Y])) {
+        while(True) {
+            if(<SCRIPT_OWNER>[X] > target[X]) {
+                if(<SCRIPT_OWNER>[X] > (target[X] + 0d20)) {
+                    arg[0x10] = -0d20;
+                } else if(<SCRIPT_OWNER>[X] > (target[X] + 0d5)) {
+                    arg[0x10] = -0d5;
+                } else {
+                    arg[0x10] = -0d1;
+                }
+            } else if(<SCRIPT_OWNER>[X] < target[X]) {
+                if(<SCRIPT_OWNER>[X] < (target[X] - 0d20)) {
+                    arg[0x10] = 0d20;
+                } else if(<SCRIPT_OWNER>[X] < (target[X] - 0d5)) {
+                    arg[0x10] = 0d5;
+                } else {
+                    arg[0x10] = 0d1;
+                }
+            } else {
+                arg[0x10] = 0d0;
+            }
+
+            if(<SCRIPT_OWNER>[Y] > target[Y]) {
+                if(<SCRIPT_OWNER>[Y] > (target[Y] + 0d20)) {
+                    arg[0x12] = -0d20;
+                } else if(<SCRIPT_OWNER>[Y] > (target[Y] + 0d5)) {
+                    arg[0x12] = -0d5;
+                } else {
+                    arg[0x12] = -0d1;
+                }
+            } else if(<SCRIPT_OWNER>[Y] < target[Y]) {
+                if(<SCRIPT_OWNER>[Y] < (target[Y] - 0d20)) {
+                    arg[0x12] = 0d20;
+                } else if(<SCRIPT_OWNER>[Y] < (target[Y] - 0d5)) {
+                    arg[0x12] = 0d5;
+                } else {
+                    arg[0x12] = 0d1;
+                }
+            } else {
+                arg[0x12] = 0d0;
+            }
+
+            arg[0x14] = <SCRIPT_OWNER>[X];
+            arg[0x16] = <SCRIPT_OWNER>[Y];
+
+            teleport_relative(SCRIPT_OWNER, arg[0x10], arg[0x12]);
+
+            if(False) {
+                debug_memory(arg[0x10], arg[0x12], arg[0x18]);
+            }
+
+            if((!arg[0x10]) && (!arg[0x12])) {
+                CUSTOM_MEMORY.RETURN = arg[0x18];
+                destroy(SCRIPT_OWNER);
+
+                end();
+            } else if((arg[0x14] == <SCRIPT_OWNER>[X]) && (arg[0x16] == <SCRIPT_OWNER>[Y])) {
+                // subtext("!");
+
+                if(arg[0x18] < jumps) {
+                    arg[0x18]++;
+
+                    if(True) {
+                        attribute(SCRIPT_OWNER, NO_CLIP, True);
+
+                        if(signed arg[0x10] > 0d0) {
+                            arg[0x10] = 0d1;
+                        } else if(signed arg[0x10] < 0d0) {
+                            arg[0x10] = -0d1;
+                        }
+                        if(signed arg[0x12] > 0d0) {
+                            arg[0x12] = 0d1;
+                        } else if(signed arg[0x12] < 0d0) {
+                            arg[0x12] = -0d1;
+                        }
+
+                        if(False) {
+                            debug_memory(arg[0x10], arg[0x12], arg[0x18]);
+                        }
+
+                        teleport_relative(SCRIPT_OWNER, arg[0x10], arg[0x12]);
+
+                        attribute(SCRIPT_OWNER, NO_CLIP, False);
+                    } else {
+                        _teleport(SCRIPT_OWNER, <SCRIPT_OWNER>[X] + arg[0x10], <SCRIPT_OWNER>[Y] + arg[0x12]);
+                    }
+                } else {
+                    CUSTOM_MEMORY.RETURN = arg[0x18];
+                    destroy(SCRIPT_OWNER);
+
+                    end();
+                }
+            }
+
+            // sleep(0d5);
+        }
+    }
+    @install()
+    @weak()
+    fun return_raycast(source, target, jumps) {
+        _raycast(source, target, jumps);
+    }
+
+    fun _distance(source, target) {
+        if(source[X] < target[X]) {
+            arg[0x18] = DIRECTION.WEST;
+            arg[0x14] = target[X] - source[X];
+        } else {
+            arg[0x18] = DIRECTION.EAST;
+            arg[0x14] = source[X] - target[X];
+        }
+
+        if(source[Y] < target[Y]) {
+            arg[0x1a] = DIRECTION.NORTH;
+            arg[0x16] = target[Y] - source[Y];
+        } else {
+            arg[0x1a] = DIRECTION.SOUTH;
+            arg[0x16] = source[Y] - target[Y];
+        }
+
+        if(arg[0x14] < arg[0x16]) {
+            arg[0x1c] = arg[0x16];
+            arg[0x1e] = arg[0x14];
+        } else {
+            arg[0x1c] = arg[0x14];
+            arg[0x1e] = arg[0x16];
+        }
+
+        arg[0x20] = arg[0x1c] + (arg[0x1e] >> 0d1);
+    }
+    @install()
+    @weak()
+    fun return_distance(source, target) {
+        _distance(source, target);
+
+        CUSTOM_MEMORY.RETURN = arg[0x20];
+    }
+
+
+    fun check_range_old(entity_1, entity_2, x, y, callback) {
+        if(entity_1[X] < entity_2[X]) {
+            arg[0x20] = entity_2[X] - entity_1[X];
+        } else {
+            arg[0x20] = entity_1[X] - entity_2[X];
+        }
+
+        if(entity_1[Y] < entity_2[Y]) {
+            arg[0x22] = entity_2[Y] - entity_1[Y];
+        } else {
+            arg[0x22] = entity_1[Y] - entity_2[Y];
+        }
+
+        if(False) {
+            MEMORY.STRING_PARAMETER_1 = arg[0x20];
+            MEMORY.STRING_PARAMETER_2 = arg[0x22];
+            // MEMORY.STRING_PARAMETER_3 = m3;
+
+            _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+            sleep(0d60);
+        }
+
+        if((arg[0x20] <= x) && (arg[0x22] <= y)) {
+            callback();
+        }
+    }
+    @install()
+    @weak()
+    fun return_check_range_old(entity_1, entity_2, x, y) {
+        CUSTOM_MEMORY.RETURN = False;
+
+        check_range_old(entity_1, entity_2, x, y, {
+            CUSTOM_MEMORY.RETURN = True;
+        });
+    }
+    fun check_range(entity_1, entity_2, x, y, callback) {
+        if!(entity_2[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+            if(entity_1[X] < entity_2[X]) {
+                arg[0x10] = entity_2[X] - entity_1[X];
+            } else {
+                arg[0x10] = entity_1[X] - entity_2[X];
+            }
+
+            if(entity_1[Y] < entity_2[Y]) {
+                arg[0x12] = entity_2[Y] - entity_1[Y];
+            } else {
+                arg[0x12] = entity_1[Y] - entity_2[Y];
+            }
+
+            if(False) {
+                MEMORY.STRING_PARAMETER_1 = arg[0x10];
+                MEMORY.STRING_PARAMETER_2 = arg[0x12];
+                // MEMORY.STRING_PARAMETER_3 = m3;
+
+                _subtext("memory = [MEM1] / [MEM2] / [MEM3]");
+            }
+
+            if((arg[0x10] <= x) && (arg[0x12] <= y)) {
+                callback();
+
+                while(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    yield();
+                }
+            }
+        }
+    }
+    fun range_checker(entity_1, entity_2, x, y, callback, cooldown) {
+        attach_to_script(entity_1);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+
+            if(cooldown !is None) {
+                sleep(cooldown);
+            } else {
+                yield();
+            }
+        }
+    }
+    fun grounded_range_checker(entity_1, entity_2, x, y, callback) {
+        attach_to_script(entity_1);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            if!((entity_2[Z] > 0d0) || CUSTOM_FLAG.START_MARIO_YUMP || CUSTOM_MEMORY.START_ROCKET_JUMP_COUNT > 0d0) {
+                check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+            }
+
+            yield();
+        }
+    }
+    fun conditional_range_checker(entity_1, entity_2, x, y, condition, callback) {
+        arg[0x00] = entity_1;
+        arg[0x02] = entity_2;
+
+        attach_to_script(entity_1);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            if(condition) {
+                check_range(<SCRIPT_OWNER>, entity_2, x, y, callback);
+            }
+
+            yield();
+        }
+    }
+
+    fun generic_switch_floor(object_id, active) {
+        sound(MAGMA_HARDENING);
+
+        if(active) {
+            object[object_id] = 0x7e;
+        } else {
+            object[object_id] = 0x00;
+        }
+    }
+
+    @install()
+    @weak()
+    fun generic_act1_volcano_pressure_plate_jump(entity, z, end, step) {
+        if(entity[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+            end();
+        }
+
+        arg[0x10] = -(z);
+        arg[0x12] = entity[X] << 0d4;
+        arg[0x14] = entity[Y] << 0d4;
+
+        smart_animate(entity, LOOP, ANIMATION_BOY.FALL_1);
+
+        while(signed arg[0x10] < end) {
+            arg[0x10]++;
+
+            arg[0x12] += step;
+            arg[0x14] += signed arg[0x10];
+
+            _teleport(entity, arg[0x12] >> 0d4, arg[0x14] >> 0d4);
+            yield();
+        }
+
+        smart_animate(entity, ONCE, ANIMATION_BOY.LANDING);
+    }
+
+    fun _generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step) {
+        walk(entity, TILE_ABSOLUTE, x, y, entity, NONE);
+
+        object[object_id] = object_state;
+        tile_animate(0x01, 0xff, 0x08);
+
+        generic_act1_volcano_pressure_plate_jump(entity, z, end, step);
+
+        if(object_id == 0x05) {
+            object[object_id] = 0x01;
+        } else {
+            object[object_id] = 0x00;
+        }
+
+        control(entity, False);
+    }
+    @install()
+    @weak()
+    @async()
+    fun generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step) {
+        _generic_act1_volcano_pressure_plate_walk(entity, x, y, object_id, object_state, z, end, step);
+    }
+    fun generic_act1_volcano_pressure_plate(x, y, object_id, object_state, z, end, step) {
+        control(ACTIVE, True);
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+            while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                yield();
+            }
+            control(INACTIVE, True);
+        }
+
+        generic_act1_volcano_pressure_plate_walk(<ACTIVE>, x, y, object_id, object_state, z, end, step);
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+            _generic_act1_volcano_pressure_plate_walk(<INACTIVE>, x, y, object_id, object_state, z, end, step);
+        }
+    }
+
+    fun _generic_act1_volcano_cave_hole_walk(entity) {
+        smart_animate(entity, LOOP, ANIMATION_BOY.FALL_1);
+
+        while(arg[0x10] < 0d19) {
+            arg[0x10]++;
+
+            _teleport(entity, entity[X], entity[Y] + 0d4);
+
+            yield();
+        }
+
+        smart_animate(entity, ONCE, ANIMATION_BOY.LANDING);
+
+        control(entity, False);
+    }
+    @install()
+    @weak()
+    @async()
+    fun generic_act1_volcano_cave_hole_walk(entity) {
+        sleep(0d44);
+
+        _generic_act1_volcano_cave_hole_walk(entity);
+    }
+    @install()
+    @weak()
+    fun generic_act1_volcano_cave_hole(x_in, y_in, x_out, y_out, skip_wait_inactive) {
+        control(ACTIVE, True);
+
+        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, ACTIVE, NONE);
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+            while(<INACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                yield();
+            }
+            control(INACTIVE, True);
+        }
+
+
+        set_camera(TILE_CENTER, x_out, y_out, 0x20);
+        teleport(ACTIVE, x_out, y_out);
+        face(ACTIVE, SOUTH);
+
+        wait(CAMERA_PAN_Y);
+
+        if!(FLAG.BOY_UNAVAILABLE || FLAG.DOG_UNAVAILABLE) {
+            if!(skip_wait_inactive) {
+                walk(INACTIVE, TILE_ABSOLUTE, x_in, y_in, INACTIVE, NONE);
+                walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d1, INACTIVE, NONE);
+            }
+
+            teleport(INACTIVE, x_out, y_out);
+            face(INACTIVE, SOUTH);
+
+            generic_act1_volcano_cave_hole_walk(<INACTIVE>);
+        }
+        _generic_act1_volcano_cave_hole_walk(<ACTIVE>);
+
+        free_camera();
+    }
+
+    @install()
+    @weak()
+    fun generic_act2_dog_bridge_jump(direction:DIRECTION, x, y) {
+        if(<ACTIVE> != <DOG>) {
+            end();
+        }
+
+        control(NONE);
+        // wait(DOG);
+
+        attribute(DOG, NO_CLIP, True);
+
+        walk(DOG, TILE_ABSOLUTE, x, y, DOG);
+        face(DOG, direction);
+
+        animate(DOG, ONCE, ANIMATION_DOG.ACT2_LEAP);
+        wait(DOG);
+
+        if(direction == DIRECTION.EAST) {
+            walk(DOG, TILE_RELATIVE, 0d1, 0d0, DOG);
+        } else {
+            walk(DOG, TILE_RELATIVE, -0d1, 0d0, DOG);
+        }
+
+        attribute(DOG, NO_CLIP, False);
+
+        control(BOTH);
+    }
+
+    @install()
+    @weak()
+    fun generic_yeet(character:CHARACTER, direction:DIRECTION, depth) {
+        if((<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) > 0d0) {
+            end();
+        }
+
+        control(NONE);
+
+        if(character == <BOY>) {
+            animate(character, LOOP, ANIMATION_BOY.LANDING);
+            sleep(0d05);
+            animate(character, LOOP, ANIMATION_BOY.FALL_1);
+        } else {
+            animate(character, LOOP, ANIMATION_DOG.ACT1_FALL1);
+        }
+
+        character[VELOCITY] = 0d30;
+
+        if(direction == DIRECTION.NORTH) {
+            arg[0x10] = character[Y] - 0d50;
+            while(character[Y] > arg[0x10]) {
+                character[Y] -= 0d01;
+
+                yield();
+            }
+        } else if(direction == DIRECTION.EAST) {
+            arg[0x10] = character[X] + 0d50;
+            while(character[X] < arg[0x10]) {
+                character[X]++;
+
+                yield();
+            }
+        } else if(direction == DIRECTION.SOUTH) {
+            arg[0x10] = character[Y] + 0d50;
+            while(character[Y] < arg[0x10]) {
+                character[Y]++;
+
+                yield();
+            }
+        } else {
+            arg[0x10] = character[X] - 0d50;
+            while(character[X] > arg[0x10]) {
+                character[X] -= 0d01;
+
+                yield();
+            }
+        }
+
+        arg[0x10] = character[Y] + 0d30;
+        while(character[Y] < arg[0x10]) {
+            character[Y] += 0d02;
+
+            yield();
+        }
+    }
+
+    @install()
+    @weak()
+    fun generic_yeet_waterfall(x, depth) {
+        yield();
+        control(NONE);
+
+        attribute_bit(ACTIVE, ROOT, True);
+
+        smart_animate(<ACTIVE>, LOOP, ANIMATION_BOY.LANDING);
+        sleep(0x05);
+
+        smart_animate(<ACTIVE>, LOOP, ANIMATION_BOY.FALL_1);
+        <ACTIVE>[VELOCITY] = 0x20;
+
+        while(<ACTIVE>[X] < x) {
+            <ACTIVE>[X]++;
+
+            yield();
+        }
+
+        <ACTIVE>[Z_LEVEL] = 0x20;
+
+        arg[0x02] = <ACTIVE>[Y] + depth;
+        while(<ACTIVE>[Y] < arg[0x02]) {
+            <ACTIVE>[Y] += 0x02;
+
+            yield();
+        }
+    }
+
+    @install()
+    @weak()
+    fun generic_fall(depth, cutoff) {
+        yield();
+        control(NONE);
+
+        attribute_bit(BOY, ROOT, True);
+        attribute_bit(DOG, ROOT, True);
+
+        if(<ACTIVE>[FACE_DIRECTION] == DIRECTION.NORTH) {
+            teleport(INACTIVE, <ACTIVE>[X] + 0x10, <ACTIVE>[Y]);
+        } else if(<ACTIVE>[FACE_DIRECTION] == DIRECTION.EAST) {
+            teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y] + 0x10);
+        } else if(<ACTIVE>[FACE_DIRECTION] == DIRECTION.SOUTH) {
+            teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
+        } else {
+            teleport(INACTIVE, <ACTIVE>[X] - 0x10, <ACTIVE>[Y]);
+        }
+
+        <INACTIVE>[Z_LEVEL] = <ACTIVE>[Z_LEVEL];
+
+        // teleport(INACTIVE, <ACTIVE>[X], <ACTIVE>[Y]);
+
+        animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+        animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
+
+        arg[0x12] = <ACTIVE>[X];
+        arg[0x14] = <ACTIVE>[Y] + depth;
+
+        while(<ACTIVE>[Y] < arg[0x14]) {
+            <ACTIVE>[Y] += 0x02;
+            <INACTIVE>[Y] += 0x02;
+
+            if((cutoff > 0x00) && (<ACTIVE>[Y] >= cutoff)) {
+                attribute_bit(BOY, INVISIBLE, True);
+                attribute_bit(DOG, INVISIBLE, True);
+            }
+
+            yield();
+        }
+
+        attribute_bit(BOY, INVISIBLE, True);
+        attribute_bit(DOG, INVISIBLE, True);
+    }
+
+    fun generic_pit() {
+        nop();
+    }
+    fun generic_crash() {
+        nop();
+    }
+
+    @install()
+    @weak()
+    fun _generic_crash_through__fall(entity, z) {
+        entity[Z] = z;
+
+        yield();
+        while(entity[Z] > 0d0) {
+            yield();
+        }
+
+        bomb_entity(entity, 0d50, 0d20);
+        generic_impact(0d20);
+    }
+    @install()
+    @weak()
+    fun _generic_crash_through__fallthrough(entity, depth, cutoff) {
+        depth += entity[Y];
+
+        while(entity[Y] < cutoff) {
+            entity[Y] += 0d2;
+
+            yield();
+        }
+
+        attribute(SCRIPT_OWNER, INVISIBLE, True);
+
+        while(entity[Y] < depth) {
+            entity[Y] += 0d2;
+
+            yield();
+        }
+
+        generic_impact(0d40);
+    }
+    fun generic_crash_through(entity, z, depth, cutoff, callback_landing) {
+        _generic_crash_through__fall(entity, z);
+
+        if(callback_landing is Function) {
+            callback_landing();
+        }
+
+        _generic_crash_through__fallthrough(entity, depth, cutoff);
+    }
+
+    fun _generic_fall_gomi(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
+        attach_to_script(character);
+
+        walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE_DIRECT, x, y, SCRIPT_OWNER);
+        if(True) { // vanilla workaround: when the active player lands the inactive one's walk() is interrupted and the falling animation starts
+            _teleport(SCRIPT_OWNER, x, y);
+        }
+
+        // face(character, SOUTH);
+        animate_falling(character);
+
+        while(character[Y] < depth) {
+            character[Y] += 0d4;
+            yield();
+        }
+
+        animate_landing(character, True);
+
+        fall_damage(character, fall_damage_type);
+    }
+    @install()
+    @weak()
+    @async()
+    fun _generic_fall_gomi_async(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
+        _generic_fall_gomi(character, x, y, depth, fall_damage_type);
+    }
+    @install()
+    @weak()
+    fun _generic_fall_gomi_sync(character:CHARACTER, x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
+        _generic_fall_gomi(character, x, y, depth, fall_damage_type);
+    }
+    @install()
+    @weak()
+    fun generic_fall_gomi(x, y, depth, fall_damage_type:FALL_DAMAGE_TYPE) {
+        control(NONE);
+
+        x *= 0d8;
+        y *= 0d8;
+
+        _generic_fall_gomi_async(<INACTIVE>, x + 0d8, y, depth, fall_damage_type);
+        _generic_fall_gomi_sync(<ACTIVE>, x - 0d8, y, depth, fall_damage_type);
+
+        control(BOTH);
+    }
+
+    fun generic_elevator_gomi(x_in, y_in, object_id_in, object_state_in, x_out, y_out, object_id_out, object_state_out) {
+        control(NONE);
+
+        walk(ACTIVE, TILE_ABSOLUTE, x_in, y_in, NONE, NONE);
+        walk(INACTIVE, TILE_ABSOLUTE_DIRECT, x_in, y_in, BOTH, NONE);
+
+        sleep(0d32);
+
+        face(ACTIVE, NORTH);
+        face(INACTIVE, NORTH);
+
+        object[object_id_in] = object_state_in; // open elevator_bottom
+        sleep(0d10);
+
+        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, NONE, NONE);
+        walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, BOTH, BOTH);
+
+        face(ACTIVE, SOUTH);
+        face(INACTIVE, SOUTH);
+
+        animate(ACTIVE, LOOP, INVISIBLE);
+        animate(INACTIVE, LOOP, INVISIBLE);
+
+        object[object_id_in] = 0x00; // open elevator_bottom
+
+        teleport(BOTH, x_out, y_out - 0d2);
+
+        set_camera_entity(<ACTIVE>, 0x20);
+        wait(CAMERA_PAN_Y);
+
+        object[object_id_out] = object_state_out; // open elevator_bottom
+        sleep(0d10);
+
+        animate(ACTIVE, ONCE, DEFAULT);
+        animate(INACTIVE, ONCE, DEFAULT);
+
+        walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, NONE, NONE);
+        walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d0, 0d2, BOTH, NONE);
+        sleep(0d10);
+
+        object[object_id_out] = 0x00; // open elevator_bottom
+
+        walk(ACTIVE, TILE_RELATIVE_DIRECT, -0d1, 0d1, NONE, NONE);
+        walk(INACTIVE, TILE_RELATIVE_DIRECT, 0d1, 0d1, BOTH, NONE);
+
+        free_camera();
+
+        control(BOTH);
+    }
+
+    @install()
+    @weak()
+    fun pit_act2_between(height) {
+        if(False) { // [0x05] Antiqua - Between 'mids and halls
+            call(0x98b4b5);
+        } else {
+            control(NONE);
+
+            <0x24ab> = <ACTIVE>[X];
+            <0x24af> = <ACTIVE>[Y];
+
+            <0x249d> = 0x0128;
+            <0x249f> = height;
+
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+            animate(DOG, LOOP, ANIMATION_DOG.ACT2_FALL_4);
+
+            yield();
+
+            MEMORY.Z_AFTER_TELEPORT = 0x0020;
+            teleport(BOY, <0x24ab> + 0x08, <0x24af>);
+            yield();
+            MEMORY.Z_AFTER_TELEPORT = 0x0020;
+            teleport(DOG, <0x24ab> - 0x08, <0x24af>);
+            yield();
+
+            while(<0x24af> < <0x249f>) {
+                MEMORY.Z_AFTER_TELEPORT = 0x0020;
+                teleport(BOY, <0x24ab> + 0x08, <0x24af>);
+                yield();
+                MEMORY.Z_AFTER_TELEPORT = 0x0020;
+                teleport(DOG, <0x24ab> - 0x08, <0x24af>);
+                yield();
+
+                <0x24af> += 0x02;
+            }
+
+            // animate(BOY, LOOP, ANIMATION_ALL.INVISIBLE);
+            // animate(DOG, LOOP, ANIMATION_ALL.INVISIBLE);
+            attribute(BOY, INVISIBLE, True);
+            attribute(DOG, INVISIBLE, True);
+            attribute(BOY, ROOT, True);
+            attribute(DOG, ROOT, True);
+            yield();
+
+            set(<0x22ed, 0x80>);
+        }
+    }
+
+    @install()
+    @weak()
+    fun pit_act3_sewers() {
+        // TODO: support "no INACTIVE"
+
+        if(True) { // [0x7a] Gothica - Ivor Tower Sewers Exterior (landing spot)
+            call(0x98b4b5);
+        } else { // buggy
+            control(NONE);
+
+            <0x24ab> = <0x2421> << 0x04;
+            <0x24af> = <0x2423> << 0x04;
+
+            if(<ACTIVE> == CHARACTER.BOY) {
+                animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+            } else {
+                animate(DOG, LOOP, ANIMATION_DOG.ACT3_FALL_2);
+            }
+
+            <0x24a7> = 0xfffe;
+
+            while(<0x24a7> < 0x22) {
+                <0x24af> += <0x24a7>;
+                <0x24ab> += 0x10;
+
+                teleport(ACTIVE, <0x24ab> >> 0x04, <0x24af> >> 0x04);
+                yield();
+
+                <0x24a7>++;
+            }
+
+            if(<ACTIVE> == CHARACTER.BOY) {
+                animate(BOY, LOOP, ANIMATION_BOY.LANDING);
+            } else {
+                animate(DOG, LOOP, ANIMATION_DOG.ACT3_SIT);
+            }
+
+            <0x24a7> = 0xfffe;
+
+            while(<0x24a7> < 0x22) {
+                <0x24af> += <0x24a7>;
+                <0x24ab> += 0x10;
+
+                teleport(ACTIVE, <0x24ab> >> 0x04, <0x24af> >> 0x04);
+                yield();
+
+                <0x24a7>++;
+            }
+
+            if(<ACTIVE> == CHARACTER.BOY) {
+                animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+            } else {
+                animate(DOG, ONCE, ANIMATION_DOG.ACT3_SIT);
+            }
+        }
+    }
+
+    @install()
+    @weak()
+    fun vanilla_act3_sewer_door(object_id) {
+        control(NONE);
+
+        object[object_id] = 0x7e;
+        sound(DOOR);
+
+        sleep(0d30);
+
+        walk(SCRIPT_OWNER, TILE_RELATIVE, 0d0, -0d1, NONE, NONE);
+
+        sleep(0d15);
+    }
+
+    fun _generic_open_doors(open, with_sound) {
+        if(with_sound > 0d0) {
+            sound(DOOR);
+        }
+
+        if(open) {
+            tile_animate(0x20, 0xff, 0x02);
+        } else {
+            tile_animate(0x20, 0xff, 0x00);
+        }
+    }
+    @install()
+    @weak()
+    @async()
+    fun _generic_door(close, with_sound) {
+        // works for: nobilia market (both at once), nobilia square
+
+        _generic_open_doors(True, with_sound);
+
+        if(close > 0d0) {
+            sleep(0d20);
+            _generic_open_doors(False, with_sound);
+        }
+    }
+    fun generic_door(close, with_sound) {
+        _generic_door(close, with_sound);
+
+        if(close == 0d0) {
+            sleep(0d30);
+        }
+    }
+
+    fun _generic_object_door_open(door_object, open, with_sound) {
+        if(with_sound > 0d0) {
+            sound(DOOR);
+        }
+
+        if(open) {
+            object[door_object] = 0x01;
+        } else {
+            object[door_object] = 0x0;
+        }
+    }
+    @install()
+    @weak()
+    @async()
+    fun _generic_object_door(door_object, close, with_sound) {
+        _generic_object_door_open(door_object, True, with_sound);
+
+        if(close > 0d0) {
+            sleep(0d40);
+            _generic_object_door_open(door_object, False, with_sound);
+        }
+    }
+    fun generic_object_door(door_object, close, with_sound) {
+        _generic_object_door(door_object, close, with_sound);
+        // sleep(0d30);
+
+        if(close == 0d0) {
+            control(NONE);
+            sleep(0d20);
+        }
+    }
+
+    @install()
+    @weak()
+    fun teleporter_animation_in(entity) {
+        sound(TELEPORTER);
+        _add_placeholder(TELEPORT_IN, entity[X], entity[Y], ONCE);
+        attach_to_script(LAST_ENTITY);
+
+        sleep(0d30);
+
+        animate(entity, ONCE, DEFAULT);
+
+        wait(SCRIPT_OWNER);
+        destroy(SCRIPT_OWNER);
+    }
+    @install()
+    @weak()
+    fun teleporter_animation_out(entity) {
+        sound(TELEPORTER);
+        _add_placeholder(TELEPORT_OUT, entity[X], entity[Y], ONCE);
+        attach_to_script(LAST_ENTITY);
+
+        if(entity == <DOG>) {
+            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT2_TELEPORT);
+            wait(entity);
+        } else if(entity == <BOY>) {
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
+            wait(entity);
+        }
+
+        wait(SCRIPT_OWNER);
+        destroy(SCRIPT_OWNER);
+    }
+    @install()
+    @async()
+    @weak()
+    fun teleporter_in(direction:DIRECTION) {
+        control(NONE);
+
+        animate(ACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+        if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+            animate(INACTIVE, ONCE_FREEZE, ANIMATION_ALL.INVISIBLE);
+        }
+
+        teleporter_animation_in(<ACTIVE>);
+        if(direction == DIRECTION.NORTH) {
+            walk(ACTIVE, TILE_RELATIVE, -0d1, -0d2, ACTIVE, NONE);
+            face(ACTIVE, NORTH);
+        } else if(direction == DIRECTION.EAST) {
+            walk(ACTIVE, TILE_RELATIVE, 0d2, -0d1, ACTIVE, NONE);
+            face(ACTIVE, EAST);
+        } else if(direction == DIRECTION.SOUTH) {
+            walk(ACTIVE, TILE_RELATIVE, 0d1, 0d2, ACTIVE, NONE);
+            face(ACTIVE, SOUTH);
+        } else if(direction == DIRECTION.WEST) {
+            walk(ACTIVE, TILE_RELATIVE, -0d2, 0d1, ACTIVE, NONE);
+            face(ACTIVE, WEST);
+        }
+
+        if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+            teleporter_animation_in(<INACTIVE>);
+            if(direction == DIRECTION.NORTH) {
+                walk(INACTIVE, TILE_RELATIVE, 0d1, -0d2, BOTH, NONE);
+                face(INACTIVE, NORTH);
+            } else if(direction == DIRECTION.EAST) {
+                walk(INACTIVE, TILE_RELATIVE, 0d2, 0d1, BOTH, NONE);
+                face(INACTIVE, EAST);
+            } else if(direction == DIRECTION.SOUTH) {
+                walk(INACTIVE, TILE_RELATIVE, -0d1, 0d2, BOTH, NONE);
+                face(INACTIVE, SOUTH);
+            } else if(direction == DIRECTION.WEST) {
+                walk(INACTIVE, TILE_RELATIVE, -0d2, -0d1, BOTH, NONE);
+                face(INACTIVE, SOUTH);
+            }
+        }
+
+        control(BOTH);
+    } 
+    @install()
+    @weak()
+    fun teleporter_out(x, y) {
+        control(NONE);
+
+        if((x != 0d0) && (y != 0d0)) {
+            walk(ACTIVE, TILE_ABSOLUTE, x, y, ACTIVE);
+        }
+        face(ACTIVE, SOUTH);
+        teleporter_animation_out(<ACTIVE>);
+
+        if!(FLAG.DOG_UNAVAILABLE || FLAG.BOY_UNAVAILABLE) {
+            if((x != 0d0) && (y != 0d0)) {
+                walk(INACTIVE, TILE_ABSOLUTE, x, y, INACTIVE);
+            }
+            face(INACTIVE, SOUTH);
+            teleporter_animation_out(<INACTIVE>);
+        }
+
+        sleep(0d50);
+    }
+
+    fun scene_raptors_death_escape() {
+        control(NONE);
+
+        // boy collapses
+        animate(BOY, LOOP, ANIMATION_BOY.SLEEP_UP);
+
+        eval("18 1f 02 50 29 6a 1a d5 // (18) WRITE $2477 = *(boy + 26)");
+        eval("18 21 02 50 29 6c 1a d5 // (18) WRITE $2479 = *(boy + 28)");
+
+        eval("18 1f 02 08 1f 02 29 02 20 9a // (18) WRITE $2477 = $2477 + 0x20");
+
+        eval("73 d1 88 1f 02 88 21 02 // (73) Make dog walk to $2477,$2479 directly");
+
+        // dog walks to boy and looks west
+        wait(DOG);
+        face(DOG, WEST);
+        sleep(0x3c);
+
+        // dog drags boy east
+        animate(BOY, LOOP, ANIMATION_BOY.DRAGGED);
+        animate(DOG, LOOP, ANIMATION_DOG.ACT1_DRAGGING);
+
+        eval("43 d0 08 1f 02 29 02 20 9b 88 21 02 // (43) Teleport boy to x:$2477 - 0x20, y:$2479");
+        eval("43 d1 88 1f 02 88 21 02 // (43) Teleport dog to x:$2477, y:$2479");
+        sleep(0x0f);
+
+        eval("18 1f 02 08 1f 02 29 32 9a // (18) WRITE $2477 = $2477 + 2");
+
+        // repeat 19 times
+        eval("1a 00 12 00 29 31 9a // (1a) WRITE SCRIPT arg0 = signed arg0 + 1");
+        eval("09 12 00 29 62 9f 07 00 // (09) IF (signed arg0 > 18) == FALSE THEN SKIP 7 (to 0x939069)");
+
+        // fade out
+        call(0x93907e);
+        eval("04 02 00 // (04) SKIP 2 (to 0x93906b)");
+        eval("05 cb // (05) SKIP -53 (to 0x939034)");
+
+        fade_out();
+    }
+
+    fun explode_boss(x, y, radius) {
+        <0x23bb> = x;
+        <0x23b9> = y;
+
+        code(0xb4, 0x03, entity_t(0x23bb), entity_t(0x23b9), 0xb0 + radius, address(0x92df1c), "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
+
+        sleep(0xf0);
+        call(ADDRESS.FADE_TO_WHITE);
+
+        call(ADDRESS.EXPLODE_BOSS_STOP);
+        call(0x92d752);
+    }
+    fun explode_last_entity(radius) {
+        <0x2834> = <LAST_ENTITY>;
+
+        eval("18 45 02 0d 00 00 29 6a 1a d5 // (18) WRITE $249d = *($2834 + 26)");
+        eval("18 47 02 0d 00 00 29 6c 1a d5 // (18) WRITE $249f = *($2834 + 28)");
+
+        code(0xb4, 0x03, entity_t(0x249d), entity_t(0x249f), param(radius), address(0x92df1c), "// (b4) CALL Absolute (24bit) script 0x92df1c ('Unnamed ABS script 0x92df1c') WITH 3 ARGS $23b9, $23bb, 5");
+
+        sleep(0xf0);
+        call(ADDRESS.FADE_TO_WHITE);
+
+        call(ADDRESS.EXPLODE_BOSS_STOP);
+        call(0x92d752);
+    }
+
+    fun dog_fountain() {
+        call(0x96d5d7);
+    }
+};

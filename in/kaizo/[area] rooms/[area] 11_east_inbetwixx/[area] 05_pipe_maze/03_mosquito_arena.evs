@@ -1,0 +1,252 @@
+map mosquito_arena(RAPTORS) {
+    // sniff=vanilla
+
+    enum entrance {
+        north = entrance(0x1b, 0x03, SOUTH),
+        south = entrance(0x1d, 0x33, NORTH),
+
+        left = entrance(0x15, 0x1c, NONE, { crash_both(); }),
+        center = entrance(0x1e, 0x21, NONE, { crash_both(); }),
+        right = entrance(0x2a, 0x23, NONE, { crash_both(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(PIPE_MAZE.MUSIC_ENTRANCE, 0xff),
+        boss = soundtrack(BOSS_JUNGLE, 0xff),
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_ARENA_MOSQUITO, SOUTH);
+
+            map_transition(pipe_caves_1, south_2, NORTH);
+        },
+        exit_south = nop(),
+        center = nop(),
+    }
+        
+    enum b_trigger {
+        sniff__1_crystal_1 = @install() {
+            debug_subtext("B=0");
+            _loot(0x09, CRYSTAL, 0d01, 0d01);
+        },
+        sniff__1_oil_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x08, OIL, 0d01, 0d01);
+        },
+        sniff__1_crystal_2 = @install() {
+            debug_subtext("B=2");
+            _loot(0x07, CRYSTAL, 0d01, 0d02);
+        },
+        sniff__1_water_2 = @install() {
+            debug_subtext("B=3");
+            _loot(0x06, WATER, 0d01, 0d02);
+        },
+    }
+
+    enum ROOM {
+        WITH_STERLING_RATS = True,
+    }
+
+    enum BOSS {
+        DEBUG = False,
+        
+        PROGRESS = memory(FLAG, TEMP),
+        BOSS_ID = memory(WORD, TEMP),
+
+        HP = 0d800,
+
+        PHASE = memory(WORD, TEMP),
+        THRESHOLD_P1 = 0d400,
+        THRESHOLD_P2 = 0d200,
+
+        BOSS_START_X = memory(WORD, TEMP),
+        BOSS_START_Y = memory(WORD, TEMP),
+        BOSS_START_TIMER = memory(WORD, TEMP),
+
+        MOSQUITO_1_ID = memory(WORD, TEMP),
+        MOSQUITO_1_X = 0x13,
+        MOSQUITO_1_Y = 0x19,
+        MOSQUITO_2_ID = memory(WORD, TEMP),
+        MOSQUITO_2_X = 0x29,
+        MOSQUITO_2_Y = 0x1b,
+        MOSQUITO_3_ID = memory(WORD, TEMP),
+        MOSQUITO_3_X = 0x13,
+        MOSQUITO_3_Y = 0x29,
+        MOSQUITO_4_ID = memory(WORD, TEMP),
+        MOSQUITO_4_X = 0x29,
+        MOSQUITO_4_Y = 0x2b,
+
+        DAMAGE_FIREBALL_BOSS = 0d200 + randrange(0d100),
+        DAMAGE_FIREBALL_BOY = 0d10,
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    @install()
+    @async()
+    fun clear_room() {
+        find_all(MOSQUITO, {
+            damage(arg[0x10], 0d999, False);
+        });
+        find_all(RAT_RED, {
+            damage(arg[0x10], 0d999, False);
+        });
+    }
+    @install()
+    fun boss_triggered() {
+        if(BOSS.DEBUG) {
+            debug_memory(BOSS.BOSS_ID[HP], BOSS.PHASE);
+        }
+
+        if(BOSS.PHASE == 0d0) {
+            if(BOSS.BOSS_ID[HP] < BOSS.THRESHOLD_P1) {
+                BOSS.PHASE = 0d1;
+
+                if(ROOM.WITH_STERLING_RATS) {
+                    if(randrange(0d1)) {
+                        arg[0x10] = 0d19;
+                        arg[0x12] = 0d21;
+                    } else {
+                        arg[0x10] = 0d18;
+                        arg[0x12] = 0d21;
+                    }
+
+                    add_sterling_rat(arg[0x10], arg[0x12], 0d29, 0d17, 0d30 * 0d0008);
+                }
+            }
+        }
+        if(BOSS.PHASE == 0d1) {
+            if(BOSS.BOSS_ID[HP] < BOSS.THRESHOLD_P2) {
+                BOSS.PHASE = 0d2;
+
+                if(ROOM.WITH_STERLING_RATS) {
+                    if(randrange(0d1)) {
+                        arg[0x10] = 0d19;
+                        arg[0x12] = 0d37;
+                    } else {
+                        arg[0x10] = 0d41;
+                        arg[0x12] = 0d39;
+                    }
+
+                    add_sterling_rat(arg[0x10], arg[0x12], 0d29, 0d17, 0d30 * 0d0008);
+                }
+            }
+        }
+        if(BOSS.PROGRESS && (BOSS.BOSS_ID[HP] <= 0d0)) {
+            BOSS.PROGRESS = False;
+
+            clear_room();
+
+            souls_boss_defeated_helper(ARENA_MOSQUITO);
+
+            close_exits(False);
+        }
+    }
+
+    fun mosquito_dead(id, x, y) {
+        if(BOSS.PROGRESS) {
+            // yield();
+            animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.GORE);
+            attribute(SCRIPT_OWNER, INVINCIBLE, True);
+
+            if((BOSS.BOSS_ID[X] >= MEMORY.CAMERA_X_MIN) && ((BOSS.BOSS_ID[X] <= MEMORY.CAMERA_X_MAX)) && (BOSS.BOSS_ID[Y] >= MEMORY.CAMERA_Y_MIN) && ((BOSS.BOSS_ID[Y] <= MEMORY.CAMERA_Y_MAX))) {
+                cast(id, BOSS.BOSS_ID, FIREBALL, BOSS.DAMAGE_FIREBALL_BOSS);
+            } else {
+                cast(id, BOY, FIREBALL, BOSS.DAMAGE_FIREBALL_BOY);
+            }
+
+            sleep(0d30);
+            animate(SCRIPT_OWNER, ONCE_FREEZE, INVISIBLE);
+            teleport(id, x, y);
+            sleep(0d90);
+
+            // full_heal(SCRIPT_OWNER, 0x10, False);
+            animate(SCRIPT_OWNER, ONCE, DEFAULT);
+            <SCRIPT_OWNER>[PALETTE] = 0x0a00;
+            attribute(SCRIPT_OWNER, INVINCIBLE, False);
+        }
+    }
+
+    @install()
+    fun mosquito_1_dead() {
+        mosquito_dead(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y);
+    }
+    @install()
+    fun mosquito_2_dead() {
+        mosquito_dead(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y);
+    }
+    @install()
+    fun mosquito_3_dead() {
+        mosquito_dead(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y);
+    }
+    @install()
+    fun mosquito_4_dead() {
+        mosquito_dead(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y);
+    }
+
+    fun spawn_mosquito(id, x, y, script_id) {
+        add_enemy(MOSQUITO, x, y);
+        id = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE, script_id);
+    }
+
+    @install()
+    @async()
+    fun lock_temporary() {
+        BOSS.BOSS_START_X = BOSS.BOSS_ID[X];
+        BOSS.BOSS_START_Y = BOSS.BOSS_ID[Y];
+
+        while(BOSS.BOSS_START_TIMER < 0d120) {
+            BOSS.BOSS_START_TIMER++;
+
+            BOSS.BOSS_ID[X] = BOSS.BOSS_START_X;
+            BOSS.BOSS_ID[Y] = BOSS.BOSS_START_Y;
+
+            yield();
+        }
+    }
+
+    fun init_room() {
+        default_init_room(True, False);
+    }
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_ARENA_MOSQUITO) {
+            push_music(BOSS_JUNGLE);
+
+            close_exits(True);
+
+            add_enemy(MAGMAR, 0d30, 0d33);
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+            BOSS.BOSS_ID = <LAST_ENTITY>;
+            attach_script(LAST_ENTITY, DAMAGE_DEATH, reference(boss_triggered));
+            lock_temporary();
+
+            CUSTOM_FLAG.NO_DOG = True;
+            init_room();
+
+            BOSS.PROGRESS = True;
+
+            spawn_mosquito(BOSS.MOSQUITO_1_ID, BOSS.MOSQUITO_1_X, BOSS.MOSQUITO_1_Y, reference(mosquito_1_dead));
+            sleep(0x40);
+            spawn_mosquito(BOSS.MOSQUITO_2_ID, BOSS.MOSQUITO_2_X, BOSS.MOSQUITO_2_Y, reference(mosquito_2_dead));
+            sleep(0x20);
+            spawn_mosquito(BOSS.MOSQUITO_3_ID, BOSS.MOSQUITO_3_X, BOSS.MOSQUITO_3_Y, reference(mosquito_3_dead));
+            sleep(0x20);
+            spawn_mosquito(BOSS.MOSQUITO_4_ID, BOSS.MOSQUITO_4_X, BOSS.MOSQUITO_4_Y, reference(mosquito_4_dead));
+        } else {
+            object[0x04] = 0x04;
+            object[0x05] = 0x04;
+
+            init_room();
+        }
+    }
+};

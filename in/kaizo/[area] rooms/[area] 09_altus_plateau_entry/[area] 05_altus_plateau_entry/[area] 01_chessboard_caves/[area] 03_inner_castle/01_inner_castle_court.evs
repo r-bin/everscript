@@ -1,0 +1,88 @@
+map inner_castle_court(EBON_COURT) {
+    enum entrance {
+        north = entrance(0d20, 0d17, SOUTH),
+        side_left = entrance(0x06, 0x23, SOUTH),
+        side_right = entrance(0x22, 0x23, SOUTH),
+        south = entrance(0x13, 0x4d, NORTH),
+
+        crash = entrance(0d20, 0d68, NONE, { crash_both(); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_INNER_CASTLE.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_side_right = @install() {
+            debug_subtext("S=0");
+        },
+        exit_side_left = @install() {
+            debug_subtext("S=1");
+        },
+        exit_south = @install() {
+            debug_subtext("S=2");
+
+            fog_wall_inside(!SOULS_MEMORY.DEAD_INVISIBLE_GATE_KEEPER, NORTH);
+            map_transition(chessboard, tunnel, SOUTH);
+        },
+        gate_north = @install() {
+            debug_subtext("S=3");
+        },
+        gate_side_left = @install() {
+            debug_subtext("S=4");
+        },
+        gate_side_right = @install() {
+            debug_subtext("S=5");
+        },
+        exit_north = @install() {
+            debug_subtext("S=6");
+
+            fog_wall_inside(!SOULS_MEMORY.DEAD_INVISIBLE_GATE_KEEPER, SOUTH);
+            map_transition(inner_castle_dining_room, south, NORTH);
+        },
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            BOSS_ID = memory(WORD, TEMP),
+            REVEALER_ID = memory(WORD, TEMP),
+
+            HP = 0d150,
+        }
+
+        fun add_boss(x, y) {
+            add_enemy(MAGMAR, x, y);
+            attribute(LAST_ENTITY, INVISIBLE, True);
+            BOSS.BOSS_ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                souls_boss_defeated_helper(INVISIBLE_GATE_KEEPER);
+
+                object[0x00] = 0x7e; // open gate_north
+            }));
+
+            add_enemy(REVEALER_TARGET_ENTITY, x, y);
+            BOSS.REVEALER_ID = <LAST_ENTITY>;
+            special_script(REVEALER, reference(@install() {
+                guard_challenge_revealer();
+
+                destroy(BOSS.REVEALER_ID);
+
+                attribute(BOSS.BOSS_ID, INVISIBLE, False);
+            }));
+            stack_sprite(BOSS.BOSS_ID, BOSS.REVEALER_ID);
+
+            push_music(BOSS_MINI);
+        }
+    };
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_INVISIBLE_GATE_KEEPER) {
+            add_boss(0d20, 0d42);
+        } else {
+            object[0x00] = 0x7e; // open gate_north
+        }
+
+        default_init_room(False, False);
+    }
+};

@@ -1,0 +1,307 @@
+group beam() {
+    @install()
+    @weak()
+    fun ai_move_tesla(entity, target) {
+        sound(TESLA);
+
+        shoot_entity_entity(entity, LIGHTNING, target, 0d15, 0d0);
+        damage(target, 0d10, True);
+    }
+
+    fun _scale_vector_max(entity_source, x, y, length_max) {
+        if(entity_source[X] > x) {
+            arg[0x10] = entity_source[X] - x;
+        } else {
+            arg[0x10] = x - entity_source[X];
+        }
+        if(entity_source[Y] > y) {
+            arg[0x12] = entity_source[Y] - y;
+        } else {
+            arg[0x12] = y - entity_source[Y];
+        }
+
+        arg[0x18] = x - entity_source[X];
+        arg[0x1a] = y - entity_source[Y];
+
+        if(True) {
+            while((arg[0x14] == 0d0) || (arg[0x14] > (0d0002 * length_max))) {
+                arg[0x0c]++;
+
+                if(arg[0x10] > arg[0x12]) {
+                    arg[0x14] = arg[0x10] + (arg[0x12] >> 0d1);
+                } else {
+                    arg[0x14] = arg[0x12] + (arg[0x10] >> 0d1);
+                }
+
+                if(arg[0x14] > (0d0002 * length_max)) {
+                    signed arg[0x10] >>= 0d1;
+                    signed arg[0x12] >>= 0d1;
+
+                    signed arg[0x18] >>= 0d1;
+                    signed arg[0x1a] >>= 0d1;
+                }
+            }
+        }
+
+        if(arg[0x14] > 0xff) { // division only worths with 8bit divisors
+            arg[0x14] = 0xff;
+        }
+
+        if(arg[0x14] > length_max) {
+            arg[0x16] = (length_max << 0d0005) / arg[0x14];
+
+            signed arg[0x18] *= signed arg[0x16];
+            signed arg[0x18] >>= 0d5;
+
+            signed arg[0x1a] *= signed arg[0x16];
+            signed arg[0x1a] >>= 0d5;
+        }
+    }
+    fun scale_vector_max(entity_source, entity_target, length_max) {
+        _scale_vector_max(entity_source, entity_target[X], entity_target[Y], length_max);
+    }
+
+    @install()
+    @weak()
+    fun _projectile_beam(entity, x, y, tick, duration) {
+        _scale_vector_max(entity, x, y, 0d100);
+
+        if(tick < 0d2) {
+            shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, DEFAULT_QUARTER);
+
+            while(duration) {
+                guard_dead(entity);
+
+                duration--;
+
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d1, DEFAULT_QUARTER);
+                yield();
+            }
+        } else if(tick < 0d3) {
+            shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, DEFAULT_HALF);
+
+            while(duration) {
+                guard_dead(entity);
+
+                if(duration > 0d2) {
+                    duration -= 0d2;
+                } else {
+                    duration = 0d0;
+                }
+                
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_QUARTER);
+                yield();
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_HALF);
+                yield();
+            }
+        } else if(tick < 0d5) {
+            shoot_entity_relative(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0);
+
+            while(duration) {
+                guard_dead(entity);
+
+                if(duration > 0d3) {
+                    duration -= 0d3;
+                } else {
+                    duration = 0d0;
+                }
+                
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_QUARTER);
+                yield();
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_HALF);
+                yield();
+                bomb_absolute(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0);
+                yield();
+            }
+        } else {
+            shoot_entity_relative_scaled(entity, LIGHTNING, signed arg[0x18], signed arg[0x1a], 0d10, 0d0, TARGET_PLUS_HALF);
+
+            while(duration) {
+                guard_dead(entity);
+
+                if(duration > 0d4) {
+                    duration -= 0d4;
+                } else {
+                    duration = 0d0;
+                }
+                
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_QUARTER);
+                yield();
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, DEFAULT_HALF);
+                yield();
+                bomb_absolute(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0);
+                yield();
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, TARGET_MINUS_QUARTER);
+                yield();
+                bomb_relative_scaled(entity, signed arg[0x18], signed arg[0x1a], 0d15, 0d0, TARGET_PLUS_HALF);
+                yield();
+            }
+        }
+    }
+    @install()
+    @weak()
+    fun projectile_beam(entity, ticks) {
+        arg[0x10] = entity[X];
+        arg[0x12] = entity[Y];
+        sleep(0d15);
+
+        arg[0x14] = entity[X];
+        arg[0x16] = entity[Y];
+        sleep(0d15);
+
+        arg[0x18] = entity[X];
+        arg[0x1a] = entity[Y];
+        sleep(0d15);
+
+        while(arg[0x0e] < ticks) {
+            guard_dead(entity);
+            
+            arg[0x0e]++;
+            sound(TESLA);
+
+            face_target(SCRIPT_OWNER, ACTIVE);
+            _projectile_beam(<SCRIPT_OWNER>, arg[0x10], arg[0x12], arg[0x0e], 0d15);
+            arg[0x10] = entity[X];
+            arg[0x12] = entity[Y];
+            
+            face_target(SCRIPT_OWNER, ACTIVE);
+            _projectile_beam(<SCRIPT_OWNER>, arg[0x14], arg[0x16], arg[0x0e], 0d15);
+            arg[0x14] = entity[X];
+            arg[0x16] = entity[Y];
+
+            face_target(SCRIPT_OWNER, ACTIVE);
+            _projectile_beam(<SCRIPT_OWNER>, arg[0x18], arg[0x1a], arg[0x0e], 0d15);
+            arg[0x18] = entity[X];
+            arg[0x1a] = entity[Y];
+        }
+    }
+
+    fun _beam_wall(condition, vertical_direction, positive_direction, entity, x_1, y_1, x_2, y_2, delta) {
+        while(condition) {
+            sound(TESLA);
+            
+            if(vertical_direction) {
+                projectile(entity, LIGHTNING, x_1, y_1, x_2, y_1, 0d2, 0d0);
+
+                if(positive_direction) {
+                    y_1 += delta;
+                } else {
+                    y_1 -= delta;
+                }
+            } else {
+                projectile(entity, LIGHTNING, x_1, y_1, x_1, y_2, 0d2, 0d0);
+
+                if(positive_direction) {
+                    x_1 += delta;
+                } else {
+                    x_1 -= delta;
+                }
+            }
+
+            if(<ACTIVE>[Z] == 0d0) {
+                if(vertical_direction) {
+                    if((<ACTIVE>[Y] >= (y_1 - 0d20)) && (<ACTIVE>[Y] <= (y_1 + 0d20)) && (<ACTIVE>[X] >= x_1) && (<ACTIVE>[X] <= x_2)) {
+                        arg[0x10] = True;
+                    }
+                } else {
+                    if((<ACTIVE>[X] >= (x_1 - 0d20)) && (<ACTIVE>[X] <= (x_1 + 0d20)) && (<ACTIVE>[Y] >= y_1) && (<ACTIVE>[Y] <= y_2)) {
+                        arg[0x10] = True;
+                    }
+                }
+            }
+
+            if((arg[0x10] > 0d0) && (arg[0x12] == 0d0)) {
+                arg[0x10] = False;
+                arg[0x12] = 0d3;
+
+                damage(ACTIVE, 0d5, True, True);
+            } else if(arg[0x12] > 0d0){
+                arg[0x12]--;
+            }
+
+            sleep(0d10);
+        }
+    }
+    @install()
+    @async()
+    @weak()
+    fun beam_wall(direction:DIRECTION, entity, x_1, y_1, x_2, y_2, delta) {
+        if(direction == DIRECTION.NORTH) {
+            _beam_wall(y_2 > y_1, True, False, entity, x_1, y_2, x_2, y_1, delta);
+        } else if(direction == DIRECTION.EAST) {
+            _beam_wall(x_1 < x_2, False, True, entity, x_1, y_1, x_2, y_2, delta);
+        } else if(direction == DIRECTION.SOUTH) {
+            _beam_wall(y_1 < y_2, True, True, entity, x_1, y_1, x_2, y_2, delta);
+        } else {
+            _beam_wall(x_2 > x_1, False, False, entity, x_2, y_1, x_1, y_2, delta);
+        }
+    }
+
+    @install()
+    @weak()
+    fun _beam_link_absolute(entity_1, x, y, duration) {
+        sound(TESLA);
+        shoot_entity_absolute(entity_1, LIGHTNING, x, y, 0d1, 0d0);
+
+        sleep(0d60);
+
+        while(duration) {
+            duration--;
+
+            // debug_memory(duration, arg[0x0e]);
+            sound(TESLA);
+            shoot_entity_absolute(entity_1, LIGHTNING, x, y, 0d1, 0d0);
+
+            arg[0x0e] = 0d15;
+            while(arg[0x0e]) {
+                if(arg[0x0e] >= 0d15) {
+                    arg[0x0e] -= 0d15;
+                } else {
+                    arg[0x0e] = 0d0;
+                }
+                
+                bomb_absolute_scaled(entity_1, x, y, 0d15, 0d0, DEFAULT_QUARTER);
+                sleep(0d5);
+                bomb_absolute_scaled(entity_1, x, y, 0d15, 0d0, DEFAULT_HALF);
+                sleep(0d5);
+                bomb_absolute(entity_1, x, y, 0d15, 0d0);
+                sleep(0d5);
+            }
+        }
+    }
+    fun beam_link_absolute(entity_1, x, y, duration) {
+        _beam_link_absolute(entity_1, x << 0d0003, y << 0d0003, duration);
+    }
+    @install()
+    @weak()
+    fun beam_link_entity(entity_1, entity_2, duration) {
+        sound(TESLA);
+        shoot_entity_entity(entity_1, LIGHTNING, entity_2, 0d1, 0d0);
+
+        sleep(0d60);
+
+        while(duration) {
+            duration--;
+
+            // debug_memory(duration, arg[0x0e]);
+            sound(TESLA);
+            shoot_entity_entity(entity_1, LIGHTNING, entity_2, 0d1, 0d0);
+
+            arg[0x0e] = 0d15;
+            while(arg[0x0e]) {
+                if(arg[0x0e] >= 0d15) {
+                    arg[0x0e] -= 0d15;
+                } else {
+                    arg[0x0e] = 0d0;
+                }
+                
+                bomb_absolute_scaled(entity_1, entity_2[X], entity_2[Y], 0d15, 0d0, DEFAULT_QUARTER);
+                sleep(0d5);
+                bomb_absolute_scaled(entity_1, entity_2[X], entity_2[Y], 0d15, 0d0, DEFAULT_HALF);
+                sleep(0d5);
+                bomb_absolute(entity_1, entity_2[X], entity_2[Y], 0d15, 0d0);
+                sleep(0d5);
+            }
+        }
+    }
+};

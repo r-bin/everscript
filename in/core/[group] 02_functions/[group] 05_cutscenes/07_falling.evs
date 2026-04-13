@@ -1,0 +1,192 @@
+group falling() {
+    enum FALL_DAMAGE_TYPE {
+        NONE = 0x00,
+        DEFAULT = 0x01,
+        DEADLY = 0x02,
+
+        DROP = 0x10, // e.g. gomi tower fall
+        DROP_DEEP = 0x11, // e.g. jumping into a pit
+        
+        CLIFF = 0x20,
+        CLIFF_DEEP = 0x21,
+    }
+    @install()
+    @async()
+    @weak()
+    fun delayed_fall_damage_deadly(character:CHARACTER) {
+        sleep(0d30);
+        damage(character, SYSTEM.HP_MAX, False);
+    }
+    @install()
+    @weak()
+    fun _fall_damage(character:CHARACTER, type:FALL_DAMAGE_TYPE) {
+        if(SYSTEM.WITH_DEBUG_FALL) {
+            _debug_memory(character, type, CUSTOM_MEMORY.WEIGHT_BOY);
+        }
+
+        if(type == FALL_DAMAGE_TYPE.NONE) {
+            end();
+        } else if(type == FALL_DAMAGE_TYPE.DEADLY) {
+            damage(character, 0d999, True);
+            delayed_fall_damage_deadly(character);
+            end();
+        }
+
+        arg[0x12] = CUSTOM_MEMORY.WEIGHT_BOY < SYSTEM.WEIGHT_BOY;
+        arg[0x14] = CUSTOM_MEMORY.WEIGHT_BOY > SYSTEM.WEIGHT_BOY;
+
+        if(type & 0x10) {
+            if(type == FALL_DAMAGE_TYPE.DROP_DEEP) {
+                arg[0x10] = 0d10;
+
+                if(arg[0x12]) {
+                    arg[0x10] >>= 0d2;
+                } else if(arg[0x14]) {
+                    arg[0x10] <<= 0d1;
+                }
+            } else {
+                arg[0x10] = 0d5;
+
+                if(arg[0x12]) {
+                    end();
+                }
+            }
+        } else if(type & 0x20) {
+            if(type == FALL_DAMAGE_TYPE.CLIFF_DEEP) {
+                arg[0x10] = 0d500;
+            } else {
+                arg[0x10] = 0d300;
+            }
+
+            if(arg[0x12]) {
+                arg[0x10] /= 0d10;
+            } else if(arg[0x14]) {
+                arg[0x10] *= 0d10;
+            }
+        } else {
+            arg[0x10] = 0d5;
+
+            if(arg[0x12]) {
+                arg[0x16] = True;
+            }
+        }
+
+        if(SYSTEM.WITH_DEBUG_FALL) {
+            sleep(0d30);
+            _debug_memory(arg[0x10], arg[0x12], arg[0x14]);
+        }
+
+        if(character[BOOST_DEFEND] > 0d0) {
+            arg[0x10] <<= 0d1;
+        }
+
+        if(arg[0x10]) {
+            if!(arg[0x16]) {
+                damage(character, arg[0x10], True);
+            } else {
+                damage(character, arg[0x10], True, False);
+            }
+        }
+    }
+    fun fall_damage(character:CHARACTER, type:FALL_DAMAGE_TYPE, callback_success, callback_death) {
+        _fall_damage(character, type);
+
+        if(callback_death is Function) {
+            yield();
+            
+            if(<BOY>[HP] <= 0d0) {
+                callback_death();
+            } else {
+                control(NONE);
+                sleep(0d60);
+
+                callback_success();
+            }
+        } else if(callback_success is Function) {
+            yield();
+            
+            if(<BOY>[HP] > 0d0) {
+                control(NONE);
+                sleep(0d60);
+
+                callback_success();
+            }
+        }
+    }
+    
+    fun animation_fall_pit(character:CHARACTER) {
+        face(character, SOUTH);
+        smart_animate(character, LOOP, ANIMATION_BOY.FALL_2);
+        sleep(0d20);
+    }
+
+    fun crash_land(character:CHARACTER, fall_damage) {
+        if(character == CHARACTER.BOY) {
+            <BOY>[Z] = 0x1068;
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+            sleep(0x60);
+            <BOY>[VELOCITY] = 0x10;
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+            sleep(0x10);
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+            sleep(0x10);
+            animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+        } else if(character == CHARACTER.DOG) {
+            <DOG>[Z] = 0x1068;
+            animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
+            sleep(0x60);
+            <DOG>[VELOCITY] = 0x10;
+            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+            sleep(0x10);
+            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_FALL1);
+            sleep(0x10);
+            animate(DOG, ONCE, ANIMATION_DOG.ACT1_SIT);
+        } else if(character == CHARACTER.BOTH) {
+            <BOY>[Z] = 0x1068;
+            animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+            <DOG>[Z] = 0x1068;
+            animate(DOG, LOOP, ANIMATION_DOG.ACT1_FALL1);
+            sleep(0x60);
+            <BOY>[VELOCITY] = 0x10;
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_UP);
+            <DOG>[VELOCITY] = 0x10;
+            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT1_SLEEP);
+            sleep(0x10);
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.SLEEP_DOWN);
+            animate(DOG, ONCE, ANIMATION_DOG.ACT1_FALL1);
+            sleep(0x10);
+            animate(BOY, ONCE, ANIMATION_BOY.KNEEL);
+        }
+
+        if(fall_damage !is None) {
+            if(fall_damage > 0d0) {
+                damage(character, fall_damage, True);
+            }
+        }
+    }
+    fun _crash_both(radius) {
+        if!(radius) {
+            <DOG>[X] -= 0x20;
+            <DOG>[Y] -= 0x20;
+        } else {
+            if(rand(0d1)) {
+                <DOG>[X] += randrange(radius);
+            } else {
+                <DOG>[X] -= randrange(radius);
+            }
+            if(rand(0d1)) {
+                <DOG>[Y] += randrange(radius);
+            } else {
+                <DOG>[Y] -= randrange(radius);
+            }
+        }
+
+        crash_land(BOTH);
+    }
+    @install()
+    @async()
+    @weak()
+    fun crash_both(radius) {
+        _crash_both(radius);
+    }
+};

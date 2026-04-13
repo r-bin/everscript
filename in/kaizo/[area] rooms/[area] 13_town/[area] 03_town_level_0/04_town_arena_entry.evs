@@ -1,0 +1,119 @@
+map town_arena_entry(NOBILIA_HOUSES) { // variant: shop
+    enum entrance {
+        south_1 = entrance(0x51, 0x1b, NORTH),
+        south_2 = entrance(0x0d, 0x1b, NORTH),
+
+        crash = entrance(0x0d, 0x15, NONE),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TOWN_TEMPLE.MUSIC_TOWN, 0xff)
+    }
+
+    fun guard_dog_interaction() {
+        if(<ACTIVE> == <DOG>) {
+            dialog("[SLOW]For legal reasons animals aren't allowed in the arena.[B]");
+            end();
+        }
+    }
+
+    enum ROOM {
+        TICKET_PRICE = 0x05,
+
+        DAMAGE_ELLBOW = 0d30,
+    }
+
+    enum stepon_trigger {
+        exit_south_2 = @install() {
+            map_transition(town_market, door_1, SOUTH);
+        },
+        exit_inn_south = nop(),
+        atlas = @install() {
+            debug_subtext("S=2");
+
+            if(<ACTIVE> != <BOY>) {
+                end();
+            }
+
+            control(NONE);
+
+            face(ACTIVE, EAST);
+            damage(ACTIVE, ROOM.DAMAGE_ELLBOW, True);
+            yield();
+
+            if(alive(<BOY>)) {
+                dealer_triggered();
+            }
+
+            control(BOTH);
+        },
+        exit_south_1 = @install() {
+            guard_dog_interaction();
+
+            if(MEMORY.TICKET_FOR_EXHIBITION < 0d1) {
+                dialog("[SLOW]Hey, you have to buy a ticket first![B]");
+
+                walk(ACTIVE, TILE_RELATIVE_DIRECT, 0d0, -0d2, ACTIVE, ACTIVE);
+            } else {
+                question("[SLOW]Please enter a ticket[CHOICE]Yes.[CHOICE]No.");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    MEMORY.TICKET_FOR_EXHIBITION--;
+
+                    map_transition(gladiator_arena, south, SOUTH);
+                }
+            }
+        },
+    }
+
+    enum b_trigger {
+        vendor = @install() {
+            guard_dog_interaction();
+
+            show_currency(True);
+
+            if_currency(MEMORY.CURRENCY_CURRENT < ROOM.TICKET_PRICE) {
+                dialog("[SLOW]Welcome to the one and only...[B]Oh please come back if you have money.[B]");
+            } else {
+                if(MEMORY.TICKET_FOR_EXHIBITION == 0x01) {
+                    dialog("[SLOW]Feel free to enter the arena directly.[B]");
+                } else if(MEMORY.TICKET_FOR_EXHIBITION > 0x01) {
+                    MEMORY.STRING_PARAMETER_1 = MEMORY.TICKET_FOR_EXHIBITION;
+                    dialog("[SLOW]Feel free to enter the arena directly.[B]");
+                }
+
+                MEMORY.STRING_PARAMETER_1 = ROOM.TICKET_PRICE;
+                question("[SLOW]Welcome to the bomb arena.[B]Tickets cost [MEM1] Souls[CHOICE]Yes.[CHOICE]No.");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) {
+                    currency_take(TALONS, ROOM.TICKET_PRICE);
+                    show_currency(True);
+
+                    sound(PURCHASE);
+                    MEMORY.TICKET_FOR_EXHIBITION++;
+                }
+            }
+
+            sleep(0d16);
+            show_currency(False);
+        },
+        vendor_inn = nop(),
+    }
+
+    fun init_room(index) {
+        if(index == 0x01) {
+            init_map(0x02, 0x00, 0x5a, 0x1c);
+        } else if(index == 0x02) {
+            init_map(0x00, 0x24, 0x24, 0x42);
+        }
+    }
+
+    fun trigger_enter() {
+        init_room(0x01);
+
+        // bonfire(0x57, 0x08);
+        // bonfire(0x07, 0x10);
+
+        default_init_room(False, False);
+    }
+};

@@ -1,0 +1,218 @@
+map radahn3_arena(RAPTORS) {
+    enum entrance {
+        north = entrance(0x1b, 0x03, SOUTH),
+        south = entrance(0x1d, 0x33, NORTH),
+
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE)
+    }
+
+    enum soundtrack {
+        default = soundtrack(BOSS, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    enum BOSS {
+        DEBUG = False,
+
+        RIDER_ID = memory(WORD, TEMP),
+        MOUNT_ID = memory(WORD, TEMP),
+
+        PHASE = memory(WORD, TEMP),
+        TIMER = memory(WORD, TEMP),
+
+        HP = 0d1000,
+
+        GRAB_DISTANCE = 0d30,
+        GRAB_DAMAGE = 0d10,
+
+        // p1
+
+        P1_THRESHOLD = 0d800,
+        P1_TIME_BEFORE_SALVAGE = 0d1200,
+
+        // p2
+
+        P2_THRESHOLD = 0d500,
+        P2_TIME_BEFORE_SALVAGE = 0d780,
+
+        RANDOM_SPELL = memory(WORD, TEMP),
+        TIME_BEFORE_RANDOM_SPELL = 0d780,
+    }
+
+    fun boss_killed() {
+        nop();
+    }
+
+    @install()
+    @async()
+    fun stack_t01_offset() {
+        while(alive(BOSS.MOUNT_ID)) {
+            BOSS.RIDER_ID[X] = BOSS.MOUNT_ID[X];
+            BOSS.RIDER_ID[Y] = BOSS.MOUNT_ID[Y] - 0d20;
+            BOSS.RIDER_ID[VELOCITY] = BOSS.MOUNT_ID[VELOCITY];
+            
+            sleep(0d2);
+        }
+    }
+
+    fun cast_salvage(target:CHARACTER, count, level) {
+        // TODO: flash/fireball, depending whether or not it's dodgeable?
+
+        animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_CAST_1);
+
+        if(count > 0d2) {
+            cast(BOSS.RIDER_ID, target, FIREBALL, level);
+        }
+        cast(BOSS.RIDER_ID, target, FLASH, level);
+        if(count > 0d2) {
+            cast(BOSS.RIDER_ID, target, FIREBALL, level);
+        }
+        cast(BOSS.RIDER_ID, target, FLASH, level);
+    }
+
+    @install()
+    fun boss_damage() {
+        // animate(BOSS.RIDER_ID, ONCE, ANIMATION_ENEMY.VERMINATOR_DAMAGE);
+
+        if(BOSS.PHASE == 0x00) {
+            BOSS.TIMER = 0x00;
+
+            if(BOSS.RIDER_ID[HP] < BOSS.P1_THRESHOLD) {
+                BOSS.PHASE = 0x01;
+            }
+        } else if(BOSS.PHASE == 0x01) {
+            if(BOSS.RIDER_ID[HP] < BOSS.P2_THRESHOLD) {
+                BOSS.PHASE = 0x02;
+            }
+        } else if(BOSS.PHASE == 0x02) {
+            BOSS.TIMER -= 0x60;
+        }
+
+        if(BOSS.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = BOSS.RIDER_ID[HP];
+            MEMORY.STRING_PARAMETER_2 = BOSS.HP;
+
+            subtext("Rider = [MEM1]/[MEM2]");
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_watcher() {
+        if(BOSS.DEBUG) {
+            subtext("phase 0");
+        }
+
+        while(BOSS.PHASE == 0x00) {
+            if(BOSS.TIMER > BOSS.P1_TIME_BEFORE_SALVAGE) {
+                cast_salvage(ACTIVE, 0d2, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[0x0b] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER++;
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("phase 1");
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            if(BOSS.TIMER > BOSS.P2_TIME_BEFORE_SALVAGE) {
+                cast_salvage(ACTIVE, 0d2, 0x00);
+
+                BOSS.TIMER = 0x00;
+            }
+        
+            if(BOSS.RIDER_ID[PALETTE] == 0x0800) { // TODO: buggy, since menu resets paletts
+                BOSS.TIMER++;
+            }
+            yield();
+        }
+
+        BOSS.TIMER = 0x0000;
+        cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+        cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+
+        while(BOSS.PHASE == 0x01) {
+            BOSS.TIMER++;
+
+            if(BOSS.TIMER > BOSS.TIME_BEFORE_RANDOM_SPELL) {
+                BOSS.TIMER = 0x0000;
+
+                BOSS.RANDOM_SPELL = randrange(0x03);
+
+                if(BOSS.RANDOM_SPELL == 0x00) {
+                    cast(BOSS.RIDER_ID, BOSS.RIDER_ID, FORCE_FIELD, 0x05);
+                    cast(BOSS.RIDER_ID, ACTIVE, CONFOUND, 0x05);
+                } else if(BOSS.RANDOM_SPELL == 0x01) {
+                    cast(BOSS.RIDER_ID, ACTIVE, DRAIN, 0x30);
+                } else if(BOSS.RANDOM_SPELL == 0x02) {
+                    cast(BOSS.RIDER_ID, ACTIVE, PLAGUE, 0x01);
+                } 
+            }
+            yield();
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("phase 2");
+        }
+
+        boss_killed();
+    }
+
+    fun spawn_boss(x, y) {
+        add_enemy(VERMINATOR, x, y);
+        <LAST_ENTITY>[HP] = BOSS.HP;
+        BOSS.RIDER_ID = <LAST_ENTITY>;
+        attach_script(LAST_ENTITY, DAMAGE, reference(boss_damage));
+        attribute(LAST_ENTITY, ROOT, True);
+
+        add_enemy(STERLING, x, y);
+        BOSS.MOUNT_ID = <LAST_ENTITY>;
+        // attach_sterling_script_to_last_entity();
+        // attribute(LAST_ENTITY, ROOT, True);
+    }
+
+    fun trigger_enter() {
+        // character_selection(BOY);
+        
+        if!(FLAG.IN_ANIMATION) {
+            crash_both();
+        }
+
+        default_init_room(True, False);
+
+        if!(SOULS_MEMORY.DEAD_ARENA_RADAHN) {
+            close_exits(True);
+
+            spawn_boss(0d16, 0d19);
+
+            attach_sterling_script(BOSS.MOUNT_ID, True, BOSS.GRAB_DISTANCE, 0d40, 0d25, 0x0118, BOSS.GRAB_DAMAGE);
+            stack_t01_offset();
+            boss_watcher();
+        }
+    }
+};

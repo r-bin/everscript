@@ -1324,16 +1324,24 @@ class Include(BaseBox):
     def eval(self):
         from compiler.lexer import Lexer
         from compiler.parser import Parser
+        from compiler.preprocessor import preprocess
+        import os
 
-        print(f" - handle import '{self.path}':")
+        path = self.path
+        # If path is a directory, look for main.evs inside it
+        if os.path.isdir(path):
+            path = os.path.join(path, 'main.evs')
+
+        print(f" - handle import '{path}':")
 
         lexer = Lexer().get_lexer()
         pg = Parser(self.generator)
         pg.parse()
         parser = pg.get_parser()
 
-        script = open(self.path, 'r').read()
-        #print(f"{self.path} -> {list(lexer.lex(script))}")
+        script = open(path, 'r').read()
+        script = preprocess(script, path)
+        #print(f"{path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
         outUtils = _injector.get(OutUtils)
         outUtils.dump(re.sub(r"\),", r"\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")

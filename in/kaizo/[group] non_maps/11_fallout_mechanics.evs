@@ -1,0 +1,227 @@
+group fallout_mechanics() {
+    enum RADIATION {
+        DEBUG = False,
+
+        RADIATION_LEVEL = memory(WORD, TEMP_RESERVED),
+
+        RADIATION_CURRENT_ACTIVE = memory(FLAG, SRAM),
+        RADIATION_CURRENT = memory(BYTE, SRAM),
+        RADIATION_ROOM_ACTIVE = memory(FLAG, TEMP_RESERVED),
+        RADIATION_ROOM_CURRENT = memory(WORD, TEMP_RESERVED),
+
+        RADIATION_MAX = 0d255,
+        RADIATION_DECAY = 0d5,
+        RADIATION_DAMAGE = 0d1,
+
+        RADIATION_BUMP_PROXIMITY = 0d20,
+        RADIATION_BUMP_TOUCH = 0d100,
+
+        THRESHOLD_DAMAGE = 0d100,
+
+        HALF_TIME_DURING_SCREEN_TRANSITION = True,
+    }
+
+    @install()
+    fun prepare_radiating_entity(entity) {
+        if!(SOULS_MEMORY.RADIATION_SOURCE_1) {
+            SOULS_MEMORY.RADIATION_SOURCE_1 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_2) {
+            SOULS_MEMORY.RADIATION_SOURCE_2 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_3) {
+            SOULS_MEMORY.RADIATION_SOURCE_3 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_4) {
+            SOULS_MEMORY.RADIATION_SOURCE_4 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_5) {
+            SOULS_MEMORY.RADIATION_SOURCE_5 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_6) {
+            SOULS_MEMORY.RADIATION_SOURCE_6 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_7) {
+            SOULS_MEMORY.RADIATION_SOURCE_7 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_8) {
+            SOULS_MEMORY.RADIATION_SOURCE_8 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_9) {
+            SOULS_MEMORY.RADIATION_SOURCE_9 = entity;
+        } else if!(SOULS_MEMORY.RADIATION_SOURCE_10) {
+            SOULS_MEMORY.RADIATION_SOURCE_10 = entity;
+        }
+    }
+
+    @install()
+    fun increase_radiation(amount) {
+        if(RADIATION.RADIATION_CURRENT < (RADIATION.RADIATION_MAX - amount)) {
+            RADIATION.RADIATION_CURRENT += amount;
+
+            if(RADIATION.RADIATION_LEVEL) {
+                RADIATION.RADIATION_CURRENT += amount + amount;
+            }
+        } else {
+            RADIATION.RADIATION_CURRENT = RADIATION.RADIATION_MAX;
+        }
+    }
+
+
+    @install()
+    fun _radiation_click(force_click) {
+        if(force_click || (MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2)) {
+            sound(CLICK_1);
+
+            if(True) {
+                sleep(randrange(0d2));
+                sound(NONE);
+            }
+        }
+    }
+    @install()
+    fun radiation_click(no_bonus_clicks, force_click) {
+        _radiation_click(force_click);
+
+        if!(no_bonus_clicks) {
+            if(rand(0x1)) {
+                sleep(0d5 + randrange(0d10));
+
+                _radiation_click(force_click);
+            }
+            if(rand(0x1)) {
+                sleep(randrange(0d30));
+            }
+            if(rand(0x1)) {
+                sleep(0d3 + randrange(0d10));
+
+                _radiation_click(force_click);
+
+                if(rand(0x1)) {
+                    sleep(0d1 + randrange(0d10));
+
+                    _radiation_click(force_click);
+                }
+            }
+        }
+    }
+
+    fun _radiation_handler_range_checker(source, target, range) {
+        if(target) { // alive(target)
+            check_range_old(source, target, range, range, {
+                increase_radiation(RADIATION.RADIATION_BUMP_PROXIMITY);
+                // sleep(0d30 + randrange(0d30));
+
+                if(False) {
+                    arg[0x14] = 0d5 + randrange(0d5);
+                    while(arg[0x14] > 0d0) {
+                        arg[0x14]--;
+                        sleep(0d30 + randrange(0d30));
+
+                        radiation_click();
+                    }
+                } else {
+                    radiation_click();
+                }
+            });
+        }
+
+        if(True) {
+            sleep(0d5 + randrange(0d5));
+        } else {
+            radiation_click();
+        }
+    }
+    @install()
+    @async()
+    fun _radiation_handler(source, range) {
+        attach_to_script(source);
+
+        if(RADIATION.HALF_TIME_DURING_SCREEN_TRANSITION) {
+            RADIATION.RADIATION_CURRENT >>= 0d1;
+        }
+
+        sleep(0d30);
+
+        if((SOULS_MEMORY.RADIATION_SOURCE_1 != 0x0000) || RADIATION.RADIATION_CURRENT || RADIATION.RADIATION_ROOM_ACTIVE) {
+            radiation_click();
+        } else {
+            if(RADIATION.DEBUG && False) {
+                debug_memory(SOULS_MEMORY.RADIATION_SOURCE_1, RADIATION.RADIATION_CURRENT_ACTIVE, RADIATION.RADIATION_CURRENT);
+            }
+
+            end();
+        }
+
+        arg[0x12] = 0d2 + randrange(0d3);
+
+        while(True) {
+            arg[0x10] = 0d0;
+            arg[0x12]--;
+            
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_1, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_2, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_3, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_4, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_5, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_6, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_7, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_8, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_9, range);
+            _radiation_handler_range_checker(source, SOULS_MEMORY.RADIATION_SOURCE_10, range);
+
+            if(RADIATION.RADIATION_ROOM_CURRENT) {
+                arg[0x10] += RADIATION.RADIATION_ROOM_CURRENT;
+            }
+
+            if(arg[0x10] > 0d0) {
+                if((RADIATION.RADIATION_CURRENT + arg[0x10]) >= RADIATION.RADIATION_MAX) {
+                    damage(BOY, SYSTEM.HP_MAX, False, True);
+                    end();
+                }
+
+                RADIATION.RADIATION_CURRENT += arg[0x10];
+                
+                radiation_click();
+            } else {
+                // if!(RADIATION.RADIATION_LEVEL) {
+                    if(RADIATION.RADIATION_CURRENT > RADIATION.RADIATION_DECAY) {
+                        RADIATION.RADIATION_CURRENT -= RADIATION.RADIATION_DECAY;
+                    } else {
+                        RADIATION.RADIATION_CURRENT = 0d0;
+                    }
+                // }
+            
+                if(arg[0x12] == 0d0) {
+                    arg[0x12] = 0d2 + randrange(0d3);
+
+                    if(SOULS_MEMORY.RADIATION_SOURCE_1) {
+                        radiation_click();
+                    }
+                }
+            }
+
+            arg[0x14] = randrange(0d2);
+            if(RADIATION.DEBUG) {
+                debug_memory(RADIATION.RADIATION_CURRENT, arg[0x10], arg[0x14]);
+            }
+
+            if!(arg[0x14]) {
+                if(RADIATION.RADIATION_CURRENT_ACTIVE) {
+                    if(RADIATION.RADIATION_CURRENT == 0d0) {
+                        RADIATION.RADIATION_CURRENT_ACTIVE = False;
+                    } else {
+                        // damage(BOY, RADIATION.RADIATION_DAMAGE, True, True);
+                        reduce_max_hp(0d1);
+                    }
+                } else if(RADIATION.RADIATION_CURRENT > RADIATION.THRESHOLD_DAMAGE) {
+                    RADIATION.RADIATION_CURRENT_ACTIVE = True;
+                }
+            }
+        }
+    }
+    fun radiation_handler() {
+        _radiation_handler(<BOY>, 0d50);
+        // yield();
+    }
+
+    fun pip_boy(callback) {
+        if((<ACTIVE> == <BOY>) && (MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2)) {
+            callback();
+        } else {
+            fake_b();
+        }
+    }
+};

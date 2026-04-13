@@ -1,0 +1,695 @@
+group helper_metro() {
+    fun metro_death_trigger(callback) {
+        _boy_death();
+
+        yield();
+
+        control(NONE);
+        
+        if(False) {
+            animate(BOY, ONCE, ANIMATION_ENEMY.DUST);
+            animate(DOG, ONCE, ANIMATION_ENEMY.DUST);
+        }
+
+        sleep(0d60);
+
+        if(False) {
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.TELEPORT_IN);
+            animate(DOG, ONCE_FREEZE, ANIMATION_DOG.ACT2_TELEPORT);
+        } else {
+            if!(CUSTOM_FLAG.NO_BOY) {
+                teleporter_animation_out(<BOY>);
+            }
+
+            if!(FLAG.DOG_UNAVAILABLE || CUSTOM_FLAG.NO_DOG || CUSTOM_FLAG.DOG_BUSY) {
+                teleporter_animation_out(<DOG>);
+            }
+        }
+
+        sleep(0d60);
+
+        fade_out();
+        
+        refresh_flask();
+        refresh_both(False);
+        
+        callback();
+    }
+
+    @install()
+    fun _default_metro_init_room() {
+        if!(FLAG.ENERGY_CORE) {
+            CUSTOM_FLAG.NO_START = True;
+        }
+    }
+    fun default_metro_init_room(death_trigger) {
+        default_init_room(False, False);
+
+        _default_metro_init_room();
+
+        if(death_trigger !is None) {
+            if(AREA_METRO.REGENERATION_INN_ROOM) {
+                if!(CUSTOM_FLAG.NO_BOY) {
+                    attach_script(BOY, DAMAGE_DEATH, death_trigger);
+                } else {
+                    attach_script(DOG, DAMAGE_DEATH, death_trigger);
+                }
+            }
+        }
+    }
+
+    fun guard_power(direction:DIRECTION) {
+        if!(AREA_METRO.LEVER_REACTOR_ROOM) {
+            error_message(SWITCH_ENERGY, direction);
+            end();
+        }
+    }
+
+    fun permission_denied() {
+        dialog("[SLOW]…Unautorized user… access denied… Please present clearance…[B]");
+    }
+
+    @install()
+    fun _guard_entrance_gate(flag, radiation_check) {
+        CUSTOM_MEMORY.RETURN = False;
+
+        if(radiation_check && (RADIATION.RADIATION_CURRENT > 0d0)) {
+            control(NONE);
+
+            if(radiation_check) {
+                for(arg[0x0e] in 0d0..0d10) {
+                    radiation_click(False, True);
+                }
+            }
+
+            sound(PIPING_SOUND);
+
+            error_walk_back(SOUTH);
+            face(ACTIVE, NORTH);
+
+            MEMORY.STRING_PARAMETER_1 = RADIATION.RADIATION_CURRENT;
+            dialog("[SLOW]Warning: Biohazard detected. Radiation level [MEM1] measured. Quarantine breach imminent.[B]");
+
+            control(BOTH);
+
+            end();
+        } else if!(flag) {
+            sound(PIPING_SOUND);
+
+            error_walk_back(SOUTH);
+
+            permission_denied();
+            face(ACTIVE, NORTH);
+
+            end();
+        } else {
+            sound(ACT4_DOOR_OPENING);
+        }
+
+        CUSTOM_MEMORY.RETURN = True;
+    }
+    fun guard_entrance_gate(flag, radiation_check) {
+        _guard_entrance_gate(flag, radiation_check);
+
+        if(AREA_METRO.DEBUG) {
+            debug_memory(flag, MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2, CUSTOM_MEMORY.RETURN);
+        }
+
+        if!(CUSTOM_MEMORY.RETURN) {
+            end();
+        }
+    }
+
+    @install()
+    fun add_radiating_tentacle(x, y) {
+        add_colored_enemy(TENTACLE_SPIKE, AREA_METRO.PALETTE_RADIATING_ENEMY, x, y);
+        prepare_radiating_entity(<LAST_ENTITY>);
+    }
+
+    group fallout_computer() {
+        enum TERMINAL {
+            SCANNING_MAGIC_GOURD = memory(FLAG, SRAM),
+            SCANNING_ENERGY_CORE = memory(FLAG, SRAM),
+            SCANNING_WHEEL = memory(FLAG, SRAM),
+            SCANNING_GAUGE = memory(FLAG, SRAM),
+            SCANNING_DIAMOND_EYES = memory(FLAG, SRAM),
+            SCANNING_STAFF_OF_LIFE = AREA_METRO.REGENERATION_INN_ROOM,
+        }
+        enum TERMINAL_HELPER {
+            POWER = AREA_METRO.LEVER_REACTOR_ROOM || TERMINAL.SCANNING_ENERGY_CORE,
+        }
+
+        fun fallout_text_init() {
+            text_box(0d6, 0d10);
+
+            if(False) {
+                text("[SLOW][INVERTED][BOLD]");
+            } else {
+                text("[SLOW]");
+            }
+        }
+        fun fallout_text_analyzing() {
+            text("[PAUSE:20].[PAUSE:20].[PAUSE:20].ANALYZING[PAUSE:20].[PAUSE:20].[PAUSE:20].[PAUSE:50][LF][LF]");
+        }
+        fun fallout_text_processing() {
+            text("[PAUSE:20].[PAUSE:20].[PAUSE:20].PROCESSING[PAUSE:20].[PAUSE:20].[PAUSE:20].[PAUSE:50][LF][LF]");
+        }
+        fun fallout_text_portal_progress() {
+            MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_WHEEL + TERMINAL.SCANNING_GAUGE + TERMINAL.SCANNING_DIAMOND_EYES;
+            text("PROGRESS=[MEM1]");
+        }
+        fun fallout_text_insert_item() {
+            text("> INSERT ITEM[PAUSE:50][LF][LF]");
+            fallout_text_analyzing();
+        }
+        fun fallout_text_eject_item() {
+            text("> EJECT ITEM[PAUSE:50][LF][LF]");
+            fallout_text_analyzing();
+        }
+        fun fallout_text_detect_error() {
+            text("ERROR:[PAUSE:20] NO VALID ITEM FOUND[B]");
+        }
+
+        @install()
+        fun fallout_screen_permission_general() {
+            sound(PIPING_SOUND);
+
+            fallout_text_init();
+            text("> ACCESS DENIED[PAUSE:50][LF][LF]");
+            
+            text("UNAUTHORIZED USER[PAUSE:50][LF][LF]");
+            text("PRESENT CLEARANCE");
+
+            text("[B]");
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_permission_portal() {
+            sound(PIPING_SOUND);
+
+            fallout_text_init();
+            text("> ACCESS DENIED[PAUSE:50][LF][LF]");
+            
+            fallout_text_analyzing();
+
+            MEMORY.STRING_PARAMETER_1 = TERMINAL_HELPER.POWER;
+            text("POWER:[PAUSE:50] [MEM1][LF][PAUSE:50]");
+
+            MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_DIAMOND_EYES && TERMINAL.SCANNING_GAUGE && TERMINAL.SCANNING_WHEEL;
+            text("RELICS:[PAUSE:50] [MEM1]");
+
+            text("[B]");
+
+            text_end();
+        }
+
+        @install()
+        fun fallout_screen_code_plot_color(color) {
+            if(color == 0d0) {
+                text("RED");
+            } else if(color == 0d1) {
+                text("BLUE");
+            } else if(color == 0d2) {
+                text("GREEN");
+            } else {
+                text("???");
+            }
+        }
+        @install()
+        fun fallout_screen_code_plot_lever(lever) {
+            if(lever == 0d0) {
+                text("OFF");
+            } else if(lever == 0d1) {
+                text("ON");
+            } else {
+                text("???");
+            }
+        }
+        @install()
+        fun fallout_screen_code(code) {
+            fallout_text_init();
+            text("> PANIC ROOM ACCESS[PAUSE:50][LF][LF]");
+            fallout_text_processing();
+
+            arg[0x10] = (code >> 0d0) & 0x3; // rgb_1
+            arg[0x12] = (code >> 0d2) & 0x3; // rgb_2
+            arg[0x14] = (code >> 0d4) & 0x3; // rgb_3
+            arg[0x16] = (code >> 0d6) & 0x1; // right
+            arg[0x18] = (code >> 0d7) & 0x1; // left
+
+            fallout_screen_code_plot_color(arg[0x10]);
+            text("[PAUSE:10][LF]");
+            fallout_screen_code_plot_color(arg[0x12]);
+            text("[PAUSE:10][LF]");
+            fallout_screen_code_plot_color(arg[0x14]);
+            text("[PAUSE:10][LF]");
+
+            fallout_screen_code_plot_lever(arg[0x16]);
+            text("[PAUSE:10][LF]");
+            fallout_screen_code_plot_lever(arg[0x18]);
+            text("[B]");
+
+            text_end();
+        }
+
+        @install()
+        fun fallout_screen_read_log() {
+            fallout_text_init();
+            text("> ACCESS GRANTED[PAUSE:50][LF][LF]");
+            fallout_text_processing();
+            text("[PAGE]");
+
+            text("> CLONING_PROTOCOL[PAUSE:50][LF]");
+            if!(TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                text("INACTIVE[PAUSE:50][LF][LF]");
+            } else {
+                text("ACTIVE[PAUSE:50][LF][LF]");
+            }
+            text("[B]");
+
+            text("> EMERGENCY PROTOCOL[PAUSE:20][LF]");
+            text("ACTIVE[PAUSE:50][LF][LF]");
+            text("ENTRY SEALED[PAUSE:50][LF]");
+            text("CLONE EXPERIMENT HALTED[PAUSE:50][LF]");
+            text("SECRET CHAMBERS SEALED[B]");
+        }
+
+        @install()
+        fun fallout_screen_scan_item_magic_gourd() {
+            fallout_text_init();
+
+            if(FLAG.MAGIC_GOURD || TERMINAL.SCANNING_MAGIC_GOURD) {
+                text("> MAGIC GOURD[PAUSE:50]");
+                if!(TERMINAL.SCANNING_MAGIC_GOURD) {
+                    text("[CHOICE][1] INSERT");
+                } else {
+                    text("[CHOICE][1] EJECT");
+                }
+                text("[CHOICE][2] EXIT");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                    text_end();
+
+                    fallout_text_init();
+
+                    if!(TERMINAL.SCANNING_MAGIC_GOURD) {
+                        TERMINAL.SCANNING_MAGIC_GOURD = True;
+                        FLAG.MAGIC_GOURD = False;
+
+                        text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                        text("ERROR:[PAUSE:20] NO EFFECT[B]");
+                    } else {
+                        TERMINAL.SCANNING_MAGIC_GOURD = False;
+                        FLAG.MAGIC_GOURD = True;
+
+                        text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                    }
+
+                    text_end();
+                }
+            } else {
+                fallout_text_detect_error();
+            }
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_scan_item_energy_core() {
+            fallout_text_init();
+
+            if(FLAG.ENERGY_CORE || TERMINAL.SCANNING_ENERGY_CORE) {
+                text("> ENERGY_CORE[PAUSE:50]");
+                if!(TERMINAL.SCANNING_ENERGY_CORE) {
+                    text("[CHOICE][1] INSERT");
+                } else {
+                    text("[CHOICE][1] EJECT");
+                }
+                text("[CHOICE][2] EXIT");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                    text_end();
+
+                    fallout_text_init();
+
+                    if!(TERMINAL.SCANNING_ENERGY_CORE) {
+                        TERMINAL.SCANNING_ENERGY_CORE = True;
+                        FLAG.ENERGY_CORE = False;
+
+                        text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                        text("ERROR:[PAUSE:20] NO EFFECT[B]");
+                    } else {
+                        TERMINAL.SCANNING_ENERGY_CORE = False;
+                        FLAG.ENERGY_CORE = True;
+
+                        if(!AREA_METRO.LEVER_REACTOR_ROOM) {
+                            text("[SLOW]> SHUTTING DOWN[B]");
+                            text_end();
+                            end();
+                        }
+
+                        text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                    }
+
+                    text_end();
+                }
+            } else {
+                fallout_text_detect_error();
+            }
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_scan_item_wheel() {
+            fallout_text_init();
+
+            if(FLAG.WHEEL || TERMINAL.SCANNING_WHEEL) {
+                text("> WHEEL[PAUSE:50]");
+                if!(TERMINAL.SCANNING_WHEEL) {
+                    text("[CHOICE][1] INSERT");
+                } else {
+                    text("[CHOICE][1] EJECT");
+                }
+                text("[CHOICE][2] EXIT");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                    text_end();
+
+                    fallout_text_init();
+
+                    if!(TERMINAL.SCANNING_WHEEL) {
+                        TERMINAL.SCANNING_WHEEL = True;
+                        FLAG.WHEEL = False;
+
+                        text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                        text("SUCCESS:[PAUSE:20] ");
+                        fallout_text_portal_progress();
+                        text("[B]");
+                    } else {
+                        TERMINAL.SCANNING_WHEEL = False;
+                        FLAG.WHEEL = True;
+
+                        text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                    }
+
+                    text_end();
+                }
+            } else {
+                fallout_text_detect_error();
+            }
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_scan_item_gauge() {
+            fallout_text_init();
+
+            if(FLAG.GAUGE || TERMINAL.SCANNING_GAUGE) {
+                text("> GAUGE[PAUSE:50]");
+                if!(TERMINAL.SCANNING_GAUGE) {
+                    text("[CHOICE][1] INSERT");
+                } else {
+                    text("[CHOICE][1] EJECT");
+                }
+                text("[CHOICE][2] EXIT");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                    text_end();
+
+                    fallout_text_init();
+
+                    if!(TERMINAL.SCANNING_GAUGE) {
+                        TERMINAL.SCANNING_GAUGE = True;
+                        FLAG.GAUGE = False;
+
+                        text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                        text("SUCCESS:[PAUSE:20] ");
+                        fallout_text_portal_progress();
+                        text("[B]");
+                    } else {
+                        TERMINAL.SCANNING_GAUGE = False;
+                        FLAG.GAUGE = True;
+
+                        text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                    }
+
+                    text_end();
+                }
+            } else {
+                fallout_text_detect_error();
+            }
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_scan_item_diamond_eyes() {
+            fallout_text_init();
+
+            if(FLAG.DIAMOND_EYES || TERMINAL.SCANNING_DIAMOND_EYES) {
+                text("> DIAMOND_EYES[PAUSE:50]");
+                if!(TERMINAL.SCANNING_DIAMOND_EYES) {
+                    text("[CHOICE][1] INSERT");
+                } else {
+                    text("[CHOICE][1] EJECT");
+                }
+                text("[CHOICE][2] EXIT");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                    text_end();
+
+                    fallout_text_init();
+
+                    if!(TERMINAL.SCANNING_DIAMOND_EYES) {
+                        TERMINAL.SCANNING_DIAMOND_EYES = True;
+                        FLAG.DIAMOND_EYES = False;
+
+                        text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                        text("SUCCESS:[PAUSE:20] ");
+                        fallout_text_portal_progress();
+                        text("[B]");
+                    } else {
+                        TERMINAL.SCANNING_DIAMOND_EYES = False;
+                        FLAG.DIAMOND_EYES = True;
+
+                        text("> EJECTING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                    }
+
+                    text_end();
+                }
+            } else {
+                fallout_text_detect_error();
+            }
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_scan_item_staff_of_life() {
+            fallout_text_init();
+
+            if(FLAG.STAFF_OF_LIFE || TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                text("> STAFF_OF_LIFE[PAUSE:50]");
+                if!(TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                    text("[CHOICE][1] INSERT");
+                } else {
+                    text("[CHOICE][1] EJECT");
+                }
+                text("[CHOICE][2] EXIT");
+                await_answer();
+                text_end();
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                    text_end();
+
+                    fallout_text_init();
+
+                    if!(TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                        TERMINAL.SCANNING_STAFF_OF_LIFE = True;
+                        FLAG.STAFF_OF_LIFE = False;
+
+                        text("> SCANNING ITEM[PAUSE:50][LF][LF]");
+                        fallout_text_processing();
+                        text("SUCCESS:[PAUSE:20][LF]CLONING PROTOCOL = ACTIVE[B]");
+                    } else {
+                        TERMINAL.SCANNING_STAFF_OF_LIFE = False;
+                        FLAG.STAFF_OF_LIFE = True;
+
+                        text("> EJECTING ITEM[PAUSE:50][LF]CLONING PROTOCOL = INACTIVE[PAUSE:20][LF][LF]");
+                        fallout_text_processing();
+                    }
+
+                    text_end();
+                }
+            } else {
+                fallout_text_detect_error();
+            }
+
+            text_end();
+        }
+        @install()
+        fun fallout_screen_scan_item() {
+            while(TERMINAL_HELPER.POWER) {
+                fallout_text_init();
+
+                if!(arg[0x0e]) {
+                    arg[0x0e] = True;
+                    text("> DETECTING ITEMS[LF][LF]");
+                    fallout_text_analyzing();
+                    text("[PAGE]");
+                }
+                
+                text("> MANUAL LOADED[PAUSE:50]");
+
+                if(FLAG.MAGIC_GOURD || TERMINAL.SCANNING_MAGIC_GOURD) {
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_MAGIC_GOURD;
+                    text("[CHOICE][1] MAGIC_GOURD: [MEM1]");
+                } else {
+                    text("[CHOICE][1] …");
+                }
+                if(FLAG.ENERGY_CORE || TERMINAL.SCANNING_ENERGY_CORE) {
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_ENERGY_CORE;
+                    text("[CHOICE][2] ENERGY_CORE: [MEM1]");
+                } else {
+                    text("[CHOICE][2] …");
+                }
+                if(FLAG.WHEEL || TERMINAL.SCANNING_WHEEL) {
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_WHEEL;
+                    text("[CHOICE][3] WHEEL: [MEM1]");
+                } else {
+                    text("[CHOICE][3] …");
+                }
+                if(FLAG.DIAMOND_EYES || TERMINAL.SCANNING_DIAMOND_EYES) {
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_DIAMOND_EYES;
+                    text("[CHOICE][4] DIAMOND_EYES: [MEM1]");
+                } else {
+                    text("[CHOICE][4] …");
+                }
+                if(FLAG.GAUGE || TERMINAL.SCANNING_GAUGE) {
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_GAUGE;
+                    text("[CHOICE][5] GAUGE: [MEM1]");
+                } else {
+                    text("[CHOICE][5] …");
+                }
+                if(FLAG.STAFF_OF_LIFE || TERMINAL.SCANNING_STAFF_OF_LIFE) {
+                    MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_STAFF_OF_LIFE;
+                    text("[CHOICE][6] STAFF_OF_LIFE: [MEM1]");
+                } else {
+                    text("[CHOICE][6] …");
+                }
+
+                text("[CHOICE][7] EXIT");
+
+                await_answer(arg[0x10]);
+                text_end();
+
+                arg[0x10] = MEMORY.QUESTION_ANSWER;
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // magic gourd
+                    fallout_screen_scan_item_magic_gourd();
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // energy core
+                    fallout_screen_scan_item_energy_core();
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // wheel
+                    fallout_screen_scan_item_wheel();
+                } else if(MEMORY.QUESTION_ANSWER == 0d3) { // diamond eyes
+                    fallout_screen_scan_item_diamond_eyes();
+                } else if(MEMORY.QUESTION_ANSWER == 0d4) { // gauge
+                    fallout_screen_scan_item_gauge();
+                } else if(MEMORY.QUESTION_ANSWER == 0d5) { // staff of life
+                    fallout_screen_scan_item_staff_of_life();
+                } else {
+                    end();
+                }
+            }
+        }
+
+        @install()
+        fun _fallout_screen_main() {
+            control(NONE);
+
+            sound(UNKNOWN_ALCHEMY);
+            sleep(0d30);
+            sound(HEAL_END);
+            sleep(0d30);
+            sound(HEAL_END);
+            
+            while(TERMINAL_HELPER.POWER) {
+                MEMORY.STRING_PARAMETER_1 = TERMINAL.SCANNING_STAFF_OF_LIFE;
+                MEMORY.STRING_PARAMETER_2 = TERMINAL.SCANNING_DIAMOND_EYES && TERMINAL.SCANNING_GAUGE && TERMINAL.SCANNING_WHEEL;
+
+                fallout_text_init();
+                text("> WAITING FOR PROMPT");
+                text("[CHOICE][1] READ_LOG");
+                text("[CHOICE][2] SCAN_ITEM");
+                text("[CHOICE][3] EMERGENCY_EXIT: [MEM2]");
+                text("[CHOICE][4] EXIT");
+                await_answer(arg[0x10]);
+                text_end();
+
+                arg[0x10] = MEMORY.QUESTION_ANSWER;
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // read log
+                    // fallout_screen_code(0x0000);
+                    fallout_screen_read_log();
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // scan item
+                    fallout_screen_scan_item();
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // emergency exit (DEs, wheel, gauge)
+                    if(MEMORY.STRING_PARAMETER_2) {
+                        teleporter_out(0d48, 0d71);
+                        map_transition(metro, center, NONE);
+                    } else {
+                        fallout_screen_permission_portal();
+                    }
+                } else {
+                    control(BOTH);
+                    end();
+                }
+            }
+        }
+        @install()
+        fun fallout_screen_main() {
+            if!(TERMINAL_HELPER.POWER) {
+                if(FLAG.ENERGY_CORE) {
+                    question("[SLOW]Insert Energy Core[CHOICE]insert…[CHOICE]leave…");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // insert
+                        TERMINAL.SCANNING_ENERGY_CORE = True;
+                    } else {
+                        error_walk_back(SOUTH);
+                        control(BOTH);
+                        end();
+                    }
+                } else {
+                    error_message(SWITCH_ENERGY, SOUTH);
+                    end();
+                }
+            }
+
+            if!((MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_2) || (MEMORY.CURRENT_ARMOR_GLOVE == ARMOR_STATS.GLOVE_4_3)) {
+                fallout_screen_permission_general();
+            } else {
+                _fallout_screen_main();
+            }
+
+            error_walk_back(SOUTH);
+        }  
+    };
+};

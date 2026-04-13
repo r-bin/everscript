@@ -1,0 +1,132 @@
+map market_west(IVOR_MARKET) {
+    enum entrance {
+        north = entrance(0x2a, 0x01, SOUTH),
+        east = entrance(0x39, 0xc3, WEST),
+    }
+
+    enum soundtrack {
+        default = soundtrack(CASTLE.MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_north = @install() {
+            map_transition(castle_center, south_3, NORTH);
+        },
+        exit_east = @install() {
+            map_transition(castle_fire_pit, west, EAST);
+        },
+    }
+
+    fun trigger_enter() {
+        if((time[0d0] < MARKET.START) || SOULS_MEMORY.CHEAT_PERMANENT_MARKET) {
+            if(MARKET.DEBUG) {
+                debug_subtext("market not empty");
+            }
+
+            // north
+            add_enemy(VILLAGER_3_6, 0d9, 0d31, INACTIVE);
+            face(LAST_ENTITY, EAST);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                question("[SLOW]Buy Iron?[CHOICE]Limestone 5:1[CHOICE]Vinegar 5:1[CHOICE]Bones 3:1", 0d5);
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // limestone
+                    trade_items(IRON, 0d1, LIMESTONE, 0d5);
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // vinegar
+                    trade_items(IRON, 0d1, VINEGAR, 0d5);
+                } else if(MEMORY.QUESTION_ANSWER == 0d2) { // bone
+                    trade_items(IRON, 0d1, BONE, 0d3);
+                }
+
+                control(BOTH);
+            }));
+
+            add_enemy(VILLAGER_3_5, 0d9, 0d58, INACTIVE);
+            face(LAST_ENTITY, EAST);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                question("[SLOW]Buy Mushrooms?[CHOICE]Water 1:1");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // water
+                    dialog("[SLOW]Sorry, I'm all out for today…[B]");
+                }
+
+                control(BOTH);
+            }));
+
+            add_enemy(VILLAGER_2_1, 0d9, 0d116, INACTIVE);
+            face(LAST_ENTITY, EAST);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                question("[SLOW]TICKETS… TICKETS…[CHOICE]100 Souls…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // Souls
+                    trade_items(TICKET_FOR_EXHIBITION, 0d1, MONEY, 0d100);
+                }
+
+                control(BOTH);
+            }));
+
+            // south
+            add_enemy(VILLAGER_3_5, 0d9, 0d192, INACTIVE);
+            face(LAST_ENTITY, EAST);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                question("[SLOW]Magic Beads?[CHOICE]buy…[CHOICE]sell…");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // buy
+                    question("[SLOW]Buy magic bead?[CHOICE]Spice 10:1");
+
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // spice
+                        trade_items(BEAD, 0d1, SPICE, 0d10);
+                    }
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // sell
+                    question("[SLOW]Sell magic bead?[CHOICE]Rice 5:1[CHOICE]Spice 5:1");
+                    
+                    if(MEMORY.QUESTION_ANSWER == 0d0) { // rice
+                        trade_items(RICE, 0d5, BEAD, 0d1);
+                    } else if(MEMORY.QUESTION_ANSWER == 0d1) { // spice
+                        trade_items(SPICE, 0d5, BEAD, 0d1);
+                    }
+                }
+            }));
+            add_enemy(VILLAGER_3_5, 0d9, 0d196, INACTIVE);
+            face(LAST_ENTITY, EAST);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_market_break(True);
+
+                question("[SLOW]Buy random weapon orb?[CHOICE]Spice 10:1");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // spice
+                    item_pay(SPICE, 0d10);
+
+                    if(CUSTOM_MEMORY.RETURN) {
+                        arg[0x10] = randrange(0d3);
+                        if(arg[0x10] == 0d0) {
+                            custom_reward(AXE_ORB, True);
+                        } else if(arg[0x10] == 0d1) {
+                            custom_reward(SPEAR_ORB, True);
+                        } else {
+                            custom_reward(SWORD_ORB, True);
+                        }
+                    }
+                }
+            }));
+        } else {
+            if(MARKET.DEBUG) {
+                debug_subtext("market empty");
+            }
+        }
+
+        if((NPC_DOG_LADY.PROGRESS & 0xf0) < 0x10) {
+            add_souls_npc_dog_lady(0d15, 0d22);
+        }
+
+        init_map(0x0, 0x0, 0x3a, 0xcc);
+        default_init_room(False, False);
+    }
+};

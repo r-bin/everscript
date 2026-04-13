@@ -1,0 +1,218 @@
+group metroidvania() {
+    fun vanilla_grass_cutter(object_id) {
+        if(<ACTIVE> == <BOY>) {
+            animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+
+            if((MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.AXE) || (MEMORY.CURRENT_WEAPON_TYPE == WEAPON_TYPE.SPEAR)) {
+
+                object[object_id] = 0x01;
+            } else {
+                error_message(WRONG_WEAPON);
+            }
+        }
+    }
+
+    fun guard_spear_2(direction:DIRECTION, x, y) {
+        if(False) {
+            call(0x9793ad);
+        } else {
+            if(<ACTIVE> == <DOG>) {
+                end();
+            }
+
+            face(BOY, direction);
+            animate(BOY, ONCE, ANIMATION_ALL.SLASH_1_3);
+
+            if(MEMORY.CURRENT_WEAPON_TYPE != WEAPON_TYPE.SPEAR) {
+                if(x is Word || x is Memory || y is Word || y is Memory) {
+                    set_camera(COORDINATE_CORNER, x, y, 0x80 >> 0d2);
+
+                    wait(CAMERA_PAN_Y);
+
+                    MEMORY.CAMERA_PAN_SPEED = 0x80;
+                    free_camera();
+                }
+
+                error_message(WRONG_WEAPON);
+                end();
+            }
+
+            if(MEMORY.CURRENT_WEAPON < WEAPON_INDEX.SPEAR_2) {
+                error_message(WRONG_WEAPON);
+                end();
+            }
+        }
+    }
+    fun guard_axe_2() {
+        if(<ACTIVE> == <DOG>) {
+            end();
+        }
+        if(MEMORY.CURRENT_WEAPON != WEAPON_INDEX.AXE_2) {
+            end();
+        }
+    }
+
+    enum RETAINABLE_OBJECT {
+        DEFAULT = 0x00,
+
+        WALL_AXE2 = 0x10,
+        WALL_AXE2_FAKE = 0x11,
+        WALL_AXE3 = 0x12,
+        WALL_AXE3_FAKE = 0x13,
+
+        DOOR = 0x20,
+        DOOR_FAKE = 0x21,
+        DOOR_TRIGGER = 0x22,
+
+        ILLUSION = 0x30,
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun explode_barrier(entity, sound_id:SOUND) {
+        if(entity[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+            _add_enemy(PLACEHOLDER, entity[X] - 0x10, entity[Y] - 0x10);
+            arg[0x10] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+            _add_enemy(PLACEHOLDER, entity[X] + 0x20, entity[Y] - 0x20);
+            arg[0x12] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+        } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+            _add_enemy(PLACEHOLDER, entity[X] + 0x10, entity[Y] - 0x10);
+            arg[0x10] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+            _add_enemy(PLACEHOLDER, entity[X] + 0x20, entity[Y] + 0x20);
+            arg[0x12] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+        } else if(entity[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+            _add_enemy(PLACEHOLDER, entity[X] + 0x10, entity[Y] + 0x10);
+            arg[0x10] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+            _add_enemy(PLACEHOLDER, entity[X] - 0x20, entity[Y] + 0x20);
+            arg[0x12] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+        } else {
+            _add_enemy(PLACEHOLDER, entity[X] - 0x20, entity[Y] - 0x20);
+            arg[0x10] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+
+            _add_enemy(PLACEHOLDER, entity[X] - 0x10, entity[Y] + 0x10);
+            arg[0x12] = <LAST_ENTITY>;
+            animate(LAST_ENTITY, ONCE, ANIMATION_PLACEHOLDER.EXPLOSION_1);
+        }
+        
+        if(sound_id > 0d0) {
+            sleep(0d4);
+            // sound(THRAXX_BRIDGE_COLLAPSING);
+        }
+
+        if(arg[0x10]) {
+            wait(arg[0x10]);
+            destroy(arg[0x10]);
+        }
+
+        if(arg[0x12]) {
+            wait(arg[0x12]);
+            destroy(arg[0x12]);
+        }
+    }
+
+    fun _guard_weapon(weapon_check) {
+        if(<ACTIVE> == <BOY>) {
+            animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+            
+            if!(weapon_check) {
+                error_message(WRONG_WEAPON);
+                end();
+            }
+        } else {
+            end();
+        }
+    }
+    fun guard_weapon(weapon:WEAPON_INDEX, weapon_type:WEAPON_TYPE) {
+        if(weapon_type !is None) {
+            _guard_weapon((MEMORY.CURRENT_WEAPON_TYPE == weapon_type) && (MEMORY.CURRENT_WEAPON >= weapon));
+        } else {
+            _guard_weapon(MEMORY.CURRENT_WEAPON >= weapon);
+        }
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun _rimsala_gate(entity) {
+        attach_to_script(entity);
+
+        arg[0x10] = <SCRIPT_OWNER>[Y];
+
+        while!(<SCRIPT_OWNER>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+            <SCRIPT_OWNER>[Y] = arg[0x10];
+            if(<SCRIPT_OWNER>[X] < (<ACTIVE>[X] - 0d10)) {
+                teleport_relative(SCRIPT_OWNER, 0d5, 0d0);
+            } else if(<SCRIPT_OWNER>[X] > (<ACTIVE>[X] + 0d10)) {
+                teleport_relative(SCRIPT_OWNER, -0d5, 0d0);
+            }
+
+            yield();
+        }
+    }
+    fun rimsala_gate(x, y, deactivated, trigger) {
+        if!(deactivated) {
+            add_enemy(RIMSALA_GOLD, x, y, BOMBABLE);
+            attach_script(LAST_ENTITY, DAMAGE, trigger);
+
+            _rimsala_gate(<LAST_ENTITY>);
+        } else {
+            add_enemy(RIMSALA_GOLD, x, y, INACTIVE_IMORTAL);
+        }
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun movement_amplification(entity, time, speed, inverted) {
+        arg[0x10] = entity[X];
+        arg[0x12] = entity[Y];
+
+        while(time) {
+            if((time > 0d0) && (time != 0xffff)) {
+                time--;
+            }
+
+            if((arg[0x10] != entity[X]) || (arg[0x12] != entity[Y])) {
+                if(entity[X] > arg[0x10]) {
+                    arg[0x14] = speed;
+                } else if(entity[X] < arg[0x10]) {
+                    arg[0x14] = -(speed);
+                } else {
+                    arg[0x14] = 0d0;
+                }
+
+                if(entity[Y] > arg[0x12]) {
+                    arg[0x16] = speed;
+                } else if(entity[Y] < arg[0x12]) {
+                    arg[0x16] = -(speed);
+                } else {
+                    arg[0x16] = 0d0;
+                }
+
+                if!(inverted) {
+                    arg[0x14] = -(arg[0x14]);
+                    arg[0x16] = -(arg[0x16]);
+                }
+
+                teleport_relative(entity, -(arg[0x14]), -(arg[0x16]));
+                // debug_memory(arg[0x14], arg[0x16]);
+            }
+
+            arg[0x10] = entity[X];
+            arg[0x12] = entity[Y];
+
+            yield();
+        }
+    }
+};

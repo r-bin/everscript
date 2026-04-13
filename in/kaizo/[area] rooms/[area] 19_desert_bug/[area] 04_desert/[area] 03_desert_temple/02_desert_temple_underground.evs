@@ -1,0 +1,284 @@
+map desert_temple_underground(MEGATAUR) {
+    enum entrance {
+        south = entrance(0x41, 0x53, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_DESERT_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            debug_subtext("S=0");
+
+            fog_wall_inside(!SOULS_MEMORY.DEAD_UNNAMED_DESERT_TEMPLE_BOSS, NORTH);
+
+            map_transition(desert_temple_stairs, door_downstairs, SOUTH);
+        }
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            DEBUG = False,
+
+            PROGRESS = memory(FLAG, TEMP),
+
+            ID_LEFT = memory(WORD, TEMP),
+            ID_RIGHT = memory(WORD, TEMP),
+
+            HP_LEFT = 0d500,
+            HP_RIGHT = 0d400,
+
+            CENTER_X = 0d64 * 0d0008,
+            CENTER_Y = 0d32 * 0d0008,
+
+            ANGLE_THRESHOLD = 0d2, // 0d8 = behind, 0d4 = side, 0s6 = inbetween
+            WITH_SIDE_HIT = False,
+
+            STONE_DAMAGE = 0d100,
+            STONE_STUN_TIME = 0d20 * 0d0060,
+        }
+
+        fun boss_defeated() {
+            souls_boss_defeated_helper(UNNAMED_DESERT_TEMPLE_BOSS);
+
+            BOSS.PROGRESS = False;
+        }
+
+        fun check_defeat() {
+            if(BOSS.DEBUG) {
+                debug_memory(BOSS.ID_LEFT[HP], BOSS.ID_RIGHT[HP]);
+            }
+
+            if(_dead(BOSS.ID_LEFT) && _dead(BOSS.ID_RIGHT)) {
+                boss_defeated();
+            }
+        }
+        @install()
+        fun boss_left_triggered() {
+            arg[0x10] = <SCRIPT_OWNER>[DAMAGE_SOURCE];
+
+            // control(SCRIPT_OWNER, True);
+
+            // if(arg[0x10] >= CHARACTER_ADDRESS.ENTITY_1) {
+            // if(arg[0x10] == <SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS]) {
+            if(arg[0x10]) {
+                // animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+
+                arg[0x12] = <SCRIPT_OWNER>[FACE_DIRECTION];
+                face_target(<SCRIPT_OWNER>, arg[0x10]);
+                arg[0x14] = <SCRIPT_OWNER>[FACE_DIRECTION];
+
+                _face(<SCRIPT_OWNER>, arg[0x12]);
+
+                if(arg[0x12] >= arg[0x14]) {
+                    arg[0x16] = arg[0x12] - arg[0x14];
+                } else {
+                    arg[0x16] = arg[0x14] - arg[0x12];
+                }
+
+                if(arg[0x16] <= BOSS.ANGLE_THRESHOLD) {
+                    if(arg[0x16] <= 0d2) {
+                        heal(SCRIPT_OWNER, 0d0, False);
+                        damage(SCRIPT_OWNER, 0d1, True);
+                    } else {
+                        nop();
+                    }
+
+                    if(BOSS.DEBUG) {
+                        // subtext("bonk");
+                        debug_memory(arg[0x12], arg[0x14], arg[0x16]);
+                    }
+                } else {
+                    if(arg[0x16] <= 0d4) {
+                        nop();
+                    } else {
+                        damage(SCRIPT_OWNER, 0d20, True);
+                    }
+
+                    if(BOSS.DEBUG) {
+                        subtext("hit");
+                    }
+                }
+
+                if(False) {
+                    debug_memory(arg[0x12], arg[0x14]);
+                }
+            }
+
+            // control(SCRIPT_OWNER, False);
+            
+            check_defeat();
+        }
+        @install()
+        fun boss_right_triggered() {
+            check_defeat();
+        }
+
+        fun walk_corner(entity, direction:FACE_DIRECTION) {
+            if(direction == FACE_DIRECTION.NORTH_EAST) {
+                walk(entity, TILE_ABSOLUTE, 0d78, 0d18, entity, NONE);
+            } else if(direction == FACE_DIRECTION.SOUTH_EAST) {
+                walk(entity, TILE_ABSOLUTE, 0d78, 0d47, entity, NONE);
+            } else if(direction == FACE_DIRECTION.SOUTH_WEST) {
+                walk(entity, TILE_ABSOLUTE, 0d50, 0d47, entity, NONE);
+            } else if(direction == FACE_DIRECTION.NORTH_WEST) {
+                walk(entity, TILE_ABSOLUTE, 0d50, 0d18, entity, NONE);
+            } else if(direction == FACE_DIRECTION.NORTH) {
+                walk(entity, TILE_ABSOLUTE, 0d63, 0d18, entity, NONE);
+
+                face(entity, SOUTH);
+                animate(entity, ONCE, ANIMATION_ALL.SLASH_1);
+                control(entity, False);
+            } else if(direction == FACE_DIRECTION.EAST) {
+                walk(entity, TILE_ABSOLUTE, 0d78, 0d33, entity, NONE);
+
+                face(entity, WEST);
+                animate(entity, ONCE, ANIMATION_ALL.SLASH_1);
+                control(entity, False);
+            } else if(direction == FACE_DIRECTION.SOUTH) {
+                walk(entity, TILE_ABSOLUTE, 0d63, 0d47, entity, NONE);
+
+                face(entity, NORTH);
+                animate(entity, ONCE, ANIMATION_ALL.SLASH_1);
+                control(entity, False);
+            } else if(direction == FACE_DIRECTION.WEST) {
+                walk(entity, TILE_ABSOLUTE, 0d50, 0d33, entity, NONE);
+
+                face(entity, EAST);
+                animate(entity, ONCE, ANIMATION_ALL.SLASH_1);
+                control(entity, False);
+            }
+        }
+
+        @install()
+        // @async()
+        fun bident_lap(entity, reversed) {
+            if((entity[X] >= BOSS.CENTER_X) && (entity[Y] < BOSS.CENTER_Y)) {
+                if!(reversed) {
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, NORTH);
+                } else {
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, SOUTH);
+                }
+            } else if((entity[X] >= BOSS.CENTER_X) && (entity[Y] >= BOSS.CENTER_Y)) {
+                if!(reversed) {
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, EAST);
+                } else {
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, SOUTH);
+                }
+            } else if((entity[X] < BOSS.CENTER_X) && (entity[Y] >= BOSS.CENTER_Y)) {
+                if!(reversed) {
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, SOUTH);
+                } else {
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, WEST);
+                }
+            } else {
+                if!(reversed) {
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, WEST);
+                } else {
+                    walk_corner(entity, NORTH_EAST);
+                    walk_corner(entity, SOUTH_EAST);
+                    walk_corner(entity, SOUTH_WEST);
+                    walk_corner(entity, NORTH_WEST);
+                    walk_corner(entity, NORTH);
+                }
+            }
+        }
+
+        @install()
+        @async()
+        fun stone_hit(entity) {
+            damage(entity, BOSS.STONE_DAMAGE, True);
+            yield();
+
+            animate(entity, ONCE_FREEZE, ANIMATION_ALL.DEFAULT);
+
+            sleep(BOSS.STONE_STUN_TIME);
+
+            animate(entity, ONCE, ANIMATION_ALL.DEFAULT);
+        }
+
+        fun add_stone(x, y) {
+            add_enemy(STONE_ROUND, x, y); 
+
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                guard_levitate_stone(0d2);
+
+                while(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                    check_range_old(<SCRIPT_OWNER>, BOSS.ID_LEFT, 0d20, 0d20, {
+                        destroy(SCRIPT_OWNER);
+                        
+                        stone_hit(BOSS.ID_LEFT);
+                        end();
+                    });
+                    yield();
+                    check_range_old(<SCRIPT_OWNER>, BOSS.ID_RIGHT, 0d20, 0d20, {
+                        destroy(SCRIPT_OWNER);
+
+                        stone_hit(BOSS.ID_RIGHT);
+                        end();
+                    });
+                    yield();
+                }
+            }));
+        }
+    };
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_UNNAMED_DESERT_TEMPLE_BOSS) {
+            BOSS.PROGRESS = True;
+            push_music(BOSS);
+
+            add_enemy(VIGOR, 0d59, 0d33);
+            BOSS.ID_LEFT = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP_LEFT;
+            attach_script(LAST_ENTITY, DAMAGE, reference(boss_left_triggered));
+
+            add_enemy(FOOTKNIGHT, 0d67, 0d32);
+            BOSS.ID_RIGHT = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP_RIGHT;
+            attach_script(LAST_ENTITY, DAMAGE, reference(boss_right_triggered));
+
+            add_stone(0d21, 0d37); 
+            add_stone(0d106, 0d37);
+
+            default_init_room(False, False);
+
+            while(True) {
+                sleep(0d600);
+                bident_lap(BOSS.ID_LEFT);
+                // bident_lap(BOSS.ID_RIGHT, True);
+            }
+        } else {
+            default_init_room(False, False);
+        }
+    }
+};

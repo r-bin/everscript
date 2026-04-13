@@ -1,0 +1,104 @@
+group npc_cat() {
+    enum NPC_CAT {
+        DEAD = memory(FLAG, SRAM),
+
+        PRICE_RING_CAT = 0d100,
+    }
+
+    group cat_ai() {
+        fun guard_dead_npc() {
+            guard_dead(<SCRIPT_OWNER>, {
+                NPC_CAT.DEAD = True;
+            });
+        }
+
+        fun response_positive() {
+            if(randrange(0d2)) {
+                conversation_dialog("[SLOW]Satisfied?[B]");
+            } else {
+                conversation_dialog("[SLOW]You know where to find me.[B]");
+            }
+        }
+        fun response_negative() {
+            if(randrange(0d2)) {
+                conversation_dialog("[SLOW]Nothing interesting, I presume?[B]");
+            } else {
+                conversation_dialog("[SLOW]Well…[B]");
+            }
+        }
+        fun response_cancel() {
+            conversation_dialog("[SLOW]In a hurry, I presume…[B]");
+        }
+
+        fun story_radahn_arena() {
+            conversation_dialog("[SLOW]Did you see the gaping hole in the sands?[B]Well, it houses a nasty little vermin down there.[B]");
+        }
+
+        fun purchase_ring(price) {
+            if(MEMORY.GLOVE_3_2) {
+                conversation_dialog("[SLOW]I have nothing more to offer.[B]");
+            } else {
+                MEMORY.STRING_PARAMETER_1 = price;
+
+                show_currency(True);
+                conversation_question("[SLOW]Silvercat Ring:[CHOICE][MEM1] Souls[CHOICE]no.");
+
+                sleep(0x10);
+                
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // yes
+                    if_currency(MEMORY.CURRENCY_CURRENT < price) {
+                        response_negative();
+                    } else {
+                        sound(PURCHASE);
+                        currency_take(TALONS, price);
+                        show_currency(True);
+
+                        reward(GLOVE_3_2, True);
+
+                        response_positive();
+                    }
+                } else { // no
+                    response_negative();
+                }
+
+                show_currency(False);
+            }
+        }
+
+        @install()
+        fun cat_triggered() {
+            guard_dead_npc();
+
+            smart_conversation({
+                MEMORY.STRING_PARAMETER_1 = !(MEMORY.GLOVE_3_2);
+                conversation_question("[SLOW]How can I help you?[CHOICE]talk…[CHOICE]buy… ([MEM1])");
+
+                if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                    story_radahn_arena();
+                } else if(MEMORY.QUESTION_ANSWER == 0d1) { // purchase
+                    purchase_ring(NPC_CAT.PRICE_RING_CAT);
+                } else {
+                    response_negative();
+                }
+            }, False, NONE);
+        }
+    };
+
+    enum CAT_VARIANT {
+        LOOKING = 0x00,
+        CLEANING = 0x01,
+    }
+
+    fun add_souls_npc_cat(variant:CAT_VARIANT, x, y) {
+        if!(NPC_CAT.DEAD) {
+            if(variant == CAT_VARIANT.LOOKING) {
+                add_placeholder(CAT_LOOKING, x, y);
+            } else {
+                add_placeholder(CAT_CLEANING_1, x, y);
+            }
+            attribute(LAST_ENTITY, INVINCIBLE, False);
+
+            attach_script(LAST_ENTITY, ALL, reference(cat_triggered));
+        }
+    }
+};

@@ -1,0 +1,199 @@
+map temple_underground_boss(MEGATAUR) { // north
+    enum entrance {
+        south = entrance(0x41, 0x53, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_TEMPLE.MUSIC, 0xff)
+    }
+
+    enum BOSS {
+        DEBBUG = False,
+
+        PROGRESS = memory(FLAG, TEMP),
+
+        HP = 0d20,
+
+        SQUAD_COUNT = 0d5,
+        SQUAD_CHARGED = memory(WORD, TEMP),
+
+        SQUAD_REQURIED = 0d5,
+        SQUAD_REQURIED_COUNT = memory(WORD, TEMP),
+
+        SQUAD_1 = memory(WORD, TEMP),
+        SQUAD_2 = memory(WORD, TEMP),
+        SQUAD_3 = memory(WORD, TEMP),
+        SQUAD_4 = memory(WORD, TEMP),
+        SQUAD_5 = memory(WORD, TEMP),
+
+        PALETTE_DONOR = memory(WORD, TEMP),
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            if(BOSS.PROGRESS) {
+                fog_wall_inside(!SOULS_MEMORY.DEAD_TEMPLE_SQUAD, NORTH);
+            }
+
+            map_transition(temple_underground, north, SOUTH);
+        }
+    }
+
+    fun boss_defeated() {
+        damage(BOSS.SQUAD_1, 0d999, True);
+        damage(BOSS.SQUAD_2, 0d999, True);
+        damage(BOSS.SQUAD_3, 0d999, True);
+        damage(BOSS.SQUAD_4, 0d999, True);
+        damage(BOSS.SQUAD_5, 0d999, True);
+
+        BOSS.PROGRESS = False;
+        souls_boss_defeated_helper(TEMPLE_SQUAD);
+    }
+
+    fun squad_killed() {
+        BOSS.SQUAD_REQURIED_COUNT++;
+
+        if(BOSS.SQUAD_REQURIED_COUNT >= BOSS.SQUAD_REQURIED) {
+            boss_defeated();
+            end();
+        }
+    }
+
+    @install()
+    @async()
+    fun tint_charged(entity) {
+        if(BOSS.DEBBUG) {
+            debug_memory(<SCRIPT_OWNER>[GENERAL_PURPOSE], entity);
+        }
+
+        while(alive(entity)) {
+            entity[PALETTE] = BOSS.PALETTE_DONOR[PALETTE];
+            
+            sleep(0d5);
+        }
+
+        if(BOSS.DEBBUG) {
+            debug_subtext("ded?");
+        }
+    }
+
+    @install()
+    fun squad_death() {
+        if((BOSS.SQUAD_CHARGED == 0d0) || (BOSS.SQUAD_CHARGED == <SCRIPT_OWNER>)) {
+            BOSS.SQUAD_CHARGED = <SCRIPT_OWNER>;
+
+            squad_killed();
+
+            yield();
+
+            while((arg[0x14] == 0x0000) || (arg[0x14] == <SCRIPT_OWNER>)) {
+                arg[0x10] = randrange(BOSS.SQUAD_COUNT) + 0d1;
+
+                if(arg[0x10] == 0d1) {
+                    arg[0x12] = BOSS.SQUAD_1;
+                } else if(arg[0x10] == 0d2) {
+                    arg[0x12] = BOSS.SQUAD_2;
+                } else if(arg[0x10] == 0d3) {
+                    arg[0x12] = BOSS.SQUAD_3;
+                } else if(arg[0x10] == 0d4) {
+                    arg[0x12] = BOSS.SQUAD_4;
+                } else if(arg[0x10] == 0d5) {
+                    arg[0x12] = BOSS.SQUAD_5;
+                }
+
+                if(alive(arg[0x12])) {
+                    arg[0x14] = arg[0x12];
+                }
+
+                yield();
+            }
+
+            BOSS.SQUAD_CHARGED = arg[0x14];
+            // BOSS.SQUAD_CHARGED = 0d0;
+
+            attribute(BOY, INVINCIBLE_TEMP, True);
+
+            attribute(arg[0x12], ROOT, True);
+            animate(arg[0x12], LOOP, DEFAULT);
+            shoot_entity_entity_offset(<SCRIPT_OWNER>, LIGHTNING_BALL, arg[0x12], 0d0, -(0d50), 0d60, 0d0);
+            sleep(0d20);
+            attribute(BOY, INVINCIBLE_TEMP, False);
+            sleep(0d100);
+
+            if(alive(arg[0x14])) {
+                attribute(arg[0x14], ROOT, False);
+                animate(arg[0x14], ONCE, DEFAULT);
+
+                tint_charged(arg[0x14]);
+            }
+        }
+
+        destroy(SCRIPT_OWNER);
+    }
+
+    fun spawn_oglin(x, y, memory, index) {
+        // debug_subtext("oglin");
+
+        add_enemy(OGLIN, x, y);
+        memory = <LAST_ENTITY>;
+        <LAST_ENTITY>[HP] = BOSS.HP;
+        <LAST_ENTITY>[GENERAL_PURPOSE] = index;
+        attach_script(LAST_ENTITY, DEATH, reference(squad_death));
+
+        if(BOSS.SQUAD_CHARGED == index) {
+            tint_charged(<LAST_ENTITY>);
+        }
+
+        // attribute(LAST_ENTITY, NO_CLIP, True);
+        attribute(LAST_ENTITY, INVINCIBLE_TEMP, True);
+        animate(LAST_ENTITY, ONCE, SLASH_2);
+
+        sleep(0d60);
+
+        attribute(LAST_ENTITY, INVINCIBLE_TEMP, False);
+        // attribute(LAST_ENTITY, NO_CLIP, False);
+
+        attribute(LAST_ENTITY, True, True);
+    }
+
+    fun add_squad(x, y) {
+        while(BOSS.PROGRESS) {
+            if(dead(BOSS.SQUAD_1)) {
+                spawn_oglin(x, y, BOSS.SQUAD_1, 0d1);
+            } else if(dead(BOSS.SQUAD_2)) {
+                spawn_oglin(x, y, BOSS.SQUAD_2, 0d2);
+            } else if(dead(BOSS.SQUAD_3)) {
+                spawn_oglin(x, y, BOSS.SQUAD_3, 0d3);
+            } else if(dead(BOSS.SQUAD_4)) {
+                spawn_oglin(x, y, BOSS.SQUAD_4, 0d4);
+            } else if(dead(BOSS.SQUAD_5)) {
+                spawn_oglin(x, y, BOSS.SQUAD_5, 0d5);
+            }
+
+            sleep(0d60);
+        }
+    }
+
+    fun trigger_enter() {   
+        CUSTOM_FLAG.NO_DOG = True;
+
+        // attribute(BOY, INVINCIBLE_TEMP, True);
+
+        add_enemy(DOG_1_BLACK, 0d0, 0d0, INVISBLE_INVINCIBLE_INACTIVE);
+        BOSS.PALETTE_DONOR = <LAST_ENTITY>;
+
+        if!(SOULS_MEMORY.DEAD_TEMPLE_SQUAD) {
+            BOSS.PROGRESS = True;
+            push_music(BOSS);
+
+            default_init_room(False, False);
+
+            add_squad(0d64, 0d32);
+        } else {
+            default_init_room(False, False);
+        }
+
+        // 0d64, 0d22
+        // 0d64, 0d40
+    }
+};

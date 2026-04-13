@@ -1,0 +1,178 @@
+map basement_2_boss(TIMBERDRAKE) { // east-east-north "drake-south"
+    enum entrance {
+        east = entrance(0x2b, 0x15, WEST),
+        south = entrance(0x1b, 0x29, NORTH)
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_BASEMENT.MUSIC_DEFAULT, 0xff)
+    }
+
+    enum BOSS {
+        PROGRESS = memory(FLAG, TEMP),
+        ID = memory(WORD, TEMP),
+
+        HP = 0d100, // TODO: too low for >bonecrusher
+
+        FOLLOWING = memory(WORD, TEMP),
+
+        PUKE_HELPER = memory(WORD, TEMP),
+
+        MOVE_RNG = memory(WORD, TEMP),
+
+        CANNONBALL_X = memory(WORD, TEMP),
+        CANNONBALL_Y = memory(WORD, TEMP),
+        CANNONBALL_COUNT = memory(WORD, TEMP),
+    }
+
+    enum stepon_trigger {
+        exit_east = @install() {
+            debug_subtext("S=0");
+        },
+        exit_south = @install() {
+            fog_wall_inside(!SOULS_MEMORY.DEAD_MONSTRO, NORTH);
+
+            map_transition(basement_2_5, north, SOUTH);
+        }
+    }
+
+    @install()
+    @async()
+    fun boss_defeated() {
+        souls_boss_defeated_helper(MONSTRO);
+
+        unset(BOSS.PROGRESS);
+    }
+
+    group monstro_ai() {
+        @async()
+        @install()
+        fun following() {
+            while(alive(BOSS.ID)) {
+                if(BOSS.FOLLOWING > 0d00) {
+                    if(BOSS.ID[X] > <BOY>[X]) {
+                        BOSS.ID[X] -= BOSS.FOLLOWING;
+                    } else if(BOSS.ID[X] < <BOY>[X]) {
+                        BOSS.ID[X] += BOSS.FOLLOWING;
+                    }
+
+                    if(BOSS.ID[Y] > <BOY>[Y]) {
+                        BOSS.ID[Y] -= BOSS.FOLLOWING;
+                    } else if(BOSS.ID[Y] < <BOY>[Y]) {
+                        BOSS.ID[Y] += BOSS.FOLLOWING;
+                    }
+                }
+
+                yield();
+            }
+        }
+
+        fun wiggle(with_animaten, with_splash) {
+            if(with_animaten) {
+                animate(BOSS.ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+            }
+
+            if(with_splash) {
+                bomb_entity(BOSS.ID, 0d10, 0d10);
+            }
+        }
+
+        @install()
+        fun yeet() {
+            BOSS.ID[VELOCITY] = 0d85;
+            
+            BOSS.FOLLOWING = True;
+            sleep(0d160);
+            BOSS.FOLLOWING = False;
+
+            wiggle(False, True);
+            ai_move_projectile_splash(BOSS.ID, ONION);
+        }
+
+        @install()
+        fun hop() {
+            BOSS.ID[VELOCITY] = 0d30;
+
+            BOSS.FOLLOWING = True;
+            sleep(0d60);
+            BOSS.FOLLOWING = False;
+
+            wiggle(False, True);
+        }
+
+        fun move() {
+            wiggle(True, False);
+
+            BOSS.MOVE_RNG = randrange(0d05);
+
+            if(BOSS.MOVE_RNG == 0d00) {
+                ai_move_projectile_puke(BOSS.ID, ONION, <BOY>, 0d8);
+                sleep(0x50);
+            } else if(BOSS.MOVE_RNG == 0d01) {
+                yeet();
+                sleep(0x60);
+            } else {
+                hop();
+                sleep(0x20);
+            }
+        }
+
+        @async()
+        @install()
+        fun move_logic() {
+            sleep(0x80);
+            
+            while(alive(BOSS.ID)) {
+                move();
+            }
+        }
+
+        @install()
+        fun monstro_damage() {
+            attribute(BOSS.ID, INVISIBLE, True);
+            yield();
+            attribute(BOSS.ID, INVISIBLE, False);
+            animate(BOSS.ID, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+
+            if(dead(BOSS.ID)) {
+                boss_defeated();
+            }
+        }
+
+        fun spawn_boss(x, y) {
+            add_enemy(MAGMAR, x, y);
+            BOSS.ID = <LAST_ENTITY>;
+            <LAST_ENTITY>[HP] = BOSS.HP;
+            animate(LAST_ENTITY, ONCE_FREEZE, ANIMATION_ENEMY.MAGMAR_ROLL);
+            attach_script(LAST_ENTITY, DAMAGE, reference(monstro_damage));
+            attribute(LAST_ENTITY, ROOT, True);
+
+            following();
+            move_logic();
+
+            set(BOSS.PROGRESS);
+            push_music(BOSS);
+        }
+    };
+
+    fun trigger_enter() {
+        if!(SOULS_MEMORY.DEAD_MONSTRO) {
+            spawn_boss(0x10, 0x13);
+
+            if(False) {
+                subtext("Isaac vs. Monstro");
+            }
+        }
+
+        // available(BOY);
+        // destroy(DOG); // teleport(BOY, 0x00, 0x00);
+
+        add_trap_door(0x10, 0x13, reference(@install() {
+            _add_trap_door({
+                map_transition(basement_3_start, center, NONE);
+            }, !BOSS.PROGRESS);
+        }));
+
+        isaac_init(BASEMENT_LEVEL.NIGHT, BASEMENT_LEVEL.RAIN);
+    }
+};

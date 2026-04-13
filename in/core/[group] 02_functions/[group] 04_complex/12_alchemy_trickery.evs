@@ -1,0 +1,136 @@
+group alchemy_trickery() {
+    @install()
+    @weak()
+    fun reset_alchemy_types() {
+        // projectile
+        <0x3567> = 0x0000;
+        <0x35dd> = 0x0000;
+        <0x3653> = 0x0000;
+        <0x36c9> = 0x0000;
+        <0x373f> = 0x0000;
+        <0x37b5> = 0x0000;
+        <0x382b> = 0x0000;
+        <0x38a1> = 0x0000;
+
+        // animation
+        <0x3367> = 0x0000;
+        <0x33a7> = 0x0000;
+        <0x33e7> = 0x0000;
+        <0x3427> = 0x0000;
+        <0x3467> = 0x0000;
+        <0x34a7> = 0x0000;
+        <0x34e7> = 0x0000;
+        <0x3527> = 0x0000;
+    }
+    fun check_alchemy_type_projectile(type:ALCHEMY_TYPE_PROJECTILE_OLD, counter) {
+        if(
+            (<0x3567> == type) ||
+            (<0x35dd> == type) ||
+            (<0x3653> == type) ||
+            (<0x36c9> == type) ||
+            (<0x373f> == type) ||
+            (<0x37b5> == type) ||
+            (<0x382b> == type) ||
+            (<0x38a1> == type)
+        ) {
+            counter++;
+        }
+    }
+    fun check_alchemy_type_animation(type:ALCHEMY_TYPE_ANIMATION_OLD, counter) {
+        if(
+            (<0x3367> == type) ||
+            (<0x33a7> == type) ||
+            (<0x33e7> == type) ||
+            (<0x3427> == type) ||
+            (<0x3467> == type) ||
+            (<0x34a7> == type) ||
+            (<0x34e7> == type) ||
+            (<0x3527> == type)
+        ) {
+            counter++;
+        }
+    }
+    fun check_damage_type(type:ALCHEMY_TYPE_GROUP, counter) {
+        if(type == ALCHEMY_TYPE_GROUP.FIRE) {
+            check_alchemy_type_projectile(FIREBALL, counter);
+            check_alchemy_type_projectile(FLASH, counter);
+            check_alchemy_type_projectile(FLARE, counter);
+
+            check_alchemy_type_animation(EXPLOSION, counter);
+            check_alchemy_type_animation(FIRE_POWER, counter);
+            check_alchemy_type_animation(NITRO, counter);
+        } else if(type == ALCHEMY_TYPE_GROUP.EARTH) {
+            check_alchemy_type_projectile(HARD_BALL, counter);
+
+            check_alchemy_type_animation(CRUSH, counter);
+        } else if(type == ALCHEMY_TYPE_GROUP.LIGHTNING) {
+            check_alchemy_type_animation(LIGHTNING_STORM, counter);
+            check_alchemy_type_animation(STORM, counter);
+            check_alchemy_type_animation(ELECTRA_BOLT, counter);
+        } else if(type == ALCHEMY_TYPE_GROUP.MAGIC) {
+            check_alchemy_type_animation(DOUBLE_DRAIN, counter);
+            check_alchemy_type_animation(DRAIN, counter);
+            check_alchemy_type_animation(LANCE, counter);
+        } else if(type == ALCHEMY_TYPE_GROUP.NATURE) {
+            check_alchemy_type_animation(ACID_RAIN, counter);
+            check_alchemy_type_animation(STING, counter);
+        } else if(type == ALCHEMY_TYPE_GROUP.MIRACLE_CURE) {
+            check_alchemy_type_animation(MIRACLE_CURE, counter);
+        }
+    }
+
+    fun guard_alchemy_animation_damage(entity, type:ALCHEMY_TYPE_ANIMATION, animation_end:ALCHEMY_ANIMATION_END, callback) {
+        // if(<SCRIPT_OWNER>[DAMAGE_SOURCE_DETAILS] == (0x8000 | type)) {
+        //     callback();
+        // }
+
+        // if((entity[DAMAGE_SOURCE] != 0x0000) && (entity[DAMAGE_SOURCE] < CHARACTER_ADDRESS.ENTITY_1)) {
+        if!(entity[DAMAGE_SOURCE]) {
+            // debug_memory(<0x3567>, <0x356c> & 0xff, <0x3569>);
+
+            CUSTOM_MEMORY.POINTER = ALCHEMY_ANIMATION.SLOT_1;
+            // _debug_memory((CUSTOM_MEMORY.POINTER <= ALCHEMY_ANIMATION.SLOT_8 && CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE]), CUSTOM_MEMORY.POINTER <= ALCHEMY_ANIMATION.SLOT_8, CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE] > 0d0);
+            while((CUSTOM_MEMORY.POINTER <= ALCHEMY_ANIMATION.SLOT_8) && CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE]) {
+                // _debug_memory((CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE] == type) && (CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.UNKNOWN_TIMER] == 0x33), CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE] == type, CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.UNKNOWN_TIMER] == 0x33);
+                if((CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE] == type) && (CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.UNKNOWN_TIMER] == animation_end)) {
+                    CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE] = 0xffff;
+
+                    // _debug_memory(CUSTOM_MEMORY.POINTER, CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.TYPE], CUSTOM_MEMORY.POINTER[ALCHEMY_ANIMATION.UNKNOWN_TIMER]);
+
+                    callback();
+                }
+
+                CUSTOM_MEMORY.POINTER += ALCHEMY_ANIMATION.SIZE;
+            }
+        }
+    }
+
+    @install()
+    @weak()
+    fun _check_alchemy_type(value, type:ALCHEMY_TYPE_GROUP) {
+        if(type == ALCHEMY_TYPE_GROUP.FIRE) {
+            if(value == (ALCHEMY_TYPE_PROJECTILE.FLASH | 0x8000)) {
+                arg[0x10] = True;
+            } else if(value == (ALCHEMY_TYPE_PROJECTILE.FIREBALL | 0x8000)) {
+                arg[0x10] = True;
+            } else if(value == (ALCHEMY_TYPE_PROJECTILE.FLARE | 0x8000)) {
+                arg[0x10] = True;
+            } else if(value == (ALCHEMY_TYPE_ANIMATION.EXPLOSION | 0x8000)) {
+                arg[0x10] = True;
+            } else if(value == (ALCHEMY_TYPE_ANIMATION.FIRE_POWER | 0x8000)) {
+                arg[0x10] = True;
+            } else if(value == (ALCHEMY_TYPE_ANIMATION.NITRO | 0x8000)) {
+                arg[0x10] = True;
+            }
+        }
+
+        CUSTOM_MEMORY.RETURN = arg[0x10];
+    }
+    fun check_alchemy_type(value, type:ALCHEMY_TYPE_GROUP) {
+        // if(value & 0x8000) {
+        // if((value != 0x0000) && (value < CHARACTER_ADDRESS.ENTITY_1)) {
+        if(value) {
+            _check_alchemy_type(value, type);
+        }
+    }
+};

@@ -1,0 +1,222 @@
+group mario_helper() {
+    fun exit_mario_prison() {
+        map_transition(pipe_entrance, pipe_east, NORTH);
+    }
+    fun room_cleared(flag) {
+        if!(flag) {
+            set(flag);
+
+            MARIO.ROOMS_CLEARED++;
+
+            if(MARIO.ROOMS_CLEARED == MARIO.ROOMS_REQUIRED) {
+                PIPE_MAZE.MARIO_BOSS_ROOM_OPEND = True;
+                notification_door_opened();
+
+                dialog("[SLOW]A big door has opened somewhere as well.[B]");
+            }
+        }
+    }
+
+    fun update_condition(doors_opened, doors, enemies_killed, enemies) {
+        if(doors == 0d0) {
+            MEMORY.STRING_PARAMETER_1 = enemies_killed;
+            MEMORY.STRING_PARAMETER_2 = enemies;
+            
+        } else if(enemies == 0d0) {
+            MEMORY.STRING_PARAMETER_1 = doors_opened;
+            MEMORY.STRING_PARAMETER_2 = doors;
+        }
+
+        subtext("[MEM1]/[MEM2]");
+    }
+    fun room_condition(room_cleared_flag, doors_opened, doors, enemies_killed, enemies) {
+        if(False) {
+            debug_memory(doors_opened, doors);
+            sleep(0d60);
+            debug_memory(enemies_killed, enemies);
+            sleep(0d60);
+        }
+
+        if((doors == 0d0) && (enemies > 0d0)) {
+            MEMORY.STRING_PARAMETER_1 = enemies;
+            subtext("Kill [MEM1] enemies");
+        } else if((doors > 0d0) && (enemies == 0d0)) {
+            MEMORY.STRING_PARAMETER_1 = doors;
+            subtext("Open [MEM1] doors");
+        } else {
+            subtext("Reach the door");
+            end();
+        }
+
+        while((doors_opened < doors) || (enemies_killed < enemies)) {
+            yield();
+        }
+
+        subtext("The door has opened");
+
+        room_cleared(room_cleared_flag);
+    }
+
+    fun door_triggered(object_id, room_cleared_flag) {
+        if!(room_cleared_flag) {
+            error_message(DOOR_CONTRAPTION);
+            end();
+        }
+
+        // TODO: vanilla_act3_sewer_door
+        object[object_id] = 0x01; // opens door
+
+        exit_mario_prison();
+    }
+
+
+    fun koopa_rolling(enemy) {
+        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+
+        if(True) {
+            if(<BOY>[Y] < enemy[Y]) {
+                arg[0x10] = enemy[Y] - <BOY>[Y];
+            } else {
+                arg[0x10] = <BOY>[Y] - enemy[Y];
+            }
+
+            if(arg[0x10] <= 0d5) {
+                if(<BOY>[X] > enemy[X]) {
+                    face(enemy, WEST);
+                } else if(<BOY>[X] < enemy[X]) {
+                    face(enemy, EAST);
+                }
+            } else {
+                if(<BOY>[Y] > enemy[Y]) {
+                    face(enemy, NORTH);
+                } else if(<BOY>[Y] < enemy[Y]) {
+                    face(enemy, SOUTH);
+                }
+            }
+        }
+
+        while(enemy[GENERAL_PURPOSE] == 0d2) {
+            arg[0x12] = enemy[X];
+            arg[0x14] = enemy[Y];
+            sleep(0d5);
+            
+            if((enemy[X] == arg[0x12]) && (enemy[Y] == arg[0x14])) {
+                arg[0x16]++;
+
+                if(arg[0x16] > 0d5) {
+                    animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+                    arg[0x16] = 0d0;
+                }
+
+                if(enemy[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    face(enemy, SOUTH);
+                } else if(enemy[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    face(enemy, WEST);
+                } else if(enemy[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    face(enemy, NORTH);
+                } else if(enemy[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    face(enemy, EAST);
+                }
+            } else {
+                arg[0x16] = 0d0;
+            }
+        }
+    }
+    fun add_mario_koopa(x, y, crash) {
+        add_enemy(LIZARD, x, y);
+        attach_to_script(LAST_ENTITY);
+        <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0x0000;
+        attach_script(SCRIPT_OWNER, DAMAGE, reference(@install() {
+            if(<SCRIPT_OWNER>[GENERAL_PURPOSE] == 0d1) { // make koopa roll
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d2;
+
+                heal(SCRIPT_OWNER, 0x00, False);
+
+                yield();
+                
+                koopa_rolling(<SCRIPT_OWNER>, { nop(); });
+            } else { // make koopa duck
+                <SCRIPT_OWNER>[GENERAL_PURPOSE] = 0d1;
+                
+                yield();
+                animate(SCRIPT_OWNER, ONCE_FREEZE, ANIMATION_ENEMY.LIZARD_DUCK_1);
+            }
+        }));
+        
+        if(crash) {
+            animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.LIZARD_ROLL);
+            attribute(SCRIPT_OWNER, ROOT, True);
+
+            if(True) {
+                <SCRIPT_OWNER>[Z] = 0d4000;
+                yield();
+                while(<SCRIPT_OWNER>[Z] > 0d0) {
+                    yield();
+                }
+            }
+
+            if(True) {
+                <SCRIPT_OWNER>[VELOCITY] = 0d30;
+                yield();
+                while(<SCRIPT_OWNER>[Z] > 0d0) {
+                    yield();
+                }
+            }
+
+            attribute(SCRIPT_OWNER, ROOT, False);
+            animate(SCRIPT_OWNER, ONCE, DEFAULT);
+        }
+    }
+    fun add_mario_fireflower(x, y) {
+        add_enemy(FLOWER_ORANGE, x, y);
+
+        attach_script(LAST_ENTITY, B, reference(@install() {
+            destroy(SCRIPT_OWNER);
+            fake_loot();
+
+            CUSTOM_FLAG.START_MARIO_FIREFLOWER = True;
+        }));
+    }
+
+    @install()
+    @async()
+    fun stack_boy_yoshi(entity) {
+        attach_to_script(entity);
+
+        while(alive(<SCRIPT_OWNER>)) {
+            <BOY>[X] = <SCRIPT_OWNER>[X];
+            <BOY>[Y] = <SCRIPT_OWNER>[Y] - 0x0a;
+
+            if((<BOY>[FACE_DIRECTION] != arg[0x10]) || (arg[0x12] > 0d40)) {
+                arg[0x12] = 0d0;
+
+                if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    face(SCRIPT_OWNER, SOUTH);
+                    walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] - 0d64, NONE);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    face(SCRIPT_OWNER, WEST);
+                    walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] + 0d64, <SCRIPT_OWNER>[Y], NONE);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                    face(SCRIPT_OWNER, NORTH);
+                    walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] + 0d64, NONE);
+                } else if(<BOY>[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    face(SCRIPT_OWNER, EAST);
+                    walk(SCRIPT_OWNER, COORDINATE_ABSOLUTE, <SCRIPT_OWNER>[X] - 0d64, <SCRIPT_OWNER>[Y], NONE);
+                }
+
+                arg[0x10] = <BOY>[FACE_DIRECTION];
+            } else {
+                arg[0x12]++;
+            }
+
+            sleep(0x01);
+        }
+    }
+
+    fun add_yoshi(x, y) {
+        add_enemy(RAPTOR_GREEN, x, y);
+        // add_enemy(RAPTOR_GREEN, 0x36, 0x30, INACTIVE);
+        control(LAST_ENTITY, True);
+        attribute(LAST_ENTITY, INVINCIBLE, True);
+    }
+};

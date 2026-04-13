@@ -1,0 +1,484 @@
+map volcano(VOLCANO_PATH) {
+    // gourd=vanilla
+    // sniff=vanilla
+
+    enum entrance {
+        cutscene_north_1 = entrance(0x4a, 0x38, NONE),
+        cutscene_north_2 = entrance(0x5f, 0x1b, NONE),
+        east = entrance(0x6d, 0x83, WEST), // 0x6b, 0x83
+        south = entrance(0x1b, 0x9d, NORTH),
+
+        cave_west = entrance(0x0b, 0x70, SOUTH),
+        cave_center = entrance(0x3f, 0x4a, SOUTH),
+        cave_east = entrance(0x4d, 0x6a, SOUTH),
+
+        cave_gauge = entrance(0x5f, 0x16, SOUTH),
+
+        cave_2_2 = entrance(0x44, 0x23, SOUTH),
+
+        teleporter = entrance(0d95, 0d28, NONE, {
+            teleporter_in();
+        }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(AREA_ALTUS_PLATEAU.DEFAULT_MUSIC, 0xff)
+    }
+
+    enum ROOM {
+        STONE_MOVED = memory(FLAG, SRAM),
+        STONE_OFFSET = 0d8 * 0d2,
+
+        VOLCANO_TOWER_BACKDOOR_OPEN = memory(FLAG, SRAM),
+    }
+
+    fun pressure_plate_0_1() {
+        generic_act1_volcano_pressure_plate(0x3c, 0x3f, 0x05, 0x02, 0d93, 0d59, 0d2);
+    }
+    fun pressure_plate_0_2() {
+        if(ROOM.STONE_MOVED) {
+            generic_act1_volcano_pressure_plate(0x44, 0x41, 0x06, 0x01, 0d61, 0d30, 0d4);
+        }
+    }
+    @install()
+    @async()
+    fun exit_north() {
+        sleep(0d75);
+        map_transition(well, crash, NONE);
+    }
+    fun pressure_plate_1_1() {
+        exit_north();
+        generic_act1_volcano_pressure_plate(0x30, 0x39, 0x04, 0x01, 0d145, 0d00, 0d0);
+    }
+    fun pressure_plate_1_2() {
+        generic_act1_volcano_pressure_plate(0x4e, 0x31, 0x03, 0x01, 0d74, 0d52, 0d0);
+    }
+    fun pressure_plate_2_1() {
+        generic_act1_volcano_pressure_plate(0x3c, 0x27, 0x01, 0x01, 0d68, 0d27, 0d3);
+    }
+    fun pressure_plate_2_2() {
+        generic_act1_volcano_pressure_plate(0x52, 0x25, 0x02, 0x01, 0d71, 0d49, 0d0);
+    }
+    fun pressure_plate_3_1() {
+        generic_act1_volcano_pressure_plate(0x36, 0x1d, 0x07, 0x01, 0d59, 0d39, 0d3);
+    }
+    fun pressure_plate_3_2() {
+        generic_act1_volcano_pressure_plate(0x52, 0x19, 0x00, 0x01, 0d66, 0d37, 0d1);
+    }
+
+    @install()
+    fun volcano_tower_backdoor_triggered() {
+        map_transition(pipe_pit, south, NORTH);
+    }
+
+    enum stepon_trigger {
+        tunnel_gauge = @install() {
+            debug_subtext("S=0");
+
+            generic_tunnel_enter(CAVE_IN);
+            generic_tunnel(DEFAULT, 0d48, 0d69);
+            generic_tunnel_exit(SLIDE_OUT, EAST);
+        },
+        pressure_plate_1_2_right = @install() {
+            debug_subtext("S=1");
+
+            pressure_plate_1_2();
+        },
+        pressure_plate_1_2_left = @install() {
+            debug_subtext("S=2");
+            
+            pressure_plate_1_2();
+        },
+        door_1_2_hole_0_2 = @install() {
+            debug_subtext("S=3");
+
+            generic_act1_volcano_cave_hole(0x46, 0x31, 0d74, 0d56);
+        },
+        pressure_plate_3_1_left = @install() {
+            debug_subtext("S=4");
+            
+            pressure_plate_3_1();
+        },
+        cave_2_1_hole_0_1 = @install() {
+            debug_subtext("S=5");
+
+            generic_act1_volcano_cave_hole(0x2a, 0x35, 0d48, 0d60);
+        },
+        cave_2_1_hole_1_1 = @install() {
+            debug_subtext("S=6");
+
+            generic_act1_volcano_cave_hole(0d52, 0d36, 0d52, 0d48);
+        },
+        cave_4_hole_0_2 = @install() {
+            debug_subtext("S=7");
+
+            generic_act1_volcano_cave_hole(0d62, 0d18, 0d74, 0d56, True);
+        },
+        cave_5_hole_3 = @install() {
+            debug_subtext("S=8");
+
+            generic_act1_volcano_cave_hole(0x4a, 0x09, 0d72, 0d16);
+        },
+        cave_4_hole_1_2 = @install() {
+            debug_subtext("S=9");
+
+            generic_act1_volcano_cave_hole(0d76, 0d23, 0d82, 0d42, True);
+        },
+
+        cave_2_2_hole_1_2 = @install() {
+            debug_subtext("S=10");
+
+            if(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN) {
+                volcano_tower_backdoor_triggered();
+            } else {
+                error_message(DOOR_REQUIRES_DIG);
+            }
+            // generic_act1_volcano_cave_hole(0x44, 0x23, 0d82, 0d42);
+        },
+        exit_south = @install() {
+            debug_subtext("S=11");
+
+            map_transition(west_inbetwixx, north, SOUTH);
+        },
+        cave_east = @install() {
+            debug_subtext("S=12");
+
+            map_transition(cave_shop, south, NORTH);
+        },
+        cave_west = @install() {
+            debug_subtext("S=13");
+
+            if(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+                map_transition(stairs, stairs_west_bottom, NORTH);
+            } else {
+                error_message(DOOR_WRONG_SIDE, SOUTH);
+            }
+        },
+        cave_center = @install() {
+            debug_subtext("S=14");
+
+            map_transition(volcano_tower, south, NORTH);
+        },
+        exit_east = @install() {
+            debug_subtext("S=15");
+
+            map_transition(northwest_inbetwixx, west, EAST);
+        },
+        pressure_plate_2_2_right = @install() {
+            debug_subtext("S=16");
+            
+            pressure_plate_2_2();
+        },
+        pressure_plate_3_2 = @install() {
+            debug_subtext("S=17");
+            
+            pressure_plate_3_2();
+        },
+        pressure_plate_1_1 = @install() {
+            debug_subtext("S=8");
+            
+            pressure_plate_1_1();
+        },
+        stepon_19 = @install() {
+            debug_subtext("S=19");
+        },
+
+        pressure_plate_0_1_right = @install() {
+            debug_subtext("S=20");
+            
+            pressure_plate_0_1();
+        },
+        pressure_plate_0_2_right = @install() {
+            debug_subtext("S=21");
+            
+            pressure_plate_0_2();
+        },
+        pressure_plate_0_2_left = @install() {
+            debug_subtext("S=22");
+            
+            pressure_plate_0_2();
+        },
+        stepon_23 = @install() {
+            debug_subtext("S=23");
+        },
+        stepon_24 = @install() {
+            debug_subtext("S=24");
+        },
+        pressure_plate_3_1_right = @install() {
+            debug_subtext("S=25");
+            
+            pressure_plate_3_1();
+        },
+        stepon_26 = @install() {
+            debug_subtext("S=26");
+        },
+        pressure_plate_2_2_left = @install() {
+            debug_subtext("S=27");
+            
+            pressure_plate_2_2();
+        },
+        stepon_28 = @install() {
+            debug_subtext("S=28");
+        },
+        pressure_plate_0_1_left = @install() {
+            debug_subtext("S=29");
+
+            pressure_plate_0_1();
+        },
+
+        pressure_plate_2_1 = @install() {
+            debug_subtext("S=30");
+            
+            pressure_plate_2_1();
+        },
+    }
+
+    enum b_trigger {
+        guord_gauge = @install() {
+            debug_subtext("B=0");
+            _loot_chest(0x27, DRY_ICE, 0d01); // gauge
+        },
+        gourd_2__1_CLAY = @install() {
+            debug_subtext("B=1");
+            _loot_chest(0x0b, WINGS, 0d01);
+        },
+        gourd_3__1_PETAL = @install() {
+            debug_subtext("B=2");
+            _loot_chest(0x08, BISCUIT, 0d01);
+        },
+        gourd_5__1_WATER = @install() {
+            debug_subtext("B=3");
+            _loot_chest(0x09, PIXIE_DUST, 0d01);
+        },
+        gourd_1__1_ROOTS = @install() {
+            debug_subtext("B=4");
+            _loot_chest(0x0a, ROOTS, 0d01);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=5");
+            _loot(0x0c, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=6");
+            _loot(0x0d, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=7");
+            _loot(0x0e, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=8");
+            _loot(0x0f, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=9");
+            _loot(0x10, WATER, 0d01, 0d00);
+        },
+
+        sniff__1_water = @install() {
+            debug_subtext("B=10");
+            _loot(0x11, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=11");
+            _loot(0x12, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=12");
+            _loot(0x13, WATER, 0d01, 0d00);
+        },
+        sniff__1_water = @install() {
+            debug_subtext("B=13");
+            _loot(0x14, WATER, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=14");
+            _loot(0x15, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=15");
+            _loot(0x16, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=16");
+            _loot(0x17, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=17");
+            _loot(0x18, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=18");
+            _loot(0x19, CLAY, 0d01, 0d00);
+        },
+        sniff__1_clay = @install() {
+            debug_subtext("B=19");
+            _loot(0x1a, CLAY, 0d01, 0d00);
+        },
+
+        sniff__1_clay = @install() {
+            debug_subtext("B=20");
+            _loot(0x1b, CLAY, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=21");
+            _loot(0x1d, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=22");
+            _loot(0x1d, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=23");
+            _loot(0x1e, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=24");
+            _loot(0x1f, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=25");
+            _loot(0x20, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=26");
+            _loot(0x21, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_roots = @install() {
+            debug_subtext("B=27");
+            _loot(0x22, ROOTS, 0d01, 0d00);
+        },
+        sniff__1_oil = @install() {
+            debug_subtext("B=28");
+            _loot(0x23, OIL, 0d01, 0d00);
+        },
+        sniff__1_oil = @install() {
+            debug_subtext("B=29");
+            _loot(0x24, OIL, 0d01, 0d00);
+        },
+
+        sniff__1_ash = @install() {
+            debug_subtext("B=30");
+            _loot(0x25, ASH, 0d01, 0d00);
+        },
+        sniff__1_ash = @install() {
+            debug_subtext("B=31");
+            _loot(0x26, ASH, 0d01, 0d00);
+        },
+        grass_non_sword = @install() {
+            debug_subtext("B=32");
+
+            vanilla_grass_cutter(0x05);
+        },
+    }
+
+    @install()
+    fun debug_triggered() {
+        set(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED);
+
+        destroy(SCRIPT_OWNER);
+    }
+
+    fun trigger_enter() {
+        if(FLAG.DEBUG) {
+            if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+                add_debug_entity(0x06, 0x78, reference(debug_triggered));
+            }
+        }
+
+        if(NPC_ARCHAEOLOGIST.PROGRESS == 0d0) {
+            add_souls_npc_archaeologist(0d77, 0d38);
+        }
+
+        archaeology_dig(0d67, 0d34, DEFAULT, ROOM.VOLCANO_TOWER_BACKDOOR_OPEN, reference(@install() {
+            guard_archaeology_dig(ROOM.VOLCANO_TOWER_BACKDOOR_OPEN);
+
+            volcano_tower_backdoor_triggered();
+        }));
+
+        if!(AREA_ALTUS_PLATEAU.BRANCH_USED) {
+            branch_lady(MONK, 0d63, 0d77, SOUTH, reference(@install() {
+                guard_branch_lady(AREA_ALTUS_PLATEAU.BRANCH_USED);
+            }));
+        }
+
+        add_levitate_stone(0d68, 0d65, reference(@install() {
+            guard_levitate_stone(0d1);
+
+            ROOM.STONE_MOVED = True;
+        }));
+        if(ROOM.STONE_MOVED) {
+            <LAST_ENTITY>[X] += ROOM.STONE_OFFSET;
+        }
+
+        special_script(LEVITATE, reference(@install() {
+            guard_challenge_levitate();
+
+            if(<SCRIPT_OWNER>[FLAGS_2] & ATTRIBUTE_FLAGS.INVINCIBLE_TEMP) {
+                end();
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, True);
+
+            if!(ROOM.STONE_MOVED) {
+                sleep(0d60);
+
+                ROOM.STONE_MOVED = True;
+
+                sleep(0d60);
+
+                while(arg[0x10] < ROOM.STONE_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[X]++;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+            } else {
+                sleep(0d120);
+
+                while(arg[0x10] < ROOM.STONE_OFFSET) {
+                    arg[0x10]++;
+
+                    <SCRIPT_OWNER>[X]--;
+
+                    sleep(0d3);
+                }
+
+                sleep(0d360 - 0d3 * ROOM.STONE_OFFSET);
+
+                ROOM.STONE_MOVED = False;
+                object[0x03] = 0x00; // open door_NW
+            }
+
+            attribute(SCRIPT_OWNER, INVINCIBLE_TEMP, False);
+        }));
+
+        if(SOULS_MEMORY.WITH_TRASH_ENEMIES) {
+            // path
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d31, 0d103);
+
+            add_basic_souls_enemy(MONK, 0d79, 0d84);
+
+            add_basic_souls_enemy(HEDGEHOG, 0d58, 0d67);
+
+            // east
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d85, 0d115);
+
+            // west
+            add_basic_souls_enemy(HEDGEHOG, 0d19, 0d125);
+            add_basic_souls_enemy(FLOWER_PURPLE, 0d17, 0d126);
+        }
+
+        default_init_room(True, True);
+
+        if!(AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED) {
+            add_enemy(STONE_ROUND, 0d11, 0d114);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                error_message(DOOR_WRONG_SIDE, SOUTH);
+            }));
+        }
+    }
+};

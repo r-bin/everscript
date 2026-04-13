@@ -1,0 +1,179 @@
+map well(WELL) {
+    @install()
+    @async()
+    fun crash_windwalker() {
+        // add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x5b, 0x39);
+        add_placeholder(ANIMATION_PLACEHOLDER.WINDWALKER_IDLE, 0x2a, 0x0c);
+        attach_to_script(LAST_ENTITY);
+        <SCRIPT_OWNER>[Z] = 0x1fff;
+        sleep(0x80);
+        <SCRIPT_OWNER>[VELOCITY] = 0x20;
+        
+        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
+        arg[0x00] = <LAST_ENTITY>;
+
+        arg[0x00][X] = <SCRIPT_OWNER>[X] + 0x10;
+        arg[0x00][Y] = <SCRIPT_OWNER>[Y] + 0x10;
+
+        add_placeholder(ANIMATION_PLACEHOLDER.EXPLOSION_3, 0x00, 0x00);
+        arg[0x02] = <LAST_ENTITY>;
+
+        arg[0x02][X] = <SCRIPT_OWNER>[X] - 0x10;
+        arg[0x02][Y] = <SCRIPT_OWNER>[Y] - 0x10;
+
+        sleep(0x50);
+        destroy(arg[0x02]);
+        sleep(0x10);
+        destroy(SCRIPT_OWNER);
+        sleep(0x60);
+        destroy(arg[0x00]);
+    }
+
+    enum entrance {
+        west = entrance(0x01, 0x1c, EAST),
+
+        crash = entrance(0x38, 0x18 + 0d5, NONE, { crash_both(); }),
+        crash_with_windwalker = entrance(0x3a, 0x18 + 0d5, NONE, {
+            crash_both();
+            crash_windwalker();
+        }),
+        bonfire = entrance(0d30, 0d20, NONE, { bonfire_wakeup(0d0, 0d8, 0d32, 0d0); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(ALTUS.MUSIC, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_west = @install() {
+            map_transition(chessboard, east, WEST);
+        },
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        WELL_CRANKS = memory(WORD, TEMP),
+        CRANKS_REQUIRED = 0d20,
+
+        WELL_STATE = memory(FLAG, TEMP),
+
+        LUIGI_ID = memory(WORD, TEMP),
+
+        LUIGI_LIMIT_TOP = 0d433,
+        LUIGI_LIMIT_BOTTOM = 0d447,
+
+        DIGGING_REQUIRED = SOULS_MEMORY_HELPER.COULD_DIG,
+        TUNNEL_OPENED = memory(FLAG, SRAM),
+    }
+
+    fun crank_well() {
+        ROOM.WELL_STATE = !ROOM.WELL_STATE;
+
+        sound(SQUEEK);
+
+        if(ROOM.WELL_STATE) {
+            object[0x00] = 0x00;
+            object[0x01] = 0x00;
+            object[0x02] = 0x00;
+        } else {
+            object[0x00] = 0x01;
+            object[0x01] = 0x01;
+            object[0x02] = 0x01;
+        }
+
+        if(ROOM.LUIGI_ID > 0d0) {
+            arg[0x10] = ROOM.LUIGI_LIMIT_TOP + (ROOM.CRANKS_REQUIRED - ROOM.WELL_CRANKS);
+
+            if(arg[0x10] < ROOM.LUIGI_LIMIT_BOTTOM) {
+                _teleport(ROOM.LUIGI_ID, 0d215, arg[0x10]);
+            } else if(arg[0x10] == ROOM.LUIGI_LIMIT_BOTTOM) {
+                teleport(ROOM.LUIGI_ID, 0d0, 0d0);
+            }
+        }
+
+        if(ROOM.DEBUG) {
+            MEMORY.STRING_PARAMETER_1 = ROOM.WELL_CRANKS;
+            MEMORY.STRING_PARAMETER_2 = ROOM.CRANKS_REQUIRED;
+            MEMORY.STRING_PARAMETER_3 = arg[0x10];
+
+            debug_subtext("cranks = [MEM1]/[MEM2] ([MEM3])");
+        }
+    }
+    fun drop_bucket() {
+        control(NONE);
+
+        while(ROOM.WELL_CRANKS > 0d0) {
+            ROOM.WELL_CRANKS--;
+            crank_well();
+
+            sleep(0d3);
+        }
+        ROOM.WELL_CRANKS = 0d0;
+
+        sound(WATER_PLOP);
+
+        control(BOTH);
+    }
+
+    fun well_triggered() {
+        nop();
+    }
+
+    enum b_trigger {
+        well = @install() {
+            debug_subtext("B=0");
+
+            if(ROOM.WELL_CRANKS < ROOM.CRANKS_REQUIRED) {
+                ROOM.WELL_CRANKS++;
+                crank_well();
+            } else {
+                drop_bucket();
+
+                well_triggered();
+            }
+        },
+    }
+
+    fun trigger_enter() {
+        AREA_ALTUS_PLATEAU.ENTRANCE_UNLOCKED = True;
+
+        if(SOULS_MEMORY.WITH_SIDE_QUESTS) {
+            if(NPC_MARIO.PROGRESS < 0x10) {
+                add_souls_npc_mario(0d0, 0d0, INACTIVE);
+                ROOM.LUIGI_ID = <LAST_ENTITY>;
+            }
+        }
+
+        bonfire(0d30, 0d20, SOULS_MEMORY.BONFIRE_ALTUS_WELL);
+        
+        default_init_room(True, True);
+
+        if(ROOM.DIGGING_REQUIRED) {
+            archaeology_dig(0d2, 0d42, DEFAULT, ROOM.TUNNEL_OPENED, reference(@install() {
+                guard_archaeology_dig(ROOM.TUNNEL_OPENED, True, NORMAL);
+
+                jump_hole({
+                    map_transition(inner_castle_hallway, crash, NONE);
+                });
+            }), False, NORMAL);
+        } else {
+            add_enemy(PLACEHOLDER, 0d2, 0d42);
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                if!(ROOM.TUNNEL_OPENED) {
+                    ROOM.TUNNEL_OPENED = True;
+                    sound(WEIRD_SOUND);
+
+                    animate_hole(<SCRIPT_OWNER>, NORMAL);
+                } else {
+                    jump_hole({
+                        map_transition(inner_castle_hallway, crash, NONE);
+                    });
+                }
+            }));
+            if(ROOM.TUNNEL_OPENED) {
+                animate_hole(<LAST_ENTITY>, NORMAL);
+            }
+        }
+    }
+};

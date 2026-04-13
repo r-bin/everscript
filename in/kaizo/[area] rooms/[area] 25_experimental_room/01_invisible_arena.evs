@@ -1,0 +1,63 @@
+map invisible_arena(RAPTORS) {
+    enum entrance {
+        left = entrance(0x15, 0x1c, NONE),
+        center = entrance(0x1e, 0x21, NONE),
+        right = entrance(0x2a, 0x23, NONE)
+    }
+
+    enum stepon_trigger {
+        exit_north = nop(),
+        exit_south = nop(),
+        center = nop(),
+    }
+
+    fun close_exits(close) {
+        if(close) {
+            object[0x04] = 0x04;
+        } else {
+            object[0x05] = 0x04;
+        }
+    }
+
+    group boss_ai() {
+        enum BOSS {
+            BOSS_ID = memory(WORD, TEMP),
+            REVEALER_ID = memory(WORD, TEMP),
+        }
+
+        fun add_boss(x, y) {
+            add_enemy(MAGMAR, x, y);
+            attribute(LAST_ENTITY, INVISIBLE, True);
+            BOSS.BOSS_ID = <LAST_ENTITY>;
+            attach_script(LAST_ENTITY, DEATH, reference(@install() {
+                general_boss_defeated();
+
+                map_transition(invisible_arena, right, NONE);
+            }));
+
+            add_enemy(REVEALER_TARGET_ENTITY, x, y);
+            BOSS.REVEALER_ID = <LAST_ENTITY>;
+
+            special_script(REVEALER, reference(@install() {
+                guard_challenge_revealer();
+
+                destroy(BOSS.REVEALER_ID);
+
+                attribute(BOSS.BOSS_ID, INVISIBLE, False);
+            }));
+            stack_sprite(BOSS.BOSS_ID, BOSS.REVEALER_ID);
+        }
+    };
+
+    fun trigger_enter() {
+        close_exits(True);
+
+        add_boss(0x1e, 0x21);
+
+        default_init_room(True, False);
+
+        countdown(0x03);
+        attribute(BOY, INVINCIBLE, False);
+
+    }
+};

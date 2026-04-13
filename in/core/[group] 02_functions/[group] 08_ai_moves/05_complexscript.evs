@@ -1,0 +1,423 @@
+group complexscript() {
+    @install()
+    @weak()
+    fun sterling_grab(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy, unlock) {
+        attach_to_script(sterling);
+
+        if(False) {
+            debug_subtext("sterling grab");
+        }
+        
+        control(sterling, True);
+
+        if(False) {
+            <0x283d> = sterling;
+            call(0x99992d);
+
+            control(sterling, False);
+            end();
+        }
+
+        // <0x2834> = 0xffff;
+
+        if(dead(<SCRIPT_OWNER>)) {
+            control(sterling, False);
+            end();
+        }
+        
+        control(NONE);
+        player_control(BOY);
+        attribute(BOY, ROOT, True);
+        attribute(SCRIPT_OWNER, ROOT, True);
+
+        // sterling flying
+
+        attribute(SCRIPT_OWNER, INVINCIBLE, True);
+        animate(SCRIPT_OWNER, LOOP, ANIMATION_ENEMY.STERLING_FLY_2);
+
+        arg[0x10] = <SCRIPT_OWNER>[X];
+        arg[0x12] = <SCRIPT_OWNER>[Y];
+
+        arg[0x14] = <BOY>[X] - 0x06;
+        arg[0x16] = <BOY>[Y] - 0x1f;
+
+        arg[0x18] = 0x1e;
+        arg[0x12] -= 0x10;
+
+        val dx_grab = signed arg[0x1a];
+        val dy_grab = signed arg[0x1c];
+
+        dx_grab = arg[0x14] - arg[0x10];
+        dy_grab = arg[0x16] - arg[0x12];
+
+        arg[0x1e] = (dx_grab << 0x04) / arg[0x18];
+        arg[0x20] = (dy_grab << 0x04) / arg[0x18];
+
+        arg[0x22] = arg[0x10] << 0x04;
+        arg[0x24] = arg[0x16] << 0x04;
+
+        <SCRIPT_OWNER>[VELOCITY] = arg[0x18] / 0x02;
+        arg[0x12] = 0x00;
+
+        while(arg[0x12] <= arg[0x18]) {
+            arg[0x22] += arg[0x1e];
+            arg[0x24] += arg[0x20];
+            arg[0x26] = 0x0000;
+            _teleport(<SCRIPT_OWNER>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
+            _teleport(BOY, arg[0x14], arg[0x16]); // lock boy in position
+            yield();
+            arg[0x12]++;
+        }
+
+        // sterling reached boy
+
+        // if(dead(<SCRIPT_OWNER>)) {
+        //     subtext("dead 2");
+        //     end();
+        // }
+
+        // call(0x99988a);
+
+        if(False) {
+            debug_memory(arg[0x1e], arg[0x20]);
+            // subtext("test 2");
+            // end();
+        }
+
+        arg[0x10] = <BOY>[X];
+        arg[0x12] = <BOY>[Y];
+
+        if(True) {
+            arg[0x14] = drop_x << 0x03; // drop_x
+            arg[0x16] = drop_y << 0x03; // drop_y
+        } else if(arg[0x10] == 0x01) {
+            arg[0x14] = 0x00f8;
+            arg[0x16] = 0x00e8;
+            face(BOY, WEST);
+            face(SCRIPT_OWNER, WEST);
+        } else {
+            arg[0x14] = 0x02d8;
+            arg[0x16] = 0x00e8;
+            face(BOY, EAST);
+            face(SCRIPT_OWNER, EAST);
+        }
+
+        yield();
+
+        animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+        arg[0x18] = 0x004b;
+        arg[0x12] -= 0x10;
+        arg[0x26] = 0x0010;
+        _teleport(BOY, arg[0x10], arg[0x12]);
+
+        arg[0x26] = 0x0000;
+        _teleport(SCRIPT_OWNER, arg[0x10] - 0x06, arg[0x12] - 0x1f);
+
+        val dx = signed arg[0x1a];
+        val dy = signed arg[0x1c];
+
+        dx = arg[0x14] - arg[0x10];
+        dy = arg[0x16] - arg[0x12];
+
+        if(False) {
+            debug_memory(dx, dy);
+            sleep(0d120);
+        }
+
+        arg[0x1e] = (dx << 0x04) / arg[0x18];
+        arg[0x20] = (dy << 0x04) / arg[0x18];
+
+        arg[0x22] = arg[0x10] << 0x04;
+        arg[0x24] = arg[0x12] << 0x04;
+
+        <BOY>[VELOCITY] = arg[0x18] / 0x02;
+        <SCRIPT_OWNER>[VELOCITY] = arg[0x18] / 0x02;
+
+        arg[0x12] = 0x00;
+
+        while(arg[0x12] <= arg[0x18]) {
+            arg[0x22] += arg[0x1e];
+            arg[0x24] += arg[0x20];
+            arg[0x26] = 0x0010;
+            _teleport(<BOY>, arg[0x22] >> 0x04, arg[0x24] >> 0x04);
+            arg[0x26] = 0x0000;
+            _teleport(<SCRIPT_OWNER>, (arg[0x22] >> 0x04) - 0x06, (arg[0x24] >> 0x04) - 0x1f);
+            yield();
+            arg[0x12]++;
+
+            if(False) {
+                debug_memory(arg[0x22], arg[0x24]);
+                sleep(0d60);
+            }
+        }
+
+        // sterling reached drop
+
+        sleep(0x1d);
+        if(with_roar) {
+            if(MEMORY.CURRENT_MUSIC == MUSIC.BOSS_DRUMS) {
+                sound(THRAXX_DAMAGE);
+            } else {
+                call_async(ADDRESS.STERLING_ROAR);
+            }
+        }
+
+        arg[0x10] = <BOY>[X];
+        arg[0x12] = <BOY>[Y];
+
+        if(True) {
+            // arg[0x14] = 0x00f8;
+            arg[0x16] = falling_threshold; // falling_threshold
+            // arg[0x16] = arg[0x12] + falling_threshold;
+        } else if(arg[0x10] == 0x01) {
+            arg[0x14] = 0x00f8;
+            arg[0x16] = 0x01e8;
+        } else {
+            arg[0x14] = 0x02d8;
+            arg[0x16] = 0x0258;
+        }
+
+        animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+        // _teleport(<BOY>, arg[0x10], arg[0x12]);
+
+        if(False) {
+            debug_subtext("drop boy");
+            sleep(0d60);
+            debug_memory(arg[0x12], arg[0x16]);
+            sleep(0d60);
+        }
+
+        while(arg[0x12] < arg[0x16]) {
+            _teleport(<BOY>, arg[0x10], arg[0x12]);
+            yield();
+            arg[0x12] += 0x04;
+        }
+
+        // boy dropped
+
+        sfx_effect(SHAKING, True);
+
+        animate(BOY, ONCE, ANIMATION_BOY.LANDING);
+        attribute(BOY, ROOT, False);
+        control(BOTH);
+
+        if(True) { // otherwise it triggers the exits and not boy_death()
+            sleep(0d03);
+        }
+
+        <0x23d7> = 0x0001;
+        if(CUSTOM_MEMORY.WEIGHT_BOY > SYSTEM.WEIGHT_BOY) {
+            damage_boy <<= 0d1;
+        } else if(CUSTOM_MEMORY.WEIGHT_BOY < SYSTEM.WEIGHT_BOY) {
+            damage_boy >>= 0d1;
+        }
+
+        damage(BOY, damage_boy, True);
+        sleep(0x0e);
+
+        sfx_effect(SHAKING, False);
+
+
+        if(False) { // teleport to default position
+            <0x24ab> = 0x0158;
+            <0x24af> = 0x00e8;
+
+            _teleport(<SCRIPT_OWNER>, <0x24ab>, <0x24af>);
+        }
+
+        yield();
+        animate(SCRIPT_OWNER, ONCE, ANIMATION_ALL.DEFAULT);
+        attribute(SCRIPT_OWNER, INVINCIBLE, False);
+        attribute(<SCRIPT_OWNER>, ROOT, False);
+
+        // sleep(0d120);
+
+        if(unlock) {
+            control(sterling, False);
+        }
+    }
+
+    @install()
+    @weak()
+    fun sterling_grab_3d(sterling, with_roar, drop_x, drop_y, falling_threshold, damage_boy) {
+        // debug_subtext("+walk");
+        walk(sterling, TILE_ABSOLUTE_DIRECT, drop_x, drop_y, True);
+        control(sterling, True);
+        // debug_subtext("-walk");
+    }
+    
+    @install()
+    @async()
+    @weak()
+    fun attach_sterling_script(entity, with_roar, stomp_radius, drop_x, drop_y, falling_threshold, damage_boy, with_return) {
+        if(False) {
+            <0x283d> = entity;
+            
+            call(0x9997a7); // (07) CALL 0x9997a7 Sterling battle over, Gomi introduction
+        } else {
+            if(False) {
+                debug_memory(entity, stomp_radius);
+                sleep(0d60);
+            }
+
+            while(alive(entity)) {
+                if!(<ACTIVE>[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                    if!(entity[FLAGS_1] & ATTRIBUTE_FLAGS.DISABLED) {
+                        arg[0x10] = entity[X];
+                        arg[0x12] = entity[Y];
+                        arg[0x1c] = entity[Z_LEVEL];
+                        arg[0x14] = <BOY>[X];
+                        arg[0x16] = <BOY>[Y];
+
+                        if(arg[0x10] < arg[0x14]) {
+                            arg[0x18] = arg[0x14] - arg[0x10];
+                        } else {
+                            arg[0x18] = arg[0x10] - arg[0x14];
+                        }
+
+                        if(arg[0x12] < arg[0x16]) {
+                            arg[0x1a] = arg[0x16] - arg[0x12];
+                        } else {
+                            arg[0x1a] = arg[0x12] - arg[0x16];
+                        }
+
+                        // yield();
+
+                        if((arg[0x18] <= stomp_radius) && (arg[0x1a] <= stomp_radius)) {
+                            // arg[0x20]++;
+                            // debug_memory(arg[0x20], 0x00);
+
+                            <BOY>[GENERAL_PURPOSE] = 0d1; // required to detect a grab
+                            control(NONE);
+
+                            if(with_roar) {
+                                if(MEMORY.CURRENT_MUSIC == MUSIC.BOSS_DRUMS) {
+                                    sound(THRAXX_DAMAGE);
+                                } else {
+                                    call_async(ADDRESS.STERLING_ROAR);
+                                }
+                            }
+                            if(True) {
+                                sterling_grab(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy, !with_return);
+                            } else {
+                                sterling_grab_3d(entity, with_roar, drop_x, drop_y, falling_threshold, damage_boy);
+                            }
+
+                            if(with_return) {
+                                _drag(entity, arg[0x10], arg[0x12]);
+                                entity[Z_LEVEL] = arg[0x1c];
+                                
+                                sleep(0d30);
+
+                                control(entity, False);
+                            }
+
+                            sleep(0d300);
+                        } else {
+                            sleep(0d4);
+                        }
+                    }
+                }
+
+                sleep(0d5);
+
+                if(False) {
+                    debug_memory(arg[0x18], arg[0x1a]);
+                    sleep(0d60);
+                }
+            }
+        }
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun hatch_enemy(entity, enemy:ENEMY) {
+        while(alive(entity)) {
+
+            sleep(0d300 + randrange(0d300));
+
+            debug_memory(entity, alive(entity), False);
+            animate(entity, ONCE_FREEZE, ANIMATION_ENEMY.MEGATAUR_EXIT);
+
+            arg[0x10] = 0d0;
+            arg[0x12] = False;
+            while((arg[0x10] < 0d20) && (!arg[0x12])) {
+                arg[0x10]++;
+
+                if(entity[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                    arg[0x12] = True;
+                }
+
+                sleep(0d20);
+
+                if(dead(entity)) {
+                    end();
+                }
+            }
+
+            if!(arg[0x12]) {
+                if(enemy == ENEMY.MINITAUR) {
+                    replace_enemy(entity, MINITAUR);
+                } else {
+                    nop(); // TODO
+                }
+                end();
+            }
+        }
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun pit_projectile(entity, target) {
+        _add_enemy(RIMSALA_STATUTE_ENTITY, target[X], target[Y], INVINCIBLE);
+        attach_to_script(LAST_ENTITY);
+        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+
+        sleep(0d5);
+        animate(SCRIPT_OWNER, ONCE, DEFAULT);
+
+        sleep(0d5);
+        animate(SCRIPT_OWNER, ONCE, DEFAULT);
+        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+        
+        sleep(0d10);
+        animate(SCRIPT_OWNER, ONCE, DEFAULT);
+        animate(SCRIPT_OWNER, ONCE, ANIMATION_PLACEHOLDER.SANDPIT_PUKE);
+        
+        sleep(0d30);
+
+        projectile(entity, ONION, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y] + randrange(0d30), 0d50 + randrange(0d10), 0d0);
+        sleep(0d5);
+        projectile(entity, ONION, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], <SCRIPT_OWNER>[X] + randrange(0d30), <SCRIPT_OWNER>[Y] - randrange(0d30), 0d40 + randrange(0d10), 0d0);
+        sleep(0d10);
+        projectile(entity, ONION, <SCRIPT_OWNER>[X], <SCRIPT_OWNER>[Y], <SCRIPT_OWNER>[X] - randrange(0d10), <SCRIPT_OWNER>[Y] - randrange(0d10), 0d30, 0d0);
+
+        wait(SCRIPT_OWNER);
+        destroy(SCRIPT_OWNER);
+    }
+
+    @install()
+    @async()
+    @weak()
+    fun volcano_toss_projectile(entity, repeat) {
+        repeat++;
+
+        while(repeat > 0d0) {
+            repeat--;
+
+            shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+            sleep(0d10);
+            shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+            sleep(0d10);
+            shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+            sleep(0d10);
+            shoot_entity_entity(<SCRIPT_OWNER>, BOOMERANG, <BOY>, 0d70, 0d0);
+
+            if(repeat > 0d0) {
+                sleep(0d40);
+            }
+        }
+    }
+};

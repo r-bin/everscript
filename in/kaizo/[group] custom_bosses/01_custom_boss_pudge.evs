@@ -1,0 +1,566 @@
+area custom_boss_pudge() {
+    enum BOSS {
+        DEBUG = False,
+
+        MOVE_COOLDOWN = 0d300,
+
+        SPIDER_HP = 0d15,
+        
+        STOMP_RANGE = 0d100,
+        STOMP_DAMAGE = 0d10,
+
+        DURATION_EAT = 0d0060 * 0d15,
+        DAMAGE_EAT = 0d5,
+        ESCAPE_EAT = 0d10,
+
+        DAMAGE_CHARGE = 0d20,
+        RANGE_CHARGE = 0d150,
+
+        DURATION_STUN_PULL = 0d120
+    }
+
+    @install()
+    fun _roar(scream) {
+        if(scream) {
+            sound(THRAXX_DAMAGE);
+        }
+
+        animate(<0x2834>, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+        yield();
+        wait(<0x2834>);
+
+        sfx_effect(SHAKING, True);
+        sleep(0d20);
+        sfx_effect(SHAKING, False);
+    }
+    fun roar(scream) {
+        if(scream !is None) {
+            _roar(scream);
+        } else {
+            _roar();
+        }
+
+        yield();
+    }
+
+    group ai_moves() {
+        @install()
+        fun ai_move_fresh_meat(mount, rider) {
+            if(BOSS.DEBUG) {
+                debug_subtext("eat");
+            }
+
+            guard_dead(mount);
+            while(mount[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK) {
+                yield();
+            }
+            guard_dead(mount);
+
+            control(mount, True);
+            animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+            subtext("FRESH MEAT");
+
+            while((arg[0x10] < 0d30) && (!arg[0x12]) && (!(mount[FLAGS_7] & ATTRIBUTE_FLAGS.KNOCKBACK))) {
+                arg[0x10]++;
+
+                guard_dead(mount);
+
+                walk(mount, COORDINATE_ABSOLUTE, <BOY>[X], <BOY>[Y], False, False);
+
+                sleep(0d10);
+
+                // debug_memory(arg[0x10]);
+
+                check_range_old(<SCRIPT_OWNER>, <BOY>, 0d30, 0d30, {
+                    arg[0x12] = True;
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("?");
+                    }
+
+                    control(BOY, True);
+                    face_target(BOY, SCRIPT_OWNER);
+                    animate(BOY, LOOP, ANIMATION_BOY.FALL_1);
+
+                    while(arg[0x14] < BOSS.DURATION_EAT) {
+                        arg[0x14]++;
+
+                        arg[0x16] = CUSTOM_MEMORY.INPUT_P1;
+                        yield();
+
+                        if((arg[0x16] & 0xff00) != (CUSTOM_MEMORY.INPUT_P1 & 0xff00)) {
+                            arg[0x14] += BOSS.ESCAPE_EAT;
+                        }
+                        if((arg[0x16] & 0xff) != (CUSTOM_MEMORY.INPUT_P1 & 0xff)) {
+                            arg[0x14] += BOSS.ESCAPE_EAT;
+                        }
+
+                        arg[0x18]++;
+                        if(arg[0x18] > 0d45) {
+                            damage(BOY, BOSS.DAMAGE_EAT, True, True);
+                            arg[0x18] = 0d0;
+                        }
+                    }
+                    
+                    face_target(BOY, SCRIPT_OWNER);
+                    animate(BOY, ONCE, KNOCKBACK);
+                    control(BOY, False);
+
+                    if(BOSS.DEBUG) {
+                        debug_subtext("!");
+                    }
+                });
+            }
+
+            animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+
+            control(mount, False);
+        }
+        
+        @install()
+        fun ai_move_charge(mount, rider) {
+            if(BOSS.DEBUG) {
+                debug_subtext("charge");
+            }
+
+            guard_dead(mount);
+
+            control(mount, True);
+
+            roar(True);
+            face_target(mount, ACTIVE);
+            sleep(0d30);
+
+            guard_dead(mount);
+
+            animate(mount, ONCE, DEFAULT);
+            animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+            face_target(mount, ACTIVE);
+            sleep(0d10);
+            animate(mount, ONCE, DEFAULT);
+            animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+            face_target(mount, ACTIVE);
+
+            animate(mount, LOOP, RUN_FORWARD);
+            attribute(mount, ROOT, True);
+
+            if(<BOY>[X] < mount[X]) {
+                arg[0x18] = DIRECTION.WEST;
+                arg[0x14] = mount[X] - <BOY>[X];
+            } else {
+                arg[0x18] = DIRECTION.EAST;
+                arg[0x14] = <BOY>[X] - mount[X];
+            }
+
+            if(<BOY>[Y] < mount[Y]) {
+                arg[0x1a] = DIRECTION.NORTH;
+                arg[0x16] = mount[Y] - <BOY>[Y];
+            } else {
+                arg[0x1a] = DIRECTION.SOUTH;
+                arg[0x16] = <BOY>[Y] - mount[Y];
+            }
+
+            if(arg[0x14] > arg[0x16]) {
+                if(arg[0x14] > 0d200) {
+                    while(arg[0x14] > (arg[0x16] + arg[0x16] + arg[0x16] + arg[0x16])) {
+                        arg[0x14] >>= 0d1;
+                    }
+                }
+                
+                while(arg[0x14] < 0d100) {
+                    arg[0x14] <<= 0d1;
+                    arg[0x16] <<= 0d1;
+                }
+            } else {
+                if(arg[0x16] > 0d200) {
+                    while(arg[0x16] > (arg[0x14] + arg[0x14] + arg[0x14] + arg[0x14])) {
+                        arg[0x16] >>= 0d1;
+                    }
+                }
+                
+                while(arg[0x16] < 0d100) {
+                    arg[0x14] <<= 0d1;
+                    arg[0x16] <<= 0d1;
+                }
+            }
+
+            // debug_memory(arg[0x18], arg[0x1a], 0d1);
+
+            while(True) {
+                guard_dead(mount);
+
+                arg[0x10] = arg[0x14] >> 0d5;
+                arg[0x12] = arg[0x16] >> 0d5;
+
+                arg[0x20] = mount[X];
+                arg[0x22] = mount[Y];
+
+                if((arg[0x1a] == DIRECTION.NORTH) && (arg[0x18] == DIRECTION.EAST)) { // q1
+                    teleport_relative(mount, arg[0x10], -(arg[0x12]));
+                } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.EAST)) { // q2
+                    teleport_relative(mount, arg[0x10], arg[0x12]);
+                } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.WEST)) { // q3
+                    teleport_relative(mount, -(arg[0x10]), arg[0x12]);
+                } else { // q4
+                    teleport_relative(mount, -(arg[0x10]), -(arg[0x12]));
+                }
+
+                if((mount[X] == arg[0x20]) && (mount[Y] == arg[0x22])) {
+                    if(BOSS.DEBUG) {
+                        debug_subtext("?");
+                    }
+
+                    sfx_effect(SHAKING, True);
+
+                    bomb_entity(mount, BOSS.RANGE_CHARGE, BOSS.DAMAGE_CHARGE);
+
+                    animate(mount, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+                    attribute(mount, ROOT, False);
+
+                    control(mount, False);
+
+                    sleep(0d40);
+
+                    sfx_effect(SHAKING, False);
+
+                    end();
+                }
+
+                sleep(0d2);
+            }
+        }
+        
+        @install()
+        @async()
+        fun pull_boy(mount, rider) {
+            face_each(mount, BOY);
+            if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                arg[0x10] = 0d0;
+                arg[0x12] = -0d40;
+            } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH_EAST) {
+                arg[0x10] = 0d30;
+                arg[0x12] = -0d30;
+            } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                arg[0x10] = 0d40;
+                arg[0x12] = 0d0;
+            } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_EAST) {
+                arg[0x10] = 0d30;
+                arg[0x12] = 0d30;
+            } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.SOUTH) {
+                arg[0x10] = 0d0;
+                arg[0x12] = 0d40;
+            } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.SOUTH_WEST) {
+                arg[0x10] = -0d30;
+                arg[0x12] = 0d30;
+            } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                arg[0x10] = -0d40;
+                arg[0x12] = 0d0;
+            } if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH_WEST) {
+                arg[0x10] = -0d30;
+                arg[0x12] = -0d30;
+            }
+
+            // debug_memory(<BOY>[FACE_DIRECTION], mount[FACE_DIRECTION], rider[FACE_DIRECTION]);
+
+            sleep(0d3);
+
+            // arg[0x24] = <BOY>[Z_LEVEL];
+            _drag(BOY, mount[X] + arg[0x10], mount[Y] + arg[0x12]);
+            // <BOY>[Z_LEVEL] = arg[0x24];
+            <BOY>[Z_LEVEL] = mount[Z_LEVEL];
+            animate(BOY, ONCE_FREEZE, ANIMATION_BOY.LANDING);
+            while((arg[0x24] < BOSS.DURATION_STUN_PULL) && (<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION)) {
+                arg[0x24]++;
+
+                yield();
+            }
+            if(<BOY>[FLAGS_1] & ATTRIBUTE_FLAGS.IN_ANIMATION) {
+                animate(BOY, ONCE, DEFAULT);
+            }
+            attribute(BOY, ROOT, False);
+        }
+        @install()
+        @async()
+        fun tesla_line(mount, rider) {
+            while(_alive(rider) && (rider[GENERAL_PURPOSE] > 0d0)) {
+                sleep(0d10);
+
+                shoot_entity_offset_entity_offset(mount, LIGHTNING, rider, 0d0, -0d30, 0d0, -(rider[Z] >> 0d4), 0d1, 0d0);
+
+                // debug_memory(rider[Z]);
+
+                face_target(rider, <ACTIVE>);
+                face_target(mount, rider);
+            }
+        }
+        @install()
+        fun _ai_move_hook(mount, rider, hit) {
+            if(False) {
+                debug_subtext("?");
+            }
+
+            guard_dead(mount);
+            guard_dead(rider);
+
+            if(hit) {
+                attribute(BOY, ROOT, True);
+            }
+
+            sleep(0d30);
+
+            guard_dead(mount);
+            guard_dead(rider);
+
+            if(CUSTOM_MEMORY.RETURN) {
+                pull_boy(mount, rider);
+            }
+            _drag(rider, mount[X], mount[Y]);
+
+            if(False) {
+                subtext("!");
+            }
+            sleep(0d30);
+
+            guard_dead(mount);
+            guard_dead(rider);
+
+            rider[GENERAL_PURPOSE] = 0d0;
+
+            roar();
+        }
+        @install()
+        fun ai_move_hook(mount, rider) {
+            if(BOSS.DEBUG) {
+                debug_subtext("hook");
+            }
+
+            attach_to_script(rider);
+
+            guard_dead(mount);
+            guard_dead(rider);
+
+            control(mount, True);
+
+            if(rand(0x01)) {
+                subtext("Get over here!");
+            } else {
+                subtext("Come here!");
+            }
+
+            roar(True);
+            attribute(mount, ROOT, True);
+
+            rider[GENERAL_PURPOSE] = 0d1;
+
+            sleep(0d30);
+
+            guard_dead(mount);
+            guard_dead(rider);
+
+            tesla_line(mount, rider);
+
+            sleep(0d30);
+
+            guard_dead(mount);
+            guard_dead(rider);
+
+            rider[GENERAL_PURPOSE] = 0d2;
+
+            animate(rider, ONCE, SLASH_1);
+
+            if(<BOY>[X] < mount[X]) {
+                arg[0x18] = DIRECTION.WEST;
+                arg[0x14] = mount[X] - <BOY>[X];
+            } else {
+                arg[0x18] = DIRECTION.EAST;
+                arg[0x14] = <BOY>[X] - mount[X];
+            }
+
+            if(<BOY>[Y] < mount[Y]) {
+                arg[0x1a] = DIRECTION.NORTH;
+                arg[0x16] = mount[Y] - <BOY>[Y];
+            } else {
+                arg[0x1a] = DIRECTION.SOUTH;
+                arg[0x16] = <BOY>[Y] - mount[Y];
+            }
+
+            if(arg[0x14] > arg[0x16]) {
+                if(arg[0x14] > 0d200) {
+                    while(arg[0x14] > (arg[0x16] + arg[0x16] + arg[0x16] + arg[0x16])) {
+                        arg[0x14] >>= 0d1;
+                    }
+                }
+                
+                while(arg[0x14] < 0d100) {
+                    arg[0x14] <<= 0d1;
+                    arg[0x16] <<= 0d1;
+                }
+            } else {
+                if(arg[0x16] > 0d200) {
+                    while(arg[0x16] > (arg[0x14] + arg[0x14] + arg[0x14] + arg[0x14])) {
+                        arg[0x16] >>= 0d1;
+                    }
+                }
+                
+                while(arg[0x16] < 0d100) {
+                    arg[0x14] <<= 0d1;
+                    arg[0x16] <<= 0d1;
+                }
+            }
+
+            // debug_memory(arg[0x18], arg[0x1a], 0d1);
+
+            while(True) {
+                guard_dead(mount);
+                guard_dead(rider);
+
+                arg[0x10] = arg[0x14] >> 0d5;
+                arg[0x12] = arg[0x16] >> 0d5;
+
+                arg[0x20] = rider[X];
+                arg[0x22] = rider[Y];
+
+                if((arg[0x1a] == DIRECTION.NORTH) && (arg[0x18] == DIRECTION.EAST)) { // q1
+                    teleport_relative(rider, arg[0x10], -(arg[0x12]));
+                } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.EAST)) { // q2
+                    teleport_relative(rider, arg[0x10], arg[0x12]);
+                } else if((arg[0x1a] == DIRECTION.SOUTH) && (arg[0x18] == DIRECTION.WEST)) { // q3
+                    teleport_relative(rider, -(arg[0x10]), arg[0x12]);
+                } else { // q4
+                    teleport_relative(rider, -(arg[0x10]), -(arg[0x12]));
+                }
+
+                return_check_range_old(<SCRIPT_OWNER>, <BOY>, 0d30, 0d30);
+
+                if(((rider[X] == arg[0x20]) && (rider[Y] == arg[0x22])) || CUSTOM_MEMORY.RETURN) {
+                    
+                    _ai_move_hook(mount, rider, CUSTOM_MEMORY.RETURN);
+
+                    attribute(BOY, ROOT, False);
+                    attribute(mount, ROOT, False);
+
+                    control(mount, False);
+
+                    end();
+                }
+
+                sleep(0d2);
+            }
+        }
+    };
+
+    @install()
+    @async()
+    fun holding_spider(mount, rider) {
+        while(_alive(mount) && _alive(rider)) {
+            if(rider[GENERAL_PURPOSE] == 0d0) {
+                if(mount[FACE_DIRECTION] == FACE_DIRECTION.NORTH) {
+                    _teleport(rider, mount[X], mount[Y] + 0d1);
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.EAST) {
+                    _teleport(rider, mount[X] - 0d10, mount[Y] - 0d20);
+                } else if(mount[FACE_DIRECTION] == FACE_DIRECTION.WEST) {
+                    _teleport(rider, mount[X] + 0d10, mount[Y] - 0d20);
+                } else {
+                    _teleport(rider, mount[X], mount[Y] - 0d20);
+                }
+
+                _face(rider, NORTH);
+            } else if(rider[GENERAL_PURPOSE] == 0d1) {
+                _teleport(rider, mount[X], mount[Y] + 0d5);
+            }
+
+            sleep(0d2);
+        }
+
+        if(BOSS.DEBUG) {
+            subtext("-holding");
+        }
+    }
+
+    fun add_spider(out_mount, out_rider) {
+        _add_enemy(SPIDER, out_mount[X], out_mount[Y] + 0d5, INACTIVE);
+        <LAST_ENTITY>[GENERAL_PURPOSE] = 0d0;
+        <LAST_ENTITY>[HP] = BOSS.SPIDER_HP;
+        out_rider = <LAST_ENTITY>;
+
+        holding_spider(out_mount, out_rider);
+    }
+
+    fun stomp(entity) {
+        if(alive(entity)) {
+            animate(entity, ONCE, ANIMATION_ENEMY.MINITAUR_STOMP);
+            wait(entity);
+            bomb_entity(entity, BOSS.STOMP_RANGE, BOSS.STOMP_DAMAGE);
+        }
+    }
+
+    @install()
+    @async()
+    fun _add_custom_boss_pudge(x, y, force_phase, hp) {
+        add_enemy(MINITAUR, x, y);
+        <LAST_ENTITY>[HP] = hp;
+        arg[0x10] = <LAST_ENTITY>;
+        attach_to_script(LAST_ENTITY);
+
+        yield();
+
+        add_spider(arg[0x10], arg[0x12]);
+
+        smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, !_dead(arg[0x10]));
+
+        while(alive(arg[0x10])) {
+            if(dead(arg[0x12])) {
+                if(BOSS.DEBUG) {
+                    debug_subtext("new spider");
+                }
+
+                add_spider(arg[0x10], arg[0x12]);
+                arg[0x12][Z] = 0d2000;
+
+                stomp(arg[0x10]);
+                stomp(arg[0x10]);
+                stomp(arg[0x10]);
+
+                if(alive(arg[0x10])) {
+                    ai_move_charge(arg[0x10], arg[0x12]);
+                }
+            } else {
+                if((force_phase == 0d1) || (<SCRIPT_OWNER>[HP] > (hp - (hp / 0d3)))) {
+                    arg[0x0e] = randrange(0d2);
+                } else {
+                    arg[0x0e] = randrange(0d4);
+                }
+
+                if(arg[0x0e] == 0d0) {
+                    ai_move_fresh_meat(arg[0x10], arg[0x12]);
+                } else if(arg[0x0e] == 0d1) {
+                    ai_move_charge(arg[0x10], arg[0x12]);
+                } else {
+                    ai_move_hook(arg[0x10], arg[0x12]);
+                }
+            }
+
+            smart_timer(arg[0x16], BOSS.MOVE_COOLDOWN, _alive(arg[0x10]) && _alive(arg[0x12]));
+        }
+
+        destroy(arg[0x12]); // TODO: delayed
+    }
+    fun add_custom_boss_pudge(x, y, flag_dead, callback_dead, force_phase, hp) {
+        _add_custom_boss_pudge(x, y, force_phase, hp);
+        yield();
+
+        if(callback_dead is Function) {
+            attach_to_script(LAST_ENTITY);
+
+            while((!_dead(<SCRIPT_OWNER>)) && (!flag_dead)) {
+                yield();
+            }
+
+            if(flag_dead) {
+                destroy(<SCRIPT_OWNER>);
+            }
+
+            callback_dead();
+        }
+    }
+};

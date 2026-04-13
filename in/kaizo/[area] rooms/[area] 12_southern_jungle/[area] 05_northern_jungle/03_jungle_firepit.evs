@@ -1,0 +1,109 @@
+map jungle_firepit(FIREPIT_JUNGLE) {
+    // sniff=vanilla
+
+    enum entrance {
+        south = entrance(0x17, 0x2c, NORTH),
+
+        bonfire = entrance(0d15, 0d23, NONE, { bonfire_wakeup(0d8, 0d40, 0d40, 0d16); }),
+    }
+
+    enum soundtrack {
+        default = soundtrack(JUNGLE_AMBIENT, 0xff)
+    }
+
+    enum stepon_trigger {
+        exit_south = @install() {
+            map_transition(northern_jungle, north, SOUTH);
+        },
+        windwalker = @install() {
+            debug_subtext("S=1");
+        },
+    }
+
+    enum b_trigger {
+        sniff__1_clay_2 = @install() {
+            debug_subtext("B=0");
+            _loot(0x06, CLAY, 0d01, 0d02);
+        },
+        sniff__1_ash_1 = @install() {
+            debug_subtext("B=1");
+            _loot(0x05, ASH, 0d01, 0d01);
+        },
+        sniff__1_oil_1 = @install() {
+            debug_subtext("B=2");
+            _loot(0x04, OIL, 0d01, 0d01);
+        },
+        sniff__1_oil_3 = @install() {
+            debug_subtext("B=3");
+            _loot(0x03, OIL, 0d01, 0d03);
+        },
+    }
+
+    enum ROOM {
+        DEBUG = False,
+
+        STATUE_REVEALED = memory(FLAG, SRAM),
+
+        PIT_IGNITED = memory(FLAG, SRAM),
+        FIRE_ORB_TRIGGER_COUNTER = memory(WORD, TEMP),
+    }
+
+    fun ignite_pit() {
+        object[0x01] = 0x01; // ignite firepit
+
+        bonfire(0d15, 0d23, SOULS_MEMORY.BONFIRE_JUNGLE_PIT);
+        attribute(LAST_ENTITY, INVISIBLE, True);
+        <LAST_ENTITY>[Z_LEVEL] = <BOY>[Z_LEVEL];
+    }
+
+    @install()
+    fun firepit_damage() {
+        fire_pit_handler({
+            ROOM.PIT_IGNITED = True;
+            SOULS_MEMORY.BONFIRE_JUNGLE_PIT = True;
+            ignite_pit();
+        });
+    }
+
+    fun show_statue(show) {
+        if(show) {
+            object[0x02] = 0x01; // show dog_statue
+
+            place_statue(DOG, 0d26, 0d19);
+        } else {
+            object[0x02] = 0x00; // show dog_statue
+        }
+    }
+
+    fun trigger_enter() {
+        // object[0x00] = 0x02; // add windwalker_hitbox
+        // object[0x01] = 0x01; // ignite firepit
+        // object[0x02] = 0x01; // show dog_statue
+
+        if!(ROOM.PIT_IGNITED) {
+            add_enemy(FACE_ENTITY, 0d14, 0d22);
+            attribute(LAST_ENTITY, INVISIBLE, True);
+            attach_script(LAST_ENTITY, DAMAGE, reference(firepit_damage));
+
+            reset_alchemy_types();
+        } else {
+            ignite_pit();
+        }
+
+        if!(ROOM.STATUE_REVEALED) {
+            add_enemy(REVEALER_TARGET_ENTITY, 0d26, 0d16);
+
+            special_script(REVEALER, reference(@install() {
+                guard_challenge_revealer();
+
+                show_statue(True);
+
+                destroy(SCRIPT_OWNER);
+            }));
+        } else {
+            show_statue(True);
+        }
+
+        default_init_room(True, True);
+    }
+};

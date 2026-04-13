@@ -1,0 +1,367 @@
+group experimental() {
+    fun sand_tunnel() {
+        // TODO: extract script, add parameters
+        call(0x939fd2);
+    }
+
+    fun bonfire_activate(x, y, id) {
+        // add_enemy(LANTERN_LIGHT, x, y, INACTIVE_IMORTAL);
+        // attach_script(LAST_ENTITY, B, 0x181e);
+        // entity_script_controlled(LAST_ENTITY);
+
+        add_enemy(LANTERN_LIGHT_RED, 0x00, 0x00, INACTIVE);
+        <LAST_ENTITY>[0x1a] = x;
+        <LAST_ENTITY>[0x1c] = y;
+        attach_script(LAST_ENTITY, DAMAGE, id);
+    }
+    fun bonfire_dialog() {
+        control(NONE);
+        color_filter(0x84, 0x90);
+        sleep(0x10);
+        animate(BOY, LOOP, ANIMATION_BOY.SLEEP_DOWN);
+        color_filter(0x84, 0x66);
+        sleep(0x10);
+        color_filter(0x55, 0x55);
+        animate(BOY, LOOP, ANIMATION_BOY.SLEEP_UP);
+        yield();
+
+        // question("[0x96][0x8b]test[LF][0x8b]test[LF][0x8b]test");
+
+        color_filter(0x84, 0x90);
+        sleep(0x10);
+        color_filter(0x84, 0x66);
+        sleep(0x10);
+        color_filter(0x00, 0x00);
+    }
+
+    fun cannonball() {
+        add_enemy(0x6a, 0x1e, 0x21, 0x0000); // ENEMY.MAGMAR
+        <0x2846> = <LAST_ENTITY>;
+        animate(0x2846, LOOP, ANIMATION_ENEMY.MAGMAR_ROLL);
+        
+        while(0x01) {
+            sleep(0x70);
+
+            teleport(0x2846, 0x1e, 0x21);
+        }
+    }
+
+    fun homing_cannonball() {
+        add_enemy(0x6a, 0x1e, 0x21, 0x0000); // ENEMY.MAGMAR
+        <0x2846> = <LAST_ENTITY>;
+        animate(0x2846, LOOP, ANIMATION_ENEMY.MAGMAR_ROLL);
+        
+        while(0x01) {
+            eval("18 21 02 50 29 6c 1a d5 // (18) WRITE $2479 = *(boy + 28)");
+            eval("18 21 02 08 21 02 29 3f 9b // (18) WRITE $2477 = $2477 + 2");
+
+            eval("18 1f 02 08 1f 02 29 32 9a // (18) WRITE $2477 = $2477 + 2");
+
+            // teleport(0x2846, 0x1e, 0x21);
+            code(0x43, entity_t(0x2846), entity_t(0x2477), entity_t(0x2479), "// (42) Teleport $2835 to a7, b9");
+
+            sleep(0x02);
+        }
+    }
+
+    fun show_shop(ingredient_id) {
+        // call_id(NPC_DIALOGUE_START);
+        call_id(OPEN_TEXTBOX_DEFAULT);
+        <0x2459> = ingredient_id;
+        call_id(DIALOGUE_BUY_INGREDIENT);
+        // call_id(NPC_DIALOGUE_STOP);
+    }
+
+    @install()
+    @weak()
+    fun track_speed(character, time) {
+        arg[0x10] = character[X];
+        arg[0x12] = character[Y];
+
+        while(True) {
+            sleep(0d60 * time);
+
+            arg[0x14] = character[X];
+            arg[0x16] = character[Y];
+
+            arg[0x14] = (signed arg[0x14] - signed arg[0x10]) / time;
+            arg[0x16] = (signed arg[0x16] - signed arg[0x12]) / time;
+
+            if(signed arg[0x14] < 0d0) {
+                arg[0x14] = -(arg[0x14]);
+            }
+            if(signed arg[0x16] < 0d0) {
+                arg[0x16] = -(arg[0x16]);
+            }
+
+            debug_memory(arg[0x14], arg[0x16]);
+
+            character[X] = arg[0x10];
+            character[Y] = arg[0x12];
+        }
+    }
+
+    // fun unique_drop_test() {
+    //     _add_enemy(MOSQUITO, <BOY>[X], <BOY>[Y] - 0d20);
+    //     if!(<0x2834, 0x01>) {
+    //         attach_script(LAST_ENTITY, DEATH, reference(@install() {
+    //             attach_script(SCRIPT_OWNER, B, reference(@install() {
+    //                 loot(LOOT_SNIFF, <0x2834, 0x01>, 0xff, PETAL, 0d1, 0d0);
+    // 
+    //                 destroy(SCRIPT_OWNER);
+    //             }));
+    //             
+    //             animate_eternal_dust();
+    //         }));
+    //     }
+    // }
+
+    fun _replace_enemy_with_type(enemy:ENEMY, type:CHARACTER_TYPE, wait_for_input?, extra_details) {
+        arg[0x0e]++;
+        debug_memory(arg[0x0e], type, enemy);
+
+        // replace_enemy(arg[0x10], enemy);
+        replace_enemy(arg[0x10], enemy, INACTIVE_IMORTAL);
+        arg[0x10] = <LAST_ENTITY>;
+        // face(LAST_ENTITY, EAST);
+        // animate(LAST_ENTITY, ONCE, SLASH_1);
+        <LAST_ENTITY>[TYPE] = type;
+        attribute(LAST_ENTITY, ROOT, True);
+
+        if(extra_details) {
+            replace_enemy(arg[0x14], enemy, INACTIVE_IMORTAL);
+            arg[0x14] = <LAST_ENTITY>;
+            face(LAST_ENTITY, EAST);
+            // animate(LAST_ENTITY, ONCE, SLASH_1);
+            <LAST_ENTITY>[TYPE] = type;
+            attribute(LAST_ENTITY, ROOT, True);
+
+            if(True) {
+                replace_enemy(arg[0x16], enemy, INACTIVE_IMORTAL);
+                arg[0x16] = <LAST_ENTITY>;
+                <LAST_ENTITY>[TYPE] = type;
+                attribute(LAST_ENTITY, ROOT, True);
+                
+                sleep(0d5);
+                animate(LAST_ENTITY, ONCE, SLASH_1);
+            }
+        }
+
+        replace_enemy(arg[0x12], enemy, INACTIVE_IMORTAL);
+        arg[0x12] = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, ROOT, True);
+
+        if(False) {
+            sleep(0d30);
+            animate(arg[0x10], ONCE, SLASH_1);
+        }
+
+        if(wait_for_input) {
+            while!(CUSTOM_MEMORY.INPUT_P1) {
+                yield();
+            }
+            while(CUSTOM_MEMORY.INPUT_P1) {
+                yield();
+            }
+        } else {
+            sleep(0d30);
+        }
+    }
+    fun replace_enemy_with_type(enemy:ENEMY, type:CHARACTER_TYPE, wait_for_input?, extra_details) {
+        destroy(<DOG>);
+        attribute(BOY, INVINCIBLE_TEMP, True);
+
+        arg[0x0e] = 0d0;
+
+        _add_enemy(enemy, <BOY>[X] + 0d50, <BOY>[Y]);
+        arg[0x10] = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, ROOT, True);
+        _add_enemy(enemy, <BOY>[X] + 0d100, <BOY>[Y]);
+        arg[0x12] = <LAST_ENTITY>;
+        attribute(LAST_ENTITY, ROOT, True);
+
+        if(extra_details) {
+            _add_enemy(enemy, <BOY>[X], <BOY>[Y]);
+            arg[0x14] = <LAST_ENTITY>;
+            attribute(LAST_ENTITY, ROOT, True);
+
+            _add_enemy(enemy, <BOY>[X] - 0d50, <BOY>[Y]);
+            arg[0x16] = <LAST_ENTITY>;
+            attribute(LAST_ENTITY, ROOT, True);
+        }
+
+        // 1…9
+        _replace_enemy_with_type(FIRE_EYES, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(EVIL_FIRE_EYES, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BLIMP, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(HARRY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_3, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_4, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_5, type, wait_for_input, extra_details);
+
+        // 10…19
+        _replace_enemy_with_type(VILLAGER_1_6, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_7, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_1_8, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BEE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(CHAMELEON, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(HORACE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(HORACE_EVIL, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TINY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_2, type, wait_for_input, extra_details);
+
+        // 20…29
+        _replace_enemy_with_type(VILLAGER_2_3, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_4, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_5, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_6, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_7, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_8, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_2_9, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BOXER_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BOXER_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DRUNK_1, type, wait_for_input, extra_details);
+        
+        // 30…39
+        _replace_enemy_with_type(DRUNK_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(QUEEN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(QUEEN_EVIL, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(KING, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TINKER, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TINKER_TWIN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_3_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_3_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_3_3, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_3_4, type, wait_for_input, extra_details);
+
+        // 40…49
+        _replace_enemy_with_type(VILLAGER_3_5, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VILLAGER_3_6, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(PROFESSOR, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(CARLTRON, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MOSQUITO, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FLOWER_PURPLE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SKELESNAIL, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MAGGOT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BONE_SNAKE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FLOWER_ORANGE, type, wait_for_input, extra_details);
+
+        // 50…59
+        _replace_enemy_with_type(SPIDER, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(LIZARD, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RAPTOR_GREEN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FRIPPO, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(LANTERN_LIGHT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MONK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(PIRATE_ANCHOR, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SPIDER_YELLOW, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TUMBLING_WEED, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BUZZARD_1, type, wait_for_input, extra_details);
+
+        // 60…69
+        _replace_enemy_with_type(DANCING_DEVIL_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SLIME_GREEN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RAT_RED, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(PYRAMID_GUARDIAN_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MUMMY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SNAKE_STATUE_LEFT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SNAKE_STATUE_RIGHT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BUZZARD_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DOG_1_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(LANTERN_LIGHT_RED, type, wait_for_input, extra_details);
+
+        // 70…79
+        _replace_enemy_with_type(OGLIN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TENTACLE_WHIP, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TENTACLE_SPIKE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SPARK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(HEDGEHOG, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RAT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RAPTOR_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SPIDER_GREEN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(GUARD_BOT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BUZZARD_2, type, wait_for_input, extra_details);
+
+        // 80…89
+        _replace_enemy_with_type(DRAKE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DRAKE_GREEN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SLIME, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MAGGOT_RED, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DANCING_DEVIL_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TENTACLE_WHIP_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(TENTACLE_SPIKE_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(OWL_GREEN, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SLIME_PINK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RIMSALA, type, wait_for_input, extra_details);
+
+        // 90…99
+        _replace_enemy_with_type(GATE_BOT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FLOWER_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MOSQUITO_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FAN_BOT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RAPTOR_TEAL, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RIMSALA_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DUSTER_BOT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DUSTER_BOT_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SPIDER_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(GUARD_BOT_INTRO, type, wait_for_input, extra_details);
+
+        // 100…109
+        _replace_enemy_with_type(RAPTOR_PURPLE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(THRAXX_HEART, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(THRAXX_LEFT_ARM, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(THRAXX_RIGHT_ARM, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(LIZARD_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SALABOG, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MAGMAR, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VIGOR, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MINITAUR, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MEGATAUR, type, wait_for_input, extra_details);
+
+        // 110…119
+        _replace_enemy_with_type(PYRAMID_GUARDIAN_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RIMSALA_HOLDER, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RIMSALA_GOLD, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RIMSALA_STATUTE_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(AEGIS_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(AQUAGOTH_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FOOTKNIGHT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(OWL_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FORESTDRAKE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(VERMINATOR, type, wait_for_input, extra_details);
+
+        // 120…129
+        _replace_enemy_with_type(STERLING, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MUNGOLA_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(PUPPET_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(PUPPET_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(THRAXX2_HEART, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(THRAXX2_LEFT_ARM, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(THRAXX2_RIGHT_ARM, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FACE_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(FAN_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(SPEAKER_ENTITY, type, wait_for_input, extra_details);
+
+        // 130…139
+        _replace_enemy_with_type(BOY_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DOG_4_BLACK, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(MAGMAR_METAL, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(CARLTRON_ROBOT, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(PLACEHOLDER, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(REVEALER_TARGET_ENTITY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(STONE, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(STONE_ROUND, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(BOMB, type, wait_for_input, extra_details);
+
+        // 140…146
+        _replace_enemy_with_type(BOY, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(DOG, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(UNKNOWN_1, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(UNKNOWN_2, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(UNKNOWN_3, type, wait_for_input, extra_details);
+        _replace_enemy_with_type(RAT_RED_HARMLESS, type, wait_for_input, extra_details);
+    }
+};

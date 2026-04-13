@@ -1,0 +1,117 @@
+group npc_archaeologist() {
+    enum NPC_ARCHAEOLOGIST {
+        PROGRESS = memory(BYTE, SRAM),
+
+        BODY = ENEMY.HORACE,
+    }
+
+    group archaeologist_ai() {
+        fun response_positive() {
+            arg[0x00] = randrange(0x03);
+
+            if(arg[0x00] == 0x00) {
+                dialog("[SLOW]Go and slay some big game with that armor.[B]");
+            } else if(arg[0x00] == 0x01) {
+                dialog("[SLOW]Go and hunt some monster with that armor.[B]");
+            } else {
+                dialog("[SLOW]That armor really suits you.[B]");
+            }
+        }
+        fun response_negative() {
+            dialog("[SLOW]I assume you're not into crafting.[B]");
+        }
+    };
+
+    fun add_souls_npc_archaeologist(x, y, flags:FLAG_ENEMY) {
+        if(flags is Word) {
+            add_enemy(NPC_ARCHAEOLOGIST.BODY, x, y, flags);
+        } else {
+            add_enemy(NPC_ARCHAEOLOGIST.BODY, x, y, 0d0);
+        }
+        <LAST_ENTITY>[HP] = NPC_SHARED.DEFAULT_HP;
+
+        // #0 volcano path, empty level?, subtle whispers ("The entrance to a forgotten culture must be here. I'm glad I brought my excavation gear all the way up this mountain.")
+        // #1 volcano tower, bottom U ("A tower made of trash? That can't be the product of the culture I'm looking for. Maybe I can find a clue further East.")
+        // #2 western inbetwixx/western waterfall (if open), ("Apparently I missed bringing the heavy gear." || "Apparently I missed bringing my climbing gear.", "My sources told me about a second lead. An abandond excavation site South of this dead end.")
+        // #3 eastern crossing, small island (requires stone), ("Those pesky raptors. Once the coast is clear I'll descent and make the final dash to the excavation site.")
+        // #4 horace camp, after acid rain
+
+        if(NPC_ARCHAEOLOGIST.PROGRESS == 0d0) {
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                smart_conversation({
+                    if(NPC_ARCHAEOLOGIST.PROGRESS == 0d0) {
+                        NPC_ARCHAEOLOGIST.PROGRESS++;
+
+                        conversation_dialog("[SLOW]The entrance to a forgotten culture must be here. I'm glad I carried my excavation gear all the way up this mountain.[B]");
+                    } else {
+                        response_positive();
+                    }
+                }, False);
+            }));
+        } else if(NPC_ARCHAEOLOGIST.PROGRESS == 0d1) {
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                smart_conversation({
+                    if(NPC_ARCHAEOLOGIST.PROGRESS == 0d1) {
+                        NPC_ARCHAEOLOGIST.PROGRESS++;
+
+                        conversation_dialog("[SLOW]A tower made of trash? That can't be the product of the culture I'm looking for. Maybe I can find a clue further East.[B]");
+                    } else {
+                        response_positive();
+                    }
+                }, False);
+            }));
+        } else if(NPC_ARCHAEOLOGIST.PROGRESS == 0d2) {
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                smart_conversation({
+                    if(NPC_ARCHAEOLOGIST.PROGRESS == 0d2) {
+                        NPC_ARCHAEOLOGIST.PROGRESS++;
+
+                        if(MEMORY.CURRENT_MAP == MAP.RIVER) {
+                            conversation_dialog("[SLOW]Apparently I missed bringing the heavy gear.[B]");
+                        } else {
+                            conversation_dialog("[SLOW]Apparently I missed bringing my climbing gear.[B]");
+                        }
+
+                        conversation_dialog("My sources told me about a second lead. An abandond excavation site South of this dead end.[B]");
+                    } else {
+                        response_positive();
+                    }
+                }, False);
+            }));
+        } else if(NPC_ARCHAEOLOGIST.PROGRESS == 0d3) {
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                smart_conversation({
+                    if(NPC_ARCHAEOLOGIST.PROGRESS == 0d3) {
+                        NPC_ARCHAEOLOGIST.PROGRESS = 0x10;
+
+                        conversation_dialog("[SLOW]Those pesky raptors. Once the coast is clear I'll descent and make the final dash to the excavation site.[B]");
+                    } else {
+                        response_negative();
+                    }
+                }, False);
+            }));
+        } else if(NPC_ARCHAEOLOGIST.PROGRESS >= 0x10) {
+            NPC_ARCHAEOLOGIST.PROGRESS++;
+
+            attach_script(LAST_ENTITY, B, reference(@install() {
+                smart_conversation({
+                    if(NPC_ARCHAEOLOGIST.PROGRESS >= 0x10) {
+                        if(NPC_ARCHAEOLOGIST.PROGRESS < 0x13) {
+                            conversation_question("[SLOW]Did you already inspect the excavated relics?[B]This place raises so many questions.[CHOICE]talk…[CHOICE]leave…");
+                        } else {
+                            conversation_question("[SLOW]I don't feel so well…[CHOICE]talk…[CHOICE]leave…");
+                        }
+                            
+                        if(MEMORY.QUESTION_ANSWER == 0d0) { // talk
+                            conversation_dialog("[SLOW]It's like armor from a dead world. Bronze wouldn't rot like this. And it's far too heavy. This wasn't made for battle… It was made for survival. Against what?[B]");
+                        } else {
+                            conversation_dialog("[SLOW]This seems like something big…[B]");
+                        }
+                    } else {
+                        dialog("[SLOW]I'm glad you ran into me…[B]");
+                    }
+                }, False);
+            }));
+        }
+    }
+};
