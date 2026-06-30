@@ -25,7 +25,7 @@ class Parser():
                 'ELSEIF!', 'ELSEIF', 'IF_CURRENCY', 'IF!', 'IF', 'ELSE',
                 'WHILE', 'WHILE!', 'FOR',
                 'FUNCTION_CALL', 'FUNCTION_STRING',
-                '@', ':', '?', 'FUN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
+                '@', ':', '?', 'FUN', 'RETURN', 'NAME_IDENTIFIER', 'MAP', 'AREA', 'GROUP',
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 '#IF', '#ENDIF',
                 'MEMORY', 'OBJECT', 'ARG', 'SCRIPT', 'TIME', 'IDENTIFIER',
@@ -729,6 +729,9 @@ class Parser():
                     return Lower(left, right)
                 
                 case '=':
+                    right_val = right.value if isinstance(right, Param) and right.value is not None else right
+                    if isinstance(right_val, Call):
+                        return CallAssign(self.generator, left, right_val)
                     return Asign(left, right)
                 case '<<=':
                     return Asign(left, ShiftLeft(left, right))
@@ -776,6 +779,14 @@ class Parser():
         def parse(p):
             return Word(0)
         
+        @self.pg.production('expression_entry : RETURN expression ;')
+        def parse(p):
+            return Return(self.generator, p[1])
+
+        @self.pg.production('expression_entry : RETURN ;')
+        def parse(p):
+            return Return(self.generator, None)
+
         @self.pg.production('expression_entry : FOR ( expression IN expression ) { expression_list }')
         def parse(p):
             iterator = p[2]

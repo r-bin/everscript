@@ -1326,6 +1326,49 @@ class Asign(BinaryOp):
 
         return code
 
+class Return(Function_Base):
+    """Implements `return [value];` — stores value in CUSTOM_MEMORY.RETURN then ends the script."""
+
+    def __init__(self, generator, value):
+        self._generator = generator
+        self.value = value
+
+    def eval(self):
+        return 0
+
+    def _code(self, params: list[Param]):
+        end_code = End()._code(params)
+
+        if self.value is None:
+            return end_code
+
+        memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
+        assign_code = Asign(memory_return, self.value)._code(params)
+
+        return f"{assign_code}\n{end_code}"
+
+class CallAssign(Function_Base):
+    """Implements `target = func_call()` — calls the function then reads CUSTOM_MEMORY.RETURN into target."""
+
+    def __init__(self, generator, target, call):
+        self._generator = generator
+        self.target = target
+        self.call = call
+
+    def eval(self):
+        return 0
+
+    def _code(self, params: list[Param]):
+        call_code = self.call.code(params)
+
+        memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
+        target = self.target
+        if isinstance(target, Param):
+            target = target.value if target.value is not None else target.name
+        read_code = Asign(target, memory_return)._code(params)
+
+        return f"{call_code}\n{read_code}"
+
 class Include(BaseBox):
     def __init__(self, generator, path):
         self.generator = generator

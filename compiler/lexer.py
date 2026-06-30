@@ -156,6 +156,7 @@ class Lexer:
         self.lexer.add('TIME', r'time(?=\[)')
 
         self.lexer.add('FUN', r'fun(?=\ )')
+        self.lexer.add('RETURN', r'return(?=[ ;])')
         # NAME_IDENTIFIER matches a lower-case identifier immediately followed
         # by '(' — i.e. a function call head.  Requires at least one char after
         # the leading [a-z_] so that single-char names like f( are also matched.
