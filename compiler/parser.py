@@ -729,6 +729,9 @@ class Parser():
                     return Lower(left, right)
                 
                 case '=':
+                    right_val = right.value if isinstance(right, Param) and right.value is not None else right
+                    if isinstance(right_val, Call):
+                        return CallAssign(self.generator, left, right_val)
                     return Asign(left, right)
                 case '<<=':
                     return Asign(left, ShiftLeft(left, right))

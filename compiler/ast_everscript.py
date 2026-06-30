@@ -901,7 +901,7 @@ class Call(Function_Base, Calculatable):
     def calculate(self, params: list[Param]):
         """Emit the call then expose CUSTOM_MEMORY.RETURN as the expression value."""
         memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
-        return [self.code(params)] + memory_return.calculate(params)
+        return [self.code_clean(params)] + memory_return.calculate(params)
 
 class End(Function_Base):
     def eval(self):
@@ -1359,6 +1359,30 @@ class Return(Function_Base):
         assign_code = Asign(memory_return, self.value)._code(params)
 
         return f"{assign_code}\n{end_code}"
+
+class CallAssign(Function_Base):
+    """Implements `target = func_call()` as two statements:
+    call func(); then target = CUSTOM_MEMORY.RETURN.
+    """
+
+    def __init__(self, generator, target, call):
+        self._generator = generator
+        self.target = target
+        self.call = call
+
+    def eval(self):
+        return 0
+
+    def _code(self, params: list[Param]):
+        call_code = self.call.code(params)
+
+        memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
+        target = self.target
+        if isinstance(target, Param):
+            target = target.value if target.value is not None else target.name
+        read_code = Asign(target, memory_return)._code(params)
+
+        return f"{call_code}\n{read_code}"
 
 class Include(BaseBox):
     def __init__(self, generator, path):
