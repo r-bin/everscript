@@ -750,6 +750,7 @@ class Label_Destination(BaseBox):
 
 class Call(Function_Base, Calculatable):
     async_call = False
+    memory = True
     
     def __init__(self, generator, function, params=[]):
         self._generator = generator
@@ -791,7 +792,7 @@ class Call(Function_Base, Calculatable):
     def __repr__(self):
         return f"Call(address={Address(self.address)}, function={self.function}, params={self.params})"
     
-    def calculate(self, address:str, call_params:list[Param], params:list[Param]):
+    def _call_bytes(self, address:str, call_params:list[Param], params:list[Param]):
         code = []
 
         if not call_params:
@@ -886,13 +887,21 @@ class Call(Function_Base, Calculatable):
             else:
                 pass
 
-            code = self.calculate(address, out_params, params)
+            code = self._call_bytes(address, out_params, params)
             code = self._clean_calucatable(code, params)
 
             return code
         
         else:
             return Function_Code(function.script, '\n').code(out_params)
+
+    def is_memory(self, params: list[Param]):
+        return True
+
+    def calculate(self, params: list[Param]):
+        """Emit the call then expose CUSTOM_MEMORY.RETURN as the expression value."""
+        memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
+        return [self.code(params)] + memory_return.calculate(params)
 
 class End(Function_Base):
     def eval(self):
@@ -1342,32 +1351,14 @@ class Return(Function_Base):
         if self.value is None:
             return end_code
 
+        # When returning another call's result, the callee already sets CUSTOM_MEMORY.RETURN.
+        if isinstance(self.value, Call):
+            return f"{self.value.code(params)}\n{end_code}"
+
         memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
         assign_code = Asign(memory_return, self.value)._code(params)
 
         return f"{assign_code}\n{end_code}"
-
-class CallAssign(Function_Base):
-    """Implements `target = func_call()` — calls the function then reads CUSTOM_MEMORY.RETURN into target."""
-
-    def __init__(self, generator, target, call):
-        self._generator = generator
-        self.target = target
-        self.call = call
-
-    def eval(self):
-        return 0
-
-    def _code(self, params: list[Param]):
-        call_code = self.call.code(params)
-
-        memory_return = Enum_Call(self._generator, "CUSTOM_MEMORY.RETURN").eval()
-        target = self.target
-        if isinstance(target, Param):
-            target = target.value if target.value is not None else target.name
-        read_code = Asign(target, memory_return)._code(params)
-
-        return f"{call_code}\n{read_code}"
 
 class Include(BaseBox):
     def __init__(self, generator, path):
