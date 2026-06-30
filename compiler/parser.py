@@ -29,6 +29,7 @@ class Parser():
                 'FUN_INCLUDE', 'FUN_MEMORY', 'FUN_PATCH',
                 '#IF', '#ENDIF',
                 'MEMORY', 'OBJECT', 'ARG', 'SCRIPT', 'TIME', 'IDENTIFIER',
+                'DOC_COMMENT',
             ],
 
             # A list of precedence rules with ascending precedence, to
@@ -386,6 +387,12 @@ class Parser():
                 
                 case _:
                     raise Exception(f"invalid annotation {name}")
+
+        @self.pg.production('annotation : DOC_COMMENT')
+        def parse(p):
+            # Strip the leading /// and any surrounding whitespace.
+            text = p[0].value.lstrip('/').strip()
+            return Annotation_Doc(text)
 
         @self.pg.production('expression_entry : expression ;')
         def parse(p):

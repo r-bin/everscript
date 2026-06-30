@@ -37,13 +37,36 @@ def preprocess(source: str, source_path: str = "") -> str:
 
     Returns:
         Fully expanded source with all #import directives resolved.
+
+    Raises:
+        FileNotFoundError: If a referenced path does not exist.
+        ImportError:       If a circular #import is detected.
     """
     base_dir = os.path.dirname(os.path.normpath(source_path)) if source_path else "."
-    return _resolve_imports(source, base_dir)
+    # Seed the visited set with the entry-point file so that any #import of it
+    # from within itself (or transitively) is caught immediately.
+    initial_visited: frozenset[str] = (
+        frozenset({os.path.abspath(source_path)}) if source_path else frozenset()
+    )
+    return _resolve_imports(source, base_dir, _visited=initial_visited)
 
 
-def _resolve_imports(source: str, base_dir: str, _depth: int = 0) -> str:
-    """Recursively resolve #import directives, resolving paths relative to base_dir."""
+def _resolve_imports(
+    source: str,
+    base_dir: str,
+    _depth: int = 0,
+    _visited: frozenset = frozenset(),
+) -> str:
+    """Recursively resolve #import directives, resolving paths relative to base_dir.
+
+    Args:
+        source:   Source text to scan for #import directives.
+        base_dir: Directory used to resolve relative import paths.
+        _depth:   Nesting depth (for directory wrapping decisions).
+        _visited: Absolute paths of files currently on the import stack.  Used
+                  for circular-import detection.  Immutable (frozenset) so that
+                  sibling imports don't share state.
+    """
     pattern = r'#import\(\s*"([^"]+)"\s*\)'
 
     def replacer(match):
@@ -51,9 +74,9 @@ def _resolve_imports(source: str, base_dir: str, _depth: int = 0) -> str:
         path = os.path.normpath(os.path.join(base_dir, raw_path))
 
         if os.path.isdir(path):
-            return _import_directory(path, _depth=_depth)
+            return _import_directory(path, _depth=_depth, _visited=_visited)
         elif os.path.isfile(path):
-            return _import_file(path, _depth=_depth)
+            return _import_file(path, _depth=_depth, _visited=_visited)
         else:
             raise FileNotFoundError(
                 f"#import path not found: '{raw_path}' (resolved to '{path}')"
@@ -62,11 +85,24 @@ def _resolve_imports(source: str, base_dir: str, _depth: int = 0) -> str:
     return re.sub(pattern, replacer, source)
 
 
-def _import_file(file_path: str, _depth: int = 0) -> str:
-    """Import a file, recursively resolving nested #import directives."""
+def _import_file(file_path: str, _depth: int = 0, _visited: frozenset = frozenset()) -> str:
+    """Import a single .evs file, recursively resolving nested #import directives.
+
+    Raises:
+        ImportError: If *file_path* is already in *_visited* (circular import).
+    """
+    abs_path = os.path.abspath(file_path)
+    if abs_path in _visited:
+        chain = " \u2192 ".join(
+            os.path.relpath(p) for p in sorted(_visited)
+        )
+        raise ImportError(
+            f"Circular #import detected: '{os.path.relpath(abs_path)}' is already "
+            f"being imported.\nImport chain: {chain} \u2192 {os.path.relpath(abs_path)}"
+        )
     content = Path(file_path).read_text()
-    base_dir = os.path.dirname(os.path.normpath(file_path))
-    return _resolve_imports(content, base_dir, _depth=_depth)
+    base_dir = os.path.dirname(abs_path)
+    return _resolve_imports(content, base_dir, _depth=_depth, _visited=_visited | {abs_path})
 
 
 def _dir_sort_key(entry: str):
@@ -78,7 +114,6 @@ def _dir_sort_key(entry: str):
               "14_town_bridge.evs"      → numeric 14
               "some_file.evs"           → numeric inf (no prefix)
     """
-    import re
     if entry.startswith('_'):
         return (0, entry.lower())
     # Strip "[type] " prefix from directory names, then extract leading digits
@@ -99,7 +134,7 @@ def _indent_text(text: str, spaces: int) -> str:
     return '\n'.join(indented)
 
 
-def _import_directory(dir_path: str, _depth: int = 0) -> str:
+def _import_directory(dir_path: str, _depth: int = 0, _visited: frozenset = frozenset()) -> str:
     """
     Import a directory.
 
@@ -127,13 +162,13 @@ def _import_directory(dir_path: str, _depth: int = 0) -> str:
         self_type = self_marked_m.group(1)
         self_name = self_marked_m.group(2)
         self_name = re.sub(r'^\d+_', '', self_name)
-        inner = _import_directory_inner(dir_path, _depth)
+        inner = _import_directory_inner(dir_path, _depth, _visited)
         return f'{self_type} {self_name}() {{\n{inner}\n}};'
     else:
-        return _import_directory_inner(dir_path, _depth)
+        return _import_directory_inner(dir_path, _depth, _visited)
 
 
-def _import_directory_inner(dir_path: str, _depth: int = 0) -> str:
+def _import_directory_inner(dir_path: str, _depth: int = 0, _visited: frozenset = frozenset()) -> str:
     """Process the actual contents of a directory."""
     parts = []
     entries = sorted(os.listdir(dir_path), key=_dir_sort_key)
@@ -141,7 +176,7 @@ def _import_directory_inner(dir_path: str, _depth: int = 0) -> str:
     # Import _shared.evs first if it exists
     shared_path = os.path.join(dir_path, '_shared.evs')
     if os.path.isfile(shared_path):
-        content = _import_file(shared_path, _depth=_depth)
+        content = _import_file(shared_path, _depth=_depth, _visited=_visited)
         parts.append(content)
 
     for entry in entries:
@@ -165,7 +200,7 @@ def _import_directory_inner(dir_path: str, _depth: int = 0) -> str:
                 block_name = re.sub(r'^\d+_', '', block_name)
                 is_marked = False
 
-            inner = _import_directory(full_path, _depth=_depth + 1)
+            inner = _import_directory(full_path, _depth=_depth + 1, _visited=_visited)
 
             if is_marked or _depth > 0:
                 # Type-marked directories ALWAYS wrap, or nested directories wrap
@@ -175,7 +210,7 @@ def _import_directory_inner(dir_path: str, _depth: int = 0) -> str:
                 parts.append(inner)
 
         elif entry.endswith('.evs'):
-            content = _import_file(full_path, _depth=_depth)
+            content = _import_file(full_path, _depth=_depth, _visited=_visited)
             parts.append(content)
 
     return '\n\n'.join(parts)

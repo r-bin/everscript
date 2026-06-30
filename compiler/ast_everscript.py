@@ -427,6 +427,7 @@ class Function(Function_Base):
         self.terminate = True
         self.async_call = False
         self.count_limit = None
+        self.doc: list[str] | None = None
         if annotations:
             self.set_annotations(annotations)
 
@@ -444,6 +445,10 @@ class Function(Function_Base):
                     self.terminate = annotation.terminate
                 case Annotation_CountLimit():
                     self.count_limit = annotation.count_limit.eval([])
+                case Annotation_Doc():
+                    if self.doc is None:
+                        self.doc = []
+                    self.doc.append(annotation.text)
                 case Annotation_Weak():
                     self.weak = True
                 case _:
@@ -494,6 +499,11 @@ class Annotation_Async(BaseBox):
 class Annotation_CountLimit(BaseBox):
     def __init__(self, count_limit):
         self.count_limit = count_limit
+
+class Annotation_Doc(BaseBox):
+    """Carries a single ``///`` doc-comment line stripped of its leading slashes."""
+    def __init__(self, text: str):
+        self.text = text
 
 class Address(Function_Base):
     def __init__(self, value, length=3):
