@@ -30,7 +30,7 @@ Token('(', '('),
 Token('NAME_IDENTIFIER', 'string_key'),
 ...
 Token('FUN_INCLUDE', '#include'),
-Token('STRING', '"in/core.evs"'),
+Token('STRING', '"in/core"'),
 ```
 
 **Token categories** (from `compiler/lexer.py`):
@@ -191,7 +191,7 @@ grep 'fun hotkey_start' in/*.evs
 ### Token → source file
 - Tokens from the main file appear in `lexer.txt`
 - Tokens from includes appear in `lexer_include.txt`
-- Include path is visible in the token stream: `Token('STRING', '"in/core.evs"')`
+- Include path is visible in the token stream: `Token('STRING', '"in/core"')`
 
 ### Memory address → variable
 1. Look up address in `memory_map.txt`
@@ -252,7 +252,7 @@ Appears in `patch.txt` as:
     <0x2272>..<0x2558>,
     <0x2834>..<0x28ff>
 )
-#include("in/core.evs")
+#include("in/core")
 
 #patch(
     "skip_intro",

@@ -69,7 +69,7 @@ everscript --rom "Secret of Evermore (U) [!].smc" --patches "/patches" "in/hello
 
     0x300000..0x3fffff // extension
 )
-#include("in/core.evs")
+#include("in/core")
 
 @install()
 @inject(ADDRESS.SOUTH_JUNGLE_ENTER_GOURD_1)

@@ -11,7 +11,7 @@
 ```
 kaizo.evs (53K lines, single file)
   ├── #memory(...)           → declares available ROM/RAM pools
-  ├── #include("in/core.evs") → 16K lines re-lexed/re-parsed inline
+  ├── #include("in/core") → 16K lines re-lexed/re-parsed inline
   ├── #patch(...)            → external ASM/IPS patches
   ├── group non_maps()       → strings, enemy data, alchemy, armor (~8K lines)
   ├── group custom_bosses()  → (~1.6K lines)
@@ -127,7 +127,7 @@ in/kaizo/
 
 Each room file:
 ```
-#include("in/core.evs")
+#include("in/core")
 #include("in/kaizo/kaizo_shared.evs")
 
 area inbetwixx_center() {
@@ -257,7 +257,7 @@ If a shared function *did* need to call room-specific code, it would use `refere
 ```
 // kaizo.evs
 #memory(...)
-#include("in/core.evs")
+#include("in/core")
 #patch(...)
 #include("in/kaizo/kaizo_shared.evs")
 #include("in/kaizo/rooms/intro_screens.evs")
@@ -372,7 +372,7 @@ The new `kaizo.evs`:
     <0x2463>..<0x2500>,
     <0x2834>..<0x2890>
 )
-#include("in/core.evs")
+#include("in/core")
 
 #patch(
     "assassin_silversheath",
@@ -426,7 +426,7 @@ If Phase C is ever implemented, `kaizo.evs` could evolve from `#include` chains 
 #memory(...)
 #patch(...)
 
-#shared("in/core.evs")
+#shared("in/core")
 #shared("in/kaizo/kaizo_shared.evs")
 
 #rooms("in/kaizo/rooms/")   // auto-discover all .evs files

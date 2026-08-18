@@ -10,6 +10,7 @@ from utils.string_utils import string_utils
 from rply import LexerGenerator, Token
 from rply.token import BaseBox
 import re
+import os
 import copy
 import random
 import uuid
@@ -817,6 +818,13 @@ class Call(Function_Base, Calculatable):
         #params = self.handle_params(params, self.params)
 
         function = self.function
+        # TODO UNTESTED: Late-bind unresolved function identifiers so forward calls work.
+        if isinstance(function, Identifier):
+            resolved_function = self._generator.get_function(function.name)
+            if resolved_function:
+                self.function = resolved_function
+                function = resolved_function
+
         if function:
             function = function.resolve(params)
 
@@ -1389,6 +1397,22 @@ class Include(BaseBox):
         self.generator = generator
         self.path = re.sub("[\'\"]", "", path)
 
+    def _preprocessed_dump_name(self, path: str) -> str:
+        """Build a stable, readable dump filename for an included source path."""
+        normalized = os.path.normpath(path)
+        basename = os.path.basename(normalized)
+
+        if basename.lower() == "main.evs":
+            stem = os.path.basename(os.path.dirname(normalized))
+        else:
+            stem, _ = os.path.splitext(basename)
+
+        stem = re.sub(r"[^A-Za-z0-9._-]", "_", stem).strip("._")
+        if not stem:
+            stem = "include"
+
+        return f"{stem}.preprocessed.evs"
+
     def eval(self):
         from compiler.lexer import Lexer
         from compiler.parser import Parser
@@ -1407,8 +1431,13 @@ class Include(BaseBox):
         pg.parse()
         parser = pg.get_parser()
 
-        script = open(path, 'r').read()
-        script = preprocess(script, path)
+        raw_script = open(path, 'r').read()
+        script = preprocess(raw_script, path)
+
+        if script != raw_script:
+            outUtils = _injector.get(OutUtils)
+            outUtils.dump(script, self._preprocessed_dump_name(path))
+
         #print(f"{path} -> {list(lexer.lex(script))}")
         print(" - lexing code...")
         outUtils = _injector.get(OutUtils)

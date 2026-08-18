@@ -1,0 +1,88 @@
+#memory(
+    0x350000..0x3fffff, // extension
+)
+#include("in/core")
+
+group core_copy() {
+    fun _guard_weapon(weapon_check) {
+        if(<ACTIVE> == <BOY>) {
+            animate(BOY, ONCE, ANIMATION_ALL.SLASH_2);
+            
+            if!(weapon_check) {
+                // error_message(WRONG_WEAPON);
+                end();
+            }
+        } else {
+            end();
+        }
+    }
+    fun guard_weapon(weapon:WEAPON_INDEX, weapon_type:WEAPON_TYPE) {
+        if(weapon_type !is None) {
+            _guard_weapon((MEMORY.CURRENT_WEAPON_TYPE == weapon_type) && (MEMORY.CURRENT_WEAPON >= weapon));
+        } else {
+            _guard_weapon(MEMORY.CURRENT_WEAPON >= weapon);
+        }
+    }
+};
+
+enum ROOM {
+    DEBUG = False,
+
+    TIMBERDRAKE_DEAD = <0x22dd, 0x04>,
+
+    ADDRESS_CROSSING_EXIT_WEST = 0x999208,
+    ADDRESS_CROSSING_ENTER_HOOK = 0x999231,
+
+    ENTITY_STONE_1 = <0x2834>,
+    ENTITY_STONE_2 = <0x2836>,
+    ENTITY_STONE_3 = <0x2838>,
+}
+
+@install()
+@inject(ROOM.ADDRESS_CROSSING_EXIT_WEST, True)
+fun crossing_exit_west() {
+    if((ROOM.TIMBERDRAKE_DEAD) || _dead(ROOM.ENTITY_STONE_1) || _dead(ROOM.ENTITY_STONE_2) || _dead(ROOM.ENTITY_STONE_3)) {
+        if(ROOM.DEBUG) {
+            debug_memory(ROOM.TIMBERDRAKE_DEAD, _dead(ROOM.ENTITY_STONE_1) || _dead(ROOM.ENTITY_STONE_2) || _dead(ROOM.ENTITY_STONE_3));
+        }
+    } else {
+        if(ROOM.DEBUG) {
+            subtext("timberdrake alive");
+        }
+
+        end();
+    }
+
+    // original code
+    call_id(0x19);
+    load_map(TIMBERDRAKE, 0x2d, 0x15);
+}
+
+@install()
+fun fake_barrier_triggered() {
+    guard_weapon(AXE_3, AXE);
+
+    destroy(ROOM.ENTITY_STONE_1);
+    destroy(ROOM.ENTITY_STONE_2);
+    destroy(ROOM.ENTITY_STONE_3);
+
+    explode_barrier(<SCRIPT_OWNER>, True);
+}
+fun add_fake_barrier(x, y, entity_ref) {
+    add_enemy(STONE_ROUND, x, y);
+    entity_ref = <LAST_ENTITY>;
+    attach_script(<LAST_ENTITY>, B, reference(fake_barrier_triggered));
+}
+@install()
+@inject(ROOM.ADDRESS_CROSSING_ENTER_HOOK, True)
+fun crossing_enter_hook() {
+    if!(ROOM.TIMBERDRAKE_DEAD) {
+        add_fake_barrier(0d2, 0d24, ROOM.ENTITY_STONE_1);
+        add_fake_barrier(0d4, 0d25, ROOM.ENTITY_STONE_2);
+        add_fake_barrier(0d7, 0d23, ROOM.ENTITY_STONE_3);
+    }
+
+    // original code
+    <0x23bf> = 0x0000;
+    call(0x92de75);
+}
