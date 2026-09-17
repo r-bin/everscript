@@ -78,10 +78,15 @@ Source Files (.evs) + #includes + #patches
 │   └── process_utils.py       # External CLI process execution
 │
 ├── tests/                     # Automated test harness (pytest)
-│   ├── test_lexer.py          # Tokenizer regression tests
-│   ├── test_parser_smoke.py   # Parser initialization and conflict validation
-│   ├── test_preprocessor.py   # Include and memory preprocessor tests
-│   └── test_word.py           # Hex/word literal conversion tests
+│   ├── helpers.py             # Shared bytecode compilation and assertion helpers
+│   ├── compiler/              # Tests mirroring compiler/ modules
+│   │   ├── test_lexer.py          # Tokenizer regression tests (compiler/lexer.py)
+│   │   ├── test_parser.py         # Parser init, conflicts, and AST syntax (compiler/parser.py)
+│   │   ├── test_preprocessor.py   # Include and memory preprocessor tests (compiler/preprocessor.py)
+│   │   ├── test_ast_core.py       # Word/literal conversions and sizing (compiler/ast_core.py)
+│   │   └── test_codegen.py        # Control flow branching and distances (compiler/codegen.py)
+│   └── integration/           # Multi-module and end-to-end integration tests
+│       └── opcodes/           # Per-opcode bytecode emission tests (1 file per VM opcode)
 │
 ├── docs/                      # Architectural documentation and room reverse-engineering
 │   ├── review.md              # Living compiler audit and improvement roadmap (P1-P6)

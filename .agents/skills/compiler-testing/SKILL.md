@@ -11,14 +11,23 @@ The Everscript test suite ensures that modifications to the lexer, parser, AST n
 
 ## 1. Test Suite Organization
 
-All tests are located in [tests/](file:///Users/v/Documents/GitHub/everscript/tests/) and run via **pytest**:
+Tests are organized into two primary tiers under [tests/](file:///Users/v/Documents/GitHub/everscript/tests/) and run via **pytest**:
 
-| Test File | Primary Scope | Typical Checks |
+### A. Compiler Module Tests (`tests/compiler/` mirroring `compiler/`):
+Fast unit tests targeting individual compiler components in isolation:
+| Test File | Target Module | Scope & Typical Checks |
 |---|---|---|
-| `test_lexer.py` | Tokenization (`compiler/lexer.py`) | Regex pattern matching, keywords, hex literals, raw strings |
-| `test_parser_smoke.py` | Parser construction (`compiler/parser.py`) | LALR(1) table build, conflict monitoring, basic grammar rules |
-| `test_preprocessor.py` | AST Preprocessing (`compiler/preprocessor.py`) | `#include` resolution, path handling, recursive inlining |
-| `test_word.py` | Data Types (`compiler/ast_core.py`) | 16-bit hex/decimal parsing, byte splitting, endianness |
+| `test_lexer.py` | `compiler/lexer.py` | Tokenization regexes, keywords, hex/decimal literals, comments |
+| `test_parser.py` | `compiler/parser.py` | Grammar rules, LALR conflict monitoring, AST node generation |
+| `test_preprocessor.py` | `compiler/preprocessor.py` | `#include` / `#import` resolution, relative paths, circular guards |
+| `test_ast_core.py` | `compiler/ast_core.py` | 16-bit hex/decimal conversion, `Word` sizing, byte splitting |
+| `test_codegen.py` | `compiler/codegen.py` | Jump distance calculation, branch skipping, codegen contracts |
+
+### B. Opcode Integration Tests (`tests/integration/opcodes/`):
+Integration tests verifying bytecode generation for the Secret of Evermore VM instruction set.
+- **Strict 1 file per opcode rule**: Each opcode has its own test file named `test_<hex_2_digits>_<mnemonic>.py`.
+- **Examples:** `test_00_end.py`, `test_08_branch_if.py`, `test_09_branch_if_not.py`, `test_22_change_map.py`, `test_3a_yield.py`.
+- Uses shared pipeline compilation helpers from `tests/helpers.py`.
 
 ---
 
@@ -30,52 +39,87 @@ Always use the Python binary inside the virtual environment:
 # Run all tests
 .venv/bin/pytest tests/
 
-# Run a specific test module
-.venv/bin/pytest tests/test_lexer.py
+# Run compiler module tests (fastest, ~15s)
+.venv/bin/pytest tests/compiler/
 
-# Run with verbose output and test names
+# Run a specific compiler module test
+.venv/bin/pytest tests/compiler/test_lexer.py
+
+# Run all opcode integration tests (~1.5m)
+.venv/bin/pytest tests/integration/opcodes/
+
+# Run a specific opcode test
+.venv/bin/pytest tests/integration/opcodes/test_00_end.py
+
+# Run with verbose output
 .venv/bin/pytest -v tests/
-
-# Run a specific test function by name
-.venv/bin/pytest -k "test_hex_pairs"
 ```
 
 ### Baseline Targets:
-- **Test Count:** 130 passing tests.
+- **Test Count:** ~165+ tests passing across compiler and opcode suites.
 - **Parser Conflicts:** 427 Shift/Reduce conflicts, 174 Reduce/Reduce conflicts.
 - Any change that increases the number of parser conflicts indicates newly introduced grammar ambiguity and must be investigated.
 
 ---
 
-## 3. Writing New Compiler Tests
+## 3. Rules for Creating Tests
 
-When adding a new AST feature, helper function, or fixing a bug:
+### Rule 1: Where to Place New Tests
+1. **Adding a unit test for a compiler module?**
+   - Place in `tests/compiler/test_<module>.py` mirroring the module in `compiler/`.
+   - Test functions or classes in isolation without invoking `#include("in/core")` unless required.
+2. **Adding or verifying a VM Opcode?**
+   - **MUST** be placed in `tests/integration/opcodes/test_<hex_2_digits>_<name>.py`.
+   - Never combine unrelated opcodes into a scratchpad file.
+   - Use lowercase 2-digit hex prefix (e.g. `00`, `0c`, `a7`, `b4`).
+3. **Testing multi-statement control flow or compiler mechanics?**
+   - Place in `tests/compiler/test_codegen.py` (e.g., nested `if/else`, while loops, forward jump counting).
 
-1. **Create or select the appropriate test file** in `tests/` prefixed with `test_`.
-2. **Import test fixtures and compiler modules:**
+### Rule 2: Opcode Test Structure & Conventions
+Every opcode test file should follow this standard template:
+
+```python
+"""Opcode 0x00: end.
+
+Opcode 0x00: END / return.
+"""
+
+from tests.helpers import assert_evs_bytes
+
+
+def test_opcode_00_end():
+    """Opcode 0x00: END / return."""
+    assert_evs_bytes("end();", "00 // (00) END")
+```
+
+- **Docstring**: Always state the opcode hex and mnemonic.
+- **Helper**: Always import and use `assert_evs_bytes` from `tests.helpers`.
+- **Comments in Expected Bytes**: Include disassembler-style comments explaining each emitted byte:
+  ```python
+  assert_evs_bytes(
+      "if(<ACTIVE> == <BOY>) { end(); }",
+      "09 52 29 50 A2 01 00 00 // 09=if, 52=ACTIVE, 29 50=BOY, A2===, 01 00=skip 1, 00=end"
+  )
+  ```
+- **Custom Function Name**: If testing a multi-function snippet with `@install`, provide `name="<fn_name>"` to `assert_evs_bytes`:
+  ```python
+  code = """
+  @install()
+  fun target(a) { yield(); }
+  fun test_af() { target(0x12); }
+  """
+  assert_evs_bytes(code, "AF 01 E2 xx xx xx // AF=call params", name="test_af")
+  ```
+
+### Rule 3: Exact Science & Empirical Verification (`AGENTS.md`)
+1. **Never guess expected bytes**: Verify against `script_all` dump or Mesen2 debugger trace logs.
+2. **Calculator Opcode Inversions**:
+   - `A2` = `==` (`0x22 | 0x80`)
+   - `A3` = `!=` (`0x23 | 0x80`)
+   - Opcode `09` is `BRANCH_IF_NOT` (skips if condition is false).
+3. **Explicit Mismatch Handling**: If a test documents a known compiler quirk, discrepancy, or upstream bug, annotate it explicitly:
    ```python
-   import pytest
-   from compiler.lexer import Lexer
-   from compiler.ast_core import _hex_pairs, Word
-
-   def test_hex_pairs_helper():
-       assert _hex_pairs("AABBCC") == ["AA", "BB", "CC"]
-       assert _hex_pairs("12") == ["12"]
-       assert _hex_pairs("") == []
-   ```
-3. **Smoke Testing Full Script Compilation:**
-   To test that a snippet compiles without crashing:
-   ```python
-   from everscript import handle_parse
-
-   def test_custom_branch_compilation():
-       script = """
-       fun test() {
-           if (<0x225d, 0x08>) {
-               <0x0a35> = 500;
-           }
-       }
-       """
-       # Verify it compiles through the pipeline without exception
-       handle_parse("test_script", script)
+   @pytest.mark.xfail(reason="MISMATCH: <description of discrepancy>")
+   def test_opcode_bug_repro():
+       ...
    ```
