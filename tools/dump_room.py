@@ -550,6 +550,25 @@ def main():
     parser.add_argument("--pad-32", action="store_true", help="Pad rows to 32 tiles (64 bytes) matching SNES VRAM tilemap buffer width")
     parser.add_argument("--png", action="store_true", help="Render room layers to PNG images")
     parser.add_argument("--png-dir", default="out/maps", help="Output directory for PNG images (default: out/maps)")
+    parser.add_argument("--triggers", action="store_true", help="Include triggers overlay on composite")
+    parser.add_argument("--collision", action="store_true", help="Include collision visualization layer")
+    parser.add_argument(
+        "--grid",
+        nargs="?",
+        const="8,16",
+        default=None,
+        help="Render composite with subtle tile grid overlay (default: 8,16 for 8px soft & 16px strong)",
+    )
+    parser.add_argument(
+        "--grid-color",
+        default="white",
+        help="Grid line color for PNG rendering: 'white' (default), 'black', hex (#RRGGBB), etc.",
+    )
+    parser.add_argument(
+        "--grid-opacity",
+        default=None,
+        help="Grid line opacity for PNG rendering: 'soft,strong' e.g. '0.12,0.30' or single float",
+    )
     parser.add_argument(
         "--bg-color",
         "--background",
@@ -592,14 +611,22 @@ def main():
         val = int(raw)
         room_id = val
 
-    if args.png:
+    if args.png or (args.grid is not None) or args.triggers or args.collision:
         from tools.render_map import render_room_layers
         layer_list = [str(args.layer)] if "--layer" in sys.argv else ["1", "2", "composite"]
+        if args.grid is not None and "--layer" not in sys.argv:
+            layer_list.append("grid")
         files = render_room_layers(
             room_id,
             rom_path=args.rom,
             out_dir=args.png_dir,
             layers=layer_list,
+            with_collision=args.collision,
+            with_triggers=args.triggers,
+            with_grid=args.grid is not None,
+            grid_spec=args.grid if args.grid else "8,16",
+            grid_color=args.grid_color,
+            grid_opacity=args.grid_opacity,
             bg_color=args.bg_color,
         )
         print(f"Generated {len(files)} PNG image(s) for Room 0x{room_id:02X} in {args.png_dir}:")

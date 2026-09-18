@@ -43,8 +43,9 @@ Secret of Evermore runs in SNES **Mode 1** (16-color 4bpp for BG1 and BG2):
 | **Layer 1** | BG1 | Canopy, treetops, foreground architecture, overhangs, reflections. | Transparent RGBA (empty pixels have $\alpha = 0$). |
 | **Layer 2** | BG2 | Terrain base, walkable ground, walls, waterbeds, backgrounds. | Transparent RGBA (empty pixels have $\alpha = 0$). |
 | **Composite** | Mode 1 | Full composite image with Mode 1 priority sorting, color math, and canvas backdrop. | Solid RGBA (or transparent if `--bg-color transparent`). |
+| **Grid** | Overlay | Subtle sub-tile (8px soft) and metatile (16px strong) alignment grid. | Alpha-blended grid lines overlaid on composite. |
 | **Collision** | Overlay | Visual grid of terrain passability attributes color-coded by collision word. | Semi-transparent grid overlaid on composite. |
-| **Triggers** | Overlay | Visual bounding boxes for Step-on (Green) and B-Trigger (Orange) interactive zones. | Outlined boxes overlaid on composite. |
+| **Triggers** | Overlay | Visual bounding boxes for Step-on (Pink #FF00FF) and B-Trigger (Yellow #FFFF00) zones (matching `soestuff.lua`). | Outlined semi-transparent boxes overlaid on composite. |
 
 ---
 
@@ -170,9 +171,28 @@ The user can customize the backdrop color using `parse_color()`:
 
 ---
 
-## 8. CLI Reference
+## 8. Tile Alignment Grid Overlay (`--grid`)
 
-### 8.1 Standalone Map Renderer (`tools/render_map.py`)
+To understand room geometry, metatile boundaries, and collision alignments, the pipeline supports generating a subtle grid overlay on top of the composite map (`room_0x{id}_grid.png`).
+
+### 8.1 Metatile & Sub-Tile Boundaries
+- **16px Strong Grid** ($\alpha \approx 0.30$): Delineates 16×16 SNES metatiles (Block 2 / Block 3 layout entries).
+- **8px Soft Grid** ($\alpha \approx 0.12$): Delineates 8×8 SNES 4bpp CHR sub-tiles within each metatile.
+- **Color Math & Alpha Blending**:
+  The grid overlay is blended directly into the RGB raster with alpha transparency:
+  - Over solid map graphics: soft brightening/contrast preserving underlying pixel hues.
+  - Over transparent backdrop (`--bg-color transparent`): emits translucent grid lines with matched alpha so metatiles are visible even across empty void regions.
+
+### 8.2 Customization Options
+- `--grid`: Enables the grid layer. Defaults to `"8,16"`. Accepts custom step sizes (e.g. `--grid 16` for metatiles only, or `--grid 8,16`).
+- `--grid-color`: Line color (default `"white"`, accepts named colors, hex codes `#RRGGBB`, or RGB tuples).
+- `--grid-opacity`: Line opacity (default `"0.12,0.30"`, accepts `"soft,strong"` or a single float e.g. `0.25`).
+
+---
+
+## 9. CLI Reference
+
+### 9.1 Standalone Map Renderer (`tools/render_map.py`)
 
 ```bash
 # Render all layers (layer1, layer2, composite) with default black background
@@ -180,6 +200,12 @@ python tools/render_map.py 0x5c --out-dir out/maps
 
 # Render specific layer (composite only)
 python tools/render_map.py 0x4d --layer composite
+
+# Render with subtle tile alignment grid (generates room_0x5c_grid.png)
+python tools/render_map.py 0x5c --grid
+
+# Render grid only with custom 16px step and yellow lines
+python tools/render_map.py 0x5c --layer grid --grid 16 --grid-color yellow
 
 # Render with transparent background
 python tools/render_map.py 0x4d --layer composite --bg-color transparent
@@ -190,17 +216,26 @@ python tools/render_map.py 0x4d --layer composite --bg-color cgram
 # Render with collision overlay and triggers
 python tools/render_map.py 0x5c --collision --triggers
 
-# Batch render all 127 vanilla rooms
+# Batch render all 127 vanilla rooms (composite only)
 python tools/render_map.py --all-rooms --out-dir out/all_maps
+
+# Batch render all 127 rooms with triggers overlay (room_0x{id}_triggers.png)
+python tools/render_map.py --all-rooms --triggers --out-dir out/all_maps
+
+# Batch render all layers plus triggers for all 127 rooms
+python tools/render_map.py --layer all --all-rooms --triggers --out-dir out/all_maps
 ```
 
-### 8.2 Room Dumper PNG Flag (`tools/dump_room.py`)
+### 9.2 Room Dumper PNG Flag (`tools/dump_room.py`)
 
 ```bash
 # Dump room metadata and render PNG layers
 python tools/dump_room.py 0x5c --png --png-dir out/maps
 
-# Customize background color
-python tools/dump_room.py 0x4d --png --bg-color black
+# Dump metadata and render composite with subtle grid
+python tools/dump_room.py 0x5c --grid --png-dir out/maps
+
+# Customize background color and grid color
+python tools/dump_room.py 0x4d --grid --grid-color cyan --bg-color black
 ```
 

@@ -378,6 +378,98 @@ def parse_color(
     raise ValueError(f"Unable to parse background color: {val!r}")
 
 
+def parse_grid_spec(spec: Union[str, int, float, Tuple[int, int], List[int]]) -> Tuple[int, int]:
+    """
+    Parses a grid specification into (soft_step, strong_step).
+
+    Supported formats:
+        - "8,16", "8x16", "8/16", "8 16": 8px soft grid and 16px strong grid.
+        - "16", 16: 16px strong grid only (soft_step = 0).
+        - "8", 8: 8px strong grid only (soft_step = 0).
+        - (8, 16) or [8, 16]: explicit tuple/list of step sizes.
+    """
+    if isinstance(spec, (int, float)):
+        v = int(spec)
+        if v <= 0:
+            raise ValueError(f"Grid step size must be positive, got {spec}")
+        return (0, v)
+
+    if isinstance(spec, (tuple, list)):
+        if len(spec) == 1:
+            v = int(spec[0])
+            if v <= 0:
+                raise ValueError(f"Grid step size must be positive, got {spec[0]}")
+            return (0, v)
+        elif len(spec) == 2:
+            s, st = int(spec[0]), int(spec[1])
+            if s <= 0 or st <= 0:
+                raise ValueError(f"Grid step sizes must be positive, got {spec}")
+            return (min(s, st), max(s, st)) if s != st else (0, s)
+        raise ValueError(f"Grid spec tuple/list must have 1 or 2 elements, got {len(spec)}")
+
+    if isinstance(spec, str):
+        clean = spec.replace("x", ",").replace("/", ",").replace(" ", ",").strip()
+        if "," in clean:
+            parts = [int(p.strip()) for p in clean.split(",") if p.strip()]
+            if len(parts) == 2:
+                s, st = parts[0], parts[1]
+                if s <= 0 or st <= 0:
+                    raise ValueError(f"Grid step sizes must be positive, got {spec}")
+                return (min(s, st), max(s, st)) if s != st else (0, s)
+            elif len(parts) == 1:
+                v = parts[0]
+                if v <= 0:
+                    raise ValueError(f"Grid step size must be positive, got {spec}")
+                return (0, v)
+            raise ValueError(f"Invalid grid spec: {spec!r}")
+        v = int(clean)
+        if v <= 0:
+            raise ValueError(f"Grid step size must be positive, got {spec}")
+        return (0, v)
+
+    raise TypeError(f"Grid spec must be string, int, tuple, or list, got {type(spec).__name__}")
+
+
+def parse_grid_opacity(
+    val: Union[str, float, int, Tuple[float, float], List[float], None],
+    has_soft: bool = True,
+) -> Tuple[float, float]:
+    """
+    Parses grid opacity into (soft_alpha, strong_alpha) where 0.0 <= alpha <= 1.0.
+
+    Supported formats:
+        - None: defaults to (0.12, 0.30).
+        - Single float or int (e.g. 0.3 or "0.3"): strong_alpha = val, soft_alpha = val * 0.4.
+        - Pair (e.g. "0.12,0.30" or (0.12, 0.30)): explicit (soft_alpha, strong_alpha).
+    """
+    if val is None:
+        return (0.12, 0.30)
+
+    if isinstance(val, (int, float)):
+        v = max(0.0, min(1.0, float(val)))
+        return (round(v * 0.4, 3), v) if has_soft else (0.0, v)
+
+    if isinstance(val, (tuple, list)):
+        if len(val) == 1:
+            return parse_grid_opacity(val[0], has_soft)
+        elif len(val) == 2:
+            return (max(0.0, min(1.0, float(val[0]))), max(0.0, min(1.0, float(val[1]))))
+        raise ValueError(f"Grid opacity tuple/list must have 1 or 2 elements, got {len(val)}")
+
+    if isinstance(val, str):
+        s = val.strip()
+        if "," in s:
+            parts = [float(p.strip()) for p in s.split(",") if p.strip()]
+            if len(parts) == 2:
+                return (max(0.0, min(1.0, parts[0])), max(0.0, min(1.0, parts[1])))
+            elif len(parts) == 1:
+                return parse_grid_opacity(parts[0], has_soft)
+            raise ValueError(f"Invalid grid opacity: {val!r}")
+        return parse_grid_opacity(float(s), has_soft)
+
+    raise TypeError(f"Grid opacity must be string, float, tuple, or list, got {type(val).__name__}")
+
+
 # ---------------------------------------------------------------------------
 # 4. Layer & Composite Rendering Pipeline
 # ---------------------------------------------------------------------------
@@ -656,11 +748,17 @@ class RoomRenderer:
         oy = self.header["origin_y"]
 
         def draw_box(x1, y1, x2, y2, color: RGBA, fill_color: RGBA):
+            if x2 < x1:
+                x1, x2 = x2, x1
+            if y2 < y1:
+                y1, y2 = y2, y1
             # Clamp to map bounds
-            x1 = max(0, min(x1, self.w_pixels - 1))
+            x1 = max(0, min(x1, self.w_pixels))
             x2 = max(0, min(x2, self.w_pixels))
-            y1 = max(0, min(y1, self.h_pixels - 1))
+            y1 = max(0, min(y1, self.h_pixels))
             y2 = max(0, min(y2, self.h_pixels))
+            if x1 >= x2 or y1 >= y2:
+                return
 
             for y in range(y1, y2):
                 row_off = y * self.w_pixels * 4
@@ -669,28 +767,154 @@ class RoomRenderer:
                     is_border = (y == y1 or y == y2 - 1 or x == x1 or x == x2 - 1)
                     draw_c = color if is_border else fill_color
                     a = draw_c[3] / 255.0
-                    buf[p_off] = int(draw_c[0] * a + buf[p_off] * (1 - a))
-                    buf[p_off + 1] = int(draw_c[1] * a + buf[p_off + 1] * (1 - a))
-                    buf[p_off + 2] = int(draw_c[2] * a + buf[p_off + 2] * (1 - a))
-                    buf[p_off + 3] = 255
+                    inv = 1.0 - a
+                    a_base = buf[p_off + 3] / 255.0
+                    if a_base == 0:
+                        buf[p_off] = draw_c[0]
+                        buf[p_off + 1] = draw_c[1]
+                        buf[p_off + 2] = draw_c[2]
+                        buf[p_off + 3] = draw_c[3]
+                    elif a_base >= 0.999:
+                        buf[p_off] = int(draw_c[0] * a + buf[p_off] * inv)
+                        buf[p_off + 1] = int(draw_c[1] * a + buf[p_off + 1] * inv)
+                        buf[p_off + 2] = int(draw_c[2] * a + buf[p_off + 2] * inv)
+                    else:
+                        out_a = a + inv * a_base
+                        buf[p_off] = int((draw_c[0] * a + buf[p_off] * inv * a_base) / out_a)
+                        buf[p_off + 1] = int((draw_c[1] * a + buf[p_off + 1] * inv * a_base) / out_a)
+                        buf[p_off + 2] = int((draw_c[2] * a + buf[p_off + 2] * inv * a_base) / out_a)
+                        buf[p_off + 3] = int(out_a * 255)
 
-        # 1. Step-on triggers (Green)
-        for t in self.room_data["triggers"]["step_on"]:
-            px1 = (t["x1"] - ox) * 16
-            py1 = (t["y1"] - oy) * 16
-            px2 = (t["x2"] - ox) * 16
-            py2 = (t["y2"] - oy) * 16
-            draw_box(px1, py1, px2, py2, color=(0, 255, 60, 255), fill_color=(0, 255, 60, 80))
-
-        # 2. B-triggers (Orange / Yellow)
+        # 1. B-triggers (Yellow, matching soestuff.lua 0xffff00: outline 0xFFFFFF00, fill 0x77FFFF00)
         for t in self.room_data["triggers"]["b_trigger"]:
             px1 = (t["x1"] - ox) * 16
             py1 = (t["y1"] - oy) * 16
             px2 = (t["x2"] - ox) * 16
             py2 = (t["y2"] - oy) * 16
-            draw_box(px1, py1, px2, py2, color=(255, 200, 0, 255), fill_color=(255, 200, 0, 100))
+            draw_box(px1, py1, px2, py2, color=(255, 255, 0, 255), fill_color=(255, 255, 0, 119))
+
+        # 2. Step-on triggers (Pink / Magenta, matching soestuff.lua 0xff00ff: outline 0xFFFF00FF, fill 0x77FF00FF)
+        for t in self.room_data["triggers"]["step_on"]:
+            px1 = (t["x1"] - ox) * 16
+            py1 = (t["y1"] - oy) * 16
+            px2 = (t["x2"] - ox) * 16
+            py2 = (t["y2"] - oy) * 16
+            draw_box(px1, py1, px2, py2, color=(255, 0, 255, 255), fill_color=(255, 0, 255, 119))
 
         return buf
+
+    def render_grid_overlay(
+        self,
+        base_buf: bytearray,
+        spec: Union[str, int, Tuple[int, int]] = "8,16",
+        color: Union[str, RGBA] = "white",
+        opacity: Optional[Union[str, float, Tuple[float, float]]] = None,
+    ) -> bytearray:
+        """
+        Renders a subtle grid overlay on top of base_buf (typically composite map):
+        - Sub-tile soft grid (default: 8px, alpha ~ 0.12)
+        - Metatile strong grid (default: 16px, alpha ~ 0.30)
+        - Configurable step sizes, color, and opacities
+        """
+        soft_step, strong_step = parse_grid_spec(spec)
+        has_soft = soft_step > 0
+        soft_a, strong_a = parse_grid_opacity(opacity, has_soft=has_soft)
+        parsed_c = parse_color(color) if not isinstance(color, tuple) else color
+        cr, cg, cb = parsed_c[0], parsed_c[1], parsed_c[2]
+
+        out = bytearray(base_buf)
+        w_px, h_px = self.w_pixels, self.h_pixels
+        inv_str = 1.0 - strong_a
+        inv_sft = 1.0 - soft_a
+
+        for y in range(h_px):
+            row_off = y * w_px * 4
+            if strong_step > 0 and y % strong_step == 0:
+                # Entire horizontal line is strong
+                for x in range(w_px):
+                    idx = row_off + x * 4
+                    a_base = out[idx + 3] / 255.0
+                    if a_base == 0:
+                        out[idx] = cr
+                        out[idx + 1] = cg
+                        out[idx + 2] = cb
+                        out[idx + 3] = int(255 * strong_a)
+                    elif a_base >= 0.999:
+                        out[idx] = int(cr * strong_a + out[idx] * inv_str)
+                        out[idx + 1] = int(cg * strong_a + out[idx + 1] * inv_str)
+                        out[idx + 2] = int(cb * strong_a + out[idx + 2] * inv_str)
+                    else:
+                        out_a = strong_a + inv_str * a_base
+                        out[idx] = int((cr * strong_a + out[idx] * inv_str * a_base) / out_a)
+                        out[idx + 1] = int((cg * strong_a + out[idx + 1] * inv_str * a_base) / out_a)
+                        out[idx + 2] = int((cb * strong_a + out[idx + 2] * inv_str * a_base) / out_a)
+                        out[idx + 3] = int(out_a * 255)
+            elif soft_step > 0 and y % soft_step == 0:
+                # Horizontal line is soft, with strong intersections at metatile columns
+                for x in range(w_px):
+                    a = strong_a if (strong_step > 0 and x % strong_step == 0) else soft_a
+                    inv = 1.0 - a
+                    idx = row_off + x * 4
+                    a_base = out[idx + 3] / 255.0
+                    if a_base == 0:
+                        out[idx] = cr
+                        out[idx + 1] = cg
+                        out[idx + 2] = cb
+                        out[idx + 3] = int(255 * a)
+                    elif a_base >= 0.999:
+                        out[idx] = int(cr * a + out[idx] * inv)
+                        out[idx + 1] = int(cg * a + out[idx + 1] * inv)
+                        out[idx + 2] = int(cb * a + out[idx + 2] * inv)
+                    else:
+                        out_a = a + inv * a_base
+                        out[idx] = int((cr * a + out[idx] * inv * a_base) / out_a)
+                        out[idx + 1] = int((cg * a + out[idx + 1] * inv * a_base) / out_a)
+                        out[idx + 2] = int((cb * a + out[idx + 2] * inv * a_base) / out_a)
+                        out[idx + 3] = int(out_a * 255)
+            else:
+                # Vertical grid lines across this non-grid row
+                if strong_step > 0:
+                    for x in range(0, w_px, strong_step):
+                        idx = row_off + x * 4
+                        a_base = out[idx + 3] / 255.0
+                        if a_base == 0:
+                            out[idx] = cr
+                            out[idx + 1] = cg
+                            out[idx + 2] = cb
+                            out[idx + 3] = int(255 * strong_a)
+                        elif a_base >= 0.999:
+                            out[idx] = int(cr * strong_a + out[idx] * inv_str)
+                            out[idx + 1] = int(cg * strong_a + out[idx + 1] * inv_str)
+                            out[idx + 2] = int(cb * strong_a + out[idx + 2] * inv_str)
+                        else:
+                            out_a = strong_a + inv_str * a_base
+                            out[idx] = int((cr * strong_a + out[idx] * inv_str * a_base) / out_a)
+                            out[idx + 1] = int((cg * strong_a + out[idx + 1] * inv_str * a_base) / out_a)
+                            out[idx + 2] = int((cb * strong_a + out[idx + 2] * inv_str * a_base) / out_a)
+                            out[idx + 3] = int(out_a * 255)
+                if soft_step > 0:
+                    for x in range(0, w_px, soft_step):
+                        if strong_step > 0 and x % strong_step == 0:
+                            continue
+                        idx = row_off + x * 4
+                        a_base = out[idx + 3] / 255.0
+                        if a_base == 0:
+                            out[idx] = cr
+                            out[idx + 1] = cg
+                            out[idx + 2] = cb
+                            out[idx + 3] = int(255 * soft_a)
+                        elif a_base >= 0.999:
+                            out[idx] = int(cr * soft_a + out[idx] * inv_sft)
+                            out[idx + 1] = int(cg * soft_a + out[idx + 1] * inv_sft)
+                            out[idx + 2] = int(cb * soft_a + out[idx + 2] * inv_sft)
+                        else:
+                            out_a = soft_a + inv_sft * a_base
+                            out[idx] = int((cr * soft_a + out[idx] * inv_sft * a_base) / out_a)
+                            out[idx + 1] = int((cg * soft_a + out[idx + 1] * inv_sft * a_base) / out_a)
+                            out[idx + 2] = int((cb * soft_a + out[idx + 2] * inv_sft * a_base) / out_a)
+                            out[idx + 3] = int(out_a * 255)
+
+        return out
 
 
 def render_room_layers(
@@ -700,6 +924,10 @@ def render_room_layers(
     layers: Optional[List[str]] = None,
     with_collision: bool = False,
     with_triggers: bool = False,
+    with_grid: bool = False,
+    grid_spec: Union[str, int, Tuple[int, int]] = "8,16",
+    grid_color: Union[str, RGBA] = "white",
+    grid_opacity: Optional[Union[str, float, Tuple[float, float]]] = None,
     bg_color: Union[str, RGBA] = "black",
 ) -> Dict[str, str]:
     """
@@ -709,10 +937,14 @@ def render_room_layers(
         room_id:        Room ID (0..126).
         rom_path:       Path to Secret of Evermore (U) ROM file.
         out_dir:        Destination directory for output PNG files.
-        layers:         List of layers to generate: '1', '2', 'composite', 'collision', 'triggers'.
+        layers:         List of layers to generate: '1', '2', 'composite', 'collision', 'triggers', 'grid'.
                         Defaults to ['1', '2', 'composite'].
         with_collision: If True, also renders collision layer.
         with_triggers:  If True, also renders triggers overlay.
+        with_grid:      If True, also renders subtle tile grid overlay on composite.
+        grid_spec:      Grid step size: "8,16" (default), 16, or (soft, strong).
+        grid_color:     Grid line color (default: 'white').
+        grid_opacity:   Grid line opacity: "soft,strong" e.g. "0.12,0.30" or single float.
         bg_color:       Backdrop color for composite: 'black' (default), 'transparent',
                         'cgram', hex string (#RRGGBB / #RRGGBBAA), or RGBA tuple.
 
@@ -737,13 +969,15 @@ def render_room_layers(
         selected_layers.add("collision")
     if with_triggers:
         selected_layers.add("triggers")
+    if with_grid:
+        selected_layers.add("grid")
 
     l1_buf: Optional[bytearray] = None
     l2_buf: Optional[bytearray] = None
     comp_buf: Optional[bytearray] = None
 
     # Render Layer 1 (Canopy)
-    if "1" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers:
+    if "1" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers:
         l1_buf = renderer.render_vram_layer(room_data["layer1_vram_int_words"])
         if "1" in selected_layers:
             path_l1 = os.path.join(out_dir, f"{prefix}_layer1.png")
@@ -751,7 +985,7 @@ def render_room_layers(
             output_files["layer1"] = path_l1
 
     # Render Layer 2 (Terrain)
-    if "2" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers:
+    if "2" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers:
         l2_buf = renderer.render_vram_layer(room_data["layer2_vram_int_words"])
         if "2" in selected_layers:
             path_l2 = os.path.join(out_dir, f"{prefix}_layer2.png")
@@ -759,7 +993,7 @@ def render_room_layers(
             output_files["layer2"] = path_l2
 
     # Render Composite (Layer 2 + Layer 1)
-    if "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers:
+    if "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers:
         assert l1_buf is not None and l2_buf is not None
         comp_buf = renderer.composite_layers(l2_buf, l1_buf)
         if "composite" in selected_layers:
@@ -781,6 +1015,19 @@ def render_room_layers(
         path_trig = os.path.join(out_dir, f"{prefix}_triggers.png")
         save_png(trig_buf, renderer.w_pixels, renderer.h_pixels, path_trig)
         output_files["triggers"] = path_trig
+
+    # Render Grid Overlay
+    if "grid" in selected_layers:
+        assert comp_buf is not None
+        grid_buf = renderer.render_grid_overlay(
+            comp_buf,
+            spec=grid_spec,
+            color=grid_color,
+            opacity=grid_opacity,
+        )
+        path_grid = os.path.join(out_dir, f"{prefix}_grid.png")
+        save_png(grid_buf, renderer.w_pixels, renderer.h_pixels, path_grid)
+        output_files["grid"] = path_grid
 
     return output_files
 
@@ -807,12 +1054,29 @@ def main():
     parser.add_argument("--out-dir", "-o", default="out/maps", help="Output directory for PNGs (default: out/maps)")
     parser.add_argument(
         "--layer",
-        choices=["1", "2", "composite", "all", "collision", "triggers"],
+        choices=["1", "2", "composite", "all", "collision", "triggers", "grid"],
         default="all",
-        help="Layer to render: 1, 2, composite, collision, triggers, or all (default: all)",
+        help="Layer to render: 1, 2, composite, collision, triggers, grid, or all (default: all)",
     )
     parser.add_argument("--collision", action="store_true", help="Include collision visualization layer")
     parser.add_argument("--triggers", action="store_true", help="Include triggers overlay on composite")
+    parser.add_argument(
+        "--grid",
+        nargs="?",
+        const="8,16",
+        default=None,
+        help="Include tile grid overlay (default: 8,16 for 8px soft & 16px strong; or specify step e.g. 16 or 8,16)",
+    )
+    parser.add_argument(
+        "--grid-color",
+        default="white",
+        help="Grid line color: 'white' (default), 'black', hex (#RRGGBB), etc.",
+    )
+    parser.add_argument(
+        "--grid-opacity",
+        default=None,
+        help="Grid line opacity: 'soft,strong' e.g. '0.12,0.30' or single float (default: 0.12,0.30)",
+    )
     parser.add_argument(
         "--bg-color",
         "--background",
@@ -822,6 +1086,19 @@ def main():
     parser.add_argument("--all-rooms", action="store_true", help="Render all 127 vanilla rooms")
 
     args = parser.parse_args()
+
+    if "--layer" in sys.argv:
+        if args.layer == "all":
+            layers = ["1", "2", "composite"]
+        else:
+            layers = [args.layer]
+    else:
+        layers = ["composite"] if args.all_rooms else ["1", "2", "composite"]
+
+    with_collision = args.collision or (args.layer == "collision")
+    with_triggers = args.triggers or (args.layer == "triggers")
+    with_grid = (args.grid is not None) or (args.layer == "grid")
+    grid_spec = args.grid if args.grid else "8,16"
 
     if args.all_rooms:
         print(f"Rendering all {MAX_ROOMS} rooms into {args.out_dir}...")
@@ -833,7 +1110,13 @@ def main():
                     rid,
                     rom_path=args.rom,
                     out_dir=args.out_dir,
-                    layers=["composite"],
+                    layers=layers,
+                    with_collision=with_collision,
+                    with_triggers=with_triggers,
+                    with_grid=with_grid,
+                    grid_spec=grid_spec,
+                    grid_color=args.grid_color,
+                    grid_opacity=args.grid_opacity,
                     bg_color=args.bg_color,
                 )
                 print(f"Room 0x{rid:02X}: OK")
@@ -849,19 +1132,18 @@ def main():
 
     room_id = parse_room_id(args.room)
 
-    if args.layer == "all":
-        layers = ["1", "2", "composite"]
-    else:
-        layers = [args.layer]
-
     print(f"Rendering Room 0x{room_id:02X}...")
     files = render_room_layers(
         room_id,
         rom_path=args.rom,
         out_dir=args.out_dir,
         layers=layers,
-        with_collision=args.collision or (args.layer == "collision"),
-        with_triggers=args.triggers or (args.layer == "triggers"),
+        with_collision=with_collision,
+        with_triggers=with_triggers,
+        with_grid=with_grid,
+        grid_spec=grid_spec,
+        grid_color=args.grid_color,
+        grid_opacity=args.grid_opacity,
         bg_color=args.bg_color,
     )
 

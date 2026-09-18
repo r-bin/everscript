@@ -22,6 +22,9 @@ from tools.render_map import (
     render_room_layers,
     save_png_pure,
     parse_color,
+    parse_grid_spec,
+    parse_grid_opacity,
+    RoomRenderer,
 )
 
 
@@ -377,6 +380,164 @@ def test_render_room_0x6f_light_rays_additive_blend(tmp_path):
         # At (240, 100), light rays blend additively over stained glass window
         p = img.getpixel((240, 100))
         assert p == (73, 57, 40, 255)
+
+
+def test_parse_grid_spec():
+    """Verify parse_grid_spec handles strings, tuples, single ints, and errors."""
+    assert parse_grid_spec("8,16") == (8, 16)
+    assert parse_grid_spec("8x16") == (8, 16)
+    assert parse_grid_spec("8/16") == (8, 16)
+    assert parse_grid_spec("16") == (0, 16)
+    assert parse_grid_spec(16) == (0, 16)
+    assert parse_grid_spec((8, 16)) == (8, 16)
+    assert parse_grid_spec([8, 16]) == (8, 16)
+    assert parse_grid_spec("8") == (0, 8)
+    assert parse_grid_spec([16]) == (0, 16)
+
+    with pytest.raises(ValueError):
+        parse_grid_spec("0")
+    with pytest.raises(ValueError):
+        parse_grid_spec("-1")
+    with pytest.raises(ValueError):
+        parse_grid_spec("1,2,3")
+
+
+def test_parse_grid_opacity():
+    """Verify parse_grid_opacity handles defaults, single floats, pairs, and clamping."""
+    assert parse_grid_opacity(None) == (0.12, 0.30)
+    assert parse_grid_opacity("0.12,0.30") == (0.12, 0.30)
+    assert parse_grid_opacity("0.25,0.75") == (0.25, 0.75)
+    assert parse_grid_opacity((0.15, 0.45)) == (0.15, 0.45)
+    # Single float scales soft grid proportionally
+    soft, strong = parse_grid_opacity("0.3")
+    assert strong == 0.3
+    assert soft == round(0.3 * 0.4, 3)
+
+    # Clamping
+    assert parse_grid_opacity("1.5,2.0") == (1.0, 1.0)
+    assert parse_grid_opacity("-0.5,0.5") == (0.0, 0.5)
+
+
+def test_render_grid_overlay(tmp_path):
+    """Verify render_grid_overlay draws distinct soft and strong lines."""
+    out_dir = str(tmp_path / "grid_unit")
+    files = render_room_layers(
+        0x5c,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["grid", "composite"],
+        with_grid=True,
+    )
+    assert "grid" in files
+    assert "composite" in files
+    path_grid = files["grid"]
+    path_comp = files["composite"]
+    assert os.path.exists(path_grid)
+    assert os.path.exists(path_comp)
+
+    from PIL import Image
+    with Image.open(path_comp) as img_comp, Image.open(path_grid) as img_grid:
+        # At (1, 1), not on a grid line: pixels must match composite exactly
+        p_comp_off = img_comp.getpixel((1, 1))
+        p_grid_off = img_grid.getpixel((1, 1))
+        assert p_comp_off == p_grid_off
+
+        # At (8, 1), on 8px soft grid line (x=8): should be slightly brighter than composite
+        p_comp_soft = img_comp.getpixel((8, 1))
+        p_grid_soft = img_grid.getpixel((8, 1))
+        assert p_grid_soft != p_comp_soft
+
+        # At (16, 1), on 16px strong grid line (x=16): should be brighter than soft line
+        p_comp_str = img_comp.getpixel((16, 1))
+        p_grid_str = img_grid.getpixel((16, 1))
+        assert p_grid_str != p_comp_str
+
+
+def test_render_map_cli_grid(tmp_path):
+    """Verify tools/render_map.py CLI produces room_0x5c_grid.png with --grid."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "render_map.py")
+    )
+    out_dir = str(tmp_path / "cli_grid")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x5c",
+        "--grid",
+        "--grid-color",
+        "white",
+        "--out-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[grid     ]" in proc.stdout
+    assert os.path.exists(os.path.join(out_dir, "room_0x5c_grid.png"))
+
+
+def test_dump_room_cli_grid(tmp_path):
+    """Verify tools/dump_room.py CLI produces grid PNG when --grid is specified."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "dump_room.py")
+    )
+    out_dir = str(tmp_path / "dump_grid")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x5c",
+        "--grid",
+        "--png-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[grid     ]" in proc.stdout
+    assert os.path.exists(os.path.join(out_dir, "room_0x5c_grid.png"))
+
+
+def test_render_triggers_colors(tmp_path):
+    """Verify B-triggers render in yellow (0xffff00) and step-on triggers in pink (0xff00ff) matching soestuff.lua."""
+    out_dir = str(tmp_path / "triggers_test")
+    files = render_room_layers(
+        0x5c,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["triggers", "composite"],
+        with_triggers=True,
+    )
+    assert "triggers" in files
+    path_trig = files["triggers"]
+    assert os.path.exists(path_trig)
+
+    from PIL import Image
+    with Image.open(path_trig) as img:
+        # Step-on trigger at (176, 240) has solid pink border (255, 0, 255, 255)
+        p_step_border = img.getpixel((176, 240))
+        assert p_step_border == (255, 0, 255, 255)
+
+        # B-trigger at (80, 112) has solid yellow border (255, 255, 0, 255)
+        p_b_border = img.getpixel((80, 112))
+        assert p_b_border == (255, 255, 0, 255)
+
+
+def test_render_map_cli_triggers_layer(tmp_path):
+    """Verify tools/render_map.py CLI produces triggers PNG when --layer triggers is used."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "render_map.py")
+    )
+    out_dir = str(tmp_path / "cli_trig")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x5c",
+        "--layer",
+        "triggers",
+        "--out-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[triggers ]" in proc.stdout
+    assert os.path.exists(os.path.join(out_dir, "room_0x5c_triggers.png"))
+
+
 
 
 
