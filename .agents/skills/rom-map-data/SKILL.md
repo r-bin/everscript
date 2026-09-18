@@ -9,80 +9,111 @@ Understanding how Secret of Evermore stores, decompresses, and renders map data 
 
 ---
 
-## 1. Room Header Structure
+## 1. Room Header & Trigger Table Structure
 
-Each of the 116 maps in the game is referenced via a master **Map Pointer Table** in ROM:
+Each of the 127 maps in the game (`0x00` through `0x7E`) is referenced via the master **Map Pointer Table** in ROM (`$9FFDE7` / ROM file `0x1FFDE7`):
 - The pointer table uses a **4-byte stride** per room (`table + room_id * 4`), with each entry containing a 24-bit pointer plus 1 padding byte.
-- A standard map header is **13 bytes** (offsets `$00..$0C`), immediately followed by trigger tables at offset `$0D`:
+- The room blob begins with a **13-byte header** (offsets `$00..$0C`), read by the engine loader at `$908F80..$909050`:
 
-| Offset | Size | Field | Description |
-|---|---|---|---|
-| `$00` | 1 | `trig_off_x` | Trigger origin X offset (tile coordinates) |
-| `$01` | 1 | `trig_off_y` | Trigger origin Y offset (tile coordinates) |
-| `$02` | 1 | `width_tiles` | Map width in 16×16 metatiles |
-| `$03` | 1 | `height_tiles` | Map height in 16×16 metatiles |
-| `$04` | 1 | `display_tm` | SNES PPU `$212C` (TM — Main Screen Designation) |
-| `$05` | 1 | `subscreen_ts` | SNES PPU `$212D` (TS — Sub Screen Designation) |
-| `$06` | 1 | `color_math` | SNES PPU `$2131` (CGADSUB — Color Math Designation) |
-| `$07` | 1 | `color_window` | SNES PPU `$2130` (CGWSEL — Color Addition Select) |
-| `$08` | 1 | `effect_variant` | Room visual effect variant |
-| `$09..$0C` | 4 | *(unknown)* | Unparsed; purpose not yet reverse-engineered |
+| Offset | Size | Field | Engine Destination / Mechanism | Description |
+|---|---|---|---|---|
+| `$00` | 1 | `origin_x` | `STA $0F86` | Trigger origin X offset (added to Player Tile X in trigger checks) |
+| `$01` | 1 | `origin_y` | `STA $0F88` | Trigger origin Y offset (added to Player Tile Y in trigger checks) |
+| `$02` | 1 | `width_tiles` | `STA $08EE` | Map width in 16×16 metatiles (`$0F46` = stride $W \times 2$, `$7E23ED` = max X $W \times 16$) |
+| `$03` | 1 | `height_tiles` | `STA $08F0` | Map height in 16×16 metatiles (`$7E23EF` = max Y $H \times 16$) |
+| `$04` | 1 | `display_tm` | `STA $212C`, `STA $0F80` | SNES PPU Main Screen Designation |
+| `$05` | 1 | `subscreen_ts` | `STA $212D`, `STA $0F81` | SNES PPU Sub Screen Designation |
+| `$06` | 1 | `color_math` | `STA $2131`, `STA $0F82` | SNES PPU CGADSUB (Color Math Designation) |
+| `$07` | 1 | `color_window` | `STA $2130`, `STA $0F83` | SNES PPU CGWSEL (Color Addition Select) |
+| `$08` | 1 | `effect_variant` | `STA $7E241F` | Room visual effect variant (indexes effect jump table at `$908E74`) |
+| `$09..$0A`| 2 | `word_0f84` | `STA $0F84` | 16-bit parameter loaded via `REP #$21; LDA [$8B],Y` |
+| `$0B..$0C`| 2 | `padding_0b` | *(skipped)* | 2 bytes skipped by `INY; INY` |
+
+### Trigger Tables (Offset `$0D`)
+
+- **Offset `$0D`**: 16-bit word `step_len` stored at `$1062` (total byte length of step-on trigger table).
+- **Offset `$0F`**: Start of step-on trigger records (`$1064 = blob + 15`), 6 bytes per entry:
+  - `Byte 0`: `y_min` (tested against Player Y)
+  - `Byte 1`: `x_min` (tested against Player X)
+  - `Byte 2`: `y_max` (tested against Player Y)
+  - `Byte 3`: `x_max` (tested against Player X)
+  - `Bytes 4..5`: 16-bit little-endian `script_id`
+- **Offset `$0F + step_len`**: 16-bit word `b_len` stored at `$1067` (total byte length of B-trigger table).
+- **Offset `$0F + step_len + 2`**: Start of B-trigger records (`$1069`), 6 bytes per entry with identical coordinate fields.
 
 ---
 
-## 2. Coordinate Spaces
+## 2. Coordinate Spaces & Trigger Evaluation
 
 Evermore operates across two distinct coordinate planes:
 
 | Coordinate Plane | Scale | Typical Usage |
 |---|---|---|
 | **Pixel Coordinates** | 1:1 ($256 \times 224$ screen space) | Sprite rendering, projectile hits, camera tracking |
-| **Tile Coordinates** | 1:8 or 1:16 ($X_{pix} / 8$, $Y_{pix} / 8$) | Step-on trigger rects `[x0, y0 : x1, y1]`, spawn points |
+| **Tile Coordinates** | 1:16 ($X_{pix} / 16$, $Y_{pix} / 16$) | 16×16 metatile grid, step-on triggers, B-triggers |
 
-When analyzing room dumps from `script_all`:
-```
-(22) CHANGE MAP = 0x38 @ [ 0x0180 | 0x02C0 ]: "South Jungle / Start"
-```
-The spawn coordinates `0x0180` and `0x02C0` are raw pixel values. Divided by 8, these correspond to tile coordinates `(48, 88)`.
+> [!IMPORTANT]
+> **Metatile Scale is Strictly 1:16 (Never 1:8)**  
+> The engine evaluation routine at `$8FACCE..$8FACE4` performs four consecutive arithmetic right shifts (`LSR A` $\times 4$) on player pixel coordinates, strictly dividing by 16:
+> $$\text{Tile X} = X_{pix} \gg 4, \quad \text{Tile Y} = Y_{pix} \gg 4$$
+> For example, spawn coordinates `0x0180` and `0x02C0` (384, 704 pixels) correspond to tile coordinates `(24, 44)`.
+
+### Engine Trigger In-Bounds Check (`$8FACEF..$8FAD08`)
+
+A trigger activates when the player coordinates satisfy:
+$$y_{min} \le (\text{Tile Y} + origin\_y) < y_{max} \quad \text{AND} \quad x_{min} \le (\text{Tile X} + origin\_x) < x_{max}$$
 
 ---
 
-## 3. Map Compression & Payload Architecture
+## 3. Map Compression & Deterministic Payload Architecture
 
-Secret of Evermore uses a multi-stage payload architecture across three compressed ROM blocks, fully documented in [**`docs/map_decompression_trace_analysis.md`**](file:///Users/v/Documents/GitHub/everscript/docs/map_decompression_trace_analysis.md):
+Secret of Evermore uses a multi-stage payload architecture across three compressed ROM blocks, fully documented in [**`docs/map_decompression_trace_analysis.md`**](file:///Users/v/Documents/GitHub/everscript/docs/map_decompression_trace_analysis.md).
+
+The SNES engine loader (`$908F60..$909180`) resolves all payload sub-blocks **100% deterministically without linear heuristic scanning**:
 
 1. **Master Map Pointer Table (`$9FFDE7` / ROM `0x1FFDE7`)**:
    - 4-byte stride per room ID (`table + room_id * 4`) pointing to 24-bit SNES address of the room blob.
-   - The room blob begins with a **13-byte header** (see §1) containing trigger origin offsets, map dimensions, PPU display configuration registers (`TM`, `TS`, `CGADSUB`, `CGWSEL`), effect variant, and 4 unknown bytes. Trigger tables follow immediately at offset `$0D`.
+   - The room blob begins with a 13-byte header and trigger tables (see §1).
 
-2. **Payload Block 1 (Delta Tile Palette)**:
-   - Starts **deterministically** immediately after the payload descriptor array: `pos + 3 + (rom[pos] * 3)`.
-   - **In 115 rooms:** `sub_flag == 0x03` $\to$ decompressed via **LZSS** (`$8C98C9`) into WRAM `$7FC300`.
-   - **In 12 rooms:** `sub_flag == 0x00` $\to$ raw **uncompressed copy** (`$8C98B1`) into WRAM `$7FC300`.
-   - In-place **16-bit delta accumulator** (`$908E85`) converts relative deltas into unique 16×16 CHR graphic IDs.
+2. **Tile Families & CHR Descriptors**:
+   - Begins at `fam_off = blob + 15 + step_len + 2 + b_len`:
+     - `rom[fam_off]`: Count $N$ of 16-bit tile families, followed by $N \times 2$ bytes.
+   - Immediately following at `pos_desc = fam_off + 1 + N * 2`:
+     - `rom[pos_desc]`: Count $M$ of 3-byte CHR tile graphics descriptors (`JSL $90D50F`), followed by $M \times 3$ bytes.
+
+3. **Payload Block 1 (Delta Tile Palette)**:
+   - Starts at `pos_after_desc = pos_desc + 1 + M * 3`.
+   - `b1_len = read16(rom, pos_after_desc)` (16-bit block length).
+   - Subheader at `pos_after_desc + 2`: `[sub_flag: 1 byte][decomp_size: 2 bytes][data...]`.
+     - **In 115 rooms:** `sub_flag == 0x03` $\to$ decompressed via **LZSS** (`$8C98C9`) into WRAM `$7FC300`.
+     - **In 12 rooms:** `sub_flag == 0x00` $\to$ raw **uncompressed copy** (`$8C98B1`) into WRAM `$7FC300`.
+   - In-place **16-bit delta accumulator** (`$908E85`) converts deltas into absolute 16×16 CHR graphic IDs.
    - Subroutine `$8CC88C` looks up graphic pointers in the **`$EE0000` table** (`tile_id * 3`) and DMAs 4bpp pixel patterns to SNES VRAM character slots.
 
-3. **Sub-Block Resolution Algorithm (127/127 Verified)**:
-   - Intermediate data blocks (CHR uploads, palettes) cause variable offsets between blocks.
-   - The engine dynamically identifies:
-     - **Block 2 (Markov Grid)**: Scans forward for `sub_flag == 0x07` where decompressed size matches `width_tiles * height_tiles * 2`.
-     - **Block 3 (Metatile VRAM Table)**: Scans forward after Block 2 for `sub_flag == 0x03` where decompressed size $S > 0$ and $S \pmod 6 == 0$.
-   - Tested and confirmed working across **100% of all 127 vanilla rooms**.
+4. **Intermediate Descriptors to Block 2**:
+   - Section 2 at `sec2 = pos_after_desc + 2 + b1_len`:
+     - `rom[sec2]`: Count $P$, followed by `L_2 = read16(rom, sec2 + 1)`, followed by $L_2$ bytes.
+   - Section 3 at `sec3 = sec2 + 3 + L_2`:
+     - `K = rom[sec3]`: Count of 2-byte descriptors, followed by $K \times 2$ bytes.
 
-4. **Payload Block 2 (2D Markov Metatile Grid)**:
-   - Header tag `0x00`, sub-flag `0x07` $\to$ decompressed via a custom **2D Context-Predictive Markov Bitstream Decoder** (`$8C9BD0`).
-   - Variable-length prefix codes predict the next metatile from the cell **above** (`$26`) and to the **left** (`$12`).
-   - Unpacks directly into WRAM **`$7F0000`** as a `width_tiles x height_tiles` grid of 16-bit metatile offsets.
+5. **Payload Block 2 (2D Markov Metatile Grid)**:
+   - Starts at `b2_off = sec3 + 1 + K * 2`.
+   - `b2_len = read16(rom, b2_off)` (16-bit block length).
+   - Subheader: `sub_flag == 0x07`, `decomp_size == width_tiles * height_tiles * 2`.
+   - Decompressed via **2D Context-Predictive Markov Bitstream Decoder** (`$8C9BD0`) directly into WRAM **`$7F0000`**.
    - **Metatile ID as Direct WRAM Bank `$7F` Offset**:
-     - The base offset of the metatile table is dynamically calculated: `base_metatile = width_tiles * height_tiles * 2`.
+     - `base_metatile = width_tiles * height_tiles * 2`.
      - Metatiles are aligned on 8-byte boundaries: `ID = base_metatile + (index * 8)`.
-     - For Room 0x33 ($20 \times 16$): `base_metatile = 640 = 0x0280`. Grid at `$7F0000..$7F027F`, table at `$7F0280`.
-     - For Room 0x38 ($83 \times 91$): `base_metatile = 15106 = 0x3B02`. Grid at `$7F0000..$7F3B01`, table at `$7F3B02`.
 
-5. **Payload Block 3 (3-Slice Planar Multi-Layer Metatile Table)**:
-   - Header tag `0x00`, sub-flag `0x03` $\to$ decompressed via **LZSS** (`$8C988D`).
-   - Decompressed size is always a multiple of 6 bytes: $S = 6N$ bytes ($3N$ 16-bit words, where $N = \text{metatile\_count}$).
-   - Routine `$9091B0..$909245` divides total words by 3 using hardware math registers (`STA $4206`) and unpacks data into **3 planar slices**:
+6. **Payload Block 3 (3-Slice Planar Multi-Layer Metatile Table)**:
+   - Intermediate Section 4 at `sec4 = b2_off + 2 + b2_len`:
+     - `L_4 = read16(rom, sec4)`, followed by $L_4$ bytes.
+   - Block 3 starts deterministically at `b3_off = sec4 + 2 + L_4`:
+     - `b3_len = read16(rom, b3_off)` (16-bit block length).
+     - Subheader: `[sub_flag: 1 byte][decomp_size: 2 bytes]`.
+     - **In 126 rooms:** `sub_flag == 0x03` $\to$ decompressed via **LZSS** (`$8C988D`).
+     - **In Room 0x15 (Brian's Test Ground):** `sub_flag == 0x00` $\to$ raw **uncompressed copy** of 12 bytes (2 metatiles).
+   - Routine `$9091B0..$909245` divides decompressed bytes by 6 using hardware math registers (`STA $4206`) and unpacks data into **3 planar slices**:
      - **Slice 0 (Words $0 \dots N-1$)**: **Layer 1 (Canopy / BG2)** SNES VRAM tilemap words.
      - **Slice 1 (Words $N \dots 2N-1$)**: **Layer 2 (Terrain / BG1)** SNES VRAM tilemap words.
      - **Slice 2 (Words $2N \dots 3N-1$)**: **Collision & Passability Attributes** (walkable ground, solid barriers, elevation levels).
