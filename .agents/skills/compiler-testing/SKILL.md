@@ -29,6 +29,12 @@ Integration tests verifying bytecode generation for the Secret of Evermore VM in
 - **Examples:** `test_00_end.py`, `test_08_branch_if.py`, `test_09_branch_if_not.py`, `test_22_change_map.py`, `test_3a_yield.py`.
 - Uses shared pipeline compilation helpers from `tests/helpers.py`.
 
+### C. Map Decompression Integration Tests (`tests/integration/maps/`):
+Integration tests verifying ROM map decompression pipelines against ground-truth Mesen2 PPU Memory Viewer dumps.
+- **Strict 1 file per map rule**: Each verified map has its own test file named `test_room_<hex_2_digits>_vram.py`.
+- **Example:** `test_room_0x33_vram.py` tests Strong Heart's Exterior ($20 \times 16$) header, tile palette, metatiles, and VRAM words against emulator dumps.
+- Uses extraction routines from `tools/dump_room.py`.
+
 ---
 
 ## 2. Executing Tests
@@ -42,17 +48,14 @@ Always use the Python binary inside the virtual environment:
 # Run compiler module tests (fastest, ~15s)
 .venv/bin/pytest tests/compiler/
 
-# Run a specific compiler module test
-.venv/bin/pytest tests/compiler/test_lexer.py
-
 # Run all opcode integration tests (~1.5m)
 .venv/bin/pytest tests/integration/opcodes/
 
-# Run a specific opcode test
-.venv/bin/pytest tests/integration/opcodes/test_00_end.py
+# Run map decompression VRAM regression tests
+.venv/bin/pytest tests/integration/maps/
 
-# Run with verbose output
-.venv/bin/pytest -v tests/
+# Run a specific test with verbose output
+.venv/bin/pytest tests/integration/maps/test_room_0x33_vram.py -v
 ```
 
 ### Baseline Targets:

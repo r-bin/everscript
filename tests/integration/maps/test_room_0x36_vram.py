@@ -1,0 +1,193 @@
+"""
+Integration Test: Room 0x36 (Volcano Fire Pits) VRAM Verification
+------------------------------------------------------------------
+Verifies that the map decompression pipeline reconstructs the map header,
+decompressed grid dimensions, tile palette, and characteristic VRAM tilemap words
+observed in Mesen2 memory dumps for Room 0x36 (25x25 Volcano Fire Pits).
+"""
+
+import os
+import sys
+import subprocess
+import pytest
+
+from tools.dump_room import (
+    dump_room,
+    get_room_vram_words,
+    get_room_vram_bytes,
+    DEFAULT_ROM_PATH,
+)
+
+# Ground-truth VRAM Hex Dump captured from Mesen2 PPU Memory Viewer for Room 0x36
+MESEN2_VRAM_DUMP_HEX = """
+00 A8 C4 2C C6 2C C4 2C C6 2C C4 2C C6 2C C6 2C
+C4 2C C6 2C C4 2C C6 2C C4 2C C6 2C C6 2C C4 2C
+C6 2C C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 CC 2C CE 2C CC 2C CE 2C CC 2C CE 2C CE 2C
+CC 2C CE 2C CC 2C CE 2C CC 2C CE 2C CE 2C CC 2C
+CE 2C C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 C6 2C C4 2C C6 2C CC 2C CE 2C 06 2D E2 2C
+E6 AC CC 2C CE 2C CC 2C CE 2C C4 2C C6 2C CC 2C
+CE 2C C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 CE 2C CC 2C CE 2C C6 2C E6 EC 00 A8 00 A8
+00 A8 02 AD E2 6C E2 2C E6 AC CC 2C CE 2C C4 2C
+C6 2C C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 C4 2C C6 2C C4 2C C6 2C E8 2C CA 2C 00 A8
+00 A8 00 A8 00 A8 00 A8 04 2D E4 AC E6 EC E6 AC
+CE 2C C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 CC 2C CE 2C E4 AC CE 2C 06 2D E2 2C 00 A8
+42 04 44 04 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 2D C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 C4 2C 00 6D 00 A8 02 ED 00 A8 00 A8 00 A8
+00 A8 00 A8 22 6D 22 2D 00 A8 00 A8 04 2D E4 2C
+C4 2C C6 2C C4 2C CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 CC 2C CE 2C 04 6D 00 A8 00 A8 00 A8 00 A8
+00 A8 0C 2D 00 A8 0E AD 20 2D 20 2D 22 2D E2 6C
+E2 2C E6 AC E4 AC CE 2C AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 00 A8 E6 EC 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 60 2D 22 AD 00 A8 22 ED 0E AD 60 6D 00 A8
+00 A8 00 A8 00 A8 00 2D AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 00 6D 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 00 A8 00 A8 02 AD AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+00 A8 E6 EC 00 A8 00 A8 00 A8 88 70 86 70 84 70
+82 70 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 00 A8 00 A8 00 A8 AA 2E AE 2E CE 2D AA 2E
+AE 2E CE 2D AA 2E AE 2E CE 2D AA 2E AE 2D AE 2D
+E0 2C 00 A8 00 A8 00 A8 00 A8 A8 70 A6 70 A4 70
+A2 70 00 A8 0C 0D 0E 0D 22 0D 00 A8 00 A8 00 A8
+00 A8 00 A8 00 A8 04 2D 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+E0 2C 02 6D 00 A8 00 A8 00 A8 C2 70 C0 70 AE 70
+AC 70 0E 4D 20 0D 00 A8 00 A8 0E 0D 0C 4D 00 A8
+00 A8 00 A8 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 C4 2C 04 6D 00 A8 00 A8 00 A8 00 A8 0C 0D
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 0E 0D
+0C 4D 00 A8 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+E0 2C 02 ED 00 A8 42 04 44 04 00 A8 22 4D 00 A8
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 0C 4D 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 E6 6C 00 A8 00 A8 00 A8 00 A8 44 0D 00 A8
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 44 4D 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 00 A8 E6 6C 00 A8 00 A8 00 A8 28 0D 00 A8
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 0C CD 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 00 A8 E0 2C 00 A8 00 A8 00 A8 0C 8D 00 A8
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+62 0D 00 A8 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 00 A8 C4 2C E6 6C 26 44 24 44 00 A8 28 0D
+00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+44 4D 00 A8 00 A8 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 00 A8 C4 2C C6 2C E8 2C CA 2C 26 04 42 04
+44 04 20 8D 00 A8 00 A8 00 A8 00 A8 00 A8 00 A8
+0C CD 00 A8 00 A8 28 44 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 00 A8 E4 AC CE 2C 06 2D E2 2C 00 A8 00 A8
+02 2D 24 44 00 A8 00 A8 00 A8 00 A8 44 44 42 44
+26 04 42 04 42 44 00 A8 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 A8 00 A8 00 A8 02 ED 00 A8 00 A8 00 A8 00 A8
+00 AD E6 6C 28 0D 00 A8 00 A8 24 04 00 A8 02 2D
+00 A8 04 AD E4 6C E6 6C 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+AE 2D AE 2D AE 2D 00 A8 E6 2C E4 2C E6 6C E6 2C
+CE AC 00 ED 0C 8D 00 A8 28 4D 00 A8 E6 2C CE 2C
+04 ED E6 2C CE 2C CC 2C 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+AE 2D AE 2D AE 2D E4 2C 00 A8 CC AC CE AC C4 AC
+C6 AC 00 A8 04 ED 0C 8D 0C CD E6 2C C4 2C C6 2C
+E4 6C C6 2C C4 2C C6 2C 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+C0 2D C0 2D C0 2D 00 A8 00 A8 00 A8 00 A8 00 A8
+00 A8 E0 2C 00 A8 00 A8 00 A8 E0 6C CC 2C CE 2C
+CC 2C CE 2C CC 2C CE 2C 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+CE 2D CE 2D CE 2D 0A 05 06 0A C2 07 1F D0 0A 05
+06 0A E2 0B 1F D0 0A 05 06 0A DA 09 1F D0 0A 05
+06 0A CA 07 1F D0 0A 05 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+AE 2D AE 2D AE 2D 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+CE 2D CE 2D CE 2D 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+AE 2E AE 2E AE 2E 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+CE 2D CE 2D CE 2D 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+AE 2D AE 2D AE 2D 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+CE 2D CE 2D CE 2D 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+"""
+
+def test_room_0x36_header_metadata():
+    res = dump_room(0x36)
+    assert res["room_id"] == 0x36
+    h = res["header"]
+    assert h["width_tiles"] == 25
+    assert h["height_tiles"] == 25
+    assert h["origin_x"] == 25
+    assert res["triggers"]["step_on_count"] == 2
+    assert res["triggers"]["b_trigger_count"] == 4
+
+def test_room_0x36_tile_palette_delta_accumulator():
+    res = dump_room(0x36)
+    palette = res["tile_palette"]
+    assert len(palette) == 114
+    assert palette[0] == "0x01E9"
+
+def test_room_0x36_decompressed_grid_dimensions():
+    res = dump_room(0x36)
+    assert len(res["layer1_vram_words"]) == 25
+    assert all(len(row) == 25 for row in res["layer1_vram_words"])
+    assert len(res["layer2_vram_words"]) == 25
+    assert all(len(row) == 25 for row in res["layer2_vram_words"])
+
+def test_room_0x36_characteristic_vram_words():
+    """Verify that characteristic fire pit and lava wall tilemap words exist in Layer 1."""
+    res = dump_room(0x36)
+    l1 = res["layer1_vram_int_words"]
+    all_l1_words = {w for row in l1 for w in row}
+    # Characteristic tiles present in Room 0x36 Mesen2 PPU dump:
+    expected_sample_tiles = {0x7082, 0x7084, 0x7086, 0x7088, 0x70A2, 0x70A4, 0x70A6, 0x70A8, 0x2CC4, 0x2CC6, 0x2CCC, 0x2CCE}
+    assert expected_sample_tiles.issubset(all_l1_words)
+
+def test_room_0x36_cli_vram_bytes_flag():
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "dump_room.py")
+    )
+    cmd = [sys.executable, script_path, "0x36", "--vram-bytes"]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert proc.returncode == 0
+    lines = proc.stdout.strip().splitlines()
+    assert len(lines) > 0
