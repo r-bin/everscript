@@ -331,3 +331,47 @@ def decode_tile_pixels(tile_bytes: bytes, hflip: bool = False, vflip: bool = Fal
 
     return pixels
 ```
+
+---
+
+## 7. Dynamic Animated Tiles (Section 2 Streaming)
+
+In addition to the static tile palette defined in **Block 1**, 95 rooms in Secret of Evermore feature animated background elements (such as water waves, lava bubbles, rotating fans, guard faces, torch flames, light rays, and stone wall mechanisms).
+
+### 7.1 ROM Payload Structure
+
+Immediately following the compressed/uncompressed payload of Block 1 lies **Section 2**:
+
+$$\text{Section 2 ROM Offset} = \text{Block 1 Offset} + \text{Block 1 Payload Length}$$
+
+```
+[sec2_count: 1B] [sec2_len: 2B] [--- Animation Channel Descriptors (sec2_count * 4B) ---] [--- Frame Streams ---]
+```
+
+1. **Header (3 Bytes)**:
+   - `sec2_count` (1 byte): Number of active animation channels.
+   - `sec2_len` (2 bytes, little-endian): Total byte length of Section 2.
+2. **Channel Descriptor Table (`sec2_count * 4` bytes)**:
+   - Each entry is 4 bytes: `[delay: 1B] [timer: 1B] [offset: 2B (little-endian)]`.
+   - `offset` is relative to the start of Section 2 and points to the channel's animation frame sequence.
+3. **Animation Frame Sequences**:
+   - Sequence of `[delay: 1B] [tile_id: 2B (little-endian)]`.
+   - Terminated by byte `0xFF`.
+   - **Frame 0**: The first `tile_id` in the stream provides the default visual state decompressed from `$EE0000`.
+
+### 7.2 Palette Extension & VRAM Indexing
+
+During room initialization, the engine appends the Frame 0 tile IDs from all `sec2_count` channels directly to the end of the Block 1 tile palette in WRAM (`$7FC300`):
+
+$$\text{Master Tile ID}[k] = \begin{cases} \text{Block 1 Palette}[k], & 0 \le k < \text{len(Block 1)} \\ \text{Animated Frame 0}[k - \text{len(Block 1)}], & \text{len(Block 1)} \le k < \text{Total Tiles} \end{cases}$$
+
+Every animated tile is decompressed using the exact same **`$8CC88C`** routine into SNES PPU VRAM, allowing the map tilemap to reference these dynamic tiles seamlessly.
+
+---
+
+## 8. Related Documentation
+- [Map Rendering Pipeline](map_rendering_pipeline.md): End-to-end Mode 1 priority assembly, color math, and PNG export.
+- [Map Palette Extraction](map_palette_extraction.md): Empirical CGRAM color decoding from tile families at `$9CC322`.
+- [Map Decompression Trace Analysis](map_decompression_trace_analysis.md): Payload Blocks 1, 2, 3 and VRAM grid assembly.
+
+

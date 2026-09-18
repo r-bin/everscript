@@ -276,3 +276,12 @@ def build_room_cgram_palettes(rom: bytes, tile_families: List[int]) -> List[List
 
     return palettes
 ```
+
+---
+
+## 7. Related Documentation
+- [Map Rendering Pipeline](map_rendering_pipeline.md): End-to-end Mode 1 priority assembly, color math, and PNG export.
+- [Map Tile Graphics Decompression](map_tile_graphics_decompression.md): Empirical 16x16 metatile decompression from `$EE0000`.
+- [Map Decompression Trace Analysis](map_decompression_trace_analysis.md): Payload Blocks 1, 2, 3 and VRAM grid assembly.
+
+

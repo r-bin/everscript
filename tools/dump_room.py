@@ -30,6 +30,10 @@ import os
 import argparse
 import json
 
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 MAP_LIST_ADDR = 0x1FFDE7 # ROM file offset for SNES $9FFDE7 (HiROM)
 MAX_ROOMS = 127          # SoETilesViewer MAX_MAPS
 DEFAULT_ROM_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Secret of Evermore (U) [!].smc")
@@ -106,7 +110,7 @@ def read24(rom: bytes, offset: int) -> int:
 def read16(rom: bytes, offset: int) -> int:
     return rom[offset] | (rom[offset+1] << 8)
 
-def decompress_markov_grid(rom_bytes: bytes, stream_offset: int, width: int, height: int, base_metatile: int = 0x0280) -> list[int]:
+def decompress_markov_grid(rom_bytes: bytes, stream_offset: int, width: int, height: int, base_metatile: int = 0x0280, fc4: int = 0) -> list[int]:
     """
     2D Context-Predictive Markov Bitstream Decoder ($8C9BD0).
     Dispatch table index 7 (sub_flag=0x07).
@@ -132,6 +136,8 @@ def decompress_markov_grid(rom_bytes: bytes, stream_offset: int, width: int, hei
 
     def read_bits(n):
         nonlocal ptr, bit_offset
+        if n == 0:
+            return 0
         b0 = rom_bytes[ptr] if ptr < len(rom_bytes) else 0
         b1 = rom_bytes[ptr+1] if ptr+1 < len(rom_bytes) else 0
         b2 = rom_bytes[ptr+2] if ptr+2 < len(rom_bytes) else 0
@@ -139,10 +145,23 @@ def decompress_markov_grid(rom_bytes: bytes, stream_offset: int, width: int, hei
         advance(n)
         return res
 
-    next_seq_tile = base_metatile
+    # Native 65816 initialization ($8C9B9B..$8C9BC5):
+    #   $0FC4 is loaded from rom[$0FC6] & 0x00FF (Section 4 initial tile counter).
+    #   next_seq_tile = base_metatile + ($0FC4 * 8)
+    #   tile_counter = $0FC4
+    #   tile_mask and tile_bits are initialized by shifting $0FC4 right until 0.
+    tile_counter = fc4
+    next_seq_tile = base_metatile + (fc4 * 8)
+    tile_mask = 1
+    tile_bits = 0
+    temp_fc4 = fc4
+    while temp_fc4 > 0:
+        tile_mask <<= 1
+        tile_bits += 1
+        temp_fc4 >>= 1
+
     above_tile = base_metatile
     left_tile = base_metatile
-    tile_bits, tile_mask, tile_counter = 0, 1, 0
 
     for idx in range(width * height):
         byte_y = idx * 2
@@ -314,8 +333,15 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
             f"no sub_flag=0x07 with decomp_size={target_grid_bytes} within scan window")
     b2_off, b2_payload_len, b2_sub, b2_decomp = b2
 
+    # Section 4 / $0FC4 initialization ($909148..$909150):
+    # The byte at rom[b2_off + 2 + b2_payload_len + 2] holds $0FC4,
+    # which defines the initial metatile offset for the Markov bitstream.
+    sec4_off = b2_off + 2 + b2_payload_len
+    sec4_len = read16(rom, sec4_off) if sec4_off + 2 <= len(rom) else 0
+    fc4 = rom[sec4_off + 2] if sec4_len > 0 and sec4_off + 2 < len(rom) else 0
+
     base_metatile = target_grid_bytes
-    raw_metatiles = decompress_markov_grid(rom, b2_off + 5, width_tiles, height_tiles, base_metatile)
+    raw_metatiles = decompress_markov_grid(rom, b2_off + 5, width_tiles, height_tiles, base_metatile, fc4=fc4)
 
     # --- Block 1: Tile palette deltas → WRAM $7FC300 ---
     # Deterministic layout: pos has count of 3-byte CHR tile descriptors.
@@ -345,6 +371,24 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
         delta = block1_out[i] | (block1_out[i+1] << 8)
         running_acc = (running_acc + delta) & 0xFFFF
         accum_words.append(running_acc)
+
+    # --- Section 2: Animated tile descriptors ($90A0D0..$90A1A0) ---
+    # Stored immediately after Block 1 payload at sec2_off = b1_off + b1_payload_len
+    b1_payload_len = read16(rom, b1_off - 2)
+    sec2_off = b1_off + b1_payload_len
+    sec2_cnt = rom[sec2_off] if sec2_off < len(rom) else 0
+    anim_tiles = []
+    if sec2_cnt > 0 and sec2_off + 3 <= len(rom):
+        sec2_len = read16(rom, sec2_off + 1)
+        p_data = sec2_off + 3
+        for i in range(sec2_cnt):
+            if p_data + (i + 1) * 4 <= len(rom):
+                entry = rom[p_data + i * 4 : p_data + (i + 1) * 4]
+                w1 = entry[2] | (entry[3] << 8)
+                if p_data + w1 + 3 <= len(rom):
+                    sub = rom[p_data + w1 : p_data + w1 + 3]
+                    tid = sub[1] | (sub[2] << 8)
+                    anim_tiles.append(tid)
 
     # --- Block 3: LZSS → 3-slice planar metatile table → WRAM $7F0280 ---
     # Follows Block 2 in ROM.  sub_flag == 0x03, decomp_size is a positive multiple of 6.
@@ -445,6 +489,8 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
         "tile_families": [f"0x{tid:04X}" for tid in tile_families],
         "tile_palette": [f"0x{w:04X}" for w in accum_words],
         "tile_palette_count": len(accum_words),
+        "animated_tiles": [f"0x{tid:04X}" for tid in anim_tiles],
+        "animated_tiles_count": len(anim_tiles),
         "payload_blocks": {
             "block1": {"sub_flag": f"0x{b1_sub:02X}", "decomp_size": b1_decomp,
                        "rom_offset": f"0x{b1_off:06X}"},
@@ -502,6 +548,14 @@ def main():
     parser.add_argument("--vram-words", action="store_true", help="Output only VRAM tilemap words (0x30C0 0x30C2 ...)")
     parser.add_argument("--layer", type=int, default=1, choices=[1, 2], help="Layer to output for VRAM data (default: 1)")
     parser.add_argument("--pad-32", action="store_true", help="Pad rows to 32 tiles (64 bytes) matching SNES VRAM tilemap buffer width")
+    parser.add_argument("--png", action="store_true", help="Render room layers to PNG images")
+    parser.add_argument("--png-dir", default="out/maps", help="Output directory for PNG images (default: out/maps)")
+    parser.add_argument(
+        "--bg-color",
+        "--background",
+        default="black",
+        help="Background/backdrop color for PNG rendering: 'black' (default), 'transparent', 'cgram', hex (#RRGGBB), or R,G,B",
+    )
     parser.add_argument("--all", action="store_true", help="Decode all rooms and report results")
     args = parser.parse_args()
 
@@ -537,6 +591,21 @@ def main():
     else:
         val = int(raw)
         room_id = val
+
+    if args.png:
+        from tools.render_map import render_room_layers
+        layer_list = [str(args.layer)] if "--layer" in sys.argv else ["1", "2", "composite"]
+        files = render_room_layers(
+            room_id,
+            rom_path=args.rom,
+            out_dir=args.png_dir,
+            layers=layer_list,
+            bg_color=args.bg_color,
+        )
+        print(f"Generated {len(files)} PNG image(s) for Room 0x{room_id:02X} in {args.png_dir}:")
+        for name, path in files.items():
+            print(f"  [{name:9s}] {path}")
+        return
 
     if args.vram_bytes:
         raw_bytes = get_room_vram_bytes(room_id, args.rom, layer=args.layer, pad_to_32=args.pad_32)
