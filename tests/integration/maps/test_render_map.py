@@ -350,5 +350,35 @@ def test_dump_room_cli_bg_color(tmp_path):
     assert "Generated 1 PNG image(s)" in proc.stdout
 
 
+def test_render_room_0x3d_sewer_water_transparency(tmp_path):
+    """Verify Room 0x3D pipe sewer water uses CGADSUB half-addition color math."""
+    out_dir = str(tmp_path / "room_0x3d")
+    files = render_room_layers(0x3d, DEFAULT_ROM_PATH, out_dir=out_dir, layers=["composite"])
+    assert "composite" in files
+    path = files["composite"]
+    assert os.path.exists(path)
+
+    from PIL import Image
+    with Image.open(path) as img:
+        # At (80, 128), L2 water (107, 132, 165) blends over L1 pipe (99, 148, 49) -> (103, 140, 107)
+        assert img.getpixel((80, 128)) == (103, 140, 107, 255)
+
+
+def test_render_room_0x6f_light_rays_additive_blend(tmp_path):
+    """Verify Room 0x6F window light rays use CGADSUB additive color math over the window."""
+    out_dir = str(tmp_path / "room_0x6f")
+    files = render_room_layers(0x6f, DEFAULT_ROM_PATH, out_dir=out_dir, layers=["composite"])
+    assert "composite" in files
+    path = files["composite"]
+    assert os.path.exists(path)
+
+    from PIL import Image
+    with Image.open(path) as img:
+        # At (240, 100), light rays blend additively over stained glass window
+        p = img.getpixel((240, 100))
+        assert p == (73, 57, 40, 255)
+
+
+
 
 

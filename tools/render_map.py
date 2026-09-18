@@ -483,12 +483,15 @@ class RoomRenderer:
         bg1_main = bool(tm & 0x01)
         bg2_main = bool(tm & 0x02)
 
+        ts = int(self.header.get("subscreen_ts", "0x00"), 16)
+        bg1_sub = bool(ts & 0x01)
+        bg2_sub = bool(ts & 0x02)
+
         cgadsub = int(self.header.get("color_math_cgadsub", "0x00"), 16)
+        sub_math = bool(cgadsub & 0x80)
         half_math = bool(cgadsub & 0x40)
         bg1_math = bool(cgadsub & 0x01)
-
-        ts = int(self.header.get("subscreen_ts", "0x00"), 16)
-        sub_has_bg2 = bool(ts & 0x02)
+        bg2_math = bool(cgadsub & 0x02)
 
         l1_grid = self.room_data.get("layer1_vram_int_words", [])
         l2_grid = self.room_data.get("layer2_vram_int_words", [])
@@ -523,55 +526,69 @@ class RoomRenderer:
                         x = tx * 16 + px
                         i = row_off + x * 4
 
-                        a1 = l1_buf[i + 3] if bg1_main else 0
-                        a2 = l2_buf[i + 3] if bg2_main else 0
+                        a1 = l1_buf[i + 3]
+                        a2 = l2_buf[i + 3]
 
-                        r1, g1, b1_c = l1_buf[i], l1_buf[i + 1], l1_buf[i + 2]
-                        r2, g2, b2_c = l2_buf[i], l2_buf[i + 1], l2_buf[i + 2]
+                        c1 = (l1_buf[i], l1_buf[i + 1], l1_buf[i + 2])
+                        c2 = (l2_buf[i], l2_buf[i + 1], l2_buf[i + 2])
 
-                        sub_a = l2_buf[i + 3] if sub_has_bg2 else 0
+                        # 1. Main Screen Layer Selection (Mode 1 priority: BG1 P1 > BG2 P1 > BG1 P0 > BG2 P0)
+                        main_layer = None
+                        main_color = None
+                        if bg1_main and p1 and a1 > 0:
+                            main_layer = 1
+                            main_color = c1
+                        elif bg2_main and p2 and a2 > 0:
+                            main_layer = 2
+                            main_color = c2
+                        elif bg1_main and (not p1) and a1 > 0:
+                            main_layer = 1
+                            main_color = c1
+                        elif bg2_main and (not p2) and a2 > 0:
+                            main_layer = 2
+                            main_color = c2
 
-                        # Mode 1 priority:
-                        # 1. BG1 Pri 1
-                        # 2. BG2 Pri 1
-                        # 3. BG1 Pri 0
-                        # 4. BG2 Pri 0
-                        if p1 and a1 > 0:
-                            if bg1_math and sub_a > 0:
-                                if half_math:
-                                    comp[i] = (r1 + r2) // 2
-                                    comp[i + 1] = (g1 + g2) // 2
-                                    comp[i + 2] = (b1_c + b2_c) // 2
-                                else:
-                                    comp[i] = min(255, r1 + r2)
-                                    comp[i + 1] = min(255, g1 + g2)
-                                    comp[i + 2] = min(255, b1_c + b2_c)
-                            else:
-                                comp[i], comp[i + 1], comp[i + 2] = r1, g1, b1_c
-                            comp[i + 3] = 255
-                        elif p2 and a2 > 0:
-                            comp[i], comp[i + 1], comp[i + 2], comp[i + 3] = r2, g2, b2_c, 255
-                        elif (not p1) and a1 > 0:
-                            if bg1_math and sub_a > 0:
-                                if half_math:
-                                    comp[i] = (r1 + r2) // 2
-                                    comp[i + 1] = (g1 + g2) // 2
-                                    comp[i + 2] = (b1_c + b2_c) // 2
-                                else:
-                                    comp[i] = min(255, r1 + r2)
-                                    comp[i + 1] = min(255, g1 + g2)
-                                    comp[i + 2] = min(255, b1_c + b2_c)
-                            else:
-                                comp[i], comp[i + 1], comp[i + 2] = r1, g1, b1_c
-                            comp[i + 3] = 255
-                        elif (not p2) and a2 > 0:
-                            comp[i], comp[i + 1], comp[i + 2], comp[i + 3] = r2, g2, b2_c, 255
-                        else:
+                        if main_layer is None:
                             # Backdrop
                             comp[i] = self.backdrop_color[0]
                             comp[i + 1] = self.backdrop_color[1]
                             comp[i + 2] = self.backdrop_color[2]
                             comp[i + 3] = self.backdrop_color[3]
+                            continue
+
+                        # 2. Subscreen Layer Selection (from subscreen-enabled layers, excluding main_layer)
+                        sub_color = None
+                        if bg1_sub and p1 and a1 > 0 and main_layer != 1:
+                            sub_color = c1
+                        elif bg2_sub and p2 and a2 > 0 and main_layer != 2:
+                            sub_color = c2
+                        elif bg1_sub and (not p1) and a1 > 0 and main_layer != 1:
+                            sub_color = c1
+                        elif bg2_sub and (not p2) and a2 > 0 and main_layer != 2:
+                            sub_color = c2
+
+                        # 3. Check if color math is enabled for the selected main screen layer
+                        math_enabled = (main_layer == 1 and bg1_math) or (main_layer == 2 and bg2_math)
+
+                        if math_enabled and sub_color is not None:
+                            if sub_math:
+                                comp[i] = max(0, main_color[0] - sub_color[0])
+                                comp[i + 1] = max(0, main_color[1] - sub_color[1])
+                                comp[i + 2] = max(0, main_color[2] - sub_color[2])
+                            elif half_math:
+                                comp[i] = (main_color[0] + sub_color[0]) // 2
+                                comp[i + 1] = (main_color[1] + sub_color[1]) // 2
+                                comp[i + 2] = (main_color[2] + sub_color[2]) // 2
+                            else:
+                                comp[i] = min(255, main_color[0] + sub_color[0])
+                                comp[i + 1] = min(255, main_color[1] + sub_color[1])
+                                comp[i + 2] = min(255, main_color[2] + sub_color[2])
+                            comp[i + 3] = 255
+                        else:
+                            comp[i] = main_color[0]
+                            comp[i + 1] = main_color[1]
+                            comp[i + 2] = main_color[2]
+                            comp[i + 3] = 255
 
         return comp
 

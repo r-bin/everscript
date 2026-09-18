@@ -63,41 +63,76 @@ $$\text{BG1 Pri 1} > \text{BG2 Pri 1} > \text{BG1 Pri 0} > \text{BG2 Pri 0} > \t
 
 ### Implementation
 ```python
-if p1 and a1 > 0:
-    # BG1 Priority 1 always wins over everything below it
-    pixel = color1
-elif p2 and a2 > 0:
-    # BG2 Priority 1 wins over BG1 Priority 0
-    pixel = color2
-elif a1 > 0:
-    # BG1 Priority 0 (supports color math if enabled)
-    pixel = color_math(color1, color2) if bg1_math else color1
-elif a2 > 0:
-    # BG2 Priority 0
-    pixel = color2
+# 1. Main Screen Layer Selection (Mode 1 priority: BG1 P1 > BG2 P1 > BG1 P0 > BG2 P0)
+if bg1_main and p1 and a1 > 0:
+    main_layer, main_color = 1, color1
+elif bg2_main and p2 and a2 > 0:
+    main_layer, main_color = 2, color2
+elif bg1_main and (not p1) and a1 > 0:
+    main_layer, main_color = 1, color1
+elif bg2_main and (not p2) and a2 > 0:
+    main_layer, main_color = 2, color2
 else:
-    # Canvas backdrop color
-    pixel = backdrop_color
+    return backdrop_color
+
+# 2. Subscreen Layer Selection (from subscreen-enabled layers, excluding main_layer)
+if bg1_sub and p1 and a1 > 0 and main_layer != 1:
+    sub_color = color1
+elif bg2_sub and p2 and a2 > 0 and main_layer != 2:
+    sub_color = color2
+elif bg1_sub and (not p1) and a1 > 0 and main_layer != 1:
+    sub_color = color1
+elif bg2_sub and (not p2) and a2 > 0 and main_layer != 2:
+    sub_color = color2
+else:
+    sub_color = None
+
+# 3. Hardware Color Math
+math_enabled = (main_layer == 1 and bg1_math) or (main_layer == 2 and bg2_math)
+if math_enabled and sub_color is not None:
+    pixel = apply_color_math(main_color, sub_color, half_math, sub_math)
+else:
+    pixel = main_color
 ```
 
 ---
 
-## 4. Color Math (`CGADSUB`) & Reflections (Room `0x4D`)
+## 4. Hardware Color Math (`CGADSUB` & `TS`)
 
-In Room `0x4D` (*Palace Interior*), arches and pillars appear in the upper half of the room, while a semi-transparent reflection appears across the polished marble floor in the lower half:
+The Secret of Evermore engine extensively utilizes SNES PPU Color Math for environmental transparency, lighting, and reflections:
 
-- **Top Half**: Upright arches and throne are drawn on Layer 2 with priority bit set (**BG2 Pri 1**).
-- **Bottom Half**: Inverted reflection is drawn on Layer 1 (**BG1 Pri 1**) above the solid orange marble floor on Layer 2 (**BG2 Pri 0**).
-- **Color Math Register**: `CGADSUB = 0x41` specifies:
-  - Bit 6 (`0x40`): Half-addition color math (`div2 = True`).
-  - Bit 0 (`0x01`): Color math enabled for BG1.
-- **Subscreen Register**: `TS = 0x12` designates BG2 on the subscreen as the blending source.
+### 4.1 Semi-Transparent Sewer Water & Pipes (`CGADSUB = 0x42`)
+In sewer and water levels (e.g. Room `0x3D` Pipe Maze, Room `0x12` Ebon Keep Sewers, Room `0x79` Ivor Tower Sewers):
+- **Main Screen (BG2 Pri 1)**: Water / green slime is drawn on Layer 2 with priority bit set (`p2 = True`).
+- **Subscreen (BG1 Pri 0)**: Pipe troughs, stone channels, and cobblestones are drawn on Layer 1 (`p1 = False`).
+- **Color Math**: `CGADSUB = 0x42` specifies:
+  - Bit 1 (`0x02`): Color math enabled on **BG2**.
+  - Bit 6 (`0x40`): **Half-addition math** ($div 2$).
+- **Subscreen Register**: `TS = 0x11` designates BG1 on the subscreen.
+- **Blending Formula**:
+  $$C_{\text{final}} = \left\lfloor \frac{C_{\text{BG2 (water)}} + C_{\text{BG1 (pipe)}}}{2} \right\rfloor$$
+This renders the water and slime channels as translucent liquids flowing above the visible channel structures.
 
-The blended color is calculated via hardware half-addition:
+### 4.2 Stained Glass Window Light Rays (`CGADSUB = 0x02`)
+In castle and hall interiors (e.g. Room `0x6F` Banqueting Hall, Room `0x51` Village Huts):
+- **Main Screen (BG2 Pri 1)**: Luminous light beams and window shafts are drawn on Layer 2 with priority bit set (`p2 = True`).
+- **Subscreen (BG1 Pri 0)**: Stained glass windows, masonry, and checkered floors are drawn on Layer 1 (`p1 = False`).
+- **Color Math**: `CGADSUB = 0x02` specifies:
+  - Bit 1 (`0x02`): Color math enabled on **BG2**.
+  - Bit 6 (`0x00`): **Full additive blending** without half-math.
+- **Subscreen Register**: `TS = 0x11` designates BG1 on the subscreen.
+- **Blending Formula**:
+  $$C_{\text{final}} = \min\left(255, C_{\text{BG2 (light)}} + C_{\text{BG1 (window/floor)}}\right)$$
+The light beams illuminate the underlying stained glass and checkered floors with brilliant additive light.
 
-$$C_{\text{final}} = \left\lfloor \frac{C_{\text{BG1}} + C_{\text{BG2}}}{2} \right\rfloor$$
-
-This produces the authentic translucent marble floor reflection matching original game output.
+### 4.3 Floor Reflections (Room `0x4D` Palace Interior, `CGADSUB = 0x41`)
+In Room `0x4D` (*Palace Interior*):
+- **Main Screen (BG1 Pri 1)**: Inverted reflection of arches and pillars is drawn on Layer 1 (`p1 = True`).
+- **Subscreen (BG2 Pri 0)**: Orange marble floor is drawn on Layer 2 on the subscreen (`TS = 0x12`).
+- **Color Math**: `CGADSUB = 0x41` (Bit 0: BG1 math, Bit 6: Half-addition).
+- **Blending Formula**:
+  $$C_{\text{final}} = \left\lfloor \frac{C_{\text{BG1 (reflection)}} + C_{\text{BG2 (floor)}}}{2} \right\rfloor$$
+This produces the polished marble floor reflection matching original game output.
 
 ---
 
@@ -168,3 +203,4 @@ python tools/dump_room.py 0x5c --png --png-dir out/maps
 # Customize background color
 python tools/dump_room.py 0x4d --png --bg-color black
 ```
+
