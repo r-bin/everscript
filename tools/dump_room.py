@@ -393,6 +393,14 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     # --- Block 3: LZSS → 3-slice planar metatile table → WRAM $7F0280 ---
     # Follows Block 2 in ROM.  sub_flag == 0x03, decomp_size is a positive multiple of 6.
     b2_end = b2_off + 2 + b2_payload_len
+
+    # --- Section 5: Cuttable-grass metatile swap table ---
+    # Sits between Block 2 and Block 3.  Empty ([len=1][count=0]) in 120 of the
+    # 127 vanilla rooms; see tools/cuttable_grass.py for the layout and the
+    # trace evidence.
+    from tools.cuttable_grass import parse_grass_swap_section
+    grass_table = parse_grass_swap_section(rom, b2_end)
+
     b3 = _scan_sub_block(rom, b2_end, b2_end + 0x8000,
                          sub_flag_match={0x03},
                          size_match=lambda sz: sz > 0 and sz % 6 == 0)
@@ -557,6 +565,21 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
         "collision_words": collision_grid,
         "collision_int_words": collision_int_words,
     }
+
+    from tools.cuttable_grass import find_cuttable_grass_tiles, check_table_invariants
+
+    result["cuttable_grass_table"] = {
+        "rom_offset": f"0x{grass_table['rom_offset']:06X}",
+        "section_len": grass_table["section_len"],
+        "source_count": grass_table["source_count"],
+        "record_count": len(grass_table["records"]),
+        "swaps": {f"0x{src:04X}": f"0x{dst:04X}" for src, dst in grass_table["swaps"].items()},
+    }
+    # Keep the int-keyed table for downstream consumers.
+    result["cuttable_grass_table"]["swaps_int"] = grass_table["swaps"]
+    result["cuttable_grass_tiles"] = sorted(find_cuttable_grass_tiles(result))
+    result["cuttable_grass_tile_count"] = len(result["cuttable_grass_tiles"])
+    result["cuttable_grass_warnings"] = check_table_invariants(result)
 
     return result
 
@@ -754,6 +777,7 @@ def main():
     print(f"Display Config:  TM={h['display_tm']} TS={h['subscreen_ts']} CGADSUB={h['color_math_cgadsub']} CGWSEL={h['color_window_cgwsel']}")
     print(f"Tile Families:   {', '.join(res['tile_families'])}")
     print(f"Triggers:        Step-on: {res['triggers']['step_on_count']}, B-Trigger: {res['triggers']['b_trigger_count']}")
+    print(f"Cuttable Grass:  {res['cuttable_grass_tile_count']} tiles")
 
     obj_cnt = res['object_count']
     if obj_cnt == 0:

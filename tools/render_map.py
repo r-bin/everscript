@@ -1558,60 +1558,42 @@ class RoomRenderer:
         # Only tint Plane 1 if the room has multi-tier elevation (stairs or both planes with >10 tiles)
         has_multi_tier = (len(stair_tiles) > 0) or (plane0_count > 10 and plane1_count > 10)
 
-        # 2. Cuttable weapon triggers / barriers / grass patches
-        scripts_start_rom = snes2rom(0x928000)
-        mapscript_rom = scripts_start_rom + read16(rom, scripts_start_rom)
-        def script2romaddr(scriptaddr):
-            return scripts_start_rom + (scriptaddr & 0x7FFF) + ((scriptaddr & 0xFF8000) << 1)
+        # 2. Cuttable grass patches
+        # Terrain tiles whose metatile ID appears in the room's metatile swap
+        # table (identification logic shared with tools/dump_room.py; see
+        # tools/cuttable_grass.py for the layout and the Mesen2 trace evidence).
+        from tools.cuttable_grass import find_cuttable_grass_tiles
 
-        cuttable_tiles: Set[Tuple[int, int]] = set()
         ox = self.header["origin_x"]
         oy = self.header["origin_y"]
+        cuttable_tiles: Set[Tuple[int, int]] = find_cuttable_grass_tiles(self.room_data)
 
-        for t in self.room_data.get("triggers", {}).get("b_trigger", []):
-            sid = t["script_id"]
-            if mapscript_rom + sid + 3 <= len(rom):
-                packed = read24(rom, mapscript_rom + sid)
-                saddr = script2romaddr(packed)
-                chunk = rom[saddr:saddr+48]
-                has_weapon = (b'\x08\x01' in chunk) or (b'\x07\x01' in chunk) or (b'\x60\x23' in chunk) or (b'\x5f\x23' in chunk) or (b'\x07\x08\x01' in chunk)
-                if has_weapon:
-                    for ty in range(t["y1"] - oy, t["y2"] - oy):
-                        for tx in range(t["x1"] - ox, t["x2"] - ox):
-                            cuttable_tiles.add((tx, ty))
-
-        # 3. Object footprints & cuttable bush objects
+        # 3. Object footprints.  Section 3 objects are a separate mechanism from
+        # cuttable terrain and are all drawn; none are filtered out here.
         object_rects: List[Tuple[int, int, int, int, int]] = []
         for obj in self.room_data.get("objects", []):
             oid = obj["object_index"]
             states = obj.get("states", [])
-            s0 = states[0] if states else {}
-            tw = s0.get("target_width", 1)
-            th = s0.get("target_height", 1)
-            mtiles = s0.get("metatiles", [])
-            is_grass_patch = (tw == 1 and th == 1 and len(mtiles) == 1 and (mtiles[0] & 0x03FF) == 1)
-            is_bush_barrier = (rid == 0x69 and 12 <= oid <= 39) or (rid == 0x38 and 7 <= oid <= 30) or (rid == 0x5C and 4 <= oid <= 9)
-            is_bush = is_grass_patch or is_bush_barrier
-            for s in obj.get("states", []):
+            for s in states:
                 tx, ty = s["tile_x"], s["tile_y"]
                 w = max(s.get("target_width", s.get("width", 1)), 1)
                 h = max(s.get("target_height", 1), 1)
-                if not is_bush:
-                    object_rects.append((tx, ty, w, h, oid))
-                else:
-                    for dy in range(h):
-                        for dx in range(w):
-                            cuttable_tiles.add((tx + dx, ty + dy))
+                object_rects.append((tx, ty, w, h, oid))
 
-        # Cuttable barriers must not be bordered by permanent solid wall lines
+        # Cuttable grass is invisible to the collision contour: it is a
+        # temporary barrier, not map geometry, so the red wall outline neither
+        # runs along it nor treats it as a hole punched in a solid mass.  It
+        # gets its own green contour in step 10 below.
+        grass_px = bytearray(w_px * h_px)
         for (tx, ty) in cuttable_tiles:
             base_y = ty * 16
             base_x = tx * 16
             for py in range(16):
+                row_off = (base_y + py) * w_px + base_x
                 for px in range(16):
-                    idx = (base_y + py) * w_px + (base_x + px)
-                    if 0 <= idx < len(solid):
-                        solid[idx] = 0
+                    idx = row_off + px
+                    if 0 <= idx < len(grass_px):
+                        grass_px[idx] = 1
 
         # 4. Continuous 2px border
         border = bytearray(w_px * h_px)
@@ -1619,11 +1601,12 @@ class RoomRenderer:
             y_off = y * w_px
             for x in range(w_px):
                 idx = y_off + x
-                if solid[idx] == 1:
+                if solid[idx] == 1 and grass_px[idx] == 0:
                     for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                         ny, nx = y + dy, x + dx
                         if 0 <= ny < h_px and 0 <= nx < w_px:
-                            if solid[ny * w_px + nx] == 0:
+                            n_idx = ny * w_px + nx
+                            if solid[n_idx] == 0 and grass_px[n_idx] == 0:
                                 border[idx] = 1
                                 break
 
@@ -1644,7 +1627,7 @@ class RoomRenderer:
             ((156, 39, 176), "PLANE 1 (ELEVATED)"),
             ((255, 152, 0), "STAIRS/FRICTION"),
             ((0, 188, 212), "DRIFT/SLIDE/PIPE"),
-            ((76, 175, 80), "CUTTABLE BARRIER"),
+            ((76, 175, 80), "CUTTABLE GRASS"),
             ((33, 150, 243), "OBJECT STAMP"),
             ((255, 255, 0), "B-TRIGGER"),
             ((255, 0, 255), "STEP-ON"),
@@ -1700,7 +1683,7 @@ class RoomRenderer:
                             buf[p_off + 1] = 25
                             buf[p_off + 2] = 25
                             buf[p_off + 3] = 255
-                        elif solid[idx] == 1:
+                        elif solid[idx] == 1 and grass_px[idx] == 0:
                             blend_pixel(x, y, 220, 20, 20, 0.22)
                         elif is_p1:
                             blend_pixel(x, y, 156, 39, 176, 0.20)
@@ -1759,18 +1742,49 @@ class RoomRenderer:
                         dx = abs(dy) // 2
                         blend_pixel(cx - 2 + dx, by + 8 + dy, 255, 255, 255, 0.95)
 
-        # 10. Cuttable Barriers -> Vibrant Green (76, 175, 80, alpha 0.50) + Crosshatch + 1px border
+        # 10. Cuttable Grass -> soft green fill + continuous 2px green contour,
+        #     drawn in the same outlined-box style as the red wall boundary.
+        #     Adjacent grass tiles merge into a single outline.
+        g_edge: List[int] = []
         for (tc, tr) in cuttable_tiles:
             bx, by = tc * 16, tr * 16
             for py in range(16):
+                y = by + py
                 for px in range(16):
-                    x, y = bx + px, by + py
-                    is_b = (py == 0 or py == 15 or px == 0 or px == 15)
-                    is_diag = (px == py or px + py == 15)
-                    if is_b or is_diag:
-                        blend_pixel(x, y, 100, 255, 100, 0.90)
-                    else:
-                        blend_pixel(x, y, 76, 175, 80, 0.45)
+                    x = bx + px
+                    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        ny, nx = y + dy, x + dx
+                        if not (0 <= ny < h_px and 0 <= nx < w_px) or grass_px[ny * w_px + nx] == 0:
+                            g_edge.append(y * w_px + x)
+                            break
+
+        thick_g = bytearray(w_px * h_px)
+        thick_g_idx: List[int] = []
+        for idx in g_edge:
+            y, x = divmod(idx, w_px)
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = y + dy, x + dx
+                    if 0 <= ny < h_px and 0 <= nx < w_px:
+                        n_idx = ny * w_px + nx
+                        if thick_g[n_idx] == 0:
+                            thick_g[n_idx] = 1
+                            thick_g_idx.append(n_idx)
+
+        for (tc, tr) in cuttable_tiles:
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                y = by + py
+                for px in range(16):
+                    x = bx + px
+                    if thick_g[y * w_px + x] == 0:
+                        blend_pixel(x, y, 76, 175, 80, 0.28)
+        for idx in thick_g_idx:
+            p_off = idx * 4
+            buf[p_off] = 60
+            buf[p_off + 1] = 225
+            buf[p_off + 2] = 70
+            buf[p_off + 3] = 255
 
         # 11. Triggers Overlay
         def draw_box(x1, y1, x2, y2, color, fill_color):
@@ -1827,7 +1841,46 @@ class RoomRenderer:
                     draw_string_3x5(buf, w_px, cur_x + 14, row_y + 5, text)
                     cur_x += 14 + len(text) * 4 + 14
 
-        return buf, w_px, out_h
+        if not add_legend:
+            return buf, w_px, out_h
+
+        # 13. Header banner (room summary, prepended above the map)
+        b_trig = self.room_data.get("triggers", {}).get("b_trigger", [])
+        step_on = self.room_data.get("triggers", {}).get("step_on", [])
+        segments = [
+            f"ROOM 0x{rid:02X}" if rid is not None else "ROOM ?",
+            f"{w_tiles}X{h_tiles} TILES",
+            f"OBJECTS {len(self.room_data.get('objects', []))}",
+            f"B-TRIGGERS {len(b_trig)}",
+            f"STEP-ON {len(step_on)}",
+            f"CUTTABLE GRASS {len(cuttable_tiles)}",
+        ]
+        header_lines: List[str] = []
+        cur = ""
+        for seg in segments:
+            candidate = seg if not cur else f"{cur}  -  {seg}"
+            if cur and 12 + len(candidate) * 4 > w_px - 8:
+                header_lines.append(cur)
+                cur = seg
+            else:
+                cur = candidate
+        if cur:
+            header_lines.append(cur)
+
+        header_h = 8 + len(header_lines) * 10
+        final_h = out_h + header_h
+        out = bytearray(w_px * final_h * 4)
+        for i in range(w_px * header_h):
+            o = i * 4
+            out[o] = 20
+            out[o + 1] = 24
+            out[o + 2] = 30
+            out[o + 3] = 255
+        out[w_px * header_h * 4:] = buf
+        for i, line in enumerate(header_lines):
+            draw_string_3x5(out, w_px, 12, 4 + i * 10, line)
+
+        return out, w_px, final_h
 
 
 
@@ -2067,11 +2120,13 @@ def main():
 
     if "--layer" in sys.argv:
         if args.layer == "all":
-            layers = ["1", "2", "composite"]
+            layers = ["1", "2", "composite", "composition"]
         else:
             layers = [args.layer]
     else:
-        layers = ["composite"] if args.all_rooms else ["1", "2", "composite"]
+        # The composition is the all-in-one view (Layer 1+2 + collision +
+        # cuttable grass + objects + triggers), so it ships by default.
+        layers = ["composite", "composition"] if args.all_rooms else ["1", "2", "composite", "composition"]
 
     with_collision = args.collision or (args.layer == "collision")
     with_triggers = args.triggers or (args.layer == "triggers")
