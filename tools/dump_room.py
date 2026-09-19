@@ -377,9 +377,9 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     b1_payload_len = read16(rom, b1_off - 2)
     sec2_off = b1_off + b1_payload_len
     sec2_cnt = rom[sec2_off] if sec2_off < len(rom) else 0
+    sec2_len = read16(rom, sec2_off + 1) if sec2_off + 3 <= len(rom) else 0
     anim_tiles = []
     if sec2_cnt > 0 and sec2_off + 3 <= len(rom):
-        sec2_len = read16(rom, sec2_off + 1)
         p_data = sec2_off + 3
         for i in range(sec2_cnt):
             if p_data + (i + 1) * 4 <= len(rom):
@@ -411,6 +411,49 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     slice0 = words[:metatile_count]                         # Layer 1 VRAM words
     slice1 = words[metatile_count:metatile_count * 2]       # Layer 2 VRAM words
     slice2 = words[metatile_count * 2:metatile_count * 3]   # Collision attributes
+
+    # --- Section 3: Map Objects & State Descriptors ($909120..$909150 & $90925E) ---
+    obj_sec_off = sec2_off + 3 + sec2_len
+    num_objects = rom[obj_sec_off] if obj_sec_off < len(rom) else 0
+
+    objects_list = []
+    if num_objects > 0 and obj_sec_off + 1 + num_objects * 2 <= len(rom):
+        fa2 = obj_sec_off + 1
+        obj_offsets = [read16(rom, fa2 + i * 2) for i in range(num_objects)]
+        aa_off = b3_off + 2 + b3_payload_len
+        for i in range(num_objects):
+            rec_ptr = aa_off + obj_offsets[i]
+            if rec_ptr < len(rom):
+                max_state = rom[rec_ptr]
+                states = []
+                for s in range(max_state):
+                    s_ptr = rec_ptr + 1 + s * 5
+                    if s_ptr + 5 <= len(rom):
+                        w = rom[s_ptr]
+                        tx = rom[s_ptr + 1]
+                        ty = rom[s_ptr + 2]
+                        mid = read16(rom, s_ptr + 3)
+                        target_ptr = aa_off + mid
+                        tw = rom[target_ptr] if target_ptr < len(rom) else 1
+                        th = rom[target_ptr + 1] if target_ptr + 1 < len(rom) else 1
+                        t_tiles = [read16(rom, target_ptr + 2 + k * 2) for k in range(tw * th)] if target_ptr + 2 + tw * th * 2 <= len(rom) else []
+                        states.append({
+                            "state": s,
+                            "width": w,
+                            "tile_x": tx,
+                            "tile_y": ty,
+                            "target_width": tw,
+                            "target_height": th,
+                            "metatiles": t_tiles,
+                            "metatile_id": f"0x{mid:04X}",
+                            "metatile_id_int": mid,
+                        })
+                objects_list.append({
+                    "object_index": i,
+                    "max_state": max_state,
+                    "relative_offset": f"0x{obj_offsets[i]:04X}",
+                    "states": states,
+                })
 
     # ---------------------------------------------------------------
     # 6. Assemble layer grids from metatile IDs + VRAM word slices
@@ -486,6 +529,8 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
             "b_trigger_count": len(b_records),
             "b_trigger": b_records
         },
+        "object_count": num_objects,
+        "objects": objects_list,
         "tile_families": [f"0x{tid:04X}" for tid in tile_families],
         "tile_palette": [f"0x{w:04X}" for w in accum_words],
         "tile_palette_count": len(accum_words),
@@ -544,6 +589,8 @@ def main():
     parser.add_argument("room", nargs='?', help="Room ID (hex e.g. 0x33, decimal e.g. 51 or 33)")
     parser.add_argument("--rom", default=DEFAULT_ROM_PATH, help="Path to Secret of Evermore ROM")
     parser.add_argument("--json", action="store_true", help="Output full result as JSON")
+    parser.add_argument("--header", action="store_true", help="Print only room header, trigger, and object metadata (suppress metatile and VRAM grids)")
+    parser.add_argument("--objects", action="store_true", help="Print detailed list of map objects and their states")
     parser.add_argument("--vram-bytes", action="store_true", help="Output only VRAM tilemap bytes in hex format (little-endian: C0 30 C2 30 ...)")
     parser.add_argument("--vram-words", action="store_true", help="Output only VRAM tilemap words (0x30C0 0x30C2 ...)")
     parser.add_argument("--layer", type=int, default=1, choices=[1, 2], help="Layer to output for VRAM data (default: 1)")
@@ -552,6 +599,8 @@ def main():
     parser.add_argument("--png-dir", default="out/maps", help="Output directory for PNG images (default: out/maps)")
     parser.add_argument("--triggers", action="store_true", help="Include triggers overlay on composite")
     parser.add_argument("--collision", action="store_true", help="Include collision visualization layer")
+    parser.add_argument("--composition", action="store_true", help="Render unified composition graphic with all features (physics, elevation, objects, barriers, triggers)")
+    parser.add_argument("--no-legend", action="store_true", help="Omit bottom legend banner on composition graphics")
     parser.add_argument(
         "--grid",
         nargs="?",
@@ -575,8 +624,35 @@ def main():
         default="black",
         help="Background/backdrop color for PNG rendering: 'black' (default), 'transparent', 'cgram', hex (#RRGGBB), or R,G,B",
     )
+    parser.add_argument(
+        "--collision-label",
+        choices=["ascii", "index", "hex", "none"],
+        default=None,
+        help="Label style on collision tiles: 'ascii' (for ascii mode), 'index' (0, 1, 2... for verbose mode), 'hex', or 'none'",
+    )
+    parser.add_argument(
+        "--collision-mode",
+        choices=["contour", "line", "ascii", "passability", "verbose", "raw"],
+        default="contour",
+        help="Collision style: 'contour'/'line' (default, continuous red boundary line with light red solid tint), 'ascii'/'passability' (physical groups with ASCII art), or 'verbose'/'raw' (word palette with unique colors and IDs)",
+    )
+    parser.add_argument(
+        "--collision-verbose",
+        action="store_true",
+        help="Shortcut for verbose collision mode with unique word palette",
+    )
     parser.add_argument("--all", action="store_true", help="Decode all rooms and report results")
     args = parser.parse_args()
+
+    if args.collision_verbose:
+        args.collision_mode = "verbose"
+    if args.collision_label is None:
+        if args.collision_mode in ("verbose", "raw"):
+            args.collision_label = "index"
+        elif args.collision_mode in ("ascii", "passability"):
+            args.collision_label = "ascii"
+        else:
+            args.collision_label = "none"
 
     if args.all:
         ok = 0
@@ -611,11 +687,13 @@ def main():
         val = int(raw)
         room_id = val
 
-    if args.png or (args.grid is not None) or args.triggers or args.collision:
+    if args.png or (args.grid is not None) or args.triggers or args.collision or args.composition:
         from tools.render_map import render_room_layers
         layer_list = [str(args.layer)] if "--layer" in sys.argv else ["1", "2", "composite"]
         if args.grid is not None and "--layer" not in sys.argv:
             layer_list.append("grid")
+        if args.composition and "--layer" not in sys.argv:
+            layer_list.append("composition")
         files = render_room_layers(
             room_id,
             rom_path=args.rom,
@@ -624,10 +702,14 @@ def main():
             with_collision=args.collision,
             with_triggers=args.triggers,
             with_grid=args.grid is not None,
+            with_composition=args.composition,
+            with_legend=not args.no_legend,
             grid_spec=args.grid if args.grid else "8,16",
             grid_color=args.grid_color,
             grid_opacity=args.grid_opacity,
             bg_color=args.bg_color,
+            collision_label=args.collision_label,
+            collision_mode=args.collision_mode,
         )
         print(f"Generated {len(files)} PNG image(s) for Room 0x{room_id:02X} in {args.png_dir}:")
         for name, path in files.items():
@@ -673,12 +755,39 @@ def main():
     print(f"Tile Families:   {', '.join(res['tile_families'])}")
     print(f"Triggers:        Step-on: {res['triggers']['step_on_count']}, B-Trigger: {res['triggers']['b_trigger_count']}")
 
+    obj_cnt = res['object_count']
+    if obj_cnt == 0:
+        print(f"Objects:         0")
+    elif not args.objects and obj_cnt <= 5:
+        print(f"Objects:         {obj_cnt}")
+        for obj in res['objects']:
+            states_summary = ", ".join(
+                f"S{s['state']}@(x={s['tile_x']},y={s['tile_y']},w={s['width']},meta={s['metatile_id']})"
+                for s in obj['states']
+            )
+            print(f"  [OBJ {obj['object_index']:02d}] states={obj['max_state']} offset={obj['relative_offset']}: {states_summary}")
+    else:
+        extra = "" if args.objects else " (use --objects to list all)"
+        print(f"Objects:         {obj_cnt}{extra}")
+
     pb = res['payload_blocks']
     print(f"\nPayload Blocks:")
     print(f"  Block 1 (Palette):  sub={pb['block1']['sub_flag']} decomp={pb['block1']['decomp_size']} @ {pb['block1']['rom_offset']}")
     print(f"  Block 2 (Markov):   sub={pb['block2']['sub_flag']} decomp={pb['block2']['decomp_size']} @ {pb['block2']['rom_offset']}")
     print(f"  Block 3 (Table):    sub={pb['block3']['sub_flag']} decomp={pb['block3']['decomp_size']} @ {pb['block3']['rom_offset']}")
     print(f"  Metatiles: {res['metatile_count']}  base_metatile: {res['base_metatile']}")
+
+    if args.objects and obj_cnt > 0:
+        print("\n" + "=" * 80)
+        print(f"MAP OBJECTS ({obj_cnt} objects):")
+        print("=" * 80)
+        for obj in res['objects']:
+            print(f"  [OBJ {obj['object_index']:02d}] Offset: {obj['relative_offset']}, States: {obj['max_state']}")
+            for s in obj['states']:
+                print(f"    State {s['state']}: pos=({s['tile_x']}, {s['tile_y']}), width={s['width']}, metatile={s['metatile_id']}")
+
+    if args.header:
+        return
 
     print("\n" + "=" * 80)
     print(f"TILE PALETTE ({res['tile_palette_count']} unique metatile CHR IDs, delta-accumulated from Block 1):")

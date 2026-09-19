@@ -44,7 +44,7 @@ Secret of Evermore runs in SNES **Mode 1** (16-color 4bpp for BG1 and BG2):
 | **Layer 2** | BG2 | Terrain base, walkable ground, walls, waterbeds, backgrounds. | Transparent RGBA (empty pixels have $\alpha = 0$). |
 | **Composite** | Mode 1 | Full composite image with Mode 1 priority sorting, color math, and canvas backdrop. | Solid RGBA (or transparent if `--bg-color transparent`). |
 | **Grid** | Overlay | Subtle sub-tile (8px soft) and metatile (16px strong) alignment grid. | Alpha-blended grid lines overlaid on composite. |
-| **Collision** | Overlay | Visual grid of terrain passability attributes color-coded by collision word. | Semi-transparent grid overlaid on composite. |
+| **Collision** | Overlay | Visual grid of terrain passability attributes color-coded by unique collision word with centered type numbers. | Semi-transparent grid with 1px border and 3x5 bitmap type numbers overlaid on composite. |
 | **Triggers** | Overlay | Visual bounding boxes for Step-on (Pink #FF00FF) and B-Trigger (Yellow #FFFF00) zones (matching `soestuff.lua`). | Outlined semi-transparent boxes overlaid on composite. |
 
 ---
@@ -213,6 +213,24 @@ python tools/render_map.py 0x4d --layer composite --bg-color transparent
 # Render with raw SNES CGRAM Color 0
 python tools/render_map.py 0x4d --layer composite --bg-color cgram
 
+# Render unified composition graphic (physics, elevation, objects, barriers, triggers, legend)
+python tools/render_map.py 0x3b --layer composition
+
+# Render unified composition without bottom legend banner
+python tools/render_map.py 0x3b --layer composition --no-legend
+
+# Render with collision overlay (default: crisp continuous red contour line + light red solid tint)
+python tools/render_map.py 0x34 --layer collision
+
+# Render secondary semantic ASCII art view (#, /, \, |, -)
+python tools/render_map.py 0x34 --layer collision --collision-mode ascii
+
+# Render secondary verbose collision view (unique pastel color per 16-bit word + IDs)
+python tools/render_map.py 0x34 --layer collision --collision-verbose
+
+# Render collision with 4-digit hexadecimal words (e.g. 0010, 101F, 4010)
+python tools/render_map.py 0x34 --layer collision --collision-verbose --collision-label hex
+
 # Render with collision overlay and triggers
 python tools/render_map.py 0x5c --collision --triggers
 
@@ -232,10 +250,14 @@ python tools/render_map.py --layer all --all-rooms --triggers --out-dir out/all_
 # Dump room metadata and render PNG layers
 python tools/dump_room.py 0x5c --png --png-dir out/maps
 
+# Render unified composition graphic
+python tools/dump_room.py 0x3b --composition --png-dir out/maps
+
 # Dump metadata and render composite with subtle grid
 python tools/dump_room.py 0x5c --grid --png-dir out/maps
 
 # Customize background color and grid color
 python tools/dump_room.py 0x4d --grid --grid-color cyan --bg-color black
 ```
+
 

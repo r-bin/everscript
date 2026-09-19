@@ -26,7 +26,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from tools.dump_room import dump_room, DEFAULT_ROM_PATH, MAX_ROOMS
+from tools.dump_room import dump_room, DEFAULT_ROM_PATH, MAX_ROOMS, read16, read24, snes2rom
 
 RGBA = Tuple[int, int, int, int]
 
@@ -471,6 +471,295 @@ def parse_grid_opacity(
 
 
 # ---------------------------------------------------------------------------
+# 3.2. Bitmap Font for Overlay Labels (3x5 pixel glyphs)
+# ---------------------------------------------------------------------------
+
+FONT_3X5: Dict[str, List[str]] = {
+    "0": ["111", "101", "101", "101", "111"],
+    "1": ["010", "110", "010", "010", "111"],
+    "2": ["111", "001", "111", "100", "111"],
+    "3": ["111", "001", "111", "001", "111"],
+    "4": ["101", "101", "111", "001", "001"],
+    "5": ["111", "100", "111", "001", "111"],
+    "6": ["111", "100", "111", "101", "111"],
+    "7": ["111", "001", "010", "010", "010"],
+    "8": ["111", "101", "111", "101", "111"],
+    "9": ["111", "101", "111", "001", "111"],
+    "A": ["111", "101", "111", "101", "101"],
+    "B": ["110", "101", "110", "101", "110"],
+    "C": ["111", "100", "100", "100", "111"],
+    "D": ["110", "101", "101", "101", "110"],
+    "E": ["111", "100", "110", "100", "111"],
+    "F": ["111", "100", "110", "100", "100"],
+    "G": ["111", "100", "101", "101", "111"],
+    "H": ["101", "101", "111", "101", "101"],
+    "I": ["111", "010", "010", "010", "111"],
+    "J": ["001", "001", "001", "101", "010"],
+    "K": ["101", "110", "100", "110", "101"],
+    "L": ["100", "100", "100", "100", "111"],
+    "M": ["101", "111", "101", "101", "101"],
+    "N": ["111", "101", "101", "101", "101"],
+    "O": ["111", "101", "101", "101", "111"],
+    "P": ["111", "101", "111", "100", "100"],
+    "Q": ["111", "101", "101", "111", "001"],
+    "R": ["110", "101", "110", "101", "101"],
+    "S": ["111", "100", "111", "001", "111"],
+    "T": ["111", "010", "010", "010", "010"],
+    "U": ["101", "101", "101", "101", "111"],
+    "V": ["101", "101", "101", "101", "010"],
+    "W": ["101", "101", "101", "111", "101"],
+    "X": ["101", "101", "010", "101", "101"],
+    "Y": ["101", "101", "010", "010", "010"],
+    "Z": ["111", "001", "010", "100", "111"],
+    "?": ["111", "001", "010", "000", "010"],
+    "-": ["000", "000", "111", "000", "000"],
+    ":": ["000", "010", "000", "010", "000"],
+    ".": ["000", "000", "000", "000", "010"],
+    "/": ["001", "001", "010", "100", "100"],
+    "\\": ["100", "100", "010", "001", "001"],
+    "(": ["010", "100", "100", "100", "010"],
+    ")": ["010", "001", "001", "001", "010"],
+    "[": ["110", "100", "100", "100", "110"],
+    "]": ["011", "001", "001", "001", "011"],
+    "^": ["010", "101", "000", "000", "000"],
+    "v": ["000", "000", "000", "101", "010"],
+    "<": ["001", "010", "100", "010", "001"],
+    ">": ["100", "010", "001", "010", "100"],
+    "_": ["000", "000", "000", "000", "111"],
+    " ": ["000", "000", "000", "000", "000"],
+}
+
+
+def draw_string_3x5(
+    buf: bytearray,
+    stride_px: int,
+    x: int,
+    y: int,
+    text: str,
+    color: RGBA = (255, 255, 255, 255),
+    shadow: Optional[RGBA] = (0, 0, 0, 255),
+) -> None:
+    """Renders text starting at exact pixel (x, y) with optional shadow."""
+    cx = x
+    for ch in text.upper():
+        glyph = FONT_3X5.get(ch, FONT_3X5.get("?", ["111", "001", "010", "000", "010"]))
+        if shadow is not None:
+            for gy in range(5):
+                for gx in range(3):
+                    if glyph[gy][gx] == "1":
+                        sx, sy = cx + gx + 1, y + gy + 1
+                        if 0 <= sx < stride_px:
+                            off = (sy * stride_px + sx) * 4
+                            if 0 <= off + 3 < len(buf):
+                                buf[off] = shadow[0]
+                                buf[off + 1] = shadow[1]
+                                buf[off + 2] = shadow[2]
+                                buf[off + 3] = shadow[3]
+        for gy in range(5):
+            for gx in range(3):
+                if glyph[gy][gx] == "1":
+                    sx, sy = cx + gx, y + gy
+                    if 0 <= sx < stride_px:
+                        off = (sy * stride_px + sx) * 4
+                        if 0 <= off + 3 < len(buf):
+                            buf[off] = color[0]
+                            buf[off + 1] = color[1]
+                            buf[off + 2] = color[2]
+                            buf[off + 3] = color[3]
+        cx += 4
+
+
+
+def draw_text_3x5(
+    buf: bytearray,
+    stride_px: int,
+    base_x: int,
+    base_y: int,
+    text: str,
+    text_color: RGBA = (255, 255, 255, 255),
+    shadow_color: Optional[RGBA] = (0, 0, 0, 255),
+) -> None:
+    """
+    Renders 1-line or 2-line text centered within a 16x16 metatile box.
+    Uses an optional 1px drop shadow (+1, +1) for maximum legibility.
+    """
+    lines = text.split("\n")
+    total_h = len(lines) * 5 + (len(lines) - 1) * 1
+    start_y = base_y + max(0, (16 - total_h) // 2)
+
+    # First pass: drop shadow (+1, +1)
+    if shadow_color is not None:
+        for l_idx, line in enumerate(lines):
+            line_w = len(line) * 3 + (len(line) - 1) * 1
+            start_x = base_x + max(0, (16 - line_w) // 2)
+            cy = start_y + l_idx * 6
+            for c_idx, ch in enumerate(line.upper()):
+                cx = start_x + c_idx * 4
+                glyph = FONT_3X5.get(ch, FONT_3X5["?"])
+                for gy in range(5):
+                    for gx in range(3):
+                        if glyph[gy][gx] == "1":
+                            sx = cx + gx + 1
+                            sy = cy + gy + 1
+                            if 0 <= sx < stride_px and 0 <= sy:
+                                off = (sy * stride_px + sx) * 4
+                                if off + 3 < len(buf):
+                                    buf[off] = shadow_color[0]
+                                    buf[off + 1] = shadow_color[1]
+                                    buf[off + 2] = shadow_color[2]
+                                    buf[off + 3] = shadow_color[3]
+
+    # Second pass: foreground text
+    for l_idx, line in enumerate(lines):
+        line_w = len(line) * 3 + (len(line) - 1) * 1
+        start_x = base_x + max(0, (16 - line_w) // 2)
+        cy = start_y + l_idx * 6
+        for c_idx, ch in enumerate(line.upper()):
+            cx = start_x + c_idx * 4
+            glyph = FONT_3X5.get(ch, FONT_3X5["?"])
+            for gy in range(5):
+                for gx in range(3):
+                    if glyph[gy][gx] == "1":
+                        px = cx + gx
+                        py = cy + gy
+                        if 0 <= px < stride_px and 0 <= py:
+                            off = (py * stride_px + px) * 4
+                            if off + 3 < len(buf):
+                                buf[off] = text_color[0]
+                                buf[off + 1] = text_color[1]
+                                buf[off + 2] = text_color[2]
+                                buf[off + 3] = text_color[3]
+
+
+# ---------------------------------------------------------------------------
+# 3.3. ASCII Art Glyphs for Physical Collision Representation (7x7 bitmap)
+# ---------------------------------------------------------------------------
+
+GLYPHS_ASCII: Dict[str, List[str]] = {
+    "#": [
+        "0010100",
+        "0010100",
+        "1111111",
+        "0010100",
+        "1111111",
+        "0010100",
+        "0010100",
+    ],
+    "/": [
+        "0000001",
+        "0000010",
+        "0000100",
+        "0001000",
+        "0010000",
+        "0100000",
+        "1000000",
+    ],
+    "\\": [
+        "1000000",
+        "0100000",
+        "0010000",
+        "0001000",
+        "0000100",
+        "0000010",
+        "0000001",
+    ],
+    "|": [
+        "0001000",
+        "0001000",
+        "0001000",
+        "0001000",
+        "0001000",
+        "0001000",
+        "0001000",
+    ],
+    "-": [
+        "0000000",
+        "0000000",
+        "0000000",
+        "1111111",
+        "0000000",
+        "0000000",
+        "0000000",
+    ],
+    "D": [
+        "1111000",
+        "1100110",
+        "1100011",
+        "1100011",
+        "1100011",
+        "1100110",
+        "1111000",
+    ],
+    "+": [
+        "0001000",
+        "0001000",
+        "0001000",
+        "1111111",
+        "0001000",
+        "0001000",
+        "0001000",
+    ],
+    "?": [
+        "0111100",
+        "0000110",
+        "0001100",
+        "0011000",
+        "0011000",
+        "0000000",
+        "0011000",
+    ],
+}
+
+
+def draw_glyph_7x7(
+    buf: bytearray,
+    stride_px: int,
+    base_x: int,
+    base_y: int,
+    glyph_rows: List[str],
+    text_color: RGBA = (255, 255, 255, 255),
+    shadow_color: Optional[RGBA] = (0, 0, 0, 255),
+) -> None:
+    """
+    Renders a 7x7 bitmap glyph centered within a 16x16 metatile box.
+    Uses a 1px drop shadow (+1, +1) for maximum legibility without distortion.
+    """
+    gw = len(glyph_rows[0])
+    gh = len(glyph_rows)
+    cx = base_x + max(0, (16 - gw) // 2)
+    cy = base_y + max(0, (16 - gh) // 2)
+
+    # First pass: drop shadow (+1, +1)
+    if shadow_color is not None:
+        for gy in range(gh):
+            for gx in range(gw):
+                if glyph_rows[gy][gx] == "1":
+                    sx = cx + gx + 1
+                    sy = cy + gy + 1
+                    if 0 <= sx < stride_px and 0 <= sy:
+                        off = (sy * stride_px + sx) * 4
+                        if off + 3 < len(buf):
+                            buf[off] = shadow_color[0]
+                            buf[off + 1] = shadow_color[1]
+                            buf[off + 2] = shadow_color[2]
+                            buf[off + 3] = shadow_color[3]
+
+    # Second pass: foreground glyph
+    for gy in range(gh):
+        for gx in range(gw):
+            if glyph_rows[gy][gx] == "1":
+                px = cx + gx
+                py = cy + gy
+                if 0 <= px < stride_px and 0 <= py:
+                    off = (py * stride_px + px) * 4
+                    if off + 3 < len(buf):
+                        buf[off] = text_color[0]
+                        buf[off + 1] = text_color[1]
+                        buf[off + 2] = text_color[2]
+                        buf[off + 3] = text_color[3]
+
+
+# ---------------------------------------------------------------------------
 # 4. Layer & Composite Rendering Pipeline
 # ---------------------------------------------------------------------------
 
@@ -684,48 +973,234 @@ class RoomRenderer:
 
         return comp
 
-    def render_collision_overlay(self, collision_words: List[List[int]], base_comp: Optional[bytearray] = None) -> bytearray:
+    def render_collision_overlay(
+        self,
+        collision_words: List[List[int]],
+        base_comp: Optional[bytearray] = None,
+        label_mode: Optional[str] = None,
+        collision_mode: str = "contour",
+        line_color: RGBA = (235, 25, 25, 255),
+        solid_tint_alpha: float = 0.30,
+    ) -> bytearray:
         """
         Renders collision attribute visualization. If base_comp is provided,
-        overlays semi-transparent colored tiles on top of the composite.
+        overlays visualization on top of the composite map.
+
+        Modes:
+            - 'contour' / 'line' (default):
+                * Crisp red border line between walkable and non-walkable terrain (no gaps).
+                * Light red tint for areas that cannot be walked on (walls, obstacles, void).
+                * Clean composite graphics for walkable areas (floors, paths, pipes, slides).
+            - 'ascii':
+                * Grouped physical passability colored tiles with 7x7 ASCII art glyphs (#, /, \\, |, -).
+            - 'verbose' / 'raw':
+                * Assigns a distinct pastel hue to every unique 16-bit word,
+                  labeled with each word's sequential ID (0..N-1) or hex.
         """
-        buf = bytearray(base_comp) if base_comp else bytearray(self.w_pixels * self.h_pixels * 4)
+        w_px, h_px = self.w_pixels, self.h_pixels
+        buf = bytearray(base_comp) if base_comp else bytearray(w_px * h_px * 4)
 
-        # Generate a distinct pastel palette for distinct collision attribute words
-        unique_words = sorted(list(set(w for row in collision_words for w in row)))
-        color_map: Dict[int, RGBA] = {}
-        for idx, cw in enumerate(unique_words):
-            if cw == 0:
-                color_map[cw] = (0, 0, 0, 0)
-            else:
-                hue = (idx * 360 // max(len(unique_words), 1))
-                # Simple distinct RGB generation from hue
-                hi = (hue // 60) % 6
-                f = (hue % 60) / 60.0
-                q = int(255 * (1 - f))
-                t = int(255 * f)
-                if hi == 0: r, g, b = 255, t, 0
-                elif hi == 1: r, g, b = q, 255, 0
-                elif hi == 2: r, g, b = 0, 255, t
-                elif hi == 3: r, g, b = 0, q, 255
-                elif hi == 4: r, g, b = t, 0, 255
-                else: r, g, b = 255, 0, q
-                alpha = 140 if base_comp else 255
-                color_map[cw] = (r, g, b, alpha)
+        if collision_mode in ("contour", "line"):
+            solid = bytearray(w_px * h_px)
+            rid = self.room_data.get("room_id")
 
+            for r in range(self.h_tiles):
+                for c in range(self.w_tiles):
+                    cw = collision_words[r][c]
+                    low = cw & 0x0F
+                    base_y = r * 16
+                    base_x = c * 16
+
+                    # Traversable terrain with drift / slide / pipes
+                    is_slide = cw in (0x3014, 0x3024, 0x2024)
+                    is_pipe = (rid == 0x3D and (cw >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68))
+                    is_desert_drift = (rid == 0x1B and cw in (0x301D, 0x301E, 0x701D, 0x701E, 0x201E, 0x5010))
+
+                    for py in range(16):
+                        y = base_y + py
+                        row_idx = y * w_px
+                        for px in range(16):
+                            x = base_x + px
+                            idx = row_idx + x
+
+                            if is_pipe or is_slide or is_desert_drift:
+                                is_s = False
+                            elif low == 0x0F:
+                                is_s = True
+                            elif low == 0x00:
+                                is_s = False
+                            elif low in (0x02, 0x06):  # SW slope: bottom-left solid
+                                is_s = (py >= px)
+                            elif low in (0x01, 0x05):  # SE slope: bottom-right solid
+                                is_s = (px + py >= 15)
+                            elif low in (0x0A, 0x0E):  # NW slope: top-left solid
+                                is_s = (px + py <= 15)
+                            elif low in (0x09, 0x0D):  # NE slope: top-right solid
+                                is_s = (py <= px)
+                            elif low in (0x03, 0x04):  # top barrier (obstacle below)
+                                is_s = (py >= 8)
+                            elif low in (0x0C, 0x0B):  # bottom barrier (obstacle above)
+                                is_s = (py < 8)
+                            elif low == 0x08:          # west barrier (obstacle to right)
+                                is_s = (px >= 8)
+                            elif low == 0x07:          # east barrier (obstacle to left)
+                                is_s = (px < 8)
+                            else:
+                                is_s = (low == 0x0F)
+
+                            solid[idx] = 1 if is_s else 0
+
+            # Find boundary pixels where solid touches walkable
+            border = bytearray(w_px * h_px)
+            for y in range(h_px):
+                y_off = y * w_px
+                for x in range(w_px):
+                    idx = y_off + x
+                    if solid[idx] == 1:
+                        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                            ny, nx = y + dy, x + dx
+                            if 0 <= ny < h_px and 0 <= nx < w_px:
+                                if solid[ny * w_px + nx] == 0:
+                                    border[idx] = 1
+                                    break
+
+            # 2px thickness dilation for crisp continuous line
+            thick_border = bytearray(border)
+            for y in range(h_px):
+                y_off = y * w_px
+                for x in range(w_px):
+                    if border[y_off + x] == 1:
+                        for dy in (-1, 0, 1):
+                            for dx in (-1, 0, 1):
+                                ny, nx = y + dy, x + dx
+                                if 0 <= ny < h_px and 0 <= nx < w_px:
+                                    thick_border[ny * w_px + nx] = 1
+
+            # Render to buffer
+            tr, tg, tb = line_color[0], line_color[1], line_color[2]
+            inv_tint = 1.0 - solid_tint_alpha
+            for y in range(h_px):
+                row_off = y * w_px * 4
+                for x in range(w_px):
+                    idx = y * w_px + x
+                    p_off = row_off + x * 4
+                    if thick_border[idx] == 1:
+                        buf[p_off] = tr
+                        buf[p_off + 1] = tg
+                        buf[p_off + 2] = tb
+                        buf[p_off + 3] = 255
+                    elif solid[idx] == 1:
+                        if base_comp:
+                            buf[p_off] = int(220 * solid_tint_alpha + buf[p_off] * inv_tint)
+                            buf[p_off + 1] = int(20 * solid_tint_alpha + buf[p_off + 1] * inv_tint)
+                            buf[p_off + 2] = int(20 * solid_tint_alpha + buf[p_off + 2] * inv_tint)
+                        else:
+                            buf[p_off] = 220
+                            buf[p_off + 1] = 20
+                            buf[p_off + 2] = 20
+                            buf[p_off + 3] = int(255 * solid_tint_alpha)
+
+            return buf
+
+        if collision_mode in ("verbose", "raw"):
+            unique_words = sorted(list(set(w for row in collision_words for w in row)))
+            color_map: Dict[int, RGBA] = {}
+            for idx, cw in enumerate(unique_words):
+                if cw == 0:
+                    color_map[cw] = (0, 0, 0, 0)
+                else:
+                    hue = (idx * 360 // max(len(unique_words), 1))
+                    hi = (hue // 60) % 6
+                    f = (hue % 60) / 60.0
+                    q = int(255 * (1 - f))
+                    t = int(255 * f)
+                    if hi == 0: r, g, b = 255, t, 0
+                    elif hi == 1: r, g, b = q, 255, 0
+                    elif hi == 2: r, g, b = 0, 255, t
+                    elif hi == 3: r, g, b = 0, q, 255
+                    elif hi == 4: r, g, b = t, 0, 255
+                    else: r, g, b = 255, 0, q
+                    alpha = 140 if base_comp else 255
+                    color_map[cw] = (r, g, b, alpha)
+
+            type_map = {w: i for i, w in enumerate(unique_words)}
+
+            for r in range(self.h_tiles):
+                for c in range(self.w_tiles):
+                    cw = collision_words[r][c]
+                    col = color_map.get(cw, (0, 0, 0, 0))
+                    if col[3] == 0:
+                        continue
+                    base_y = r * 16
+                    base_x = c * 16
+                    for py in range(16):
+                        row_offset = (base_y + py) * self.w_pixels * 4
+                        for px in range(16):
+                            p_off = row_offset + (base_x + px) * 4
+                            is_border = (py == 0 or py == 15 or px == 0 or px == 15)
+                            if is_border and base_comp:
+                                buf[p_off] = 255
+                                buf[p_off + 1] = 255
+                                buf[p_off + 2] = 255
+                                buf[p_off + 3] = 200
+                            else:
+                                a = col[3] / 255.0
+                                buf[p_off] = int(col[0] * a + buf[p_off] * (1 - a))
+                                buf[p_off + 1] = int(col[1] * a + buf[p_off + 1] * (1 - a))
+                                buf[p_off + 2] = int(col[2] * a + buf[p_off + 2] * (1 - a))
+                                buf[p_off + 3] = 255
+
+                    if label_mode != "none":
+                        if label_mode == "hex":
+                            h_str = f"{cw:04X}"
+                            label_text = f"{h_str[:2]}\n{h_str[2:]}"
+                        else:
+                            label_text = str(type_map[cw])
+                        draw_text_3x5(buf, self.w_pixels, base_x, base_y, label_text)
+
+            return buf
+
+        # Fallback: 'ascii' physical semantic mode with 7x7 glyphs
+        rid = self.room_data.get("room_id")
         for r in range(self.h_tiles):
             for c in range(self.w_tiles):
                 cw = collision_words[r][c]
-                col = color_map.get(cw, (0, 0, 0, 0))
-                if col[3] == 0:
-                    continue
+                low = cw & 0x0F
                 base_y = r * 16
                 base_x = c * 16
+
+                is_slide = cw in (0x3014, 0x3024, 0x2024)
+                is_pipe = (rid == 0x3D and (cw >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68))
+                is_desert_drift = (rid == 0x1B and cw in (0x301D, 0x301E, 0x701D, 0x701E, 0x201E, 0x5010))
+
+                glyph_char = None
+                if is_pipe or is_slide or is_desert_drift or low == 0x00:
+                    col = (35, 175, 50, 75)     # Walkable Floor / pipe / slide / drift (Soft Green)
+                    glyph_char = None
+                elif low == 0x0F:
+                    col = (210, 35, 35, 160)    # Solid Wall (Red)
+                    glyph_char = "#"
+                elif low in (0x01, 0x0A, 0x05, 0x0E):
+                    col = (255, 140, 0, 180)    # Diagonal Slope / (Orange)
+                    glyph_char = "/"
+                elif low in (0x02, 0x09, 0x06, 0x0D):
+                    col = (255, 140, 0, 180)    # Diagonal Slope \\ (Orange)
+                    glyph_char = "\\"
+                elif low in (0x07, 0x08):
+                    col = (245, 195, 25, 180)   # Vertical Barrier | (Gold)
+                    glyph_char = "|"
+                elif low in (0x03, 0x0C, 0x04, 0x0B):
+                    col = (240, 220, 40, 180)   # Horizontal Barrier - (Yellow)
+                    glyph_char = "-"
+                else:
+                    col = (180, 80, 220, 180)   # Other directional boundary (Purple)
+                    glyph_char = "?"
+
+                # Draw cell pixels & border
                 for py in range(16):
                     row_offset = (base_y + py) * self.w_pixels * 4
                     for px in range(16):
                         p_off = row_offset + (base_x + px) * 4
-                        # Draw grid border (1px) or solid cell
                         is_border = (py == 0 or py == 15 or px == 0 or px == 15)
                         if is_border and base_comp:
                             buf[p_off] = 255
@@ -738,6 +1213,16 @@ class RoomRenderer:
                             buf[p_off + 1] = int(col[1] * a + buf[p_off + 1] * (1 - a))
                             buf[p_off + 2] = int(col[2] * a + buf[p_off + 2] * (1 - a))
                             buf[p_off + 3] = 255
+
+                if label_mode != "none":
+                    if label_mode == "hex":
+                        h_str = f"{cw:04X}"
+                        draw_text_3x5(buf, self.w_pixels, base_x, base_y, f"{h_str[:2]}\n{h_str[2:]}")
+                    elif label_mode == "index":
+                        draw_text_3x5(buf, self.w_pixels, base_x, base_y, f"{low:X}")
+                    else:  # ascii
+                        if glyph_char and glyph_char in GLYPHS_ASCII:
+                            draw_glyph_7x7(buf, self.w_pixels, base_x, base_y, GLYPHS_ASCII[glyph_char])
 
         return buf
 
@@ -916,6 +1401,435 @@ class RoomRenderer:
 
         return out
 
+    def render_full_composition(
+        self,
+        base_comp: bytearray,
+        add_legend: bool = True,
+    ) -> Tuple[bytearray, int, int]:
+        """
+        Renders a unified single composition graphic integrating:
+        1. Base visual graphics (Layer 2 terrain + Layer 1 canopy)
+        2. Walkable vs non-walkable continuous red contour boundary line (2px, zero gaps)
+        3. Non-walkable solid walls & void (light red translucent tint, alpha ~ 0.22)
+        4. Floor awareness / multi-tier elevation:
+           - Plane 1 elevated walkways, overpasses, and bridges (soft purple translucent tint, alpha ~ 0.20)
+           - Plane 0 ground-level paths and underpass tunnels (clean composite visuals)
+        5. Friction & stairs (amber translucent tint, alpha ~ 0.40, with horizontal step rungs)
+        6. Drift conveyors (bright cyan translucent tint, alpha ~ 0.40, with directional flow chevrons)
+        7. Cuttable glass / grass / destructible barriers (vibrant green tint, alpha ~ 0.50, with diagonal crosshatch)
+        8. Dynamic map object tiles (soft blue translucent tint, alpha ~ 0.35, with 1px blue footprint border)
+        9. Event triggers:
+           - B-triggers (yellow bounding boxes, matching soestuff.lua 0xffff00)
+           - Step-on triggers (pink bounding boxes, matching soestuff.lua 0xff00ff)
+        10. Bottom legend banner (optional, default True) explaining every element and color.
+        """
+        w_px = self.w_pixels
+        h_px = self.h_pixels
+        w_tiles = self.w_tiles
+        h_tiles = self.h_tiles
+        cw_grid = self.room_data["collision_int_words"]
+        rid = self.room_data.get("room_id")
+        rom = self.rom
+
+        # 1. Feature maps
+        solid = bytearray(w_px * h_px)
+        drift_tiles: Dict[Tuple[int, int], str] = {}
+        stair_tiles: Set[Tuple[int, int]] = set()
+        plane1_tiles: Set[Tuple[int, int]] = set()
+        plane0_count = 0
+        plane1_count = 0
+
+        # Pre-compute pipe directions for Room 0x3D via BFS flow from inlets
+        pipe_dirs: Dict[Tuple[int, int], str] = {}
+        if rid == 0x3D:
+            pipe_set = set()
+            for r in range(h_tiles):
+                for c in range(w_tiles):
+                    if (cw_grid[r][c] >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68):
+                        pipe_set.add((c, r))
+
+            inlets = []
+            ox_trig = self.header["origin_x"]
+            oy_trig = self.header["origin_y"]
+            for t in self.room_data.get("triggers", {}).get("step_on", []):
+                tx1, ty1 = t["x1"] - ox_trig, t["y1"] - oy_trig
+                tx2, ty2 = t["x2"] - ox_trig, t["y2"] - oy_trig
+                for r in range(ty1, ty2):
+                    for c in range(tx1, tx2):
+                        if (c, r) in pipe_set and (c, r) not in inlets:
+                            inlets.append((c, r))
+
+            for inlet in inlets:
+                curr = inlet
+                visited_path = {curr}
+                path = [curr]
+                while True:
+                    cx, cy = curr
+                    candidates = []
+                    for dx, dy, dn in ((0, 1, 'down'), (1, 0, 'right'), (-1, 0, 'left'), (0, -1, 'up')):
+                        nb = (cx + dx, cy + dy)
+                        if nb in pipe_set and nb not in visited_path:
+                            candidates.append((nb, dn))
+                    if candidates:
+                        next_pt, dn = candidates[0]
+                        pipe_dirs[curr] = dn
+                        visited_path.add(next_pt)
+                        path.append(next_pt)
+                        curr = next_pt
+                    else:
+                        if len(path) >= 2:
+                            pipe_dirs[curr] = pipe_dirs[path[-2]]
+                        else:
+                            pipe_dirs[curr] = 'down'
+                        break
+
+            for pt in pipe_set:
+                if pt not in pipe_dirs:
+                    c, r = pt
+                    if (c, r - 1) in pipe_set or (c, r + 1) in pipe_set:
+                        pipe_dirs[pt] = 'down'
+                    elif (c + 1, r) in pipe_set:
+                        pipe_dirs[pt] = 'right'
+                    else:
+                        pipe_dirs[pt] = 'left'
+
+        for r in range(h_tiles):
+            for c in range(w_tiles):
+                cw = cw_grid[r][c]
+                low = cw & 0x0F
+                base_y = r * 16
+                base_x = c * 16
+
+                is_slide = cw in (0x3014, 0x3024, 0x2024, 0x7014, 0x7024)
+                is_pipe = (rid == 0x3D and (cw >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68))
+                is_desert_drift = (rid in (0x1B, 0x59) and cw in (0x301D, 0x301E, 0x701D, 0x701E, 0x201E, 0x5010))
+                is_stair = (((cw >> 4) & 0x0F) in (5, 6)) or (cw in (0x1050, 0x105D, 0x0060, 0x0062)) or is_slide
+
+                if is_stair:
+                    stair_tiles.add((c, r))
+                elif is_pipe and (c, r) in pipe_dirs:
+                    drift_tiles[(c, r)] = pipe_dirs[(c, r)]
+                elif is_desert_drift:
+                    if cw in (0x301D, 0x701D): drift_tiles[(c, r)] = "left"
+                    elif cw in (0x301E, 0x701E, 0x201E): drift_tiles[(c, r)] = "right"
+                    else: drift_tiles[(c, r)] = "down"
+
+                if low != 0x0F:
+                    if (cw >> 12) >= 1:
+                        plane1_count += 1
+                        plane1_tiles.add((c, r))
+                    else:
+                        plane0_count += 1
+
+                for py in range(16):
+                    y = base_y + py
+                    row_idx = y * w_px
+                    for px in range(16):
+                        x = base_x + px
+                        idx = row_idx + x
+
+                        if is_pipe or is_slide or is_desert_drift:
+                            is_s = False
+                        elif low == 0x0F:
+                            is_s = True
+                        elif low == 0x00:
+                            is_s = False
+                        elif low in (0x02, 0x06):
+                            is_s = (py >= px)
+                        elif low in (0x01, 0x05):
+                            is_s = (px + py >= 15)
+                        elif low in (0x0A, 0x0E):
+                            is_s = (px + py <= 15)
+                        elif low in (0x09, 0x0D):
+                            is_s = (py <= px)
+                        elif low in (0x03, 0x04):
+                            is_s = (py >= 8)
+                        elif low in (0x0C, 0x0B):
+                            is_s = (py < 8)
+                        elif low == 0x08:
+                            is_s = (px >= 8)
+                        elif low == 0x07:
+                            is_s = (px < 8)
+                        else:
+                            is_s = (low == 0x0F)
+
+                        solid[idx] = 1 if is_s else 0
+
+        # Only tint Plane 1 if the room has multi-tier elevation (stairs or both planes with >10 tiles)
+        has_multi_tier = (len(stair_tiles) > 0) or (plane0_count > 10 and plane1_count > 10)
+
+        # 2. Cuttable weapon triggers / barriers / grass patches
+        scripts_start_rom = snes2rom(0x928000)
+        mapscript_rom = scripts_start_rom + read16(rom, scripts_start_rom)
+        def script2romaddr(scriptaddr):
+            return scripts_start_rom + (scriptaddr & 0x7FFF) + ((scriptaddr & 0xFF8000) << 1)
+
+        cuttable_tiles: Set[Tuple[int, int]] = set()
+        ox = self.header["origin_x"]
+        oy = self.header["origin_y"]
+
+        for t in self.room_data.get("triggers", {}).get("b_trigger", []):
+            sid = t["script_id"]
+            if mapscript_rom + sid + 3 <= len(rom):
+                packed = read24(rom, mapscript_rom + sid)
+                saddr = script2romaddr(packed)
+                chunk = rom[saddr:saddr+48]
+                has_weapon = (b'\x08\x01' in chunk) or (b'\x07\x01' in chunk) or (b'\x60\x23' in chunk) or (b'\x5f\x23' in chunk) or (b'\x07\x08\x01' in chunk)
+                if has_weapon:
+                    for ty in range(t["y1"] - oy, t["y2"] - oy):
+                        for tx in range(t["x1"] - ox, t["x2"] - ox):
+                            cuttable_tiles.add((tx, ty))
+
+        # 3. Object footprints & cuttable bush objects
+        object_rects: List[Tuple[int, int, int, int, int]] = []
+        for obj in self.room_data.get("objects", []):
+            oid = obj["object_index"]
+            states = obj.get("states", [])
+            s0 = states[0] if states else {}
+            tw = s0.get("target_width", 1)
+            th = s0.get("target_height", 1)
+            mtiles = s0.get("metatiles", [])
+            is_grass_patch = (tw == 1 and th == 1 and len(mtiles) == 1 and (mtiles[0] & 0x03FF) == 1)
+            is_bush_barrier = (rid == 0x69 and 12 <= oid <= 39) or (rid == 0x38 and 7 <= oid <= 30) or (rid == 0x5C and 4 <= oid <= 9)
+            is_bush = is_grass_patch or is_bush_barrier
+            for s in obj.get("states", []):
+                tx, ty = s["tile_x"], s["tile_y"]
+                w = max(s.get("target_width", s.get("width", 1)), 1)
+                h = max(s.get("target_height", 1), 1)
+                if not is_bush:
+                    object_rects.append((tx, ty, w, h, oid))
+                else:
+                    for dy in range(h):
+                        for dx in range(w):
+                            cuttable_tiles.add((tx + dx, ty + dy))
+
+        # Cuttable barriers must not be bordered by permanent solid wall lines
+        for (tx, ty) in cuttable_tiles:
+            base_y = ty * 16
+            base_x = tx * 16
+            for py in range(16):
+                for px in range(16):
+                    idx = (base_y + py) * w_px + (base_x + px)
+                    if 0 <= idx < len(solid):
+                        solid[idx] = 0
+
+        # 4. Continuous 2px border
+        border = bytearray(w_px * h_px)
+        for y in range(h_px):
+            y_off = y * w_px
+            for x in range(w_px):
+                idx = y_off + x
+                if solid[idx] == 1:
+                    for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < h_px and 0 <= nx < w_px:
+                            if solid[ny * w_px + nx] == 0:
+                                border[idx] = 1
+                                break
+
+        thick_border = bytearray(border)
+        for y in range(h_px):
+            y_off = y * w_px
+            for x in range(w_px):
+                if border[y_off + x] == 1:
+                    for dy in (-1, 0, 1):
+                        for dx in (-1, 0, 1):
+                            ny, nx = y + dy, x + dx
+                            if 0 <= ny < h_px and 0 <= nx < w_px:
+                                thick_border[ny * w_px + nx] = 1
+
+        # 5. Output buffer
+        legend_items = [
+            ((235, 25, 25), "WALL/SOLID"),
+            ((156, 39, 176), "PLANE 1 (ELEVATED)"),
+            ((255, 152, 0), "STAIRS/FRICTION"),
+            ((0, 188, 212), "DRIFT/SLIDE/PIPE"),
+            ((76, 175, 80), "CUTTABLE BARRIER"),
+            ((33, 150, 243), "OBJECT STAMP"),
+            ((255, 255, 0), "B-TRIGGER"),
+            ((255, 0, 255), "STEP-ON"),
+        ]
+        legend_rows: List[List[Tuple[Tuple[int, int, int], str]]] = []
+        if add_legend:
+            cur_row: List[Tuple[Tuple[int, int, int], str]] = []
+            cur_w = 12
+            for col, text in legend_items:
+                item_w = 14 + len(text) * 4 + 14
+                if cur_row and cur_w + item_w > w_px - 8:
+                    legend_rows.append(cur_row)
+                    cur_row = [(col, text)]
+                    cur_w = 12 + item_w
+                else:
+                    cur_row.append((col, text))
+                    cur_w += item_w
+            if cur_row:
+                legend_rows.append(cur_row)
+            banner_h = 36 if len(legend_rows) <= 1 else (10 + len(legend_rows) * 18)
+            out_h = h_px + banner_h
+        else:
+            banner_h = 0
+            out_h = h_px
+        buf = bytearray(w_px * out_h * 4)
+        buf[:len(base_comp)] = base_comp
+
+        def blend_pixel(x: int, y: int, r: int, g: int, b: int, alpha: float):
+            if not (0 <= x < w_px and 0 <= y < h_px):
+                return
+            p_off = (y * w_px + x) * 4
+            inv = 1.0 - alpha
+            buf[p_off] = int(r * alpha + buf[p_off] * inv)
+            buf[p_off + 1] = int(g * alpha + buf[p_off + 1] * inv)
+            buf[p_off + 2] = int(b * alpha + buf[p_off + 2] * inv)
+            buf[p_off + 3] = 255
+
+        # 6. Base tints:
+        # Walkable Plane 1 -> Soft Purple (156, 39, 176, alpha 0.20)
+        # Solid Wall -> Soft Red (220, 20, 20, alpha 0.22)
+        for r in range(h_tiles):
+            for c in range(w_tiles):
+                is_p1 = (c, r) in plane1_tiles and has_multi_tier
+                for py in range(16):
+                    y = r * 16 + py
+                    row_off = y * w_px
+                    for px in range(16):
+                        x = c * 16 + px
+                        idx = row_off + x
+                        p_off = idx * 4
+                        if thick_border[idx] == 1:
+                            buf[p_off] = 235
+                            buf[p_off + 1] = 25
+                            buf[p_off + 2] = 25
+                            buf[p_off + 3] = 255
+                        elif solid[idx] == 1:
+                            blend_pixel(x, y, 220, 20, 20, 0.22)
+                        elif is_p1:
+                            blend_pixel(x, y, 156, 39, 176, 0.20)
+
+        # 7. Dynamic Object Tiles -> Soft Blue (33, 150, 243, alpha 0.35) + 1px blue perimeter border
+        for tx, ty, w, h, oid in object_rects:
+            x1, y1 = tx * 16, ty * 16
+            x2, y2 = (tx + w) * 16 - 1, (ty + h) * 16 - 1
+            for y in range(y1, y2 + 1):
+                for x in range(x1, x2 + 1):
+                    if 0 <= y < h_px and 0 <= x < w_px:
+                        is_b = (y == y1 or y == y2 or x == x1 or x == x2)
+                        if is_b:
+                            blend_pixel(x, y, 33, 150, 243, 0.90)
+                        else:
+                            blend_pixel(x, y, 33, 150, 243, 0.32)
+
+        # 8. Stairs & Friction -> Amber (255, 160, 0, alpha 0.40) + Step Rungs
+        for (tc, tr) in stair_tiles:
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                for px in range(16):
+                    x, y = bx + px, by + py
+                    is_rung = (py in (3, 7, 11, 15)) and (2 <= px <= 13)
+                    if is_rung:
+                        blend_pixel(x, y, 255, 220, 50, 0.90)
+                    else:
+                        blend_pixel(x, y, 255, 152, 0, 0.38)
+
+        # 9. Drift Conveyors -> Bright Cyan (0, 188, 212, alpha 0.40) + Directional Chevrons
+        for (tc, tr), d_dir in drift_tiles.items():
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                for px in range(16):
+                    x, y = bx + px, by + py
+                    blend_pixel(x, y, 0, 188, 212, 0.38)
+            # Chevrons aligned with flow direction
+            if d_dir == "down":
+                for cy in (by + 4, by + 10):
+                    for dx in range(-4, 5):
+                        dy = -(abs(dx) // 2)
+                        blend_pixel(bx + 8 + dx, cy + 2 + dy, 255, 255, 255, 0.95)
+            elif d_dir == "up":
+                for cy in (by + 6, by + 12):
+                    for dx in range(-4, 5):
+                        dy = abs(dx) // 2
+                        blend_pixel(bx + 8 + dx, cy - 2 + dy, 255, 255, 255, 0.95)
+            elif d_dir == "right":
+                for cx in (bx + 4, bx + 10):
+                    for dy in range(-4, 5):
+                        dx = -(abs(dy) // 2)
+                        blend_pixel(cx + 2 + dx, by + 8 + dy, 255, 255, 255, 0.95)
+            else:  # left
+                for cx in (bx + 6, bx + 12):
+                    for dy in range(-4, 5):
+                        dx = abs(dy) // 2
+                        blend_pixel(cx - 2 + dx, by + 8 + dy, 255, 255, 255, 0.95)
+
+        # 10. Cuttable Barriers -> Vibrant Green (76, 175, 80, alpha 0.50) + Crosshatch + 1px border
+        for (tc, tr) in cuttable_tiles:
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                for px in range(16):
+                    x, y = bx + px, by + py
+                    is_b = (py == 0 or py == 15 or px == 0 or px == 15)
+                    is_diag = (px == py or px + py == 15)
+                    if is_b or is_diag:
+                        blend_pixel(x, y, 100, 255, 100, 0.90)
+                    else:
+                        blend_pixel(x, y, 76, 175, 80, 0.45)
+
+        # 11. Triggers Overlay
+        def draw_box(x1, y1, x2, y2, color, fill_color):
+            if x2 < x1: x1, x2 = x2, x1
+            if y2 < y1: y1, y2 = y2, y1
+            x1, x2 = max(0, min(x1, w_px)), max(0, min(x2, w_px))
+            y1, y2 = max(0, min(y1, h_px)), max(0, min(y2, h_px))
+            for y in range(y1, y2):
+                for x in range(x1, x2):
+                    is_border = (y == y1 or y == y2 - 1 or x == x1 or x == x2 - 1)
+                    c = color if is_border else fill_color
+                    blend_pixel(x, y, c[0], c[1], c[2], c[3] / 255.0)
+
+        for t in self.room_data["triggers"]["b_trigger"]:
+            px1 = (t["x1"] - ox) * 16
+            py1 = (t["y1"] - oy) * 16
+            px2 = (t["x2"] - ox) * 16
+            py2 = (t["y2"] - oy) * 16
+            draw_box(px1, py1, px2, py2, color=(255, 255, 0, 255), fill_color=(255, 255, 0, 85))
+
+        for t in self.room_data["triggers"]["step_on"]:
+            px1 = (t["x1"] - ox) * 16
+            py1 = (t["y1"] - oy) * 16
+            px2 = (t["x2"] - ox) * 16
+            py2 = (t["y2"] - oy) * 16
+            draw_box(px1, py1, px2, py2, color=(255, 0, 255, 255), fill_color=(255, 0, 255, 85))
+
+        # 12. Legend Banner
+        if add_legend:
+            banner_y = h_px
+            for y in range(banner_y, out_h):
+                for x in range(w_px):
+                    off = (y * w_px + x) * 4
+                    buf[off] = 20
+                    buf[off + 1] = 24
+                    buf[off + 2] = 30
+                    buf[off + 3] = 255
+
+            for r_idx, row in enumerate(legend_rows):
+                cur_x = 12
+                row_y = banner_y + 11 if len(legend_rows) <= 1 else (banner_y + 8 + r_idx * 18)
+                for col, text in row:
+                    box_y = row_y + 2
+                    for by in range(10):
+                        for bx in range(10):
+                            if 0 <= cur_x + bx < w_px and 0 <= box_y + by < out_h:
+                                is_b = (by == 0 or by == 9 or bx == 0 or bx == 9)
+                                c = (255, 255, 255) if is_b else col
+                                off = ((box_y + by) * w_px + (cur_x + bx)) * 4
+                                buf[off] = c[0]
+                                buf[off + 1] = c[1]
+                                buf[off + 2] = c[2]
+                                buf[off + 3] = 255
+                    draw_string_3x5(buf, w_px, cur_x + 14, row_y + 5, text)
+                    cur_x += 14 + len(text) * 4 + 14
+
+        return buf, w_px, out_h
+
+
 
 def render_room_layers(
     room_id: int,
@@ -925,10 +1839,14 @@ def render_room_layers(
     with_collision: bool = False,
     with_triggers: bool = False,
     with_grid: bool = False,
+    with_composition: bool = False,
+    with_legend: bool = True,
     grid_spec: Union[str, int, Tuple[int, int]] = "8,16",
     grid_color: Union[str, RGBA] = "white",
     grid_opacity: Optional[Union[str, float, Tuple[float, float]]] = None,
     bg_color: Union[str, RGBA] = "black",
+    collision_label: Optional[str] = None,
+    collision_mode: str = "contour",
 ) -> Dict[str, str]:
     """
     Renders all layers for a given room ID and saves them as PNG files.
@@ -937,20 +1855,34 @@ def render_room_layers(
         room_id:        Room ID (0..126).
         rom_path:       Path to Secret of Evermore (U) ROM file.
         out_dir:        Destination directory for output PNG files.
-        layers:         List of layers to generate: '1', '2', 'composite', 'collision', 'triggers', 'grid'.
+        layers:         List of layers to generate: '1', '2', 'composite', 'collision', 'triggers', 'grid', 'composition'.
                         Defaults to ['1', '2', 'composite'].
-        with_collision: If True, also renders collision layer.
-        with_triggers:  If True, also renders triggers overlay.
-        with_grid:      If True, also renders subtle tile grid overlay on composite.
+        with_collision:   If True, also renders collision layer.
+        with_triggers:    If True, also renders triggers overlay.
+        with_grid:        If True, also renders subtle tile grid overlay on composite.
+        with_composition: If True, also renders unified composition graphic.
+        with_legend:      If True (default), appends bottom legend banner on composition graphics.
         grid_spec:      Grid step size: "8,16" (default), 16, or (soft, strong).
         grid_color:     Grid line color (default: 'white').
         grid_opacity:   Grid line opacity: "soft,strong" e.g. "0.12,0.30" or single float.
         bg_color:       Backdrop color for composite: 'black' (default), 'transparent',
                         'cgram', hex string (#RRGGBB / #RRGGBBAA), or RGBA tuple.
+        collision_label: Label style on collision tiles: 'ascii' (for ascii mode),
+                         'index' (0, 1, 2... for verbose mode), 'hex', or 'none'.
+        collision_mode:  Collision style: 'contour' / 'line' (default, continuous red boundary line with
+                         light red solid tint), 'ascii' / 'passability' (semantic physical groups with ASCII art),
+                         or 'verbose' / 'raw' (distinct color for each unique 16-bit word).
 
     Returns:
         Dictionary mapping layer name to output PNG file path.
     """
+    if collision_label is None:
+        if collision_mode in ("verbose", "raw"):
+            collision_label = "index"
+        elif collision_mode in ("ascii", "passability"):
+            collision_label = "ascii"
+        else:
+            collision_label = "none"
     if not os.path.exists(rom_path):
         raise FileNotFoundError(f"ROM file not found at: {rom_path}")
 
@@ -971,13 +1903,16 @@ def render_room_layers(
         selected_layers.add("triggers")
     if with_grid:
         selected_layers.add("grid")
+    if with_composition:
+        selected_layers.add("composition")
+
 
     l1_buf: Optional[bytearray] = None
     l2_buf: Optional[bytearray] = None
     comp_buf: Optional[bytearray] = None
 
     # Render Layer 1 (Canopy)
-    if "1" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers:
+    if "1" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers or "composition" in selected_layers:
         l1_buf = renderer.render_vram_layer(room_data["layer1_vram_int_words"])
         if "1" in selected_layers:
             path_l1 = os.path.join(out_dir, f"{prefix}_layer1.png")
@@ -985,7 +1920,7 @@ def render_room_layers(
             output_files["layer1"] = path_l1
 
     # Render Layer 2 (Terrain)
-    if "2" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers:
+    if "2" in selected_layers or "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers or "composition" in selected_layers:
         l2_buf = renderer.render_vram_layer(room_data["layer2_vram_int_words"])
         if "2" in selected_layers:
             path_l2 = os.path.join(out_dir, f"{prefix}_layer2.png")
@@ -993,7 +1928,7 @@ def render_room_layers(
             output_files["layer2"] = path_l2
 
     # Render Composite (Layer 2 + Layer 1)
-    if "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers:
+    if "composite" in selected_layers or "triggers" in selected_layers or "collision" in selected_layers or "grid" in selected_layers or "composition" in selected_layers:
         assert l1_buf is not None and l2_buf is not None
         comp_buf = renderer.composite_layers(l2_buf, l1_buf)
         if "composite" in selected_layers:
@@ -1003,7 +1938,12 @@ def render_room_layers(
 
     # Render Collision
     if "collision" in selected_layers:
-        coll_buf = renderer.render_collision_overlay(room_data["collision_int_words"], base_comp=comp_buf)
+        coll_buf = renderer.render_collision_overlay(
+            room_data["collision_int_words"],
+            base_comp=comp_buf,
+            label_mode=collision_label,
+            collision_mode=collision_mode,
+        )
         path_coll = os.path.join(out_dir, f"{prefix}_collision.png")
         save_png(coll_buf, renderer.w_pixels, renderer.h_pixels, path_coll)
         output_files["collision"] = path_coll
@@ -1029,7 +1969,16 @@ def render_room_layers(
         save_png(grid_buf, renderer.w_pixels, renderer.h_pixels, path_grid)
         output_files["grid"] = path_grid
 
+    # Render Unified Composition Overlay
+    if "composition" in selected_layers:
+        assert comp_buf is not None
+        comp_overlay, w_final, h_final = renderer.render_full_composition(comp_buf, add_legend=with_legend)
+        path_composition = os.path.join(out_dir, f"{prefix}_composition.png")
+        save_png(comp_overlay, w_final, h_final, path_composition)
+        output_files["composition"] = path_composition
+
     return output_files
+
 
 
 # ---------------------------------------------------------------------------
@@ -1054,12 +2003,14 @@ def main():
     parser.add_argument("--out-dir", "-o", default="out/maps", help="Output directory for PNGs (default: out/maps)")
     parser.add_argument(
         "--layer",
-        choices=["1", "2", "composite", "all", "collision", "triggers", "grid"],
+        choices=["1", "2", "composite", "all", "collision", "triggers", "grid", "composition"],
         default="all",
-        help="Layer to render: 1, 2, composite, collision, triggers, grid, or all (default: all)",
+        help="Layer to render: 1, 2, composite, collision, triggers, grid, composition, or all (default: all)",
     )
     parser.add_argument("--collision", action="store_true", help="Include collision visualization layer")
     parser.add_argument("--triggers", action="store_true", help="Include triggers overlay on composite")
+    parser.add_argument("--composition", action="store_true", help="Include unified composition overlay with all features")
+    parser.add_argument("--no-legend", action="store_true", help="Omit bottom legend banner on composition graphics")
     parser.add_argument(
         "--grid",
         nargs="?",
@@ -1083,9 +2034,36 @@ def main():
         default="black",
         help="Backdrop color: 'black' (default), 'transparent', 'cgram', hex (#RRGGBB or #RRGGBBAA), or R,G,B (default: black)",
     )
+    parser.add_argument(
+        "--collision-label",
+        choices=["ascii", "index", "hex", "none"],
+        default=None,
+        help="Label style on collision tiles: 'ascii' (for ascii mode), 'index' (0, 1, 2... for verbose mode), 'hex' (4-digit hex), or 'none'",
+    )
+    parser.add_argument(
+        "--collision-mode",
+        choices=["contour", "line", "ascii", "passability", "verbose", "raw"],
+        default="contour",
+        help="Collision style: 'contour'/'line' (default, continuous red boundary line with light red solid tint), 'ascii'/'passability' (physical groups with ASCII art), or 'verbose'/'raw' (word palette with unique colors and IDs)",
+    )
+    parser.add_argument(
+        "--collision-verbose",
+        action="store_true",
+        help="Secondary command shortcut: view verbose collision words with unique colors and IDs",
+    )
     parser.add_argument("--all-rooms", action="store_true", help="Render all 127 vanilla rooms")
 
     args = parser.parse_args()
+
+    if args.collision_verbose:
+        args.collision_mode = "verbose"
+    if args.collision_label is None:
+        if args.collision_mode in ("verbose", "raw"):
+            args.collision_label = "index"
+        elif args.collision_mode in ("ascii", "passability"):
+            args.collision_label = "ascii"
+        else:
+            args.collision_label = "none"
 
     if "--layer" in sys.argv:
         if args.layer == "all":
@@ -1097,6 +2075,8 @@ def main():
 
     with_collision = args.collision or (args.layer == "collision")
     with_triggers = args.triggers or (args.layer == "triggers")
+    with_composition = args.composition or (args.layer == "composition")
+    with_legend = not args.no_legend
     with_grid = (args.grid is not None) or (args.layer == "grid")
     grid_spec = args.grid if args.grid else "8,16"
 
@@ -1114,10 +2094,14 @@ def main():
                     with_collision=with_collision,
                     with_triggers=with_triggers,
                     with_grid=with_grid,
+                    with_composition=with_composition,
+                    with_legend=with_legend,
                     grid_spec=grid_spec,
                     grid_color=args.grid_color,
                     grid_opacity=args.grid_opacity,
                     bg_color=args.bg_color,
+                    collision_label=args.collision_label,
+                    collision_mode=args.collision_mode,
                 )
                 print(f"Room 0x{rid:02X}: OK")
                 ok += 1
@@ -1141,15 +2125,45 @@ def main():
         with_collision=with_collision,
         with_triggers=with_triggers,
         with_grid=with_grid,
+        with_composition=with_composition,
+        with_legend=with_legend,
         grid_spec=grid_spec,
         grid_color=args.grid_color,
         grid_opacity=args.grid_opacity,
         bg_color=args.bg_color,
+        collision_label=args.collision_label,
+        collision_mode=args.collision_mode,
     )
+
 
     print(f"Successfully generated {len(files)} image(s) in {args.out_dir}:")
     for name, path in files.items():
         print(f"  [{name:9s}] {path}")
+
+    if with_collision:
+        room_data = dump_room(room_id, args.rom)
+        cwords = room_data["collision_int_words"]
+        unique_words = sorted(list(set(w for row in cwords for w in row)))
+
+        cnt_wall = sum(1 for row in cwords for w in row if (w & 0x0F) == 0x0F)
+        cnt_slope_sw_ne = sum(1 for row in cwords for w in row if (w & 0x0F) in (0x01, 0x0A, 0x05, 0x0E))
+        cnt_slope_nw_se = sum(1 for row in cwords for w in row if (w & 0x0F) in (0x02, 0x09, 0x06, 0x0D))
+        cnt_vert = sum(1 for row in cwords for w in row if (w & 0x0F) in (0x07, 0x08))
+        cnt_horiz = sum(1 for row in cwords for w in row if (w & 0x0F) in (0x03, 0x0C, 0x04, 0x0B))
+        cnt_floor = sum(1 for row in cwords for w in row if (w & 0x0F) == 0)
+
+        print(f"\nCollision Physical Groups (Room 0x{room_id:02X}):")
+        print(f"  [#] Solid Wall:          {cnt_wall:4d} tiles")
+        print(f"  [/] Diagonal Slope /:    {cnt_slope_sw_ne:4d} tiles")
+        print(f"  [\\] Diagonal Slope \\:    {cnt_slope_nw_se:4d} tiles")
+        print(f"  [|] Vertical Barrier |:  {cnt_vert:4d} tiles")
+        print(f"  [-] Horiz. Barrier -:    {cnt_horiz:4d} tiles")
+        print(f"  [.] Walkable Floor:      {cnt_floor:4d} tiles")
+
+        print(f"\nCollision Types ({len(unique_words)} unique in Room 0x{room_id:02X}):")
+        for idx, cw in enumerate(unique_words):
+            cnt = sum(row.count(cw) for row in cwords)
+            print(f"  [{idx:2d}] 0x{cw:04X} ({cnt:4d} tiles)")
 
 
 if __name__ == "__main__":

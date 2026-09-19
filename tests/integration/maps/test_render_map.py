@@ -538,6 +538,218 @@ def test_render_map_cli_triggers_layer(tmp_path):
     assert os.path.exists(os.path.join(out_dir, "room_0x5c_triggers.png"))
 
 
+def test_render_collision_labels_and_legend(tmp_path):
+    """Verify --collision renders unique colors and type numbers, plus console legend."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "render_map.py")
+    )
+    out_dir = str(tmp_path / "cli_coll")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x34",
+        "--layer",
+        "collision",
+        "--out-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[collision]" in proc.stdout
+    assert "Collision Types (23 unique in Room 0x34):" in proc.stdout
+    assert "[ 0] 0x0010" in proc.stdout
+    assert "[14] 0x101F" in proc.stdout
+
+    path_coll = os.path.join(out_dir, "room_0x34_collision.png")
+    assert os.path.exists(path_coll)
+
+    from PIL import Image
+    with Image.open(path_coll) as img:
+        # Check size (18x18 metatiles = 288x288 px)
+        assert img.size == (288, 288)
+
+
+def test_render_collision_hex_labels(tmp_path):
+    """Verify --collision-label hex renders without errors."""
+    from tools.render_map import render_room_layers
+
+    out_dir = str(tmp_path / "coll_hex")
+    files = render_room_layers(
+        0x34,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["collision"],
+        with_collision=True,
+        collision_label="hex",
+    )
+    assert "collision" in files
+    assert os.path.exists(files["collision"])
+
+
+def test_render_collision_contour_default(tmp_path):
+    """Verify default collision mode renders continuous red border lines and light red solid tint."""
+    from tools.render_map import render_room_layers
+
+    out_dir = str(tmp_path / "coll_contour")
+    files = render_room_layers(
+        0x34,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["collision"],
+        with_collision=True,
+    )
+    assert "collision" in files
+    path = files["collision"]
+    assert os.path.exists(path)
+
+    from PIL import Image
+    with Image.open(path) as img:
+        assert img.size == (288, 288)
+
+        # Verify presence of crisp red border line pixels (235, 25, 25, 255)
+        red_count = sum(1 for y in range(img.height) for x in range(img.width) if img.getpixel((x, y)) == (235, 25, 25, 255))
+        assert red_count > 1000, f"Expected thousands of red border pixels, found {red_count}"
+
+        # Doorway passage at (136, 276) is walkable -> untinted composite floor
+        p_door = img.getpixel((136, 276))
+        assert p_door[3] == 255
+
+
+def test_render_collision_ascii_mode(tmp_path):
+    """Verify ascii collision mode colorizes by physical group and renders ASCII art."""
+    from tools.render_map import render_room_layers
+
+    out_dir = str(tmp_path / "coll_ascii")
+    files = render_room_layers(
+        0x34,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["collision"],
+        with_collision=True,
+        collision_mode="ascii",
+    )
+    assert "collision" in files
+    path = files["collision"]
+    assert os.path.exists(path)
+
+    from PIL import Image
+    with Image.open(path) as img:
+        assert img.size == (288, 288)
+
+        # Check Walkable Floor (0x4010, low=0) at bottom center (row 17, col 8) -> Soft green fill at (130, 274)
+        p_door = img.getpixel((130, 274))
+        assert p_door[1] > p_door[0] and p_door[1] > p_door[2], f"Expected green floor fill, got {p_door}"
+
+        # Check Solid Wall (0x0F) at upper ring (row 2, col 5) -> Red fill at (82, 34)
+        p_wall = img.getpixel((82, 34))
+        assert p_wall[0] > p_wall[1] and p_wall[0] > p_wall[2], f"Expected red wall fill, got {p_wall}"
+
+        # Check white '#' glyph at foreground coordinate (86, 38)
+        p_glyph = img.getpixel((86, 38))
+        assert p_glyph == (255, 255, 255, 255), f"Expected white glyph pixel, got {p_glyph}"
+
+        # Check Diagonal Slope \ (0x02) at row 14, col 2 -> Orange fill at (34, 226)
+        p_slope = img.getpixel((34, 226))
+        assert p_slope[0] >= 180 and p_slope[1] >= 80 and p_slope[2] < 50, f"Expected orange slope, got {p_slope}"
+
+        # Check Tree Stump Top Barrier - (0x03) at row 10, col 7 -> Yellow fill at (114, 162)
+        p_table = img.getpixel((114, 162))
+        assert p_table[0] >= 180 and p_table[1] >= 150 and p_table[2] < 50, f"Expected yellow barrier, got {p_table}"
+
+
+def test_render_collision_verbose_mode(tmp_path):
+    """Verify --collision-verbose flag renders raw word palette view."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "render_map.py")
+    )
+    out_dir = str(tmp_path / "coll_verbose")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x34",
+        "--layer",
+        "collision",
+        "--collision-verbose",
+        "--out-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[collision]" in proc.stdout
+    assert "Collision Physical Groups (Room 0x34):" in proc.stdout
+    assert "Collision Types (23 unique in Room 0x34):" in proc.stdout
+
+def test_render_composition_unified_layer(tmp_path):
+    """Verify render_full_composition generates unified graphic with correct dimensions and legend."""
+    out_dir = str(tmp_path / "composition_test")
+    files = render_room_layers(
+        0x3B,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["composition"],
+        with_legend=True,
+    )
+    assert "composition" in files
+    path_comp = files["composition"]
+    assert os.path.exists(path_comp)
+
+    from PIL import Image
+    with Image.open(path_comp) as img:
+        # Base Room 0x3B is 80x89 metatiles = 1280x1424 px, plus 36px legend banner = 1460 px
+        assert img.size == (1280, 1460)
+
+    # Test with with_legend=False
+    files_no_leg = render_room_layers(
+        0x3B,
+        DEFAULT_ROM_PATH,
+        out_dir=out_dir,
+        layers=["composition"],
+        with_legend=False,
+    )
+    with Image.open(files_no_leg["composition"]) as img_no_leg:
+        assert img_no_leg.size == (1280, 1424)
+
+
+def test_render_map_cli_composition(tmp_path):
+    """Verify tools/render_map.py CLI produces room_0x3b_composition.png with --layer composition."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "render_map.py")
+    )
+    out_dir = str(tmp_path / "cli_comp")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x3b",
+        "--layer",
+        "composition",
+        "--out-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[composition]" in proc.stdout
+    path_png = os.path.join(out_dir, "room_0x3b_composition.png")
+    assert os.path.exists(path_png)
+
+
+def test_dump_room_cli_composition(tmp_path):
+    """Verify tools/dump_room.py CLI produces room_0x12_composition.png with --composition."""
+    script_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "dump_room.py")
+    )
+    out_dir = str(tmp_path / "dump_comp")
+    cmd = [
+        sys.executable,
+        script_path,
+        "0x12",
+        "--composition",
+        "--png-dir",
+        out_dir,
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    assert "[composition]" in proc.stdout
+    path_png = os.path.join(out_dir, "room_0x12_composition.png")
+    assert os.path.exists(path_png)
+
+
+
 
 
 
