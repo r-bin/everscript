@@ -1,6 +1,12 @@
 # Global Agent Guidelines (Everscript Project)
 
-These instructions apply to all AI assistants and agent environments working in this repository (Antigravity, GitHub Copilot, Cursor, etc.). Individual tasks may specialize workflows, but must never violate these core principles.
+These instructions apply to all AI assistants and agent environments working in this repository (Antigravity, GitHub Copilot, Claude Code, Cursor, etc.). Individual tasks may specialize workflows, but must never violate these core principles.
+
+> **Single source of truth.** This file (`/AGENTS.md`, repo root — the canonical location per the open [AGENTS.md standard](https://agents.md)) is the only place these rules are written. Every other AI-config entry point is a symlink or one-line import that resolves back here — edit this file, never the aliases:
+> - `/CLAUDE.md` → one-line `@AGENTS.md` import (Claude Code's official bridge pattern for sharing AGENTS.md)
+> - `.github/copilot-instructions.md` → symlink to this file (Copilot's required fixed path)
+> - `.github/skills/` → canonical skills folder (Copilot's own official skills path); `.agents/skills/` and `.claude/skills/` are symlinks to it (Antigravity's and Claude Code's own official skills paths, respectively)
+> - `.github/agents/*.agent.md` → Copilot-only custom subagent definitions (VS Code `chatagent` schema). Not portable to other tools — maintained separately, not duplicated here.
 
 ---
 
@@ -49,9 +55,9 @@ These instructions apply to all AI assistants and agent environments working in 
 
 ---
 
-## 4. On-Demand Skills (`.agents/skills/`)
+## 4. On-Demand Skills (`.github/skills/`)
 
-Operational workflows and runbooks live in `.agents/skills/`. Consult these skills on demand when performing specialized tasks:
+Operational workflows and runbooks live in `.github/skills/` (aliased at `.agents/skills/` and `.claude/skills/` for tool-native discovery — same files, don't duplicate). Consult these skills on demand when performing specialized tasks:
 
 - **Classification & Standards:**
   - `data-classification-emojis`: Standard emoji taxonomy (📖, 🚪, 🌿, 🧪, 💎, ⚔️, 🛡️, ⚗️, 🫙, 👃, 🧑, 🐶, ⚙️).
