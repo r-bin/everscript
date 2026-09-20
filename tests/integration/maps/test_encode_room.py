@@ -29,6 +29,7 @@ from tools.dump_room import (  # noqa: E402
 from tools.encode_room import (  # noqa: E402
     Block,
     SUB_MARKOV,
+    rebuild_model,
     SUB_RAW,
     build_blob,
     build_object_area,
@@ -41,7 +42,7 @@ from tools.encode_room import (  # noqa: E402
     verify_rebuild,
     write_room_into_rom,
 )
-from tools.encode_room import _recompress, _slices_of, _unpack  # noqa: E402
+from tools.encode_room import _slices_of, _unpack  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     not os.path.exists(DEFAULT_ROM_PATH), reason="ROM not available"
@@ -56,16 +57,76 @@ def rom() -> bytes:
         return f.read()
 
 
-# --- Container ------------------------------------------------------------
+# --- Read -> decode -> encode -------------------------------------------
 
-def test_lossless_round_trip_all_rooms(rom):
-    """build_blob(model_from_rom(...)) == the original bytes, for all 127 rooms."""
+def test_decode_encode_is_byte_identical_for_every_room(rom):
+    """
+    Reading a room and writing it straight back must reproduce the original
+    blob exactly, for all 127 rooms. This is the proof that the container
+    layout is understood rather than merely parsed.
+    """
     assert verify_lossless(rom, range(MAX_ROOMS)) == []
 
 
-def test_rebuilt_blocks_decode_back_all_rooms(rom):
-    """Re-encoding blocks 1-3 and the object area preserves the decoded content."""
+@pytest.mark.parametrize("room_id", SAMPLE_ROOMS)
+def test_decode_encode_byte_identical_per_room(rom, room_id):
+    """Same property per room, so a failure names the room."""
+    blob_offset = snes2rom(read24(rom, MAP_LIST_ADDR + room_id * 4))
+    built = build_blob(model_from_rom(rom, room_id))
+    assert built == rom[blob_offset:blob_offset + len(built)]
+
+
+def test_full_rebuild_is_never_larger_than_the_original(rom):
+    """
+    Re-encoding every block from decoded data must not cost bytes, for any
+    room. The encoders keep whichever encoding is smallest -- raw, LZSS, or
+    the original payload when its content is unchanged -- so an edit that
+    grows a blob can only be an edit that added content.
+    """
+    grew = []
+    total = 0
+    for room_id in range(MAX_ROOMS):
+        original = len(build_blob(model_from_rom(rom, room_id)))
+        rebuilt = len(build_blob(rebuild_model(rom, room_id)))
+        total += rebuilt - original
+        if rebuilt > original:
+            grew.append((f"0x{room_id:02X}", original, rebuilt))
+    assert grew == [], f"rebuilt blobs grew: {grew}"
+    assert total < 0, "the rebuild should be smaller overall, got {total:+d}"
+
+
+def test_full_rebuild_decodes_to_the_same_room(rom):
+    """Re-encoded blocks and object area decode back to identical content."""
     assert verify_rebuild(rom, range(MAX_ROOMS)) == []
+
+
+@pytest.mark.parametrize("room_id", SAMPLE_ROOMS)
+def test_rebuilt_room_matches_when_dumped_again(rom, room_id, tmp_path):
+    """
+    The end-to-end property a map editor needs: decode a room, re-encode every
+    block, write the blob into a ROM, and dump it again -- the decoded data
+    must be unchanged.
+    """
+    src = dump_room(room_id)
+    blob = build_blob(rebuild_model(rom, room_id, src))
+    new_rom, _ = write_room_into_rom(rom, room_id, blob)
+
+    path = str(tmp_path / f"room_{room_id:02x}.smc")
+    with open(path, "wb") as f:
+        f.write(new_rom)
+
+    after = dump_room(room_id, path)
+    for key in ("header", "size", "triggers", "object_count", "tile_families",
+                "tile_palette", "metatile_count", "base_metatile",
+                "layer1_metatile_ids", "layer1_vram_words", "layer2_vram_words",
+                "collision_words", "cuttable_grass_tiles", "animated_tiles"):
+        assert after[key] == src[key], key
+    for before, now in zip(src["objects"], after["objects"]):
+        for a, b in zip(before["states"], now["states"]):
+            assert (a["width"], a["tile_x"], a["tile_y"], a["target_width"],
+                    a["target_height"], a["metatiles"]) == \
+                   (b["width"], b["tile_x"], b["tile_y"], b["target_width"],
+                    b["target_height"], b["metatiles"])
 
 
 @pytest.mark.parametrize("room_id", SAMPLE_ROOMS)
@@ -162,6 +223,45 @@ def test_encode_block3_rejects_ragged_slices():
 
 # --- Objects --------------------------------------------------------------
 
+def test_object_area_packing_is_never_larger_than_vanilla(rom):
+    """
+    Vanilla overlaps stamping blocks -- room 0x09 has 15 of its 24 blocks
+    overlapping their neighbour. The greedy superstring packing has to match
+    that or rebuilt rooms bloat.
+    """
+    grew = []
+    for room_id in range(MAX_ROOMS):
+        model = model_from_rom(rom, room_id)
+        original = len(model.object_area) + 2 * len(model.object_offsets)
+        offsets, area = build_object_area(dump_room(room_id)["objects"])
+        if len(area) + 2 * len(offsets) > original:
+            grew.append(f"0x{room_id:02X}")
+    assert grew == []
+
+
+def test_pack_overlapping_shares_a_common_suffix_prefix():
+    """A block whose prefix is another block's suffix must share those bytes."""
+    from tools.encode_room import _pack_overlapping
+
+    a = bytes([0x01, 0x02, 0x11, 0x11, 0x22, 0x22])
+    b = bytes([0x22, 0x22, 0x33, 0x33])            # a's last 2 bytes == b's first 2
+    buf, placed = _pack_overlapping({a, b})
+    assert len(buf) < len(a) + len(b), "the shared bytes should not be duplicated"
+    assert bytes(buf[placed[a]: placed[a] + len(a)]) == a
+    assert bytes(buf[placed[b]: placed[b] + len(b)]) == b
+
+
+def test_pack_overlapping_drops_fully_contained_blocks():
+    from tools.encode_room import _pack_overlapping
+
+    big = bytes(range(10))
+    small = bytes(range(3, 7))              # entirely inside `big`
+    buf, placed = _pack_overlapping({big, small})
+    assert len(buf) == len(big)
+    assert bytes(buf[placed[big]: placed[big] + len(big)]) == big
+    assert bytes(buf[placed[small]: placed[small] + len(small)]) == small
+
+
 def test_build_object_area_shares_identical_stamping_blocks():
     obj = {"states": [{"width": 5, "tile_x": 1, "tile_y": 2,
                        "target_width": 1, "target_height": 1, "metatiles": [0x1234]}]}
@@ -204,27 +304,14 @@ def test_rebuilt_objects_preserve_content(rom, room_id):
 
 # --- Writing back into a ROM ---------------------------------------------
 
-def test_write_room_into_rom_end_to_end(rom, tmp_path):
+def test_write_room_in_place_leaves_neighbours_untouched(rom, tmp_path):
     """
-    Rebuild a room from decoded data, write it into a ROM image, and dump it
-    back: every decoded field must survive. Room 0x48 is used because its
-    rebuilt blob is smaller than the original, so it fits in place.
+    A rebuilt blob is never larger than the original (see
+    test_full_rebuild_is_never_larger_than_the_original), so it always fits
+    written in place -- and doing so must not disturb any other room's data.
     """
     room_id = 0x48
-    src = dump_room(room_id)
-    model = model_from_rom(rom, room_id)
-    grid = [int(v, 16) for row in src["layer1_metatile_ids"] for v in row]
-    words = _slices_of(model.block3)
-    n = len(words) // 3
-
-    model.block1 = _recompress(model.block1, compress=True)
-    model.block2 = encode_block2(grid, model.width, model.height,
-                                 model.base_metatile, model.fc4)
-    model.block3 = encode_block3(words[:n], words[n:2 * n], words[2 * n:3 * n],
-                                 compress=True)
-    model.object_offsets, model.object_area = build_object_area(src["objects"])
-
-    blob = build_blob(model)
+    blob = build_blob(rebuild_model(rom, room_id))
     new_rom, offset = write_room_into_rom(rom, room_id, blob)
     assert offset == snes2rom(read24(rom, MAP_LIST_ADDR + room_id * 4))
 
@@ -232,21 +319,6 @@ def test_write_room_into_rom_end_to_end(rom, tmp_path):
     with open(path, "wb") as f:
         f.write(new_rom)
 
-    after = dump_room(room_id, path)
-    for key in ("header", "size", "triggers", "object_count", "tile_families",
-                "metatile_count", "base_metatile", "layer1_metatile_ids",
-                "layer1_vram_words", "layer2_vram_words", "collision_words",
-                "cuttable_grass_tiles", "animated_tiles"):
-        assert after[key] == src[key], key
-
-    # metatile_id is the stamping block's offset inside the object area, which
-    # the rebuild packs more tightly; the content it points at must still match.
-    for before, now in zip(src["objects"], after["objects"]):
-        for a, b in zip(before["states"], now["states"]):
-            assert (a["tile_x"], a["tile_y"], a["metatiles"]) == \
-                   (b["tile_x"], b["tile_y"], b["metatiles"])
-
-    # Neighbouring rooms must be untouched.
     for other in (0x47, 0x49, 0x38):
         assert dump_room(other, path)["layer1_metatile_ids"] == \
                dump_room(other)["layer1_metatile_ids"]

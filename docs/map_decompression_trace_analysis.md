@@ -683,6 +683,12 @@ Run the full integration test suite via:
 .venv/bin/pytest tests/integration/maps/ -v
 ```
 
+---
+
+## The Inverse Pipeline: Encoding
+
+Everything on this page decodes a room blob. [**`tools/encode_room.py`**](file:///Users/v/Documents/GitHub/everscript/tools/encode_room.py) does the reverse -- turns a room model back into the bytes the engine loads -- and is the write path a future map editor uses. See [**`docs/map_encoding.md`**](file:///Users/v/Documents/GitHub/everscript/docs/map_encoding.md) for the container layout, the LZSS and Markov encoders, and the object-area packing.
+
 
 
 

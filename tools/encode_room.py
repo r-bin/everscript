@@ -477,7 +477,8 @@ def _object_area_end(rom: bytes, L: dict) -> int:
 # Block re-encoders, for content an editor has actually changed
 # ---------------------------------------------------------------------------
 
-def encode_block1(accum_words: Sequence[int], compress: bool = False) -> Block:
+def encode_block1(accum_words: Sequence[int], compress: bool = False,
+                  original: Optional[Block] = None) -> Block:
     """
     Block 1 is a CHR tile palette stored as 16-bit deltas which the engine
     accumulates at `$908E85`; `dump_room` reports the accumulated values, so
@@ -488,7 +489,7 @@ def encode_block1(accum_words: Sequence[int], compress: bool = False) -> Block:
     for w in accum_words:
         raw += ((w - prev) & 0xFFFF).to_bytes(2, "little")
         prev = w & 0xFFFF
-    return _wrap(bytes(raw), compress)
+    return _wrap(bytes(raw), compress, original)
 
 
 def encode_block2(grid: Sequence[int], width: int, height: int,
@@ -499,7 +500,8 @@ def encode_block2(grid: Sequence[int], width: int, height: int,
 
 
 def encode_block3(slice0: Sequence[int], slice1: Sequence[int],
-                  slice2: Sequence[int], compress: bool = False) -> Block:
+                  slice2: Sequence[int], compress: bool = False,
+                  original: Optional[Block] = None) -> Block:
     """
     Block 3 is the three planar slices -- Layer 1 words, Layer 2 words and
     collision words -- concatenated, one after the other.
@@ -510,15 +512,88 @@ def encode_block3(slice0: Sequence[int], slice1: Sequence[int],
     for sl in (slice0, slice1, slice2):
         for w in sl:
             raw += int(w).to_bytes(2, "little")
-    return _wrap(bytes(raw), compress)
+    return _wrap(bytes(raw), compress, original)
 
 
-def _wrap(raw: bytes, compress: bool) -> Block:
+def _wrap(raw: bytes, compress: bool, original: Optional[Block] = None) -> Block:
+    """
+    Pick the smallest legal encoding of `raw`.
+
+    Passing the block this content came from lets an editor keep a payload it
+    has not actually changed, so re-encoding an untouched room never costs
+    bytes just because this LZSS packer made a different choice than whatever
+    produced the original data.
+    """
+    best = Block(sub=SUB_RAW, decomp=len(raw), data=raw)
     if compress:
         packed = lzss_compress(raw)
-        if len(packed) < len(raw):
-            return Block(sub=SUB_LZSS, decomp=len(raw), data=packed)
-    return Block(sub=SUB_RAW, decomp=len(raw), data=raw)
+        if len(packed) < len(best.data):
+            best = Block(sub=SUB_LZSS, decomp=len(raw), data=packed)
+    if original is not None and len(original.data) < len(best.data):
+        try:
+            unchanged = bytes(_unpack(original)) == raw
+        except ValueError:
+            unchanged = False
+        if unchanged:
+            best = original
+    return best
+
+
+def _overlap(a: bytes, b: bytes) -> int:
+    """Length of the longest suffix of `a` that is also a prefix of `b`."""
+    limit = min(len(a), len(b)) - 1
+    while limit > 0 and a[-limit:] != b[:limit]:
+        limit -= 1
+    return max(limit, 0)
+
+
+def _pack_overlapping(blocks: "set[bytes]") -> Tuple[bytearray, Dict[bytes, int]]:
+    """
+    Lay stamping blocks out so they share bytes, the way the vanilla object
+    area does -- room 0x09 has 15 of its 24 blocks overlapping their
+    neighbour, and room 0x06 has 434- and 1298-byte blocks overlapping by
+    dozens of bytes each.
+
+    Blocks fully contained in another are dropped first, then the rest are
+    merged greedily by largest pairwise overlap (the standard shortest common
+    superstring heuristic). Every input block is then located in the result.
+    """
+    items = sorted(blocks, key=lambda b: (-len(b), b))
+    # Drop anything already contained in a longer block.
+    kept: List[bytes] = []
+    for blk in items:
+        if not any(blk in bigger for bigger in kept):
+            kept.append(blk)
+
+    while len(kept) > 1:
+        best = (0, -1, -1)
+        for i, a in enumerate(kept):
+            for j, b in enumerate(kept):
+                if i == j:
+                    continue
+                ov = _overlap(a, b)
+                if ov > best[0]:
+                    best = (ov, i, j)
+        if best[0] == 0:
+            break
+        ov, i, j = best
+        merged = kept[i] + kept[j][ov:]
+        for k in sorted((i, j), reverse=True):
+            kept.pop(k)
+        kept.append(merged)
+
+    buf = bytearray()
+    for chunk in kept:
+        buf.extend(chunk)
+
+    placed: Dict[bytes, int] = {}
+    for blk in blocks:
+        at = buf.find(blk)
+        if at < 0:  # pragma: no cover - the merge always keeps every block
+            at = len(buf)
+            buf.extend(blk)
+        placed[blk] = at
+    return buf, placed
 
 
 def build_object_area(objects: Sequence[dict]) -> Tuple[List[int], bytes]:
@@ -526,47 +601,51 @@ def build_object_area(objects: Sequence[dict]) -> Tuple[List[int], bytes]:
     Rebuild the object records and stamping blocks from decoded objects, as
     `dump_room` reports them.
 
-    Returns `(object_offsets, object_area)` for `RoomModel`. Identical
-    stamping blocks are emitted once and shared, as vanilla rooms do.
+    Returns `(object_offsets, object_area)` for `RoomModel`.
 
     Each object is `max_state:1` followed by 5-byte states
     `[width, tile_x, tile_y, target_off:2]`; each stamping block is
-    `[target_width, target_height, metatiles...]`.
+    `[target_width, target_height, metatiles...]`. Both are addressed as
+    offsets from the start of the area.
+
+    Stamping blocks are packed the way the vanilla data is: a block that
+    already appears anywhere in the buffer reuses that offset, and otherwise
+    only the part that does not overlap the buffer's tail is appended. Room
+    0x09, for instance, has 15 of its 24 blocks overlapping their neighbour.
+    Blocks are placed longest-first, the usual greedy heuristic for this kind
+    of packing.
     """
     records: List[bytearray] = []
-    blocks: Dict[bytes, int] = {}
-    block_bytes = bytearray()
+    targets_per_object: List[List[Tuple[int, int, Sequence[int]]]] = []
 
-    def intern(tw: int, th: int, metatiles: Sequence[int]) -> int:
-        payload = bytes([tw & 0xFF, th & 0xFF])
-        for m in metatiles:
-            payload += int(m).to_bytes(2, "little")
-        if payload not in blocks:
-            blocks[payload] = len(block_bytes)
-            block_bytes.extend(payload)
-        return blocks[payload]
-
-    # Records come first, so their size is known before the blocks are placed.
-    rec_size = sum(1 + len(o.get("states", [])) * 5 for o in objects)
-    pending: List[Tuple[bytearray, List[Tuple[int, int, Sequence[int]]]]] = []
     for obj in objects:
         states = obj.get("states", [])
         rec = bytearray([len(states)])
-        targets = []
+        targets: List[Tuple[int, int, Sequence[int]]] = []
         for st in states:
             rec += bytes([st.get("width", 0) & 0xFF,
                           st["tile_x"] & 0xFF,
                           st["tile_y"] & 0xFF])
-            rec += b"\x00\x00"  # patched below
+            rec += b"\x00\x00"  # target offset, patched once blocks are placed
             targets.append((st.get("target_width", 1),
                             st.get("target_height", 1),
                             st.get("metatiles", [])))
-        pending.append((rec, targets))
         records.append(rec)
+        targets_per_object.append(targets)
 
-    for rec, targets in pending:
-        for s, (tw, th, mt) in enumerate(targets):
-            off = rec_size + intern(tw, th, mt)
+    def payload(tw: int, th: int, metatiles: Sequence[int]) -> bytes:
+        out = bytearray([tw & 0xFF, th & 0xFF])
+        for m in metatiles:
+            out += int(m).to_bytes(2, "little")
+        return bytes(out)
+
+    wanted = {payload(*t) for targets in targets_per_object for t in targets}
+    block_bytes, placed = _pack_overlapping(wanted)
+
+    rec_size = sum(len(r) for r in records)
+    for rec, targets in zip(records, targets_per_object):
+        for s, t in enumerate(targets):
+            off = rec_size + placed[payload(*t)]
             rec[1 + s * 5 + 3: 1 + s * 5 + 5] = off.to_bytes(2, "little")
 
     offsets: List[int] = []
@@ -575,6 +654,45 @@ def build_object_area(objects: Sequence[dict]) -> Tuple[List[int], bytes]:
         offsets.append(cursor)
         cursor += len(rec)
     return offsets, bytes(b"".join(records) + block_bytes)
+
+
+def rebuild_model(rom: bytes, room_id: int, room_data: Optional[dict] = None,
+                  compress: bool = True) -> RoomModel:
+    """
+    Re-encode a room entirely from decoded data -- the path a map editor takes
+    after changing something.
+
+    Blocks 1 and 3 are re-encoded from their decoded content, Block 2 from the
+    metatile grid, and the object area is rebuilt from the object list.
+    `room_data` defaults to `dump_room(room_id)`; pass an edited copy to write
+    changes. Each block keeps whichever encoding is smallest, including the
+    original payload when its content is unchanged, so a rebuilt blob is never
+    larger than the one it came from.
+    """
+    from tools.dump_room import dump_room
+
+    src = room_data if room_data is not None else dump_room(room_id)
+    model = model_from_rom(rom, room_id)
+
+    model.header = bytes.fromhex(src["header"]["raw_hex"])
+    model.step_on = list(src["triggers"]["step_on"])
+    model.b_trigger = list(src["triggers"]["b_trigger"])
+    model.tile_families = [int(t, 16) for t in src["tile_families"]]
+
+    model.block1 = encode_block1([int(w, 16) for w in src["tile_palette"]],
+                                 compress=compress, original=model.block1)
+
+    grid = [int(v, 16) for row in src["layer1_metatile_ids"] for v in row]
+    model.block2 = encode_block2(grid, model.width, model.height,
+                                 model.base_metatile, model.fc4)
+
+    n = src["metatile_count"]
+    slices = _slices_of(model.block3)
+    model.block3 = encode_block3(slices[:n], slices[n:2 * n], slices[2 * n:3 * n],
+                                 compress=compress, original=model.block3)
+
+    model.object_offsets, model.object_area = build_object_area(src["objects"])
+    return model
 
 
 # ---------------------------------------------------------------------------
@@ -655,24 +773,23 @@ def verify_rebuild(rom: bytes, room_ids: Sequence[int]) -> List[str]:
     problems = []
     for rid in room_ids:
         src = dump_room(rid)
-        model = model_from_rom(rom, rid)
-        want_slices = _slices_of(model.block3)
-        n = len(want_slices) // 3
-        grid = [int(v, 16) for row in src["layer1_metatile_ids"] for v in row]
-
-        model.block1 = _recompress(model.block1, compress=False)
-        model.block2 = encode_block2(grid, model.width, model.height,
-                                     model.base_metatile, model.fc4)
-        model.block3 = encode_block3(want_slices[:n], want_slices[n:2 * n],
-                                     want_slices[2 * n:3 * n], compress=True)
-        model.object_offsets, model.object_area = build_object_area(src["objects"])
-
+        original = build_blob(model_from_rom(rom, rid))
+        model = rebuild_model(rom, rid, src)
         blob = build_blob(model)
+
+        if len(blob) > len(original):
+            problems.append(
+                f"room 0x{rid:02X}: rebuilt blob is {len(blob)} bytes, "
+                f"{len(blob) - len(original)} larger than the original")
+
         try:
             check = _decode_blob(blob)
         except Exception as exc:                       # noqa: BLE001
             problems.append(f"room 0x{rid:02X}: rebuilt blob failed to parse: {exc}")
             continue
+
+        grid = [int(v, 16) for row in src["layer1_metatile_ids"] for v in row]
+        want_slices = _slices_of(model_from_rom(rom, rid).block3)
         if check["grid"] != grid:
             bad = next(i for i in range(len(grid)) if check["grid"][i] != grid[i])
             problems.append(f"room 0x{rid:02X}: grid differs at cell {bad}")
@@ -698,8 +815,8 @@ def _slices_of(block3: Block) -> List[int]:
 
 
 def _recompress(b: Block, compress: bool) -> Block:
-    """Round a block through decode/encode, changing only its sub_flag."""
-    return _wrap(bytes(_unpack(b)), compress)
+    """Re-encode a block from its own decoded content."""
+    return _wrap(bytes(_unpack(b)), compress, original=b)
 
 
 def _objects_key(objects: Sequence[dict]) -> list:
@@ -785,19 +902,8 @@ def main() -> None:
         ap.error("a room id is required unless --verify / --verify-rebuild is given")
     rid = int(args.room, 16) if args.room.lower().startswith("0x") else int(args.room, 0)
 
-    model = model_from_rom(rom, rid)
-    if args.rebuild:
-        from tools.dump_room import dump_room
-        src = dump_room(rid, args.rom)
-        grid = [int(v, 16) for row in src["layer1_metatile_ids"] for v in row]
-        model.block1 = _recompress(model.block1, compress=args.compress)
-        model.block2 = encode_block2(grid, model.width, model.height,
-                                     model.base_metatile, model.fc4)
-        words = _slices_of(model.block3)
-        n = len(words) // 3
-        model.block3 = encode_block3(words[:n], words[n:2 * n], words[2 * n:3 * n],
-                                     compress=args.compress)
-        model.object_offsets, model.object_area = build_object_area(src["objects"])
+    model = (rebuild_model(rom, rid, compress=args.compress)
+             if args.rebuild else model_from_rom(rom, rid))
 
     blob = build_blob(model)
     original_len = len(build_blob(model_from_rom(rom, rid)))

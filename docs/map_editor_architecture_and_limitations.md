@@ -143,19 +143,19 @@ Zero-compression override     Runtime poke to $7F0280       Decompress → Edit 
    - *Pros:* Instant, programmatic control; can change tiles dynamically based on story flags.
 
 3. **Method 3: Build Pipeline Decompress-Edit-Repoint (Recommended for Editors)**
-   - Because Python decompresses and recompresses room blobs in under **20 milliseconds**:
+   - Implemented end-to-end in [`tools/encode_room.py`](file:///Users/v/Documents/GitHub/everscript/tools/encode_room.py); see [`docs/map_encoding.md`](file:///Users/v/Documents/GitHub/everscript/docs/map_encoding.md) for the encoders and their verification.
      1. Decompress room blob using `tools/dump_room.py`.
-     2. Edit the single target metatile or collision word in the array.
-     3. Recompress the blob (using LZSS or uncompressed fallback).
-     4. Append the new blob to free ROM space (e.g. Bank `$40+`).
-     5. Update the 4-byte table entry at `$9FFDE7 + room_id * 4`.
+     2. Edit the target metatile grid, collision word, or object in the decoded data.
+     3. `rebuild_model()` re-encodes every block (LZSS or Markov, matching what the original used) and rebuilds the object area.
+     4. `write_room_into_rom()` writes the blob in place when it fits — the rebuild is never larger than the original for any of the 127 vanilla rooms — or to free ROM space otherwise.
+     5. Either way it updates the 4-byte table entry at `$9FFDE7 + room_id * 4`.
    - *Pros:* Completely clean; modifies the actual base map without wasting object slots or script execution time.
 
 ---
 
 ## 6. What Information / Components Are Missing for a Full Editor?
 
-Our research has reverse-engineered **~85% of the map format**. To build a standalone, interactive map editor, the following components are complete vs. remaining:
+To build a standalone, interactive map editor, the following components are complete vs. remaining:
 
 | Component | Status | Implementation Details |
 |---|---|---|
@@ -167,10 +167,16 @@ Our research has reverse-engineered **~85% of the map format**. To build a stand
 | **Block 3 Planar Slices** | ✅ **Complete** | LZSS decompression to Layer 1, Layer 2, and Collision attributes. |
 | **Section 3 Dynamic Objects** | ✅ **Complete** | State descriptors, target dimensions ($W \times H$), metatile arrays. |
 | **Section 2 Animated Tiles** | ✅ **Complete** | Animated tile IDs decoded; timing scripts documented. |
+| **Collision Semantics** | ✅ **Complete** | Full bitfield decoded from `$909DE8` — plane, drift direction, entity gates. See `docs/map_collision_mechanics.md`. |
+| **Cuttable Grass** | ✅ **Complete** | Metatile swap table decoded from `$90A6EF`. See `docs/cuttable_grass_mechanics.md`. |
 | **Markov 2D Decompressor** | ✅ **Complete** | Exact bitstream reader (`$8C9B65`) in `tools/dump_room.py`. |
-| **Markov 2D Compressor** | ⚠️ **Missing** | We can read Markov bitstreams, but lack the matching encoder.<br>*(Bypass: Engine dispatcher `$8C988D` supports uncompressed `0x00` and LZSS `0x03`).* |
+| **Markov 2D Compressor** | ✅ **Complete** | `tools/encode_room.py::encode_markov_grid` reproduces the original bitstream byte-for-byte for all 127 vanilla rooms. See `docs/map_encoding.md`. |
+| **LZSS Compressor** | ✅ **Complete** | `tools/encode_room.py::lzss_compress`, including self-overlapping matches. |
+| **Blob Write-Back** | ✅ **Complete** | `tools/encode_room.py::write_room_into_rom` — in-place or relocated, with map-table repointing. Verified never to grow a room's footprint on re-encode. |
 | **Metatile Assembler UI** | 🔨 **Needs Tooling** | A GUI brush tool to compose 16×16 metatiles from 8×8 CHR character tiles. |
 | **Entity Spawn Linking** | ℹ️ **Design Note** | Enemies/NPCs are not in map headers; they are spawned by **Everscript Enter Scripts** (`add_enemy(...)`). An editor must link with `.evs` source files. |
+
+The remaining gap for a full editor is UI, not format understanding: every byte of the room blob can now be read, edited, re-encoded, and written back into a working ROM.
 
 ---
 
@@ -209,12 +215,13 @@ Can the map table be expanded? **Yes, up to 256 rooms easily.**
 
 ## 8. Summary Checklist for Building a Map Editor
 
-1. **Viewer / Export Pipeline:** Already functional via `tools/dump_room.py` and `tools/render_map.py` (composite PNG, collision contour, trigger overlays, full multi-layer composition).
-2. **Editing Workflow:**
-   - Modify the decompressed $W \times H$ metatile array and collision matrix.
-   - Compress Block 3 with LZSS (`LZSSCompressor`).
-   - Pack Block 2 using LZSS (`sub_flag 0x03`) or raw copy (`sub_flag 0x00`) to bypass Markov compression.
-3. **Injection Workflow:**
-   - Append new room blob to free ROM space.
-   - Update 4-byte pointer entry in table `$9FFDE7`.
-   - Update room enter script in Everscript to handle entity spawns.
+1. **Viewer / Export Pipeline:** Already functional via `tools/dump_room.py` and `tools/render_map.py` (composite PNG, per-plane collision contours, drift arrows, trigger overlays, full multi-layer composition).
+2. **Editing Workflow:** already functional via `tools/encode_room.py`:
+   - Modify the decompressed $W \times H$ metatile grid, collision words, triggers, or objects returned by `dump_room()`.
+   - `rebuild_model()` re-encodes Block 2 with the verified Markov encoder, Blocks 1 and 3 with LZSS or raw (whichever is smaller, or the original payload if that section is unchanged), and rebuilds the object area with vanilla-style block overlap.
+3. **Injection Workflow:** already functional via `write_room_into_rom()`:
+   - Writes the rebuilt blob in place — proven never to overflow the room's original footprint across all 127 vanilla rooms — or relocates it to free ROM space and repoints the 4-byte table entry at `$9FFDE7` otherwise.
+   - Still an editor's own responsibility: updating the room's Everscript enter script for any changed entity spawns.
+
+See `docs/map_encoding.md` for the encoder internals and their verification.
+
