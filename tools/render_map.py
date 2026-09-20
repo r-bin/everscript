@@ -30,6 +30,16 @@ from tools.dump_room import dump_room, DEFAULT_ROM_PATH, MAX_ROOMS, read16, read
 
 RGBA = Tuple[int, int, int, int]
 
+# One contour colour per elevation plane (collision word bits 5..4, see
+# tools/collision.py).  Plane 1 keeps the familiar red because 104 of the 127
+# vanilla rooms are plane-1 only, so single-level rooms look unchanged.
+PLANE_COLORS: Dict[int, Tuple[int, int, int]] = {
+    0: (0, 170, 255),
+    1: (235, 25, 25),
+    2: (0, 255, 170),
+    3: (190, 90, 255),
+}
+
 
 # ---------------------------------------------------------------------------
 # 1. Palette Extraction & CGRAM Building ($90D020 / $9CC322)
@@ -570,6 +580,38 @@ def draw_string_3x5(
 
 
 
+def draw_label_in_rect(
+    buf: bytearray,
+    stride_px: int,
+    height_px: int,
+    x1: int,
+    y1: int,
+    x2: int,
+    y2: int,
+    text: str,
+    color: RGBA = (255, 255, 255, 255),
+    anchor: str = "top",
+) -> None:
+    """
+    Draws a short index label just inside a corner of a bounding box, nudged so
+    it stays on-screen for boxes that start off the map edge.  Used for the
+    Section 3 object and trigger indices that cross-reference SoEScriptDumper's
+    `script_all` listing.
+
+    `anchor` picks the top-left or bottom-left corner.  Objects use "bottom" and
+    triggers "top" so the two stay readable where their boxes coincide -- the
+    3x5 font draws 'O' and '0' identically, so an "O5" prefix would be
+    ambiguous against a hex trigger id.
+    """
+    if x2 - x1 < 6 or y2 - y1 < 6:
+        return
+    text_w = len(text) * 4 - 1
+    x = max(2, min(x1 + 3, stride_px - text_w - 2))
+    y = y2 - 9 if anchor == "bottom" else y1 + 3
+    y = max(2, min(y, height_px - 8))
+    draw_string_3x5(buf, stride_px, x, y, text, color=color)
+
+
 def draw_text_3x5(
     buf: bytearray,
     stride_px: int,
@@ -1001,54 +1043,30 @@ class RoomRenderer:
         buf = bytearray(base_comp) if base_comp else bytearray(w_px * h_px * 4)
 
         if collision_mode in ("contour", "line"):
+            # Evaluated for the room's dominant elevation plane, using the
+            # engine's own decoder ($909DE8, ported in tools/collision.py).
+            # The unified composition layer shows every plane; this one shows
+            # the plane most of the room's walkable space belongs to.
+            from tools import collision as coll
+
+            planes = coll.planes_used(collision_words)
+            ref_plane = max(
+                planes,
+                key=lambda p: sum(1 for row in collision_words for cw in row
+                                  if coll.passability(cw, p) != coll.SOLID),
+            )
             solid = bytearray(w_px * h_px)
-            rid = self.room_data.get("room_id")
-
             for r in range(self.h_tiles):
+                base_y = r * 16
                 for c in range(self.w_tiles):
-                    cw = collision_words[r][c]
-                    low = cw & 0x0F
-                    base_y = r * 16
+                    code = coll.passability(collision_words[r][c], ref_plane)
+                    if code == coll.OPEN:
+                        continue
+                    rows = coll.GEOMETRY_ROWS[code]
                     base_x = c * 16
-
-                    # Traversable terrain with drift / slide / pipes
-                    is_slide = cw in (0x3014, 0x3024, 0x2024)
-                    is_pipe = (rid == 0x3D and (cw >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68))
-                    is_desert_drift = (rid == 0x1B and cw in (0x301D, 0x301E, 0x701D, 0x701E, 0x201E, 0x5010))
-
                     for py in range(16):
-                        y = base_y + py
-                        row_idx = y * w_px
-                        for px in range(16):
-                            x = base_x + px
-                            idx = row_idx + x
-
-                            if is_pipe or is_slide or is_desert_drift:
-                                is_s = False
-                            elif low == 0x0F:
-                                is_s = True
-                            elif low == 0x00:
-                                is_s = False
-                            elif low in (0x02, 0x06):  # SW slope: bottom-left solid
-                                is_s = (py >= px)
-                            elif low in (0x01, 0x05):  # SE slope: bottom-right solid
-                                is_s = (px + py >= 15)
-                            elif low in (0x0A, 0x0E):  # NW slope: top-left solid
-                                is_s = (px + py <= 15)
-                            elif low in (0x09, 0x0D):  # NE slope: top-right solid
-                                is_s = (py <= px)
-                            elif low in (0x03, 0x04):  # top barrier (obstacle below)
-                                is_s = (py >= 8)
-                            elif low in (0x0C, 0x0B):  # bottom barrier (obstacle above)
-                                is_s = (py < 8)
-                            elif low == 0x08:          # west barrier (obstacle to right)
-                                is_s = (px >= 8)
-                            elif low == 0x07:          # east barrier (obstacle to left)
-                                is_s = (px < 8)
-                            else:
-                                is_s = (low == 0x0F)
-
-                            solid[idx] = 1 if is_s else 0
+                        off = (base_y + py) * w_px + base_x
+                        solid[off:off + 16] = rows[py]
 
             # Find boundary pixels where solid touches walkable
             border = bytearray(w_px * h_px)
@@ -1161,20 +1179,20 @@ class RoomRenderer:
             return buf
 
         # Fallback: 'ascii' physical semantic mode with 7x7 glyphs
-        rid = self.room_data.get("room_id")
+        from tools import collision as coll
+
         for r in range(self.h_tiles):
             for c in range(self.w_tiles):
                 cw = collision_words[r][c]
-                low = cw & 0x0F
+                # The geometry code the engine would use for an entity on this
+                # tile's own plane -- bit 13 forces it open, which is what makes
+                # pipes, slides and drift walkable (tools/collision.py).
+                low = coll.passability(cw, coll.tile_plane(cw))
                 base_y = r * 16
                 base_x = c * 16
 
-                is_slide = cw in (0x3014, 0x3024, 0x2024)
-                is_pipe = (rid == 0x3D and (cw >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68))
-                is_desert_drift = (rid == 0x1B and cw in (0x301D, 0x301E, 0x701D, 0x701E, 0x201E, 0x5010))
-
                 glyph_char = None
-                if is_pipe or is_slide or is_desert_drift or low == 0x00:
+                if low == 0x00:
                     col = (35, 175, 50, 75)     # Walkable Floor / pipe / slide / drift (Soft Green)
                     glyph_char = None
                 elif low == 0x0F:
@@ -1277,6 +1295,8 @@ class RoomRenderer:
             px2 = (t["x2"] - ox) * 16
             py2 = (t["y2"] - oy) * 16
             draw_box(px1, py1, px2, py2, color=(255, 255, 0, 255), fill_color=(255, 255, 0, 119))
+            draw_label_in_rect(buf, self.w_pixels, self.h_pixels, px1, py1, px2, py2,
+                               f"{t['script_id']:X}", (255, 255, 140, 255))
 
         # 2. Step-on triggers (Pink / Magenta, matching soestuff.lua 0xff00ff: outline 0xFFFF00FF, fill 0x77FF00FF)
         for t in self.room_data["triggers"]["step_on"]:
@@ -1285,6 +1305,8 @@ class RoomRenderer:
             px2 = (t["x2"] - ox) * 16
             py2 = (t["y2"] - oy) * 16
             draw_box(px1, py1, px2, py2, color=(255, 0, 255, 255), fill_color=(255, 0, 255, 119))
+            draw_label_in_rect(buf, self.w_pixels, self.h_pixels, px1, py1, px2, py2,
+                               f"{t['script_id']:X}", (255, 160, 255, 255))
 
         return buf
 
@@ -1407,21 +1429,31 @@ class RoomRenderer:
         add_legend: bool = True,
     ) -> Tuple[bytearray, int, int]:
         """
-        Renders a unified single composition graphic integrating:
-        1. Base visual graphics (Layer 2 terrain + Layer 1 canopy)
-        2. Walkable vs non-walkable continuous red contour boundary line (2px, zero gaps)
-        3. Non-walkable solid walls & void (light red translucent tint, alpha ~ 0.22)
-        4. Floor awareness / multi-tier elevation:
-           - Plane 1 elevated walkways, overpasses, and bridges (soft purple translucent tint, alpha ~ 0.20)
-           - Plane 0 ground-level paths and underpass tunnels (clean composite visuals)
-        5. Friction & stairs (amber translucent tint, alpha ~ 0.40, with horizontal step rungs)
-        6. Drift conveyors (bright cyan translucent tint, alpha ~ 0.40, with directional flow chevrons)
-        7. Cuttable glass / grass / destructible barriers (vibrant green tint, alpha ~ 0.50, with diagonal crosshatch)
-        8. Dynamic map object tiles (soft blue translucent tint, alpha ~ 0.35, with 1px blue footprint border)
-        9. Event triggers:
-           - B-triggers (yellow bounding boxes, matching soestuff.lua 0xffff00)
-           - Step-on triggers (pink bounding boxes, matching soestuff.lua 0xff00ff)
-        10. Bottom legend banner (optional, default True) explaining every element and color.
+        Renders one image carrying every piece of room information:
+
+        1. Base visuals (Layer 2 terrain + Layer 1 canopy).
+        2. Per-elevation-plane passability contours.  The engine evaluates
+           collision relative to the plane the entity is standing on, so a room
+           with bridges or tunnels has a different walkable map per plane
+           (tools/collision.py).  Each plane gets its own colour; the room's
+           dominant plane is a solid 2px line and the others are dotted, so
+           overlapping levels read as crossing outlines rather than one blob.
+        3. Soft tint on the dominant plane's solid walls and void.
+        4. Forced-walkable tiles (collision bit 13) -- sewer pipes, volcano
+           slides, desert drift.  Deliberately no direction arrows: the sliding
+           direction comes from the entity's own facing, not from the map.
+        5. Plane-transparent tiles (collision bit 6) -- bridge and overpass
+           tiles you walk straight through while on another plane.
+        6. Elevation-change tiles, where crossing swaps your plane.
+        7. Entity-gated tiles (collision bit 8) -- solid for the boy, for the
+           dog, or for everything except them.
+        8. Cuttable grass (tools/cuttable_grass.py).
+        9. Section 3 object stamps and trigger boxes, labelled with the indices
+           SoEScriptDumper's `script_all` uses.
+        10. Optional header banner and bottom legend.
+
+        Nothing here keys off the room id or a hand-built word list; every
+        classification is a documented bitfield of the collision word.
         """
         w_px = self.w_pixels
         h_px = self.h_pixels
@@ -1429,208 +1461,128 @@ class RoomRenderer:
         h_tiles = self.h_tiles
         cw_grid = self.room_data["collision_int_words"]
         rid = self.room_data.get("room_id")
-        rom = self.rom
 
-        # 1. Feature maps
-        solid = bytearray(w_px * h_px)
-        drift_tiles: Dict[Tuple[int, int], str] = {}
-        stair_tiles: Set[Tuple[int, int]] = set()
-        plane1_tiles: Set[Tuple[int, int]] = set()
-        plane0_count = 0
-        plane1_count = 0
-
-        # Pre-compute pipe directions for Room 0x3D via BFS flow from inlets
-        pipe_dirs: Dict[Tuple[int, int], str] = {}
-        if rid == 0x3D:
-            pipe_set = set()
-            for r in range(h_tiles):
-                for c in range(w_tiles):
-                    if (cw_grid[r][c] >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68):
-                        pipe_set.add((c, r))
-
-            inlets = []
-            ox_trig = self.header["origin_x"]
-            oy_trig = self.header["origin_y"]
-            for t in self.room_data.get("triggers", {}).get("step_on", []):
-                tx1, ty1 = t["x1"] - ox_trig, t["y1"] - oy_trig
-                tx2, ty2 = t["x2"] - ox_trig, t["y2"] - oy_trig
-                for r in range(ty1, ty2):
-                    for c in range(tx1, tx2):
-                        if (c, r) in pipe_set and (c, r) not in inlets:
-                            inlets.append((c, r))
-
-            for inlet in inlets:
-                curr = inlet
-                visited_path = {curr}
-                path = [curr]
-                while True:
-                    cx, cy = curr
-                    candidates = []
-                    for dx, dy, dn in ((0, 1, 'down'), (1, 0, 'right'), (-1, 0, 'left'), (0, -1, 'up')):
-                        nb = (cx + dx, cy + dy)
-                        if nb in pipe_set and nb not in visited_path:
-                            candidates.append((nb, dn))
-                    if candidates:
-                        next_pt, dn = candidates[0]
-                        pipe_dirs[curr] = dn
-                        visited_path.add(next_pt)
-                        path.append(next_pt)
-                        curr = next_pt
-                    else:
-                        if len(path) >= 2:
-                            pipe_dirs[curr] = pipe_dirs[path[-2]]
-                        else:
-                            pipe_dirs[curr] = 'down'
-                        break
-
-            for pt in pipe_set:
-                if pt not in pipe_dirs:
-                    c, r = pt
-                    if (c, r - 1) in pipe_set or (c, r + 1) in pipe_set:
-                        pipe_dirs[pt] = 'down'
-                    elif (c + 1, r) in pipe_set:
-                        pipe_dirs[pt] = 'right'
-                    else:
-                        pipe_dirs[pt] = 'left'
-
-        for r in range(h_tiles):
-            for c in range(w_tiles):
-                cw = cw_grid[r][c]
-                low = cw & 0x0F
-                base_y = r * 16
-                base_x = c * 16
-
-                is_slide = cw in (0x3014, 0x3024, 0x2024, 0x7014, 0x7024)
-                is_pipe = (rid == 0x3D and (cw >> 8) in (0x20, 0x24, 0x28, 0x38, 0x60, 0x64, 0x68))
-                is_desert_drift = (rid in (0x1B, 0x59) and cw in (0x301D, 0x301E, 0x701D, 0x701E, 0x201E, 0x5010))
-                is_stair = (((cw >> 4) & 0x0F) in (5, 6)) or (cw in (0x1050, 0x105D, 0x0060, 0x0062)) or is_slide
-
-                if is_stair:
-                    stair_tiles.add((c, r))
-                elif is_pipe and (c, r) in pipe_dirs:
-                    drift_tiles[(c, r)] = pipe_dirs[(c, r)]
-                elif is_desert_drift:
-                    if cw in (0x301D, 0x701D): drift_tiles[(c, r)] = "left"
-                    elif cw in (0x301E, 0x701E, 0x201E): drift_tiles[(c, r)] = "right"
-                    else: drift_tiles[(c, r)] = "down"
-
-                if low != 0x0F:
-                    if (cw >> 12) >= 1:
-                        plane1_count += 1
-                        plane1_tiles.add((c, r))
-                    else:
-                        plane0_count += 1
-
-                for py in range(16):
-                    y = base_y + py
-                    row_idx = y * w_px
-                    for px in range(16):
-                        x = base_x + px
-                        idx = row_idx + x
-
-                        if is_pipe or is_slide or is_desert_drift:
-                            is_s = False
-                        elif low == 0x0F:
-                            is_s = True
-                        elif low == 0x00:
-                            is_s = False
-                        elif low in (0x02, 0x06):
-                            is_s = (py >= px)
-                        elif low in (0x01, 0x05):
-                            is_s = (px + py >= 15)
-                        elif low in (0x0A, 0x0E):
-                            is_s = (px + py <= 15)
-                        elif low in (0x09, 0x0D):
-                            is_s = (py <= px)
-                        elif low in (0x03, 0x04):
-                            is_s = (py >= 8)
-                        elif low in (0x0C, 0x0B):
-                            is_s = (py < 8)
-                        elif low == 0x08:
-                            is_s = (px >= 8)
-                        elif low == 0x07:
-                            is_s = (px < 8)
-                        else:
-                            is_s = (low == 0x0F)
-
-                        solid[idx] = 1 if is_s else 0
-
-        # Only tint Plane 1 if the room has multi-tier elevation (stairs or both planes with >10 tiles)
-        has_multi_tier = (len(stair_tiles) > 0) or (plane0_count > 10 and plane1_count > 10)
-
-        # 2. Cuttable grass patches
-        # Terrain tiles whose metatile ID appears in the room's metatile swap
-        # table (identification logic shared with tools/dump_room.py; see
-        # tools/cuttable_grass.py for the layout and the Mesen2 trace evidence).
-        from tools.cuttable_grass import find_cuttable_grass_tiles
+        from tools import collision as coll
 
         ox = self.header["origin_x"]
         oy = self.header["origin_y"]
+
+        # 1. Cuttable grass: a temporary barrier, not map geometry, so it is
+        #    excluded from every plane's contour (see tools/cuttable_grass.py).
+        from tools.cuttable_grass import find_cuttable_grass_tiles
         cuttable_tiles: Set[Tuple[int, int]] = find_cuttable_grass_tiles(self.room_data)
 
-        # 3. Object footprints.  Section 3 objects are a separate mechanism from
-        # cuttable terrain and are all drawn; none are filtered out here.
+        grass_px = bytearray(w_px * h_px)
+        for (tx, ty) in cuttable_tiles:
+            for py in range(16):
+                row_off = (ty * 16 + py) * w_px + tx * 16
+                grass_px[row_off:row_off + 16] = b"\x01" * 16
+
+        # 2. Per-plane solid masks, evaluated exactly as $909DE8 would for an
+        #    entity standing on that plane.
+        planes = coll.planes_used(cw_grid)
+        plane_solid: Dict[int, bytearray] = {}
+        plane_walkable: Dict[int, int] = {}
+        for p in planes:
+            mask = bytearray(w_px * h_px)
+            walkable = 0
+            for r in range(h_tiles):
+                base_y = r * 16
+                row = cw_grid[r]
+                for c in range(w_tiles):
+                    code = coll.passability(row[c], p)
+                    if code != coll.SOLID:
+                        walkable += 1
+                    if code == coll.OPEN:
+                        continue
+                    rows = coll.GEOMETRY_ROWS[code]
+                    base_x = c * 16
+                    for py in range(16):
+                        off = (base_y + py) * w_px + base_x
+                        mask[off:off + 16] = rows[py]
+            plane_solid[p] = mask
+            plane_walkable[p] = walkable
+
+        main_plane = max(planes, key=lambda p: plane_walkable[p])
+        solid = plane_solid[main_plane]
+
+        # 3. Special-terrain sets, all straight out of the collision bits.
+        forced_walk_tiles: Set[Tuple[int, int]] = set()
+        transparent_tiles: Set[Tuple[int, int]] = set()
+        gated_tiles: Dict[Tuple[int, int], int] = {}
+        for r in range(h_tiles):
+            for c in range(w_tiles):
+                cw = cw_grid[r][c]
+                if coll.is_always_walkable(cw):
+                    forced_walk_tiles.add((c, r))
+                if coll.is_plane_transparent(cw):
+                    transparent_tiles.add((c, r))
+                gate = coll.entity_gate(cw)
+                if gate in coll.GATE_BLOCKS:
+                    gated_tiles[(c, r)] = gate
+        transition_tiles = coll.plane_transition_tiles(cw_grid)
+
+        # 4. Object footprints.  Section 3 objects are a separate mechanism
+        #    from terrain collision and are all drawn.
         object_rects: List[Tuple[int, int, int, int, int]] = []
         for obj in self.room_data.get("objects", []):
             oid = obj["object_index"]
-            states = obj.get("states", [])
-            for s in states:
+            for s in obj.get("states", []):
                 tx, ty = s["tile_x"], s["tile_y"]
                 w = max(s.get("target_width", s.get("width", 1)), 1)
                 h = max(s.get("target_height", 1), 1)
                 object_rects.append((tx, ty, w, h, oid))
 
-        # Cuttable grass is invisible to the collision contour: it is a
-        # temporary barrier, not map geometry, so the red wall outline neither
-        # runs along it nor treats it as a hole punched in a solid mass.  It
-        # gets its own green contour in step 10 below.
-        grass_px = bytearray(w_px * h_px)
-        for (tx, ty) in cuttable_tiles:
-            base_y = ty * 16
-            base_x = tx * 16
-            for py in range(16):
-                row_off = (base_y + py) * w_px + base_x
-                for px in range(16):
-                    idx = row_off + px
-                    if 0 <= idx < len(grass_px):
-                        grass_px[idx] = 1
-
-        # 4. Continuous 2px border
-        border = bytearray(w_px * h_px)
-        for y in range(h_px):
-            y_off = y * w_px
-            for x in range(w_px):
-                idx = y_off + x
-                if solid[idx] == 1 and grass_px[idx] == 0:
+        # 5. Contour each plane.  Cuttable grass is transparent to all of them.
+        def contour(mask: bytearray) -> bytearray:
+            edge = bytearray(w_px * h_px)
+            for y in range(h_px):
+                y_off = y * w_px
+                for x in range(w_px):
+                    idx = y_off + x
+                    if mask[idx] != 1 or grass_px[idx]:
+                        continue
                     for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                         ny, nx = y + dy, x + dx
                         if 0 <= ny < h_px and 0 <= nx < w_px:
                             n_idx = ny * w_px + nx
-                            if solid[n_idx] == 0 and grass_px[n_idx] == 0:
-                                border[idx] = 1
+                            if mask[n_idx] == 0 and grass_px[n_idx] == 0:
+                                edge[idx] = 1
                                 break
+            thick = bytearray(edge)
+            for y in range(h_px):
+                y_off = y * w_px
+                for x in range(w_px):
+                    if edge[y_off + x] == 1:
+                        for dy in (-1, 0, 1):
+                            for dx in (-1, 0, 1):
+                                ny, nx = y + dy, x + dx
+                                if 0 <= ny < h_px and 0 <= nx < w_px:
+                                    thick[ny * w_px + nx] = 1
+            return thick
 
-        thick_border = bytearray(border)
-        for y in range(h_px):
-            y_off = y * w_px
-            for x in range(w_px):
-                if border[y_off + x] == 1:
-                    for dy in (-1, 0, 1):
-                        for dx in (-1, 0, 1):
-                            ny, nx = y + dy, x + dx
-                            if 0 <= ny < h_px and 0 <= nx < w_px:
-                                thick_border[ny * w_px + nx] = 1
+        plane_border: Dict[int, bytearray] = {p: contour(plane_solid[p]) for p in planes}
+        thick_border = plane_border[main_plane]
 
-        # 5. Output buffer
-        legend_items = [
-            ((235, 25, 25), "WALL/SOLID"),
-            ((156, 39, 176), "PLANE 1 (ELEVATED)"),
-            ((255, 152, 0), "STAIRS/FRICTION"),
-            ((0, 188, 212), "DRIFT/SLIDE/PIPE"),
-            ((76, 175, 80), "CUTTABLE GRASS"),
-            ((33, 150, 243), "OBJECT STAMP"),
-            ((255, 255, 0), "B-TRIGGER"),
-            ((255, 0, 255), "STEP-ON"),
+        # 6. Output buffer + legend
+        legend_items: List[Tuple[Tuple[int, int, int], str]] = []
+        for p in planes:
+            suffix = "" if p == main_plane else " (DOTTED)"
+            legend_items.append((PLANE_COLORS[p], f"PLANE {p} BOUNDARY{suffix}"))
+        if forced_walk_tiles:
+            legend_items.append(((0, 188, 212), "FORCED WALKABLE (BIT 13)"))
+        if transparent_tiles:
+            legend_items.append(((156, 39, 176), "PLANE-TRANSPARENT (BIT 6)"))
+        if transition_tiles:
+            legend_items.append(((255, 152, 0), "ELEVATION CHANGE"))
+        if gated_tiles:
+            legend_items.append(((235, 235, 235), "ENTITY GATE (BIT 8)"))
+        if cuttable_tiles:
+            legend_items.append(((76, 175, 80), "CUTTABLE GRASS"))
+        legend_items += [
+            ((33, 150, 243), "OBJECT STAMP (N BOTTOM-LEFT = SCRIPT_ALL OBJ N)"),
+            ((255, 255, 0), "B-TRIGGER (HEX TOP-LEFT = SCRIPT_ALL ID)"),
+            ((255, 0, 255), "STEP-ON (HEX TOP-LEFT = SCRIPT_ALL ID)"),
         ]
         legend_rows: List[List[Tuple[Tuple[int, int, int], str]]] = []
         if add_legend:
@@ -1665,82 +1617,92 @@ class RoomRenderer:
             buf[p_off + 2] = int(b * alpha + buf[p_off + 2] * inv)
             buf[p_off + 3] = 255
 
-        # 6. Base tints:
-        # Walkable Plane 1 -> Soft Purple (156, 39, 176, alpha 0.20)
-        # Solid Wall -> Soft Red (220, 20, 20, alpha 0.22)
-        for r in range(h_tiles):
-            for c in range(w_tiles):
-                is_p1 = (c, r) in plane1_tiles and has_multi_tier
-                for py in range(16):
-                    y = r * 16 + py
-                    row_off = y * w_px
-                    for px in range(16):
-                        x = c * 16 + px
-                        idx = row_off + x
-                        p_off = idx * 4
-                        if thick_border[idx] == 1:
-                            buf[p_off] = 235
-                            buf[p_off + 1] = 25
-                            buf[p_off + 2] = 25
-                            buf[p_off + 3] = 255
-                        elif solid[idx] == 1 and grass_px[idx] == 0:
-                            blend_pixel(x, y, 220, 20, 20, 0.22)
-                        elif is_p1:
-                            blend_pixel(x, y, 156, 39, 176, 0.20)
+        # 7. Solid tint for the dominant plane, then the plane contours.
+        #    Secondary planes are dashed so crossings stay readable.
+        main_r, main_g, main_b = PLANE_COLORS[main_plane]
+        for idx in range(w_px * h_px):
+            if solid[idx] == 1 and grass_px[idx] == 0 and thick_border[idx] == 0:
+                y, x = divmod(idx, w_px)
+                blend_pixel(x, y, 220, 20, 20, 0.20)
 
-        # 7. Dynamic Object Tiles -> Soft Blue (33, 150, 243, alpha 0.35) + 1px blue perimeter border
+        for idx in range(w_px * h_px):
+            if thick_border[idx] == 1:
+                p_off = idx * 4
+                buf[p_off] = main_r
+                buf[p_off + 1] = main_g
+                buf[p_off + 2] = main_b
+                buf[p_off + 3] = 255
+
+        # Secondary planes ride on top as dashes, so where two planes share a
+        # boundary you see the dash pattern over the solid line, and where they
+        # differ (a tunnel under a bridge) the two outlines cross.
+        for p in planes:
+            if p == main_plane:
+                continue
+            pr, pg, pb = PLANE_COLORS[p]
+            border = plane_border[p]
+            for idx in range(w_px * h_px):
+                if border[idx] == 0:
+                    continue
+                y, x = divmod(idx, w_px)
+                if ((x + y) // 3) % 2:
+                    continue
+                p_off = idx * 4
+                buf[p_off] = pr
+                buf[p_off + 1] = pg
+                buf[p_off + 2] = pb
+                buf[p_off + 3] = 255
+
+        # 8. Forced-walkable tiles (bit 13): cyan wash, no direction glyphs.
+        for (tc, tr) in forced_walk_tiles:
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                for px in range(16):
+                    blend_pixel(bx + px, by + py, 0, 188, 212, 0.34)
+
+        # 9. Plane-transparent tiles (bit 6): purple wash.
+        for (tc, tr) in transparent_tiles:
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                for px in range(16):
+                    blend_pixel(bx + px, by + py, 156, 39, 176, 0.30)
+
+        # 9b. Elevation-change tiles: amber wash + step rungs.
+        for (tc, tr) in transition_tiles:
+            bx, by = tc * 16, tr * 16
+            for py in range(16):
+                for px in range(16):
+                    if py in (3, 7, 11, 15) and 2 <= px <= 13:
+                        blend_pixel(bx + px, by + py, 255, 220, 50, 0.90)
+                    else:
+                        blend_pixel(bx + px, by + py, 255, 152, 0, 0.34)
+
+        # 9c. Entity-gated tiles (bit 8): dashed light border + gate digit.
+        for (tc, tr), gate in gated_tiles.items():
+            bx, by = tc * 16, tr * 16
+            for i in range(16):
+                if i % 4 < 2:
+                    blend_pixel(bx + i, by, 235, 235, 235, 0.95)
+                    blend_pixel(bx + i, by + 15, 235, 235, 235, 0.95)
+                    blend_pixel(bx, by + i, 235, 235, 235, 0.95)
+                    blend_pixel(bx + 15, by + i, 235, 235, 235, 0.95)
+
+        # 9d. Object stamps -> soft blue tint + 1px perimeter.
+        # Index labels are collected here and drawn last, so later passes
+        # cannot paint over them.  Text matches SoEScriptDumper's `script_all`:
+        # objects are "UNLOAD OBJ <n>" there, triggers are "(id:<hex>)".
+        index_labels: List[Tuple[int, int, int, int, str, RGBA, str]] = []
         for tx, ty, w, h, oid in object_rects:
             x1, y1 = tx * 16, ty * 16
             x2, y2 = (tx + w) * 16 - 1, (ty + h) * 16 - 1
             for y in range(y1, y2 + 1):
                 for x in range(x1, x2 + 1):
                     if 0 <= y < h_px and 0 <= x < w_px:
-                        is_b = (y == y1 or y == y2 or x == x1 or x == x2)
-                        if is_b:
+                        if y in (y1, y2) or x in (x1, x2):
                             blend_pixel(x, y, 33, 150, 243, 0.90)
                         else:
                             blend_pixel(x, y, 33, 150, 243, 0.32)
-
-        # 8. Stairs & Friction -> Amber (255, 160, 0, alpha 0.40) + Step Rungs
-        for (tc, tr) in stair_tiles:
-            bx, by = tc * 16, tr * 16
-            for py in range(16):
-                for px in range(16):
-                    x, y = bx + px, by + py
-                    is_rung = (py in (3, 7, 11, 15)) and (2 <= px <= 13)
-                    if is_rung:
-                        blend_pixel(x, y, 255, 220, 50, 0.90)
-                    else:
-                        blend_pixel(x, y, 255, 152, 0, 0.38)
-
-        # 9. Drift Conveyors -> Bright Cyan (0, 188, 212, alpha 0.40) + Directional Chevrons
-        for (tc, tr), d_dir in drift_tiles.items():
-            bx, by = tc * 16, tr * 16
-            for py in range(16):
-                for px in range(16):
-                    x, y = bx + px, by + py
-                    blend_pixel(x, y, 0, 188, 212, 0.38)
-            # Chevrons aligned with flow direction
-            if d_dir == "down":
-                for cy in (by + 4, by + 10):
-                    for dx in range(-4, 5):
-                        dy = -(abs(dx) // 2)
-                        blend_pixel(bx + 8 + dx, cy + 2 + dy, 255, 255, 255, 0.95)
-            elif d_dir == "up":
-                for cy in (by + 6, by + 12):
-                    for dx in range(-4, 5):
-                        dy = abs(dx) // 2
-                        blend_pixel(bx + 8 + dx, cy - 2 + dy, 255, 255, 255, 0.95)
-            elif d_dir == "right":
-                for cx in (bx + 4, bx + 10):
-                    for dy in range(-4, 5):
-                        dx = -(abs(dy) // 2)
-                        blend_pixel(cx + 2 + dx, by + 8 + dy, 255, 255, 255, 0.95)
-            else:  # left
-                for cx in (bx + 6, bx + 12):
-                    for dy in range(-4, 5):
-                        dx = abs(dy) // 2
-                        blend_pixel(cx - 2 + dx, by + 8 + dy, 255, 255, 255, 0.95)
+            index_labels.append((x1, y1, x2, y2, str(oid), (150, 210, 255, 255), "bottom"))
 
         # 10. Cuttable Grass -> soft green fill + continuous 2px green contour,
         #     drawn in the same outlined-box style as the red wall boundary.
@@ -1804,6 +1766,7 @@ class RoomRenderer:
             px2 = (t["x2"] - ox) * 16
             py2 = (t["y2"] - oy) * 16
             draw_box(px1, py1, px2, py2, color=(255, 255, 0, 255), fill_color=(255, 255, 0, 85))
+            index_labels.append((px1, py1, px2, py2, f"{t['script_id']:X}", (255, 255, 140, 255), "top"))
 
         for t in self.room_data["triggers"]["step_on"]:
             px1 = (t["x1"] - ox) * 16
@@ -1811,6 +1774,11 @@ class RoomRenderer:
             px2 = (t["x2"] - ox) * 16
             py2 = (t["y2"] - oy) * 16
             draw_box(px1, py1, px2, py2, color=(255, 0, 255, 255), fill_color=(255, 0, 255, 85))
+            index_labels.append((px1, py1, px2, py2, f"{t['script_id']:X}", (255, 160, 255, 255), "top"))
+
+        # 11b. Index labels (drawn last so nothing paints over them)
+        for lx1, ly1, lx2, ly2, text, lcolor, anchor in index_labels:
+            draw_label_in_rect(buf, w_px, h_px, lx1, ly1, lx2, ly2, text, lcolor, anchor)
 
         # 12. Legend Banner
         if add_legend:
@@ -1850,11 +1818,20 @@ class RoomRenderer:
         segments = [
             f"ROOM 0x{rid:02X}" if rid is not None else "ROOM ?",
             f"{w_tiles}X{h_tiles} TILES",
+            "PLANES " + ",".join(str(p) for p in planes),
             f"OBJECTS {len(self.room_data.get('objects', []))}",
             f"B-TRIGGERS {len(b_trig)}",
             f"STEP-ON {len(step_on)}",
             f"CUTTABLE GRASS {len(cuttable_tiles)}",
         ]
+        if forced_walk_tiles:
+            segments.append(f"FORCED WALKABLE {len(forced_walk_tiles)}")
+        if transparent_tiles:
+            segments.append(f"PLANE-TRANSPARENT {len(transparent_tiles)}")
+        if transition_tiles:
+            segments.append(f"ELEV CHANGE {len(transition_tiles)}")
+        if gated_tiles:
+            segments.append(f"ENTITY GATES {len(gated_tiles)}")
         header_lines: List[str] = []
         cur = ""
         for seg in segments:
