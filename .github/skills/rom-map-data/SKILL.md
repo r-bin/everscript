@@ -1,17 +1,37 @@
 ---
 name: rom-map-data
-description: Experimental guide on reverse-engineering Secret of Evermore map data, tilemap layouts, collision layers, and tileset compression from the ROM.
+description: Secret of Evermore map data in ROM -- room blob layout, the three compressed payload blocks, the collision word bitfield, and which document answers which question. Start here for anything about map/room binary format.
 ---
 
-# ROM Map Data & Tilemap Architecture (Experimental)
+# ROM Map Data & Tilemap Architecture
 
-Understanding how Secret of Evermore stores, decompresses, and renders map data is an ongoing reverse-engineering effort. This guide outlines the current state of knowledge regarding ROM map pointers, tilemaps, collision layers, and external tooling.
+How Secret of Evermore stores, decompresses, re-encodes, and renders map data. The format is
+**fully decoded in both directions** -- `tools/encode_room.py` round-trips every one of the 127
+rooms byte-exactly -- so treat what follows as established fact, not a work in progress, except
+where a line is explicitly marked UNVERIFIED.
+
+## 0. Which document answers which question
+
+This skill is the map-data index. The detail lives in `docs/`:
+
+| Question | Document |
+|---|---|
+| Where is each room in ROM? How big? Which rooms use elevation planes? | [.github/rom-map.md](file:///Users/v/Documents/GitHub/everscript/.github/rom-map.md) -- all 127 blobs, offsets, sizes, compression flags |
+| How was the decompression pipeline reverse-engineered? | [docs/map_decompression_trace_analysis.md](file:///Users/v/Documents/GitHub/everscript/docs/map_decompression_trace_analysis.md) |
+| How do I write a room *back* to the ROM? | [docs/map_encoding.md](file:///Users/v/Documents/GitHub/everscript/docs/map_encoding.md) -- container layout, LZSS + Markov encoders, the never-grows guarantee |
+| What does a collision word mean? Planes, drift, entity gates? | [docs/map_collision_mechanics.md](file:///Users/v/Documents/GitHub/everscript/docs/map_collision_mechanics.md) |
+| How does cuttable grass work? | [docs/cuttable_grass_mechanics.md](file:///Users/v/Documents/GitHub/everscript/docs/cuttable_grass_mechanics.md) |
+| How are Section 3 objects structured? | [docs/map_objects.md](file:///Users/v/Documents/GitHub/everscript/docs/map_objects.md) |
+| How do I turn a room into a PNG? Mode 1 compositing? | [docs/map_rendering_pipeline.md](file:///Users/v/Documents/GitHub/everscript/docs/map_rendering_pipeline.md) |
+| How are CHR tile graphics decompressed? | [docs/map_tile_graphics_decompression.md](file:///Users/v/Documents/GitHub/everscript/docs/map_tile_graphics_decompression.md) |
+| How are palettes built? | [docs/map_palette_extraction.md](file:///Users/v/Documents/GitHub/everscript/docs/map_palette_extraction.md) |
+| What would a map editor look like? What's still missing? | [docs/map_editor_design.md](file:///Users/v/Documents/GitHub/everscript/docs/map_editor_design.md), [docs/map_editor_architecture_and_limitations.md](file:///Users/v/Documents/GitHub/everscript/docs/map_editor_architecture_and_limitations.md) |
 
 ---
 
 ## 1. Room Header & Trigger Table Structure
 
-Each of the 127 maps in the game (`0x00` through `0x7E`) is referenced via the master **Map Pointer Table** in ROM (`$9FFDE7` / ROM file `0x1FFDE7`):
+Each of the 127 maps in the game (`0x00` through `0x7E`) is referenced via the master **Map Pointer Table** in ROM (`$9FFDE7` / ROM file `0x1FFDE7`). The table entry at `0x7F` is **not** a room -- see `.github/rom-map.md` §2 for the check that proves it:
 - The pointer table uses a **4-byte stride** per room (`table + room_id * 4`), with each entry containing a 24-bit pointer plus 1 padding byte.
 - The room blob begins with a **13-byte header** (offsets `$00..$0C`), read by the engine loader at `$908F80..$909050`:
 
@@ -169,7 +189,27 @@ The SNES engine loader (`$908F60..$909180`) resolves all payload sub-blocks **10
      ```
 3. **Mesen2 PPU Viewer**:
    - Inspect VRAM tilemaps (BG1/BG2) and CGRAM palettes in real time to capture new ground-truth dumps.
-4. **Open Research Questions**:
-   - Full decoding of the Slice 2 collision attribute bitmask (determining how elevation levels, stairs, water, and pits interact with player collision).
+4. **`tools/encode_room.py` Writer** -- the inverse of the extractor:
+   ```bash
+   python3 tools/encode_room.py --verify           # byte-exact round-trip, all 127 rooms
+   python3 tools/encode_room.py --verify-rebuild   # re-encoded round-trip, all 127 rooms
+   python3 tools/encode_room.py 0x38 --rebuild --compress --out room38.bin
+   ```
+   See `docs/map_encoding.md`. `rebuild_model()` + `write_room_into_rom()` is the write path a
+   map editor uses; a rebuilt blob is never larger than the original for any vanilla room.
+
+5. **Resolved since this skill was first written** (do not re-derive these):
+   - **Slice 2 collision bitmask: fully decoded.** Bits 3..0 geometry, bits 5..4 **elevation
+     plane** (not bits 15..12, as once assumed), bit 6 plane-transparency, bit 8 + bits 11..8
+     entity gates, bit 13 always-walkable *and* the low nibble becomes a **drift direction**.
+     Ported to `tools/collision.py` from `$909DE8`/`$8FA914`/`$8FAD9F`. See
+     `docs/map_collision_mechanics.md`.
+   - **Cuttable grass: fully decoded.** A metatile swap table in Section 4, driven by `$90A6EF`.
+     See `docs/cuttable_grass_mechanics.md`.
+   - **Payload block discovery is deterministic**, as §3 already described -- `dump_room.py` now
+     uses `parse_blob_layout()` rather than the old signature scan, which mis-parsed room `0x15`.
+
+6. **Still open**:
+   - Collision word bits 12 and 15..14 (read by the sprite-priority routine `$8FC780`).
    - Dynamic tile animation triggers (e.g. scrolling waterfall or bubbling swamp tiles).
 

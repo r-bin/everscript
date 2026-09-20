@@ -182,15 +182,20 @@ The remaining gap for a full editor is UI, not format understanding: every byte 
 
 ## 7. Is the Total Number of Maps Limited?
 
-### 7.1 Vanilla Limit: 128 Rooms (`0x00..0x7F`)
-- The vanilla ROM defines **128 rooms**.
+### 7.1 Vanilla Limit: 127 Rooms (`0x00..0x7E`)
+- The vanilla ROM defines **127 rooms**, `0x00` through `0x7E` — not 128.
+  The entry at index `0x7F` is not a room: its padding byte is `0xCC` where every real entry's is
+  `0x00`, and the bytes it points at do not parse as a room blob (Block 2 reports `sub_flag 0x09`
+  where the loader requires `0x07`). See [.github/rom-map.md](file:///Users/v/Documents/GitHub/everscript/.github/rom-map.md) §2,
+  which lists all 127 and shows the check. `MAX_ROOMS = 127` in `tools/dump_room.py` is correct.
 - The Map Pointer Table starts at `$9FFDE7` (`0x1FFDE7` in ROM file).
 - The table is located near the end of Bank `$9F` (`$9F8000..$9FFFFF`), which terminates at `0x1FFFFF`.
 - Space remaining in Bank `$9F`:
   $$0x1FFFFF - 0x1FFDE7 = 536\text{ bytes} \implies \frac{536}{4} = \mathbf{134\text{ entries}}$$
-- Without relocation, you can only add **6 additional rooms** (`0x80..0x85`) before overflowing Bank `$9F`.
+- Without relocation, you can add **7 additional rooms** (`0x7F..0x85`) before overflowing Bank `$9F`
+  — `0x7F` itself being the first free slot, since it holds no room today.
 
-### 7.2 Expanding Beyond 128 Rooms
+### 7.2 Expanding Beyond 127 Rooms
 Can the map table be expanded? **Yes, up to 256 rooms easily.**
 
 1. **Engine Room Loading Hook (`$908F6A`):**

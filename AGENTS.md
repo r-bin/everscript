@@ -49,6 +49,7 @@ These instructions apply to all AI assistants and agent environments working in 
 | **Architecture Guide** | [architecture.md](file:///Users/v/Documents/GitHub/everscript/architecture.md) | Full compilation pipeline and repository layout. |
 | **Authoritative Constants** | [in/core/main.evs](file:///Users/v/Documents/GitHub/everscript/in/core/main.evs) | Single source of truth for addresses, enums, functions. |
 | **WRAM Map** | [.github/memory-map.md](file:///Users/v/Documents/GitHub/everscript/.github/memory-map.md) | Single source of truth for vanilla Evermore RAM. |
+| **ROM Map** | [.github/rom-map.md](file:///Users/v/Documents/GitHub/everscript/.github/rom-map.md) | Single source of truth for ROM layout and all 127 room blobs (offsets, sizes, compression). |
 | **Kaizo Todo / Backlog** | [dev_notes.md](file:///Users/v/Documents/GitHub/everscript/dev_notes.md) | Active bugs, boss tuning, and scope for Kaizo release. |
 | **Vanilla Oddities** | [vanilla_bugs_and_oddities.md](file:///Users/v/Documents/GitHub/everscript/vanilla_bugs_and_oddities.md) | Catalog of vanilla bugs to distinguish from new regressions. |
 | **Script Dump** | `/Users/v/Documents/GitHub/SoETilesViewer/SoEScriptDumper/script_all` | Raw disassemblies from sibling SoETilesViewer project. |
@@ -72,11 +73,14 @@ Operational workflows and runbooks live in `.github/skills/` (aliased at `.agent
 - **Patching & ASM:**
   - `snes-asm-asar-patching`: Writing 65c816 hooks in `patches/` with Asar safely without crashing.
   - `ips-patch-format`: Binary IPS structure and patch utilities.
+- **Maps & Room Data:**
+  - `rom-map-data`: Room blob layout, the three payload blocks, the collision bitfield — and the index of which `docs/` file answers which map question.
+  - `map-tooling`: Driving `tools/dump_room.py`, `encode_room.py`, `render_map.py`, `collision.py`, `cuttable_grass.py` to read, render and write room data.
 - **Reverse Engineering & Debugging:**
   - `mesen2-debugging-re`: Using Mesen2 debugger, memory viewer, and breakpoints to discover unknown data.
+  - `soetilesviewer`: The sibling SoETilesViewer/SoEScriptDumper project — ROM resource tables, tile/sprite formats, `script_all`.
   - `everscript-core-reference`: Structure of `in/core/` and how to extend constants.
   - `everscript-bytecode-vm`: The script virtual machine, bytecode format, and opcodes.
 - **Game Design & Mechanics:**
   - `kaizo-design-philosophy`: Kaizo difficulty, boss tuning, and backlog triage.
   - `metroidvania-mechanics`: Weapon gates (`$235F`/`$2360`) and ability barriers.
-  - `rom-map-data`: Experimental ROM map loading, geometry, and tileset routines.

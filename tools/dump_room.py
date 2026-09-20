@@ -655,6 +655,10 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     result["cuttable_grass_tile_count"] = len(result["cuttable_grass_tiles"])
     result["cuttable_grass_warnings"] = check_table_invariants(result)
 
+    from tools.collision import planes_used
+    result["elevation_planes"] = planes_used(result["collision_int_words"])
+    result["elevation_plane_count"] = len(result["elevation_planes"])
+
     return result
 
 def get_room_vram_words(room_id: int, rom_path: str = DEFAULT_ROM_PATH, layer: int = 1) -> list[list[int]]:
@@ -852,6 +856,7 @@ def main():
     print(f"Tile Families:   {', '.join(res['tile_families'])}")
     print(f"Triggers:        Step-on: {res['triggers']['step_on_count']}, B-Trigger: {res['triggers']['b_trigger_count']}")
     print(f"Cuttable Grass:  {res['cuttable_grass_tile_count']} tiles")
+    print(f"Elevation Planes: {res['elevation_plane_count']} ({', '.join(str(p) for p in res['elevation_planes'])})")
 
     obj_cnt = res['object_count']
     if obj_cnt == 0:

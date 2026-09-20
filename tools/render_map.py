@@ -1851,7 +1851,7 @@ class RoomRenderer:
         segments = [
             f"ROOM 0x{rid:02X}" if rid is not None else "ROOM ?",
             f"{w_tiles}X{h_tiles} TILES",
-            "PLANES " + ",".join(str(p) for p in planes),
+            f"PLANES {len(planes)} ({','.join(str(p) for p in planes)})",
             f"OBJECTS {len(self.room_data.get('objects', []))}",
             f"B-TRIGGERS {len(b_trig)}",
             f"STEP-ON {len(step_on)}",
