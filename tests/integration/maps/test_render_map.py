@@ -155,11 +155,14 @@ def test_render_map_cli(tmp_path):
         "--collision",
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    assert "Successfully generated 4 image(s)" in proc.stdout
+    # Default set is layer1, layer2, composite and the all-in-one composition,
+    # plus the explicitly requested collision layer.
+    assert "Successfully generated 5 image(s)" in proc.stdout
 
     assert os.path.exists(os.path.join(out_dir, "room_0x33_layer1.png"))
     assert os.path.exists(os.path.join(out_dir, "room_0x33_layer2.png"))
     assert os.path.exists(os.path.join(out_dir, "room_0x33_composite.png"))
+    assert os.path.exists(os.path.join(out_dir, "room_0x33_composition.png"))
     assert os.path.exists(os.path.join(out_dir, "room_0x33_collision.png"))
 
 
@@ -693,8 +696,9 @@ def test_render_composition_unified_layer(tmp_path):
 
     from PIL import Image
     with Image.open(path_comp) as img:
-        # Base Room 0x3B is 80x89 metatiles = 1280x1424 px, plus 36px legend banner = 1460 px
-        assert img.size == (1280, 1460)
+        # Base Room 0x3B is 80x89 metatiles = 1280x1424 px, plus an 18px header
+        # banner on top and a 2-row (46px) legend banner below.
+        assert img.size == (1280, 1424 + 18 + 46)
 
     # Test with with_legend=False
     files_no_leg = render_room_layers(

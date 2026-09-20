@@ -245,6 +245,82 @@ def _scan_sub_block(rom, start, end, sub_flag_match, size_match=None):
     return None
 
 
+def parse_blob_layout(rom: bytes, blob_offset: int) -> dict:
+    """
+    Resolve every section offset inside a room blob deterministically.
+
+    The layout is fixed: each section's length is stored with it, so the whole
+    chain is walkable from the header with no searching.  Verified against all
+    127 vanilla rooms -- the computed Block 2 offset matches the old signature
+    scan in 127/127 rooms, and the computed Block 3 offset in 126/127.  The
+    exception is room 0x15, whose Block 3 is an uncompressed (sub_flag 0x00)
+    12-byte table; the scan only accepted sub_flag 0x03 and silently latched
+    onto an unrelated block 127 bytes further on.
+
+        +$00                header[13]
+        +$0D                step_len:2, step-on records (6 bytes each)
+                            b_len:2,    B-trigger records (6 bytes each)
+        payload_offset      tile_family_count:1, families (2 bytes each)
+        extras_offset       extra_count:1, CHR descriptors (3 bytes each)
+        block1              payload_len:2, sub_flag:1, decomp_size:2, data
+        section2            count:1, len:2, animated-tile descriptors
+        section3            object_count:1, object offsets (2 bytes each)
+        block2              payload_len:2, sub_flag:1, decomp_size:2, data
+        section4            len:2, $0FC4:1, metatile swap records (§ grass)
+        block3              payload_len:2, sub_flag:1, decomp_size:2, data
+        object_area         object records and their stamping blocks
+    """
+    step_len = read16(rom, blob_offset + 0x0D)
+    b_len_offset = blob_offset + 0x0F + step_len
+    b_len = read16(rom, b_len_offset)
+    payload_offset = b_len_offset + 2 + b_len
+    tile_count = rom[payload_offset]
+
+    extras_offset = payload_offset + 1 + tile_count * 2
+    extra_count = rom[extras_offset]
+
+    b1 = extras_offset + 1 + extra_count * 3
+    b1_payload_len = read16(rom, b1)
+    sec2 = b1 + 2 + b1_payload_len
+    sec2_len = read16(rom, sec2 + 1)
+
+    sec3 = sec2 + 3 + sec2_len
+    object_count = rom[sec3]
+
+    b2 = sec3 + 1 + object_count * 2
+    b2_payload_len = read16(rom, b2)
+
+    sec4 = b2 + 2 + b2_payload_len
+    sec4_len = read16(rom, sec4)
+
+    b3 = sec4 + 2 + sec4_len
+    b3_payload_len = read16(rom, b3)
+
+    object_area = b3 + 2 + b3_payload_len
+
+    return {
+        "blob": blob_offset,
+        "step_len": step_len,
+        "b_len_offset": b_len_offset,
+        "b_len": b_len,
+        "payload_offset": payload_offset,
+        "tile_count": tile_count,
+        "extras_offset": extras_offset,
+        "extra_count": extra_count,
+        "block1": b1, "block1_payload_len": b1_payload_len,
+        "block1_sub": rom[b1 + 2], "block1_decomp": read16(rom, b1 + 3),
+        "section2": sec2, "section2_count": rom[sec2], "section2_len": sec2_len,
+        "section3": sec3, "object_count": object_count,
+        "block2": b2, "block2_payload_len": b2_payload_len,
+        "block2_sub": rom[b2 + 2], "block2_decomp": read16(rom, b2 + 3),
+        "section4": sec4, "section4_len": sec4_len,
+        "fc4": rom[sec4 + 2] if sec4_len > 0 else 0,
+        "block3": b3, "block3_payload_len": b3_payload_len,
+        "block3_sub": rom[b3 + 2], "block3_decomp": read16(rom, b3 + 3),
+        "object_area": object_area,
+    }
+
+
 def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     if not os.path.exists(rom_path):
         raise FileNotFoundError(f"ROM file not found at: {rom_path}")
@@ -317,28 +393,24 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     #
     # Verified against all 127 vanilla rooms.
 
-    pos = payload_offset + 1 + tile_count * 2
-    scan_limit = pos + 0x8000  # 32KB scan window (max observed gap: ~15KB)
+    L = parse_blob_layout(rom, blob_offset)
+    pos = L["extras_offset"]
+    target_grid_bytes = total_tiles * 2
 
     # --- Block 2: Markov → 2D metatile grid → WRAM $7F0000 ---
-    # Found first because it has the most specific signature:
-    # sub_flag == 0x07 AND decomp_size == width * height * 2
-    target_grid_bytes = total_tiles * 2
-    b2 = _scan_sub_block(rom, pos, scan_limit,
-                         sub_flag_match={0x07},
-                         size_match=lambda sz: sz == target_grid_bytes)
-    if b2 is None:
+    b2_off = L["block2"]
+    b2_payload_len = L["block2_payload_len"]
+    b2_sub = L["block2_sub"]
+    b2_decomp = L["block2_decomp"]
+    if b2_sub != 0x07 or b2_decomp != target_grid_bytes:
         raise ValueError(
-            f"Room 0x{room_id:02X}: Block 2 (Markov grid) not found — "
-            f"no sub_flag=0x07 with decomp_size={target_grid_bytes} within scan window")
-    b2_off, b2_payload_len, b2_sub, b2_decomp = b2
+            f"Room 0x{room_id:02X}: Block 2 at 0x{b2_off:06X} has sub_flag "
+            f"0x{b2_sub:02X} / decomp {b2_decomp}, expected 0x07 / {target_grid_bytes}")
 
-    # Section 4 / $0FC4 initialization ($909148..$909150):
-    # The byte at rom[b2_off + 2 + b2_payload_len + 2] holds $0FC4,
-    # which defines the initial metatile offset for the Markov bitstream.
-    sec4_off = b2_off + 2 + b2_payload_len
-    sec4_len = read16(rom, sec4_off) if sec4_off + 2 <= len(rom) else 0
-    fc4 = rom[sec4_off + 2] if sec4_len > 0 and sec4_off + 2 < len(rom) else 0
+    # Section 4 holds $0FC4 ($909148..$909150), the Markov decoder's initial
+    # metatile counter, followed by the metatile swap records
+    # (tools/cuttable_grass.py).
+    fc4 = L["fc4"]
 
     base_metatile = target_grid_bytes
     raw_metatiles = decompress_markov_grid(rom, b2_off + 5, width_tiles, height_tiles, base_metatile, fc4=fc4)
@@ -347,10 +419,10 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     # Deterministic layout: pos has count of 3-byte CHR tile descriptors.
     # Block 1 subheader starts immediately after: pos + 3 + num_extra * 3.
     # Subheader: [sub_flag:1][decomp_size:2][data...]
-    num_extra = rom[pos]
-    b1_off = pos + 3 + num_extra * 3
-    b1_sub = rom[b1_off]
-    b1_decomp = read16(rom, b1_off + 1)
+    num_extra = L["extra_count"]
+    b1_off = L["block1"] + 2
+    b1_sub = L["block1_sub"]
+    b1_decomp = L["block1_decomp"]
     b1_data = b1_off + 3
 
     if b1_sub == 0x03:
@@ -374,8 +446,8 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
 
     # --- Section 2: Animated tile descriptors ($90A0D0..$90A1A0) ---
     # Stored immediately after Block 1 payload at sec2_off = b1_off + b1_payload_len
-    b1_payload_len = read16(rom, b1_off - 2)
-    sec2_off = b1_off + b1_payload_len
+    b1_payload_len = L["block1_payload_len"]
+    sec2_off = L["section2"]
     sec2_cnt = rom[sec2_off] if sec2_off < len(rom) else 0
     sec2_len = read16(rom, sec2_off + 1) if sec2_off + 3 <= len(rom) else 0
     anim_tiles = []
@@ -392,26 +464,28 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
 
     # --- Block 3: LZSS → 3-slice planar metatile table → WRAM $7F0280 ---
     # Follows Block 2 in ROM.  sub_flag == 0x03, decomp_size is a positive multiple of 6.
-    b2_end = b2_off + 2 + b2_payload_len
+    b2_end = L["section4"]
 
-    # --- Section 5: Cuttable-grass metatile swap table ---
-    # Sits between Block 2 and Block 3.  Empty ([len=1][count=0]) in 120 of the
-    # 127 vanilla rooms; see tools/cuttable_grass.py for the layout and the
-    # trace evidence.
+    # --- Section 4: $0FC4 + cuttable-grass metatile swap table ---
     from tools.cuttable_grass import parse_grass_swap_section
     grass_table = parse_grass_swap_section(rom, b2_end)
 
-    b3 = _scan_sub_block(rom, b2_end, b2_end + 0x8000,
-                         sub_flag_match={0x03},
-                         size_match=lambda sz: sz > 0 and sz % 6 == 0)
-    if b3 is None:
+    # --- Block 3: 3-slice planar metatile table → WRAM ---
+    b3_off = L["block3"]
+    b3_payload_len = L["block3_payload_len"]
+    b3_sub = L["block3_sub"]
+    b3_decomp = L["block3_decomp"]
+    if b3_decomp % 6 != 0:
         raise ValueError(
-            f"Room 0x{room_id:02X}: Block 3 (metatile table) not found — "
-            f"no sub_flag=0x03 with decomp_size%%6==0 after Block 2 end at 0x{b2_end:06X}")
-    b3_off, b3_payload_len, b3_sub, b3_decomp = b3
+            f"Room 0x{room_id:02X}: Block 3 decomp size {b3_decomp} is not a multiple of 6")
 
-    d3 = LZSSDecompressor(rom, b3_off + 5)
-    b3_out = d3.decompress(b3_decomp)
+    if b3_sub == 0x03:
+        b3_out = LZSSDecompressor(rom, b3_off + 5).decompress(b3_decomp)
+    elif b3_sub == 0x00:
+        b3_out = bytearray(rom[b3_off + 5: b3_off + 5 + b3_decomp])
+    else:
+        raise ValueError(
+            f"Room 0x{room_id:02X}: Block 3 unsupported sub_flag 0x{b3_sub:02X}")
 
     # Hardware division by 6 ($9091B0): N = decomp_bytes / 6
     metatile_count = b3_decomp // 6
@@ -421,14 +495,14 @@ def dump_room(room_id: int, rom_path: str = DEFAULT_ROM_PATH) -> dict:
     slice2 = words[metatile_count * 2:metatile_count * 3]   # Collision attributes
 
     # --- Section 3: Map Objects & State Descriptors ($909120..$909150 & $90925E) ---
-    obj_sec_off = sec2_off + 3 + sec2_len
+    obj_sec_off = L["section3"]
     num_objects = rom[obj_sec_off] if obj_sec_off < len(rom) else 0
 
     objects_list = []
     if num_objects > 0 and obj_sec_off + 1 + num_objects * 2 <= len(rom):
         fa2 = obj_sec_off + 1
         obj_offsets = [read16(rom, fa2 + i * 2) for i in range(num_objects)]
-        aa_off = b3_off + 2 + b3_payload_len
+        aa_off = L["object_area"]
         for i in range(num_objects):
             rec_ptr = aa_off + obj_offsets[i]
             if rec_ptr < len(rom):
