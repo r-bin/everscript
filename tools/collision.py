@@ -110,6 +110,73 @@ def is_always_walkable(cw: int) -> bool:
     return bool(cw & ALWAYS_WALKABLE)
 
 
+# --- Drift (bit 13 repurposes the low nibble) -------------------------------
+# $8FAD9F tests bit 13 and, when set, uses the low nibble as an index into the
+# jump table at $8FAF28 instead of as collision geometry:
+#
+#   8FAD9F  LDA $003C,Y      ; the tile's collision word
+#   8FADA2  BIT #$2000
+#   8FADA5  BNE $8FADAA
+#   8FADA7  JMP $8FAE46      ; no drift
+#   8FADAA  AND #$000F       ; <-- the low nibble IS the direction
+#   8FADAD  ASL
+#   8FADAE  TAX
+#   8FADAF  JMP ($AF28,X)
+#
+# Each handler adjusts the pending velocity ($1A = dx, $1C = dy):
+#
+#   8 -> $8FAE16  DEC $1C / DEC $1C        (0, -2)  north
+#   9 -> $8FAE1C  INC $1A / DEC $1C       (+1, -1)  north-east
+#   A -> $8FAE22  INC $1A / INC $1A       (+2,  0)  east
+#   B -> $8FAE28  INC $1A / INC $1C       (+1, +1)  south-east
+#   C -> $8FAE40  DEC $1A / DEC $1C       (-1, -1)  north-west
+#   D -> $8FAE3A  DEC $1A / DEC $1A       (-2,  0)  west
+#   E -> $8FAE34  DEC $1A / INC $1C       (-1, +1)  south-west
+#   F -> $8FAE2E  INC $1C / INC $1C        (0, +2)  south
+#
+# 0 and 3..7 map to $8FAE46, which applies no drift at all.  1 and 2 are the
+# two "shear" handlers at $8FADB2 / $8FADD1: they add a vertical push whose
+# sign depends on which way the entity is already moving, gated on
+# `(entity_x ^ entity_y) & 4`, so their direction is not a property of the map.
+#
+# Confirmed in the Mesen2 trace `drift.txt`: the dispatch at $8FADAF was taken
+# 49 times with X = $10, $12 and $14 — low nibbles 8, 9 and A — entering
+# $8FAE16, $8FAE1C and $8FAE22, i.e. north, then north-east, then east.  That
+# is the corner the player was carried around.
+
+DRIFT_VECTORS: Dict[int, Tuple[int, int, str]] = {
+    0x8: (0, -2, "N"),
+    0x9: (1, -1, "NE"),
+    0xA: (2, 0, "E"),
+    0xB: (1, 1, "SE"),
+    0xC: (-1, -1, "NW"),
+    0xD: (-2, 0, "W"),
+    0xE: (-1, 1, "SW"),
+    0xF: (0, 2, "S"),
+}
+
+# Low nibbles 1 and 2 under bit 13: vertical shear whose sign flips with the
+# entity's horizontal motion.  `+1` is the $8FADB2 variant (moving east pushes
+# north), `-1` the $8FADD1 variant (moving east pushes south).
+DRIFT_SHEAR: Dict[int, int] = {0x1: 1, 0x2: -1}
+
+
+def drift_vector(cw: int) -> Tuple[int, int, str]:
+    """
+    The per-frame velocity delta this tile adds, as (dx, dy, name).
+    Returns (0, 0, "") for tiles that apply no drift, and (0, 0, "SHEAR+"/"SHEAR-")
+    for the two motion-dependent handlers.
+    """
+    if not (cw & ALWAYS_WALKABLE):
+        return (0, 0, "")
+    low = cw & GEOMETRY_MASK
+    if low in DRIFT_VECTORS:
+        return DRIFT_VECTORS[low]
+    if low in DRIFT_SHEAR:
+        return (0, 0, "SHEAR+" if DRIFT_SHEAR[low] > 0 else "SHEAR-")
+    return (0, 0, "")
+
+
 def holds_plane(cw: int) -> bool:
     """True if standing here leaves the entity's plane unchanged ($8FA914)."""
     return bool(cw & (ALWAYS_WALKABLE | PLANE_TRANSPARENT))

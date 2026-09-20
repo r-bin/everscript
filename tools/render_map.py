@@ -1570,7 +1570,7 @@ class RoomRenderer:
             suffix = "" if p == main_plane else " (DOTTED)"
             legend_items.append((PLANE_COLORS[p], f"PLANE {p} BOUNDARY{suffix}"))
         if forced_walk_tiles:
-            legend_items.append(((0, 188, 212), "FORCED WALKABLE (BIT 13)"))
+            legend_items.append(((0, 188, 212), "DRIFT / FORCED WALKABLE (BIT 13, ARROW = DIRECTION)"))
         if transparent_tiles:
             legend_items.append(((156, 39, 176), "PLANE-TRANSPARENT (BIT 6)"))
         if transition_tiles:
@@ -1653,12 +1653,45 @@ class RoomRenderer:
                 buf[p_off + 2] = pb
                 buf[p_off + 3] = 255
 
-        # 8. Forced-walkable tiles (bit 13): cyan wash, no direction glyphs.
+        # 8. Forced-walkable tiles (bit 13): cyan wash, plus a drift arrow where
+        #    the low nibble carries one.  Under bit 13 the low nibble is not
+        #    geometry -- it indexes the direction jump table at $8FAF28 (see
+        #    tools/collision.py).
+        def draw_arrow(bx: int, by: int, dx: int, dy: int, double: bool = False):
+            sx = (dx > 0) - (dx < 0)
+            sy = (dy > 0) - (dy < 0)
+            # Shaft from one edge of the tile to the other through the centre.
+            for t in range(-5, 6):
+                blend_pixel(bx + 8 + sx * t, by + 8 + sy * t, 255, 255, 255, 0.95)
+            heads = (1, -1) if double else (1,)
+            for hs in heads:
+                tipx, tipy = bx + 8 + sx * 5 * hs, by + 8 + sy * 5 * hs
+                # Two barbs, perpendicular-ish, stepped back along the shaft.
+                for k in (1, 2, 3):
+                    back_x, back_y = tipx - sx * k * hs, tipy - sy * k * hs
+                    if sx and sy:        # diagonal: barbs along each axis
+                        blend_pixel(back_x - sx * k, back_y, 255, 255, 255, 0.95)
+                        blend_pixel(back_x, back_y - sy * k, 255, 255, 255, 0.95)
+                    elif sx:             # horizontal: barbs vertically
+                        blend_pixel(back_x, back_y - k, 255, 255, 255, 0.95)
+                        blend_pixel(back_x, back_y + k, 255, 255, 255, 0.95)
+                    else:                # vertical: barbs horizontally
+                        blend_pixel(back_x - k, back_y, 255, 255, 255, 0.95)
+                        blend_pixel(back_x + k, back_y, 255, 255, 255, 0.95)
+
         for (tc, tr) in forced_walk_tiles:
             bx, by = tc * 16, tr * 16
             for py in range(16):
                 for px in range(16):
                     blend_pixel(bx + px, by + py, 0, 188, 212, 0.34)
+            ddx, ddy, dname = coll.drift_vector(cw_grid[tr][tc])
+            if dname.startswith("SHEAR"):
+                # Direction depends on the entity's own motion, not the map, so
+                # draw a double-headed diagonal instead of a single arrow.
+                sign = 1 if dname.endswith("+") else -1
+                draw_arrow(bx, by, 1, -sign, double=True)
+            elif dname:
+                draw_arrow(bx, by, ddx, ddy)
 
         # 9. Plane-transparent tiles (bit 6): purple wash.
         for (tc, tr) in transparent_tiles:

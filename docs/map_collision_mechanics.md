@@ -46,7 +46,7 @@ The same structure is used by all 127 rooms.
 | **PT** | 6 | Plane-transparent — walkable from any *other* plane |
 | — | 7 | Never set in any vanilla tile |
 | **entity gate** | 11..8 | Active when bit 8 is set, see §4 |
-| **AW** | 13 | Always-walkable override — geometry forced to 0 |
+| **AW** | 13 | Always-walkable override — geometry forced to 0, and bits 3..0 become a **drift direction** instead (§6) |
 | unknown | 12, 15..14 | Read by the sprite-priority routine `$8FC780`. **UNVERIFIED** |
 
 ---
@@ -169,27 +169,60 @@ are 45° slopes and half-tile barriers:
 
 ---
 
-## 6. Drift and sliding
+## 6. Drift and sliding — the low nibble is the direction
 
-Bit 13 marks the tiles, but **the direction is not in the map data.**
-`$9086AB` branches on bit 13 and calls the velocity helper `$8FAD51` with the
-entity's own facing (`entity + $22`), not with anything read from the tile:
+When bit 13 is set the low nibble is **not** geometry. `$8FAD9F` uses it as an
+index into a direction jump table:
 
 ```asm
-9086AB  LDA $003C,Y       ; the entity's cached collision word
-9086AE  BIT #$2000
-9086B1  BEQ $9086C0
-9086B3  STZ $02
-9086B5  LDA $0022,Y       ; the entity's own facing
-9086B8  STA $04
-9086BA  JSL $8FAD51
+8FAD9F  LDA $003C,Y       ; the tile's collision word
+8FADA2  BIT #$2000
+8FADA5  BNE $8FADAA
+8FADA7  JMP $8FAE46       ; no drift
+8FADAA  AND #$000F        ; <-- the low nibble IS the direction
+8FADAD  ASL
+8FADAE  TAX
+8FADAF  JMP ($AF28,X)     ; table at $8FAF28
 ```
 
-So a static map tool cannot draw drift arrows. `tools/render_map.py`
-deliberately draws none; it shades bit-13 tiles and leaves direction out.
+Each handler adds to the pending velocity (`$1A` = dx, `$1C` = dy):
 
-**UNVERIFIED:** the remaining details of how momentum is maintained and how
-corners redirect the entity.
+| Low nibble | Handler | Δ(dx, dy) | Direction |
+|---|---|---|---|
+| `0`, `3`..`7` | `$8FAE46` | — | no drift, just forced walkable |
+| `1` | `$8FADB2` | vertical shear | moving east pushes north, west pushes south |
+| `2` | `$8FADD1` | vertical shear | moving east pushes south, west pushes north |
+| `8` | `$8FAE16` | `(0, -2)` | north |
+| `9` | `$8FAE1C` | `(+1, -1)` | north-east |
+| `A` | `$8FAE22` | `(+2, 0)` | east |
+| `B` | `$8FAE28` | `(+1, +1)` | south-east |
+| `C` | `$8FAE40` | `(-1, -1)` | north-west |
+| `D` | `$8FAE3A` | `(-2, 0)` | west |
+| `E` | `$8FAE34` | `(-1, +1)` | south-west |
+| `F` | `$8FAE2E` | `(0, +2)` | south |
+
+The two shear handlers gate on `(entity_x ^ entity_y) & 4` and on the sign of
+the entity's own `dx`, so their push is motion-dependent rather than a fixed
+map direction.
+
+This is also *why* `$909E73` is a table of zeros: with the low nibble spent on
+direction there is no geometry left to evaluate, so bit-13 tiles must be forced
+open.
+
+### 6.1 Evidence
+
+- Trace `drift.txt`: the dispatch at `$8FADAF` was taken 49 times with
+  `X = $10`, `$12`, `$14` — low nibbles 8, 9, A — entering `$8FAE16`,
+  `$8FAE1C`, `$8FAE22`. North, then north-east, then east: the corner the
+  player was carried around.
+- ROM-wide: of the 2 132 bit-13 tiles carrying a direction, **93% point at a
+  walkable neighbour**. The remainder are run ends, where the drift delivers
+  the entity into a room or against a wall.
+- Room `0x79`'s two conveyor belts decode to opposite directions (east on one,
+  west on the other), matching the animated belt graphics.
+
+**UNVERIFIED:** how momentum is maintained between tiles, and the exact speed
+ramp (`$8FAD51`'s `$0064,Y` cap).
 
 ---
 
@@ -232,6 +265,7 @@ knowledge:
 | `passability(cw, entity_plane, entity="boy")` | Port of `$909DE8` |
 | `tile_plane(cw)` | Bits 5..4 |
 | `is_always_walkable(cw)` / `is_plane_transparent(cw)` | Bits 13 / 6 |
+| `drift_vector(cw)`, `DRIFT_VECTORS`, `DRIFT_SHEAR` | §6 |
 | `holds_plane(cw)` | Port of the `BIT #$2040` test in `$8FA914` |
 | `entity_gate(cw)`, `GATE_BLOCKS` | §4 |
 | `GEOMETRY_MASKS`, `GEOMETRY_ROWS` | §5, as 16×16 pixel masks |
@@ -240,5 +274,7 @@ knowledge:
 `tools/render_map.py --layer composition` draws every plane's contour in its
 own colour — the dominant plane solid, the others dashed — so a tunnel and the
 bridge above it appear as two crossing outlines rather than one merged blob.
-Plane-transparent tiles, always-walkable tiles, elevation changes and entity
-gates each get their own shading, and the header banner lists the counts.
+Plane-transparent tiles, elevation changes and entity gates each get their own
+shading; drift tiles are shaded and carry an arrow for their direction, with a
+double-headed glyph for the two motion-dependent shear handlers. The header
+banner lists the counts.
