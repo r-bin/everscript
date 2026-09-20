@@ -955,7 +955,7 @@ class Function_Eval(Function_Base):
 {self.text.value.code(params)}        // eval({self.text.value})
         """
 
-class Function_Goto(Function_Base):
+class Function_Goto(Function_Base, Skippable):
     def __init__(self, label=None):
         self.label = label
         self.distance = None
@@ -1050,7 +1050,7 @@ class If_list(Function_Base, Memorable):
                 
         return Function_Code(if_list, '\n').code(params)
 
-class If(Function_Base, Calculatable, Memorable):
+class If(Function_Base, Calculatable, Memorable, Skippable):
     def __init__(self, condition, script, if_properties):
         self.forced_memory = False
         
@@ -2053,7 +2053,7 @@ class Reference(Function_Base):
         
         return code
     
-class Jump(Function_Base):
+class Jump(Function_Base, Skippable):
     def __init__(self, distance:int):
         self.distance = distance
 

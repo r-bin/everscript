@@ -80,3 +80,24 @@ def assert_evs_bytes(evs_code: str, expected_bytes: str, name: str = "_test_snip
         f"Actual:   {actual_clean}\n"
     )
 
+
+
+def compile_functions(evs_source: str, names: list[str]) -> dict[str, str]:
+    """Compile one source unit and return the cleaned bytecode of several functions.
+
+    Unlike `compile_snippet`, this keeps all functions in a single compilation so
+    tests can observe interactions between them -- e.g. one call site of a shared
+    core function affecting another.
+    """
+    linker = Linker()
+    generator = CodeGen(linker)
+    pg = Parser(generator)
+    pg.parse()
+    pg.get_parser().parse(Lexer().get_lexer().lex(evs_source))
+
+    functions = generator.current_scope().functions
+    missing = [n for n in names if n not in functions]
+    if missing:
+        raise ValueError(f"functions not generated: {missing}")
+
+    return {n: file_utils.clean(functions[n].code([])) for n in names}

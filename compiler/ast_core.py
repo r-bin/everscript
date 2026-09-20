@@ -258,6 +258,35 @@ class Enum_Call(BaseBox):
     def eval(self):
         return self.value
 
+class Skippable():
+    """
+    Mixin for nodes whose emitted bytes encode a relative jump distance
+    (`If`, `Jump`, `Function_Goto` -- every one of them a "SKIP n" in the
+    bytecode comments).
+
+    `Function_Base.code()` caches its result on the node, keyed only on
+    whether any params were passed -- see `cache_code` below. But a
+    Skippable's bytes embed `self.distance`, and the enclosing `If_list`/
+    `While` recomputes that distance for every call site. Core functions are
+    shared AST node graphs inlined at many call sites, so without this
+    invalidation one call site's distance is served to another -- producing a
+    jump into the middle of an instruction, which locks up the SNES.
+    See tests/integration/compiler/test_jump_distance_cache.py.
+    """
+
+    _distance:int|None = None
+
+    @property
+    def distance(self) -> int|None:
+        return self._distance
+
+    @distance.setter
+    def distance(self, value:int|None):
+        if value != self._distance:
+            self.cache_code = None  # provided by Function_Base
+        self._distance = value
+
+
 class Function_Base(BaseBox, Resolvable):
     _value_count:int|None = None
 
