@@ -331,6 +331,11 @@ class Time(Function_Base, Calculatable, Memorable):
         return code
 
 class Object(Function_Base, Calculatable, Memorable):
+    # $7E107E + object_index = current state, 1 byte per object (see docs/map_objects.md,
+    # "WRAM Object Buffers"). Reading object[N] as a value reads this byte directly instead
+    # of going through the "write object"/"obj" script opcodes, which are write-only.
+    STATE_ADDRESS = 0x107e
+
     def __init__(self, generator, index, flag=None):
         self.index = index
         # self.index = self.index.resolve([])
@@ -342,16 +347,26 @@ class Object(Function_Base, Calculatable, Memorable):
 
     def is_memory(self, params:list[Param]):
         return True
-    
+
     def __repr__(self):
         return f"Object(index={self.index}, flag={self.flag})"
-        
-    def calculate(self, params:list[Param]):
+
+    def index_calculate(self, params:list[Param]):
         index = self.index.resolve(params)
         code = index.calculate(params)
 
         return code
-    
+
+    def calculate(self, params:list[Param]):
+        index = self.index.resolve(params)
+
+        if not isinstance(index, Word):
+            TODO(f"object[{self.index}] can only be read as a value with a compile-time constant index")
+
+        address = self.STATE_ADDRESS + index.eval(params)
+
+        return Memory(address, size=1).calculate(params)
+
     def _code(self, params:list[Param]):
         index = self.index.resolve(params)
         flag = self.flag.resolve(params)
@@ -1335,7 +1350,7 @@ class Asign(BinaryOp):
             case Deref():
                 code = [Opcode("write deref")] + self._terminate(left.calculate(params, deref=False)) + self._terminate(calculated_right)
             case Object():
-                code = self._terminate([Opcode("write object")] + left.calculate(params)) + self._terminate(calculated_right)
+                code = self._terminate([Opcode("write object")] + left.index_calculate(params)) + self._terminate(calculated_right)
             case Arg():
                 code = [Opcode("write arg"), left.code(params)] + self._terminate(calculated_right)
             case _:
