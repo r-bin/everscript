@@ -510,6 +510,11 @@ class Memory(Function_Base, Calculatable, Memorable):
         else = arbitrary access (hack)
     """
 
+    PERSISTENT_BASE = 0x2258
+    TEMP_BASE = 0x2834
+    OVERFLOW_OFFSET = 0x10000 - PERSISTENT_BASE  # 0xDDA8: causes 16-bit rollover so $2258 + (addr + $DDA8) == addr
+    NULL_POINTER = 0x28ef                        # CUSTOM_MEMORY.NULL_POINTER (holds 0x0000)
+
     def __init__(self, address=None, flag=None, size=2, offset=None):
         self.address = address
         if isinstance(self.address, Word):
@@ -536,11 +541,11 @@ class Memory(Function_Base, Calculatable, Memorable):
         self.hint = []
 
     def handle_type(self):
-        if self.address >= 0x2834:
+        if self.address >= self.TEMP_BASE:
             self.type = "28"
         #elif self.address >= 0x2500: # TODO
         #    self.type = "22"
-        elif self.address >= 0x2258:
+        elif self.address >= self.PERSISTENT_BASE:
             self.type = "22"
             if not self.address in range(0x2463, 0x2512):
                 self.sram = True
@@ -564,15 +569,12 @@ class Memory(Function_Base, Calculatable, Memorable):
         address = self.address
         flag = self.flag
         
-        if address >= 0x2834:
-            address -= 0x2834
-        elif address >= 0x2258:
-            address -= 0x2258
+        if address >= self.TEMP_BASE:
+            address -= self.TEMP_BASE
+        elif address >= self.PERSISTENT_BASE:
+            address -= self.PERSISTENT_BASE
         else:
-            if address >= 0x2258:
-                address -= 0x2258
-            else:
-                address += 0xDDA8
+            address += self.OVERFLOW_OFFSET
             self.type = "xx"
 
         if self.type == "char":
@@ -604,6 +606,21 @@ class Memory(Function_Base, Calculatable, Memorable):
 
             return combined
         
+    def _deref_read(self, params:list[Param], byte_only:bool=False):
+        # NOTE: plain "read byte"/"read word" + raw xx-address does not work for reads
+        # (the 16-bit OVERFLOW_OFFSET trick only works for writes).
+        # We read NULL_POINTER ($28EF = 0x0000), add the target address, and dereference.
+        deref_op = "deref byte" if byte_only else "deref"
+        return [
+            Operand("read temp byte"),
+            Memory(self.NULL_POINTER).code(params),
+            Operand("push"),
+            Operand("word"),
+            Word(self.address).code(params),
+            Operand("+"),
+            Operand(deref_op)
+        ]
+
     def calculate(self, params:list[Param], offset=None, deref=True):
         self.handle_type()
 
@@ -627,16 +644,12 @@ class Memory(Function_Base, Calculatable, Memorable):
             case ["22", None, _, _]:
                 code = [Operand("read word"), self.code(params)]
 
-            case ["xx", None, _, 1]:
-                code = [Operand("read byte"), self.code(params)]
             case ["xx", None, int(), _]:
                 code = [Operand("test"), self.code(params)]
+            case ["xx", None, _, 1]:
+                code = self._deref_read(params, byte_only=True)
             case ["xx", None, _, _]:
-                # derefs the actual address from CUSTOM_MEMORY.NULL_POINTER (0x0000) and reverts the overflow (0xDDA8) from the writing workaround
-                workaround = [Operand("read temp byte"), Memory(0x28ef).code(params), Operand("push") , Operand("word"), Memory(self.address - 0xDDA8).code(params), Operand("+"), Operand("deref")]
-                
-                code = [Operand("read temp word"), self.code(params)]
-                code = workaround
+                code = self._deref_read(params, byte_only=False)
 
             case ["char", _, _, _]:
                 code = [self.eval(params), Operand("push")] + offset.calculate([]) + [Operand("+")]
@@ -957,7 +970,7 @@ class Operand():
         "script9": 0x54, # $2 = script data[0x09]
         
         "deref": 0x55, # deref res
-        # _: 0x56, # deref res &0xff
+        "deref byte": 0x56, # deref res &0xff
         
         # _: 0x57: # (player==dog)
             
