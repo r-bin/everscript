@@ -16,6 +16,8 @@ def test_opcode_2a_disable_freeze_character_from_sub_instr():
 
     assert_evs_bytes(script, expected)
 
+# todo: does not test opcode 2a, remove it
+
 
 @pytest.mark.xfail(reason="TODO: Additional variations for opcode 0x2A")
 def test_opcode_2a_disable_freeze_character_from_sub_instr_variations():

@@ -16,3 +16,8 @@ def test_opcode_1a_write_arg():
     """
 
     assert_evs_bytes(script, expected)
+
+# todo: "arg[0x10] = True;"
+# todo: "arg[0x10] = arg[0x10];"
+# todo: "arg[0x10] = 0xff;"
+# todo: "arg[0x10] = 0xffff;"

@@ -16,7 +16,9 @@ def test_opcode_1e_opcode_1e_vanilla():
     # TODO: Implement Everscript high-level syntax for this opcode
     script = """
         // TODO: opcode 0x1E (WRITE SCRIPT arg0 = $2855 - $2857)
-        eval("1E 00 0E 21 00 29 0E 23");
+        // eval("1E 00 0E 21 00 29 0E 23");
+
+        arg[0x00] = <0x2855> - <0x2857>;
     """
 
     expected = """

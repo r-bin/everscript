@@ -16,3 +16,5 @@ def test_opcode_0d_write_temp_flag():
     """
 
     assert_evs_bytes(script, expected)
+
+# todo: "<0x2834, 0x01> = True;"

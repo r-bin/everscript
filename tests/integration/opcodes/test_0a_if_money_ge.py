@@ -16,7 +16,11 @@ def test_opcode_0a_rjmp_if_moniez_amount_according_to_darkmoon_vanilla():
     # TODO: Implement Everscript high-level syntax for this opcode
     script = """
         // TODO: opcode 0x0A (IF Currency ($2348)&0xff (moniez) >= 5 THEN SKIP 7 (to 0x969ac5))
-        eval("0A 87 F0 00 05 00 00 07");
+        // eval("0A 87 F0 00 05 00 00 07");
+
+        if_currency(MEMORY.CURRENCY_CURRENT >= 0d5) {
+            nop();
+        }
     """
 
     expected = """
@@ -35,3 +39,5 @@ def test_opcode_0a_rjmp_if_moniez_amount_according_to_darkmoon_variations():
       Variation 4: [0x9683c8] 0a 87 f0 00 1e 00 00 0d (IF Currency ($2348)&0xff (moniez) >= 30 THEN SKIP 13 (to 0x9683de))
     """
     pytest.skip("TODO: Additional variations pending syntax implementation")
+
+# todo: remove test_opcode_0a_rjmp_if_moniez_amount_according_to_darkmoon_variations. variations with arithmatic would be more interesting: "if_currency(MEMORY.CURRENCY_CURRENT >= <0x2834>) {}"

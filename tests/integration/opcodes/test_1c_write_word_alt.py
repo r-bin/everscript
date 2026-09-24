@@ -16,7 +16,9 @@ def test_opcode_1c_what_s_the_difference_to_0x18_04_maybe_vanilla():
     # TODO: Implement Everscript high-level syntax for this opcode
     script = """
         // TODO: opcode 0x1C (WRITE $2533 = $2847)
-        eval("1C DB 02 8D 13 00 BA 03");
+        // eval("1C DB 02 8D 13 00 BA 03");
+
+        <0x2533> = <0x2847>;
     """
 
     expected = """
@@ -35,3 +37,5 @@ def test_opcode_1c_what_s_the_difference_to_0x18_04_maybe_variations():
       Variation 4: [0x94cf02] 1c db 02 8d 0d 00 ba 02 (WRITE $2533 = $2841)
     """
     pytest.skip("TODO: Additional variations pending syntax implementation")
+
+# todo: "<0x2533> = <BOY>;"

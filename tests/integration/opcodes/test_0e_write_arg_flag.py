@@ -3,6 +3,7 @@
 import pytest
 from tests.helpers import assert_evs_bytes
 
+# todo: there is no everscript syntax for this opcode yet
 
 @pytest.mark.xfail(reason="TODO: Everscript syntax pendant for opcode 0x0E")
 def test_opcode_0e_like_0c_and_0d_but_for_script_args_not_memory_and_adress_is_only_8bit_vanilla():

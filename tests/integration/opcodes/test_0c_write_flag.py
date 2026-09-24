@@ -16,3 +16,5 @@ def test_opcode_0c_write_flag():
     """
 
     assert_evs_bytes(script, expected)
+
+# todo: "<0x2258, 0x01> = True;"

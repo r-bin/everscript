@@ -14,3 +14,6 @@ def test_opcode_00_end():
     """
 
     assert_evs_bytes(script, expected)
+
+
+# todo: test mode that traverses the bytes and checks if the end of the script is reached correctly (e.g. "end(); end();" should only reach the first end and both do not reach the end)

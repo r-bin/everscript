@@ -16,7 +16,11 @@ def test_opcode_0b_if_moniez_amount_vanilla():
     # TODO: Implement Everscript high-level syntax for this opcode
     script = """
         // TODO: opcode 0x0B (IF Currency ($2348)&0xff (moniez) < 5 THEN SKIP 37 (to 0x969af3))
-        eval("0B 87 F0 00 05 00 00 25");
+        // eval("0B 87 F0 00 05 00 00 25");
+
+        if_currency(MEMORY.CURRENCY_CURRENT < 0d5) {
+            nop();
+        }
     """
 
     expected = """
@@ -35,3 +39,5 @@ def test_opcode_0b_if_moniez_amount_variations():
       Variation 4: [0x98d989] 0b b6 32 00 00 b0 00 7d (IF Gold Coins (moniez) < 50 THEN SKIP 176 (to 0x98da40))
     """
     pytest.skip("TODO: Additional variations pending syntax implementation")
+
+# todo: same as opcode 0a
