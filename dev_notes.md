@@ -3,6 +3,9 @@
 
 
 # important
+## temple sw room iron gourd does not lose the lid
+## temple nw room more iron?
+## oil in ship gourd?
 ## smith negative response does not lock
 ## dog can interact with holes, but the boy is animated
 ## "helm 1-1"

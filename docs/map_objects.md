@@ -14,7 +14,8 @@
 | **Are they part of the map blob?** | **Yes.** They are stored directly inside the room blob referenced by the Master Map Pointer Table (`$9FFDE7`). They consist of two components: the **Object Pointer Table** (located at `$0FA2` between Block 1 and Block 2) and the **Object State Records** (located at `$AA` immediately following Block 3). |
 | **Do we need traces?** | The binary layout and SNES routines (`$908F60..$909280`, `$90A320`, `$90A36D`, `$90A5D0..$90A6D0`, `$8CDDCB`, `$8CDDFF`) are **fully decoded from disassembly**. Mesen2 traces are only needed if researching dynamic scripted animation frame delays for multi-frame objects. |
 | **How do we know how many objects there are?** | Section 3 of the room blob begins with a 1-byte count (`rom[sec3]`), loaded into engine register `$0FAE`. |
-| **How do we know how many states an object has?** | Byte 0 of each object record defines `max_state` (0-indexed maximum state). Total states = `max_state + 1`. Each state is encoded in a fixed 5-byte descriptor. |
+| **How do we know how many states an object has?** | Byte 0 of each object record defines `max_state` (0-indexed maximum state). An object has $N = \text{max\_state} + 1$ logical states ($0 \dots N$), where State 0 is the baseline Markov grid (Block 2). The record contains $N$ fixed 5-byte transition descriptors representing adjacent step deltas ($x-1 \to x$). |
+| **How are state transitions calculated?** | Transitions are **XOR bitmask deltas** applied at `$90A4E9` (`EOR [$B0] -> STA [$AD]`). State $x$ stores the delta relative to state $x-1$ ($\text{State}_x = \text{State}_{x-1} \oplus \Delta_{x-1}$), **not** relative to 0. Because bitwise XOR is involutory ($A \oplus B \oplus B = A$), the exact same delta stream transitions forward and reverses backward. |
 | **Comparison to Map `0x15` (Brian's Test Ground)** | Room `0x15` has `num_objects = 0`, `step_triggers = 0`, and `b_triggers = 0`. It serves as the baseline empty room. Across all 127 vanilla rooms, 110 rooms have objects, totaling **1,748 map objects**. |
 
 ---
@@ -119,36 +120,81 @@ Each object record starts at `$AA + table[object_index]`:
 
 ```
 [max_state: 1 byte]
-  State 0: [width: 1 byte][x: 1 byte][y: 1 byte][metatile_id: 2 bytes]  (5 bytes)
-  State 1: [width: 1 byte][x: 1 byte][y: 1 byte][metatile_id: 2 bytes]  (5 bytes)
-  State 2: ...                                                          (5 bytes)
+  Transition 0 (0 -> 1): [stride: 1 byte][x: 1 byte][y: 1 byte][payload_offset: 2 bytes]  (5 bytes)
+  Transition 1 (1 -> 2): [stride: 1 byte][x: 1 byte][y: 1 byte][payload_offset: 2 bytes]  (5 bytes)
+  Transition 2 (2 -> 3): ...                                                              (5 bytes)
   ...
 ```
 
 ### Header Byte: `max_state`
 - **Byte 0 (`max_state`)**: Defines the maximum 0-indexed state allowed for this object.
-- **Valid States**: State `0` up to `max_state`.
+- **Total Logical States**: $N = \text{max\_state} + 1$ (states $0 \dots \text{max\_state}$).
+  - **State 0**: Baseline state as loaded directly from the Block 2 Markov Metatile Grid.
+  - **State $x$**: Result of applying transition deltas $\Delta_0 \dots \Delta_{x-1}$.
+- **Number of Descriptors**: Exactly $\text{max\_state}$ descriptors (one per adjacent transition step).
 - **Total Record Size**: Exactly $1 + (\text{max\_state} \times 5)$ bytes.
 
-### State Descriptors (5 Bytes per State)
+### Transition Descriptors (5 Bytes per Step)
+
+Each 5-byte descriptor indexes the transition between adjacent states $\text{State}_{s} \to \text{State}_{s+1}$:
 
 | Byte Offset | Field | Description |
 |:---:|---|---|
-| `+$00` | `width` | Width of the object footprint in 16×16 metatiles. (Usually `0x01` for gourds, `0x02..0x06` for bridges/bosses). |
-| `+$01` | `tile_x` | X position on the map in metatiles ($X_{pix} \gg 4$). |
-| `+$02` | `tile_y` | Y position on the map in metatiles ($Y_{pix} \gg 4$). |
-| `+$03..+$04` | `metatile_id` | 16-bit little-endian metatile ID/offset to write into WRAM `$7F0000`. |
+| `+$00` | `stride` | Internal stride/width parameter (commonly `0x01` for gourds, `0x05` for hatches, `0x06` for bosses). |
+| `+$01` | `tile_x` | Target X origin on the map in metatiles ($X_{pix} \gg 4$). |
+| `+$02` | `tile_y` | Target Y origin on the map in metatiles ($Y_{pix} \gg 4$). |
+| `+$03..+$04` | `payload_offset` | 16-bit little-endian relative offset from `$AA` to the target payload block. |
 
 > [!TIP]
 > **The SNES Hardware Multiplier Trick (`$90A5D0`)**  
-> To index into state $S$ without slow software division or looping, the engine uses a 16-bit hardware write:
+> To index into transition descriptor $S$ without software multiplication or looping, the engine uses a 16-bit hardware write:
 > ```assembly
-> 90A5D0  AND #$00FF      ; A = state index (low byte)
-> 90A5D3  ORA #$0500      ; High byte = 5 (stride per state)
-> 90A5D6  STA $4202       ; Writes WRMPYA ($4202) = state, WRMPYB ($4203) = 5 simultaneously!
+> 90A5D0  AND #$00FF      ; A = transition index S (low byte)
+> 90A5D3  ORA #$0500      ; High byte = 5 (stride per descriptor)
+> 90A5D6  STA $4202       ; Writes WRMPYA ($4202) = S, WRMPYB ($4203) = 5 simultaneously!
 > ...
-> 90A5E6  ADC $4216       ; Reads hardware product (state * 5) and adds to base pointer!
+> 90A5E5  SEC             ; Carry set adds 1 for max_state header byte
+> 90A5E6  ADC $4216       ; Reads hardware product (S * 5) + 1 and adds to object base offset!
 > ```
+
+### Target Payload Block (XOR Delta Stream)
+
+The word at `+$03..+$04` points to the variable-length XOR delta payload:
+
+```
+[target_width: 1 byte][target_height: 1 byte][bitmask: 1 byte][delta_words: N words...]
+```
+
+| Byte Offset | Field | Description |
+|:---:|---|---|
+| `+$00` | `width` | Width of the modified tile bounding box in metatiles. |
+| `+$01` | `height` | Height of the modified tile bounding box in metatiles. |
+| `+$02` | `bitmask` | Bitmask indicating which tiles in the `width * height` box are modified (bit $k = 1$). |
+| `+$03..` | `delta_words` | Stream of 16-bit little-endian XOR delta words, one per set bit in `bitmask`. |
+
+### The XOR Delta Engine (`$90A4D9..$90A4EC`)
+
+Object state transitions do **not** write absolute metatile IDs, nor do they contain deltas relative to State 0. **They contain XOR deltas between adjacent states ($x-1$ and $x$):**
+
+$$\text{State}_x = \text{State}_{x-1} \oplus \Delta_{x-1}$$
+
+During the stamping routine at `$90A4D9`:
+
+```assembly
+90A4D9  LDA [$AD]            ; Load current metatile word from active grid ($7F0000)
+90A4DB  TAX                  ; Hold current metatile
+...
+90A4E9  TXA
+90A4EA  EOR [$B0]            ; A = current_metatile ^ delta_word
+90A4EC  STA [$AD]            ; Store updated metatile back into $7F0000!
+90A4EE  INC $B0; INC $B0     ; Advance delta stream pointer
+```
+
+**Why XOR?** Bitwise XOR is symmetric and involutory ($A \oplus B \oplus B = A$). This grants the engine bidirectional animation for free:
+- **Stepping Forward ($x-1 \to x$):** $\text{State}_{x-1} \oplus \Delta_{x-1} = \text{State}_x$
+- **Stepping Backward ($x \to x-1$):** $\text{State}_x \oplus \Delta_{x-1} = \text{State}_{x-1}$
+
+The exact same delta stream applies seamlessly whether opening or closing a door, raising or lowering a bridge, or inflating or deflating a boss segment.
 
 ---
 
@@ -160,18 +206,58 @@ The engine allocates dedicated tables in WRAM Bank `$7E` during `$90A320`:
 
 | WRAM Address | Size | Function |
 |---|:---:|---|
-| `$7E107E + X` | 160 bytes | **Current State** for object `X` (`0..N-1`). Initialized to 0. |
-| `$7E10CE + X` | 160 bytes | **Target State** for object `X` (`0..N-1`). |
+| `$7E107E + X` | 160 bytes | **Target State** for object `X` (`0..N-1`). |
+| `$7E10CE + X` | 160 bytes | **Current State** for object `X` (`0..N-1`). Initialized to 0. |
 | `$7E0FB0` | 2 bytes | Object update active flag. |
 | `$7F0000 + (Y * W + X) * 2` | $W \times H \times 2$ | **Active Metatile Grid**. Modified when an object state changes. |
 
 ### State Transition Routine (`$90A36D`)
 
-When a script calls `SET OBJ X STATE = val`:
-1. **Clamp (`$90A380..$90A389`):** If requested `val > max_state`, it clamps `val = max_state`. If `val == 0x7E` or `0x7F`, it treats it as maximum state / open / unloaded.
-2. **State Storage (`$90A38D`):** Stores new state in `$107E,X`.
-3. **Difference Check (`$90A390`):** Compares `$107E,X` against previous state in `$10CE,X`. If unchanged, returns immediately (`BEQ`).
-4. **Metatile Stamp (`$90A5D0..$90A6D0`):** Computes `(Y * map_width + X) * 2` in `$7F0000` and copies the new state's metatiles into WRAM.
+When a script calls `SET OBJ X STATE = val` (opcode `0x5C` or internal VM trigger):
+
+#### 1. Input Clamping (`$90A380..$90A38B`)
+```assembly
+90A380  LDA $12         ; Requested state value
+90A382  BPL .positive   ; If bit 7 is 0 (0x00..0x7F), proceed
+90A384  TDC             ; If bit 7 is 1 (e.g. 0x8000), clear to 0!
+.positive:
+90A385  CMP [$AA],Y     ; Compare against max_state
+90A387  BMI .valid      ; If requested < max_state, keep it
+90A389  LDA [$AA],Y     ; If requested >= max_state, CLAMP to max_state!
+.valid:
+90A38B  STA $12         ; Target state = clamped value
+```
+
+- **`0x7E` and `0x7F`**: Both are $\ge \text{max\_state}$, so both take `$90A389` and clamp to `max_state`. They behave **100% identically**.
+- **Negative / Bit 7 Values (e.g. `0x8000`)**: Filtered by `TDC` at `$90A384` and clamped to `0` (base closed/intact state).
+
+#### 2. Sequential Stepping Loops
+If requested target state differs from `$7E10CE,X`, the engine steps through all intermediate transitions one by one:
+
+- **Loop Up ($current < target$, `$90A3BC..$90A3E5`):**
+  1. Calls `$90A5D0` with current state $s$ to apply descriptor $\Delta_s$.
+  2. Increments `$7E10CE,X` ($s \to s + 1$).
+  3. Calls `$90A5BA` (waits for frame refresh / animation delay via `JSL $80858C`).
+  4. Compares `$7E10CE,X` against target; loops until equal.
+  *Example:* Setting an object at State 0 to State 5 applies $\Delta_0, \Delta_1, \Delta_2, \Delta_3, \Delta_4$ in sequence.
+
+- **Loop Down ($current > target$, `$90A3EC..$90A415`):**
+  1. Decrements `$7E10CE,X` ($s \to s - 1$).
+  2. Calls `$90A5D0` with decremented state to apply descriptor $\Delta_{s-1}$.
+  3. Calls `$90A5BA` (animation frame delay).
+  4. Compares against target; loops until equal.
+  *Example:* Setting an object at State 5 back to State 2 applies $\Delta_4, \Delta_3, \Delta_2$ in reverse.
+
+### Interaction with Cuttable Tiles (Section 4 Swap Table)
+
+Because Map Objects stamp directly into the live metatile grid at `$7F0000`, they interact dynamically with the engine's cuttable tile system (documented in [docs/cuttable_grass_mechanics.md](file:///Users/v/Documents/GitHub/everscript/docs/cuttable_grass_mechanics.md)):
+
+- **Cuttability is dictated by the stamped Metatile ID:** The weapon cutting engine checks whether the current metatile ID in `$7F0000` matches a `source` in the room's Section 4 swap table. Stamping a swap-table metatile makes that tile immediately cuttable; stamping a non-swap metatile makes it non-cuttable.
+- **Dynamic Show/Hide:** An object can toggle cuttable grass or bones on and off (e.g., State 0 = intact cuttable metatile; State 1 = cleared ground metatile).
+- **Toggling Between Cuttable Types:** An object can switch between different cuttable types in the same room (e.g., State 0 = cuttable grass, State 1 = cuttable bones) if both source metatile IDs are registered in the room's Section 4 table.
+- **Weapon-Cut Desync:** When a player cuts a tile, the engine cutting queue (`$90A6EF`) writes the cut replacement metatile directly into `$7F0000` without modifying the object's current state in `$7E107E,X`. 
+  - Switching to a *different* state (`object[X] = 1`) triggers `$90A36D` normally because `$7E107E,X` differs from the target state.
+  - Re-applying the *same* state (`object[X] = 0`) is skipped by `$90A390` (`BEQ`) because `$7E107E,X` is still `0`. To re-stamp the same state after a weapon cut, scripts must toggle to another state first or reset `$7E107E,X`.
 
 ---
 
@@ -258,9 +344,13 @@ Native Handler (`$8CDDFF`):
 - **Blob Address:** `0xADBDF9` (ROM `0x2DBD79`)
 - **Object Count (`$0FAE`):** `0x03` (3 objects)
 - **Objects:**
-  - **OBJ 0 (Gourd 1):** Offset `0x0000` $\to$ `01 01 05 05 12 00` (max_state=1, width=1, tile=(5, 5), metatile=0x0012).
-  - **OBJ 1 (Gourd 2):** Offset `0x0006` $\to$ `01 01 0C 07 1D 00` (max_state=1, width=1, tile=(12, 7), metatile=0x001D).
-  - **OBJ 2 (Gourd 3):** Offset `0x000C` $\to$ `01 01 0B 05 28 00` (max_state=1, width=1, tile=(11, 5), metatile=0x0028).
+  - **OBJ 0 (Gourd 1):** Offset `0x0000` $\to$ `max_state = 1`, descriptor at `+$01`: `stride=1`, `origin=(5, 5)`, payload at relative `0x0012`.
+    - **Payload at `0x0012`:** `02 02 0F 68 04 78 04 98 03 88 03` ($2 \times 2$, mask `0x0F` = all 4 tiles modified).
+    - **Delta Words ($\Delta_0$):** `[0x0468, 0x0478, 0x0398, 0x0388]`.
+    - **Base Map (State 0, closed):** `[0x03A0, 0x02D8, 0x03F0, 0x03F8]`.
+    - **Looted Map (State 1, open):** $\text{Base} \oplus \Delta_0 = \text{`[0x07C8, 0x06A0, 0x0068, 0x0070]`}$.
+  - **OBJ 1 (Gourd 2):** Offset `0x0006` $\to$ `max_state = 1`, `origin=(12, 7)`, payload at `0x001D`.
+  - **OBJ 2 (Gourd 3):** Offset `0x000C` $\to$ `max_state = 1`, `origin=(11, 5)`, payload at `0x0028`.
 
 ### 3. Map `0x38` (Prehistoria South Jungle) — Gourds & Sniff Spots
 - **Blob Address:** `0x9E8000` (ROM `0x1E8000`)
@@ -274,6 +364,12 @@ Native Handler (`$8CDDFF`):
 - **Object Count (`$0FAE`):** `0x41` (65 objects)
 - **Objects:**
   - **OBJ 00..16 (Duct Hatches):** Multi-state mechanical doors with `max_state = 3` (4 states: closed, unlocking, open, passing), stride = 16 bytes per record.
+    - **OBJ 0 (Duct Hatch 1):** `origin=(40, 8)`, size $2 \times 2$, mask `0x0F` (all 4 tiles):
+      - **$\text{State}_0$ (Closed, base Markov):** `[0x0540, 0x0548, 0x0618, 0x0620]`
+      - **$\Delta_0$ (at `0x03A2`):** `[0x1528, 0x1538, 0x1260, 0x13A0]` $\longrightarrow$ **$\text{State}_1$:** `[0x1068, 0x1070, 0x1478, 0x1580]`
+      - **$\Delta_1$ (at `0x03AD`):** `[0x01E0, 0x01E0, 0x01E0, 0x0020]` $\longrightarrow$ **$\text{State}_2$:** `[0x1188, 0x1190, 0x1598, 0x15A0]`
+      - **$\Delta_2$ (at `0x03B8`):** `[0x0020, 0x0020, 0x0020, 0x0060]` $\longrightarrow$ **$\text{State}_3$:** `[0x11A8, 0x11B0, 0x15B8, 0x15C0]`
+      - **Reversible Check:** $\text{State}_3 \oplus \Delta_2 = \text{State}_2 \implies \text{State}_2 \oplus \Delta_1 = \text{State}_1 \implies \text{State}_1 \oplus \Delta_0 = \text{State}_0$.
   - **OBJ 17..31 (Duct Gates):** Session barriers opened by dog interaction.
   - **OBJ 32..46 (Gate Bot Barriers):** Persistent barriers tied to kill flags `$22F6`/`$22F7`.
 
@@ -344,24 +440,46 @@ def extract_map_objects(rom: bytes, room_id: int):
         obj_rel_off = read16(rom, fa2 + i * 2)
         ptr = aa_off + obj_rel_off
         max_state = rom[ptr]
-        states = []
+        transitions = []
         for s in range(max_state):
             s_ptr = ptr + 1 + s * 5
-            width = rom[s_ptr]
+            stride = rom[s_ptr]
             tile_x = rom[s_ptr + 1]
             tile_y = rom[s_ptr + 2]
-            metatile_id = read16(rom, s_ptr + 3)
-            states.append({
-                "state": s,
-                "width": width,
+            payload_rel_off = read16(rom, s_ptr + 3)
+            
+            # Unpack target XOR delta payload
+            t_ptr = aa_off + payload_rel_off
+            tw = rom[t_ptr]
+            th = rom[t_ptr + 1]
+            mask = rom[t_ptr + 2]
+            delta_words = []
+            dp = t_ptr + 3
+            for bit in range(tw * th):
+                if (mask >> bit) & 1:
+                    delta_words.append(read16(rom, dp))
+                    dp += 2
+                else:
+                    delta_words.append(0)
+                    
+            transitions.append({
+                "transition_index": s,
+                "from_state": s,
+                "to_state": s + 1,
+                "stride": stride,
                 "tile_x": tile_x,
                 "tile_y": tile_y,
-                "metatile_id": metatile_id
+                "target_width": tw,
+                "target_height": th,
+                "bitmask": mask,
+                "delta_words": delta_words,
+                "payload_rel_off": payload_rel_off
             })
         objects.append({
             "object_index": i,
             "max_state": max_state,
-            "states": states
+            "total_logical_states": max_state + 1,
+            "transitions": transitions
         })
         
     return objects

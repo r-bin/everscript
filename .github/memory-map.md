@@ -35,6 +35,10 @@
 | 0x0810 | ⚙️ RING_MENU_BOY | Word | [pointer] |
 | 0x0834 | ⚙️ RING_MENU_DOG | Word | [pointer] |
 | 0x0a35 | 🧑 BOY_MAX_HP | Word | |
+| 0x0a37 | 🧑 BOY_CURRENT_HP | Word | |
+| 0x0a3f | 🧑 BOY_MAGIC_DEFENSE | Word | Effective magic defense after charms and buffs |
+| 0x0a41 | 🧑 BOY_DEFENSE | Word | Effective physical defense after armor and buffs |
+| 0x0a43 | 🧑 BOY_MAGIC_ATTACK | Word | Effective magic attack |
 | 0x0a47 | 🧑 BOY_HIT | Word | |
 | 0x0a49 | 🧑 BOY_XP | Word | |
 | 0x0a4b | 🧑 BOY_XP_2 | Word | High word |
@@ -80,6 +84,13 @@
 | 0x0c8f | ⚙️ RING_MENU_WEAPON_BAZOOKA | Word | [pointer] |
 | 0x0cb5 | ⚙️ RING_MENU_CONSUMABLES_CALLBEADS_INNER | Word | [pointer] |
 | 0x0cd9 | ⚙️ RING_MENU_CONSUMABLES_CALLBEADS | Word | [pointer] |
+| 0x0e47 | 🎵 APU_TRANSFER_BLOCK_COUNT | Word | Number of bytes/blocks in active SPC700 transfer package (C:805B) |
+| 0x0e49 | 🎵 APU_TRANSFER_PTR | Word | Memory pointer tracking current audio transfer block in SNES ROM (C:805B) |
+| 0x0e4b | 🎵 ACTIVE_SONG | Byte | Currently playing song index (0x00–0x46); checked by SFX dispatcher at C:8236 to detect soundbank mismatches ("The Sound Glitch") |
+| 0x0e4d | 🎵 REQUESTED_SONG | Byte | Pending song index queued by script opcode 0x33 (C:828F) |
+| 0x0e4f | 🎵 AUDIO_FADE_PARAM | Word | Volume fade parameter passed during music transitions |
+| 0x0e51 | 🎵 APU_COMMAND_LOCK | Word | Audio subsystem busy lock & spinlock handshake counter (C:81FD) |
+| 0x0e65 | 🎵 APU_INTERRUPT_FLAG | Word | Audio interrupt communication flag; cleared during APU transfers |
 | 0x0ea2 | ? | Word | Paired with $0eac; written by opcode 0x3f (NPC script setup); "set in lots of places" |
 | 0x0eac | ? | Word | Paired with $0ea2; holds NPC script addresses; written by opcode 0x3f |
 | 0x0ec2 | ⚙️ POINTER_NEXT_PROJECTILE_SLOT | Word | |
@@ -506,12 +517,21 @@
 | 0x2fd8 | ⚗️ LEVEL_HIGH_STING | Word [SRAM] | |
 | 0x2fda | ⚗️ LEVEL_HIGH_STOP | Word [SRAM] | |
 | 0x2fdc | ⚗️ LEVEL_HIGH_SUPER_HEAL | Word [SRAM] | |
-| 0x2fdd…0x2833 | (gap: 1400+ bytes) | Byte×1400 | Unmapped |
+| 0x2fde…0x2ff5 | 🧪 INGREDIENT_USAGE_STATS | Byte×24 [SRAM] | Lifetime usage count per ingredient (Wax=0x2fde, Water=0x2fdf, ..., Acorn=0x2ff5) |
+| 0x2ff6…0x2833 | (gap) | Byte | Unmapped |
 | 0x2834 | ⚙️ One-time B-trigger #1 (NPC spawn) [0x55] (0x01)<br>⚙️ Switch OBJ 8 [0x55] (0x02)<br>⚙️ Switch OBJ 9 [0x55] (0x04)<br>⚙️ Switch OBJ 11 [0x55] (0x08)<br>⚙️ Switch OBJ 10 [0x55] (0x10)<br>⚙️ Lever OBJ 17 [0x55] (0x20)<br>⚙️ Lever OBJ 18 [0x55] (0x40)<br>⚙️ Lever OBJ 19 [0x55] (0x80) | Byte [SRAM] | One-time switch/lever trigger flags — 'mids bottom [0x55]: each bit set on first activation, prevents repeat; loads NPC 0x59 (switch) or 0x5a (lever) and sets OBJ state 1 |
 | 0x2835 | ⚙️ Bridge trap instability bits OBJ 22-29 (0x01/0x02/0x04/0x08/0x10/0x20/0x40/0x80) [0x28]; NPC slot pointer [0x2c][0x29] | Byte [RAM] | Session-local in [0x28] — bits 0x01–0x80 correspond to OBJs 22–29 first-crossing state; all cleared in fall reset sub; reused as NPC slot register ($2835) in other Halls rooms |
 | 0x2836 | ⚙️ Bridge trap 2nd-hit flag OBJ 17 [0x28] (0x04)<br>⚙️ Bridge trap 2nd-hit flag OBJ 18 [0x28] (0x08)<br>⚙️ Bridge trap 2nd-hit flag OBJ 19 [0x28] (0x10)<br>⚙️ Bridge trap 2nd-hit flag OBJ 20 [0x28] (0x20)<br>⚙️ Bridge trap 2nd-hit flag OBJ 21 [0x28] (0x40)<br>⚙️ Bridge trap 2nd-hit flag OBJ 22 [0x28] (0x80)<br>? OBJ 30/31 instability bits (0x01/0x02) | Byte [RAM] | Session-local; set on first crossing of each bridge section; triggers big fall sub on second crossing; all bits cleared in fall reset sub at `0x97ab84`; 0x01/0x02 possibly OBJ 30/31 instability (unconfirmed) |
 | 0x2837 | ⚙️ Bridge trap 2nd-hit flag OBJ 23 [0x28] (0x01)<br>⚙️ Bridge trap 2nd-hit flag OBJ 24 [0x28] (0x02)<br>⚙️ Bridge trap 2nd-hit flag OBJ 25 [0x28] (0x04)<br>? OBJ 26-31 2nd-hit bits (0x08/0x10/0x20/0x40/0x80) | Byte [RAM] | Session-local; same pattern as `$2836`; 0x08–0x80 extrapolated for OBJs 26–30 (unconfirmed) |
 | 0x2838 | ⚙️ Fall-sub re-entry guard [0x28] (0x02)<br>⚙️ Dog-close active [0x28] (0x04)<br>⚙️ Camera wide-view activated [0x28] (0x10) | Byte [RAM] | Session-local — 0x02: prevents double-trigger of big fall sub (set on fall entry, cleared in OBJ reset); 0x04: dog proximity flag for bridge section dog-close tiles; 0x10: one-time camera wide-view trigger |
 | 0x2839…×0x28fb | General-purpose RAM | Byte×195 | Examples: entity slots, attack slots, dark forest layout; `$2856` = crater guard dialogue toggle [0x08] (session-local) |
-| 0x28fc…0x4eb2 | (gap: 6100+ bytes) | Byte×6100 | Unmapped |
+| 0x3364…0x3563 | ⚗️ ALCHEMY_ANIMATION_SLOTS | Byte×512 | 8 parallel animation slots (0x40 B each: +$00 PC, +$02 Bank, +$05 Timer, +$06 Frame, +$08 Attr, +$09 SpriteBank, +$0A SpriteTable, +$0E Lifetime, +$12 AnimID, +$26 Active, +$28 Source, +$2A Power, +$2E Target1, +$30 Target2) |
+| 0x0fb2 | ⚙️ STATUS_COUNT | Byte | Number of active status effects on party |
+| 0x0f3e | 🧑 POINTER_BOY | Word | Pointer to Boy entity structure in WRAM |
+| 0x4ecf…0x4ee0 | 🧑 BOY_STATUS_SLOTS | Byte×18 | Status effect slots (Slot 1: $4ecf ID, $4ed1 duration timer, $4ed3 buff value; Slot 2: $4ed5..; Slot 3: $4edb..) |
+| 0x4f29 | 🧑 BOY_BOOST_ATTACK | Word | Temporary boost attack power (e.g. from Atlas) |
+| 0x4f2b | 🧑 BOY_BOOST_DEFENSE | Word | Temporary boost defense power (e.g. from Defend) |
+| 0x4f2d | 🧑 BOY_BOOST_MAGIC_ATTACK | Word | Temporary boost magic attack |
+| 0x4f2f | 🧑 BOY_BOOST_HIT | Word | Temporary boost hit rate / speed flags |
+| 0x4f31 | 🧑 BOY_BOOST_MAGIC_DEFENSE | Word | Temporary boost magic defense |
 

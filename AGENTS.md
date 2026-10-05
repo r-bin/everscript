@@ -40,6 +40,9 @@ These instructions apply to all AI assistants and agent environments working in 
 4. **Vanilla vs. Custom Separation:**
    - Skip `[CUSTOM]` entries in `in/core/` when researching vanilla mechanics; those are romhack additions.
 
+5. **Research-Driven Documentation:**
+   - This project is fundamentally research-driven. When reverse engineering, analysis, or testing uncovers provably correct discoveries worth keeping (e.g. binary structures, engine routines, hardware mechanics, bytecode algorithms), document them authoritatively in the appropriate `docs/*.md` file (or memory/ROM maps) so knowledge is preserved across sessions and available to all agents and tools.
+
 ---
 
 ## 3. Core Repository Reference
@@ -84,3 +87,4 @@ Operational workflows and runbooks live in `.github/skills/` (aliased at `.agent
 - **Game Design & Mechanics:**
   - `kaizo-design-philosophy`: Kaizo difficulty, boss tuning, and backlog triage.
   - `metroidvania-mechanics`: Weapon gates (`$235F`/`$2360`) and ability barriers.
+  - `alchemy-spell-mechanics`: Alchemy formula engine, ROM master tables (`$C4`), animation VM (`$90`), damage/heal/buff math, and formula expansion.

@@ -25,7 +25,7 @@ Secret of Evermore is a **3 MB (24 Mbit) HiROM** cartridge, mapped into the SNES
 | `$9F:FDE7` | Master Map Pointer Table (127 room entries, 4-byte stride -- see §2) |
 | `$C0..$C4` | Text string tables (Huffman / dictionary compressed game dialogue) |
 | `$D0..$DF` | CHR Character Tile graphics banks (decompressed via LZSS/copy to VRAM) |
-| `$18:0000` | SPC700 Audio Engine, Sound Effects, and Music sequence tracks |
+| `$81, $8A..$8C` | SPC700 Wolfgang Audio Driver, song pointer tables, BRR sample banks, and script audio dispatchers (see §5) |
 
 ---
 
@@ -237,3 +237,73 @@ for rid in range(MAX_ROOMS):
 Regenerate whenever the ROM's map data changes (a relocated blob via
 `encode_room.write_room_into_rom`, or a new room added past `0x7E`). The *Bytes* column is the
 one to watch: it is what `write_room_into_rom` checks against before allowing an in-place write.
+
+
+---
+
+## 5. Audio Subsystem Memory & ROM Layout
+
+*Secret of Evermore* utilizes the proprietary **Wolfgang Sound Driver (v3)** by Steve Aguirre (Sculptured Software). The audio subsystem structures in ROM are organized as follows:
+
+### Audio Dispatch & Validation Tables
+
+| SNES Address | ROM Offset | Size / Length | Purpose / Description |
+|---|---|---|---|
+| `$81:80DC` | `0x0180DC` | 6,112 bytes | Core Wolfgang v3 Driver binary (executed at SPC `$0700`) |
+| `$81:9900` | `0x019900` | 2 bytes | Master Song Count (`0x46` = 70 songs, indices `0x00`–`0x46`) |
+| `$81:9903` | `0x019903` | 213 bytes | Master Song Pointer Table (71 24-bit SNES pointers to song descriptor blocks in Banks `$8A` and `$8B`) |
+| `$81:99D8` | `0x0199D8` | 70 bytes | Internal Song Index Sequence table (`0x01`–`0x46`) |
+| `$81:9A1E` | `0x019A1E` | 90 bytes | Song Dependency Table 2 (maps internal SFX `0..89` to required song soundbank in ARAM) |
+| `$81:9B30` | `0x019B30` | Variable | Master Base Soundbank & SPC700 Driver IPL transfer payload blocks |
+| `$8C:805B` | `0x0C805B` | Code | SPC700 IPL Bootloader Handshake & block upload routine |
+| `$8C:81FD` | `0x0C81FD` | Code | APU Handshake & `$2140` communication spinlock |
+| `$8C:8236` | `0x0C8236` | Code | Song soundbank validation & loader (prevents or induces "The Sound Glitch") |
+| `$8C:828F` | `0x0C828F` | Code | Opcode `0x33` (`music`) pre-dispatcher & volume handler |
+| `$8C:8362` | `0x0C8362` | 240 bytes | Opcode `0x30` (`sound`) SFX Translation Table (120 16-bit entries; `0xFFFF` = hard-muted) |
+| `$8C:8442` | `0x0C8442` | 146 bytes | Opcode `0x33` (`music`) Music Translation Table (73 16-bit entries; maps script opcode to song ID) |
+| `$8C:D6BE` | `0x0CD6BE` | Code | Script Virtual Machine Opcode `0x30` execution entry point |
+| `$8C:D709` | `0x0CD709` | Code | Script Virtual Machine Opcode `0x33` execution entry point |
+
+### Song Descriptor Blocks (Banks `$8A` & `$8B`)
+
+Each song pointed to by `$81:9903` consists of an array of 7-byte transfer records (`[length:16, rom_src_addr:16, rom_src_bank:8, spc_dest:16]`) terminated by a zero-length entry:
+* `$8A:A7BE`: Song `0x00` (Master Global Bank & Driver, 2,851 bytes / 407 blocks)
+* `$8A:B2E1`–`$8B:8E8E`: Songs `0x01`–`0x46` sequence tracks and exclusive soundbank descriptors
+* Detailed reference: see [`docs/audio_music_sound_formats.md`](../docs/audio_music_sound_formats.md)
+
+---
+
+## 6. Alchemy & Spell Subsystem Memory & ROM Layout
+
+*Secret of Evermore* manages all 35 Alchemy formulas and 16 Call Bead spells through unified ROM master tables in Bank `$C4` and a dedicated animation bytecode virtual machine in Bank `$90`.
+
+### Master Tables (Bank `$C4`)
+
+| SNES Address | ROM Offset | Size / Stride | Purpose / Description |
+|---|---|---|---|
+| `$C4:5802` | `0x045802` | 4 bytes/entry | Script Pointer Table (`[Addr Word, Bank Byte, 0x00]`) |
+| `$C4:5BA5` | `0x045BA5` | 10 bytes | Level Multiplier Scale Factors (`[2, 4, 7, 11, 15, 20, 26, 32, 39, 46]` for Lv0..Lv9) |
+| `$C4:5B9C` | `0x045B9C` | 10 bytes | Formula Experience Gain per Cast (`[10, 5, 4, 3, 2, 2, 1, 1, 1, 1]` for Lv0..Lv9) |
+| `$C4:5BF5` | `0x045BF5` | 35 words (70 B) | `ALCHEMY_TARGET`: Target cursor flags (`BOY_DOG_BOTH`, `ENEMY_ALL`, etc.) |
+| `$C4:5C3B` | `0x045C3B` | 35 words (70 B) | `ALCHEMY_LEARNED_ADDR`: Target WRAM persistence byte address (`$2258`..`$225C`) |
+| `$C4:5C81` | `0x045C81` | 35 bytes | `ALCHEMY_LEARNED_MASK`: Bitmask within persistence byte (`0x01`..`0x80`) |
+| `$C4:5DDF` | `0x045DDF` | 35 words (70 B) | `ALCHEMY_ANIM_MAP`: Maps Alchemy Index to animation sequence ID in `$91:80A6` |
+| `$C4:5E6B` | `0x045E6B` | 35 words (70 B) | `ALCHEMY_POWER`: Base power value per formula (0 for utility, 15 for Defend, up to 112 for Nitro) |
+| `$C4:5F17` | `0x045F17` | 16 words (32 B) | `CALL_BEAD_POWER`: Base power for 16 Call Bead spells |
+| `$C4:601F` | `0x04601F` | 35×4 bytes (140 B) | `ALCHEMY_COST_DATA`: Ingredient IDs and required quantities (`[Ing1, Ing2, Qty1, Qty2]`) |
+
+### Animation VM & Combat Execution Routines (Banks `$8F`, `$90`, `$91`)
+
+| SNES Address | ROM Offset | Role / Purpose |
+|---|---|---|
+| `$90:8000` | `0x108000` | Animation VM Opcode Dispatch Table (103 opcodes) |
+| `$90:80CE` | `0x1080CE` | Animation VM Bytecode Interpreter Execution Loop |
+| `$91:80A6` | `0x1180A6` | Animation Sequence Descriptor Pointer Table |
+| `$91:9C90` | `0x119C90` | Spell Damage Calculation & Resolution Routine (magic defense reduction, charm boost, 1..999 clamping) |
+| `$91:9D16` | `0x119D16` | Spell Heal Resolution Routine (clamped to 999 max HP, green popup numbers) |
+| `$91:AE31` | `0x11AE31` | Status Effect Apply / Remove Dispatch Table (8 status slots, masks, durations) |
+| `$91:B137` | `0x11B137` | Defend & Status Buff Application Routine (adds buff to WRAM boost stat `$4F29..$4F31`) |
+| `$91:CCD8` | `0x11CCD8` | Master Formula Cast & Power Calculation Routine (hardware math `$4202..$4216`, XP gain, target split, RNG) |
+| `$8F:8398` | `0x0F8398` | Master Character Stat Recalculation Engine (Armor, Charms, Buffs) |
+
+* Detailed reference: see [`docs/alchemy_system_and_spell_mechanics.md`](../docs/alchemy_system_and_spell_mechanics.md)

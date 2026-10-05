@@ -106,7 +106,27 @@ Per slot:
 
 **No write anywhere in either captured trace touches the collision words.** Cutting swaps the metatile ID only; the new metatile's own definition supplies the new collision word. Any tool or patch that tries to "restore passability" by writing the collision matrix is modelling the engine incorrectly.
 
-### 3.4 Not yet traced
+### 3.4 Interaction with Map Objects (Section 3)
+
+Both cuttable terrain and Section 3 Map Objects write directly to the active 2D metatile grid in WRAM at `$7F0000 + (tile_y * width_tiles + tile_x) * 2`. Because the engine evaluates cuttability purely based on whether the **live metatile ID** currently at that grid cell exists in the Section 4 swap table:
+
+1. **Showing / Hiding Cuttable Grass:**
+   - A Map Object can toggle grass on and off.
+   - **State 0 (Visible / Cuttable):** stamps a metatile ID registered in the Section 4 swap table. The tile can immediately be cut by the player's weapon.
+   - **State 1 (Hidden / Cleared):** stamps a standard, non-cuttable ground metatile ID. The tile cannot be cut.
+
+2. **Switching Between Cuttable Types (e.g., Grass vs. Bones):**
+   - A room's Section 4 swap table can contain multiple distinct cuttable terrain records (e.g., one sequence for grass, another sequence for bones), as long as all sources adhere to the contiguous index invariant starting at `base_metatile`.
+   - A multi-state Map Object can switch between these types:
+     - `State 0`: stamps `Metatile_Grass` (player cutting it triggers the grass-cut sequence into `Metatile_CutGrass`).
+     - `State 1`: stamps `Metatile_Bones` (player cutting it triggers the bones-cut sequence into `Metatile_CutBones`).
+
+3. **State Desync on Weapon Cut:**
+   - When the player cuts a tile, `$90A6EF` updates `$7F0000` directly with the replacement metatile ID. It **does not update** the object state buffer at `$7E107E,X`.
+   - Transitioning to another state (e.g., `object[X] = 1`) executes cleanly because `$7E107E,X` (`0`) differs from the new target (`1`).
+   - However, re-applying the *same* state (e.g., trying to regrow grass with `object[X] = 0`) is skipped by the difference check at `$90A390` (`BEQ`). To force a re-stamp of the same state, scripts must toggle to another state first or modify the buffer.
+
+### 3.5 Not yet traced
 
 - **UNVERIFIED:** the weapon-hitbox code path that fills a queue slot. Both traces begin after the slots were already populated.
 - **UNVERIFIED:** the meaning of the per-record `steps` byte (hit count? step delay? sequence length?). It is `0x01` in all 206 vanilla records.

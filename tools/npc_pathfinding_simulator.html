@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Secret of Evermore - NPC Pathfinding & AI Simulator</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4">
+  <div class="max-w-4xl mx-auto space-y-4">
+    <!-- Header -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">SoE Engine: NPC Pathfinding & Steering Simulator</h1>
+          <p class="text-sm text-[var(--muted-foreground)]">Interactive simulation of Secret of Evermore's local wall-following heuristics, NO_CLIP behavior, and target deadlocks.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnReset" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 transition">Reset Positions</button>
+          <button id="btnStep" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition">Step Frame</button>
+          <button id="btnPlay" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition">Run Simulation</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Simulator Area -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Canvas Viewport -->
+      <div class="md:col-span-2 bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 flex flex-col items-center">
+        <canvas id="simCanvas" width="512" height="384" class="rounded-lg border border-[var(--border)] cursor-crosshair bg-slate-900"></canvas>
+        <div class="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--muted-foreground)]">
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> <span>Player (Boy) - Click to Move</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span> <span>Pursuer (Enemy / Dog)</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-800/80 inline-block border border-amber-600"></span> <span>Solid Obstacle</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-indigo-950/80 inline-block border border-indigo-500"></span> <span>Plane 2 Elevation</span></div>
+        </div>
+
+        <!-- Live Engine Steer & Physics Log -->
+        <div class="mt-4 w-full bg-slate-950 border border-[var(--border)] rounded-xl p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-mono font-semibold text-emerald-400 flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Engine Steer Log (Real-time Frame VM)
+            </span>
+            <div class="flex items-center gap-2">
+              <label class="flex items-center gap-1 text-[11px] text-[var(--muted-foreground)] cursor-pointer">
+                <input type="checkbox" id="chkAutoScroll" checked class="rounded border-[var(--border)]">
+                Auto-scroll
+              </label>
+              <button id="btnClearLog" class="px-2 py-0.5 text-[10px] font-mono rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-80">Clear</button>
+            </div>
+          </div>
+          <div id="simLogConsole" class="h-36 overflow-y-auto font-mono text-[11px] leading-relaxed p-2 bg-slate-900/90 rounded border border-slate-800 text-slate-300 space-y-0.5 select-text">
+            <div class="text-slate-500 italic">// Simulation ready. Click 'Run Simulation' or 'Step Frame' to record physics cycles...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls & Diagnostics -->
+      <div class="space-y-4">
+        <!-- Mode & Flags -->
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Engine Modes & Flags</h2>
+          
+          <label class="flex items-center gap-2.5 text-xs cursor-pointer">
+            <input type="checkbox" id="chkNoClip" class="rounded border-[var(--border)] text-indigo-600">
+            <div>
+              <span class="font-medium text-[var(--foreground)]">Enable NO_CLIP (FLAGS_2 & 0x04)</span>
+              <p class="text-[11px] text-[var(--muted-foreground)]">Disables wall physics rejection; AI still computes obstacle sensors</p>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-2.5 text-xs cursor-pointer">
+            <input type="checkbox" id="chkElevationMismatch" checked class="rounded border-[var(--border)] text-indigo-600">
+            <div>
+              <span class="font-medium text-[var(--foreground)]">Elevation Plane Gating ($909DE8)</span>
+              <p class="text-[11px] text-[var(--muted-foreground)]">Solid if tile plane (bits 5..4) != entity plane</p>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-2.5 text-xs cursor-pointer">
+            <input type="checkbox" id="chkShowRays" checked class="rounded border-[var(--border)] text-indigo-600">
+            <div>
+              <span class="font-medium text-[var(--foreground)]">Show Sensor Probes (±45°, ±90°)</span>
+              <p class="text-[11px] text-[var(--muted-foreground)]">Visualizes tangent checks when forward path is blocked</p>
+            </div>
+          </label>
+
+          <label class="flex items-center gap-2.5 text-xs cursor-pointer">
+            <input type="checkbox" id="chkRngJitter" class="rounded border-[var(--border)] text-indigo-600">
+            <div>
+              <span class="font-medium text-[var(--foreground)]">PRNG Tangent Tie-Breaking</span>
+              <p class="text-[11px] text-[var(--muted-foreground)]">Uses frame counter / RAND to choose left vs right detour</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Live Telemetry -->
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 space-y-2 text-xs">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Entity State (WRAM)</h2>
+          <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+            <div>Distance: <span id="valDist" class="text-emerald-400">0 px</span></div>
+            <div>Heading: <span id="valAngle" class="text-amber-400">0°</span></div>
+            <div>Pursuer Plane: <span id="valPlane" class="text-indigo-400">Plane 1</span></div>
+            <div>AI State: <span id="valState" class="text-sky-400">CHASE</span></div>
+          </div>
+          <div id="statusAlert" class="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] hidden">
+            <!-- Dynamic warning message -->
+          </div>
+        </div>
+
+        <!-- Presets -->
+        <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 space-y-2">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">Scenarios</h2>
+          <div class="grid grid-cols-1 gap-1.5">
+            <button id="scenarioLongWall" class="text-left px-2.5 py-1.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs hover:opacity-90">1. Large Obstacle (Long Path Choice)</button>
+            <button id="scenarioNoClip" class="text-left px-2.5 py-1.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs hover:opacity-90">2. No-Clip Dog Elevation Trap</button>
+            <button id="scenarioTileDeadlock" class="text-left px-2.5 py-1.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs hover:opacity-90">3. Target Tile Overlap Deadlock</button>
+            <button id="scenarioStairs" class="text-left px-2.5 py-1.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs hover:opacity-90">4. Staircase (Smooth Plane Transition)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const TILE_SIZE = 16;
+    const COLS = 32;
+    const ROWS = 24;
+
+    // Grid states: 0 = Open floor (Plane 1), 1 = Solid wall, 2 = Plane 2 (Bridge/cliff)
+    let grid = new Uint8Array(COLS * ROWS);
+
+    let player = { x: 26 * TILE_SIZE, y: 12 * TILE_SIZE, radius: 7 };
+    let enemy = { 
+      x: 6 * TILE_SIZE, 
+      y: 12 * TILE_SIZE, 
+      radius: 7, 
+      plane: 1, 
+      state: 'CHASE', 
+      contourDir: 1,
+      path: [] 
+    };
+
+    let isPlaying = false;
+    let frameCount = 0;
+
+    const logConsole = document.getElementById('simLogConsole');
+    let logBuffer = [];
+
+    function clearLog() {
+      logBuffer = [];
+      if(logConsole) {
+        logConsole.innerHTML = '<div class="text-slate-500 italic">// Log cleared. Ready for next simulation run...</div>';
+      }
+    }
+
+    function appendLog(frame, pos, state, vx, vy, fullClear, xClear, yClear, detour, note) {
+      if(!logConsole) return;
+      let stateColor = 'text-sky-400';
+      if(state.includes('HUGGING')) stateColor = 'text-amber-400';
+      else if(state.includes('SLIDING')) stateColor = 'text-blue-400';
+      else if(state.includes('DEADLOCK') || state.includes('OCCUPIED')) stateColor = 'text-red-400 font-bold';
+      else if(state.includes('NO_CLIP')) stateColor = 'text-purple-400';
+      else if(state.includes('TARGET REACHED')) stateColor = 'text-emerald-400 font-bold';
+
+      const detourStr = detour ? `detour:(${detour.x.toFixed(1)}, ${detour.y.toFixed(1)})` : 'detour:none';
+      const sensorStr = `sensors:[F:${fullClear?'✓':'✗'} X:${xClear?'✓':'✗'} Y:${yClear?'✓':'✗'}]`;
+      const noteStr = note ? ` <span class="text-emerald-400">[${note}]</span>` : '';
+
+      const lineHtml = `<div><span class="text-slate-500">F${String(frame).padStart(3, '0')}</span> <span class="text-slate-400">pos:(${pos.x.toFixed(1)},${pos.y.toFixed(1)})</span> <span class="${stateColor}">${state.padEnd(16, ' ')}</span> <span class="text-slate-300">v:(${vx.toFixed(1)},${vy.toFixed(1)})</span> <span class="text-slate-400">${sensorStr}</span> <span class="text-amber-300/80">${detourStr}</span>${noteStr}</div>`;
+
+      logBuffer.push(lineHtml);
+      if(logBuffer.length > 200) logBuffer.shift();
+      logConsole.innerHTML = logBuffer.join('');
+
+      const autoScroll = document.getElementById('chkAutoScroll');
+      if(autoScroll && autoScroll.checked) {
+        logConsole.scrollTop = logConsole.scrollHeight;
+      }
+    }
+
+    function resetGrid() {
+      grid.fill(0);
+      // Outer boundaries
+      for(let x=0; x<COLS; x++) { grid[x] = 1; grid[(ROWS-1)*COLS + x] = 1; }
+      for(let y=0; y<ROWS; y++) { grid[y*COLS] = 1; grid[y*COLS + (COLS-1)] = 1; }
+    }
+
+    function setupScenarioLongWall() {
+      resetGrid();
+      // Large obstacle in the center (U-shaped or large block)
+      for(let y=6; y<=18; y++) {
+        for(let x=12; x<=18; x++) {
+          grid[y*COLS + x] = 1;
+        }
+      }
+      player.x = 24 * TILE_SIZE; player.y = 12 * TILE_SIZE;
+      enemy.x = 8 * TILE_SIZE; enemy.y = 12 * TILE_SIZE;
+      enemy.plane = 1;
+      enemy.state = 'CHASE';
+      enemy.path = [];
+      enemy.detourAxis = null;
+      document.getElementById('chkNoClip').checked = false;
+    }
+
+    function setupScenarioNoClip() {
+      resetGrid();
+      // Center solid block with Plane 2 embedded
+      for(let y=6; y<=18; y++) {
+        for(let x=12; x<=18; x++) {
+          grid[y*COLS + x] = (x > 14) ? 2 : 1; // Right half is Plane 2 solid
+        }
+      }
+      player.x = 24 * TILE_SIZE; player.y = 12 * TILE_SIZE;
+      enemy.x = 8 * TILE_SIZE; enemy.y = 12 * TILE_SIZE;
+      enemy.plane = 1;
+      enemy.state = 'CHASE';
+      enemy.path = [];
+      enemy.detourAxis = null;
+      document.getElementById('chkNoClip').checked = true;
+    }
+
+    function setupScenarioTileDeadlock() {
+      resetGrid();
+      player.x = 16 * TILE_SIZE; player.y = 12 * TILE_SIZE;
+      enemy.x = 14 * TILE_SIZE; enemy.y = 12 * TILE_SIZE;
+      enemy.plane = 1;
+      enemy.state = 'CHASE';
+      enemy.path = [];
+      enemy.detourAxis = null;
+      document.getElementById('chkNoClip').checked = false;
+    }
+
+    function setupScenarioStairs() {
+      resetGrid();
+      // Wall down column 16, with stairs at row 11 and 12
+      for(let y=1; y<ROWS-1; y++) {
+        grid[y*COLS + 16] = (y === 11 || y === 12) ? 3 : 1;
+      }
+      // Right half is elevated to Plane 2
+      for(let y=1; y<ROWS-1; y++) {
+        for(let x=17; x<COLS-1; x++) {
+          grid[y*COLS + x] = 2;
+        }
+      }
+      player.x = 24 * TILE_SIZE; player.y = 12 * TILE_SIZE;
+      enemy.x = 6 * TILE_SIZE; enemy.y = 12 * TILE_SIZE;
+      enemy.plane = 1;
+      enemy.state = 'CHASE';
+      enemy.path = [];
+      enemy.detourAxis = null;
+      document.getElementById('chkNoClip').checked = false;
+    }
+
+    setupScenarioLongWall();
+
+    // Canvas click to move player
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      player.x = Math.max(16, Math.min(canvas.width - 16, (e.clientX - rect.left) * scaleX));
+      player.y = Math.max(16, Math.min(canvas.height - 16, (e.clientY - rect.top) * scaleY));
+      enemy.path = [];
+      enemy.detourAxis = null;
+      appendLog(frameCount, {x: enemy.x, y: enemy.y}, 'PLAYER MOVED', 0, 0, false, false, false, null, `Target set to (${player.x.toFixed(0)}, ${player.y.toFixed(0)})`);
+    });
+
+    function getTile(x, y) {
+      const tx = Math.floor(x / TILE_SIZE);
+      const ty = Math.floor(y / TILE_SIZE);
+      if(tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return 1;
+      return grid[ty * COLS + tx];
+    }
+
+    function isTilePassable(x, y, entityPlane) {
+      const t = getTile(x, y);
+      if(t === 1) return false; // solid geometry
+      if(t === 3) return true;  // Stairs: Plane-transparent corridor ($909E44)! Always open.
+      if(document.getElementById('chkElevationMismatch').checked) {
+        if(t === 2 && entityPlane !== 2) return false; // plane mismatch
+        if(t === 0 && entityPlane !== 1) return false;
+      }
+      return true;
+    }
+
+    function stepSimulation() {
+      frameCount++;
+      const noClip = document.getElementById('chkNoClip').checked;
+      const rngJitter = document.getElementById('chkRngJitter').checked;
+
+      const dx = player.x - enemy.x;
+      const dy = player.y - enemy.y;
+      const dist = Math.hypot(dx, dy);
+
+      document.getElementById('valDist').innerText = `${Math.round(dist)} px`;
+      document.getElementById('valPlane').innerText = `Plane ${enemy.plane}`;
+      
+      const alertBox = document.getElementById('statusAlert');
+
+      // Hitbox Overlap / Target Tile Deadlock check
+      if(dist < 14) {
+        enemy.state = 'TARGET REACHED';
+        document.getElementById('valState').innerText = enemy.state;
+        alertBox.innerText = `Target reached at distance ${dist.toFixed(1)}px!`;
+        alertBox.classList.remove('hidden');
+        appendLog(frameCount, {x: enemy.x, y: enemy.y}, 'TARGET REACHED', 0, 0, true, true, true, null, `Reached in Frame ${frameCount}!`);
+        if(isPlaying) {
+          isPlaying = false;
+          const playBtn = document.getElementById('btnPlay');
+          playBtn.innerText = 'Run Simulation';
+          playBtn.classList.add('bg-emerald-600');
+          playBtn.classList.remove('bg-amber-600');
+        }
+        return;
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      // Desired velocity vector (Line-of-Sight steering)
+      const baseAngle = Math.atan2(dy, dx);
+      document.getElementById('valAngle').innerText = `${Math.round(baseAngle * 180 / Math.PI)}°`;
+
+      const speed = 1.6;
+      let targetVx = (dx !== 0) ? (dx / dist) * speed : 0;
+      let targetVy = (dy !== 0) ? (dy / dist) * speed : 0;
+
+      function canStep(fromX, fromY, stepX, stepY) {
+        const r = enemy.radius;
+        const probePoints = [
+          { x: fromX + stepX + Math.sign(stepX) * r, y: fromY + stepY + Math.sign(stepY) * r },
+          { x: fromX + stepX + Math.sign(stepX) * r, y: fromY + stepY },
+          { x: fromX + stepX, y: fromY + stepY + Math.sign(stepY) * r }
+        ];
+        return probePoints.every(p => isTilePassable(p.x, p.y, enemy.plane));
+      }
+
+      let vx = 0;
+      let vy = 0;
+
+      const fullStepClear = canStep(enemy.x, enemy.y, targetVx, targetVy);
+      const xStepClear = canStep(enemy.x, enemy.y, targetVx, 0);
+      const yStepClear = canStep(enemy.x, enemy.y, 0, targetVy);
+
+      let logNote = null;
+
+      if(noClip) {
+        enemy.state = 'NO_CLIP (PHYSICS BYPASSED)';
+        vx = targetVx;
+        vy = targetVy;
+        const currentTile = getTile(enemy.x, enemy.y);
+        if(currentTile === 2) enemy.plane = 2;
+      } else {
+        // If detour is currently latched, check if the blocked axis is now clear (corner rounded!)
+        if(enemy.detourAxis) {
+          if(enemy.detourAxis.x === 0 && xStepClear) {
+            enemy.detourAxis = null;
+            logNote = 'Corner cleared on X!';
+          } else if(enemy.detourAxis.y === 0 && yStepClear) {
+            enemy.detourAxis = null;
+            logNote = 'Corner cleared on Y!';
+          }
+        }
+
+        if(enemy.detourAxis) {
+          enemy.state = 'WALL_HUGGING';
+          if(canStep(enemy.x, enemy.y, enemy.detourAxis.x, enemy.detourAxis.y)) {
+            vx = enemy.detourAxis.x;
+            vy = enemy.detourAxis.y;
+          } else {
+            // Reverse detour tangent if blocked ahead
+            enemy.detourAxis.x = -enemy.detourAxis.x;
+            enemy.detourAxis.y = -enemy.detourAxis.y;
+            if(canStep(enemy.x, enemy.y, enemy.detourAxis.x, enemy.detourAxis.y)) {
+              vx = enemy.detourAxis.x;
+              vy = enemy.detourAxis.y;
+              logNote = 'Detour reversed';
+            }
+          }
+        } else if(fullStepClear) {
+          enemy.state = 'CHASE';
+          vx = targetVx;
+          vy = targetVy;
+        } else if(xStepClear && Math.abs(targetVx) > 0.3 && Math.abs(targetVx) >= Math.abs(targetVy)) {
+          enemy.state = 'WALL_SLIDING (X)';
+          vx = targetVx;
+          vy = 0;
+        } else if(yStepClear && Math.abs(targetVy) > 0.3 && Math.abs(targetVy) >= Math.abs(targetVx)) {
+          enemy.state = 'WALL_SLIDING (Y)';
+          vx = 0;
+          vy = targetVy;
+        } else {
+          // Head-on collision: initiate wall-hugging detour
+          enemy.state = 'WALL_HUGGING';
+          const detourSign = rngJitter ? ((Math.random() > 0.5) ? 1 : -1) : enemy.contourDir;
+          if(Math.abs(targetVx) >= Math.abs(targetVy)) {
+            enemy.detourAxis = { x: 0, y: detourSign * speed };
+          } else {
+            enemy.detourAxis = { x: detourSign * speed, y: 0 };
+          }
+
+          if(canStep(enemy.x, enemy.y, enemy.detourAxis.x, enemy.detourAxis.y)) {
+            vx = enemy.detourAxis.x;
+            vy = enemy.detourAxis.y;
+          } else {
+            enemy.detourAxis.x = -enemy.detourAxis.x;
+            enemy.detourAxis.y = -enemy.detourAxis.y;
+            if(canStep(enemy.x, enemy.y, enemy.detourAxis.x, enemy.detourAxis.y)) {
+              vx = enemy.detourAxis.x;
+              vy = enemy.detourAxis.y;
+            }
+          }
+          logNote = 'Detour initiated';
+        }
+      }
+
+      document.getElementById('valState').innerText = enemy.state;
+
+      // Update position
+      enemy.x += vx;
+      enemy.y += vy;
+
+      // Log frame decision
+      appendLog(frameCount, {x: enemy.x, y: enemy.y}, enemy.state, vx, vy, fullStepClear, xStepClear, yStepClear, enemy.detourAxis, logNote);
+
+      // Check plane transition on stairs (tile 3)
+      const currentTile = getTile(enemy.x, enemy.y);
+      if(currentTile === 3) {
+        if(player.x > enemy.x) enemy.plane = 2;
+        else enemy.plane = 1;
+      }
+
+      // Record path
+      if(enemy.path.length === 0 || Math.hypot(enemy.x - enemy.path[enemy.path.length-1].x, enemy.y - enemy.path[enemy.path.length-1].y) > 4) {
+        enemy.path.push({ x: enemy.x, y: enemy.y });
+        if(enemy.path.length > 300) enemy.path.shift();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Grid Tiles
+      for(let r=0; r<ROWS; r++) {
+        for(let c=0; c<COLS; c++) {
+          const t = grid[r * COLS + c];
+          if(t === 1) {
+            ctx.fillStyle = '#451a03'; // Solid obstacle
+            ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = '#78350f';
+            ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          } else if(t === 2) {
+            ctx.fillStyle = '#1e1b4b'; // Plane 2
+            ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = '#3730a3';
+            ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          } else if(t === 3) {
+            ctx.fillStyle = '#b45309'; // Stairs (Plane-transparent transition)
+            ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = '#fef3c7';
+            ctx.fillRect(c * TILE_SIZE + 2, r * TILE_SIZE + 4, TILE_SIZE - 4, 2);
+            ctx.fillRect(c * TILE_SIZE + 2, r * TILE_SIZE + 10, TILE_SIZE - 4, 2);
+          } else {
+            ctx.strokeStyle = '#1e293b';
+            ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+
+      // Draw Pursuer Path Trace
+      if(enemy.path.length > 1) {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(enemy.path[0].x, enemy.path[0].y);
+        for(let i=1; i<enemy.path.length; i++) {
+          ctx.lineTo(enemy.path[i].x, enemy.path[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Draw Direct Line-of-Sight Line
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(enemy.x, enemy.y);
+      ctx.lineTo(player.x, player.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Sensors / Detour vector if enabled
+      if(document.getElementById('chkShowRays').checked && enemy.detourAxis) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(enemy.x, enemy.y);
+        ctx.lineTo(enemy.x + enemy.detourAxis.x * 12, enemy.y + enemy.detourAxis.y * 12);
+        ctx.stroke();
+      }
+
+      // Draw Player (Boy)
+      ctx.fillStyle = '#3b82f6';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#93c5fd';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Draw Pursuer
+      ctx.fillStyle = document.getElementById('chkNoClip').checked ? '#a855f7' : '#ef4444';
+      ctx.beginPath();
+      ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fca5a5';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    function loop() {
+      if(isPlaying) {
+        stepSimulation();
+      }
+      draw();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    document.getElementById('btnPlay').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      document.getElementById('btnPlay').innerText = isPlaying ? 'Pause Simulation' : 'Run Simulation';
+      document.getElementById('btnPlay').classList.toggle('bg-emerald-600', !isPlaying);
+      document.getElementById('btnPlay').classList.toggle('bg-amber-600', isPlaying);
+    });
+
+    document.getElementById('btnStep').addEventListener('click', () => {
+      stepSimulation();
+      draw();
+    });
+
+    document.getElementById('btnClearLog').addEventListener('click', clearLog);
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      frameCount = 0;
+      clearLog();
+      setupScenarioLongWall();
+      draw();
+    });
+
+    document.getElementById('scenarioLongWall').addEventListener('click', () => {
+      frameCount = 0;
+      clearLog();
+      setupScenarioLongWall();
+      draw();
+    });
+    document.getElementById('scenarioNoClip').addEventListener('click', () => {
+      frameCount = 0;
+      clearLog();
+      setupScenarioNoClip();
+      draw();
+    });
+    document.getElementById('scenarioTileDeadlock').addEventListener('click', () => {
+      frameCount = 0;
+      clearLog();
+      setupScenarioTileDeadlock();
+      draw();
+    });
+    document.getElementById('scenarioStairs').addEventListener('click', () => {
+      frameCount = 0;
+      clearLog();
+      setupScenarioStairs();
+      draw();
+    });
+  </script>
+</body>
+</html>
