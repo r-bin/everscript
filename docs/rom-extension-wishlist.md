@@ -32,6 +32,46 @@ Each item has:
 
 ## 1. Maps beyond 127
 
+> [!IMPORTANT]
+> **Update 2026-10-06: VERIFIED by a live run. Supersedes several claims below.** Done with the
+> CDL recorder and Asar export in `everscript-vscode` (v0.160.0), then booted headless in the
+> snes9x core. Details: `everscript-vscode/docs/asm-to-c-port.md` §11.1, recipe in
+> `everscript-vscode/docs/workflows/cdl-export-build-recomp.md` ("Add a room id").
+>
+> **Corrections:**
+> - **`room_id` is 16-bit, not a byte.** `CHANGE MAP` (`func $8CDB71`) stores its 16-bit operand
+>   unmasked into `$7E0ADB`. The loader (`$908F63`) does `lda $0ADB : asl : asl : tax` with
+>   16-bit registers and reads the table with two long-indexed loads, `lda.l $9FFDE7,x` (ROM
+>   `0x108F69`) and `lda.l $9FFDE8,x` (`0x108F6F`).
+> - **There is a second per-room table: room enter scripts at `$92801B`, 5 bytes per room.** It is
+>   read by `func $8CCE99` (`8C:CECC`, `8C:CED2`): the first 3 bytes are the enter script's packed
+>   pointer. The table ends where the global script pointer table starts (`$928000` +
+>   word[`$928000`] = `$928294`), and room `$7E`'s entry already overlaps that table's first bytes.
+>   **There are no free entries.** This answers open question 2.
+> - **So "7 rooms without relocation" is wrong.** The map table has 7 spare slots, but room `$7F`'s
+>   enter-script lookup lands in the global script table. Live result: black screen.
+> - **The real ceiling is 256 rooms, set by one instruction.** The enter-script lookup computes
+>   `id*5` with the SNES hardware multiplier (`lda $0ADB : ora #$0500 : sta $4202`), which is
+>   8×8 bit. Id `$0100` loaded room `$00`. Beyond 256 needs that routine rewritten (e.g. `asl`/`adc`).
+>
+> **Live test.** Power-on, 1200 frames, no input, the boot reaches room `$15`. Both tables were
+> moved to the extension region (`$F18000` map table, `$F19000` enter scripts, read through the
+> `$B1` mirror), old copies wiped, and a new id `$7F` pointed at room `$15`'s blob and enter
+> script. The boot script's `CHANGE MAP $15` at `$92E0CA` was changed to `$7F`. Result: the same
+> screen as the unedited ROM, and WRAM differed in one byte (`$0ADB` = `$7F`). Controls: moving
+> the map table alone gave an identical boot; wiping it without moving broke the boot. This
+> answers open question 1: no range check, and an out-of-range id loads fine once both tables
+> have the entry.
+>
+> **Readers of `$0ADB` seen by the CDL recorder:** the loader and the enter-script lookup (reads);
+> `CHANGE MAP` and the new-game routine `$80B394` (writes; the start room comes from the 16-bit
+> word at `$928006`); everything else is block copies (save/load, clears) that copy the value as
+> is. Code not yet recorded may still use the id, so re-check after more coverage.
+>
+> **Additional blast radius:** `compiler/linker.py` hard-codes the enter table
+> (`MapDataHandler.address_trigger_enter_base = 0x92801b`, stride 5). A relocated table needs the
+> compiler to write there instead.
+
 ### Current known limit and why it exists
 **Largely already answered by this repo's own research** — see
 [`docs/map_editor_architecture_and_limitations.md`](map_editor_architecture_and_limitations.md)
@@ -548,6 +588,26 @@ repo's own first-party compiler source and by an empirical compile run performed
   class and `codegen.py`'s `_wipe_strings`) — both would need to move in lockstep with any future
   table-relocation patch, and `docs/review.md` already flags this duplication as unaddressed,
   independently of this wishlist item.
+
+> [!IMPORTANT]
+> **Update 2026-10-06: open question 1 answered by the CDL recorder** (`everscript-vscode`, live
+> reads during play). The key table is read by **`func $8CCCF5`**, at `8C:CCFF` and `8C:CD07`. It
+> never holds `$91D000` as one literal; it builds the pointer from two immediates:
+>
+> ```asm
+> sta $26            ; A = key offset (index * 3)
+> lda #$0091 : sta $28   ; bank
+> ldy #$D000             ; table base within the bank
+> lda [$26],y            ; low word, & $7FFF
+> iny : lda [$26],y      ; next word, bit 15 -> compressed flag
+> ```
+>
+> That is why the static scan above found zero hits for `00 D0 91`. Relocating the table means
+> patching these two immediates (`#$0091`, `#$D000`): an item-1-like operand edit, not code movement.
+> Only this routine read the table in the recorded sessions (7 keys); other text paths not played
+> yet could read it too. In the `everscript-vscode` Asar export the key table is already
+> `dl strkey(str_XXXX)` per entry and every string is labelled `str_<index>`, so the *entries*
+> follow moved strings. The two immediates are not symbolic yet.
 
 ### Open questions
 1. Disassemble the `0x51`, `0x52`, and `0x8c` opcode handlers in Mesen2 to determine whether
@@ -1197,12 +1257,12 @@ marked `Verified this session? No`. This pass's script run refutes both halves o
 
 | # | Item | Core mechanism found? | Concrete number found? | Feasibility (judgment) |
 |---|---|---|---|---|
-| 1 | Maps beyond 127 | Yes — VERIFIED (`$9FFDE7`, 4-byte stride, no bounds check at `$908F6A`) | Yes — 7 free slots now, 256 max via byte `room_id` | Straightforward (7 rooms) → Moderate (relocated table) |
+| 1 | Maps beyond 127 | Yes — VERIFIED live (2026-10-06): two per-room tables, map `$9FFDE7` (4 B) and enter scripts `$92801B` (5 B); 16-bit `room_id`; no bounds check | Yes — 0 free slots in place (enter table full); 256 max via the 8×8-bit multiplier in the enter-script lookup | Done in `everscript-vscode` v0.160.0: both tables relocated, id `$7F` boots (Asar export); beyond 256: one routine to rewrite |
 | 2 | More enemy sprites / palette variants | Partially — stat table stride verified, size is an admitted guess in the source tool itself; graphics tables located but unsized | No — "142" explicitly debunked as a TODO guess, not a real count | Not assignable yet — needs investigation |
 | 3 | More concurrent sprites | Yes, with an open first-party doc mismatch — VERIFIED math for one candidate range (30 slots × 0x8E bytes) | Yes, conditionally — 30 slots (pending mismatch resolution) | Moderate-to-major, contingent on WRAM-vs-hardware-OAM question |
 | 4 | More sprite palette slots | Yes — VERIFIED 8 named WRAM slots, unverified mapping to SNES hardware OBJ CGRAM | Yes — 8 slots, 1 possibly reclaimable (slot 4) | 1 slot maybe easy; beyond 8 total may be hardware-impossible |
 | 5 | SA-1 port | No — zero references anywhere in this repo | No | SA-1-tier extremely hard / unscoped |
-| 6 | More string IDs | Yes — VERIFIED (`$91D000`, 3-byte stride, hard-coded base in compiler source, 3002 slots) | Yes — 3002 total slots; empirically 1336/2552 free in Kaizo's reserved half after a full-project compile in this pass | String content: solved already (extension ROM) → String ID count: Moderate (item-1-like) → possibly harder if decompression dictionary tables can't be cleanly separated |
+| 6 | More string IDs | Yes — VERIFIED (`$91D000`, 3-byte stride, hard-coded base in compiler source, 3002 slots); reader found 2026-10-06: `$8CCCF5` builds the base from immediates `#$0091` + `#$D000` | Yes — 3002 total slots; empirically 1336/2552 free in Kaizo's reserved half after a full-project compile in this pass | String content: solved already (extension ROM) → String ID count: Moderate (item-1-like) → possibly harder if decompression dictionary tables can't be cleanly separated |
 | 7 | More tiles / tile families | Yes — VERIFIED two distinct systems: 7A palettes (`$9CC322`, 32-byte stride, disassembly of `$90D020..$90D065` incl. a patchable `#$C322` literal); 7B CHR graphics (`$EE0000`, 3-byte stride, distinct 16-mode dual-stream decompressor at `$8CC9C0`, confirmed NOT the room-blob LZSS scheme) | Yes for 7A — 7 usable CGRAM slots (hardware cap, disassembly-confirmed at `$90D037`), 365 distinct catalog ids referenced (100% dense, 0..364); yes for 7B's per-room VRAM ceiling (~448 16×16 tiles), no for 7B's total catalog size (table upper bound not determined this pass) | 7A: simultaneous-slot growth likely hardware-impossible (same CGRAM budget as item 4); catalog growth moderate, more concretely scoped than item 6 (found literal operand); possible free "2nd batch" mechanism via `$7E2437` unconfirmed. 7B: simultaneous-tile growth likely hardware-impossible (VRAM); catalog growth not assignable (table bound unknown). `$D0..$DF` CHR-bank claim in `docs/rom-map-overview.md` refuted this pass — very likely a stale alias of already-documented `$90..$9F` |
 
 Every "Yes" above is traceable to a specific file and line cited in its section; every "No" or
