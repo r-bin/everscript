@@ -607,7 +607,18 @@ repo's own first-party compiler source and by an empirical compile run performed
 > Only this routine read the table in the recorded sessions (7 keys); other text paths not played
 > yet could read it too. In the `everscript-vscode` Asar export the key table is already
 > `dl strkey(str_XXXX)` per entry and every string is labelled `str_<index>`, so the *entries*
-> follow moved strings. The two immediates are not symbolic yet.
+> follow moved strings.
+>
+> **Relocation VERIFIED live (2026-10-07, `everscript-vscode` v0.161.0).** There are two readers
+> with this exact code: `$8CCCF5` and an identical, rarely-run copy at `$8CCD33`. Both
+> immediates are now expressions of the `string_keys` label in the Asar export. The table was
+> moved to `$F1A000` (read as `$B1:A000`) and the old one wiped. Then `51 <key> 00` was injected
+> headless for keys `$2148`, `$0000` and `$0BB7`: the decoded text buffer (`$7FD81E`), WRAM and
+> the screen matched the unedited ROM; wiping without moving left the buffer empty. The
+> dictionary tables at `$91F32E+` stay where they are and are not affected. Limit: the table
+> must fit in one `$xx8000–$xxFFFF` half (about 10900 keys). Blast radius:
+> `compiler/ast_everscript.py` (`0x91d000 + index`) and `compiler/codegen.py`
+> (`address = 0x11d000`) must follow a moved table.
 
 ### Open questions
 1. Disassemble the `0x51`, `0x52`, and `0x8c` opcode handlers in Mesen2 to determine whether
@@ -1262,7 +1273,7 @@ marked `Verified this session? No`. This pass's script run refutes both halves o
 | 3 | More concurrent sprites | Yes, with an open first-party doc mismatch — VERIFIED math for one candidate range (30 slots × 0x8E bytes) | Yes, conditionally — 30 slots (pending mismatch resolution) | Moderate-to-major, contingent on WRAM-vs-hardware-OAM question |
 | 4 | More sprite palette slots | Yes — VERIFIED 8 named WRAM slots, unverified mapping to SNES hardware OBJ CGRAM | Yes — 8 slots, 1 possibly reclaimable (slot 4) | 1 slot maybe easy; beyond 8 total may be hardware-impossible |
 | 5 | SA-1 port | No — zero references anywhere in this repo | No | SA-1-tier extremely hard / unscoped |
-| 6 | More string IDs | Yes — VERIFIED (`$91D000`, 3-byte stride, hard-coded base in compiler source, 3002 slots); reader found 2026-10-06: `$8CCCF5` builds the base from immediates `#$0091` + `#$D000` | Yes — 3002 total slots; empirically 1336/2552 free in Kaizo's reserved half after a full-project compile in this pass | String content: solved already (extension ROM) → String ID count: Moderate (item-1-like) → possibly harder if decompression dictionary tables can't be cleanly separated |
+| 6 | More string IDs | Yes — VERIFIED (`$91D000`, 3-byte stride, hard-coded base in compiler source, 3002 slots); two readers (`$8CCCF5`, `$8CCD33`) build the base from immediates `#$0091` + `#$D000`; relocation to the extension verified live 2026-10-07 | Yes — 3002 total slots; empirically 1336/2552 free in Kaizo's reserved half after a full-project compile in this pass | String content: solved already (extension ROM) → String ID count: Moderate (item-1-like) → possibly harder if decompression dictionary tables can't be cleanly separated |
 | 7 | More tiles / tile families | Yes — VERIFIED two distinct systems: 7A palettes (`$9CC322`, 32-byte stride, disassembly of `$90D020..$90D065` incl. a patchable `#$C322` literal); 7B CHR graphics (`$EE0000`, 3-byte stride, distinct 16-mode dual-stream decompressor at `$8CC9C0`, confirmed NOT the room-blob LZSS scheme) | Yes for 7A — 7 usable CGRAM slots (hardware cap, disassembly-confirmed at `$90D037`), 365 distinct catalog ids referenced (100% dense, 0..364); yes for 7B's per-room VRAM ceiling (~448 16×16 tiles), no for 7B's total catalog size (table upper bound not determined this pass) | 7A: simultaneous-slot growth likely hardware-impossible (same CGRAM budget as item 4); catalog growth moderate, more concretely scoped than item 6 (found literal operand); possible free "2nd batch" mechanism via `$7E2437` unconfirmed. 7B: simultaneous-tile growth likely hardware-impossible (VRAM); catalog growth not assignable (table bound unknown). `$D0..$DF` CHR-bank claim in `docs/rom-map-overview.md` refuted this pass — very likely a stale alias of already-documented `$90..$9F` |
 
 Every "Yes" above is traceable to a specific file and line cited in its section; every "No" or
