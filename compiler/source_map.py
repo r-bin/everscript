@@ -107,6 +107,7 @@ class SourceMap:
         self._entry_index: dict[tuple[int, int], int] = {}
         self.functions: list[dict] = []
         self.statements: list[dict] = []
+        self.symbols: list[dict] = []
 
     def register(self, src) -> int | None:
         """source_id for a (file, line) origin, or None for generated code."""
@@ -178,6 +179,15 @@ class SourceMap:
         else:
             self.statements.append(statement)
 
+    def add_symbol(self, name: str, address: int, size: int, flag=None, offset=None) -> None:
+        """A named memory location (ENUM.ENTRY = <0x...>): WRAM offset in bank $7E, 1 or 2 bytes, flag bit mask."""
+        symbol = {"name": name, "address": address, "size": size}
+        if flag is not None:
+            symbol["flag"] = flag
+        if offset is not None:
+            symbol["offset"] = offset
+        self.symbols.append(symbol)
+
     def to_json(self) -> str:
         return json.dumps({
             "version": 1,
@@ -185,4 +195,5 @@ class SourceMap:
             "files": self.files,
             "functions": sorted(self.functions, key=lambda f: f["address"]),
             "statements": sorted(self.statements, key=lambda s: s["address"]),
+            "symbols": sorted(self.symbols, key=lambda s: s["name"]),
         }, indent=1)

@@ -198,6 +198,19 @@ class CodeGen():
 
         return all_identifiers
 
+    def collect_memory_symbols(self) -> None:
+        """Named memory (enum entries holding a Memory) for the source map: the debugger reads them by name."""
+        for enum in self._all_identifiers().values():
+            if not isinstance(enum, Enum):
+                continue
+            for entry in enum.values:
+                memory = entry.value if isinstance(entry, Enum_Entry) else None
+                # 00..ff are entity-relative (<BOY>[...]), not WRAM addresses
+                if not isinstance(memory, Memory) or not isinstance(memory.address, int) or memory.address <= 0xff:
+                    continue
+                self.source_map.add_symbol(f"{enum.name}.{entry.name}", memory.address, memory.value_count(),
+                                           memory.flag, memory.offset)
+
     def get_memory_allocation(self):
         strings = []
         for s in self.strings:

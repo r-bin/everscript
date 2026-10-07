@@ -75,6 +75,7 @@ def handle_parse(code: str, verbose: bool, source_lines=None):
     generated = string_utils.beautify_output(generated)
     out_utils.dump(generated, "patch.txt")
     out_utils.dump(generator.get_memory_allocation(), "memory_map.txt")
+    generator.collect_memory_symbols()
     out_utils.dump(generator.source_map.to_json(), "source_map.json")
 
     generated_clean = file_utils.clean(generated)

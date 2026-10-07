@@ -75,3 +75,23 @@ def test_statements_map_to_lines_without_changing_bytes(tmp_path):
     assert lines == [(7, "main_fn", []), (8, "main_fn", []), (3, "helper", [9]), (11, "main_fn", [])]
     assert statements[0]["address"] == 0x300000
     assert generator.source_map.functions[0]["line"] == 6
+
+
+def test_memory_symbols(tmp_path):
+    path = str(tmp_path / "main.evs")
+    source = (
+        '#include("in/core")\n'
+        "enum DEBUG_MEM {\n"
+        "    BYTE_VALUE = (Byte) <0x0ADA>,\n"
+        "    WORD_VALUE = <0x289D>,\n"
+        "    FLAG_VALUE = <0x28FA, 0x20>\n"
+        "}\n"
+    )
+    generator = _compile(source, path)
+    generator.collect_memory_symbols()
+    symbols = {s["name"]: s for s in generator.source_map.symbols}
+
+    assert symbols["DEBUG_MEM.BYTE_VALUE"] == {"name": "DEBUG_MEM.BYTE_VALUE", "address": 0x0ADA, "size": 1}
+    assert symbols["DEBUG_MEM.WORD_VALUE"]["size"] == 2
+    assert symbols["DEBUG_MEM.FLAG_VALUE"]["flag"] == 0x20
+    assert "MEMORY.QUESTION_ANSWER" in symbols
