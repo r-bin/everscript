@@ -715,7 +715,13 @@ class Function_Code(Function_Base):
                 case int():
                     list.append('{:02X}'.format(a, 'x')) # TODO
                 case Function_Base():
-                    list.append(a.code(params))
+                    statement = '\n' in self.delimiter
+                    code = a.statement_code(params) if statement and hasattr(a, 'statement_code') else a.code(params)
+                    source_id = getattr(a, 'source_id', None)
+                    if source_id is not None and code and statement:
+                        # Statement start for out/source_map.json (a comment: no bytes).
+                        code = f"//@src:{source_id}\n{code}"
+                    list.append(code)
                 case Param():
                     code = a.resolve(params)
                     code = code.code(params)

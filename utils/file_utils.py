@@ -47,7 +47,7 @@ class FileUtils():
         file = Path(file)
 
         match(file.suffix):
-            case ".txt" | ".evs":
+            case ".txt" | ".evs" | ".json":
                 self.dump_txt_raw(text, file)
             case ".ips":
                 self.dump_txt_to_ips(text, file)

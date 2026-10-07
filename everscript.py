@@ -24,7 +24,8 @@ from compiler.lexer import Lexer
 from compiler.codegen import CodeGen
 from compiler.parser import Parser
 from compiler.linker import Linker
-from compiler.preprocessor import preprocess
+from compiler.preprocessor import preprocess_mapped
+from compiler.source_map import annotate_tokens
 
 # Shared pipeline objects, initialised once inside main() before any compilation.
 lexer = None
@@ -32,7 +33,7 @@ linker = None
 generator = None
 parser = None
 
-def handle_parse(code: str, verbose: bool):
+def handle_parse(code: str, verbose: bool, source_lines=None):
     """Run the lex → parse → codegen pipeline on preprocessed EverScript source.
 
     Args:
@@ -64,7 +65,7 @@ def handle_parse(code: str, verbose: bool):
     log("lexing code…")
     out_utils.dump(re.sub(r"\),", r"\),\n", f"{list(lexer.lex(code))}"), "lexer.txt")
 
-    lexed = lexer.lex(code)
+    lexed = annotate_tokens(lexer.lex(code), source_lines)
     log("generating objects…")
     parser.parse(lexed)
 
@@ -74,6 +75,7 @@ def handle_parse(code: str, verbose: bool):
     generated = string_utils.beautify_output(generated)
     out_utils.dump(generated, "patch.txt")
     out_utils.dump(generator.get_memory_allocation(), "memory_map.txt")
+    out_utils.dump(generator.source_map.to_json(), "source_map.json")
 
     generated_clean = file_utils.clean(generated)
     out_utils.dump(generated_clean, "patch.clean.txt")
@@ -113,7 +115,7 @@ def main() -> None:
     code = file_utils.file2string(args.input_file)
 
     # Preprocess: resolve #import directives (static text substitution).
-    code = preprocess(code, args.input_file)
+    code, source_lines = preprocess_mapped(code, args.input_file)
 
     out_utils.init_out()
 
@@ -123,7 +125,7 @@ def main() -> None:
     if args.profile:
         profiler = cProfile.Profile()
         profiler.enable()
-        parser_out = handle_parse(code, verbose=True)
+        parser_out = handle_parse(code, verbose=True, source_lines=source_lines)
         profiler.disable()
 
         result = io.StringIO()
@@ -134,7 +136,7 @@ def main() -> None:
             print(result, file=f)
         print(result)
     else:
-        parser_out = handle_parse(code, verbose=True)
+        parser_out = handle_parse(code, verbose=True, source_lines=source_lines)
 
     if args.rom_file is not None:
         print("preparing rom:")

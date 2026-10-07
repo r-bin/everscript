@@ -9,6 +9,7 @@ from typing import Callable
 import warnings
 
 from compiler.linker import Linker
+from compiler.source_map import SourceMap, strip_markers
 
 class Scope(BaseBox):
     class Type(StrEnum):
@@ -175,6 +176,7 @@ class CodeGen():
         self.patches = []
         self.maps = []
         self.exits = []
+        self.source_map = SourceMap()
 
     def push_scope(self, scope:Scope) -> None:
         self.scopes.append(scope)
@@ -406,7 +408,7 @@ allocated RAM:
         footer = ["EOF"]
         
         output = [item for item in output if item]
-        return '\n'.join(header + output + footer)
+        return strip_markers('\n'.join(header + output + footer))
 
     def _wipe_strings(self):
         list = []
@@ -660,6 +662,10 @@ allocated RAM:
         self.linker.link_goto(function)
 
         address = self.correct_address(address)
+
+        self.source_map.add_function(function.name, address, count, code,
+                                     getattr(function, 'source_id', None), getattr(function, 'end_source_id', None))
+        code = strip_markers(code)
 
         header = [f"{'{:06X}'.format(address, 'x')} {'{:04X}'.format(count, 'x')} // function='{function}', count='{count}'"]
         footer = []

@@ -8,6 +8,7 @@ from utils.out_utils import *
 from utils.string_utils import string_utils
 
 from rply import LexerGenerator, Token
+from compiler.source_map import strip_markers
 from rply.token import BaseBox
 import re
 import os
@@ -472,7 +473,9 @@ class Function(Function_Base):
         
         if self.install and self.terminate:
             #if self.script and not isinstance(self.script[-1], End):
-            self.script += [ End() ]
+            end = End()
+            end.source_id = getattr(self, 'end_source_id', None)  # the closing brace
+            self.script += [ end ]
 
     def __repr__(self):
         return f"Function(name={self.name}, address={self.address}, install={self.install}, key={self.key}, map_key={self.map_key}, weak={self.weak}, args={self.args})"
@@ -916,7 +919,24 @@ class Call(Function_Base, Calculatable):
             return code
         
         else:
-            return Function_Code(function.script, '\n').code(out_params)
+            body = Function_Code(function.script, '\n').code(out_params)
+            # Source map (compiler/source_map.py): only a call in statement position keeps
+            # the body's statement markers; inside an operand they would share lines with bytes.
+            if self._statement_position and body.strip():
+                size = len(self._clean_code(body).split())
+                return f"//@in:{size}:{function.name}\n{body}"
+            return strip_markers(body)
+
+    _statement_position = False
+
+    def statement_code(self, params: list[Param]):
+        """code() for a call that is a statement: inlined bodies keep their source map markers."""
+        self._statement_position = True
+        try:
+            code = self._code(params)
+        finally:
+            self._statement_position = False
+        return code.strip()
 
     def is_memory(self, params: list[Param]):
         return True
@@ -1431,7 +1451,8 @@ class Include(BaseBox):
     def eval(self):
         from compiler.lexer import Lexer
         from compiler.parser import Parser
-        from compiler.preprocessor import preprocess
+        from compiler.preprocessor import preprocess_mapped
+        from compiler.source_map import annotate_tokens
         import os
 
         path = self.path
@@ -1447,7 +1468,7 @@ class Include(BaseBox):
         parser = pg.get_parser()
 
         raw_script = open(path, 'r').read()
-        script = preprocess(raw_script, path)
+        script, source_lines = preprocess_mapped(raw_script, path)
 
         if script != raw_script:
             outUtils = _injector.get(OutUtils)
@@ -1457,7 +1478,7 @@ class Include(BaseBox):
         print(" - lexing code...")
         outUtils = _injector.get(OutUtils)
         outUtils.dump(re.sub(r"\),", r"\),\n", f"{list(lexer.lex(script))}"), "lexer_include.txt")
-        script = lexer.lex(script)
+        script = annotate_tokens(lexer.lex(script), source_lines)
         print(" - generating objects...")
         script = parser.parse(script)
         print(" - done")

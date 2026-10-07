@@ -101,6 +101,14 @@ class Parser():
 
         self.generator = generator
 
+    def _tag(self, node, src):
+        """Give a statement node the source position its bytes map back to (out/source_map.json)."""
+        if src is None or not isinstance(node, Function_Base) or isinstance(node, (Function, Word)):
+            return node
+        if getattr(node, 'source_id', None) is None:
+            node.source_id = self.generator.source_map.register(src)
+        return node
+
     def parse(self):
         @self.pg.production('program_list : program_list program')
         def parse(p):
@@ -307,6 +315,8 @@ class Parser():
             code = p[6]
 
             function = Function(name, code, args)
+            function.source_id = self.generator.source_map.register(getattr(p[1], 'src', None))
+            function.end_source_id = self.generator.source_map.register(getattr(p[-1], 'src', None))
             self.generator.add_function(function)
 
             return function
@@ -317,6 +327,8 @@ class Parser():
             args = []
 
             function = Function(name, code, args)
+            function.source_id = self.generator.source_map.register(getattr(p[1], 'src', None))
+            function.end_source_id = self.generator.source_map.register(getattr(p[-1], 'src', None))
             self.generator.add_function(function)
             
             return function
@@ -398,7 +410,7 @@ class Parser():
         def parse(p):
             element = p[0]
 
-            return element
+            return self._tag(element, getattr(p[1], 'stmt_src', None))
         @self.pg.production('expression_list : expression_entry')
         def parse(p):
             list = []
@@ -481,7 +493,8 @@ class Parser():
             condition = p[2]
             script = p[5]
 
-            return If_list([If(condition, script, if_properties)], raw=p)
+            src = getattr(p[1], 'stmt_src', None)
+            return self._tag(If_list([self._tag(If(condition, script, if_properties), src)], raw=p), src)
         @self.pg.production('expression_entry : if ( expression ) { expression_list } else_list')
         def parse(p):
             if_properties = p[0]
@@ -489,14 +502,15 @@ class Parser():
             script = p[5]
             list = p[7]
 
-            return If_list([If(condition, script, if_properties)] + list, raw=p)
+            src = getattr(p[1], 'stmt_src', None)
+            return self._tag(If_list([self._tag(If(condition, script, if_properties), src)] + list, raw=p), src)
         @self.pg.production('else_list : elseif ( expression ) { expression_list }')
         def parse(p):
             if_properties = p[0]
             condition = p[2]
             script = p[5]
 
-            return [ If(condition, script, if_properties) ]
+            return [ self._tag(If(condition, script, if_properties), getattr(p[1], 'stmt_src', None)) ]
         @self.pg.production('else_list : elseif ( expression ) { expression_list } else_list')
         def parse(p):
             if_properties = p[0]
@@ -504,7 +518,7 @@ class Parser():
             script = p[5]
             list = p[7]
 
-            return [ If(condition, script, if_properties) ] + list
+            return [ self._tag(If(condition, script, if_properties), getattr(p[1], 'stmt_src', None)) ] + list
         @self.pg.production('else_list : else')
         def parse(p):
             return [ p[0] ]
@@ -781,11 +795,11 @@ class Parser():
         
         @self.pg.production('expression_entry : RETURN expression ;')
         def parse(p):
-            return Return(self.generator, p[1])
+            return self._tag(Return(self.generator, p[1]), getattr(p[0], 'stmt_src', None))
 
         @self.pg.production('expression_entry : RETURN ;')
         def parse(p):
-            return Return(self.generator, None)
+            return self._tag(Return(self.generator, None), getattr(p[0], 'stmt_src', None))
 
         @self.pg.production('expression_entry : FOR ( expression IN expression ) { expression_list }')
         def parse(p):
@@ -793,7 +807,10 @@ class Parser():
             iterator_range = p[4]
             script = p[7]
 
-            return For(iterator, iterator_range, script)
+            src = getattr(p[1], 'stmt_src', None)
+            loop = self._tag(For(iterator, iterator_range, script), src)
+            self._tag(loop.list[1], src)  # the jump back lands on the While
+            return loop
 
         @self.pg.production('while : WHILE')
         def parse(p):
@@ -808,7 +825,7 @@ class Parser():
             condition = p[2]
             script = p[5]
 
-            return While(condition, script, inverted)
+            return self._tag(While(condition, script, inverted), getattr(p[1], 'stmt_src', None))
 
         @self.pg.production('expression : expression .. expression')
         def parse(p):

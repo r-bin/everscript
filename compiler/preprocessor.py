@@ -23,6 +23,8 @@ import os
 import re
 from pathlib import Path
 
+from compiler.source_map import origin, split_origins
+
 
 def preprocess(source: str, source_path: str = "") -> str:
     """
@@ -42,13 +44,21 @@ def preprocess(source: str, source_path: str = "") -> str:
         FileNotFoundError: If a referenced path does not exist.
         ImportError:       If a circular #import is detected.
     """
+    return preprocess_mapped(source, source_path)[0]
+
+
+def preprocess_mapped(source: str, source_path: str = ""):
+    """Like :func:`preprocess`, also returning per output line the (file, line) it came from."""
     base_dir = os.path.dirname(os.path.normpath(source_path)) if source_path else "."
     # Seed the visited set with the entry-point file so that any #import of it
     # from within itself (or transitively) is caught immediately.
     initial_visited: frozenset[str] = (
         frozenset({os.path.abspath(source_path)}) if source_path else frozenset()
     )
-    return _resolve_imports(source, base_dir, _visited=initial_visited)
+    marked = _resolve_imports(source, base_dir, _visited=initial_visited, source_file=source_path)
+    if source_path:
+        marked = origin(source_path, 1) + marked
+    return split_origins(marked)
 
 
 def _resolve_imports(
@@ -56,6 +66,7 @@ def _resolve_imports(
     base_dir: str,
     _depth: int = 0,
     _visited: frozenset = frozenset(),
+    source_file: str = "",
 ) -> str:
     """Recursively resolve #import directives, resolving paths relative to base_dir.
 
@@ -66,17 +77,20 @@ def _resolve_imports(
         _visited: Absolute paths of files currently on the import stack.  Used
                   for circular-import detection.  Immutable (frozenset) so that
                   sibling imports don't share state.
+        source_file: File *source* was read from, for the source map origins.
     """
     pattern = r'#import\(\s*"([^"]+)"\s*\)'
 
     def replacer(match):
         raw_path = match.group(1)
         path = os.path.normpath(os.path.join(base_dir, raw_path))
+        # Where the importing text continues (source map), see compiler/source_map.py.
+        resume = origin(source_file, match.string.count("\n", 0, match.end()) + 1) if source_file else ""
 
         if os.path.isdir(path):
-            return _import_directory(path, _depth=_depth, _visited=_visited)
+            return _import_directory(path, _depth=_depth, _visited=_visited) + resume
         elif os.path.isfile(path):
-            return _import_file(path, _depth=_depth, _visited=_visited)
+            return origin(path, 1) + _import_file(path, _depth=_depth, _visited=_visited) + resume
         else:
             raise FileNotFoundError(
                 f"#import path not found: '{raw_path}' (resolved to '{path}')"
@@ -102,7 +116,7 @@ def _import_file(file_path: str, _depth: int = 0, _visited: frozenset = frozense
         )
     content = Path(file_path).read_text()
     base_dir = os.path.dirname(abs_path)
-    return _resolve_imports(content, base_dir, _depth=_depth, _visited=_visited | {abs_path})
+    return _resolve_imports(content, base_dir, _depth=_depth, _visited=_visited | {abs_path}, source_file=abs_path)
 
 
 def _dir_sort_key(entry: str):
@@ -177,7 +191,7 @@ def _import_directory_inner(dir_path: str, _depth: int = 0, _visited: frozenset 
     shared_path = os.path.join(dir_path, '_shared.evs')
     if os.path.isfile(shared_path):
         content = _import_file(shared_path, _depth=_depth, _visited=_visited)
-        parts.append(content)
+        parts.append(origin(shared_path, 1) + content + origin(None, 0))
 
     for entry in entries:
         if entry.startswith('.') or entry == '_shared.evs':
@@ -211,7 +225,7 @@ def _import_directory_inner(dir_path: str, _depth: int = 0, _visited: frozenset 
 
         elif entry.endswith('.evs'):
             content = _import_file(full_path, _depth=_depth, _visited=_visited)
-            parts.append(content)
+            parts.append(origin(full_path, 1) + content + origin(None, 0))
 
     return '\n\n'.join(parts)
 
