@@ -9,7 +9,9 @@ How positions travel through the pipeline:
    piece in zero-width origin markers; ``split_origins`` strips them and returns
    a table: line of the flattened text -> (file, line) it came from.
 2. ``annotate_tokens`` gives every token ``stmt_src``: the origin of the first
-   token of its statement (the token after the last ``;``, ``{`` or ``}``).
+   token of its statement (the token after the last ``;``, ``{`` or ``}``; a
+   block inside an expression, ``conversation({ ... });``, continues the
+   statement it is part of).
    Parser productions copy it onto statement nodes as ``source_id``.
 3. ``Function_Code`` writes a ``//@src:<id>`` comment line before each tagged
    statement, and a ``Call`` in statement position starts an inlined function
@@ -34,7 +36,8 @@ INLINE_MARKER = "//@in:"
 _RE_MARKER_LINE = re.compile(r"^[ \t]*//@(?:src:\d+|in:\d+:[^\n]*)[ \t]*(?:\n|$)", re.M)
 _RE_COMMENT = re.compile(r"//.*")
 
-STATEMENT_BOUNDARIES = (";", "{", "}")
+# After a block's "}", these continue the expression the block was part of.
+CONTINUES_EXPRESSION = (")", ",", ";", "]")
 
 
 def origin(file: str | None, line: int) -> str:
@@ -83,13 +86,25 @@ def annotate_tokens(tokens, table):
         return (file, line) if file else None
 
     start = None
+    outer = []           # statement starts around the open blocks
+    after_block = None   # the enclosing statement's start, right after a "}"
     for token in tokens:
         token.src = lookup(token)
+        kind = token.gettokentype()
+        if after_block is not None:
+            start = after_block[0] if kind in CONTINUES_EXPRESSION else None
+            after_block = None
         if start is None:
             start = token.src
         token.stmt_src = start
         yield token
-        if token.gettokentype() in STATEMENT_BOUNDARIES:
+        if kind == ";":
+            start = None
+        elif kind == "{":
+            outer.append(start)
+            start = None
+        elif kind == "}":
+            after_block = (outer.pop() if outer else None,)
             start = None
 
 
@@ -108,6 +123,7 @@ class SourceMap:
         self.functions: list[dict] = []
         self.statements: list[dict] = []
         self.symbols: list[dict] = []
+        self.constants: dict[str, dict[str, int]] = {}
 
     def register(self, src) -> int | None:
         """source_id for a (file, line) origin, or None for generated code."""
@@ -196,4 +212,5 @@ class SourceMap:
             "functions": sorted(self.functions, key=lambda f: f["address"]),
             "statements": sorted(self.statements, key=lambda s: s["address"]),
             "symbols": sorted(self.symbols, key=lambda s: s["name"]),
+            "constants": self.constants,
         }, indent=1)

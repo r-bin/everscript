@@ -95,3 +95,20 @@ def test_memory_symbols(tmp_path):
     assert symbols["DEBUG_MEM.WORD_VALUE"]["size"] == 2
     assert symbols["DEBUG_MEM.FLAG_VALUE"]["flag"] == 0x20
     assert "MEMORY.QUESTION_ANSWER" in symbols
+
+
+def test_block_inside_a_call_belongs_to_the_call(tmp_path):
+    path = str(tmp_path / "main.evs")
+    text, table = split_origins(origin(path, 1) + "run({\n    a();\n});\nb();\n")
+    from compiler.lexer import Lexer as _Lexer
+    tokens = list(annotate_tokens(_Lexer().get_lexer().lex(text), table))
+    starts = {t.value: t.stmt_src[1] for t in tokens if t.value in ("run", "a", "b")}
+    closing = [t for t in tokens if t.gettokentype() == ";"]
+    assert starts == {"run": 1, "a": 2, "b": 4}
+    assert [t.stmt_src[1] for t in closing] == [2, 1, 4]
+
+
+def test_enum_constants(tmp_path):
+    generator = _compile('#include("in/core")\nenum DEBUG_KIND {\n    ONE = 0x01,\n    TWO = 0d2\n}\n', str(tmp_path / "main.evs"))
+    generator.collect_memory_symbols()
+    assert generator.source_map.constants["DEBUG_KIND"] == {"ONE": 1, "TWO": 2}
