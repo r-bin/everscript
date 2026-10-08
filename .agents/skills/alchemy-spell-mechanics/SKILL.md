@@ -24,11 +24,16 @@ This skill provides an authoritative operational reference for reverse-engineeri
    - Gross Power = Base Power ($C4:5E6B) * Level Multiplier ($C4:5BA5)
    - Divided Power = Gross Power / (Target_Count + 1)
    - Random Variance: Final Power = 50% min + RNG(0 .. 50% Divided Power)
-   - Allocates animation slot ($7E3364..$7E3563) and stores Final Power at offset +$2A
-4. Animation VM & Effect Resolution ($90:80CE)
-   - Interprets bytecode script in Bank $C9 or $91
-   - Drives OAM sprite frames (e.g. Defend ring 0xCF:0x36CF)
-   - Invokes effect handler: damage ($91:9C90), healing ($91:9D16), or status buff ($91:B137)
+   - Slot Allocation:
+       - Projectile Spells (Flash, Fireball, Hard Ball, Flare): Slots $7E:3564..$7E:3913 (118 bytes each)
+       - Animation Spells (Crush, Acid Rain, Heal, etc.): Slots $7E:3364..$7E:3563 (64 bytes each, Final Power at +$2A)
+4. Resolution & Effect Handler Dispatch
+   - Projectile: Ballistic homing trajectory -> Proximity to target hurtbox (never misses) -> Handler
+   - Animation VM ($90:80CE): Bytecode script in Bank $C9 or $91 -> Keyframe trigger -> Handler
+   - Handlers:
+       - Damage: $91:9C90 (reduces HP by Net = Power * (64 - Target M.Def) / 64)
+       - Healing: $91:9D16 (restores HP by Final Power directly, boosted by Moxa Stick, blue numbers)
+       - Status Buff: $91:B137 (adds Final Power to boost stats, sets frame duration timer)
 ```
 
 ---
@@ -47,7 +52,7 @@ All 35 vanilla formulas share a common index (`0x00` to `0x44`, step 2):
 | `CALL_BEAD_POWER` | `0x045F17` | `$C4:5F17` | 16 words | Base power for 16 Call Bead spells. |
 | `ALCHEMY_COST_DATA` | `0x04601F` | `$C4:601F` | 35 * 4 B | `[Ing1_ID, Ing2_ID, Ing1_Qty, Ing2_Qty]`. |
 | `LEVEL_MULTIPLIERS` | `0x045BA5` | `$C4:5BA5` | 10 bytes | Factors: `[2, 4, 7, 11, 15, 20, 26, 32, 39, 46]` for Lv0..Lv9. |
-| `XP_GAIN_PER_CAST` | `0x045B9C` | `$C4:5B9C` | 10 bytes | XP gains: `[10, 5, 4, 3, 2, 2, 1, 1, 1, 1]` for Lv0..Lv9. |
+| `XP_GAIN_PER_CAST` | `0x045B9C` | `$C4:5B9C` | 10 bytes | XP gains: `[10, 5, 4, 3, 2, 2, 1, 1, 1, 1]` for Lv0..Lv9 (Lv6+ soft-cap: 100 casts/level). |
 | `SCRIPT_PTR_TABLE` | `0x045802` | `$C4:5802` | 4 B/entry | Bytecode script addresses `[Addr Word, Bank Byte, 0x00]`. |
 
 ---
@@ -57,8 +62,8 @@ All 35 vanilla formulas share a common index (`0x00` to `0x44`, step 2):
 ### 3.1 Gross Power & Multi-Target Division
 $$\text{Gross Power} = \text{Base Power} \times \text{Level Factor}[\text{Level}]$$
 $$\text{Divided Power} = \left\lfloor \frac{\text{Gross Power}}{\text{Target Count} + 1} \right\rfloor$$
-- Single target divides by 2.
-- Multi-target divides evenly across all active targets.
+- Single target divides by 2 ($\text{Gross} / 2$).
+- Shared between Boy & Dog divides by 3 ($\text{Gross} / 3$, each receives $\approx 66.7\%$ of single-target power). Applies to damage, healing, and buffs.
 
 ### 3.2 Random Variance
 $$\text{Min Power} = \left\lceil \frac{\text{Divided Power}}{2} \right\rceil, \quad \text{Random Add} = \text{RNG}\left(0 \dots \left\lfloor \frac{\text{Divided Power}}{2} \right\rfloor\right)$$
@@ -67,36 +72,49 @@ $$\text{Final Power} = \text{Min Power} + \text{Random Add}$$
 
 ### 3.3 Status Buffs (Defend, Atlas, Speed)
 - `Final Power` is directly added to boost stats:
-  - **Defend:** Boost Defense (`$7E4F2B`). Duration = 3600 frames (60.0s, `$0E10`).
-  - **Atlas:** Boost Attack (`$7E4F29`). Duration = 5400 frames (90.0s, `$1518`).
-  - **Speed:** Speed flags / animation rates (`$7E4F2F`). Duration = 3600 frames (60.0s).
-- Calls master recalculation routine `$8F:8398` to recompute total stats including equipment and charms:
+  - **Defend:** Boost Defense (`+$A2`). Duration = 3600 frames (60.0s, `$0E10`).
+  - **Atlas:** Boost Attack (`+$A0`). Duration = 5400 frames (90.0s, `$1518`).
+  - **Speed:** Boost Evade (`+$A4`) and Hit Rate (`+$A6`). Duration = 2700 frames (45.0s, `$0A8C`).
+- Master recalculation routine `$8F:8398` sums effective defense/attack including equipment and charms:
   - Chocobo Egg (`$2261 & 0x40`)
   - Armor Polish (`$2262 & 0x80`)
   - Wizard's Coin (`$2263 & 0x04`)
 
 ### 3.4 Damage & Healing
 - **Damage (`$91:9C90`):**
-  - Charm boost: +25% if `$2262 & 0x08` set.
-  - Subtraction: $\text{Net Damage} = \text{Power} - \text{Enemy Magic Defense}$ (from `$8E001D,X`).
+  - Scaled by target Magic Defense at `$91:9CB3` (not flat subtraction):
+    $$\text{Net Damage} = \frac{\text{Power} \times (64 - \text{Enemy M.Def})}{64}$$
   - Clamped between 1 and 999.
+  - Charms (Moxa Stick) do **NOT** amplify damaging spells.
 - **Healing (`$91:9D16`):**
-  - Directly adds `Final Power` to target HP (capped at 999).
+  - **Moxa Stick Boost:** Routine `$91:9DC0` checks `<0x2262, 0x08>`. If present, adds $+25\%$ power: $\text{Power} + \lfloor \text{Power} / 4 \rfloor$.
+  - Directly adds `Final Power` to target current HP (capped at target's missing HP up to Max HP, max 999).
+  - Displays **blue** floating healing numbers via `$8F:C09A`.
 
 ---
 
-## 4. Animation VM & Bytecode
+## 4. Subsystem Pipelines: Projectiles vs. Animation VM
 
-The animation VM is driven by interpreter loop `$90:80CE` reading 8 slots at `$7E3364..$7E3563` (64 bytes each):
+### 4.1 Projectile Subsystem (`$7E:3564`..`$7E:3913`)
+- **8 concurrent slots**, 118 bytes (`0x76`) stride.
+- Used for ballistic magic: Flash (`0x8756`), Fireball (`0x8C86`), Hard Ball (`0x926C`), and Call Bead Flare (`0x8110`).
+- Calculates frame-by-frame subpixel trajectory towards target hurtbox coordinates.
+- **Never misses:** Magic projectiles do not test projectile immunity flags (Character Record `+0x07` Bit 4 is checked exclusively by physical weapon ammunition at `$8F:BA27`..`$8F:BA53`).
 
-- `0x00`: Terminate script / release slot (`$90:878A`).
-- `0x01..0x1E`: Frame hold delay timer (`$90:836C`).
-- `0x22..0x2B`: Render sprite frame at offset with flags (`$90:8418`).
-- `0x2C`: Switch sprite bank and frame table pointer (`$90:842F`).
-- `0x2D`: Loop back to script start (`$90:877D`).
-- `0x2E`: Play sound effect ID (`$90:8921`).
-- `0x38`: Clear slot attribute field (`$90:8B6C`).
-- `0xDD`: Palette flash effect.
+### 4.2 Animation VM (Bank `$90`, Slots `$7E:3364`..`$7E:3563`)
+- **8 concurrent slots**, 64 bytes (`0x40`) stride.
+- Interpreted by routine `$90:80CE`.
+- Bit 7 of command byte marks end of frame / delay yield.
+- **Keyframe Synchronization:** Damage/healing is triggered at designated keyframe steps within the animation sequence (preliminary reverse engineering; not yet fully verified via disassembly).
+- Key opcodes:
+  - `0x00`: Terminate script / release slot (`$90:878A`).
+  - `0x01..0x1E`: Frame hold delay timer (`$90:836C`).
+  - `0x22..0x2B`: Render sprite frame at offset (`$90:8418`).
+  - `0x2C`: Switch sprite sheet bank and table pointer (`$90:842F`).
+  - `0x2D`: Loop back to script start (`$90:877D`).
+  - `0x2E`: Play sound effect ID (`$90:8921`).
+  - `0x38`: Clear slot attribute field (`$90:8B6C`).
+  - `0xDD`: Full-screen palette flash.
 
 ---
 

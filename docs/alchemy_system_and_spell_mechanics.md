@@ -129,7 +129,7 @@ JSL $8F8398     ; Master Stat Recalculation
 - **Duration Timers:**
   - **Defend:** 3600 frames = **60.0 seconds** (`$0E10`).
   - **Atlas:** 5400 frames = **90.0 seconds** (`$1518`).
-  - **Speed:** 3600 frames = **60.0 seconds** (`$0E10`).
+  - **Speed:** 2700 frames = **45.0 seconds** (`$0A8C`). Boosts Evade (`+$A4`) and Hit Rate (`+$A6`).
 - **Master Stat Recalculation (`$8F:8398`):**
   Computes effective defense / attack by summing:
   $$\text{Effective Defense} = \text{Base Defense} + \text{Armor Defense} + \text{Boost Defense} + \text{Charm Bonuses}$$
@@ -142,11 +142,10 @@ JSL $8F8398     ; Master Stat Recalculation
 
 When a damaging spell hits an enemy (routine `$91:9C90`):
 
-1. **Charm Boost:** If magic charm / Thraxx's Claw is active (`$2262 & 0x08`), `Final Power` receives a 25% boost:
-   $$\text{Power} = \text{Power} + \left\lfloor \frac{\text{Power}}{4} \right\rfloor$$
-2. **Magic Defense Reduction:**
-   $$\text{Net Damage} = \text{Power} - \text{Enemy Magic Defense}$$
-   *(Enemy Magic Defense is loaded from ROM entity table `$8E001D,X`).*
+1. **Charms:** Charms (such as Moxa Stick at `<0x2262, 0x08>`) do NOT amplify damaging spells; Moxa Stick boosts healing formulas exclusively.
+2. **Magic Defense Scaling:**
+   $$\text{Net Damage} = \frac{\text{Power} \times (64 - \text{Enemy M.Def})}{64}$$
+   *(Enemy Magic Defense is loaded from ROM character table `$8E001D,X`).*
 3. **Clamping:**
    $$\text{Damage} = \text{clamp}(\text{Net Damage}, 1, 999)$$
 4. Calls `$8FC0D3` to decrement enemy HP and trigger damage number sprites.
@@ -155,14 +154,16 @@ When a damaging spell hits an enemy (routine `$91:9C90`):
 
 When Heal / Super Heal / Miracle Cure resolves (routine `$91:9D16`):
 
-1. `Final Power` is clamped to a maximum of 999 (`0x03E7`).
-2. Calls `$8FC09A` to increment target HP up to Max HP and display green heal numbers.
+1. **Moxa Stick Boost:** Routine `$91:9DC0` checks `<0x2262, 0x08>`. If present, adds $+25\%$ power:
+   $$\text{Power} = \text{Power} + \left\lfloor \frac{\text{Power}}{4} \right\rfloor$$
+2. `Final Power` is clamped to a maximum of 999 (`0x03E7`).
+3. Calls `$8FC09A` to increment target HP up to Max HP and display **blue** heal numbers.
 
 ---
 
-## 4. The Animation Bytecode Virtual Machine
+## 4. The Animation Bytecode Virtual Machine & Projectile Subsystem
 
-Spells do not use hardcoded assembly for their visuals; they execute a dedicated bytecode scripting language interpreted by routine `$90:80CE`.
+Spells do not use hardcoded assembly for their visuals; they execute via either the dedicated **Projectile Subsystem** (Flash, Fireball, Hard Ball, Flare) or the **Bank $90 Animation Virtual Machine** interpreted by routine `$90:80CE`.
 
 ### 4.1 Animation Slots (`$7E3364`..`$7E3563`)
 
@@ -202,6 +203,14 @@ Every frame, the engine loops over active slots:
 | **`0x3C..0x40`** | `$90:8A13` | various | Coordinate movement and target tracking. |
 | **`0x47..0x4B`** | `$90:87BA` | various | Palette cycling and color modulation. |
 | **`0x50..0x55`** | `$90:85A8` | various | Sound effect triggers and screen shake. |
+
+### 4.4 Projectile Subsystem (`$7E:3564`..`$7E:3913`)
+
+Offensive spells categorized as ballistic projectiles (**Flash**, **Fireball**, **Hard Ball**, and Call Bead **Flare**) do not run through the Bank `$90` VM. Instead, they allocate from 8 concurrent WRAM projectile slots (118 bytes / `0x76` stride):
+
+- **Homing Trajectory:** Subpixel coordinates advance each frame directly toward the target hurtbox.
+- **Guaranteed Hit Registration:** Magic projectiles homing toward targets **never miss** and do not check projectile immunity flags (Character Record `+0x07` Bit 4 is checked exclusively by physical weapon ammunition at `$8F:BA27`..`$8F:BA53`).
+- **Impact Resolution:** Proximity triggers damage calculation `$91:9C90` using the precalculated `Final Power` stored in the slot, plays the impact burst, and frees the projectile slot.
 
 ---
 
