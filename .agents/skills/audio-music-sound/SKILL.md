@@ -38,18 +38,23 @@ Square licensed the audio technology from **Sculptured Software** (Salt Lake Cit
 
 ## 3. Dumping & Playing Music (`tools/dump_spc.py`)
 
-All 71 songs (`0x00`–`0x46`) in the ROM can be dumped into standard, playable `.spc` files using `tools/dump_spc.py`:
+Full protocol and table reference: [`docs/audio_music_sound_formats.md`](../../../docs/audio_music_sound_formats.md).
+
+`tools/dump_spc.py` runs the ROM's own driver in a built-in SPC700 interpreter and sends it the same port commands the game does (boot, package upload, `$06 M`). It snapshots at the play-command ack. The output is 69 music tracks plus 4 reference-only tracks (3 sound effects and one volume variant), verified against all 72 reference rips in "Secret of Evermore (EMU)".
 
 ```bash
-# Dump all 71 songs to music_spc/
-python3 tools/dump_spc.py
+python tools/dump_spc.py                # out/music_spc/*.spc, out/music_wav/*.wav, out/reference_wav/*.wav + comparison
+python tools/dump_spc.py --no-wav --no-compare   # .spc only, no numpy/libgme needed
 ```
 
-### Playing Dumped `.spc` Files
-The resulting `.spc` files in `music_spc/` are standard `SNES-SPC700 Sound File Data v0.30` files:
-* **In Snes9x:** `open -a Snes9x music_spc/01_Boss_Drums_Thraxx.spc`
-* **In Mesen:** `open -a Mesen music_spc/10_Standard_Boss_Theme.spc`
-* Or drag-and-drop into any SPC player (VLC, IINA, Foobar2000 with foo_gep).
+Rules when touching audio dumping:
+* **Music id ≠ package.** Music `M` (`0x00`–`0x45`, command `$06`) uses package `M + 1` (`$81:99D8`). Package `0` is the base bank, loaded at boot.
+* **Driver start.** Never start the driver with a hand-written stub. Its state comes from `$0E` + upload (IPL clears SPC `$01`–`$EF`, restart at `$0700`) → `$02` → `$06`.
+* **Bank boundaries.** Package reads cross banks via the next bank's `$8000` (upper halves only).
+* **Reference rips.** The "EMU" rips use a different build of the driver. Compare by sound (`compare_all`), not by ARAM bytes.
+* **Tracks that need special handling.** Explosion, Applause and Takeoff! are sound effects (`0x42`, `0x56`, `0x3B`). Windy Cave is Distant Wind at volume `$30` (command `$28`). Music `0x27` is empty.
+
+Output files are standard `SNES-SPC700 Sound File Data v0.30` and play in any SPC player (Snes9x, Mesen, foo_gep, VLC, libgme).
 
 ---
 
@@ -61,7 +66,7 @@ The SNES 65c816 CPU interfaces with the audio subsystem via WRAM variables and A
 |---|---|---|---|
 | `$0E47` | 🎵 `APU_TRANSFER_BLOCK_COUNT` | Word | Number of bytes/blocks in active SPC700 transfer package (`$8C:805B`). |
 | `$0E49` | 🎵 `APU_TRANSFER_PTR` | Word | Pointer tracking current transfer block in ROM (`$8C:805B`). |
-| `$0E4B` | 🎵 `ACTIVE_SONG` | Byte | Currently playing song index (`0x00`–`0x46`); checked by SFX dispatcher at `$8C:8236`. |
+| `$0E4B` | 🎵 `ACTIVE_SONG` | Byte | Loaded **package** (`0x00`–`0x46`; music `M` = package `M + 1`); compared by the package loader at `$8C:8236`. |
 | `$0E4D` | 🎵 `REQUESTED_SONG` | Byte | Pending song index queued by script opcode `0x33` (`$8C:828F`). |
 | `$0E4F` | 🎵 `AUDIO_FADE_PARAM` | Word | Volume fade parameter during music transitions. |
 | `$0E51` | 🎵 `APU_COMMAND_LOCK` | Word | Audio subsystem busy lock & spinlock handshake counter (`$8C:81FD`). |
@@ -116,6 +121,7 @@ Opcode 0x30 sound(SFX_ID) ───► $8C:8362 (Table 1: 120 words) ───�
 
 ### Unused Music
 * **Song `0x46` (Song 70, `$8B:8E8E`):** Completely unmapped in opcode `0x33` table! Contains full sequence data in ROM, but has no script opcode to trigger it.
+  * `// MISMATCH:` `0x46` is a **package** index. The `$8C:8442` table yields **music ids** (`0x00`–`0x45`, all present; entry 70 = music `0x45`), and music `0x45` plays package `0x46` ("Intruder Alarm", matches its reference rip). Whether any vanilla script calls it is not re-verified here.
 * **Song `0x0c` (Song 12, Opcode `0x1a`):** Mapped in engine, but has **0 calls** across all 127 rooms and events.
 * **Song `0x26` (Song 38, Opcode `0x4e`):** Mapped in engine, but has **0 calls** across all vanilla scripts.
 
