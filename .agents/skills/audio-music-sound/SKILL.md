@@ -56,6 +56,13 @@ Rules when touching audio dumping:
 
 Output files are standard `SNES-SPC700 Sound File Data v0.30` and play in any SPC player (Snes9x, Mesen, foo_gep, VLC, libgme).
 
+Verified facts for sound-effect and custom-audio work (details in the doc above, §5–§7, and [`docs/the_sound_glitch.md`](../../../docs/the_sound_glitch.md)):
+* **`sound()` never loads a package.** Opcode `0x30` → `$8C:82DC` → `$04 S`. A package effect only works while the music using its package is loaded.
+* **ARAM budget.** Each music track has 8.9–35.7 KB free (median 16.7 KB). `$2400`–`$3ABF` is unused everywhere. The fullest package (music `0x3A`) has 26 bytes left below the echo buffer. "All effects in all maps" does not fit.
+* **No SPC swapping.** Music from other games has to be rewritten for this driver: the sequence as Wolfgang bytecode (opcode table not decoded) and the samples as BRR, in about 36 KB per package.
+* **Per-voice directory.** The driver keys voice *v* with `SRCN = v` and writes the real sample into the `$0200` directory (`DIR = $02`). Read the sample from `$0200 + 4v`, not from `SRCN`.
+* **Not decoded yet:** the pointer tables at `$2070`–`$2350` (which slot is which effect or instrument) and the sequence opcodes.
+
 ---
 
 ## 4. WRAM & Hardware MMIO Registers

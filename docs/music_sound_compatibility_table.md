@@ -32,6 +32,8 @@ The Secret of Evermore engine resolves sound effects and music through a strict 
    ; MISMATCH: Sound samples missing from SPC700 ARAM -> "The Sound Glitch"
    ```
 
+   > `// MISMATCH:` Disassembly disagrees with this step. Opcode `0x30` calls `$8C:82DC`, which sends command `$04` directly (`$8C:831D`) and never reaches `$8C:8236`. `$8C:8236` is the **package loader**: it compares the requested package with `$0E4B` and uploads it if it differs. It is only reached from `$8C:82CD` (music) and `$8C:8319` (the `$8C:82E3` sfx entry, which has no direct callers). The listing above is not ROM code. See [`audio_music_sound_formats.md`](audio_music_sound_formats.md) §5 and [`the_sound_glitch.md`](the_sound_glitch.md).
+
 ---
 
 ## 2. Master Table: Music Track $\to$ Allowed Sounds
