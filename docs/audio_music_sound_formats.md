@@ -28,8 +28,9 @@ The script opcode `0x33` table (`$8C:8442`) yields **music ids** (`0x00`–`0x45
 | SNES | ROM | Content |
 |---|---|---|
 | `$81:80DC` | `0x0180DC` | IPL block list `[len:16][dest:16] data…`, `len = 0` ends (its dest = entry). One block: `$17E0` bytes of driver → SPC `$0700`, entry `$0700`. |
-| `$81:9900` | `0x019900` | Music count (`$46`). |
-| `$81:9901` | `0x019901` | Sound-effect count (`$5A`). |
+| `$81:9900` | `0x019900` | Last package index (`$46`: 71 packages, pointer table length). |
+| `$81:9901` | `0x019901` | Music count (`$46`: music ids `0x00`–`0x45`); also the offset from the music table to the sfx table (`$8C:82FC`). |
+| `$81:9902` | `0x019902` | Sound-effect count (`$5A`: driver sfx `0x00`–`0x59`). |
 | `$81:9903` | `0x019903` | 71 × 24-bit pointers to packages. |
 | `$81:99D8` | `0x0199D8` | 70 bytes: music id → package (always `M + 1` in vanilla). |
 | `$81:9A1E` | `0x019A1E` | 90 bytes: sound effect → package (`0` = none). |

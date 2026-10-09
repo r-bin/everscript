@@ -15,7 +15,8 @@ named track lines up with its reference (time-aligned spectrogram cosine
 ROM facts (verified by disassembly of bank $8C and by running the driver):
 - $81:80DC  IPL block list: [len:16][dest:16] data..., len 0 ends. One block:
             $17E0 bytes of driver -> SPC $0700, entered at $0700.
-- $81:9900  music count ($46), $81:9901 sound-effect count ($5A).
+- $81:9900  last package index ($46), $81:9901 music count ($46),
+            $81:9902 sound-effect count ($5A).
 - $81:9903  71 x 24-bit pointers to packages. Package = [count:16] then
             count x [len:16][src:24][spc_dest:16]. Every read walks bank upper
             halves only: past $xx:FFFF it continues at the next bank's $8000.
@@ -52,7 +53,7 @@ DEFAULT_ROM = "Secret of Evermore (U) [!].smc"
 DEFAULT_EMU_DIR = "/Users/v/Downloads/Secret of Evermore (EMU)"
 
 DRIVER_BLOCK = 0x0180DC
-MUSIC_COUNT = 0x019900
+LAST_PACKAGE = 0x019900
 PACKAGE_POINTERS = 0x019903
 MUSIC_PACKAGE = 0x0199D8
 SFX_PACKAGE = 0x019A1E
@@ -874,8 +875,8 @@ def main():
         rom = f.read()
     if len(rom) % 0x8000 == 0x200:
         rom = rom[0x200:]
-    if rom[MUSIC_COUNT] != 0x46:
-        sys.exit("unexpected music count $%02X: not Secret of Evermore (U)?" % rom[MUSIC_COUNT])
+    if rom[LAST_PACKAGE] != 0x46:
+        sys.exit("unexpected last package $%02X: not Secret of Evermore (U)?" % rom[LAST_PACKAGE])
 
     spc_dir = os.path.join(args.out_dir, "music_spc")
     wav_dir = os.path.join(args.out_dir, "music_wav")
