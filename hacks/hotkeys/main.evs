@@ -1,0 +1,56 @@
+// Hotkey hack demo: every hotkey shows its name as a subtitle.
+//
+// Build (from the everscript repo root; the patch lives next to this file):
+//   python everscript.py --rom "Secret of Evermore (U) [!].smc" --patches hacks/hotkeys hacks/hotkeys/main.evs
+//
+// Play until you control the boy, then:
+//   Start              -> "Start"
+//   hold L, Start      -> "Start+L"
+//   hold R, Start      -> "Start+R"
+// One subtitle per press; holding Start, or pressing L while Start is held, shows nothing.
+
+#memory(
+    // code only: no string keys (every vanilla key is live text, see hotkey_hack.asm TEXT),
+    // and nothing in $F8-$FF (the patch is at $F80000, the hotkey scripts at $FD82C0)
+    0x300000..0x37ffff
+)
+#include("in/core")
+
+#patch(
+    "hotkey_hack"
+)
+
+group hotkeys() {
+    // the names in hotkey_hack.asm (!HOTKEY_HACK_TEXT = $F84000), 16 bytes apart
+    enum HOTKEY_TEXT {
+        START = 0x4000,
+        START_L = 0x4010,
+        START_R = 0x4020,
+    }
+
+    // subtext() for a string the patch carries: the 3-byte pointer goes to WRAM $0690, and
+    // key $3690 makes the subtitle opcode read it from there (WRAM mirror at $92:0000)
+    fun hotkey_subtext(text_address) {
+        <0x0690> = text_address;    // bits 0-14: the address in $F8:0000-7FFF; bit 15: 0
+        <0x0692> = 0x001c;          // bits 16-22: ($F8 - $C0) >> 1; bit 23 clear: not compressed
+        subtext(0x3690);
+    }
+
+    @install()
+    @inject(ADDRESS.HOTKEY_START, True)
+    fun hotkey_start() {
+        hotkey_subtext(HOTKEY_TEXT.START);
+    }
+
+    @install()
+    @inject(ADDRESS.HOTKEY_START_L, True)
+    fun hotkey_start_l() {
+        hotkey_subtext(HOTKEY_TEXT.START_L);
+    }
+
+    @install()
+    @inject(ADDRESS.HOTKEY_START_R, True)
+    fun hotkey_start_r() {
+        hotkey_subtext(HOTKEY_TEXT.START_R);
+    }
+};
